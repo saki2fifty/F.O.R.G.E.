@@ -108,6 +108,7 @@ struct AudioRuntime::Impl {
         ma_audio_buffer_ref buffer{};
         ma_sound sound{};
         bool ready = false, buffer_ready = false;
+        bool source_paused = false;
         float source_volume = 1;
         AudioMotion motion;
         ~Voice() {
@@ -124,7 +125,7 @@ struct AudioRuntime::Impl {
     struct Command {
         EntityRef ref;
         std::uint64_t generation;
-        bool play;
+        AudioSourceOperation operation;
     };
     std::vector<Command> commands;
     std::size_t cache_bytes = 0;
@@ -260,15 +261,17 @@ struct AudioRuntime::Impl {
         clips.emplace(ref.id, clip);
         return clip;
     }
-    void queue(EntityRef ref, bool play) {
+    void queue(EntityRef ref, AudioSourceOperation operation) {
         check();
+        if (std::uint32_t(operation) > std::uint32_t(AudioSourceOperation::Resume))
+            throw std::runtime_error("Unknown audio source operation");
         const auto r = world.resolve(ref);
         if (r.state != WorldContext::ResolveState::Available ||
             !world.world().entity(r.entity).has<AudioSource>())
             throw std::runtime_error("Audio command references missing, ambiguous or stale source");
         if (commands.size() >= max_commands)
             throw std::runtime_error("Audio command limit reached");
-        commands.push_back({ref, r.entity, play});
+        commands.push_back({ref, r.entity, operation});
     }
     void sync(std::uint64_t next_tick, float fixed_delta,
               std::span<const std::uint64_t> discontinuities) {
@@ -494,13 +497,32 @@ struct AudioRuntime::Impl {
                            c.ref);
                 continue;
             }
-            auto& sound = voices.at(r.entity)->sound;
-            if (c.play) {
+            auto& voice = *voices.at(r.entity);
+            auto& sound = voice.sound;
+            switch (c.operation) {
+            case AudioSourceOperation::Restart:
                 checked(ma_sound_seek_to_pcm_frame(&sound, 0), "Restart source");
                 checked(ma_sound_start(&sound), "Play source");
-            } else {
+                voice.source_paused = false;
+                break;
+            case AudioSourceOperation::Stop:
                 checked(ma_sound_stop(&sound), "Stop source");
                 checked(ma_sound_seek_to_pcm_frame(&sound, 0), "Reset source");
+                voice.source_paused = false;
+                break;
+            case AudioSourceOperation::Pause:
+                if (ma_sound_is_playing(&sound) && !ma_sound_at_end(&sound)) {
+                    checked(ma_sound_stop(&sound), "Pause source");
+                    voice.source_paused = true;
+                }
+                break;
+            case AudioSourceOperation::Resume:
+                if (voice.source_paused) {
+                    if (!ma_sound_at_end(&sound))
+                        checked(ma_sound_start(&sound), "Resume source");
+                    voice.source_paused = false;
+                }
+                break;
             }
         }
     }
@@ -522,7 +544,7 @@ void AudioRuntime::paused(bool value) {
             "Audio pause/resume");
     impl_->is_paused = value;
 }
-void AudioRuntime::play(EntityRef ref) { impl_->queue(ref, true); }
+void AudioRuntime::play(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Restart); }
 void AudioRuntime::master_volume(float value) {
     impl_->check();
     if (!std::isfinite(value) || value < 0 || value > 1)
@@ -530,7 +552,9 @@ void AudioRuntime::master_volume(float value) {
     ma_sound_group_set_volume(&impl_->group, value);
     impl_->config.master_volume = value;
 }
-void AudioRuntime::stop_source(EntityRef ref) { impl_->queue(ref, false); }
+void AudioRuntime::stop_source(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Stop); }
+void AudioRuntime::pause_source(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Pause); }
+void AudioRuntime::resume_source(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Resume); }
 Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
     runtime.impl_->check();
     const auto resolved = runtime.impl_->world.resolve(ref);
@@ -541,13 +565,15 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
     return {{"source", ref},
             {"available", true},
             {"playing", bool(ma_sound_is_playing(&found->second->sound))},
+            {"source_paused", found->second->source_paused},
             {"paused", runtime.impl_->is_paused},
             {"loop", found->second->authored.loop},
             {"duration", found->second->clip->duration()}};
 }
-void AudioSourceAccess::control(AudioRuntime& runtime, EntityRef ref, bool play) {
+void AudioSourceAccess::control(AudioRuntime& runtime, EntityRef ref,
+                                AudioSourceOperation operation) {
     (void)status(runtime, ref); // Admit identity/voice before queuing any mutation.
-    runtime.impl_->queue(ref, play);
+    runtime.impl_->queue(ref, operation);
     runtime.impl_->flush_commands(); // Owner boundary; no simulation tick or pose resampling.
 }
 void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channels) {

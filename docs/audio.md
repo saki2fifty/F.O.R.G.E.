@@ -228,14 +228,27 @@ extreme motion is a safe bounded effect, not supersonic acoustic simulation.
 ### Selected runtime source controls
 
 Inspector's Live sound panel watches only the selected AudioSource in the active
-Play world. Play/Restart and Stop use the existing AudioService command queue at
+Play world. Play/Restart, Pause/Resume and Stop use the existing AudioService command queue at
 an owner boundary; they do not resample transforms or advance paused ticks.
 Identity and shared-SDK generation checks reject stale targets before mutation.
 The existing correlated Play transport carries one bounded audio command at a
 time and reports nonfatal rejection for retry. A changed selection requests one
 fresh observation, including in nonperiodic probe mode.
 
-Status exposes availability, native atomic playing flag, pause, loop and clip
+Source Pause stops its native node without seeking; Resume starts only an
+explicitly paused source. An unpaused/stopped/completed source's Resume is a no-op.
+Repeated Pause is idempotent. Restart and Stop clear source pause. Whole-game
+pause remains independent: source Resume cannot make a paused game audible, and
+game Resume does not resume a source explicitly paused by gameplay or Inspector.
+The paused-source flag is ephemeral voice state; recovery follows authored
+autoplay and does not restore that flag or a sample cursor.
+
+The private protocol accepts one `operation` string (`play`, `stop`, `pause`,
+`resume`) or the existing strict `play` boolean. Conflicting fields, unknown or
+mistyped operations reject before mutation. Existing boolean consumers retain
+Restart/Stop behavior.
+
+Status exposes availability, native atomic playing flag, source pause, game pause, loop and clip
 duration. It does not read the mutable data-source cursor or claim physical output
 latency. Already submitted audio buffers may finish after Stop. Saved scenes and
 mix defaults remain unchanged; Stop Play/new Play restores authored autoplay.
@@ -251,7 +264,12 @@ Recovery reconstructs autoplay from recovered authored source components, from f
 
 `forge_runtime --project PATH --audio device` explicitly enables optional real output. Plain `--project` supplies the asset root only; protocol hello keeps the existing clock/input/gravity configuration authority, including recovery from the active play session. `--audio offline` selects no-device logic tests; omitting `--audio` remains headless. The experimental profile uses `--sdk-project PATH` with the same audio option. A consumer requiring Audio must declare dependency `forge.audio`; unavailable required services prevent consumer startup. Optional output failure emits a diagnostic and continues without Audio capability.
 
-Exact SDK appends a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and Play/Stop operation. It is callable on the fixed owner thread; generation is captured at enqueue and revalidated before execution. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
+Exact SDK supplies a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and operation: `FORGE_SDK_AUDIO_STOP`0, `FORGE_SDK_AUDIO_RESTART`1, `FORGE_SDK_AUDIO_PAUSE`2, `FORGE_SDK_AUDIO_RESUME`3. The first two retain their previous semantics; unknown values reject. It is callable on the fixed owner thread; generation is captured at enqueue and revalidated before execution. Source-engine AudioService exposes matching `play`, `stop_source`, `pause_source`, `resume_source` owner-thread commands. The changed installed header fingerprint requires rebuilding exact SDK consumers; callback table size and ABI number remain unchanged. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
+
+The C++ convenience wrapper retains `sdk::Client::audio(scene,entity,bool)` and
+adds `audio_operation(scene,entity,uint32_t)` for all four constants. Separate
+names preserve existing boolean and integer-to-boolean calls without introducing
+ambiguous overloads. Both paths use the checked host callback.
 
 ## Validation and deferred work
 

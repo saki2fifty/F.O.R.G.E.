@@ -4286,7 +4286,8 @@ int main(int argc, char** argv) {
                     if (live_sound)
                         audio_source.draw(play.session(), *live_sound, play.audio_source_status(),
                                           play.control_ready(), play.audio_source_pending(),
-                                          play.audio_source_error(), [&](bool value) {
+                                          play.audio_source_error(),
+                                          [&](forge::AudioSourceOperation value) {
                                               return play.submit_audio_source(value);
                                           });
                     if (live_inspector_ready) {
@@ -6271,6 +6272,12 @@ int main(int argc, char** argv) {
                                 start != forge::test::ui_targets.end() && start->second.enabled &&
                                 start->second.minimum.y >= start->second.clip_minimum.y &&
                                 start->second.maximum.y <= start->second.clip_maximum.y;
+                            const auto pause =
+                                forge::test::ui_targets.find("live-audio-source:pause");
+                            captured_document_visible &=
+                                pause != forge::test::ui_targets.end() && pause->second.enabled &&
+                                pause->second.minimum.y >= pause->second.clip_minimum.y &&
+                                pause->second.maximum.y <= pause->second.clip_maximum.y;
                         } else if (found != forge::test::ui_targets.end() &&
                                    found->second.maximum.y > found->second.clip_maximum.y)
                             ImGui::SetScrollY(w, w->Scroll.y + found->second.maximum.y -

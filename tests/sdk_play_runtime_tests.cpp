@@ -223,6 +223,13 @@ void live_audio_mix_controls() {
                {"play", true}},
           Json{{"source", missing_source}, {"play", true}},
           Json{{"generation", generation}, {"source", missing_source}, {"play", 1}},
+          Json{{"generation", generation}, {"source", missing_source}, {"operation", 2}},
+          Json{{"generation", generation}, {"source", missing_source}, {"operation", "seek"}},
+          Json{{"generation", generation},
+               {"source", missing_source},
+               {"operation", "pause"},
+               {"play", true}},
+          Json{{"generation", generation}, {"source", missing_source}, {"operation", "pause"}},
           Json{{"generation", generation}, {"source", missing_source}, {"play", true}}})
         check(!request("audio_source", fields).value("ok", false),
               "Invalid generation, boolean or missing source was accepted");

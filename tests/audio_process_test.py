@@ -51,7 +51,14 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   restarted=worker.request('audio_source',source=ref,play=True,audio_source_watch=ref)
   assert restarted['audio_source']['playing'] and restarted['audio_source']['paused']
   assert restarted['timing']['tick']==initial['timing']['tick'] and restarted['scene']==initial['scene']
-  for fields in (dict(source=ref,play=1),dict(source=dict(scene=scene_id,entity=clip_id),play=False)):
+  source_paused=worker.request('audio_source',source=ref,operation='pause',audio_source_watch=ref)
+  assert source_paused['audio_source']['source_paused'] and not source_paused['audio_source']['playing']
+  source_resumed=worker.request('audio_source',source=ref,operation='resume',audio_source_watch=ref)
+  assert source_resumed['audio_source']['playing'] and not source_resumed['audio_source']['source_paused']
+  assert source_resumed['timing']['tick']==initial['timing']['tick'] and source_resumed['scene']==initial['scene']
+  for fields in (dict(source=ref,play=1),dict(source=dict(scene=scene_id,entity=clip_id),play=False),
+                 dict(source=ref,operation='seek'),dict(source=ref,operation=2),
+                 dict(source=ref,operation='pause',play=True),dict(source=ref)):
    try:worker.request('audio_source',**fields)
    except AssertionError:pass
    else:raise AssertionError('Invalid audio source control accepted')
@@ -80,7 +87,8 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   for n in range(1,5):
    stepped=worker.request('step');assert stepped['timing']['tick']==n and stepped['audio']['paused']
    if module:
-    assert stepped['audio']['playing_sources']==n%2,(n,stepped['audio'],stepped['diagnostics'])
+    status=worker.request('snapshot',audio_source_watch=ref)['audio_source']
+    assert status['playing']==(n in (1,3)) and status['source_paused']==(n==2),(n,status)
     assert stepped['scene']['entities'][0]['components']['forge.audio_source']['gain']==.5
     assert stepped['scene']['entities'][0]['components']['forge.audio_source']['attenuation']==1
     assert stepped['scene']['entities'][0]['components']['forge.audio_source']['rolloff']==.5
@@ -89,6 +97,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
     assert abs(cone['outer_gain']-.4)<1e-6
     assert cone['bus']==2
     assert any(d['text']=='Audio SDK command queued' for d in stepped['diagnostics'])
+    assert not any(d['text']=='Invalid audio SDK operation accepted' for d in stepped['diagnostics'])
   checkpoint=stepped['recovery']
   worker.request('resume');time.sleep(.05);paused=worker.request('pause')
   assert paused['timing']['tick']>4 and paused['audio']['paused']

@@ -119,8 +119,12 @@ class Client {
                host_->navigation_query(host_->context, asset, operation, start, end, &out) == 1;
     }
     bool audio(const char* scene, const char* entity, bool play) const {
-        return callable(Capability::Audio) &&
-               host_->audio_source(host_->context, scene, entity, play) == 1;
+        return audio_operation(scene, entity,
+                               play ? FORGE_SDK_AUDIO_RESTART : FORGE_SDK_AUDIO_STOP);
+    }
+    bool audio_operation(const char* scene, const char* entity, uint32_t operation) const {
+        return operation <= FORGE_SDK_AUDIO_RESUME && callable(Capability::Audio) &&
+               host_->audio_source(host_->context, scene, entity, operation) == 1;
     }
     bool publish_number(const char* entity, const char* name, double value) const {
         return callable(Capability::Ui) &&

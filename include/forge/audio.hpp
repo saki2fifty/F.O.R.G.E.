@@ -27,6 +27,8 @@ class AudioRuntime : public AudioService {
     void mix_volumes(float master, const std::array<float, 3>& channels);
     void play(EntityRef) override;
     void stop_source(EntityRef) override;
+    void pause_source(EntityRef) override;
+    void resume_source(EntityRef) override;
     Json status() const;
     // Explicit no-device test facility; never called by the simulation clock.
     void read_offline(std::span<float> stereo);

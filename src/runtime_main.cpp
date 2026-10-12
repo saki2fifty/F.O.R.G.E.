@@ -353,14 +353,11 @@ int main(int argc, char** argv) {
                     } else if (command == "audio_source") {
                         if (!runtime->engine.services().available(forge::Capability::Audio))
                             throw std::runtime_error("Source playback requires enabled audio");
-                        if (!request.at("play").is_boolean())
-                            throw std::runtime_error(
-                                "Source playback requires a boolean play value");
+                        const auto operation = forge::AudioSourceAccess::operation(request);
                         auto audio = std::static_pointer_cast<forge::AudioRuntime>(
                             runtime->engine.services().audio());
                         forge::AudioSourceAccess::control(
-                            *audio, request.at("source").get<forge::EntityRef>(),
-                            request.at("play").get<bool>());
+                            *audio, request.at("source").get<forge::EntityRef>(), operation);
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();

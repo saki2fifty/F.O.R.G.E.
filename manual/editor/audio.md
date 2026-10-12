@@ -137,8 +137,14 @@ sound** section above the authored Inspector shows whether that source is playin
 paused or stopped, along with its duration and loop setting.
 
 Click **Play / Restart** to start it from the beginning, or **Stop sound** to stop
-that source. These buttons work when **Play On Start** is off. Paused Play remains
-silent and does not advance game time; Resume lets a restarted sound play.
+that source. These buttons work when **Play On Start** is off. **Pause sound**
+keeps its place; the button becomes **Resume sound** so you can continue there.
+Restart returns to the beginning. Stop clears the paused position; Resume does
+not restart a stopped or finished sound.
+
+Paused game Play remains silent and does not advance game time; game Resume lets
+a restarted sound play. A source you paused separately stays paused when the game
+resumes. Resuming that source while the game is paused also keeps the game silent.
 Controls wait for the current source status and briefly disable while applying.
 
 These are temporary playback commands. They do not edit saved scene values.
@@ -149,6 +155,11 @@ comparison emitter travel together past the camera/listener. Only Doppler starts
 automatically. Stop it using **Live sound**, then select the comparison emitter
 and start it to hear the same movement without pitch changes. Save the scene and
 export it to test the automatic moving sound in a standalone game.
+
+C++ code can call the matching SDK's `audio_source` callback with
+`FORGE_SDK_AUDIO_RESTART`, `FORGE_SDK_AUDIO_STOP`, `FORGE_SDK_AUDIO_PAUSE` or
+`FORGE_SDK_AUDIO_RESUME`. Use persistent scene/entity UUIDs and call during a fixed
+game tick. Rebuild project code when the installed SDK fingerprint changes.
 
 ## Registered clips
 

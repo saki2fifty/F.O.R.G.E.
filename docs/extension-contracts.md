@@ -28,7 +28,7 @@ These classifications describe supported ownership, not a promise of permanent C
 | PhysicsService / PhysicsHit / PhysicsContact | C | Source ray/pose/contact operations; SDK has copied ray hit + queued pose subset. Contact vectors remain built-in. |
 | Jolt world/body IDs/jobs/state recorder | D | World-owned implementation and private exact recovery. |
 | AudioSource / AudioListener | A authored; B values | Typed clip and playback parameters. Source presence/autoplay differ deliberately from listener enabled. |
-| AudioService / AudioRuntime | C; B command subset | Play/Stop are owner-thread commands. miniaudio device/voice/PCM handles are D. |
+| AudioService / AudioRuntime | C; B command subset | Play/Restart, Stop, source Pause/Resume are owner-thread commands. miniaudio device/voice/PCM handles are D. |
 | Animator / skeleton and clip refs | A authored; B values | Fixed authoritative playback, derived pose. No artificial animation service: actual consumer writes Animator. Ozz objects remain D. |
 | NavigationSurface / NavigationAgent | A authored; B values | Typed navmesh, destination/speed/enabled. |
 | NavigationService / NavResult | C; B bounded query subset | Projection/path, explicit NavStatus, caller-owned output. Detour mesh/corridor/query objects D. |

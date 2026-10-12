@@ -21,7 +21,8 @@ template <class F> void reject(F f) {
     }
     throw std::runtime_error("Expected rejection");
 }
-void wav(const std::filesystem::path& path, unsigned channels = 1, unsigned rate = 48000) {
+void wav(const std::filesystem::path& path, unsigned channels = 1, unsigned rate = 48000,
+         bool silent_intro = false) {
     std::ofstream out(path, std::ios::binary);
     auto u = [&](std::uint32_t n, unsigned bytes) {
         for (unsigned i = 0; i < bytes; i++)
@@ -41,8 +42,10 @@ void wav(const std::filesystem::path& path, unsigned channels = 1, unsigned rate
     u(rate * channels * 2, 4);
     for (unsigned i = 0; i < rate; i++)
         for (unsigned channel = 0; channel < channels; channel++)
-            u(std::uint16_t(std::int16_t((channel ? -1 : 1) * 3000 *
-                                         std::sin(i * 2 * 3.141592653589793 * 440 / rate))),
+            u(std::uint16_t(std::int16_t((silent_intro && i < rate / 4 ? 0
+                                          : channel                    ? -1
+                                                                       : 1) *
+                                         3000 * std::sin(i * 2 * 3.141592653589793 * 440 / rate))),
               2);
 }
 Json source(AssetId clip) {
@@ -115,6 +118,7 @@ int main(int argc, char** argv) {
         mix_tests(root, record.id);
         doppler_tests(root, record.id);
         audio_source_control_tests(root, record.id);
+        audio_source_pause_tests(root);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));

@@ -162,6 +162,25 @@ int main(int argc, char** argv) {
             require(play.timing().at("tick") == tick && play.snapshot() == before &&
                         play.audio_source_status().at("paused") == true,
                     "Manual source controls advanced paused game or changed authored data");
+            require(play.submit_audio_source(AudioSourceOperation::Pause),
+                    "Source pause was not queued");
+            require(!play.submit_audio_source(AudioSourceOperation::Resume),
+                    "Pending source pause admitted a duplicate");
+            wait([&] {
+                return !play.audio_source_pending() &&
+                       play.audio_source_status().value("source_paused", false);
+            });
+            require(!play.audio_source_status().at("playing").get<bool>(),
+                    "Source pause retained playing state");
+            require(play.submit_audio_source(AudioSourceOperation::Resume),
+                    "Source resume was not queued");
+            wait([&] {
+                return !play.audio_source_pending() &&
+                       play.audio_source_status().value("playing", false);
+            });
+            require(!play.audio_source_status().at("source_paused").get<bool>() &&
+                        play.timing().at("tick") == tick && play.snapshot() == before,
+                    "Source pause/resume changed game clock or authored data");
             const EntityRef missing{source.scene, EntityId::generate()};
             play.watch_audio_source(missing);
             wait([&] {

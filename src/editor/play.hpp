@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <forge/audio_service.hpp>
 #include <forge/build.hpp>
 #include <forge/game_platform.hpp>
 #include <forge/input.hpp>
@@ -87,11 +88,32 @@ class PlaySession {
                (waiting_ && sent_command_ == "audio_source");
     }
     bool submit_audio_source(bool play) {
+        return submit_audio_source(play ? AudioSourceOperation::Restart
+                                        : AudioSourceOperation::Stop);
+    }
+    bool submit_audio_source(AudioSourceOperation operation) {
         if (!control_ready() || !audio_command_.is_null() || audio_source_watch_.is_null() ||
             !audio_status_.contains("master_volume"))
             return false;
+        const char* name;
+        switch (operation) {
+        case AudioSourceOperation::Stop:
+            name = "stop";
+            break;
+        case AudioSourceOperation::Restart:
+            name = "play";
+            break;
+        case AudioSourceOperation::Pause:
+            name = "pause";
+            break;
+        case AudioSourceOperation::Resume:
+            name = "resume";
+            break;
+        default:
+            return false;
+        }
         audio_command_ = {
-            {"command", "audio_source"}, {"source", audio_source_watch_}, {"play", play}};
+            {"command", "audio_source"}, {"source", audio_source_watch_}, {"operation", name}};
         if (sdk_game_)
             audio_command_["generation"] = sdk_activation_generation_;
         audio_source_error_.clear();

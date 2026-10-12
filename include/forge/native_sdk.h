@@ -32,6 +32,10 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_PHYSICS_LINEAR_VELOCITY 0u
 #define FORGE_SDK_PHYSICS_ANGULAR_VELOCITY 1u
 #define FORGE_SDK_AUDIO 16u
+#define FORGE_SDK_AUDIO_STOP 0u
+#define FORGE_SDK_AUDIO_RESTART 1u
+#define FORGE_SDK_AUDIO_PAUSE 2u
+#define FORGE_SDK_AUDIO_RESUME 3u
 #define FORGE_SDK_NAVIGATION 32u
 #define FORGE_SDK_UI 64u
 /* Intrinsic fixed-input query ID, not a descriptor permission/provider bit. */
@@ -185,10 +189,11 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* physics_move)(void*, const char* scene_uuid, const char* entity_uuid,
                                           const double position[3], const float rotation_xyzw[4],
                                           uint32_t motion, uint32_t clear_velocity);
-    /* Fixed owner thread; source is (scene AssetId, EntityId). 0 stop, 1 restart/play.
+    /* Fixed owner thread; source is (scene AssetId, EntityId).
+       operation: 0 stop, 1 restart/play, 2 pause source, 3 resume paused source.
        Returns 1 queued, 0 invalid/unavailable. No device/sample-clock authority. */
     int32_t(FORGE_SDK_CALL* audio_source)(void*, const char* scene_uuid, const char* entity_uuid,
-                                          uint32_t play);
+                                          uint32_t operation);
     /* Fixed owner tick; operation 0 projects start, 1 finds start-to-end path.
        1 means a status was returned, 0 invalid callback arguments/unavailable tick.
        Failure returns no points; undersized buffers report limit without truncation. */

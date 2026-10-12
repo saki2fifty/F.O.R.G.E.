@@ -1127,13 +1127,12 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                 !is_unsigned_int(request.at("generation")) ||
                 request.at("generation").get<std::uint64_t>() != s.active_generation)
                 return s.build_error(id, "Source playback targets a stale world generation");
-            if (!request.at("play").is_boolean())
-                return s.build_error(id, "Source playback requires a boolean play value");
+            const auto operation = AudioSourceAccess::operation(request);
             if (!s.game->active().engine.services().available(Capability::Audio))
                 return s.build_error(id, "Source playback requires enabled audio");
             AudioSourceAccess::control(
                 *std::static_pointer_cast<AudioRuntime>(s.game->active().engine.services().audio()),
-                request.at("source").get<EntityRef>(), request.at("play").get<bool>());
+                request.at("source").get<EntityRef>(), operation);
             return s.snapshot_response(id);
         }
         if (command == "property_tune") {

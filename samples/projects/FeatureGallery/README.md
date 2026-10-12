@@ -281,13 +281,17 @@ to compare the same processed PCM in a standalone game without the original WAVs
 
 `Scenes/35-moving-audio.scene.json` moves two child emitters with the original
 `DopplerPass.animation.json` translation clip. The camera is the fixed listener.
-**Doppler source** starts with strength1; **Comparison source** has strength0 and
+**Doppler emitter - motion pitch** starts with strength1; **Reference emitter - unchanged pitch** has strength0 and
 does not start automatically. Both reuse the original cooked FalloffTone.
 
 During Play, select a source and use Inspector → Live sound → Stop sound or
 Play / Restart to compare one at a time. Approaching motion raises pitch and
 receding motion lowers it. The animation's one-second loop jump resets inherited
 motion. Controls do not change saved autoplay, animation or scene values.
+
+Pause sound holds that source's playback position and becomes Resume sound. The
+animation keeps moving while only the source is paused. Game Pause holds the whole
+game; game Resume keeps an explicitly paused source silent until you resume it.
 
 Save before exporting. The standalone uses the selected animation and PCM with
 development sources removed. Physical listening is separate from offline PCM

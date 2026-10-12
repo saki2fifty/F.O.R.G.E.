@@ -128,8 +128,9 @@ int main(int argc, char** argv) {
                 ProjectSettingsEditor settings;
                 bool mixing = false;
                 bool live = false, live_ready = true, live_pending = false;
+                float live_width = 1500;
                 unsigned live_requests = 0;
-                bool live_requested_play = false;
+                AudioSourceOperation live_operation = AudioSourceOperation::Stop;
                 AudioSourceEditor sound;
                 const EntityRef sound_ref{scene.asset_id(), EntityId::parse(id)};
                 Json sound_status{{"source", sound_ref}, {"available", true}, {"playing", false},
@@ -140,7 +141,7 @@ int main(int argc, char** argv) {
                     test::ui_targets.clear();
                     ImGui::NewFrame();
                     ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
-                    ImGui::SetNextWindowSize({1500, 1400}, ImGuiCond_Always);
+                    ImGui::SetNextWindowSize({live ? live_width : 1500, 1400}, ImGuiCond_Always);
                     if (mixing)
                         settings.draw(project, scene, false, status);
                     else {
@@ -148,9 +149,9 @@ int main(int argc, char** argv) {
                         if (live) {
                             ImGui::SetScrollY(0);
                             sound.draw("test-session", sound_ref, sound_status, live_ready,
-                                       live_pending, "", [&](bool value) {
+                                       live_pending, "", [&](AudioSourceOperation value) {
                                            ++live_requests;
-                                           live_requested_play = value;
+                                           live_operation = value;
                                            return true;
                                        });
                         } else
@@ -288,14 +289,38 @@ int main(int argc, char** argv) {
                         "Live source selection lost scene/entity identity");
                 live = true;
                 click("play");
-                require(live_requests == 1 && live_requested_play,
+                require(live_requests == 1 && live_operation == AudioSourceOperation::Restart,
                         "Actual Play/Restart button did not submit source playback");
+                sound_status["playing"] = true;
+                click("pause");
+                require(live_requests == 2 && live_operation == AudioSourceOperation::Pause,
+                        "Actual Pause sound button did not submit source pause");
+                sound_status["playing"] = false;
+                sound_status["source_paused"] = true;
+                click("pause");
+                require(live_requests == 3 && live_operation == AudioSourceOperation::Resume,
+                        "Actual Resume sound button did not submit source resume");
+                sound_status["source_paused"] = false;
+                frame();
+                require(!test::ui_targets.at("live-audio-source:pause").enabled,
+                        "Stopped source enabled Pause/Resume");
+                live_width = 360;
+                frame();
+                for (const auto* key : {"live-audio-source:play", "live-audio-source:pause",
+                                        "live-audio-source:stop"}) {
+                    const auto& target = test::ui_targets.at(key);
+                    require(target.minimum.x >= target.clip_minimum.x &&
+                                target.maximum.x <= target.clip_maximum.x,
+                            "Narrow scaled Inspector clipped a playback button");
+                }
+                live_width = 1500;
                 click("stop");
-                require(live_requests == 2 && !live_requested_play,
+                require(live_requests == 4 && live_operation == AudioSourceOperation::Stop,
                         "Actual Stop sound button did not submit source stop");
                 live_pending = true;
                 frame();
                 require(!test::ui_targets.at("live-audio-source:play").enabled &&
+                            !test::ui_targets.at("live-audio-source:pause").enabled &&
                             !test::ui_targets.at("live-audio-source:stop").enabled,
                         "Pending source control admitted another button action");
                 live_pending = false;
@@ -307,7 +332,7 @@ int main(int argc, char** argv) {
                 sound_status["available"] = false;
                 frame();
                 require(!test::ui_targets.at("live-audio-source:play").enabled &&
-                            live_requests == 2 && scene.snapshot() == untouched_scene &&
+                            live_requests == 4 && scene.snapshot() == untouched_scene &&
                             project.settings().document() == untouched_settings,
                         "Unavailable/live source controls changed authoring or submitted per-frame "
                         "traffic");

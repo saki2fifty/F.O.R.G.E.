@@ -723,18 +723,28 @@ struct Bridge {
             }
         };
         host.audio_source = [](void* p, const char* scene, const char* entity,
-                               uint32_t play) -> int32_t {
+                               uint32_t operation) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;
-                if (!c.input || play > 1)
+                if (!c.input || operation > FORGE_SDK_AUDIO_RESUME)
                     return 0;
                 const EntityRef ref{AssetId::parse(bounded(scene, 36)),
                                     EntityId::parse(bounded(entity, 36))};
                 auto audio = c.services.audio();
-                if (play)
-                    audio->play(ref);
-                else
+                switch (operation) {
+                case FORGE_SDK_AUDIO_STOP:
                     audio->stop_source(ref);
+                    break;
+                case FORGE_SDK_AUDIO_RESTART:
+                    audio->play(ref);
+                    break;
+                case FORGE_SDK_AUDIO_PAUSE:
+                    audio->pause_source(ref);
+                    break;
+                case FORGE_SDK_AUDIO_RESUME:
+                    audio->resume_source(ref);
+                    break;
+                }
                 return 1;
             } catch (...) {
                 return 0;

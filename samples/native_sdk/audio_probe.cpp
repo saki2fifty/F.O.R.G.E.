@@ -4,6 +4,7 @@
 #include <forge/audio_components.hpp>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk_identity.h>
+#include <forge/sdk_client.hpp>
 namespace {
 int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     flecs::world w(h->world);
@@ -30,11 +31,15 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
             next.bus = 2; // Effects; shares the gameplay Master pause/output owner.
             e.set(next);
             const auto tick = ecs_get_world_info(h->world)->frame_count_total + 1;
+            const forge::sdk::Client client(h);
             const auto result =
-                h->audio_source(h->context, "11111111-1111-4111-8111-111111111111",
-                                "22222222-2222-4222-8222-222222222222", tick % 2 ? 1u : 0u);
+                client.audio_operation("11111111-1111-4111-8111-111111111111",
+                                       "22222222-2222-4222-8222-222222222222", uint32_t(tick % 4));
             h->diagnostic(h->context, result ? 1u : 3u,
                           result ? "Audio SDK command queued" : "Audio SDK command rejected");
+            if (h->audio_source(h->context, "11111111-1111-4111-8111-111111111111",
+                                "22222222-2222-4222-8222-222222222222", 4u))
+                h->diagnostic(h->context, 3u, "Invalid audio SDK operation accepted");
         })
         .add(h->fixed_tag);
     return 1;
