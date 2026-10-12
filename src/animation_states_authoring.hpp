@@ -14,6 +14,12 @@ struct AnimationStatesDocumentTraits {
     static constexpr auto suffix = ".states.json";
     static Source create(AssetId id) { return Source::create(id); }
     static void validate_edit(const Source& current, const Source& candidate) {
+        if (current.document.at("version") == 1 && candidate.document.at("version") == 2)
+            for (const auto& state : current.document.at("states"))
+                if (state.contains("exit") && !state.at("exit").is_null())
+                    throw std::runtime_error(
+                        "Legacy state contains opaque exit data; rename that extension before "
+                        "enabling automatic transitions");
         const auto next = current.document.at("next_id").get<std::uint64_t>();
         if (candidate.document.at("next_id").get<std::uint64_t>() < next)
             throw std::runtime_error("Animation state ID sequence cannot move backwards");

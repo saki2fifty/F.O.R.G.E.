@@ -18,20 +18,27 @@ inline ResourceTicket request_animation_states(ResourcePool<AnimationStatesAsset
     const auto revision = selection.at("key").get<std::string>();
     const auto generation = selection.at("generation").get<std::uint64_t>();
     if (selection.at("version") != 1 || selection.at("output_format") != "forge.animation-states" ||
-        selection.at("output_version") != 1 || !generation)
+        (selection.at("output_version") != 1 && selection.at("output_version") != 2) || !generation)
         throw std::runtime_error("Unsupported Animation States selection");
     return pool.request(
         AssetRef<AnimationStatesAsset>{record.id}, revision, generation,
         [project, id = record.id, selection, metadata, revision](std::stop_token stop) {
             if (stop.stop_requested())
                 throw std::runtime_error("Animation States load cancelled");
-            DerivedDataCache cache(
-                project, {animation_states_byte_limit, animation_states_byte_limit + 65536, 1});
+            DerivedDataCache cache(project, {animation_states_cooked_byte_limit,
+                                             animation_states_cooked_byte_limit + 65536, 1});
             std::optional<AnimationStates> value;
             const auto artifact = cache.load_selected(revision, [&](const auto& cooked) {
                 if (cooked.files.size() != 1 || cooked.files.front().name != "states.json")
                     throw std::runtime_error("Invalid Animation States artifact");
-                value = decode_animation_states(cooked.files.front().bytes, id);
+                std::uint32_t version;
+                const auto source =
+                    AnimationStatesSource::parse_cooked(cooked.files.front().bytes, version);
+                if (version != selection.at("output_version"))
+                    throw std::runtime_error("Animation States cooked version/selection mismatch");
+                if (source.asset() != id)
+                    throw std::runtime_error("Cooked Animation States identity mismatch");
+                value = source.compiled();
             });
             const auto& input = artifact.manifest.at("inputs");
             for (const auto* field : {"importer", "importer_revision", "output_format",

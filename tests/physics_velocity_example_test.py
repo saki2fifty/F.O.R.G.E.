@@ -31,7 +31,7 @@ class Worker:
     def close(self):
         if self.process.poll() is None:
             self.request('quit')
-            assert self.process.wait(timeout=10) == 0
+            self.process.wait(timeout=10)
         assert self.process.returncode == 0, self.process.stderr.read()
 
 

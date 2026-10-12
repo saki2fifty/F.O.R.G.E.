@@ -174,9 +174,16 @@ struct Inspect {
                 for (const auto& [key, unused] : state.items()) {
                     (void)unused;
                     if (key != "id" && key != "name" && key != "clip" && key != "loop" &&
-                        key != "speed" && key != "transition_seconds" && key != "markers")
+                        key != "speed" && key != "transition_seconds" && key != "markers" &&
+                        !(key == "exit" && doc.at("version") == 2))
                         unknown(scope + "." + key);
                 }
+                if (doc.at("version") == 2 && state.contains("exit") && !state.at("exit").is_null())
+                    for (const auto& [key, unused] : state.at("exit").items()) {
+                        (void)unused;
+                        if (key != "state" && key != "phase")
+                            unknown(scope + ".exit." + key);
+                    }
                 if (state.contains("markers"))
                     for (const auto& marker : state.at("markers"))
                         for (const auto& [key, unused] : marker.items()) {

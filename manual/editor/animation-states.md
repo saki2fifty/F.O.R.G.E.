@@ -57,5 +57,21 @@ one simulation tick. A short nonlooping clip holds its last pose until the fade
 finishes.
 
 After an editor/SDK update, rebuild your C++ project with the matching SDK. State
-sets select clips and fade timing; your C++ code decides when to switch. Layers,
+sets select clips and fade timing; C++ or a timed exit decides when to switch. Layers,
 retargeting and automatic condition graphs are not available in this feature.
+
+## Advance automatically
+
+Open `Scenes/30-animation-exits.scene.json` in the Gallery and press **Play**.
+Three characters cycle Idle → Walk → Run, starting at different points.
+
+Open `Assets/TimedLocomotion.states.json` from Content. Select a state and enable
+**Advance automatically**. Choose **Next state** and **Exit time**. `1` means the
+end of the clip; `.5` means halfway through. The destination's **Fade in (seconds)**
+controls the blend. Save / Publish, then restart Play to see the change. Export
+ships the same sequence already cooked; no compiler is needed to run the game.
+
+Pause and zero speed hold the sequence. Changing State from C++ still works.
+Automatic changes update the live runtime selection; stopping Play restores the
+authored scene. Removing a state used as an exit target reports an error: change
+or disable that exit first. Older sets remain manual until you enable a timed exit.

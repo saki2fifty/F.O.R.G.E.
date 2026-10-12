@@ -85,6 +85,89 @@ std::vector<Double3> vertices(const MeshData& data, const MeshInstancePose& pose
     return result;
 }
 } // namespace
+void inspect_exits(World& world, const Json& source, const ModelSelection& selected) {
+    constexpr float dt = 1.f / 60;
+    struct Clock {
+        std::uint32_t state;
+        double time = 0;
+        std::set<std::uint32_t> seen;
+    };
+    std::map<std::string, Clock> clocks;
+    std::map<std::uint32_t, double> durations;
+    for (const auto& row : source.at("entities"))
+        if (row.at("components").contains("forge.animator")) {
+            const auto id = row.at("id").get<std::string>();
+            const auto state =
+                row.at("components").at("forge.animator").at("state").get<std::uint32_t>();
+            clocks.emplace(id, Clock{state, 0, {state}});
+            durations[state] = world.animation->presentation(world.scene.entity(id).id(), 1)
+                                   .at("duration")
+                                   .get<double>();
+        }
+    require(clocks.size() == 3 && durations.size() == 3, "Timed Gallery initial states missing");
+    const auto initial = extract_render_scene(world.simulation.presentation(1));
+    std::map<EntityId, std::vector<Double3>> points;
+    for (const auto& mesh : initial.meshes) {
+        if (!selected.member_indices.contains(mesh.renderer.mesh.id))
+            continue;
+        const auto resource = model_mesh_resource(selected, mesh.renderer.mesh);
+        const auto geometry = prepare_mesh_pose_geometry(resource.mesh);
+        points[mesh.entity] =
+            vertices(resource.mesh, prepare_mesh_instance_pose(resource, geometry, mesh,
+                                                               ModelSceneIndex(initial)));
+    }
+    std::set<std::uint32_t> markers;
+    for (unsigned tick = 1; tick <= 600; ++tick) {
+        world.simulation.tick(dt);
+        for (auto& [id, clock] : clocks) {
+            clock.time += dt;
+            if (clock.time >= durations.at(clock.state)) {
+                clock.state = clock.state % 3 + 1;
+                clock.time = 0;
+                clock.seen.insert(clock.state);
+            }
+            const auto actor = world.scene.entity(id);
+            const auto reference = world.engine.world().reference(actor.id());
+            const auto status = reference ? world.animation->playback(*reference) : std::nullopt;
+            require(status && status->state == clock.state &&
+                        actor.get<Animator>().state == clock.state,
+                    "Gallery exit differs from independent fixed-tick clock/typed state");
+            require(std::abs(status->time - clock.time) < 2e-5,
+                    "Gallery incoming time consumed a residual tick");
+        }
+        for (const auto& event : world.animation->events()) {
+            require(event.marker == event.state && event.phase == 0 && event.value == event.state,
+                    "Timed Gallery entry marker lost originating state/payload");
+            markers.insert(event.marker);
+        }
+        if (tick == 17) {
+            const auto moved = extract_render_scene(world.simulation.presentation(1));
+            unsigned deformed = 0;
+            for (const auto& mesh : moved.meshes) {
+                if (!points.contains(mesh.entity))
+                    continue;
+                const auto resource = model_mesh_resource(selected, mesh.renderer.mesh);
+                const auto geometry = prepare_mesh_pose_geometry(resource.mesh);
+                const auto actual =
+                    vertices(resource.mesh, prepare_mesh_instance_pose(resource, geometry, mesh,
+                                                                       ModelSceneIndex(moved)));
+                double displacement = 0;
+                for (std::size_t v = 0; v < actual.size(); ++v)
+                    for (unsigned c = 0; c < 3; ++c)
+                        displacement = std::max(
+                            displacement, std::abs(actual[v][c] - points.at(mesh.entity)[v][c]));
+                deformed += displacement > .001;
+            }
+            require(deformed == 3, "Timed Gallery did not deform three actual character meshes");
+        }
+    }
+    for (const auto& [id, clock] : clocks) {
+        (void)id;
+        require(clock.seen == std::set<std::uint32_t>{1, 2, 3}, "Gallery exit cycle incomplete");
+    }
+    require(markers == std::set<std::uint32_t>{1, 2, 3}, "Gallery automatic entry markers missing");
+    require(world.animation->checkpoint_ready(), "Timed Gallery recovery unavailable");
+}
 int main(int argc, char** argv) {
     try {
         require(argc == 3, "Need Gallery and scratch root");
@@ -203,6 +286,7 @@ int main(int argc, char** argv) {
         }
         budget.simulation.tick(.01f);
         require(budget.animation->checkpoint_ready(), "Within-budget transitions failed");
+        const auto transition_checkpoint = budget.animation->checkpoint();
         auto overflow_actor = budget.scene.entity(overflow);
         overflow_actor.set(direct);
         budget.simulation.tick(.01f);
@@ -216,14 +300,36 @@ int main(int argc, char** argv) {
         require(!budget.animation->presentation(overflow_actor.id(), 1).is_null() &&
                     budget.animation->checkpoint_ready(),
                 "Direct clip did not admit after transition layers were released");
+        // Restoring old fades while the newly admitted direct player remains would
+        // exceed the same aggregate budget. Reject before changing any live clocks.
+        const auto admitted_checkpoint = budget.animation->checkpoint();
+        auto oversized_recovery = admitted_checkpoint;
+        for (auto& entry : oversized_recovery["entries"])
+            for (const auto& previous : transition_checkpoint.at("entries"))
+                if (entry.at("entity") == previous.at("entity"))
+                    entry = previous;
+        bool rejected_budget = false;
+        try {
+            budget.animation->restore(oversized_recovery);
+        } catch (const std::exception& error) {
+            rejected_budget = std::string_view(error.what()).find("evaluated-joint budget") !=
+                              std::string_view::npos;
+        }
+        require(rejected_budget && budget.animation->checkpoint() == admitted_checkpoint,
+                "Over-budget recovery mutated admitted playback or failed for another reason");
 
         auto lease = std::make_shared<ProjectLease>(root);
         Json marker_source;
         std::ifstream(root / "Scenes/11-animation-markers.scene.json") >> marker_source;
         World marker_world(root, marker_source);
         inspect_markers(marker_world, marker_source);
+        Json exit_source;
+        std::ifstream(root / "Scenes/30-animation-exits.scene.json") >> exit_source;
+        World exit_world(root, exit_source);
+        inspect_exits(exit_world, exit_source, selected);
         const std::array roots{source.at("asset_id").get<AssetId>(),
-                               marker_source.at("asset_id").get<AssetId>()};
+                               marker_source.at("asset_id").get<AssetId>(),
+                               exit_source.at("asset_id").get<AssetId>()};
         prepare_runtime_content_catalog(*lease, roots, {}, world.scene.schema());
         const auto output = root.parent_path() / ("export-" + AssetId::generate().str());
         package_runtime_content(root, output, roots, {"windows", "d3d12"}, {}, {},
@@ -253,6 +359,11 @@ int main(int argc, char** argv) {
                 "Relocated character state transition failed");
         World exported_markers(relocated, marker_source);
         inspect_markers(exported_markers, marker_source);
+        World exported_exits(relocated, exit_source);
+        const auto shipped_selection = load_model_selection(relocated, shipped, model);
+        inspect_exits(exported_exits, exit_source, shipped_selection);
+        require(!std::filesystem::exists(relocated / "Assets/TimedLocomotion.states.json"),
+                "Automatic state source shipped");
         require(!std::filesystem::exists(relocated / "Assets/MarkerPulse.states.json"),
                 "Marker source shipped");
         std::cout << "Three Quaternius clips deform independent characters; all state dependencies "

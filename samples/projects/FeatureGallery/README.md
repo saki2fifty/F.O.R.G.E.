@@ -203,3 +203,11 @@ Open `Scenes/29-distance-springs.scene.json`. The blue link oscillates with damp
 full numerical response remains measurable. Stop/restart Play to repeat. Select a
 Distance joint to edit frequency/damping and view its hard/elastic range guide.
 Export uses the same native physics after source files and kits are removed.
+
+### 30 — timed animation exits
+
+Open `Scenes/30-animation-exits.scene.json` and press Play. Three real skinned
+characters cycle Idle → Walk → Run, each beginning in a different state.
+Open `Assets/TimedLocomotion.states.json` from Content to adjust automatic targets,
+exit times and destination fades. Save / Publish and restart Play. The existing
+CC0 Quaternius clips and license are reused. Source-free export runs the same cycle.

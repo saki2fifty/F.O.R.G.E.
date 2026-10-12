@@ -349,6 +349,9 @@ if(BUILD_TESTING)
  target_link_libraries(forge_animation_states_gallery_tests PRIVATE forge_simulation forge_runtime_package forge_model_placement forge_model_render_resources forge_render_bounds)
  add_test(NAME animation_states_gallery COMMAND forge_animation_states_gallery_tests "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/animation-states-gallery-tests")
  set_tests_properties(animation_states_gallery PROPERTIES TIMEOUT 120)
+ if(FORGE_ENABLE_SANITIZERS)
+  set_tests_properties(animation_states_gallery PROPERTIES TIMEOUT 300)
+ endif()
 
 endif()
 

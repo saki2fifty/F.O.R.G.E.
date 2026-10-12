@@ -3361,6 +3361,75 @@
       "type": "model_node"
     },
     {
+      "dependencies": [
+        "43130b86-b8b0-4fb7-b078-0d02ef689644",
+        "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+        "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+        "f86cd4cb-fa9a-4c90-8d8e-32551094b664"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:1",
+          "target": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:3",
+          "target": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.clip:2",
+          "target": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+          "type": "animation_clip"
+        },
+        {
+          "kind": "runtime",
+          "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+          "role": "states.skeleton",
+          "target": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+          "type": "skeleton"
+        }
+      ],
+      "id": "9cd2417e-81e1-443b-8ac8-5608c63a1cf3",
+      "metadata": {
+        "forge.animation_states": {
+          "bytes": 874,
+          "file": "states.json",
+          "sha256": "70cb59c8b531274c923229712e7bed7c989f71607f61907e2a95aca829f6cf94",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "b6e0973d29601fd36dbc5623a6763a4883dadd8ef1daf32f71725b1b989ec413",
+          "backend": "d3d12",
+          "dependency_digest": "c87c206d35c7305d44c88245ea305abb3d459a04bfd9f9721a318271a4550df6",
+          "generation": 2,
+          "importer": "forge.animation.states",
+          "importer_revision": "forge.animation.states.v4",
+          "key": "7742f0d0d1eb2d820e32286f498f7dd35d36438e7597d9d845e6a62d6af2b234",
+          "output_format": "forge.animation-states",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "1cb774ee6df38c3cb9e9f09515b3854411c91f122828ade00eb40015f9de87a4",
+          "source_digest": "aeb20ed21bf3f5108884f6f3807af904f7e3202aec94185b2e04835913fc453f",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/TimedLocomotion.states.json",
+      "source_dependencies": [],
+      "type": "animation_states"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "9e8d033f-751e-4bb8-99a4-8d8f4b3ebb51",

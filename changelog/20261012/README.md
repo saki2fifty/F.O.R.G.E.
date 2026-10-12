@@ -1,5 +1,16 @@
 # 2026-10-12
 
+## Timed animation exits
+
+Named states can advance to another stable state ID at a normalized exit time,
+using the existing incoming fade and C++ selection path. Source controls/history,
+original Gallery 30 and source-free exports share the same implementation.
+Legacy manual source/cooked assets remain readable; new recipe v4 wraps the original
+source in cooked version 2. Private animation checkpoint 2 preserves automatic
+selection on partial prefab overrides without changing authored intent. Installed
+SDK ABI/table/layout/fingerprint are unchanged. Native Windows execution, visual
+review and physical acceptance require separate evidence.
+
 ## Elastic distance joints
 
 Distance links now expose Spring Frequency and Spring Damping. Frequency 0 keeps

@@ -16,7 +16,7 @@ int main(int argc, char** argv) {
     try {
         require(argc == 3 || argc == 4, "Need prepared project and UI scratch root");
         const bool states_mode = argc == 4 && std::string_view(argv[3]) == "--states";
-        for (float scale : {.65f, 1.f, 2.f}) {
+        for (float scale : {.65f, 1.f, 1.5f, 2.f}) {
             const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
             std::filesystem::create_directories(root);
             std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
@@ -206,6 +206,19 @@ int main(int argc, char** argv) {
                 require(states_editor.is_open(), "State source editor did not open");
                 const auto original = states_editor.document()->source().document;
                 click_target("animation_states:state:2");
+                click_target("animation_states:exit_enabled");
+                click_target("animation_states:exit_target");
+                click_target("animation_states:exit_choice:3");
+                number("animation_states:exit_phase", "0.625");
+                require(states_editor.document()->source().compiled().state(2).exit_state == 3 &&
+                            states_editor.document()->source().compiled().state(2).exit_phase ==
+                                .625f,
+                        "Exit target/phase UI failed");
+                click("Undo");
+                click("Undo");
+                click("Undo");
+                require(states_editor.document()->source().document == original,
+                        "Exit UI Undo changed the original source");
                 number("animation_states:fade", "0.75");
                 require(states_editor.document()->source().compiled().state(2).transition_seconds ==
                             .75f,

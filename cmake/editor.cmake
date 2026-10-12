@@ -276,6 +276,8 @@ if(BUILD_TESTING)
  add_test(NAME editor_redesign_render COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor")
  # Full scaled capture suite: internal600s total/45s per-stage; allow teardown.
  set_tests_properties(editor_redesign_render PROPERTIES TIMEOUT 620)
+ add_test(NAME editor_animation_exits COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/animation_exits_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/animation-exits")
+ set_tests_properties(editor_animation_exits PROPERTIES TIMEOUT 120)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
  # The full authoring/export scenario includes native compilation and three
  # graph-worker preparations. Individual input/readiness deadlines remain bounded.

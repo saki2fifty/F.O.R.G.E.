@@ -3704,6 +3704,22 @@ int main(int argc, char** argv) {
                 case 114:
                     forge::ui::style(2);
                     break;
+                case 217:
+                    if (fixture.animation_exits) {
+                        forge::ui::style(1);
+                        SDL_SetWindowSize(window.get(), 1920, 1080);
+                        if (!animation_states.is_open())
+                            animation_states.open(files.document,
+                                                  "Assets/TimedLocomotion.states.json");
+                        ready = animation_states.document() != nullptr;
+                    }
+                    break;
+                case 218:
+                    forge::ui::style(1.5f);
+                    break;
+                case 219:
+                    forge::ui::style(2);
+                    break;
                 case 112:
                     forge::ui::style(1);
                     break;
@@ -5900,6 +5916,27 @@ int main(int argc, char** argv) {
                         ImGui::SetScrollY(w, fixture.stage < 112 ? 0 : w->ScrollMax.y);
                     }
                 }
+                if (fixture.animation_exits && fixture.stage >= 217 && fixture.stage <= 219) {
+                    if (auto* w = ImGui::FindWindowByName("Animation States###Animation States")) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        if (const auto found =
+                                forge::test::ui_targets.find("animation_states:exit_phase");
+                            found != forge::test::ui_targets.end()) {
+                            const auto& target = found->second;
+                            const bool visible = target.minimum.y >= target.clip_minimum.y &&
+                                                 target.maximum.y <= target.clip_maximum.y;
+                            if (!visible)
+                                ImGui::SetScrollY(w, w->Scroll.y + target.maximum.y -
+                                                         target.clip_maximum.y + 12);
+                            captured_document_visible &= visible;
+                        }
+                    }
+                    captured_document_visible &=
+                        forge::test::ui_targets.contains("animation_states:exit_phase") &&
+                        forge::test::ui_targets.contains("animation_states:exit_target");
+                }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -5977,9 +6014,11 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 217) {
-                        check_thumbnail_cache(presentation, context, files.document.project(),
-                                              mesh_resources);
+                    if ((!fixture.animation_exits && fixture.stage == 217) ||
+                        (fixture.animation_exits && fixture.stage == 220)) {
+                        if (!fixture.animation_exits)
+                            check_thumbnail_cache(presentation, context, files.document.project(),
+                                                  mesh_resources);
                         play.stop();
                         running = false;
                     }

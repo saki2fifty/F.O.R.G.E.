@@ -47,7 +47,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -243,6 +243,16 @@ try:
                        if 'forge.camera' in row['components']]
             assert {camera['projection'] for camera in cameras} == {0, 1}
             assert sorted(camera['viewport_x'] for camera in cameras) == [0, .5]
+        if path.name.startswith('30-'):
+            players = [row['components']['forge.animator'] for row in loaded['entities']
+                       if 'forge.animator' in row['components']]
+            assert sorted(p['state'] for p in players) == [1, 2, 3]
+            states = by_source['Assets/TimedLocomotion.states.json']
+            assert all(p['states'] == states['id'] for p in players)
+            graph = json.loads((project_root/states['source']).read_text())
+            assert graph['version'] == 2
+            assert [s['exit'] for s in graph['states']] == [
+                dict(state=2, phase=1), dict(state=3, phase=1), dict(state=1, phase=1)]
     assert project['startup_scene']['asset'] == json.loads(scenes[0].read_text())['asset_id']
 finally:
     process.stdin.close()

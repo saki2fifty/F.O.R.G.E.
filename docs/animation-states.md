@@ -1,14 +1,16 @@
 # Named skeletal animation states
 
 Animation States is a reusable list of named clips. C++ selects an integer ID on
-an existing `forge::Animator`; the incoming state's duration controls the fade.
-It has no condition language, automatic transitions, layers, masks, retargeting,
+an existing `forge::Animator`; the incoming state's fade duration controls the change.
+A state can also advance automatically at a normalized exit time.
+It has no condition language, layers, masks, retargeting,
 rig editor or runtime editor. Existing single-clip and two-clip Animators retain
 their behavior when `states` is empty.
 
 ## Source, identity and ownership
 
-`Assets/*.states.json` uses `forge.animation-states`, version 1. It stores
+`Assets/*.states.json` uses `forge.animation-states`, source version 1 or 2.
+New documents use 2. Version 1 remains manual, including any opaque `exit` extension. It stores
 `asset_id`, `skeleton`, `entry`, `next_id` and `states`. Each state stores `id`,
 `name`, `clip`, `loop`, `speed` and `transition_seconds`. IDs are positive uint32
 values, unique within this asset. Names contain 1–64 printable bytes and are
@@ -24,7 +26,10 @@ and a valid entry. Animator state zero selects that entry.
 The central document uses `AssetSourceDocument`, its source writer ownership,
 revision guards and history. Existing `AssetImportService` publishes one bounded
 `states.json` artifact and catalog metadata `forge.animation_states` through
-`forge.animation.states.v2`. Skeleton and every state clip are typed Runtime
+`forge.animation.states.v4`. Cooked version 2 wraps the original source
+document as `document`; source version and cooked version are independent.
+Legacy raw cooked version 1 remains readable. Source remains bounded to 256 KiB;
+the cooked envelope permits 128 additional bytes. Skeleton and every state clip are typed Runtime
 dependencies with selected recipe revisions. They must belong to one imported
 model owner and exact publication generation. Source discovery, copy/rename,
 reference-impact review and runtime export use their existing owners. Unknown
@@ -73,7 +78,40 @@ asset revisions. Missing/deleted IDs, bad assets or incompatible bindings retain
 the last admitted playback and emit a diagnostic. They block a new checkpoint
 until the desired configuration is valid.
 
+## Timed exits
+
+Source version 2 optionally adds `exit: {"state": 2, "phase": 0.75}` to a state.
+Missing/null disables it. Target is another existing stable ID; phase is finite
+and .001–1. Cycles are allowed. Invalid/deleted/self targets reject publication.
+The source editor converts a version-1 document through ordinary Undo history;
+a non-null opaque legacy `exit` must be renamed before conversion.
+
+At a positive playing fixed tick, unwrapped clip advance crossing
+`phase * duration` selects the target once after publishing source markers.
+Incoming time is zero, using the destination's fade. No residual time or multiple
+hops are consumed. Loop wraps and a nonlooping endpoint can trigger an exit.
+Pause, disabled Animator, zero speed, pending assets and seek without advancing
+cannot trigger it. A manually resumed player preserves playback even when its
+original `play_on_start` was false. Manual C++ selections use the same admission path.
+
+Only a fully admitted candidate updates the runtime Animator state. The editor's
+authored world stays unchanged. Failed targets retain the old player/component,
+latch the rejected configuration and block checkpoint readiness; they do not retry
+on every tick. An explicit manual selection or catalog refresh can retry. Final
+source markers retain their source state; target entry markers arrive on its next
+advancing tick. Repeatedly forcing a different ID from C++ overrides the automatic
+selection in the ordinary next gameplay phase.
+
 ## Recovery, preview and export
+
+Private animation checkpoint 2 additionally records the admitted raw
+`requested_state`, including zero for entry. A partial prefab field override must
+not become an authored state override merely to recover an automatic selection.
+Detached existing playback candidates, aggregate evaluated-joint budgets and the
+complete pose are validated before adoption; rejected restore retains the previous
+players, clocks, typed selection and transforms. Legacy private checkpoint 1
+retains its original strict scene-selection semantics. These checkpoints are
+ephemeral recovery, not a public save-game format.
 
 Recovery preserves the set identity/revision, selected ID, incoming time, live
 outgoing ID/time/speed or frozen local pose, and fade progress. All candidates,
@@ -90,13 +128,15 @@ scene transaction. Play, source publication, scene edits and close release previ
 
 Export follows the set's typed dependencies, including clips not selected in the
 startup scene. It ships admitted cooked data; the original GLB, state source,
-compiler and editor are unnecessary at runtime. C++ modules must rebuild with
-the matching SDK after the public Animator layout/header change. Gameplay only
+compiler and editor are unnecessary at runtime. C++ modules use the matching SDK. Timed exits do not change the installed SDK
+function table, Animator layout or fingerprint. Gameplay only
 needs Animator's typed set reference and stable ID; no Ozz pointer or pose loader
 crosses the native ABI.
 
 Gallery scene 10 uses the CC0 Quaternius Idle/Walk/Sprint clips and independently
 skinned instances. Provenance is recorded beside the source. See the
 [user walkthrough](../manual/editor/animation-states.md).
+
+Gallery scene 30 cycles Idle → Walk → Run automatically through the same clips.
 
 Optional [timing markers](animation-markers.md) attach named observations to these clips.

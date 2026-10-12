@@ -47,7 +47,7 @@ std::size_t AnimationStates::resident_bytes() const {
 AnimationStatesSource AnimationStatesSource::create(AssetId id) {
     require(bool(id), "Animation States needs an asset identity");
     return {{{"format", "forge.animation-states"},
-             {"version", 1},
+             {"version", 2},
              {"asset_id", id},
              {"skeleton", nullptr},
              {"entry", 0},
@@ -62,9 +62,30 @@ AnimationStatesSource AnimationStatesSource::parse(std::span<const std::byte> by
     return result;
 }
 AssetId AnimationStatesSource::asset() const { return document.at("asset_id").get<AssetId>(); }
+AnimationStatesSource AnimationStatesSource::parse_cooked(std::span<const std::byte> bytes,
+                                                          std::uint32_t& version) {
+    auto cooked =
+        asset_detail::parse_bounded_json(bytes, animation_states_cooked_byte_limit, 10007, 13);
+    require(cooked.at("format") == "forge.animation-states", "Unsupported cooked state format");
+    AnimationStatesSource result;
+    if (cooked.at("version") == 1) {
+        version = 1;
+        require(bytes.size() <= animation_states_byte_limit, "Legacy cooked states too large");
+        result = parse(bytes); // Preserve the original legacy node/depth limits too.
+    } else {
+        require(cooked.at("version") == 2, "Unsupported cooked state version");
+        version = 2;
+        result.document = std::move(cooked.at("document"));
+        const auto source = result.document.dump();
+        result = parse(std::as_bytes(std::span(source)));
+    }
+    result.validate();
+    return result;
+}
 void AnimationStatesSource::validate() const {
     const auto& d = document;
-    require(d.is_object() && d.at("format") == "forge.animation-states" && d.at("version") == 1,
+    require(d.is_object() && d.at("format") == "forge.animation-states" &&
+                (d.at("version") == 1 || d.at("version") == 2),
             "Unsupported Animation States format/version");
     require(bool(asset()), "Animation States asset identity is empty");
     if (!d.at("skeleton").is_null())
@@ -129,6 +150,19 @@ void AnimationStatesSource::validate() const {
         }
     }
     require(states.empty() ? entry == 0 : ids.contains(entry), "Animation entry state is missing");
+    if (d.at("version") == 2)
+        for (const auto& state : states)
+            if (state.contains("exit") && !state.at("exit").is_null()) {
+                const auto& exit = state.at("exit");
+                require(exit.is_object(), "Animation exit transition must be an object or null");
+                const auto target = number(exit.at("state"));
+                require(ids.contains(target) && target != number(state.at("id")),
+                        "Animation exit target must be another state in this set");
+                require(exit.at("phase").is_number(), "Animation exit phase must be numeric");
+                const double phase = exit.at("phase");
+                require(std::isfinite(phase) && phase >= .001 && phase <= 1,
+                        "Animation exit phase must be within 0.001 to 1");
+            }
 }
 AnimationStates AnimationStatesSource::compiled() const {
     validate();
@@ -147,17 +181,26 @@ AnimationStates AnimationStatesSource::compiled() const {
             for (const auto& marker : s.at("markers"))
                 result.states.back().markers.push_back({number(marker.at("id")), marker.at("name"),
                                                         marker.at("phase"), marker.at("value")});
+        if (document.at("version") == 2 && s.contains("exit") && !s.at("exit").is_null()) {
+            result.states.back().exit_state = number(s.at("exit").at("state"));
+            result.states.back().exit_phase = s.at("exit").at("phase");
+        }
     }
     return result;
 }
 std::vector<std::byte> AnimationStatesSource::cook() const {
     (void)compiled();
-    const auto text = document.dump();
+    const auto source = document.dump();
+    (void)parse(std::as_bytes(std::span(source)));
+    const auto text =
+        nlohmann::json{{"format", "forge.animation-states"}, {"version", 2}, {"document", document}}
+            .dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
 }
 AnimationStates decode_animation_states(std::span<const std::byte> bytes, AssetId asset) {
-    auto source = AnimationStatesSource::parse(bytes);
+    std::uint32_t version;
+    auto source = AnimationStatesSource::parse_cooked(bytes, version);
     require(source.asset() == asset, "Cooked Animation States identity mismatch");
     return source.compiled();
 }

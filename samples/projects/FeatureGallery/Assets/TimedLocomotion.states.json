@@ -1,0 +1,71 @@
+{
+  "format": "forge.animation-states",
+  "version": 2,
+  "asset_id": "9cd2417e-81e1-443b-8ac8-5608c63a1cf3",
+  "skeleton": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
+  "entry": 1,
+  "next_id": 4,
+  "states": [
+    {
+      "id": 1,
+      "name": "Idle",
+      "clip": "43130b86-b8b0-4fb7-b078-0d02ef689644",
+      "loop": true,
+      "speed": 1,
+      "transition_seconds": 0.25,
+      "exit": {
+        "state": 2,
+        "phase": 1
+      },
+      "markers": [
+        {
+          "id": 1,
+          "name": "IdleEntry",
+          "phase": 0,
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Walk",
+      "clip": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
+      "loop": true,
+      "speed": 1,
+      "transition_seconds": 0.25,
+      "exit": {
+        "state": 3,
+        "phase": 1
+      },
+      "markers": [
+        {
+          "id": 2,
+          "name": "WalkEntry",
+          "phase": 0,
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Run",
+      "clip": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
+      "loop": true,
+      "speed": 1,
+      "transition_seconds": 0.25,
+      "exit": {
+        "state": 1,
+        "phase": 1
+      },
+      "markers": [
+        {
+          "id": 3,
+          "name": "RunEntry",
+          "phase": 0,
+          "value": 3
+        }
+      ]
+    }
+  ],
+  "next_marker_id": 4
+}

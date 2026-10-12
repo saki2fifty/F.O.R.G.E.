@@ -132,8 +132,8 @@ class AnimationStatesEditor {
             ui::editor_context->task.focus_document("animation_states",
                                                     path_utf8(document_->locator()));
         if (expanded && document_) {
-            ImGui::TextWrapped("Name your clips here. C++ selects a stable state ID; the incoming "
-                               "state's fade controls the transition.");
+            ImGui::TextWrapped("Name your clips here. C++ or an exit transition selects a stable "
+                               "state ID; the incoming state's fade controls the transition.");
             ImGui::TextUnformatted(path_utf8(document_->locator()).c_str());
             ImGui::BeginDisabled(locked || pending());
             if (ui::button(
@@ -205,6 +205,7 @@ class AnimationStatesEditor {
                 if (ImGui::SliderFloat("Fade in (seconds)", &fade, 0, 10, "%.3f"))
                     mutate_state("Set state fade", "transition_seconds", fade);
                 FORGE_UI_PROBE("animation_states:fade");
+                draw_exit(draft, state);
                 if (ui::button("Make entry state", "Use this state when Animator state is zero."))
                     mutate("Choose entry", [&](Json& d) { d["entry"] = selected_; });
                 ImGui::SameLine();
@@ -221,13 +222,13 @@ class AnimationStatesEditor {
                 ImGui::EndDisabled();
                 ImGui::SameLine();
                 if (ui::button("Remove state", "References to this ID become an explicit error.")) {
-                    mutate("Remove state", [&](Json& d) {
-                        auto& states = d["states"];
-                        states.erase(states.begin() + i);
-                        if (d.at("entry") == selected_)
-                            d["entry"] = states.empty() ? Json(0) : states.front().at("id");
-                    });
-                    selected_ = 0;
+                    if (mutate("Remove state", [&](Json& d) {
+                            auto& states = d["states"];
+                            states.erase(states.begin() + i);
+                            if (d.at("entry") == selected_)
+                                d["entry"] = states.empty() ? Json(0) : states.front().at("id");
+                        }))
+                        selected_ = 0;
                 }
                 if (selected_)
                     draw_markers();
@@ -340,14 +341,69 @@ class AnimationStatesEditor {
             }
         selected_ = 0;
     }
-    template <class F> void mutate(std::string label, F edit) {
+    template <class F> bool mutate(std::string label, F edit) {
         try {
             document_->edit(document_->revision(), std::move(label), edit);
             changed();
             error_.clear();
+            return true;
         } catch (const std::exception& e) {
             error_ = e.what();
+            return false;
         }
+    }
+    void draw_exit(const Json& draft, const Json& state) {
+        const bool versioned = draft.at("version") == 2;
+        bool enabled = versioned && state.contains("exit") && !state.at("exit").is_null();
+        const auto other = std::find_if(draft.at("states").begin(), draft.at("states").end(),
+                                        [&](const auto& row) { return row.at("id") != selected_; });
+        ImGui::SeparatorText("Exit transition");
+        ImGui::BeginDisabled(other == draft.at("states").end());
+        if (ImGui::Checkbox("Advance automatically", &enabled))
+            mutate("Set automatic transition", [&](Json& d) {
+                d["version"] = 2;
+                for (auto& row : d["states"])
+                    if (row.at("id") == selected_)
+                        row["exit"] = enabled ? Json{{"state", other->at("id")}, {"phase", 1}}
+                                              : Json(nullptr);
+            });
+        FORGE_UI_PROBE("animation_states:exit_enabled");
+        ImGui::EndDisabled();
+        if (!versioned)
+            ImGui::TextWrapped("Enabling converts this source to version 2 through Undo history. "
+                               "Legacy extension data must be renamed if it uses the exit field.");
+        if (!versioned || !state.contains("exit") || state.at("exit").is_null())
+            return;
+        auto exit = state.at("exit");
+        std::string label;
+        for (const auto& row : draft.at("states"))
+            if (row.at("id") == exit.at("state"))
+                label = row.at("name").template get<std::string>() + " (" +
+                        std::to_string(row.at("id").template get<std::uint32_t>()) + ")";
+        if (ImGui::BeginCombo("Next state", label.c_str())) {
+            for (const auto& row : draft.at("states")) {
+                if (row.at("id") == selected_)
+                    continue;
+                const auto id = row.at("id").template get<std::uint32_t>();
+                const auto choice =
+                    row.at("name").template get<std::string>() + " (" + std::to_string(id) + ")";
+                if (ImGui::Selectable(choice.c_str(), exit.at("state") == id)) {
+                    exit["state"] = id;
+                    mutate_state("Choose exit target", "exit", exit);
+                }
+                FORGE_UI_PROBE("animation_states:exit_choice:" + std::to_string(id));
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("animation_states:exit_target");
+        float phase = exit.at("phase");
+        if (ImGui::SliderFloat("Exit time", &phase, .001f, 1, "%.3f")) {
+            exit["phase"] = phase;
+            mutate_state("Set exit time", "exit", exit);
+        }
+        FORGE_UI_PROBE("animation_states:exit_phase");
+        ImGui::TextWrapped("Normalized clip time: 1 is the end. Changes occur at fixed ticks. "
+                           "The next state's Fade in controls blending.");
     }
     void mutate_state(std::string label, const char* field, const Json& value) {
         mutate(std::move(label), [&](Json& d) {

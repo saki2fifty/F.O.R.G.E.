@@ -1,10 +1,13 @@
 #include "animation_preview.hpp"
 #include "animation_states_authoring.hpp"
+#include "animation_states_resource.hpp"
+#include "asset_reference_impact.hpp"
 #include "model_authoring.hpp"
 #include "model_import_test.hpp"
 #include "model_placement.hpp"
 #include "runtime_package.hpp"
 #include <forge/authoring.hpp>
+#include <forge/prefab_authoring.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
@@ -62,6 +65,7 @@ struct Fixture {
         e.set(c);
     }
 };
+#include "animation_exit_tests.hpp"
 void control_tests(const std::filesystem::path& root, const Json& doc, EntityId actor,
                    const AnimationStatesSource& source) {
     auto held = doc;
@@ -442,6 +446,7 @@ int main(int argc, char** argv) {
                                                  {"speed", id == 3 ? 4 : 1},
                                                  {"transition_seconds", .4}});
         source.validate();
+        exit_source_tests(source, lease, root);
         auto decoded = decode_animation_states(source.cook(), graph);
         require(decoded.state("Reach").id == 2 && decoded.state(0).id == 1,
                 "Named/default state lookup");
@@ -668,6 +673,15 @@ int main(int argc, char** argv) {
             control_tests(root, marker_doc, actor, marker_source);
         playback_tests(root, marker_doc, actor, marker_source);
         marker_tests(root, marker_doc, actor);
+        if (argc != 6 || std::string_view(argv[5]) == "--exits-prepare") {
+            const auto exits =
+                exit_runtime_tests(root, lease, marker_doc, actor, marker_source, argc == 6);
+            if (argc == 6) {
+                atomic_write(root / "main.scene.json", exits.dump(2));
+                std::cout << root.string() << '\n';
+                return 0;
+            }
+        }
         if (argc == 6) {
             const bool markers = std::string_view(argv[5]) == "--markers-prepare";
             require(markers || std::string_view(argv[5]) == "--prepare",

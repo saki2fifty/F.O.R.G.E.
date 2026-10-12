@@ -16,7 +16,8 @@ struct GameHostFixture {
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
          slider = false, motors = false, position_drive = false, connected = false,
-         swing_twist = false, distance_springs = false;
+         swing_twist = false, distance_springs = false, animation_exits = false;
+    std::map<std::string, unsigned> exit_states;
     std::array<double, 2> swing_maximum{}, swing_minimum{180, 180};
     std::array<double, 2> spring_minimum{100, 100}, spring_maximum{};
     bool reference = false, reference_reopen = false, reference_error = false,
@@ -81,9 +82,10 @@ struct GameHostFixture {
         connected = argc == 3 && std::string_view(argv[1]) == "--packaged-connected";
         swing_twist = argc == 3 && std::string_view(argv[1]) == "--packaged-swing";
         distance_springs = argc == 3 && std::string_view(argv[1]) == "--packaged-springs";
+        animation_exits = argc == 3 && std::string_view(argv[1]) == "--packaged-exits";
         packaged = reference || mixed || loads || velocity || contacts || volumes || slider ||
                    motors || position_drive || connected || swing_twist || distance_springs ||
-                   (argc == 3 && std::string_view(argv[1]) == "--packaged");
+                   animation_exits || (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
             throw std::runtime_error("Game fixture requires output directory");
@@ -188,7 +190,7 @@ struct GameHostFixture {
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
         if (!reference && !loads && !velocity && !contacts && !volumes && !slider && !motors &&
-            !position_drive && !connected && !swing_twist && !distance_springs)
+            !position_drive && !connected && !swing_twist && !distance_springs && !animation_exits)
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
         if (loads || velocity || slider || motors || position_drive || connected || swing_twist ||
             distance_springs) {
@@ -253,6 +255,35 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (animation_exits) {
+            const auto animation = animation_runtime(game.active().engine.world());
+            check(bool(animation), "Exported automatic animation owner missing");
+            const auto document = game.active().scene.document();
+            for (const auto& row : document.at("entities")) {
+                if (!row.at("components").contains("forge.animator"))
+                    continue;
+                const auto id = row.at("id").get<std::string>();
+                const auto entity = game.active().scene.entity(id);
+                const auto pose = animation->presentation(entity.id(), 1);
+                if (pose.is_null())
+                    return;
+                const auto state = pose.at("state").get<unsigned>();
+                check(state >= 1 && state <= 3 && entity.get<Animator>().state == state,
+                      "Exported automatic state/status disagreement");
+                exit_states[id] |= 1u << state;
+            }
+            if (exit_states.size() != 3 ||
+                std::any_of(exit_states.begin(), exit_states.end(),
+                            [](const auto& entry) { return entry.second != 14; }))
+                return;
+            check(animation->checkpoint_ready(),
+                  "Exported automatic animation recovery unavailable");
+            atomic_write(output / "animation-exits-result.json",
+                         Json{{"actors", exit_states}, {"game", game.status()}}.dump(2));
+            capture("animation-exits-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (distance_springs) {
             const auto tick = game.status().at("clock").at("tick").get<unsigned>();
             const auto document = game.active().scene.document();

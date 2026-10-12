@@ -650,3 +650,20 @@ acceptance deletes the copied source/kit before production startup and the
 inventoried `--packaged-position` graphical observer, checking actual target poses,
 two native joints and cyan geometry. Configured Windows gates and physical GPU
 acceptance still require their own execution evidence.
+
+## Timed animation exit gate
+
+`animation_states` validates source/cooked compatibility, stable exit targets,
+independent fixed-tick boundaries, Ozz poses/markers, interruption, failure retention
+and fresh recovery including partial prefab overrides. `native_sdk_animation_exits`
+executes a compiled public C++ observer, manual return and three fresh-worker
+recoveries. `animation_states_gallery` evaluates Gallery30's real skins, exports
+it and repeats the sequence after source-free relocation. The actual ImGui fixture
+exercises exit fields and Undo at 65/100/150/200 percent scales.
+
+`editor_animation_exits` separately captures the source document at 100/150/200
+percent. These images are layout evidence, not physical desktop acceptance.
+Final combined-package acceptance uses the shared SDK runtime kit for its matching
+SDK-enabled observer (which imports flecs.dll). The ordinary static production
+runtime is tested separately. Gallery30's exported observer requires all three
+characters to visit all three states before successful capture/exit.

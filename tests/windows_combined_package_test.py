@@ -394,7 +394,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         ('Position Drives', 'Scenes/26-position-drives.scene.json', '--packaged-position', 'physics-position-result.json'),
         ('Connected Contacts', 'Scenes/27-connected-collisions.scene.json', '--packaged-connected', 'physics-connected-result.json'),
         ('Swing Twist', 'Scenes/28-swing-twist-joints.scene.json', '--packaged-swing', 'physics-swing-result.json'),
-        ('Distance Springs', 'Scenes/29-distance-springs.scene.json', '--packaged-springs', 'physics-springs-result.json')):
+        ('Distance Springs', 'Scenes/29-distance-springs.scene.json', '--packaged-springs', 'physics-springs-result.json'),
+        ('Animation Exits', 'Scenes/30-animation-exits.scene.json', '--packaged-exits', 'animation-exits-result.json')):
         slider_source = root / (label + ' Gallery Copy')
         shutil.copytree(gallery, slider_source)
         slider_scene = scene_path
@@ -403,7 +404,10 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         slider_settings['startup_scene'] = dict(asset=slider['asset_id'], source=slider_scene)
         (slider_source / 'forge.project.json').write_text(json.dumps(slider_settings))
         slider_kit = root / (label + ' Test Runtime Kit')
-        shutil.copytree(root / 'runtime-kit', slider_kit)
+        # This observer is built with the shared SDK and imports flecs.dll.
+        # Use that exact shipped profile; the default static kit is tested above.
+        shutil.copytree(root / 'runtime-kits/shared-native-sdk', slider_kit)
+        assert (slider_kit / 'flecs.dll').is_file(), 'Shared observer requires its matching runtime DLL'
         shutil.copyfile(observer, slider_kit / 'forge_game_fixture.exe')
         slider_metadata = json.loads((slider_kit / 'forge.runtime-kit.json').read_text())
         slider_metadata['files']['forge_game_fixture.exe'] = dict(bytes=len(observer_data),
@@ -425,9 +429,13 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
             result = subprocess.run([str(slider_export / executable), *arguments], cwd=slider_export,
                 env=env, text=True, capture_output=True, timeout=180)
             (slider_evidence / log).write_text(result.stdout + result.stderr)
-            assert result.returncode == 0, (result.stdout, result.stderr)
+            assert result.returncode == 0, (executable, result.returncode, result.stdout, result.stderr)
             assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
-        assert len(json.loads((slider_evidence / result_file).read_text())['carriages']) == 2
+        proof = json.loads((slider_evidence / result_file).read_text())
+        if observer_mode == '--packaged-exits':
+            assert len(proof['actors']) == 3 and set(proof['actors'].values()) == {14}
+        else:
+            assert len(proof['carriages']) == 2
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())

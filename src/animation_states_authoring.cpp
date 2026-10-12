@@ -10,7 +10,7 @@ void require(bool value, const char* why) {
         throw std::runtime_error(why);
 }
 constexpr const char* importer_id = "forge.animation.states";
-constexpr const char* recipe = "forge.animation.states.v2";
+constexpr const char* recipe = "forge.animation.states.v4";
 struct Snapshot {
     AnimationStatesSource source;
     AssetBuildInput input;
@@ -27,7 +27,7 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     input.importer = importer_id;
     input.importer_revision = recipe;
     input.output_format = "forge.animation-states";
-    input.output_version = 1;
+    input.output_version = 2;
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
@@ -64,8 +64,9 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
 const ArtifactFile& clip_file(const std::vector<ArtifactFile>& files) {
     require(files.size() == 1 && files[0].name == "states.json",
             "Animation States artifact must contain one cooked state set");
-    auto doc = asset_detail::parse_bounded_json(files[0].bytes, animation_states_byte_limit);
-    (void)decode_animation_states(files[0].bytes, doc.at("asset_id").get<AssetId>());
+    std::uint32_t version;
+    const auto source = AnimationStatesSource::parse_cooked(files[0].bytes, version);
+    (void)source.compiled();
     return files[0];
 }
 class AnimationStatesImporter final : public AssetImporter {
@@ -77,16 +78,16 @@ class AnimationStatesImporter final : public AssetImporter {
                   d.id = importer_id;
                   d.revision = recipe;
                   d.label = "Animation States";
-                  d.description = "Cook a named skeletal clip set for C++ state selection.";
+                  d.description = "Cook named skeletal clips and optional timed state exits.";
                   d.extensions = {".json"};
                   d.source_kinds = {"forge.animation-states"};
                   d.output_types = {AnimationStatesAsset::type};
                   d.output_format = "forge.animation-states";
-                  d.output_version = 1;
+                  d.output_version = 2;
                   d.targets = {{"windows", "d3d12", "desktop"}, {"linux", "none", "cpu"}};
                   d.execution = ImportExecution::TrustedCpuTask;
                   d.limits.output_files = 1;
-                  d.limits.output_bytes = animation_states_byte_limit;
+                  d.limits.output_bytes = animation_states_cooked_byte_limit;
                   return d;
               }(),
               {importer_id, 1, {}}) {}

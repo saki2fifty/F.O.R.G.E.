@@ -47,6 +47,8 @@ struct Playback {
     // Snapshot of this tick's semantic interval; presentation snaps may reset advance.
     double tick_begin = 0, tick_advance = 0;
     bool playing = false, entry_pending = true;
+    // Automatic admission failures belong to the held player, not a new ECS request.
+    bool automatic_failure = false;
     bool model_pose_applied = false, discontinuous = true;
 };
 std::size_t evaluated_joints(const Playback& p) {
@@ -503,17 +505,21 @@ struct AnimationRuntime::Impl {
     }
     template <class Retain>
     void state_player(flecs::entity e, const Animator& requested, float fixed_dt,
-                      bool preview_command, Retain retain) {
+                      bool preview_command, Retain retain, bool automatic = false,
+                      std::optional<Playback>* prepared = nullptr) {
         auto old = states.find(e.id());
         const bool reload = reload_pending.contains(e.id());
-        if (old != states.end() && old->second.definition && old->second.requested == requested &&
-            !reload) {
-            errors.erase(e.id());
-            failed_configurations.erase(e.id());
+        if (!prepared && old != states.end() && old->second.definition &&
+            old->second.requested == requested && !reload) {
+            if (!old->second.automatic_failure) {
+                errors.erase(e.id());
+                failed_configurations.erase(e.id());
+            }
             return;
         }
-        if (!reload && failed_configurations.contains(e.id()) &&
-            failed_configurations.at(e.id()) == requested)
+        if (!prepared && !reload && failed_configurations.contains(e.id()) &&
+            failed_configurations.at(e.id()) == requested &&
+            (automatic || old == states.end() || !old->second.automatic_failure))
             return;
         try {
             detail::validate_reflected_value(e, requested);
@@ -593,17 +599,20 @@ struct AnimationRuntime::Impl {
                 clips.emplace(item.clip.id, std::move(*pair));
             }
             const auto& selected = clips.at(config.clip.id);
-            if (old != states.end() && old->second.definition &&
+            if (!prepared && old != states.end() && old->second.definition &&
                 old->second.requested == requested && reload &&
                 old->second.definition.identity().revision == definition.identity().revision &&
                 old->second.assets.skeleton_revision == selected.skeleton_revision &&
                 old->second.assets.clip_revision == selected.clip_revision) {
+                old->second.automatic_failure = false;
+                errors.erase(e.id());
+                failed_configurations.erase(e.id());
                 reload_pending.erase(e.id());
                 return;
             }
             if (old != states.end() && fixed_dt == 0 && !preview_command)
                 return;
-            if (old != states.end() && old->second.definition &&
+            if (!prepared && old != states.end() && old->second.definition &&
                 old->second.definition.identity() == definition.identity() &&
                 old->second.config.state == target.id && old->second.assets.clip == selected.clip) {
                 if (old->second.config.enabled != config.enabled) {
@@ -621,6 +630,7 @@ struct AnimationRuntime::Impl {
                 old->second.outgoing_previous = old->second.outgoing_time;
                 old->second.outgoing_advance = 0;
                 old->second.previous_blend = old->second.blend;
+                old->second.automatic_failure = false;
                 errors.erase(e.id());
                 failed_configurations.erase(e.id());
                 reload_pending.erase(e.id());
@@ -636,8 +646,8 @@ struct AnimationRuntime::Impl {
             next.reference = *context.reference(e.id());
             next.sampler = std::make_unique<Sampler>(next.assets.skeleton, next.assets.clip);
             next.blend = next.previous_blend = next.blend_from = 1;
-            next.playing = requested.play_on_start;
-            if (old != states.end() && old->second.definition &&
+            next.playing = automatic || requested.play_on_start;
+            if (!prepared && old != states.end() && old->second.definition &&
                 old->second.definition.identity() == next.definition.identity() &&
                 old->second.assets.skeleton == next.assets.skeleton &&
                 old->second.assets.model_generation == next.assets.model_generation &&
@@ -662,9 +672,23 @@ struct AnimationRuntime::Impl {
             for (const auto& [other, p] : states)
                 if (other != e.id())
                     joints += evaluated_joints(p);
-            if (joints > 8192 || (old == states.end() && states.size() >= 256))
+            if (!prepared && (joints > 8192 || (old == states.end() && states.size() >= 256)))
                 throw ArchiveError("Animation state transition exceeds player/joint budget");
             (void)sample_pose(next, 0, next.blend);
+            if (prepared) {
+                if (old == states.end())
+                    throw ArchiveError("Recovery state has no admitted player");
+                std::swap(old->second, next);
+                try {
+                    apply_model_poses(false, {{e.id(), 0}}, e.id());
+                } catch (...) {
+                    std::swap(old->second, next);
+                    throw;
+                }
+                std::swap(old->second, next);
+                *prepared = std::move(next);
+                return;
+            }
             if (old != states.end()) {
                 std::swap(old->second, next);
                 try {
@@ -680,6 +704,8 @@ struct AnimationRuntime::Impl {
             reload_pending.erase(e.id());
             reload_errors.erase(e.id());
         } catch (const std::exception& ex) {
+            if (prepared)
+                throw;
             if (errors[e.id()] != ex.what()) {
                 Diagnostic d{Severity::Error, "animation.state", ex.what(), {}};
                 d.context.entity = context.reference(e.id())->entity;
@@ -689,6 +715,8 @@ struct AnimationRuntime::Impl {
                 errors[e.id()] = ex.what();
             }
             failed_configurations[e.id()] = requested;
+            if (old != states.end())
+                old->second.automatic_failure = automatic;
             reload_pending.erase(e.id());
         }
     }
@@ -1056,6 +1084,23 @@ void AnimationRuntime::tick(float dt, std::uint64_t tick) {
         if (p.config.enabled && p.tick_advance > 0 && !impl_->pending.contains(id) &&
             !impl_->binding_errors.contains(id))
             p.entry_pending = false;
+    // Publish this tick's source markers before adopting a target at time zero.
+    // All state clips were retained/admitted by synchronize; one rule per tick.
+    for (auto& [id, p] : impl_->states) {
+        if (!p.definition || !p.config.enabled || p.tick_advance <= 0 ||
+            impl_->pending.contains(id) || impl_->binding_errors.contains(id))
+            continue;
+        const auto& state = p.definition->state(p.config.state);
+        if (!state.exit_state || p.tick_begin + p.tick_advance <
+                                     double(state.exit_phase) * p.assets.clip->info().duration)
+            continue;
+        auto requested = p.requested;
+        requested.state = state.exit_state;
+        auto entity = impl_->context.world().entity(id);
+        impl_->state_player(entity, requested, dt, false, [](const Animator&) {}, true);
+        if (p.requested == requested && p.config.state == requested.state)
+            entity.set<Animator>(requested);
+    }
 }
 std::span<const AnimationEvent> AnimationRuntime::events() const {
     return impl_ ? std::span<const AnimationEvent>(impl_->events)
@@ -1298,6 +1343,7 @@ Json AnimationRuntime::checkpoint() const {
                     {"asset", p.requested.states.id},
                     {"revision", p.definition.identity().revision},
                     {"state", p.config.state},
+                    {"requested_state", p.requested.state},
                     {"entry_pending", p.entry_pending},
                     {"outgoing_state", p.outgoing_sampler ? p.outgoing_config.state : 0},
                     {"outgoing_time", p.outgoing_time},
@@ -1305,7 +1351,7 @@ Json AnimationRuntime::checkpoint() const {
                     {"frozen", frozen}};
             }
         }
-    return {{"version", 1},
+    return {{"version", 2},
             {"entries", entries},
             {"transform_entries", impl_ ? impl_->transforms.checkpoint() : Json::array()}};
 }
@@ -1339,7 +1385,7 @@ void AnimationRuntime::restore(const Json& data) {
         if (!impl_->pending.empty())
             throw ArchiveError("Animation recovery admission timed out");
     }
-    if (data.at("version") != 1 || !data.at("entries").is_array() ||
+    if ((data.at("version") != 1 && data.at("version") != 2) || !data.at("entries").is_array() ||
         data.at("entries").size() != impl_->states.size() || !impl_->errors.empty())
         throw ArchiveError("Animation recovery configuration differs");
     std::set<flecs::entity_t> seen;
@@ -1356,6 +1402,11 @@ void AnimationRuntime::restore(const Json& data) {
         bool entry_pending = false;
     };
     std::vector<RestoreValue> values;
+    std::map<flecs::entity_t, Playback> prepared_players;
+    const auto swap_players = [&] {
+        for (auto& [id, player] : prepared_players)
+            std::swap(impl_->states.at(id), player);
+    };
     std::map<flecs::entity_t, double> times, weights;
     for (const auto& entry : data.at("entries")) {
         auto ref = entry.at("entity").get<EntityRef>();
@@ -1363,7 +1414,27 @@ void AnimationRuntime::restore(const Json& data) {
         if (entity.state != WorldContext::ResolveState::Available ||
             !seen.insert(entity.entity).second || !impl_->states.contains(entity.entity))
             throw ArchiveError("Animation recovery entity is unresolved");
-        auto& p = impl_->states.at(entity.entity);
+        auto* selected = &impl_->states.at(entity.entity);
+        if (data.at("version") == 2 && selected->definition) {
+            const auto& raw = entry.at("states").at("requested_state");
+            if (!(raw.is_number_unsigned() ||
+                  (raw.is_number_integer() && raw.get<std::int64_t>() >= 0)) ||
+                raw.get<std::uint64_t>() > UINT32_MAX)
+                throw ArchiveError("Animation recovery requested state is invalid");
+            auto requested = selected->requested;
+            requested.state = raw.get<std::uint32_t>();
+            if (requested.state != selected->requested.state) {
+                std::optional<Playback> candidate;
+                impl_->state_player(
+                    impl_->context.world().entity(entity.entity), requested, 0, true,
+                    [](const Animator&) {}, false, &candidate);
+                if (!candidate)
+                    throw ArchiveError("Animation recovery target admission incomplete");
+                selected =
+                    &prepared_players.emplace(entity.entity, std::move(*candidate)).first->second;
+            }
+        }
+        auto& p = *selected;
         double time = entry.at("time");
         if (entry.at("skeleton") != Json(p.config.skeleton.id) ||
             entry.at("clip") != Json(p.config.clip.id) ||
@@ -1453,8 +1524,9 @@ void AnimationRuntime::restore(const Json& data) {
             p.outgoing_time = value.outgoing_time;
             try {
                 (void)sample_pose(p, time, blend, true);
-                impl_->apply_model_poses(false, {{entity.entity, time}}, entity.entity,
-                                         {{entity.entity, blend}});
+                if (!prepared_players.contains(entity.entity))
+                    impl_->apply_model_poses(false, {{entity.entity, time}}, entity.entity,
+                                             {{entity.entity, blend}});
             } catch (...) {
                 value.outgoing = std::move(p.outgoing_sampler);
                 p.outgoing_sampler = std::move(old_source);
@@ -1477,6 +1549,15 @@ void AnimationRuntime::restore(const Json& data) {
         weights.emplace(entity.entity, blend);
         values.push_back(std::move(value));
     }
+    std::size_t recovered_joints = 0;
+    for (const auto& value : values)
+        recovered_joints +=
+            value.playback->assets.skeleton->info().tracks *
+            ((value.playback->blend_sampler || (value.playback->definition && value.blend < 1))
+                 ? 2
+                 : 1);
+    if (recovered_joints > 8192)
+        throw ArchiveError("Animation recovery exceeds evaluated-joint budget");
     const auto transform_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     while (impl_->transforms.pending() && std::chrono::steady_clock::now() < transform_deadline) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -1496,12 +1577,15 @@ void AnimationRuntime::restore(const Json& data) {
             }
     };
     swap_sources();
+    swap_players();
     try {
         impl_->apply_model_poses(false, times, 0, weights);
     } catch (...) {
+        swap_players();
         swap_sources();
         throw;
     }
+    swap_players();
     swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()));
     for (auto& value : values) {
@@ -1530,6 +1614,13 @@ void AnimationRuntime::restore(const Json& data) {
         // the next successful fixed application, keep any prior good draw.
         p.model_pose_applied = false;
         p.discontinuous = true;
+    }
+    // Adopt only after every clock, asset, transform and work-budget check passes.
+    // Snapshot prefab masks remain authored intent; this selection is runtime data.
+    swap_players();
+    for (const auto& [id, old_player] : prepared_players) {
+        (void)old_player;
+        impl_->context.world().entity(id).set<Animator>(impl_->states.at(id).requested);
     }
     impl_->events.clear();
     impl_->event_candidates.clear();

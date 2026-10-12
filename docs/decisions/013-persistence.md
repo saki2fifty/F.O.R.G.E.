@@ -173,3 +173,22 @@ mapping. Inactive values are preserved. No new owner or authored/private version
 ABI 1/private checkpoint 4 remain exact-build/fingerprint gated. Matching SDK
 layout and module rebuilding remain required. Reflection uses the accepted bounded
 physical-order descriptor batches with verified offsets/sizes.
+
+## 2026-10-12 — automatic animation selection and prefab recovery
+
+Timed state exits change the existing runtime Animator selection after admitted
+fixed-tick evaluation. Authored scene/prefab masks retain their original intent.
+Private animation checkpoint 2 stores the admitted raw `requested_state` alongside
+existing selected IDs/clocks/fades. Restore prepares detached candidates using
+the existing animation owner, validates exact revisions and aggregate joint/pose
+bounds, then adopts playback and the typed runtime selection. Legacy checkpoint 1
+keeps its strict scene-selection behavior. Failure leaves admitted runtime state
+intact. No new persistence owner or durable save format is introduced.
+
+State source version 2 recognizes optional local-ID exits. Source version 1 keeps
+opaque exits manual. Recipe v4 publishes fixed cooked version 2 containing the
+original source document, so rebuilding source 1 does not reinterpret extensions.
+Legacy raw cooked version 1 remains readable. Conversion is explicit source Undo
+history and rejects non-null legacy exit collisions. Source budget remains 256 KiB
+with 128 bytes of cooked envelope allowance. Scene/Prefab versions, physics private
+checkpoint 4 and installed native ABI/table/layout/fingerprint are unchanged.
