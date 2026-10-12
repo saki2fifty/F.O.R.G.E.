@@ -3,14 +3,18 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
+#include <forge/transform.hpp>
 #include <ozz/animation/runtime/animation.h>
 #include <ozz/animation/runtime/blending_job.h>
+#include <ozz/animation/runtime/ik_aim_job.h>
+#include <ozz/animation/runtime/ik_two_bone_job.h>
 #include <ozz/animation/runtime/local_to_model_job.h>
 #include <ozz/animation/runtime/sampling_job.h>
 #include <ozz/animation/runtime/skeleton.h>
 #include <ozz/base/io/archive.h>
 #include <ozz/base/io/stream.h>
 #include <ozz/base/maths/simd_math.h>
+#include <ozz/base/maths/simd_quaternion.h>
 #include <ozz/base/maths/soa_transform.h>
 namespace forge::animation_detail {
 static_assert(std::endian::native == std::endian::little,
@@ -420,6 +424,208 @@ std::vector<LocalPose> Sampler::local_pose() const {
             output.rotation = {values[3][lane], values[4][lane], values[5][lane], values[6][lane]};
             output.scale = {values[7][lane], values[8][lane], values[9][lane]};
         }
+    }
+    return result;
+}
+std::vector<Matrix> Sampler::constrain(const RigConstraints& constraints,
+                                       std::span<const LocalPoseOverride> base) {
+    if (!impl_->sampled)
+        throw ArchiveError("IK requires an evaluated animation pose");
+    std::vector<Matrix> result;
+    if (!base.empty()) {
+        if (base.size() != impl_->model.size())
+            throw ArchiveError("IK base pose differs from the exact skeleton");
+        for (std::size_t index = 0; index < base.size(); ++index) {
+            auto& soa = impl_->local[index / 4];
+            const auto lane = unsigned(index % 4);
+            const auto replace = [&](auto& field, float value) {
+                if (!std::isfinite(value))
+                    throw ArchiveError("IK base pose is nonfinite");
+                float lanes[4];
+                ozz::math::StorePtrU(field, lanes);
+                lanes[lane] = value;
+                field = ozz::math::simd_float4::LoadPtrU(lanes);
+            };
+            const auto& override = base[index];
+            if (override.channels & 1) {
+                replace(soa.translation.x, override.value.translation[0]);
+                replace(soa.translation.y, override.value.translation[1]);
+                replace(soa.translation.z, override.value.translation[2]);
+            }
+            if (override.channels & 2) {
+                replace(soa.rotation.x, override.value.rotation[0]);
+                replace(soa.rotation.y, override.value.rotation[1]);
+                replace(soa.rotation.z, override.value.rotation[2]);
+                replace(soa.rotation.w, override.value.rotation[3]);
+            }
+            if (override.channels & 4) {
+                replace(soa.scale.x, override.value.scale[0]);
+                replace(soa.scale.y, override.value.scale[1]);
+                replace(soa.scale.z, override.value.scale[2]);
+            }
+        }
+        result = evaluate_model();
+    }
+    const auto checked_matrix = [&](std::size_t index) -> const ozz::math::Float4x4& {
+        if (index >= impl_->model.size())
+            throw ArchiveError("IK joint is outside its exact skeleton");
+        const auto& matrix = impl_->model[index];
+        AffineTransform affine;
+        for (unsigned c = 0; c < 4; ++c) {
+            float lane[4];
+            ozz::math::StorePtrU(matrix.cols[c], lane);
+            for (unsigned r = 0; r < 3; ++r)
+                affine.m[r * 4 + c] = lane[r];
+        }
+        if (inverse_reciprocal_condition(affine) < min_inverse_rcond)
+            throw ArchiveError("IK transform inverse unavailable: singular or ill-conditioned");
+        ozz::math::SimdInt4 invertible;
+        const auto inverse = ozz::math::Invert(matrix, &invertible);
+        if (!ozz::math::AreAllTrue1(invertible))
+            throw ArchiveError("IK transform inverse unavailable in native precision");
+        for (const auto& column : inverse.cols) {
+            float values[4];
+            ozz::math::StorePtrU(column, values);
+            for (float value : values)
+                if (!std::isfinite(value))
+                    throw ArchiveError("IK native inverse is nonfinite");
+        }
+        // A native model-space rotation must remain a local rotation with scale
+        // preserved. Unequal scale or shear cannot satisfy that contract.
+        double lengths[3]{};
+        for (unsigned c = 0; c < 3; ++c)
+            for (unsigned r = 0; r < 3; ++r)
+                lengths[c] += double(affine.m[r * 4 + c]) * affine.m[r * 4 + c];
+        const auto largest = std::max({lengths[0], lengths[1], lengths[2]});
+        for (unsigned c = 0; c < 3; ++c) {
+            if (std::abs(lengths[c] - largest) > largest * 1e-5)
+                throw ArchiveError("IK requires uniform scale magnitudes on joint bases");
+            for (unsigned d = c + 1; d < 3; ++d) {
+                double dot = 0;
+                for (unsigned r = 0; r < 3; ++r)
+                    dot += double(affine.m[r * 4 + c]) * affine.m[r * 4 + d];
+                if (std::abs(dot) > largest * 1e-5)
+                    throw ArchiveError("IK cannot preserve a sheared joint basis");
+            }
+        }
+        return matrix;
+    };
+    const auto vector = [](const std::array<float, 3>& value) {
+        return ozz::math::simd_float4::Load(value[0], value[1], value[2], 0);
+    };
+    const auto stable_plane = [&](const auto& matrix, const auto& target, const auto& pole) {
+        float position[4];
+        ozz::math::StorePtrU(matrix.cols[3], position);
+        Double3 direction;
+        double length = 0, cross = 0, pole_length = 0;
+        for (unsigned i = 0; i < 3; ++i) {
+            direction[i] = double(target[i]) - position[i];
+            length += direction[i] * direction[i];
+            pole_length += double(pole[i]) * pole[i];
+        }
+        for (unsigned i = 0; i < 3; ++i) {
+            const auto v = direction[(i + 1) % 3] * pole[(i + 2) % 3] -
+                           direction[(i + 2) % 3] * pole[(i + 1) % 3];
+            cross += v * v;
+        }
+        if (!std::isfinite(length) || length < 1e-12 || cross < length * pole_length * 1e-8)
+            throw ArchiveError("IK target is too close or parallel to its pole direction");
+    };
+    const auto rotate = [&](std::size_t index, const auto& correction) {
+        auto& soa = impl_->local[index / 4];
+        const auto lane = unsigned(index % 4);
+        const auto pose = pose_lane(soa, lane);
+        float q[4];
+        ozz::math::StorePtrU(correction.xyzw, q);
+        // Conjugate through signed uniform scale: D Q D is a rotation, while
+        // R D Q alone would move a reflected local basis in the wrong direction.
+        const float sx = std::signbit(pose.scale[0]) ? -1.f : 1.f;
+        const float sy = std::signbit(pose.scale[1]) ? -1.f : 1.f;
+        const float sz = std::signbit(pose.scale[2]) ? -1.f : 1.f;
+        const auto magnitude =
+            std::max({std::abs(pose.scale[0]), std::abs(pose.scale[1]), std::abs(pose.scale[2])});
+        for (float scale : pose.scale)
+            if (std::abs(std::abs(scale) - magnitude) > magnitude * 1e-5f)
+                throw ArchiveError("IK cannot preserve nonuniform local scale");
+        q[0] *= sy * sz;
+        q[1] *= sx * sz;
+        q[2] *= sx * sy;
+        const auto result = root_compose(
+            {{}, {pose.rotation[0], pose.rotation[1], pose.rotation[2], pose.rotation[3]}},
+            {{}, {q[0], q[1], q[2], q[3]}});
+        auto replace = [&](auto& field, float value) {
+            float lanes[4];
+            ozz::math::StorePtrU(field, lanes);
+            lanes[lane] = value;
+            field = ozz::math::simd_float4::LoadPtrU(lanes);
+        };
+        replace(soa.rotation.x, float(result.rotation[0]));
+        replace(soa.rotation.y, float(result.rotation[1]));
+        replace(soa.rotation.z, float(result.rotation[2]));
+        replace(soa.rotation.w, float(result.rotation[3]));
+    };
+    if (constraints.reach) {
+        const auto& value = *constraints.reach;
+        const auto& start = checked_matrix(value.start);
+        const auto& middle = checked_matrix(value.middle);
+        const auto& end = checked_matrix(value.end);
+        stable_plane(start, value.target, value.pole);
+        for (const auto* from : {&start, &middle}) {
+            const auto* to = from == &start ? &middle : &end;
+            float a[4], b[4];
+            ozz::math::StorePtrU(from->cols[3], a);
+            ozz::math::StorePtrU(to->cols[3], b);
+            double length = 0;
+            for (unsigned i = 0; i < 3; ++i)
+                length += (double(a[i]) - b[i]) * (double(a[i]) - b[i]);
+            if (!std::isfinite(length) || length < 1e-12)
+                throw ArchiveError("IK chain contains a zero-length bone");
+        }
+        ozz::animation::IKTwoBoneJob job;
+        job.start_joint = &start;
+        job.mid_joint = &middle;
+        job.end_joint = &end;
+        job.target = vector(value.target);
+        job.pole_vector = vector(value.pole);
+        auto axis = value.axis;
+        const auto middle_pose = pose_lane(impl_->local[value.middle / 4], value.middle % 4);
+        const float sx = std::signbit(middle_pose.scale[0]) ? -1.f : 1.f;
+        const float sy = std::signbit(middle_pose.scale[1]) ? -1.f : 1.f;
+        const float sz = std::signbit(middle_pose.scale[2]) ? -1.f : 1.f;
+        axis[0] *= sy * sz;
+        axis[1] *= sx * sz;
+        axis[2] *= sx * sy;
+        job.mid_axis = vector(axis);
+        job.weight = value.weight;
+        job.soften = value.soften;
+        job.twist_angle = value.twist;
+        ozz::math::SimdQuaternion start_rotation, middle_rotation;
+        job.start_joint_correction = &start_rotation;
+        job.mid_joint_correction = &middle_rotation;
+        if (!job.Run())
+            throw ArchiveError("Native two-bone IK rejected its prepared inputs");
+        rotate(value.start, start_rotation);
+        rotate(value.middle, middle_rotation);
+        result = evaluate_model();
+    }
+    if (constraints.aim) {
+        const auto& value = *constraints.aim;
+        const auto& joint = checked_matrix(value.joint);
+        stable_plane(joint, value.target, value.pole);
+        ozz::animation::IKAimJob job;
+        job.joint = &joint;
+        job.target = vector(value.target);
+        job.pole_vector = vector(value.pole);
+        job.forward = vector(value.forward);
+        job.up = vector(value.up);
+        job.weight = value.weight;
+        job.twist_angle = value.twist;
+        ozz::math::SimdQuaternion correction;
+        job.joint_correction = &correction;
+        if (!job.Run())
+            throw ArchiveError("Native aim IK rejected its prepared inputs");
+        rotate(value.joint, correction);
+        result = evaluate_model();
     }
     return result;
 }

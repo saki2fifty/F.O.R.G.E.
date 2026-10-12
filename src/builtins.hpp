@@ -11,13 +11,13 @@
 #include <optional>
 #include <variant>
 namespace forge::detail {
-inline constexpr std::size_t builtin_count = 26;
-using Value =
-    std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
-                 PhysicsJoint, BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider,
-                 AssetCollider, CharacterController, AudioSource, AudioListener, Animator,
-                 TransformAnimator, NavigationSurface, NavigationAgent, UiDocument, MeshRenderer,
-                 ModelSource, Camera, Light, NodeVisibility, NodeSelectability>;
+inline constexpr std::size_t builtin_count = 28;
+using Value = std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive,
+                           PhysicsBody, PhysicsJoint, BoxCollider, SphereCollider, CapsuleCollider,
+                           CylinderCollider, AssetCollider, CharacterController, AudioSource,
+                           AudioListener, Animator, TransformAnimator, TwoBoneIK, AimIK,
+                           NavigationSurface, NavigationAgent, UiDocument, MeshRenderer,
+                           ModelSource, Camera, Light, NodeVisibility, NodeSelectability>;
 struct Builtin {
     const char* name;
     const char* description;

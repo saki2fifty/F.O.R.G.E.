@@ -1,5 +1,6 @@
 #pragma once
 #include "animation_archive.hpp"
+#include "animation_rig.hpp"
 #include <array>
 #include <memory>
 #include <optional>
@@ -13,6 +14,26 @@ struct LocalPose {
     std::array<float, 3> translation{}, scale{1, 1, 1};
     std::array<float, 4> rotation{0, 0, 0, 1};
 };
+struct LocalPoseOverride {
+    LocalPose value;
+    unsigned channels = 0; // Translation1, Rotation2, Scale4.
+};
+inline bool same_rig_base(std::span<const LocalPoseOverride> a,
+                          std::span<const LocalPoseOverride> b) {
+    if (a.size() != b.size())
+        return false;
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (a[i].channels != b[i].channels)
+            return false;
+        if ((a[i].channels & 1) && a[i].value.translation != b[i].value.translation)
+            return false;
+        if ((a[i].channels & 2) && a[i].value.rotation != b[i].value.rotation)
+            return false;
+        if ((a[i].channels & 4) && a[i].value.scale != b[i].value.scale)
+            return false;
+    }
+    return true;
+}
 // Instances can only be constructed through admission. Immutable after construction.
 class Skeleton {
   public:
@@ -66,6 +87,10 @@ class Sampler {
     // Copied directly from native sampled SoA lanes; valid after successful sample.
     // No matrix decomposition, including at zero or signed scale.
     std::vector<LocalPose> local_pose() const;
+    // Reuse the sampler's evaluated native matrices. Reach then aim; each active
+    // correction adds one model pass. Unconstrained sampling retains one pass.
+    std::vector<Matrix> constrain(const RigConstraints&,
+                                  std::span<const LocalPoseOverride> base = {});
     // Capture the unblended layer root and remove its translation/rotation before
     // the existing single LocalToModel pass. Animated scale remains unchanged.
     void root_motion_joint(std::optional<std::size_t> joint);

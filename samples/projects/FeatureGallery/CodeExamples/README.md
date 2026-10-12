@@ -158,3 +158,12 @@ to select an upper-body overlay without changing the playback phase. The actual
 native SDK integration fixture compiles and executes these helpers, including
 morph curves and fresh shared-worker recovery. Use the SDK from the same editor
 build and rebuild your module after updating FORGE.
+
+## Move a skeletal reach or aim target
+
+`SetRigTarget.hpp` updates an existing typed `forge::TwoBoneIK` or `forge::AimIK`
+from your ordinary fixed C++ System before Animation. Assign the durable bone
+references and enable the component first. Targets are skeleton model-space meters;
+the helper rejects missing components and nonfinite/out-of-profile coordinates.
+Choose nondegenerate target/pole directions. The matching native SDK fixture
+executes animated reach targets through real shared workers and recovery.

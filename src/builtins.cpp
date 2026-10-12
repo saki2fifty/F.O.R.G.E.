@@ -65,7 +65,31 @@ template <class T> Json encode(const T& p) {
                 {"play_on_start", p.play_on_start},
                 {"loop", p.loop},
                 {"playback_speed", p.playback_speed}};
-    else if constexpr (std::is_same_v<T, Animator>)
+    else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
+        Json value = {
+            {"enabled", p.enabled},   {"weight", p.weight},     {"twist_degrees", p.twist_degrees},
+            {"target_x", p.target_x}, {"target_y", p.target_y}, {"target_z", p.target_z},
+            {"pole_x", p.pole_x},     {"pole_y", p.pole_y},     {"pole_z", p.pole_z}};
+        const auto ref = [](auto value) { return value.id ? Json(value.id) : Json(); };
+        if constexpr (std::is_same_v<T, TwoBoneIK>) {
+            value["start"] = ref(p.start);
+            value["middle"] = ref(p.middle);
+            value["end"] = ref(p.end);
+            value["soften"] = p.soften;
+            value["axis_x"] = p.axis_x;
+            value["axis_y"] = p.axis_y;
+            value["axis_z"] = p.axis_z;
+        } else {
+            value["joint"] = ref(p.joint);
+            value["forward_x"] = p.forward_x;
+            value["forward_y"] = p.forward_y;
+            value["forward_z"] = p.forward_z;
+            value["up_x"] = p.up_x;
+            value["up_y"] = p.up_y;
+            value["up_z"] = p.up_z;
+        }
+        return value;
+    } else if constexpr (std::is_same_v<T, Animator>)
         return {{"skeleton", p.skeleton.id ? Json(p.skeleton.id) : Json()},
                 {"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"enabled", p.enabled},
@@ -222,6 +246,38 @@ template <class T> Value decode(const Json& p) {
         v.play_on_start = p.at("play_on_start");
         v.loop = p.at("loop");
         v.playback_speed = p.at("playback_speed");
+        return v;
+    } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
+        T v;
+        v.enabled = p.at("enabled");
+        v.weight = p.at("weight");
+        v.twist_degrees = p.at("twist_degrees");
+        v.target_x = p.at("target_x");
+        v.target_y = p.at("target_y");
+        v.target_z = p.at("target_z");
+        v.pole_x = p.at("pole_x");
+        v.pole_y = p.at("pole_y");
+        v.pole_z = p.at("pole_z");
+        const auto ref = [&](const char* name) {
+            return p.at(name).is_null() ? AssetId{} : p.at(name).get<AssetId>();
+        };
+        if constexpr (std::is_same_v<T, TwoBoneIK>) {
+            v.start = {ref("start")};
+            v.middle = {ref("middle")};
+            v.end = {ref("end")};
+            v.soften = p.at("soften");
+            v.axis_x = p.at("axis_x");
+            v.axis_y = p.at("axis_y");
+            v.axis_z = p.at("axis_z");
+        } else {
+            v.joint = {ref("joint")};
+            v.forward_x = p.at("forward_x");
+            v.forward_y = p.at("forward_y");
+            v.forward_z = p.at("forward_z");
+            v.up_x = p.at("up_x");
+            v.up_y = p.at("up_y");
+            v.up_z = p.at("up_z");
+        }
         return v;
     } else if constexpr (std::is_same_v<T, Animator>) {
         Animator v;
@@ -506,6 +562,35 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("play_on_start")
             .template member<bool>("loop")
             .template member<float>("playback_speed");
+    } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
+        register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
+        if constexpr (std::is_same_v<T, TwoBoneIK>)
+            c.template member<AssetRef<ModelNodeAsset>>("start")
+                .template member<AssetRef<ModelNodeAsset>>("middle")
+                .template member<AssetRef<ModelNodeAsset>>("end");
+        else
+            c.template member<AssetRef<ModelNodeAsset>>("joint");
+        c.template member<bool>("enabled").template member<float>("weight");
+        if constexpr (std::is_same_v<T, TwoBoneIK>)
+            c.template member<float>("soften");
+        c.template member<float>("twist_degrees")
+            .template member<float>("target_x")
+            .template member<float>("target_y")
+            .template member<float>("target_z")
+            .template member<float>("pole_x")
+            .template member<float>("pole_y")
+            .template member<float>("pole_z");
+        if constexpr (std::is_same_v<T, TwoBoneIK>)
+            c.template member<float>("axis_x")
+                .template member<float>("axis_y")
+                .template member<float>("axis_z");
+        else
+            c.template member<float>("forward_x")
+                .template member<float>("forward_y")
+                .template member<float>("forward_z")
+                .template member<float>("up_x")
+                .template member<float>("up_y")
+                .template member<float>("up_z");
     } else if constexpr (std::is_same_v<T, Animator>) {
         register_asset_ref<SkeletonAsset>(w, "forge.skeleton_ref");
         register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
@@ -762,6 +847,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             "forge.animator",
             "Skeletal animation with an optional two-clip blend; derived poses only", "unitless",
             {}, {}, [](flecs::world& w) { return register_type<Animator>(w, "forge.animator"); }),
+        descriptor<TwoBoneIK>(
+            "forge.two_bone_ik", "Reach a model-space target after skeletal mixing", "unitless", {},
+            {}, [](flecs::world& w) { return register_type<TwoBoneIK>(w, "forge.two_bone_ik"); }),
+        descriptor<AimIK>("forge.aim_ik", "Aim a joint at a model-space target after reach IK",
+                          "unitless", {}, {},
+                          [](flecs::world& w) { return register_type<AimIK>(w, "forge.aim_ik"); }),
         descriptor<NavigationSurface>(
             "forge.navigation_surface",
             "Include static primitive geometry when building navigation", "unitless", {}, {},
@@ -1180,6 +1271,36 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["unit"] = "meters";
         }
     }
+    if (name == "forge.two_bone_ik" || name == "forge.aim_ik") {
+        if (field == "start" || field == "middle" || field == "end" || field == "joint") {
+            value["asset_type"] = ModelNodeAsset::type;
+            value["nullable"] = true;
+            value["description"] = "Durable joint in this holder's exact imported skeleton";
+        } else if (field == "weight" || field == "soften") {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["description"] = field == "weight"
+                                       ? "Zero bypasses IK; one applies full correction"
+                                       : "Chain extension softening ratio";
+        } else if (field == "twist_degrees") {
+            value["minimum"] = -360;
+            value["maximum"] = 360;
+            value["unit"] = "degrees";
+        } else if (field.starts_with("target_")) {
+            value["minimum"] = -1000000;
+            value["maximum"] = 1000000;
+            value["unit"] = "meters";
+            value["description"] =
+                "Target coordinate in skeleton model space, before the holder transform";
+        } else if (field != "enabled") {
+            value["minimum"] = -10000;
+            value["maximum"] = 10000;
+            value["description"] =
+                field.starts_with("pole_")
+                    ? "Model-space pole direction; avoid alignment with the target"
+                    : "Local direction; normalized when preparing IK";
+        }
+    }
     if (name == "forge.animator" || name == "forge.transform_animator") {
         if (field == "blend_mode") {
             value["display_name"] = "Blend mode";
@@ -1470,8 +1591,10 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
             throw std::runtime_error("Native member metadata changed the typed component layout");
     }
     const std::string id = type.name;
-    const auto display =
-        id == "forge.ui_document" ? "UI Document" : friendly_name(id.substr(id.find('.') + 1));
+    const auto display = id == "forge.ui_document"   ? std::string("UI Document")
+                         : id == "forge.two_bone_ik" ? std::string("Two Bone IK")
+                         : id == "forge.aim_ik"      ? std::string("Aim IK")
+                                                     : friendly_name(id.substr(id.find('.') + 1));
     component.set_doc_name(display.c_str()).set_doc_brief(type.description);
     for (const auto& name : names) {
         auto member = component.lookup(name.c_str());
@@ -1510,10 +1633,12 @@ Json register_builtins(flecs::world& world, unsigned family) {
     for (const auto& type : builtins()) {
         const std::string name = type.name;
         const unsigned category =
-            name == "forge.ui_document"                                        ? 5u
-            : name.starts_with("forge.navigation_")                            ? 4u
-            : (name == "forge.animator" || name == "forge.transform_animator") ? 3u
-            : name.starts_with("forge.audio_")                                 ? 2u
+            name == "forge.ui_document"             ? 5u
+            : name.starts_with("forge.navigation_") ? 4u
+            : (name == "forge.animator" || name == "forge.transform_animator" ||
+               name == "forge.two_bone_ik" || name == "forge.aim_ik")
+                ? 3u
+            : name.starts_with("forge.audio_") ? 2u
             : (name == "forge.physics_body" || name == "forge.physics_joint" ||
                name == "forge.character_controller" || name.ends_with("_collider"))
                 ? 1u

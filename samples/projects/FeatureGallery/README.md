@@ -337,3 +337,12 @@ to the model's default shape. Open **MorphMix.states.json** in Content to edit t
 states and exits. Both scenes use FORGE's original **OverlayColumn.gltf**, with
 editable source and cooked animation/mesh data included. No optional C++ code is
 needed to run them.
+
+## Reach and aim
+
+**40-two-bone-ik** and **41-joint-aim** show three copies of the original column
+with weights0, .5 and1. Select the model holder and adjust its Two Bone IK or Aim IK
+component while stopped, then use Animator preview or Play. Targets are measured
+in the model's own space. The same saved scenes export with cooked model data and
+compiled engine constraints; no optional C++ code is needed. **SetRigTarget.hpp**
+shows how your own C++ can move the target. See the [walkthrough](../../../manual/editor/animation-rigging.md).

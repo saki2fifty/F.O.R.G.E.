@@ -3756,6 +3756,8 @@ int main(int argc, char** argv) {
                 case 254:
                 case 257:
                 case 260:
+                case 263:
+                case 266:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3773,6 +3775,8 @@ int main(int argc, char** argv) {
                 case 255:
                 case 258:
                 case 261:
+                case 264:
+                case 267:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3922,6 +3926,25 @@ int main(int argc, char** argv) {
                                 break;
                             }
                         component_inspector.fixture_focus_component = "forge.animator";
+                        workspace.inspector = true;
+                    }
+                    break;
+                case 262:
+                case 265:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        const bool aim = fixture.stage == 265;
+                        files.document.open_scene(aim ? "Scenes/41-joint-aim.scene.json"
+                                                      : "Scenes/40-two-bone-ik.scene.json");
+                        const std::string key = aim ? "forge.aim_ik" : "forge.two_bone_ik";
+                        const auto authored = scene.snapshot();
+                        for (const auto& row : authored.at("entities"))
+                            if (row.at("components").contains(key) &&
+                                row.at("components").at(key).at("weight") == 1) {
+                                selected = row.at("id").get<std::string>();
+                                break;
+                            }
+                        component_inspector.fixture_focus_component = key;
                         workspace.inspector = true;
                     }
                     break;
@@ -6464,6 +6487,21 @@ int main(int argc, char** argv) {
                                                      target.maximum.y <= target.clip_maximum.y;
                     }
                 }
+                if (fixture.root_motion && fixture.stage >= 262 && fixture.stage <= 267) {
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    const auto field = forge::test::ui_targets.find(
+                        fixture.stage <= 264 ? "component-field:forge.two_bone_ik:weight"
+                                             : "component-field:forge.aim_ik:weight");
+                    if (!w || field == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else
+                        captured_document_visible =
+                            captured_document_visible &&
+                            field->second.minimum.x >= field->second.clip_minimum.x &&
+                            field->second.maximum.x <= field->second.clip_maximum.x &&
+                            field->second.minimum.y >= field->second.clip_minimum.y &&
+                            field->second.maximum.y <= field->second.clip_maximum.y;
+                }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -6551,7 +6589,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 262)) {
+                        (fixture.root_motion && fixture.stage == 268)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
                             !fixture.audio_preview && !fixture.root_motion)

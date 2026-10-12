@@ -238,3 +238,17 @@ Windows rendering and physical listening remain separate acceptance work.
 - Original editable Gallery38/39 compare additive motion and automatic morph
   states. Their cooked data follows ordinary source-free export. The packaged C++
   mix example uses the matching SDK and existing typed component path.
+
+## Skeletal reach and aim
+
+- Optional Two Bone IK and Aim IK use durable imported bone references and the
+  existing skeletal animation owner. Adjustable targets, weights, bend/forward/up
+  directions, pole, twist and reach softening are reflected C++ values.
+- Constraints evaluate after skeletal mixing and before complete transform/physics
+  validation. Invalid bindings and unavailable inverse operations cannot partially
+  write a chain. Removal resets former owned rotations once; state interruptions
+  freeze the expression before constraints.
+- Original Gallery40/41 compare zero, half and full reach/aim and support normal
+  preview and export. `SetRigTarget.hpp` supplies a compiled C++ example.
+- Exact SDK fingerprint changes; modules need rebuilding. Native Windows visual
+  review and physical acceptance remain pending for the local bundle.

@@ -50,8 +50,9 @@ Animator skeleton must match the set. All clips are admitted before adoption,
 with exact rig/model checks and the union of explicit transform channels prepared
 once. Paths absent from that union retain ordinary authored values. Within the
 union, a missing clip channel uses its converter rest value. Morph-weight curves
-are diagnosed as unsupported for state sets; single-clip morph playback remains
-available.
+mix through the admitted node union/defaults, including interrupted fades; see
+[blending](animation-blending.md). Optional [reach/aim](animation-rigging.md)
+constraints apply after the mixed skeletal expression.
 
 A valid change takes effect on the next positive fixed tick. The incoming clip
 starts at zero. The outgoing clip retains its phase and advances with its own
@@ -65,8 +66,8 @@ until the fade finishes, then playback stops.
 The pinned Ozz sampler evaluates local TRS. A transition supplies outgoing weight
 `1-w` and incoming weight `w` to Ozz `BlendingJob`, followed by one LocalToModel
 job. Native quaternion keys and mixed rotations use normalized linear
-interpolation. Interrupted transitions freeze the current evaluated local pose
-and blend from that pose to a new incoming clip. This keeps continuity and
+interpolation. Interrupted transitions freeze the current evaluated local/morph
+expression before constraints and blend from it to a new incoming clip. This keeps continuity and
 bounds work to two layers, regardless of interruption count. No world-matrix
 interpolation or transform decomposition is introduced. Existing player/joint
 budgets, copied preview world, model instance bindings and complete-pose

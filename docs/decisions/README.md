@@ -28,6 +28,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [016](016-project-build.md) | Shared project intent, private machine state and explicit profiles |
 | [017](017-prefab-apply.md) | Coordinated prefab/scene Apply with recoverable publication and Scene history |
 | [018](018-animation-root-motion.md) | Fixed animation extraction with explicit entity or C++ movement authority |
+| [019](019-skeletal-constraints.md) | Reach and aim share the existing skeletal pose owner |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

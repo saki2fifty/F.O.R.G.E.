@@ -2,6 +2,7 @@
 #include "animation_morph_blend.hpp"
 #include "animation_playback_access.hpp"
 #include "animation_resource.hpp"
+#include "animation_rig_binding.hpp"
 #include "animation_root_motion.hpp"
 #include "animation_states_resource.hpp"
 #include "asset_bytes.hpp"
@@ -47,6 +48,13 @@ struct Playback {
     EntityRef reference;
     Pair assets, blend_assets;
     std::vector<AnimatedTransformChannel> transform_channels;
+    RigInputs rig_inputs;
+    RigConstraints rig, previous_rig;
+    std::vector<AnimatedTransformChannel> rig_channels, pose_channels;
+    std::vector<LocalPoseOverride> rig_base;
+    std::vector<unsigned> rig_base_mask;
+    bool rig_admitted = false;
+    std::optional<std::size_t> rig_motion_root;
     std::vector<float> blend_mask;
     std::vector<float> morph_mask;
     std::unique_ptr<Sampler> sampler, blend_sampler;
@@ -65,6 +73,16 @@ struct Playback {
         double phase = -1;
     };
     std::map<const Clip*, RootSamples> root_samples;
+};
+// Detached recovery preparation; these slots are adopted only after every
+// candidate clock/pose succeeds. No persistent binding cache is serialized.
+struct PreparedRig {
+    RigInputs inputs;
+    RigConstraints constraints;
+    std::vector<AnimatedTransformChannel> affected, channels;
+    std::vector<LocalPoseOverride> base;
+    std::vector<unsigned> mask;
+    std::optional<std::size_t> motion_root;
 };
 RootRigid root_rigid(const LocalPose& value) {
     RootRigid result;
@@ -188,7 +206,9 @@ MorphPose sample_morphs(const Playback& p, double time, double blend, double out
                                p.config.blend_mode == 1, p.morph_mask);
 }
 SampledPose sample_pose(Playback& p, double time, double blend, bool temporary = false,
-                        double outgoing_time = -1) {
+                        double outgoing_time = -1, const RigConstraints* constraints = nullptr,
+                        bool apply_constraints = true,
+                        const std::vector<LocalPoseOverride>* base = nullptr) {
     std::unique_ptr<Sampler> first, second;
     auto* sampler = p.sampler.get();
     auto* blend_sampler = p.blend_sampler.get();
@@ -230,6 +250,10 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
         model = blend_sampler ? sampler->sample_blended(ratio, *blend_sampler, float(blend),
                                                         p.blend_mask, p.config.blend_mode == 1)
                               : sampler->sample(ratio);
+    const auto& rig = constraints ? *constraints : p.rig;
+    const auto& rig_base = base ? *base : p.rig_base;
+    if (apply_constraints && (rig.reach || rig.aim || !rig_base.empty()))
+        model = sampler->constrain(rig, rig_base);
     return {std::move(model),        sampler->local_pose(),
             sampler->sampled_root(), blend_sampler ? blend_sampler->sampled_root() : std::nullopt,
             outgoing_root,           sample_morphs(p, time, blend, outgoing_time)};
@@ -290,7 +314,74 @@ RootRigid root_motion_delta(Playback& p, const SampledPose& pose, std::size_t jo
     return root_compose(root_compose(rest, incoming), root_inverse(rest));
 }
 const std::vector<AnimatedTransformChannel>& animated_channels(const Playback& p) {
-    return p.transform_channels;
+    return p.rig_admitted ? p.pose_channels : p.transform_channels;
+}
+std::vector<AnimatedTransformChannel> rig_channels(const Playback& p, const RigConstraints& rig) {
+    std::vector<AnimatedTransformChannel> result;
+    const auto add = [&](std::size_t joint) {
+        const auto node = p.assets.model.skeleton->joint_nodes.at(joint);
+        if (std::none_of(result.begin(), result.end(),
+                         [&](const auto& c) { return c.node == node; }))
+            result.push_back({node, AnimatedTransformPath::Rotation});
+    };
+    if (rig.reach) {
+        add(rig.reach->start);
+        add(rig.reach->middle);
+    }
+    if (rig.aim)
+        add(rig.aim->joint);
+    return result;
+}
+std::vector<AnimatedTransformChannel>
+channel_union(std::span<const AnimatedTransformChannel> first,
+              std::span<const AnimatedTransformChannel> second) {
+    std::vector<AnimatedTransformChannel> result(first.begin(), first.end());
+    for (const auto& value : second)
+        if (std::none_of(result.begin(), result.end(), [&](const auto& c) {
+                return c.node == value.node && c.path == value.path;
+            }))
+            result.push_back(value);
+    return result;
+}
+std::vector<unsigned> rig_base_mask(std::span<const std::size_t> nodes,
+                                    std::span<const AnimatedTransformChannel> channels) {
+    std::vector<unsigned> result(nodes.size(), 7);
+    for (const auto& channel : channels) {
+        const auto found = std::find(nodes.begin(), nodes.end(), channel.node);
+        if (found == nodes.end())
+            throw ArchiveError("IK channel has no admitted joint mapping");
+        result[std::size_t(found - nodes.begin())] &=
+            ~(channel.path == AnimatedTransformPath::Translation ? 1u
+              : channel.path == AnimatedTransformPath::Rotation  ? 2u
+                                                                 : 4u);
+    }
+    return result;
+}
+std::vector<AnimatedTransformChannel> former_rig_channels(const Playback& old,
+                                                          const Playback& next) {
+    if (old.rig_channels.empty())
+        return {};
+    if (old.assets.skeleton == next.assets.skeleton)
+        return old.rig_channels;
+    if (!old.assets.model || !next.assets.model ||
+        old.assets.model.skeleton->model != next.assets.model.skeleton->model)
+        return {};
+    const auto& before = old.assets.model.skeleton.get();
+    const auto& after = next.assets.model.skeleton.get();
+    std::vector<AnimatedTransformChannel> result;
+    for (const auto& channel : old.rig_channels) {
+        const auto source =
+            std::find(before.joint_nodes.begin(), before.joint_nodes.end(), channel.node);
+        if (source == before.joint_nodes.end())
+            continue;
+        const auto id = before.joint_assets.at(std::size_t(source - before.joint_nodes.begin()));
+        const auto target = std::find(after.joint_assets.begin(), after.joint_assets.end(), id);
+        if (target != after.joint_assets.end())
+            result.push_back(
+                {after.joint_nodes.at(std::size_t(target - after.joint_assets.begin())),
+                 channel.path});
+    }
+    return result;
 }
 } // namespace
 struct AnimationRuntime::Impl {
@@ -334,7 +425,8 @@ struct AnimationRuntime::Impl {
     void apply_model_poses(bool commit = true, const std::map<flecs::entity_t, double>& times = {},
                            flecs::entity_t only = 0,
                            const std::map<flecs::entity_t, double>& weights = {},
-                           std::optional<std::uint64_t> motion_tick = {}) {
+                           std::optional<std::uint64_t> motion_tick = {},
+                           std::map<flecs::entity_t, PreparedRig>* recovered_rigs = nullptr) {
         // One derived instance index per fixed tick. Native ChildOf lookup also
         // resolves Flecs Parent storage at the pinned revision. Nested roots are
         // boundaries, including roots belonging to another model.
@@ -407,9 +499,95 @@ struct AnimationRuntime::Impl {
                         "Reimport model animation to obtain durable nodes and channel intent");
                 if (ambiguous.contains(id))
                     throw ArchiveError("Model instance has duplicate source node identities");
+                RigInputs inputs;
+                if (root.has<TwoBoneIK>())
+                    inputs.reach = root.get<TwoBoneIK>();
+                if (root.has<AimIK>())
+                    inputs.aim = root.get<AimIK>();
+                struct RigCandidate {
+                    RigConstraints rig;
+                    std::vector<AnimatedTransformChannel> affected, channels, next_channels;
+                    bool layout_changed = true;
+                    std::vector<unsigned> mask, next_mask;
+                };
+                std::optional<RigCandidate> new_rig;
+                const auto motion_root = root_joint(playback);
+                if (!playback.rig_admitted || inputs != playback.rig_inputs ||
+                    playback.rig_motion_root != motion_root) {
+                    if (inputs.reach)
+                        detail::validate_reflected_value(root, *inputs.reach);
+                    if (inputs.aim)
+                        detail::validate_reflected_value(root, *inputs.aim);
+                    auto rig = bind_rig(*playback.assets.skeleton, skeleton.joint_assets, inputs,
+                                        motion_root, &playback.rig);
+                    new_rig.emplace();
+                    new_rig->layout_changed =
+                        !playback.rig_admitted || !same_rig_layout(playback.rig, rig);
+                    if (new_rig->layout_changed) {
+                        new_rig->affected = rig_channels(playback, rig);
+                        new_rig->next_channels =
+                            channel_union(playback.transform_channels, new_rig->affected);
+                        new_rig->channels =
+                            channel_union(new_rig->next_channels, playback.rig_channels);
+                        if (rig.reach || rig.aim || !playback.rig_channels.empty())
+                            new_rig->mask = rig_base_mask(skeleton.joint_nodes, new_rig->channels);
+                        if (rig.reach || rig.aim)
+                            new_rig->next_mask =
+                                rig_base_mask(skeleton.joint_nodes, new_rig->next_channels);
+                    }
+                    new_rig->rig = std::move(rig);
+                }
+                const auto& constraints = new_rig ? new_rig->rig : playback.rig;
+                const auto mandatory_joint = [&](std::size_t index) {
+                    if (!instances[id].contains(skeleton.joint_assets.at(index)))
+                        throw ArchiveError("IK chain joint is missing from this model instance");
+                };
+                if (constraints.reach) {
+                    mandatory_joint(constraints.reach->start);
+                    mandatory_joint(constraints.reach->middle);
+                    mandatory_joint(constraints.reach->end);
+                }
+                if (constraints.aim)
+                    mandatory_joint(constraints.aim->joint);
+                const auto& channels = new_rig && new_rig->layout_changed
+                                           ? new_rig->channels
+                                           : animated_channels(playback);
+                auto candidate = context.transform_nodes();
+                std::vector<LocalPoseOverride> base;
+                if (constraints.reach || constraints.aim || !playback.rig_channels.empty()) {
+                    base.resize(skeleton.joint_nodes.size());
+                    const auto& masks =
+                        new_rig && new_rig->layout_changed ? new_rig->mask : playback.rig_base_mask;
+                    const auto& parents = playback.assets.skeleton->info().parents;
+                    for (std::size_t j = 0; j < base.size(); ++j) {
+                        const auto target = instances[id].find(skeleton.joint_assets.at(j));
+                        if (target == instances[id].end())
+                            continue;
+                        const auto entity = context.world().entity(target->second);
+                        if (!candidate.contains(entity.id()))
+                            throw ArchiveError("IK model node has no local transform");
+                        const auto parent = parents.at(j);
+                        const auto expected =
+                            parent < 0
+                                ? id
+                                : instances[id].at(skeleton.joint_assets.at(std::size_t(parent)));
+                        if ((constraints.reach || constraints.aim) &&
+                            candidate.at(entity.id()).parent != expected)
+                            throw ArchiveError(
+                                "IK needs the admitted model's effective joint hierarchy");
+                        const auto local = context.get_local_transform(entity);
+                        base[j].value = {{float(local.translation.x), float(local.translation.y),
+                                          float(local.translation.z)},
+                                         {local.scale.x, local.scale.y, local.scale.z},
+                                         {local.rotation.x, local.rotation.y, local.rotation.z,
+                                          local.rotation.w}};
+                        base[j].channels = masks.at(j);
+                    }
+                }
                 const auto time = times.contains(id) ? times.at(id) : playback.time;
                 const auto weight = weights.contains(id) ? weights.at(id) : playback.blend;
-                const auto pose = sample_pose(playback, time, weight, !commit);
+                const auto pose =
+                    sample_pose(playback, time, weight, !commit, -1, &constraints, true, &base);
                 const auto& locals = pose.local;
                 struct Write {
                     flecs::entity entity;
@@ -417,7 +595,6 @@ struct AnimationRuntime::Impl {
                     unsigned channels = 0;
                 };
                 std::map<flecs::entity_t, Write> writes;
-                auto candidate = context.transform_nodes();
                 std::optional<AnimationRootMotion> motion;
                 if (const auto joint = root_joint(playback)) {
                     const auto target = instances[id].find(skeleton.joint_assets.at(*joint));
@@ -472,7 +649,7 @@ struct AnimationRuntime::Impl {
                         }
                     }
                 }
-                for (const auto& channel : animated_channels(playback)) {
+                for (const auto& channel : channels) {
                     const auto found = std::find(skeleton.joint_nodes.begin(),
                                                  skeleton.joint_nodes.end(), channel.node);
                     if (found == skeleton.joint_nodes.end())
@@ -513,8 +690,23 @@ struct AnimationRuntime::Impl {
                 (void)evaluate_transforms(candidate);
                 if (pose_validator)
                     pose_validator(candidate);
-                if (!commit)
+                if (!commit) {
+                    if (recovered_rigs &&
+                        (inputs.reach || inputs.aim || !playback.rig_channels.empty())) {
+                        const bool changed = new_rig && new_rig->layout_changed;
+                        PreparedRig prepared{
+                            inputs,
+                            constraints,
+                            changed ? new_rig->affected : playback.rig_channels,
+                            changed ? new_rig->next_channels : playback.pose_channels,
+                            constraints.reach || constraints.aim ? std::move(base)
+                                                                 : std::vector<LocalPoseOverride>{},
+                            changed ? new_rig->next_mask : playback.rig_base_mask,
+                            motion_root};
+                        recovered_rigs->emplace(id, std::move(prepared));
+                    }
                     continue;
+                }
                 // Allocate one observation node before any ECS write. Publishing
                 // an extracted node does not allocate or copy earlier actors.
                 decltype(root_motions)::node_type prepared_motion;
@@ -526,7 +718,9 @@ struct AnimationRuntime::Impl {
                     single.emplace(id, *motion);
                     prepared_motion = single.extract(id);
                 }
-                const bool snap = playback.discontinuous || binding_errors.contains(id);
+                const bool snap = playback.discontinuous || binding_errors.contains(id) ||
+                                  (new_rig && new_rig->layout_changed) ||
+                                  !same_rig_base(base, playback.rig_base);
                 std::optional<std::set<std::uint64_t>> prepared_discontinuities;
                 if (snap) {
                     // Prepare allocating bookkeeping before the first ECS write.
@@ -556,6 +750,21 @@ struct AnimationRuntime::Impl {
                     playback.previous_blend = playback.blend;
                 }
                 playback.model_pose_applied = true;
+                playback.rig_base = constraints.reach || constraints.aim
+                                        ? std::move(base)
+                                        : std::vector<LocalPoseOverride>{};
+                playback.previous_rig = motion_tick && !snap ? playback.rig : constraints;
+                if (new_rig) {
+                    playback.rig_inputs = std::move(inputs);
+                    playback.rig = std::move(new_rig->rig);
+                    if (new_rig->layout_changed) {
+                        playback.rig_channels = std::move(new_rig->affected);
+                        playback.pose_channels = std::move(new_rig->next_channels);
+                        playback.rig_base_mask = std::move(new_rig->next_mask);
+                    }
+                    playback.rig_admitted = true;
+                    playback.rig_motion_root = motion_root;
+                }
                 playback.discontinuous = false;
                 binding_errors.erase(id);
                 if (motion)
@@ -886,6 +1095,8 @@ struct AnimationRuntime::Impl {
             next.transform_channels = std::move(channels);
             next.morph_defaults = std::move(morph_defaults);
             next.reference = *context.reference(e.id());
+            if (old != states.end())
+                next.rig_channels = former_rig_channels(old->second, next);
             next.sampler = std::make_unique<Sampler>(next.assets.skeleton, next.assets.clip);
             next.blend = next.previous_blend = next.blend_from = 1;
             next.playing = automatic || requested.play_on_start;
@@ -897,7 +1108,8 @@ struct AnimationRuntime::Impl {
                 next.blend = next.previous_blend = next.blend_from = 0;
                 if ((old->second.definition && old->second.blend < 1) ||
                     old->second.blend_sampler) {
-                    auto pose = sample_pose(old->second, old->second.time, old->second.blend, true);
+                    auto pose = sample_pose(old->second, old->second.time, old->second.blend, true,
+                                            -1, nullptr, false);
                     next.frozen = std::move(pose.local);
                     next.frozen_morphs = std::move(pose.morphs);
                 } else {
@@ -1050,6 +1262,7 @@ struct AnimationRuntime::Impl {
                     next.config = config;
                     next.reference = old->second.reference;
                     next.assets = std::move(*assets);
+                    next.rig_channels = former_rig_channels(old->second, next);
                     if (!prepare_blend(next))
                         return;
                     const auto same = [](const Pair& a, const Pair& b) {
@@ -1240,12 +1453,14 @@ bool AnimationRuntime::prepare_initial_pose() {
     if (impl_->transforms.has_players() && !impl_->catalog_error.empty())
         throw ArchiveError("Transform animation catalog: " + impl_->catalog_error);
     if (!impl_->errors.empty())
-        throw ArchiveError("Scene preparation: invalid Animator asset configuration");
+        throw ArchiveError("Scene preparation: invalid Animator asset configuration: " +
+                           impl_->errors.begin()->second);
     if (!impl_->pending.empty())
         return false;
     impl_->apply_model_poses();
     if (!impl_->binding_errors.empty())
-        throw ArchiveError("Scene preparation: invalid Animator model binding");
+        throw ArchiveError("Scene preparation: invalid Animator model binding: " +
+                           impl_->binding_errors.begin()->second);
     return impl_->transforms.initial_pose();
 }
 void AnimationRuntime::prepare_preview_state() {
@@ -1277,6 +1492,7 @@ void AnimationRuntime::tick(float dt, std::uint64_t tick) {
         p.tick_begin = p.previous = p.time;
         p.tick_advance = 0;
         p.previous_blend = p.blend;
+        p.previous_rig = p.rig;
         p.advance = 0;
         p.outgoing_previous = p.outgoing_time;
         p.outgoing_advance = 0;
@@ -1557,6 +1773,7 @@ void AnimationRuntime::reset_presentation() {
         p.previous = p.time;
         p.advance = 0;
         p.previous_blend = p.blend;
+        p.previous_rig = p.rig;
         p.outgoing_previous = p.outgoing_time;
         p.outgoing_advance = 0;
         p.sampler->reset();
@@ -1578,14 +1795,29 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     auto time = p.previous + p.advance * alpha;
     if (p.config.loop)
         time = std::fmod(time, duration);
-    const double weight = p.previous_blend + (p.blend - p.previous_blend) * alpha;
+    double weight = p.previous_blend + (p.blend - p.previous_blend) * alpha;
     auto outgoing_time = p.outgoing_previous + p.outgoing_advance * alpha;
     if (p.outgoing_sampler) {
         const auto end = p.outgoing_assets.clip->info().duration;
         outgoing_time = p.outgoing_config.loop ? std::fmod(outgoing_time, end)
                                                : std::min(outgoing_time, double(end));
     }
-    auto pose = sample_pose(p, time, weight, false, outgoing_time);
+    const auto rig = interpolate_rig(p.previous_rig, p.rig, alpha);
+    auto pose = [&] {
+        try {
+            return sample_pose(p, time, weight, false, outgoing_time, &rig);
+        } catch (const ArchiveError&) {
+            if (alpha <= 0 || alpha >= 1 || (!p.rig.reach && !p.rig.aim))
+                throw;
+            // Valid fixed endpoints can bracket an unavailable intermediate
+            // inverse or bend plane. Present the admitted current fixed sample;
+            // never turn a smoothing failure into an invalid gameplay write.
+            time = p.time;
+            weight = p.blend;
+            outgoing_time = p.outgoing_time;
+            return sample_pose(p, time, weight, false, outgoing_time, &p.rig);
+        }
+    }();
     auto locals = Json::array();
     for (const auto& local : pose.local)
         locals.push_back({{"translation", local.translation},
@@ -1970,8 +2202,9 @@ void AnimationRuntime::restore(const Json& data) {
     };
     swap_sources();
     swap_players();
+    std::map<flecs::entity_t, PreparedRig> recovered_rigs;
     try {
-        impl_->apply_model_poses(false, times, 0, weights);
+        impl_->apply_model_poses(false, times, 0, weights, {}, &recovered_rigs);
     } catch (...) {
         swap_players();
         swap_sources();
@@ -2014,6 +2247,17 @@ void AnimationRuntime::restore(const Json& data) {
     for (const auto& [id, old_player] : prepared_players) {
         (void)old_player;
         impl_->context.world().entity(id).set<Animator>(impl_->states.at(id).requested);
+    }
+    for (auto& [id, rig] : recovered_rigs) {
+        auto& player = impl_->states.at(id);
+        player.rig_inputs = std::move(rig.inputs);
+        player.rig = player.previous_rig = rig.constraints;
+        player.rig_channels = std::move(rig.affected);
+        player.pose_channels = std::move(rig.channels);
+        player.rig_base = std::move(rig.base);
+        player.rig_base_mask = std::move(rig.mask);
+        player.rig_motion_root = rig.motion_root;
+        player.rig_admitted = true;
     }
     impl_->events.clear();
     impl_->event_candidates.clear();

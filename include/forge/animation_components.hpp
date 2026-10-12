@@ -41,4 +41,25 @@ struct Animator {
     std::uint32_t blend_mode = 0;
     bool operator==(const Animator&) const = default;
 };
+// Opt-in constraints on an imported model holder. Values are in skeleton model
+// space; C++ systems can update them before the existing Animation phase.
+struct TwoBoneIK {
+    AssetRef<ModelNodeAsset> start{}, middle{}, end{};
+    bool enabled = false;
+    float weight = 1, soften = 1, twist_degrees = 0;
+    float target_x = 1, target_y = 1, target_z = 0;
+    float pole_x = 0, pole_y = 1, pole_z = 0;
+    float axis_x = 0, axis_y = 0, axis_z = 1;
+    bool operator==(const TwoBoneIK&) const = default;
+};
+struct AimIK {
+    AssetRef<ModelNodeAsset> joint{};
+    bool enabled = false;
+    float weight = 1, twist_degrees = 0;
+    float target_x = 1, target_y = 0, target_z = 1;
+    float pole_x = 0, pole_y = 1, pole_z = 0;
+    float forward_x = 1, forward_y = 0, forward_z = 0;
+    float up_x = 0, up_y = 1, up_z = 0;
+    bool operator==(const AimIK&) const = default;
+};
 } // namespace forge

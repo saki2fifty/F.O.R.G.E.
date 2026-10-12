@@ -152,8 +152,9 @@ sanitizer, conversion and numeric sampling tests before the new pin is adopted.
 - [SHA-256 specification, FIPS180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final)
 
 The imported model path supports [root motion](animation-root-motion.md),
-two-clip blending, named states and skinned mesh rendering. General blend graphs,
-IK and retargeting remain separate work.
+two-clip blending, named states and skinned mesh rendering, plus bounded
+[two-bone reach and joint aim](animation-rigging.md). General rig/blend graphs,
+full-body IK and retargeting remain separate work.
 
 ### Matrix rest transforms in the legacy bridge
 
