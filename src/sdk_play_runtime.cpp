@@ -1,5 +1,6 @@
 #include "sdk_play_runtime.hpp"
 #include "audio_mix.hpp"
+#include "audio_source_access.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
 #include <algorithm>
@@ -962,7 +963,24 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& b
     s.prune_dead_effects();
 }
 Json SdkPlayRuntime::handle(const Json& request, RuntimeClock::Time now) {
-    return state_->enforce_response_size(handle_inner(request, now));
+    auto response = handle_inner(request, now);
+    if (response.value("ok", false) && request.contains("audio_source_watch")) {
+        const auto& watched = request.at("audio_source_watch");
+        try {
+            if (!state_->active_generation || !state_->game ||
+                !state_->game->active().engine.services().available(Capability::Audio))
+                throw std::runtime_error(
+                    "Source playback requires an active world with enabled audio");
+            response["audio_source"] =
+                AudioSourceAccess::status(*std::static_pointer_cast<AudioRuntime>(
+                                              state_->game->active().engine.services().audio()),
+                                          watched.get<EntityRef>());
+        } catch (const std::exception& error) {
+            response["audio_source"] = {
+                {"source", watched}, {"available", false}, {"error", error.what()}};
+        }
+    }
+    return state_->enforce_response_size(std::move(response));
 }
 Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
     auto& s = *state_;
@@ -1102,6 +1120,20 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             if (!s.game->active().engine.services().available(Capability::Audio))
                 return s.build_error(id, "Live audio mix requires enabled audio");
             s.game->mix_volumes(mix.master, mix.channels);
+            return s.snapshot_response(id);
+        }
+        if (command == "audio_source") {
+            if (!s.active_generation || !s.game || !request.contains("generation") ||
+                !is_unsigned_int(request.at("generation")) ||
+                request.at("generation").get<std::uint64_t>() != s.active_generation)
+                return s.build_error(id, "Source playback targets a stale world generation");
+            if (!request.at("play").is_boolean())
+                return s.build_error(id, "Source playback requires a boolean play value");
+            if (!s.game->active().engine.services().available(Capability::Audio))
+                return s.build_error(id, "Source playback requires enabled audio");
+            AudioSourceAccess::control(
+                *std::static_pointer_cast<AudioRuntime>(s.game->active().engine.services().audio()),
+                request.at("source").get<EntityRef>(), request.at("play").get<bool>());
             return s.snapshot_response(id);
         }
         if (command == "property_tune") {

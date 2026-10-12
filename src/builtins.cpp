@@ -92,7 +92,8 @@ template <class T> Json encode(const T& p) {
                 {"inner_angle", p.inner_angle},
                 {"outer_angle", p.outer_angle},
                 {"outer_gain", p.outer_gain},
-                {"bus", p.bus}};
+                {"bus", p.bus},
+                {"doppler", p.doppler}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController>)
@@ -256,6 +257,7 @@ template <class T> Value decode(const Json& p) {
         v.outer_angle = p.value("outer_angle", 120.f);
         v.outer_gain = p.value("outer_gain", .25f);
         v.bus = p.value("bus", 0u);
+        v.doppler = p.value("doppler", 0.f);
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
         if (v.outer_angle < v.inner_angle)
@@ -528,7 +530,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("inner_angle")
             .template member<float>("outer_angle")
             .template member<float>("outer_gain")
-            .template member<std::uint32_t>("bus");
+            .template member<std::uint32_t>("bus")
+            .template member<float>("doppler");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController>)
@@ -1099,6 +1102,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
                             "Spatialized controls positional sound independently"},
             {"rolloff", "Falloff strength: 1 is standard, 0 keeps loudness with distance while "
                         "preserving positional sound"},
+            {"doppler", "Motion pitch from completed game ticks: zero disables, one is normal. "
+                        "Relative source/listener motion changes pitch without restarting sound"},
             {"cone_enabled",
              "Project spatial sound toward the source's effective local negative Z; "
              "rotate the source or its parent to aim it"},
@@ -1144,6 +1149,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["display_name"] = "Falloff strength";
             value["minimum"] = 0;
             value["maximum"] = 10;
+        }
+        if (field == "doppler") {
+            value["display_name"] = "Doppler strength";
+            value["minimum"] = 0;
+            value["maximum"] = 5;
         }
         if (field.ends_with("distance")) {
             value["minimum"] = .001;
@@ -1596,7 +1606,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")
         for (const auto* field : {"attenuation", "rolloff", "cone_enabled", "inner_angle",
-                                  "outer_angle", "outer_gain", "bus"})
+                                  "outer_angle", "outer_gain", "bus", "doppler"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

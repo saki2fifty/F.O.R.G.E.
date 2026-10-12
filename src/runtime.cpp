@@ -282,13 +282,17 @@ void RuntimeSimulation::tick(float dt) {
     if (stage_error_)
         std::rethrow_exception(stage_error_);
     poses_.capture(context_.transform_nodes());
-    if (animation_)
-        for (auto id : animation_->take_discontinuities())
-            poses_.snap(id);
-    sync_audio();
-    if (physics_)
-        for (auto id : physics_->take_discontinuities())
-            poses_.snap(id);
+    auto discontinuities =
+        animation_ ? animation_->take_discontinuities() : std::vector<std::uint64_t>{};
+    if (physics_) {
+        const auto physics_discontinuities = physics_->take_discontinuities();
+        discontinuities.insert(discontinuities.end(), physics_discontinuities.begin(),
+                               physics_discontinuities.end());
+    }
+    for (auto id : discontinuities)
+        poses_.snap(id);
+    if (audio_)
+        audio_->synchronize(input_tick_, dt, discontinuities);
 }
 void RuntimeSimulation::audio_paused(bool value) {
     if (audio_)

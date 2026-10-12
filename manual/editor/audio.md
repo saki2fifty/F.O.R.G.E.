@@ -74,6 +74,7 @@ Start with a comfortable speaker/headphone volume. The example is a quiet, four-
 - **Gain:** linear volume. `0` is silent, `1` is nominal; the supported range is `0–4`. Values above `1` amplify and may clip when mixed.
 - **Pitch:** playback speed and pitch together; `1` is normal, `0.25–4` is supported. This is not independent time stretching.
 - **Spatialized:** enable positioning and distance attenuation. Disable it for ordinary stereo playback that needs no listener or transform.
+- **Doppler strength:** `0–5`, default `0` (off). With Spatialized enabled, movement toward the listener raises pitch and movement away lowers it. `1` gives the ordinary effect; larger values exaggerate it. Listener movement also affects the sound. Teleports and animation loop jumps do not create a pitch spike.
 - **Minimum distance / Maximum distance:** meters. Distance is clamped to these limits. Maximum is not a universal mute radius. Maximum must be at least minimum; equal limits disable distance loss.
 
 - **Distance falloff:** choose **Inverse**, **Linear**, or **Exponential**. Inverse is the default. Linear at strength1 fades to silence at maximum; the other curves can remain audible there.
@@ -128,6 +129,26 @@ To check positioning, Stop, move the source to either side of the listener, and 
 Create a prefab from an entity with AudioSource, then instantiate it twice. Edit the prefab source to change defaults. Instances follow successfully published changes unless they override the property. Gain, clip, loop, and other source properties can have independent override intent, including an override equal to the current default.
 
 Use the existing prefab property **Revert** controls or the component header’s **Remove component / Revert component** to return to inheritance. Scene edits and Revert participate in scene Undo/Redo. Direct prefab source publication has the existing separate history boundary; it is not undone by scene Undo.
+
+## Start or stop a source during Play
+
+Select an entity with an Audio Source while Play is active. The tinted **Live
+sound** section above the authored Inspector shows whether that source is playing,
+paused or stopped, along with its duration and loop setting.
+
+Click **Play / Restart** to start it from the beginning, or **Stop sound** to stop
+that source. These buttons work when **Play On Start** is off. Paused Play remains
+silent and does not advance game time; Resume lets a restarted sound play.
+Controls wait for the current source status and briefly disable while applying.
+
+These are temporary playback commands. They do not edit saved scene values.
+Stopping game Play and starting again restores the saved autoplay settings.
+
+Try **35 — Moving audio** in the Feature Gallery. The Doppler emitter and a
+comparison emitter travel together past the camera/listener. Only Doppler starts
+automatically. Stop it using **Live sound**, then select the comparison emitter
+and start it to hear the same movement without pitch changes. Save the scene and
+export it to test the automatic moving sound in a standalone game.
 
 ## Registered clips
 

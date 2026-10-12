@@ -20,6 +20,8 @@ class AudioRuntime : public AudioService {
     ~AudioRuntime() override;
     void shutdown() noexcept;
     void synchronize(std::uint64_t tick);
+    void synchronize(std::uint64_t tick, float fixed_delta,
+                     std::span<const std::uint64_t> discontinuities = {});
     void paused(bool value);
     void master_volume(float value);
     void mix_volumes(float master, const std::array<float, 3>& channels);
@@ -31,6 +33,7 @@ class AudioRuntime : public AudioService {
 
   private:
     friend struct AudioPreviewAccess;
+    friend struct AudioSourceAccess;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };

@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v2",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "2935800e8266b28bfec2fc685a78771edc9353a6c1b91468eccfe95d7ddd63f8",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "8e4f9375-8d84-4251-9dbe-31f51cc8dbcd",
+    "source": "Assets/DopplerPass.animation.json",
+    "source_digest": "2935800e8266b28bfec2fc685a78771edc9353a6c1b91468eccfe95d7ddd63f8",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

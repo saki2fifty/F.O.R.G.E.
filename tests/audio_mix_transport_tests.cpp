@@ -1,8 +1,10 @@
 #include "editor/play.hpp"
 #include <SDL3/SDL.h>
+#include <forge/assets.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
+#include <fstream>
 #include <iostream>
 using namespace forge;
 namespace {
@@ -56,7 +58,43 @@ int main(int argc, char** argv) {
         auto project = settings;
         project["game"] = default_game_settings("org.forge.audio-mix-test", "Live audio mix test");
         atomic_write(root / "forge.project.json", project.dump(2));
-        const Json authored{{"version", 1}, {"entities", Json::array()}};
+        {
+            std::ofstream out(root / "tone.wav", std::ios::binary);
+            auto word = [&](std::uint32_t value, unsigned bytes) {
+                for (unsigned i = 0; i < bytes; ++i)
+                    out.put(char(value >> (i * 8)));
+            };
+            out.write("RIFF", 4);
+            word(36 + 96000, 4);
+            out.write("WAVEfmt ", 8);
+            word(16, 4);
+            word(1, 2);
+            word(1, 2);
+            word(48000, 4);
+            word(96000, 4);
+            word(2, 2);
+            word(16, 2);
+            out.write("data", 4);
+            word(96000, 4);
+            for (unsigned i = 0; i < 48000; ++i)
+                word(std::uint16_t(std::int16_t(2000 * std::sin(i * .06))), 2);
+        }
+        const auto clip = AssetCatalog::register_audio_clip(root, "tone.wav");
+        const EntityRef source{AssetId::generate(), EntityId::generate()};
+        const Json authored{{"version", 3},
+                            {"asset_id", source.scene},
+                            {"entities", Json::array({{{"id", source.entity},
+                                                       {"name", "Speaker"},
+                                                       {"components",
+                                                        {{"forge.audio_source",
+                                                          {{"clip", clip.id},
+                                                           {"play_on_start", true},
+                                                           {"loop", true},
+                                                           {"gain", 1},
+                                                           {"pitch", 1},
+                                                           {"spatialized", false},
+                                                           {"minimum_distance", 1},
+                                                           {"maximum_distance", 100}}}}}}})}};
         const bool shared = std::string_view(FORGE_NATIVE_SDK_PROFILE) == "shared-native-sdk";
         for (bool sdk : {false, true}) {
             if (sdk && !shared)
@@ -71,7 +109,11 @@ int main(int argc, char** argv) {
                     play.pump();
                     SDL_Delay(1);
                 }
-                require(done(), "Audio mix transport timeout: " + play.status() + " " + play.log());
+                require(done(), "Audio mix transport timeout: " + play.status() + " sdk=" +
+                                    std::to_string(sdk) + " ready=" + std::to_string(play.ready()) +
+                                    " audio=" + play.audio_status().dump() +
+                                    " source=" + play.audio_source_status().dump() + " " +
+                                    play.audio_source_error() + " " + play.log());
             };
             const Json mix{{"master_volume", .25}, {"channel_volumes", {.5, 0, .75}}};
             require(!play.submit_audio_mix(mix), "Stopped Play accepted live tuning");
@@ -98,9 +140,52 @@ int main(int argc, char** argv) {
                         play.audio_status().at("paused") == true &&
                         play.timing().at("tick") == tick && play.snapshot() == before,
                     "Actual transport changed paused scene/clock or lost mixer values");
+            play.watch_audio_source(source);
+            wait([&] {
+                return play.audio_source_status().is_object() &&
+                       play.audio_source_status().value("available", false);
+            });
+            require(play.audio_source_status().at("playing") == true,
+                    "Source watch did not observe actual autoplay voice");
+            require(play.submit_audio_source(false) && play.audio_source_pending(),
+                    "Manual source Stop was not queued");
+            require(!play.submit_audio_mix(mix), "Source control allowed a competing mix request");
+            wait([&] {
+                return !play.audio_source_pending() &&
+                       play.audio_source_status().at("playing") == false;
+            });
+            require(play.submit_audio_source(true), "Manual source restart was not queued");
+            wait([&] {
+                return !play.audio_source_pending() &&
+                       play.audio_source_status().at("playing") == true;
+            });
+            require(play.timing().at("tick") == tick && play.snapshot() == before &&
+                        play.audio_source_status().at("paused") == true,
+                    "Manual source controls advanced paused game or changed authored data");
+            const EntityRef missing{source.scene, EntityId::generate()};
+            play.watch_audio_source(missing);
+            wait([&] {
+                return play.control_ready() && play.audio_source_status().is_object() &&
+                       !play.audio_source_status().value("available", true);
+            });
+            require(play.submit_audio_source(false), "Stale source rejection was not exercised");
+            wait([&] { return play.control_ready() && !play.audio_source_error().empty(); });
+            require(play.active() && play.audio_status().at("voices") == 1,
+                    "Rejected source control destroyed the healthy session");
+            play.watch_audio_source(source);
+            wait([&] {
+                return play.control_ready() && play.audio_source_status().is_object() &&
+                       play.audio_source_status().value("available", false);
+            });
+            require(play.submit_audio_source(true), "Source rejection prevented valid retry");
+            wait([&] {
+                return !play.audio_source_pending() &&
+                       play.audio_source_status().at("playing") == true;
+            });
             play.stop();
             require(play.audio_status().empty() && !play.audio_mix_pending() &&
-                        play.audio_mix_error().empty(),
+                        play.audio_mix_error().empty() && play.audio_source_status().is_null() &&
+                        play.audio_source_error().empty(),
                     "Play teardown retained live mix transport state");
             require(ProjectSettings(root).document() == project,
                     "Live tuning changed the saved project defaults");

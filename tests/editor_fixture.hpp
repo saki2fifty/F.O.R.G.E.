@@ -110,6 +110,8 @@ struct EditorFixture {
             return "Project Settings###Project Settings";
         if (audio_mixer && stage >= 241 && stage <= 243)
             return "Project Settings###Project Settings";
+        if (audio_mixer && stage >= 244 && stage <= 249)
+            return "Inspector";
         if (audio_cones && stage >= 223 && stage <= 225)
             return "Inspector";
         if (audio_cones && stage >= 226 && stage <= 228)
@@ -625,7 +627,13 @@ struct EditorFixture {
                                "audio-import-processing-200",
                                "live-audio-mix",
                                "live-audio-mix-150",
-                               "live-audio-mix-200"};
+                               "live-audio-mix-200",
+                               "audio-doppler",
+                               "audio-doppler-150",
+                               "audio-doppler-200",
+                               "live-audio-source",
+                               "live-audio-source-150",
+                               "live-audio-source-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

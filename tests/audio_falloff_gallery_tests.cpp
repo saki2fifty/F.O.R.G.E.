@@ -1,6 +1,8 @@
 #include "audio_selection.hpp"
+#include "audio_source_access.hpp"
 #include "runtime_package.hpp"
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <forge/audio.hpp>
 #include <forge/authoring.hpp>
@@ -8,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <set>
+#include <thread>
 #include <vector>
 using namespace forge;
 namespace {
@@ -31,6 +34,25 @@ double power(AudioRuntime& audio) {
     }
     return sum / samples.size();
 }
+double frequency(AudioRuntime& audio) {
+    std::vector<float> warm(4096 * 2), samples(48000 * 2);
+    audio.read_offline(warm);
+    audio.read_offline(samples);
+    unsigned count = 0, first = 0, last = 0;
+    double previous = samples[0] + samples[1];
+    for (unsigned frame = 1; frame < 48000; ++frame) {
+        const double value = double(samples[frame * 2]) + samples[frame * 2 + 1];
+        require(std::isfinite(value), "Exported motion produced nonfinite PCM");
+        if (previous <= 0 && value > 0) {
+            if (count++ == 0)
+                first = frame;
+            last = frame;
+        }
+        previous = value;
+    }
+    require(count > 100 && last > first, "Exported motion/reference is silent");
+    return double(count - 1) * 48000 / (last - first);
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -44,10 +66,12 @@ int main(int argc, char** argv) {
         const auto mix_source = read(project / "Scenes/33-audio-mixer.scene.json");
         const auto processing_source =
             read(project / "Scenes/34-audio-import-processing.scene.json");
+        const auto motion_source = read(project / "Scenes/35-moving-audio.scene.json");
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                cone_source.at("asset_id").get<AssetId>(),
                                mix_source.at("asset_id").get<AssetId>(),
-                               processing_source.at("asset_id").get<AssetId>()};
+                               processing_source.at("asset_id").get<AssetId>(),
+                               motion_source.at("asset_id").get<AssetId>()};
         const auto clip = AssetId::parse("327101c1-e496-4293-b830-4c25b978607a");
         EngineContext author;
         Scene author_scene(author.world());
@@ -242,6 +266,64 @@ int main(int argc, char** argv) {
             simulation.tick(1.f / 60);
             auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
             require(power(*audio) > .001, "Source-free processed gallery did not play cooked PCM");
+        }
+        {
+            const auto shipped_motion = read(relocated / catalog.records().at(roots[4]).source);
+            require(shipped_motion == motion_source,
+                    "Moving audio export changed authored identity/settings");
+            EngineContext engine(WorldRole::Runtime, false,
+                                 {audio_module({relocated, AudioOutput::Offline, true}),
+                                  animation_module(relocated)});
+            Scene scene(engine.world());
+            RuntimeSimulation simulation(engine.world(), scene);
+            scene.restore_snapshot(shipped_motion);
+            const auto animation = animation_runtime(engine.world());
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+            while (!animation->prepare_initial_pose()) {
+                require(std::chrono::steady_clock::now() < deadline,
+                        "Exported moving clip failed initial readiness");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            simulation.reset_presentation();
+            simulation.sync_audio();
+            simulation.audio_paused(false);
+            auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            EntityRef doppler{}, reference{};
+            for (const auto& row : shipped_motion.at("entities")) {
+                auto entity = scene.entity(row.at("id"));
+                if (!entity.has<AudioSource>())
+                    continue;
+                const auto config = entity.get<AudioSource>();
+                require(config.clip.id == clip && config.spatialized && config.loop,
+                        "Moving audio export lost original cooked source/route");
+                (config.doppler > 0 ? doppler : reference) =
+                    engine.world().reference(entity.id()).value();
+            }
+            constexpr float dt = 1.f / 60;
+            simulation.tick(dt);
+            simulation.tick(dt);
+            const auto approaching = frequency(*audio);
+            const auto before = scene.snapshot();
+            const auto tick = audio->status().at("tick");
+            AudioSourceAccess::control(*audio, doppler, false);
+            AudioSourceAccess::control(*audio, reference, true);
+            const auto nominal = frequency(*audio);
+            if (!(approaching > nominal * 1.02 && scene.snapshot() == before &&
+                  audio->status().at("tick") == tick))
+                std::cerr << "Moving gallery: approaching=" << approaching << " nominal=" << nominal
+                          << " same_scene=" << (scene.snapshot() == before)
+                          << " same_tick=" << (audio->status().at("tick") == tick) << '\n';
+            require(approaching > nominal * 1.02 && scene.snapshot() == before &&
+                        audio->status().at("tick") == tick,
+                    "Source-free animation/Doppler or manual source isolation failed");
+            AudioSourceAccess::control(*audio, reference, false);
+            AudioSourceAccess::control(*audio, doppler, true);
+            for (unsigned i = 2; i < 60; ++i)
+                simulation.tick(dt);
+            require(std::abs(frequency(*audio) - nominal) < .5,
+                    "Animation loop failed to reset dependent emitter motion");
+            require(audio->status().at("voices") == 2 && audio->status().at("clips") == 1,
+                    "Moving scene replaced the existing voices or shared decoded clip");
         }
         std::filesystem::remove_all(scratch);
         std::cout << "Original Gallery31 cooked audio/identity and three falloff modes play "

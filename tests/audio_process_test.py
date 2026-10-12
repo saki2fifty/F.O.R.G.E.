@@ -43,6 +43,21 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   initial=worker.request('replace',scene=scene)
   assert initial['audio']['paused'] and initial['audio']['voices']==1
   assert 'audio' not in initial['scene'] and 'audio' not in initial['recovery']
+  ref=dict(scene=scene_id,entity=entity_id)
+  watched=worker.request('snapshot',audio_source_watch=ref)
+  assert watched['audio_source']['available'] and watched['audio_source']['playing']
+  stopped=worker.request('audio_source',source=ref,play=False,audio_source_watch=ref)
+  assert not stopped['audio_source']['playing'] and stopped['audio_source']['paused']
+  restarted=worker.request('audio_source',source=ref,play=True,audio_source_watch=ref)
+  assert restarted['audio_source']['playing'] and restarted['audio_source']['paused']
+  assert restarted['timing']['tick']==initial['timing']['tick'] and restarted['scene']==initial['scene']
+  for fields in (dict(source=ref,play=1),dict(source=dict(scene=scene_id,entity=clip_id),play=False)):
+   try:worker.request('audio_source',**fields)
+   except AssertionError:pass
+   else:raise AssertionError('Invalid audio source control accepted')
+   assert worker.request('snapshot',audio_source_watch=ref)['audio_source']['playing']
+  missing=worker.request('snapshot',audio_source_watch=dict(scene=scene_id,entity=clip_id))
+  assert not missing['audio_source']['available'] and missing['audio']['voices']==1
   mix=dict(master_volume=.25,channel_volumes=[.5,0,.75])
   mixed=worker.request('audio_mix',mix=mix)
   assert mixed['audio']['master_volume']==.25 and mixed['audio']['channel_volumes']==[.5,0,.75]

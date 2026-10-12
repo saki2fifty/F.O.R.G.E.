@@ -1,0 +1,54 @@
+{
+  "format": "forge.transform-animation",
+  "version": 1,
+  "asset_id": "8e4f9375-8d84-4251-9dbe-31f51cc8dbcd",
+  "timebase": 1000000,
+  "duration_us": 1000000,
+  "channels": [
+    "forge.local_translation"
+  ],
+  "keys": [
+    {
+      "id": "51e3cce3-a1e7-44a1-83c0-5be6f9017c31",
+      "time_us": 0,
+      "interpolation": "linear",
+      "translation": [
+        -12.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    {
+      "id": "1d377004-5c74-46f6-b5a4-bb88986a5072",
+      "time_us": 1000000,
+      "interpolation": "linear",
+      "translation": [
+        12.0,
+        1.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  ]
+}

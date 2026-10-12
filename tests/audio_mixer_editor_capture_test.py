@@ -17,7 +17,9 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-mixer-captur
     assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
     for label in ('audio-mix-channel', 'audio-mix-channel-150', 'audio-mix-channel-200',
                   'audio-mix-volumes', 'audio-mix-volumes-150', 'audio-mix-volumes-200',
-                  'live-audio-mix', 'live-audio-mix-150', 'live-audio-mix-200'):
+                  'live-audio-mix', 'live-audio-mix-150', 'live-audio-mix-200',
+                  'audio-doppler', 'audio-doppler-150', 'audio-doppler-200',
+                  'live-audio-source', 'live-audio-source-150', 'live-audio-source-200'):
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
 print('Native channel routing and project mixer controls captured at100/150/200%')

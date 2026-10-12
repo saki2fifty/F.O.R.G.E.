@@ -215,6 +215,22 @@ void live_audio_mix_controls() {
               applied.at("timing").at("paused") == true &&
               applied.at("scene") == before.at("scene"),
           "SDK live mix changed paused clock/scene or missed existing mixer");
+    const EntityRef missing_source{before.at("scene").at("asset_id").get<AssetId>(),
+                                   EntityId::generate()};
+    for (const auto& fields :
+         {Json{{"generation", generation.get<std::uint64_t>() + 1},
+               {"source", missing_source},
+               {"play", true}},
+          Json{{"source", missing_source}, {"play", true}},
+          Json{{"generation", generation}, {"source", missing_source}, {"play", 1}},
+          Json{{"generation", generation}, {"source", missing_source}, {"play", true}}})
+        check(!request("audio_source", fields).value("ok", false),
+              "Invalid generation, boolean or missing source was accepted");
+    const auto watched = request("snapshot", {{"audio_source_watch", missing_source}});
+    check(watched.value("ok", false) && watched.at("audio_source").at("available") == false &&
+              watched.at("scene") == before.at("scene") &&
+              watched.at("timing").at("tick") == before.at("timing").at("tick"),
+          "Unavailable source observation damaged SDK snapshot or advanced paused time");
     for (const auto& fields :
          {Json{{"generation", generation.get<std::uint64_t>() + 1}, {"mix", mix}},
           Json{{"mix", mix}},

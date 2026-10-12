@@ -7,8 +7,8 @@ import sys
 import uuid
 
 project_root = Path(sys.argv[2])
-project = json.loads((project_root / 'forge.project.json').read_text())
-assets = json.loads((project_root / 'forge.assets.json').read_text())['assets']
+project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
+assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Frame.mesh.json', 'mesh.bin'),
@@ -33,11 +33,12 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Platform.animation.json', 'animation.clip'),
                        ('Assets/EasedPlatform.animation.json', 'animation.clip'),
                        ('Assets/ArcPlatform.animation.json', 'animation.clip'),
+                       ('Assets/DopplerPass.animation.json', 'animation.clip'),
                        ('Assets/BatchOriginal.animation.json', 'animation.clip'),
                        ('Assets/BatchShifted.animation.json', 'animation.clip'),
                        ('Assets/BatchRepeated.animation.json', 'animation.clip')):
     asset = by_source[source]
-    assert json.loads((project_root / source).read_text())['asset_id'] == asset['id']
+    assert json.loads((project_root / source).read_text(encoding="utf-8"))['asset_id'] == asset['id']
     assert (project_root / '.forge/cache/derived' /
             asset['metadata']['forge.import']['key'] / cooked).is_file()
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
@@ -47,14 +48,14 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
 assert project['startup_scene']['source'] == 'Scenes/' + scenes[0].name
 
 process = subprocess.Popen([sys.argv[1], '--stdio'], stdin=subprocess.PIPE,
-                           stdout=subprocess.PIPE, text=True)
+                           stdout=subprocess.PIPE, text=True, encoding="utf-8")
 
 def call(method, **fields):
     process.stdin.write(json.dumps(dict(api=1, method=method, **fields)) + '\n')
@@ -87,7 +88,7 @@ try:
     context = call('discover')['result']
     all_ids = set()
     for path in scenes:
-        source = json.loads(path.read_text())
+        source = json.loads(path.read_text(encoding="utf-8"))
         assert source['version'] == 3
         assert str(uuid.UUID(source['asset_id'])) == source['asset_id']
         assert source['asset_id'] not in all_ids
@@ -113,6 +114,7 @@ try:
                 sound.setdefault('outer_angle', 120.)
                 sound.setdefault('outer_gain', .25)
                 sound.setdefault('bus', 0)
+                sound.setdefault('doppler', 0.)
             body = row['components'].get('forge.physics_body')
             if body is not None:
                 body.setdefault('continuous_collision', False)
@@ -215,7 +217,7 @@ try:
                       for row in loaded['entities']
                       if 'forge.mesh_renderer' in row['components']]
             assert meshes == [by_source['Assets/PaintedSphere.mesh.json']['id']]
-            painted = json.loads((project_root / 'Assets/PaintedSphere.mesh.json').read_text())
+            painted = json.loads((project_root / 'Assets/PaintedSphere.mesh.json').read_text(encoding="utf-8"))
             assert all('color' in vertex for vertex in painted['vertices'])
         if path.name.startswith('08-'):
             movers = [row['components']['forge.transform_animator'] for row in loaded['entities']
@@ -241,7 +243,7 @@ try:
             assert sorted(p['state'] for p in players) == [1, 2, 3]
             states = by_source['Assets/Locomotion.states.json']
             assert all(p['states'] == states['id'] for p in players)
-            graph = json.loads((project_root/states['source']).read_text())
+            graph = json.loads((project_root/states['source']).read_text(encoding="utf-8"))
             assert [(s['id'], s['name']) for s in graph['states']] == [(1, 'Idle'), (2, 'Walk'), (3, 'Run')]
             assert (project_root/'Assets/Quaternius-LICENSE.txt').is_file()
             assert (project_root/'Assets/QuaterniusLocomotion.glb').is_file()
@@ -256,7 +258,7 @@ try:
             assert sorted(p['state'] for p in players) == [1, 2, 3]
             states = by_source['Assets/TimedLocomotion.states.json']
             assert all(p['states'] == states['id'] for p in players)
-            graph = json.loads((project_root/states['source']).read_text())
+            graph = json.loads((project_root/states['source']).read_text(encoding="utf-8"))
             assert graph['version'] == 2
             assert [s['exit'] for s in graph['states']] == [
                 dict(state=2, phase=1), dict(state=3, phase=1), dict(state=1, phase=1)]
@@ -292,11 +294,19 @@ try:
             assert original['metadata']['forge.audio']['channels'] == 2 and original['metadata']['forge.audio']['frames'] == 67200
             assert processed['metadata']['forge.audio']['channels'] == 1 and processed['metadata']['forge.audio']['frames'] == 48000
             assert (project_root / original['source']).read_bytes() == (project_root / processed['source']).read_bytes()
-            sidecar = json.loads((project_root / (processed['source'] + '.forge-import.json')).read_text())
+            sidecar = json.loads((project_root / (processed['source'] + '.forge-import.json')).read_text(encoding="utf-8"))
             assert sidecar['settings']['overrides'] == dict(force_mono=True, normalize_peak=True, trim_silence=True, trim_threshold_db=-60)
             for asset in (original, processed):
                 assert (project_root / '.forge/cache/derived' / asset['metadata']['forge.import']['key'] / 'audio.fpcm').is_file()
-    assert project['startup_scene']['asset'] == json.loads(scenes[0].read_text())['asset_id']
+        if path.name.startswith('35-'):
+            sounds = [row for row in loaded['entities'] if 'forge.audio_source' in row['components']]
+            parents = [row for row in loaded['entities'] if 'forge.transform_animator' in row['components']]
+            assert len(sounds) == 2 and len(parents) == 1
+            assert {row['components']['forge.audio_source']['doppler'] for row in sounds} == {0.,1.}
+            assert all(row['parent'] == parents[0]['id'] and row['spatial']['mode'] == 'follow_structure' for row in sounds)
+            assert parents[0]['components']['forge.transform_animator']['clip'] == by_source['Assets/DopplerPass.animation.json']['id']
+            assert sum(row['components']['forge.audio_source']['play_on_start'] for row in sounds) == 1
+    assert project['startup_scene']['asset'] == json.loads(scenes[0].read_text(encoding="utf-8"))['asset_id']
 finally:
     process.stdin.close()
     assert process.wait(timeout=10) == 0

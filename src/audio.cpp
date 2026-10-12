@@ -1,5 +1,6 @@
 #include "audio_preview_access.hpp"
 #include "audio_selection.hpp"
+#include "audio_source_access.hpp"
 #include "builtins.hpp"
 #include <algorithm>
 #include <array>
@@ -55,14 +56,37 @@ bool same_failed_config(const AudioSource& a, const AudioSource& b) {
         a.cone_enabled != b.cone_enabled || a.bus != b.bus)
         return false;
     const std::array left{a.gain,    a.pitch,       a.minimum_distance, a.maximum_distance,
-                          a.rolloff, a.inner_angle, a.outer_angle,      a.outer_gain};
+                          a.rolloff, a.inner_angle, a.outer_angle,      a.outer_gain,
+                          a.doppler};
     const std::array right{b.gain,    b.pitch,       b.minimum_distance, b.maximum_distance,
-                           b.rolloff, b.inner_angle, b.outer_angle,      b.outer_gain};
+                           b.rolloff, b.inner_angle, b.outer_angle,      b.outer_gain,
+                           b.doppler};
     for (unsigned i = 0; i < left.size(); ++i)
         if (!(left[i] == right[i] || (std::isnan(left[i]) && std::isnan(right[i]))))
             return false;
     return true;
 }
+struct AudioMotion {
+    Double3 position{};
+    std::uint64_t tick = 0;
+    bool valid = false;
+    Double3 observe(Double3 next, std::uint64_t next_tick, float fixed_delta) {
+        Double3 velocity{};
+        if (valid && next_tick > tick && next_tick - tick == 1 && fixed_delta > 0) {
+            for (unsigned i = 0; i < 3; ++i)
+                velocity[i] = (next[i] - position[i]) / double(fixed_delta);
+            // Keep native vector arithmetic finite even for tiny deltas or teleports.
+            const double speed = std::hypot(velocity[0], velocity[1], velocity[2]);
+            if (speed > 100000)
+                for (auto& value : velocity)
+                    value *= 100000 / speed;
+        }
+        position = next;
+        tick = next_tick;
+        valid = true;
+        return velocity;
+    }
+};
 } // namespace
 struct AudioRuntime::Impl {
     WorldContext& world;
@@ -85,6 +109,7 @@ struct AudioRuntime::Impl {
         ma_sound sound{};
         bool ready = false, buffer_ready = false;
         float source_volume = 1;
+        AudioMotion motion;
         ~Voice() {
             if (ready)
                 ma_sound_uninit(&sound);
@@ -105,6 +130,8 @@ struct AudioRuntime::Impl {
     std::size_t cache_bytes = 0;
     std::uint64_t configuration_checks = 0;
     std::string listener_error;
+    AudioMotion listener_motion;
+    std::uint64_t listener_entity = 0;
     std::set<std::uint64_t> spatial_errors;
     Impl(WorldContext& w, AudioConfig c)
         : world(w), config(std::move(c)), catalog(AssetCatalog::open_project(config.project)) {
@@ -243,8 +270,33 @@ struct AudioRuntime::Impl {
             throw std::runtime_error("Audio command limit reached");
         commands.push_back({ref, r.entity, play});
     }
-    void sync(std::uint64_t next_tick) {
+    void sync(std::uint64_t next_tick, float fixed_delta,
+              std::span<const std::uint64_t> discontinuities) {
         check();
+        if (!std::isfinite(fixed_delta) || fixed_delta < 0)
+            throw std::runtime_error("Audio motion requires a finite nonnegative fixed delta");
+        if (!discontinuities.empty()) {
+            // Read the existing effective spatial graph only at teleport/seek boundaries.
+            // A child emitter follows its spatial parent, including Explicit/World modes.
+            const auto nodes = world.transform_nodes();
+            const std::set<std::uint64_t> changed(discontinuities.begin(), discontinuities.end());
+            auto affected = [&](std::uint64_t id) {
+                for (std::size_t depth = 0; id && depth <= nodes.size(); ++depth) {
+                    if (changed.contains(id))
+                        return true;
+                    const auto node = nodes.find(id);
+                    if (node == nodes.end())
+                        break;
+                    id = node->second.parent;
+                }
+                return false;
+            };
+            if (affected(listener_entity))
+                listener_motion.valid = false;
+            for (auto& [id, voice] : voices)
+                if (affected(id))
+                    voice->motion.valid = false;
+        }
         tick = next_tick;
         const auto notifications = device_events.exchange(0, std::memory_order_relaxed);
         if (notifications & ((1u << unsigned(ma_device_notification_type_stopped)) |
@@ -280,9 +332,14 @@ struct AudioRuntime::Impl {
                                                 : "audio.listener_transform",
                            error, world.reference(listeners.front().id()));
         }
+        Double3 listener_velocity{};
         if (listener_valid) {
+            if (listener_entity != listeners.front().id())
+                listener_motion.valid = false;
+            listener_entity = listeners.front().id();
             const auto& t = listeners.front().get<WorldTransform>();
             const auto p = t.affine.point({0, 0, 0});
+            listener_velocity = listener_motion.observe(p, next_tick, fixed_delta);
             const auto forward = unit(t.affine.vector({0, 0, -1}), {0, 0, -1});
             auto up = t.affine.vector({0, 1, 0});
             const double dot = up[0] * forward[0] + up[1] * forward[1] + up[2] * forward[2];
@@ -293,7 +350,12 @@ struct AudioRuntime::Impl {
             ma_engine_listener_set_direction(&engine, 0, float(forward[0]), float(forward[1]),
                                              float(forward[2]));
             ma_engine_listener_set_world_up(&engine, 0, float(up[0]), float(up[1]), float(up[2]));
+        } else {
+            listener_motion.valid = false;
+            listener_entity = 0;
         }
+        ma_engine_listener_set_velocity(&engine, 0, float(listener_velocity[0]),
+                                        float(listener_velocity[1]), float(listener_velocity[2]));
         std::set<std::uint64_t> present;
         for (auto e : sources) {
             present.insert(e.id());
@@ -339,13 +401,14 @@ struct AudioRuntime::Impl {
                 ma_sound_set_spatialization_enabled(&v.sound, config_value.spatialized);
                 Double3 direction{0, 0, -1};
                 bool direction_valid = true;
-                if (config_value.spatialized && config_value.cone_enabled && usable_pose(e)) {
+                const bool source_pose_valid = usable_pose(e);
+                if (config_value.spatialized && config_value.cone_enabled && source_pose_valid) {
                     direction = e.get<WorldTransform>().affine.vector({0, 0, -1});
                     const auto length = std::hypot(direction[0], direction[1], direction[2]);
                     direction_valid = std::isfinite(length) && length >= 1e-12;
                     direction = unit(direction, {0, 0, -1});
                 }
-                const bool spatial_valid = listener_valid && usable_pose(e) && direction_valid;
+                const bool spatial_valid = listener_valid && source_pose_valid && direction_valid;
                 v.source_volume =
                     (!config_value.spatialized || spatial_valid) ? config_value.gain : 0;
                 const float channel_volume =
@@ -376,11 +439,30 @@ struct AudioRuntime::Impl {
                     config_value.outer_gain);
                 ma_sound_set_min_distance(&v.sound, config_value.minimum_distance);
                 ma_sound_set_max_distance(&v.sound, config_value.maximum_distance);
-                ma_sound_set_doppler_factor(&v.sound, 0);
-                if (usable_pose(e)) {
+                Double3 source_velocity{};
+                float doppler = 0;
+                if (source_pose_valid) {
                     const auto p = e.get<WorldTransform>().affine.point({0, 0, 0});
                     ma_sound_set_position(&v.sound, float(p[0]), float(p[1]), float(p[2]));
-                }
+                    if (spatial_valid && config_value.spatialized && config_value.doppler > 0) {
+                        source_velocity = v.motion.observe(p, next_tick, fixed_delta);
+                        const double speed = std::max(
+                            std::hypot(source_velocity[0], source_velocity[1], source_velocity[2]),
+                            std::hypot(listener_velocity[0], listener_velocity[1],
+                                       listener_velocity[2]));
+                        // Selected native Doppler divides by c - factor*radial_velocity.
+                        // Bound both scaled speeds to c/2: finite ratio in [1/3, 3].
+                        constexpr double half_speed_of_sound = 343.3 / 2;
+                        doppler = float(speed > 0 ? std::min(double(config_value.doppler),
+                                                             half_speed_of_sound / speed)
+                                                  : config_value.doppler);
+                    } else
+                        v.motion.valid = false;
+                } else
+                    v.motion.valid = false;
+                ma_sound_set_velocity(&v.sound, float(source_velocity[0]),
+                                      float(source_velocity[1]), float(source_velocity[2]));
+                ma_sound_set_doppler_factor(&v.sound, doppler);
                 if (created && config_value.play_on_start)
                     checked(ma_sound_start(&v.sound), "Audio autoplay");
                 failures.erase(e.id());
@@ -399,6 +481,9 @@ struct AudioRuntime::Impl {
         std::erase_if(spatial_errors, [&](auto id) { return !present.contains(id); });
         std::erase_if(failed_config, [&](const auto& p) { return !present.contains(p.first); });
         std::erase_if(failures, [&](const auto& p) { return !present.contains(p.first); });
+        flush_commands();
+    }
+    void flush_commands() {
         auto pending = std::move(commands);
         commands.clear();
         for (const auto& c : pending) {
@@ -424,7 +509,11 @@ AudioRuntime::AudioRuntime(WorldContext& w, AudioConfig c)
     : impl_(std::make_unique<Impl>(w, std::move(c))) {}
 AudioRuntime::~AudioRuntime() = default;
 void AudioRuntime::shutdown() noexcept { impl_->shutdown(); }
-void AudioRuntime::synchronize(std::uint64_t tick) { impl_->sync(tick); }
+void AudioRuntime::synchronize(std::uint64_t tick) { impl_->sync(tick, 0, {}); }
+void AudioRuntime::synchronize(std::uint64_t tick, float fixed_delta,
+                               std::span<const std::uint64_t> discontinuities) {
+    impl_->sync(tick, fixed_delta, discontinuities);
+}
 void AudioRuntime::paused(bool value) {
     impl_->check();
     if (value == impl_->is_paused)
@@ -442,6 +531,25 @@ void AudioRuntime::master_volume(float value) {
     impl_->config.master_volume = value;
 }
 void AudioRuntime::stop_source(EntityRef ref) { impl_->queue(ref, false); }
+Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
+    runtime.impl_->check();
+    const auto resolved = runtime.impl_->world.resolve(ref);
+    const auto found = runtime.impl_->voices.find(resolved.entity);
+    if (resolved.state != WorldContext::ResolveState::Available ||
+        found == runtime.impl_->voices.end() || !found->second->ready || found->second->ref != ref)
+        throw std::runtime_error("AudioSource has no admitted voice in the current world");
+    return {{"source", ref},
+            {"available", true},
+            {"playing", bool(ma_sound_is_playing(&found->second->sound))},
+            {"paused", runtime.impl_->is_paused},
+            {"loop", found->second->authored.loop},
+            {"duration", found->second->clip->duration()}};
+}
+void AudioSourceAccess::control(AudioRuntime& runtime, EntityRef ref, bool play) {
+    (void)status(runtime, ref); // Admit identity/voice before queuing any mutation.
+    runtime.impl_->queue(ref, play);
+    runtime.impl_->flush_commands(); // Owner boundary; no simulation tick or pose resampling.
+}
 void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channels) {
     impl_->check();
     for (float value : {master, channels[0], channels[1], channels[2]})

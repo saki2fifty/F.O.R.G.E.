@@ -1,3 +1,4 @@
+#include "audio_source.hpp"
 #include "component_inspector.hpp"
 #include "project_settings.hpp"
 #include "spatial_helpers.hpp"
@@ -96,6 +97,10 @@ int main(int argc, char** argv) {
                         require(field.at("display_name") == "Falloff strength" &&
                                     field.at("minimum") == 0 && field.at("maximum") == 10,
                                 "Native strength range or Inspector label differs");
+                    if (field.at("id") == "doppler")
+                        require(field.at("display_name") == "Doppler strength" &&
+                                    field.at("minimum") == 0 && field.at("maximum") == 5,
+                                "Doppler strength range or Inspector label differs");
                     if (field.at("id") == "inner_angle" || field.at("id") == "outer_angle")
                         require(field.at("minimum") == 0 && field.at("maximum") == 360,
                                 "Cone opening range differs");
@@ -122,6 +127,13 @@ int main(int argc, char** argv) {
                 ComponentInspector inspector;
                 ProjectSettingsEditor settings;
                 bool mixing = false;
+                bool live = false, live_ready = true, live_pending = false;
+                unsigned live_requests = 0;
+                bool live_requested_play = false;
+                AudioSourceEditor sound;
+                const EntityRef sound_ref{scene.asset_id(), EntityId::parse(id)};
+                Json sound_status{{"source", sound_ref}, {"available", true}, {"playing", false},
+                                  {"paused", true},      {"loop", true},      {"duration", 1}};
                 std::string status;
                 std::string selected = id;
                 auto frame = [&] {
@@ -133,15 +145,26 @@ int main(int argc, char** argv) {
                         settings.draw(project, scene, false, status);
                     else {
                         ImGui::Begin("Audio Inspector", nullptr, ImGuiWindowFlags_NoResize);
-                        inspector.draw(scene, project, selected);
+                        if (live) {
+                            ImGui::SetScrollY(0);
+                            sound.draw("test-session", sound_ref, sound_status, live_ready,
+                                       live_pending, "", [&](bool value) {
+                                           ++live_requests;
+                                           live_requested_play = value;
+                                           return true;
+                                       });
+                        } else
+                            inspector.draw(scene, project, selected);
                         ImGui::End();
                     }
                     ImGui::Render();
                 };
                 auto click = [&](const char* field) {
-                    const auto name = std::string(mixing ? "project-audio:"
-                                                         : "component-field:forge.audio_source:") +
-                                      field;
+                    const auto name =
+                        std::string(live     ? "live-audio-source:"
+                                    : mixing ? "project-audio:"
+                                             : "component-field:forge.audio_source:") +
+                        field;
                     frame();
                     require(test::ui_targets.contains(name), "Missing audio widget: " + name);
                     auto target = test::ui_targets.at(name);
@@ -242,15 +265,53 @@ int main(int argc, char** argv) {
                 require(scene.undo() && scene.entity(id).get<AudioSource>().bus == 0 &&
                             scene.redo() && scene.entity(id).get<AudioSource>().bus == 1,
                         "Mix channel dropdown lost Scene Undo/Redo");
+                numeric("doppler", "1.5");
+                require(scene.entity(id).get<AudioSource>().doppler == 1.5f,
+                        "Actual Doppler control did not commit");
+                require(scene.undo() && scene.entity(id).get<AudioSource>().doppler == 0 &&
+                            scene.redo() && scene.entity(id).get<AudioSource>().doppler == 1.5f,
+                        "Doppler control lost Scene Undo/Redo");
                 project.save();
                 project.open_project(root);
                 require(scene.entity(id).get<AudioSource>().attenuation == 1 &&
                             scene.entity(id).get<AudioSource>().rolloff == 2.5f,
                         "Audio settings did not survive save/reopen");
                 cone = scene.entity(id).get<AudioSource>();
-                require(cone.bus == 1 && cone.cone_enabled && cone.inner_angle == 40 &&
-                            cone.outer_angle == 100 && std::abs(cone.outer_gain - .4f) < 1e-6,
+                require(cone.doppler == 1.5f && cone.bus == 1 && cone.cone_enabled &&
+                            cone.inner_angle == 40 && cone.outer_angle == 100 &&
+                            std::abs(cone.outer_gain - .4f) < 1e-6,
                         "Directional source settings did not survive save/reopen");
+                const auto untouched_scene = scene.snapshot();
+                const auto untouched_settings = project.settings().document();
+                require(AudioSourceEditor::selected(scene.effective_document(), id) == sound_ref &&
+                            !AudioSourceEditor::selected(scene.effective_document(), "unknown"),
+                        "Live source selection lost scene/entity identity");
+                live = true;
+                click("play");
+                require(live_requests == 1 && live_requested_play,
+                        "Actual Play/Restart button did not submit source playback");
+                click("stop");
+                require(live_requests == 2 && !live_requested_play,
+                        "Actual Stop sound button did not submit source stop");
+                live_pending = true;
+                frame();
+                require(!test::ui_targets.at("live-audio-source:play").enabled &&
+                            !test::ui_targets.at("live-audio-source:stop").enabled,
+                        "Pending source control admitted another button action");
+                live_pending = false;
+                live_ready = false;
+                frame();
+                require(!test::ui_targets.at("live-audio-source:play").enabled,
+                        "Busy Play admitted a source button action");
+                live_ready = true;
+                sound_status["available"] = false;
+                frame();
+                require(!test::ui_targets.at("live-audio-source:play").enabled &&
+                            live_requests == 2 && scene.snapshot() == untouched_scene &&
+                            project.settings().document() == untouched_settings,
+                        "Unavailable/live source controls changed authoring or submitted per-frame "
+                        "traffic");
+                live = false;
                 mixing = true;
                 settings.open();
                 frame();

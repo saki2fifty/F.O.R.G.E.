@@ -202,7 +202,46 @@ Actual offline PCM and scaled widget tests do not prove physical sound quality.
 
 ## Clock and presentation
 
-RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances; the selectable curves are described below. No Doppler, cone filtering or occlusion semantics.
+RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances. Directional gain and optional Doppler use the existing native spatializer. Occlusion and frequency-dependent cone filtering are deferred.
+
+### Moving sources and listeners
+
+AudioSource appends reflected `doppler`, strength0–5/default0. Spatialized sources
+with positive strength derive source and listener velocity from consecutive final
+world positions and the actual completed fixed delta. Render time and device
+callbacks never supply motion. Default0 and nonspatial playback preserve nominal
+pitch. Changing strength retains the existing voice and decoded clip.
+
+Previous positions are private audio state. Initial or repeated/skipped boundaries,
+invalid poses, disabled tracking, listener changes and world reconstruction reset
+motion. Existing animation seek/loop and physics teleport discontinuities also
+reset affected emitters/listeners through the effective spatial parent graph;
+ordinary animated and physics movement retains velocity. No second hierarchy,
+simulation clock or persistent movement component is introduced.
+
+The selected native Doppler calculation uses343.3m/s. FORGE bounds finite velocity
+magnitude to100000m/s and limits the effective strength so each scaled speed is at
+most half that sound speed. This prevents singular native denominators and bounds
+the pitch ratio to[1/3,3]. Ordinary subsonic motion retains authored strength;
+extreme motion is a safe bounded effect, not supersonic acoustic simulation.
+
+### Selected runtime source controls
+
+Inspector's Live sound panel watches only the selected AudioSource in the active
+Play world. Play/Restart and Stop use the existing AudioService command queue at
+an owner boundary; they do not resample transforms or advance paused ticks.
+Identity and shared-SDK generation checks reject stale targets before mutation.
+The existing correlated Play transport carries one bounded audio command at a
+time and reports nonfatal rejection for retry. A changed selection requests one
+fresh observation, including in nonperiodic probe mode.
+
+Status exposes availability, native atomic playing flag, pause, loop and clip
+duration. It does not read the mutable data-source cursor or claim physical output
+latency. Already submitted audio buffers may finish after Stop. Saved scenes and
+mix defaults remain unchanged; Stop Play/new Play restores authored autoplay.
+The private access header is not installed SDK API. The appended public component
+member changes the matching SDK fingerprint/layout and requires a C++ rebuild;
+ABI1 tables, authored formats and private recovery envelopes remain unchanged.
 
 The device callback mixes continuously and never advances gameplay time. Pause stops the gameplay group while keeping the device alive. Step updates intent/transforms once with the group still stopped; it does not request an audio timeslice. Resume starts the group. Play commands restart the source at frame0; Stop stops and resets it. Basic playback counts are diagnostic presentation state, not authoritative simulation clocks.
 

@@ -64,9 +64,15 @@ struct Fixture {
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<AudioRuntime> audio;
-    explicit Fixture(const std::filesystem::path& root, float volume = 1)
+    explicit Fixture(const std::filesystem::path& root, float volume = 1, bool physics = false)
         : engine(WorldRole::Runtime, false,
-                 {audio_module({root, AudioOutput::Offline, true, volume})}),
+                 [&] {
+                     std::vector<EngineModule> modules{
+                         audio_module({root, AudioOutput::Offline, true, volume})};
+                     if (physics)
+                         modules.push_back(physics_module());
+                     return modules;
+                 }()),
           scene(engine.world()), simulation(engine.world(), scene),
           audio(std::static_pointer_cast<AudioRuntime>(engine.services().audio())) {}
     void load(const Json& doc) {
@@ -91,7 +97,9 @@ struct Fixture {
 };
 #include "audio_attenuation_tests.hpp"
 #include "audio_cone_tests.hpp"
+#include "audio_doppler_tests.hpp"
 #include "audio_mix_tests.hpp"
+#include "audio_source_control_tests.hpp"
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Test path required");
@@ -105,6 +113,8 @@ int main(int argc, char** argv) {
         attenuation_tests(root, record.id);
         cone_tests(root, record.id);
         mix_tests(root, record.id);
+        doppler_tests(root, record.id);
+        audio_source_control_tests(root, record.id);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));

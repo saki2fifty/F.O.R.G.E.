@@ -75,3 +75,9 @@ mono sound. Open its WAVs from Content to compare waveforms and audition them.
 Change mono, peak normalization and silence trimming under Import settings,
 then reimport. The source remains unchanged; Play and export use the processed
 clip. See [Process a clip during import](../editor/audio.md).
+
+Scene **35 — Moving audio** animates two emitters past a camera/listener: one
+has Doppler enabled and the comparison has it disabled. Select either during Play
+and use **Live sound → Play / Restart** or **Stop sound** to compare. Loop jumps
+reset motion without a pitch spike. Export uses the saved animation and cooked
+tone without development sources. See [Audio controls](../editor/audio.md).

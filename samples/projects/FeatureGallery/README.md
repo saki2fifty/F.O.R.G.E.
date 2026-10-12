@@ -276,3 +276,19 @@ Only the processed cube starts automatically. To compare in Play, stop, turn its
 Play On Start off and turn that setting on for **Original stereo**, then Play again.
 Both sounds are nonspatial and loop quietly through Master. Export the saved scene
 to compare the same processed PCM in a standalone game without the original WAVs.
+
+## 35 — Moving audio
+
+`Scenes/35-moving-audio.scene.json` moves two child emitters with the original
+`DopplerPass.animation.json` translation clip. The camera is the fixed listener.
+**Doppler source** starts with strength1; **Comparison source** has strength0 and
+does not start automatically. Both reuse the original cooked FalloffTone.
+
+During Play, select a source and use Inspector → Live sound → Stop sound or
+Play / Restart to compare one at a time. Approaching motion raises pitch and
+receding motion lowers it. The animation's one-second loop jump resets inherited
+motion. Controls do not change saved autoplay, animation or scene values.
+
+Save before exporting. The standalone uses the selected animation and PCM with
+development sources removed. Physical listening is separate from offline PCM
+and source-free export validation.

@@ -23,6 +23,7 @@
 #include "audio_imports.hpp"
 #include "audio_mix.hpp"
 #include "audio_preview.hpp"
+#include "audio_source.hpp"
 #include "authored_components.hpp"
 #include "automation.hpp"
 #include "blockout.hpp"
@@ -500,6 +501,7 @@ int main(int argc, char** argv) {
 #endif
         forge::ProjectSettingsEditor project_settings;
         forge::AudioMixEditor audio_mix;
+        forge::AudioSourceEditor audio_source;
         project_settings.draw_runtime_extension = [&] {
             if (play.active())
                 audio_mix.draw(play.session(), play.audio_status(), play.control_ready(),
@@ -3746,6 +3748,8 @@ int main(int argc, char** argv) {
                 case 236:
                 case 239:
                 case 242:
+                case 245:
+                case 248:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3757,6 +3761,8 @@ int main(int argc, char** argv) {
                 case 237:
                 case 240:
                 case 243:
+                case 246:
+                case 249:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3819,6 +3825,31 @@ int main(int argc, char** argv) {
                         if (!actions.invoke("play"))
                             throw std::runtime_error("Live audio capture could not start Play");
                         project_settings.open();
+                    }
+                    break;
+                case 244:
+                    if (fixture.audio_mixer) {
+                        actions.invoke("stop");
+                        forge::ui::style(1);
+                        files.document.open_scene("Scenes/35-moving-audio.scene.json");
+                        const auto authored_scene = scene.snapshot();
+                        for (const auto& row : authored_scene.at("entities"))
+                            if (row.at("components").contains("forge.audio_source") &&
+                                row.at("components")
+                                        .at("forge.audio_source")
+                                        .value("doppler", 0.f) > 0) {
+                                selected = row.at("id").get<std::string>();
+                                break;
+                            }
+                        component_inspector.fixture_focus_component = "forge.audio_source";
+                        workspace.inspector = true;
+                    }
+                    break;
+                case 247:
+                    if (fixture.audio_mixer) {
+                        forge::ui::style(1);
+                        if (!actions.invoke("play"))
+                            throw std::runtime_error("Live source capture could not start Play");
                     }
                     break;
                 case 232:
@@ -4239,18 +4270,29 @@ int main(int argc, char** argv) {
             }
             const bool live_inspector_ready = play.active() && play.sdk_play() && play.ready() &&
                                               editor.selection.entities().size() == 1;
-            if (!live_inspector_ready || !workspace.inspector)
+            const auto live_sound =
+                workspace.inspector && play.ready() && editor.selection.entities().size() == 1
+                    ? forge::AudioSourceEditor::selected(play.effective_snapshot(), selected)
+                    : std::optional<forge::EntityRef>{};
+            play.watch_audio_source(live_sound);
+            if ((!live_inspector_ready && !live_sound) || !workspace.inspector)
                 live_inspector_entity.clear();
             if (workspace.inspector) {
                 if (ImGui::Begin("Inspector", &workspace.inspector)) {
+                    if ((live_inspector_ready || live_sound) && live_inspector_entity != selected) {
+                        ImGui::SetScrollY(0);
+                        live_inspector_entity = selected;
+                    }
+                    if (live_sound)
+                        audio_source.draw(play.session(), *live_sound, play.audio_source_status(),
+                                          play.control_ready(), play.audio_source_pending(),
+                                          play.audio_source_error(), [&](bool value) {
+                                              return play.submit_audio_source(value);
+                                          });
                     if (live_inspector_ready) {
                         // Play adds transient fields above the authored Inspector. Reveal
                         // them once per selected entity instead of retaining an old scroll
                         // offset that can leave the editable values out of view.
-                        if (live_inspector_entity != selected) {
-                            ImGui::SetScrollY(0.0f);
-                            live_inspector_entity = selected;
-                        }
                         component_inspector.draw_runtime(
                             play.effective_snapshot(), play.runtime_schema(),
                             files.document.project(), selected,
@@ -5408,7 +5450,7 @@ int main(int argc, char** argv) {
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
                         (fixture.stage >= 103 && fixture.stage <= 141) ||
                         (fixture.stage >= 145 && fixture.stage <= 168) ||
-                        (fixture.stage >= 217 && fixture.stage <= 243))
+                        (fixture.stage >= 217 && fixture.stage <= 249))
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
@@ -6206,6 +6248,39 @@ int main(int argc, char** argv) {
                         }
                     }
                 }
+                if (fixture.audio_mixer && fixture.stage >= 244 && fixture.stage <= 249) {
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    if (!w)
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const bool live = fixture.stage >= 247;
+                        const char* key = live ? "live-audio-source:stop"
+                                               : "component-field:forge.audio_source:doppler";
+                        const auto found = forge::test::ui_targets.find(key);
+                        if (live) {
+                            ImGui::SetScrollY(w, 0);
+                            captured_document_visible &=
+                                play.ready() && play.audio_source_status().is_object() &&
+                                play.audio_source_status().value("available", false);
+                            const auto start =
+                                forge::test::ui_targets.find("live-audio-source:play");
+                            captured_document_visible &=
+                                start != forge::test::ui_targets.end() && start->second.enabled &&
+                                start->second.minimum.y >= start->second.clip_minimum.y &&
+                                start->second.maximum.y <= start->second.clip_maximum.y;
+                        } else if (found != forge::test::ui_targets.end() &&
+                                   found->second.maximum.y > found->second.clip_maximum.y)
+                            ImGui::SetScrollY(w, w->Scroll.y + found->second.maximum.y -
+                                                     found->second.clip_maximum.y + 12);
+                        captured_document_visible &=
+                            found != forge::test::ui_targets.end() && found->second.enabled &&
+                            found->second.minimum.y >= found->second.clip_minimum.y &&
+                            found->second.maximum.y <= found->second.clip_maximum.y;
+                    }
+                }
                 if (fixture.animation_exits && fixture.stage >= 217 && fixture.stage <= 219) {
                     if (auto* w = ImGui::FindWindowByName("Animation States###Animation States")) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
@@ -6312,7 +6387,7 @@ int main(int argc, char** argv) {
                         (fixture.animation_exits && fixture.stage == 220) ||
                         (fixture.audio_falloff && fixture.stage == 223) ||
                         (fixture.audio_cones && fixture.stage == 229) ||
-                        (fixture.audio_mixer && fixture.stage == 244) ||
+                        (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview)

@@ -1,5 +1,14 @@
 # 2026-10-12
 
+## Moving audio and source playback
+
+- Spatial Audio Sources expose Doppler strength0–5, off by default. Actual fixed-tick source/listener motion affects pitch; inherited teleports and animation loop jumps reset motion. Extreme speeds remain bounded.
+- Inspector's tinted Live sound panel shows selected runtime source status and offers Play/Restart and Stop without changing saved autoplay or advancing paused game time.
+- Original editable Gallery35 compares a moving Doppler emitter with an unchanged-pitch emitter and exports with cooked animation/PCM alone.
+- Independent frequency equations, real physics/animation consumers, source-free export, scaled controls and legacy/shared-SDK transports pass focused normal and strict sanitizer checks. Native images and physical listening remain separate acceptance evidence.
+- Audio Source layout changes require rebuilding against the matching C++ SDK. Existing authored formats, ABI1 tables and dependencies remain unchanged.
+- Windows Gallery admission explicitly decodes UTF-8; the audio-import editor test target links its existing platform-target helper owner.
+
 ## Live audio mix and status
 
 - Project Settings shows runtime-only Master, Music, Effects and Dialogue drafts during Play, with explicit Apply and Reload live values. Saved defaults stay unchanged.

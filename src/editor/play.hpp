@@ -13,6 +13,7 @@
 #include <forge/input.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -55,16 +56,45 @@ class PlaySession {
     const Json& audio_status() const { return audio_status_; }
     const std::string& audio_mix_error() const { return audio_mix_error_; }
     bool audio_mix_pending() const {
-        return !audio_mix_command_.is_null() || (waiting_ && sent_command_ == "audio_mix");
+        return (!audio_command_.is_null() && audio_command_.value("command", "") == "audio_mix") ||
+               (waiting_ && sent_command_ == "audio_mix");
     }
     bool submit_audio_mix(const Json& values) {
-        if (!control_ready() || audio_mix_pending() || !audio_status_.contains("master_volume"))
+        if (!control_ready() || !audio_command_.is_null() ||
+            !audio_status_.contains("master_volume"))
             return false;
         const auto mix = AudioMixValues::parse(values);
-        audio_mix_command_ = {{"command", "audio_mix"}, {"mix", mix.document()}};
+        audio_command_ = {{"command", "audio_mix"}, {"mix", mix.document()}};
         if (sdk_game_)
-            audio_mix_command_["generation"] = sdk_activation_generation_;
+            audio_command_["generation"] = sdk_activation_generation_;
         audio_mix_error_.clear();
+        return true;
+    }
+    void watch_audio_source(std::optional<EntityRef> ref) {
+        const Json value = ref ? Json(*ref) : Json();
+        if (audio_source_watch_ != value) {
+            audio_source_watch_ = value;
+            audio_source_watch_dirty_ = !value.is_null();
+            audio_source_status_ = nullptr;
+            audio_source_error_.clear();
+        }
+    }
+    const Json& audio_source_status() const { return audio_source_status_; }
+    const std::string& audio_source_error() const { return audio_source_error_; }
+    bool audio_source_pending() const {
+        return (!audio_command_.is_null() &&
+                audio_command_.value("command", "") == "audio_source") ||
+               (waiting_ && sent_command_ == "audio_source");
+    }
+    bool submit_audio_source(bool play) {
+        if (!control_ready() || !audio_command_.is_null() || audio_source_watch_.is_null() ||
+            !audio_status_.contains("master_volume"))
+            return false;
+        audio_command_ = {
+            {"command", "audio_source"}, {"source", audio_source_watch_}, {"play", play}};
+        if (sdk_game_)
+            audio_command_["generation"] = sdk_activation_generation_;
+        audio_source_error_.clear();
         return true;
     }
     Json physics_debug_selection;
@@ -712,8 +742,11 @@ class PlaySession {
                 }
                 if (!response.value("ok", false)) {
                     const auto error = response.value("error", "Runtime rejected request");
-                    if (sent_command_ == "audio_mix") {
-                        audio_mix_error_ = error;
+                    if (sent_command_ == "audio_mix" || sent_command_ == "audio_source") {
+                        if (sent_command_ == "audio_mix")
+                            audio_mix_error_ = error;
+                        else if (sent_audio_source_ == audio_source_watch_)
+                            audio_source_error_ = error;
                         send({{"command", "snapshot"}});
                         return;
                     }
@@ -806,6 +839,9 @@ class PlaySession {
                 runtime_schema_ = response.value("schema", Json());
                 timing_ = response.at("timing");
                 audio_status_ = response.value("audio", Json::object());
+                if (response.contains("audio_source") &&
+                    response.at("audio_source").value("source", Json()) == audio_source_watch_)
+                    audio_source_status_ = response.at("audio_source");
                 input_status_ = response.value("input", Json::object());
                 physics_status_ = response.value("physics", Json::object());
                 // SDK Play transport observations. Stage/none responses
@@ -1036,9 +1072,9 @@ class PlaySession {
                         auto command = std::move(property_tune_command_);
                         property_tune_command_ = nullptr;
                         send(std::move(command));
-                    } else if (!audio_mix_command_.is_null()) {
-                        auto command = std::move(audio_mix_command_);
-                        audio_mix_command_ = nullptr;
+                    } else if (!audio_command_.is_null()) {
+                        auto command = std::move(audio_command_);
+                        audio_command_ = nullptr;
                         send(std::move(command));
                     } else if (!ui_command_.is_null()) {
                         // UI clicks can queue neutral input. Ship those older events before
@@ -1058,9 +1094,9 @@ class PlaySession {
                         const auto command = control_;
                         control_.clear();
                         send({{"command", command}});
-                    } else if (!audio_mix_command_.is_null()) {
-                        auto command = std::move(audio_mix_command_);
-                        audio_mix_command_ = nullptr;
+                    } else if (!audio_command_.is_null()) {
+                        auto command = std::move(audio_command_);
+                        audio_command_ = nullptr;
                         send(std::move(command));
                     } else if (model_assets_changed_) {
                         model_assets_changed_ = false;
@@ -1076,7 +1112,8 @@ class PlaySession {
                             ui_command_ = nullptr;
                             send({{"command", "ui"}, {"ui_command", std::move(command)}});
                         }
-                    } else if (!probe_ && SDL_GetTicks() - sent_at_ >= 8)
+                    } else if ((!probe_ || audio_source_watch_dirty_) &&
+                               SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 }
             }
@@ -1150,8 +1187,11 @@ class PlaySession {
         session_.clear();
         ui_snapshot_ = ui_ack_ = ui_command_ = nullptr;
         audio_status_ = Json::object();
-        audio_mix_command_ = nullptr;
+        audio_command_ = nullptr;
         audio_mix_error_.clear();
+        audio_source_watch_ = audio_source_status_ = sent_audio_source_ = nullptr;
+        audio_source_error_.clear();
+        audio_source_watch_dirty_ = false;
         model_assets_changed_ = false;
         waiting_ = false;
         // SDK Play transport state. Pending ack/epoch buffers MUST also
@@ -1283,6 +1323,14 @@ class PlaySession {
     }
     void send(Json request) {
         sent_command_ = request.at("command").get<std::string>();
+        if (!audio_source_watch_.is_null() &&
+            (sent_command_ == "snapshot" || sent_command_ == "audio_source" ||
+             sent_command_ == "audio_mix"))
+            request["audio_source_watch"] = audio_source_watch_;
+        if (sent_command_ == "audio_source")
+            sent_audio_source_ = request.at("source");
+        if (sent_command_ == "snapshot")
+            audio_source_watch_dirty_ = false;
         if ((sent_command_ == "snapshot" || sent_command_ == "step" || sent_command_ == "resume" ||
              sent_command_ == "pause") &&
             !input_events_.empty()) {
@@ -1367,8 +1415,11 @@ class PlaySession {
     std::string executable_, notice_, session_, control_;
     Json initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
-    Json audio_status_ = Json::object(), audio_mix_command_;
+    Json audio_status_ = Json::object(), audio_command_;
     std::string audio_mix_error_;
+    Json audio_source_watch_, audio_source_status_, sent_audio_source_;
+    std::string audio_source_error_;
+    bool audio_source_watch_dirty_ = false;
     Json diagnostics_ = Json::array();
     std::string audio_project_;
     bool probe_ = false, recoverable_ = false;
