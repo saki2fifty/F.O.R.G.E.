@@ -17,6 +17,8 @@ struct AudioSource {
     bool cone_enabled = false;
     // Full cone openings in degrees; source forward is effective local negative Z.
     float inner_angle = 60, outer_angle = 120, outer_gain = .25f;
+    // 0 Master, 1 Music, 2 Effects, 3 Dialogue; stable FORGE channel values.
+    std::uint32_t bus = 0;
     bool operator==(const AudioSource&) const = default;
 };
 struct AudioListener {

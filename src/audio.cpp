@@ -51,7 +51,7 @@ bool same_failed_config(const AudioSource& a, const AudioSource& b) {
         return true;
     if (a.clip != b.clip || a.play_on_start != b.play_on_start || a.loop != b.loop ||
         a.spatialized != b.spatialized || a.attenuation != b.attenuation ||
-        a.cone_enabled != b.cone_enabled)
+        a.cone_enabled != b.cone_enabled || a.bus != b.bus)
         return false;
     const std::array left{a.gain,    a.pitch,       a.minimum_distance, a.maximum_distance,
                           a.rolloff, a.inner_angle, a.outer_angle,      a.outer_gain};
@@ -83,6 +83,7 @@ struct AudioRuntime::Impl {
         ma_audio_buffer_ref buffer{};
         ma_sound sound{};
         bool ready = false, buffer_ready = false;
+        float source_volume = 1;
         ~Voice() {
             if (ready)
                 ma_sound_uninit(&sound);
@@ -109,6 +110,10 @@ struct AudioRuntime::Impl {
         if (!std::isfinite(config.master_volume) || config.master_volume < 0 ||
             config.master_volume > 1)
             throw std::runtime_error("Gameplay master volume must be between zero and one");
+        for (float volume : config.channel_volumes)
+            if (!std::isfinite(volume) || volume < 0 || volume > 1)
+                throw std::runtime_error(
+                    "Audio channel volume must be finite and between zero and one");
         auto ec = ma_engine_config_init();
         ec.noAutoStart = MA_TRUE;
         ec.noDevice = config.output == AudioOutput::Offline;
@@ -340,8 +345,11 @@ struct AudioRuntime::Impl {
                     direction = unit(direction, {0, 0, -1});
                 }
                 const bool spatial_valid = listener_valid && usable_pose(e) && direction_valid;
-                ma_sound_set_volume(
-                    &v.sound, (!config_value.spatialized || spatial_valid) ? config_value.gain : 0);
+                v.source_volume =
+                    (!config_value.spatialized || spatial_valid) ? config_value.gain : 0;
+                const float channel_volume =
+                    config_value.bus == 0 ? 1 : config.channel_volumes.at(config_value.bus - 1);
+                ma_sound_set_volume(&v.sound, v.source_volume * channel_volume);
                 if (config_value.spatialized && !spatial_valid) {
                     if (spatial_errors.insert(e.id()).second)
                         diagnostic("audio.spatial_unavailable",
@@ -433,6 +441,21 @@ void AudioRuntime::master_volume(float value) {
     impl_->config.master_volume = value;
 }
 void AudioRuntime::stop_source(EntityRef ref) { impl_->queue(ref, false); }
+void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channels) {
+    impl_->check();
+    for (float value : {master, channels[0], channels[1], channels[2]})
+        if (!std::isfinite(value) || value < 0 || value > 1)
+            throw std::runtime_error("Audio mix volumes must be finite and between zero and one");
+    ma_sound_group_set_volume(&impl_->group, master);
+    for (const auto& [id, voice] : impl_->voices) {
+        (void)id;
+        const float channel_volume =
+            voice->authored.bus == 0 ? 1 : channels.at(voice->authored.bus - 1);
+        ma_sound_set_volume(&voice->sound, voice->source_volume * channel_volume);
+    }
+    impl_->config.master_volume = master;
+    impl_->config.channel_volumes = channels;
+}
 Json AudioRuntime::status() const {
     impl_->check();
     unsigned playing = 0;
@@ -452,6 +475,7 @@ Json AudioRuntime::status() const {
             {"decoded_bytes", impl_->cache_bytes},
             {"failed_sources", impl_->failures.size()},
             {"master_volume", impl_->config.master_volume},
+            {"channel_volumes", impl_->config.channel_volumes},
             {"tick", impl_->tick}};
 }
 void AudioRuntime::read_offline(std::span<float> out) {

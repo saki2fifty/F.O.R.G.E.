@@ -409,7 +409,10 @@ void platform_settings_applies_audio_and_input() {
     check(f.capture.service != nullptr, "Game service not captured by test module");
     const auto accepted = f.capture.service->request(
         "game.test", Json{{"operation", "set_settings"},
-                          {"values", Json{{"audio", Json{{"master_volume", 0.25f}}},
+                          {"values", Json{{"audio", Json{{"master_volume", 0.25f},
+                                                         {"music_volume", .5f},
+                                                         {"effects_volume", 0.f},
+                                                         {"dialogue_volume", .75f}}},
                                           {"input", Json{{"mouse_sensitivity", 1.5f}}}}}});
     host->pump(RuntimeClock::Clock::now());
     const auto status = f.capture.service->inspect("game.test", accepted);
@@ -422,6 +425,8 @@ void platform_settings_applies_audio_and_input() {
     check(snapshot_value.contains("audio") &&
               snapshot_value.at("audio").value("master_volume", 0.0f) == 0.25f,
           "audio.master_volume override did not apply");
+    check(audio_channel_volumes(snapshot_value.at("audio")) == std::array<float, 3>{.5f, 0, .75f},
+          "SDK game settings request did not control mix channel preferences");
     check(snapshot_value.contains("input") &&
               snapshot_value.at("input").value("mouse_sensitivity", 0.0f) == 1.5f,
           "input.mouse_sensitivity override did not apply");

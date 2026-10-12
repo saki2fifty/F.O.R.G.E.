@@ -91,6 +91,7 @@ struct Fixture {
 };
 #include "audio_attenuation_tests.hpp"
 #include "audio_cone_tests.hpp"
+#include "audio_mix_tests.hpp"
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Test path required");
@@ -103,6 +104,7 @@ int main(int argc, char** argv) {
         auto catalog = AssetCatalog::open_project(root);
         attenuation_tests(root, record.id);
         cone_tests(root, record.id);
+        mix_tests(root, record.id);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));
@@ -442,7 +444,7 @@ int main(int argc, char** argv) {
         check(author.scene.entity(a).get<AudioSource>().attenuation == 2 &&
                   author.scene.entity(a).get<AudioSource>().rolloff == 2.5f,
               "Falloff override revert did not recover current prefab values");
-        const Json cone_overrides{{"cone_enabled", false}, {"outer_gain", .25}};
+        const Json cone_overrides{{"cone_enabled", false}, {"outer_gain", .25}, {"bus", 0}};
         for (const auto& [field, value] : cone_overrides.items())
             authoring_command(author.scene, "property.set",
                               {{"entity", a},
@@ -455,8 +457,11 @@ int main(int argc, char** argv) {
         cone_defaults["cone_enabled"] = true;
         cone_defaults["inner_angle"] = 45.;
         cone_defaults["outer_gain"] = .5;
+        cone_defaults["bus"] = 3;
         library.publish(author.scene, expected, candidate);
-        check(!author.scene.entity(a).get<AudioSource>().cone_enabled &&
+        check(author.scene.entity(a).get<AudioSource>().bus == 0 &&
+                  author.scene.entity(b).get<AudioSource>().bus == 3 &&
+                  !author.scene.entity(a).get<AudioSource>().cone_enabled &&
                   author.scene.entity(a).get<AudioSource>().outer_gain == .25f &&
                   author.scene.entity(a).get<AudioSource>().inner_angle == 45 &&
                   author.scene.entity(b).get<AudioSource>().cone_enabled &&

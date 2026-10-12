@@ -44,7 +44,7 @@ There are at most 64 input actions and 16 bindings per action. Add controls disa
 
 **Set up game defaults** creates the configuration for your standalone game.
 **Game defaults** then exposes the game title, stable application ID, window mode,
-resolution, display index, VSync, master volume and mouse sensitivity. **Save
+resolution, display index, VSync, Master/Music/Effects/Dialogue volumes and mouse sensitivity. **Save
 Settings** publishes the draft; **Close Settings** asks what to do with unsaved
 changes. These settings have separate ownership from scene Undo.
 

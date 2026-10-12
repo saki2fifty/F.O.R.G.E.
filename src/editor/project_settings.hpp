@@ -160,10 +160,21 @@ class ProjectSettingsEditor {
                     display["vsync"] = vsync;
                 ui::help("Synchronize standalone presentation to the display. Editor viewport "
                          "settings are independent.");
-                float volume = game["audio"]["master_volume"];
-                if (ImGui::SliderFloat("Master volume", &volume, 0, 1))
-                    game["audio"]["master_volume"] = volume;
-                ui::help("Initial output gain from silent to full volume.");
+                const std::array audio_fields{"master_volume", "music_volume", "effects_volume",
+                                              "dialogue_volume"};
+                const std::array audio_labels{"Master volume", "Music volume", "Effects volume",
+                                              "Dialogue volume"};
+                for (unsigned i = 0; i < audio_fields.size(); ++i) {
+                    float volume = game["audio"].value(audio_fields[i], 1.f);
+                    if (ImGui::SliderFloat(audio_labels[i], &volume, 0, 1))
+                        game["audio"][audio_fields[i]] = volume;
+                    FORGE_UI_PROBE(std::string("project-audio:") + audio_fields[i]);
+                    ui::help(i == 0
+                                 ? "Initial overall volume. All mix channels pass through Master."
+                                 : "Initial volume for Audio Sources assigned to this mix channel. "
+                                   "Zero mutes while playback time continues. Player settings can "
+                                   "override this default.");
+                }
                 double sensitivity = game["input"]["mouse_sensitivity"];
                 if (ImGui::InputDouble("Mouse sensitivity", &sensitivity, .1, 1, "%.2f"))
                     game["input"]["mouse_sensitivity"] = sensitivity;

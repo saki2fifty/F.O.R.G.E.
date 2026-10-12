@@ -47,7 +47,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -112,6 +112,7 @@ try:
                 sound.setdefault('inner_angle', 60.)
                 sound.setdefault('outer_angle', 120.)
                 sound.setdefault('outer_gain', .25)
+                sound.setdefault('bus', 0)
             body = row['components'].get('forge.physics_body')
             if body is not None:
                 body.setdefault('continuous_collision', False)
@@ -275,6 +276,11 @@ try:
             assert cone['cone_enabled'] and cone['inner_angle'] == 60 and cone['outer_angle'] == 120
             assert cone['outer_gain'] == .25 and cone['rolloff'] == 0
             assert cone['clip'] == by_source['Assets/FalloffTone.wav']['id']
+        if path.name.startswith('33-'):
+            channels = [row['components']['forge.audio_source'] for row in loaded['entities'] if 'forge.audio_source' in row['components']]
+            assert len(channels) == 3 and {item['bus'] for item in channels} == {1,2,3}
+            assert {item['pitch'] for item in channels} == {.75,1.,1.5}
+            assert all(not item['spatialized'] and item['play_on_start'] and item['clip'] == by_source['Assets/FalloffTone.wav']['id'] for item in channels)
     assert project['startup_scene']['asset'] == json.loads(scenes[0].read_text())['asset_id']
 finally:
     process.stdin.close()

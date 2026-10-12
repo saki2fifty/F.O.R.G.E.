@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <forge/audio_components.hpp>
 #include <forge/audio_service.hpp>
 #include <forge/world.hpp>
@@ -10,6 +11,7 @@ struct AudioConfig {
     AudioOutput output = AudioOutput::Device;
     bool required = false;
     float master_volume = 1;
+    std::array<float, 3> channel_volumes{1, 1, 1};
 };
 EngineModule audio_module(AudioConfig);
 class AudioRuntime : public AudioService {
@@ -20,6 +22,7 @@ class AudioRuntime : public AudioService {
     void synchronize(std::uint64_t tick);
     void paused(bool value);
     void master_volume(float value);
+    void mix_volumes(float master, const std::array<float, 3>& channels);
     void play(EntityRef) override;
     void stop_source(EntityRef) override;
     Json status() const;

@@ -10,7 +10,7 @@ Project version2 optionally contains `game`, validated by
 `validate_game_settings`. Older projects remain valid without it. The block is
 version1, with a stable lowercase reverse-domain `application_id`, display title,
 development/shipping profile, game-owned save schema, display defaults, audio
-master volume and mouse sensitivity. `default_game_settings` constructs defaults.
+Master/Music/Effects/Dialogue volumes and mouse sensitivity. `default_game_settings` constructs defaults.
 The application key is a user-data namespace, not an AssetId or DocumentId.
 Renaming the display title must not change it.
 
@@ -26,7 +26,8 @@ It produces an effective copy and never changes shared defaults. Binding overrid
 use existing ActionIds and the ordinary InputMap validator; action names/kinds and
 IDs remain project-owned. Missing actions and unsupported controls reject the
 candidate. The opt-in [graphical host](standalone-host.md) applies display settings,
-mouse sensitivity and master volume. Validation alone does not apply device state.
+mouse sensitivity and the complete four-channel mix. Legacy channel volumes
+default to1 in the resolved copy. Validation alone does not apply device state.
 
 ## User data and save slots
 

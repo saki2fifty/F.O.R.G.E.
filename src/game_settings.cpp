@@ -29,6 +29,17 @@ void display(const Json& value) {
     number(value.at("display"), 0, 255, "display ordinal", true);
 }
 } // namespace
+std::array<float, 3> audio_channel_volumes(const Json& audio) {
+    object(audio, "audio");
+    std::array<float, 3> result{1, 1, 1};
+    const std::array names{"music_volume", "effects_volume", "dialogue_volume"};
+    for (unsigned i = 0; i < names.size(); ++i)
+        if (audio.contains(names[i])) {
+            number(audio.at(names[i]), 0, 1, names[i]);
+            result[i] = audio.at(names[i]).get<float>();
+        }
+    return result;
+}
 bool valid_application_id(std::string_view id) {
     if (id.empty() || id.size() > 128 || id.front() == '.' || id.back() == '.' ||
         id.find("..") != std::string_view::npos || id.find('.') == std::string_view::npos)
@@ -50,7 +61,11 @@ Json default_game_settings(std::string application_id, std::string title) {
                      {"height", 720},
                      {"display", 0},
                      {"vsync", false}}},
-                   {"audio", {{"master_volume", 1.0}}},
+                   {"audio",
+                    {{"master_volume", 1.0},
+                     {"music_volume", 1.0},
+                     {"effects_volume", 1.0},
+                     {"dialogue_volume", 1.0}}},
                    {"input",
                     {{"mouse_sensitivity", 1.0},
                      {"gamepad_sensitivity", 1.0},
@@ -77,6 +92,7 @@ void validate_game_settings(const Json& data) {
     display(data.at("display"));
     object(data.at("audio"), "audio");
     number(data.at("audio").at("master_volume"), 0, 1, "master volume");
+    (void)audio_channel_volumes(data.at("audio"));
     object(data.at("input"), "input");
     number(data.at("input").at("mouse_sensitivity"), .01, 100, "mouse sensitivity");
     const auto& input = data.at("input");
@@ -105,7 +121,8 @@ Json resolve_game_settings(const Json& defaults, const Json& user, const InputMa
             const bool allowed =
                 (key == "display" && (member == "mode" || member == "width" || member == "height" ||
                                       member == "display" || member == "vsync")) ||
-                (key == "audio" && member == "master_volume") ||
+                (key == "audio" && (member == "master_volume" || member == "music_volume" ||
+                                    member == "effects_volume" || member == "dialogue_volume")) ||
                 (key == "input" &&
                  (member == "mouse_sensitivity" || member == "gamepad_sensitivity" ||
                   member == "invert_mouse_y" || member == "invert_gamepad_y" ||
@@ -117,6 +134,9 @@ Json resolve_game_settings(const Json& defaults, const Json& user, const InputMa
         }
     }
     validate_game_settings(result);
+    for (const auto* channel : {"music_volume", "effects_volume", "dialogue_volume"})
+        if (!result["audio"].contains(channel))
+            result["audio"][channel] = 1.0;
     Json map = project_input.source();
     if (user.contains("input") && user.at("input").contains("bindings")) {
         const auto& bindings = user.at("input").at("bindings");

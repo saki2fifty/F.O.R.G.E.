@@ -37,6 +37,23 @@ void settings() {
                         {{"mouse_sensitivity", 2},
                          {"bindings", {{id.str(), Json::array({{{"control", "key.j"}}})}}}}}};
     const auto resolved = resolve_game_settings(defaults, user, input);
+    auto legacy = defaults;
+    for (const auto* key : {"music_volume", "effects_volume", "dialogue_volume"})
+        legacy["audio"].erase(key);
+    const auto normalized = resolve_game_settings(legacy, Json::object(), input);
+    check(audio_channel_volumes(normalized.at("audio")) == std::array<float, 3>{1, 1, 1} &&
+              !legacy.at("audio").contains("music_volume"),
+          "Legacy mixer defaults did not normalize without project mutation");
+    const auto mixed = resolve_game_settings(
+        legacy,
+        {{"audio", {{"music_volume", .25}, {"effects_volume", .5}, {"dialogue_volume", 0}}}},
+        input);
+    check(audio_channel_volumes(mixed.at("audio")) == std::array<float, 3>{.25f, .5f, 0},
+          "Channel preferences did not override legacy defaults");
+    for (const auto* key : {"music_volume", "effects_volume", "dialogue_volume"})
+        for (const Json invalid : {Json(-.1), Json(1.1), Json(true), Json("1"), Json(nullptr)})
+            rejects([&] { resolve_game_settings(legacy, {{"audio", {{key, invalid}}}}, input); });
+    rejects([&] { resolve_game_settings(legacy, {{"audio", {{"unknown_volume", .5}}}}, input); });
     check(resolved.at("display").at("width") == 1280 && resolved.at("display").at("vsync") == true,
           "Display defaults/overrides not merged");
     RuntimeInput runtime;

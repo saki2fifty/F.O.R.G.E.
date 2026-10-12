@@ -27,7 +27,7 @@ struct EditorFixture {
     Uint64 started = SDL_GetTicks(), stage_started = started;
     bool prepared = false, workflow = false, physics = false, sdk_play = false,
          sdk_onboarding = false, animation_exits = false, audio_falloff = false,
-         audio_cones = false;
+         audio_cones = false, audio_mixer = false;
     bool scene_create = false, hierarchy_create = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
@@ -51,6 +51,9 @@ struct EditorFixture {
         audio_cones = argc == 4 && std::string(argv[2]) == "--audio-cones";
         if (audio_cones)
             stage = 223;
+        audio_mixer = argc == 4 && std::string(argv[2]) == "--audio-mixer";
+        if (audio_mixer)
+            stage = 229;
         sdk_onboarding = argc == 4 && std::string(argv[2]) == "--sdk-onboarding";
         if (sdk_onboarding)
             sdk_root = std::filesystem::absolute(std::filesystem::u8path(argv[3]));
@@ -58,7 +61,8 @@ struct EditorFixture {
         // --sdk-play needs EXE OUTPUT --sdk-play PROJECT SDK USERDATA: 6 args.
         sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
         if (!physics && !sdk_play && !sdk_onboarding && !animation_exits && !audio_falloff &&
-            !audio_cones && argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
+            !audio_cones && !audio_mixer && argc != 2 &&
+            (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
                 "Expected fixture output directory [--workflow | --physics PROJECT | "
                 "--sdk-play PROJECT SDK USERDATA]");
@@ -74,11 +78,11 @@ struct EditorFixture {
             std::filesystem::create_directories(user_data);
             config = output / ".fixture-preferences";
         } else {
-            project = physics || animation_exits || audio_falloff || audio_cones
+            project = physics || animation_exits || audio_falloff || audio_cones || audio_mixer
                           ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                           : output / ("project-" + AssetId::generate().str());
             config = physics ? output / ".fixture-preferences" : project / ".fixture-preferences";
-            if (!physics && !animation_exits && !audio_falloff && !audio_cones)
+            if (!physics && !animation_exits && !audio_falloff && !audio_cones && !audio_mixer)
                 SceneDocument::create_project(project, "UX fixture");
         }
         std::filesystem::create_directories(config);
@@ -86,12 +90,17 @@ struct EditorFixture {
     ~EditorFixture() {
         active_wait_probe = nullptr;
         std::error_code ec;
-        if (!physics && !sdk_play && !animation_exits && !audio_falloff && !audio_cones)
+        if (!physics && !sdk_play && !animation_exits && !audio_falloff && !audio_cones &&
+            !audio_mixer)
             std::filesystem::remove_all(project, ec);
         if (sdk_play)
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
+        if (audio_mixer && stage >= 229 && stage <= 231)
+            return "Inspector";
+        if (audio_mixer && stage >= 232 && stage <= 234)
+            return "Project Settings###Project Settings";
         if (audio_cones && stage >= 223 && stage <= 225)
             return "Inspector";
         if (audio_cones && stage >= 226 && stage <= 228)
@@ -592,7 +601,13 @@ struct EditorFixture {
                                "audio-cones-200",
                                "audio-cone-guide",
                                "audio-cone-guide-150",
-                               "audio-cone-guide-200"};
+                               "audio-cone-guide-200",
+                               "audio-mix-channel",
+                               "audio-mix-channel-150",
+                               "audio-mix-channel-200",
+                               "audio-mix-volumes",
+                               "audio-mix-volumes-150",
+                               "audio-mix-volumes-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

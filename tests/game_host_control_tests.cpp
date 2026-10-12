@@ -33,6 +33,7 @@ void run(const std::filesystem::path& root) {
     GameSessionConfig config;
     config.controls = queue;
     config.input = input;
+    config.audio = AudioConfig{content, AudioOutput::Offline, true};
     EngineModule module;
     module.id = "game.test";
     module.dependencies = {"forge.game"};
@@ -105,12 +106,46 @@ void run(const std::filesystem::path& root) {
           "User settings not persisted");
     game.input({{"key.space", 1}});
     game.active().simulation.input().latch(0);
-    check(
-        request({{"operation", "set_settings"},
-                 {"values", {{"display", {{"vsync", true}}}, {"audio", {{"master_volume", .5}}}}}})
-                    .state == "succeeded" &&
-            applications == 0 && game.active().simulation.input().latch(1).actions.at(action).held,
-        "Volume/VSync change reset held controls or repositioned the window");
+    check(request({{"operation", "set_settings"},
+                   {"values",
+                    {{"display", {{"vsync", true}}},
+                     {"audio",
+                      {{"master_volume", .5},
+                       {"music_volume", .25},
+                       {"effects_volume", .75},
+                       {"dialogue_volume", 0}}}}}})
+                      .state == "succeeded" &&
+              applications == 0 &&
+              game.active().simulation.input().latch(1).actions.at(action).held,
+          "Volume/VSync change reset held controls or repositioned the window");
+    auto audio = std::static_pointer_cast<AudioRuntime>(game.active().engine.services().audio());
+    check(audio->status().at("master_volume") == .5 &&
+              audio->status().at("channel_volumes") == Json::array({.25, .75, 0}),
+          "Persisted channel preferences did not reach active audio provider");
+    const auto mix_before = audio->status();
+    check(request({{"operation", "set_settings"},
+                   {"values", {{"audio", {{"music_volume", .1}, {"dialogue_volume", 2}}}}}})
+                      .state == "failed" &&
+              audio->status().at("channel_volumes") == mix_before.at("channel_volumes"),
+          "Invalid channel settings partially changed live mix");
+    const auto preferences = storage.root() / "settings.json";
+    const auto held_preferences = storage.root() / "settings-held.json";
+    std::filesystem::rename(preferences, held_preferences);
+    std::filesystem::create_directory(preferences);
+    const auto failed_mix_save = request({{"operation", "set_settings"},
+                                          {"values",
+                                           {{"audio",
+                                             {{"master_volume", .1},
+                                              {"music_volume", .9},
+                                              {"effects_volume", .2},
+                                              {"dialogue_volume", .5}}}}}});
+    std::filesystem::remove(preferences);
+    std::filesystem::rename(held_preferences, preferences);
+    check(failed_mix_save.state == "failed" &&
+              audio->status().at("master_volume") == mix_before.at("master_volume") &&
+              audio->status().at("channel_volumes") == mix_before.at("channel_volumes") &&
+              host.settings().at("audio").at("music_volume") == .25,
+          "Preferences write failure did not roll back all live mix channels");
     check(request({{"operation", "set_settings"}, {"values", {{"display", {{"width", 777}}}}}})
                       .state == "failed" &&
               host.settings().at("display").at("width") == 1280 && applications == 2,
@@ -276,12 +311,19 @@ void run(const std::filesystem::path& root) {
               !std::filesystem::exists(storage.root() / "slot-legacy.json") &&
               storage.load("one", schema).data.at("counter") == 43,
           "Deleting one slot affected another slot");
+    const auto inherited_mix =
+        std::static_pointer_cast<AudioRuntime>(game.active().engine.services().audio())->status();
     auto old = game.active().engine.services().game();
     old->request("game.test", {{"operation", "load"}, {"slot", "one"}, {"run", false}});
     host.pump(RuntimeClock::Time{});
     check(game.active().scene.asset_id() == asset &&
               game.active().engine.world().world().lookup("game.saved").get<int>() == 43,
           "Save did not restore into prepared candidate");
+    const auto restored_mix =
+        std::static_pointer_cast<AudioRuntime>(game.active().engine.services().audio())->status();
+    check(restored_mix.at("master_volume") == inherited_mix.at("master_volume") &&
+              restored_mix.at("channel_volumes") == inherited_mix.at("channel_volumes"),
+          "Newly activated scene did not inherit the live channel preferences");
     check(request({{"operation", "quit"}}).state == "succeeded" && host.quit_requested(),
           "Quit request did not reach host");
 }

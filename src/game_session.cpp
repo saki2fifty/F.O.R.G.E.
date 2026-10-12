@@ -296,6 +296,23 @@ void GameSession::master_volume(float value) {
     if (config_.audio)
         config_.audio->master_volume = value;
 }
+void GameSession::mix_volumes(float master, const std::array<float, 3>& channels) {
+    owner();
+    Mutation guard(changing_);
+    if (faulted_)
+        throw std::runtime_error("Cannot change audio mix in a faulted session");
+    for (float value : {master, channels[0], channels[1], channels[2]})
+        if (!std::isfinite(value) || value < 0 || value > 1)
+            throw std::runtime_error("Audio mix volumes must be finite and between zero and one");
+    for (auto* world : {active_.get(), candidate_.get()})
+        if (world && world->engine.services().available(Capability::Audio))
+            std::static_pointer_cast<AudioRuntime>(world->engine.services().audio())
+                ->mix_volumes(master, channels);
+    if (config_.audio) {
+        config_.audio->master_volume = master;
+        config_.audio->channel_volumes = channels;
+    }
+}
 RuntimeWorld& GameSession::active() {
     require_active();
     return *active_;

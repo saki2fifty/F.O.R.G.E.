@@ -91,7 +91,8 @@ template <class T> Json encode(const T& p) {
                 {"cone_enabled", p.cone_enabled},
                 {"inner_angle", p.inner_angle},
                 {"outer_angle", p.outer_angle},
-                {"outer_gain", p.outer_gain}};
+                {"outer_gain", p.outer_gain},
+                {"bus", p.bus}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController>)
@@ -254,6 +255,7 @@ template <class T> Value decode(const Json& p) {
         v.inner_angle = p.value("inner_angle", 60.f);
         v.outer_angle = p.value("outer_angle", 120.f);
         v.outer_gain = p.value("outer_gain", .25f);
+        v.bus = p.value("bus", 0u);
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
         if (v.outer_angle < v.inner_angle)
@@ -525,7 +527,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("cone_enabled")
             .template member<float>("inner_angle")
             .template member<float>("outer_angle")
-            .template member<float>("outer_gain");
+            .template member<float>("outer_gain")
+            .template member<std::uint32_t>("bus");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController>)
@@ -1079,6 +1082,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.audio_source") {
         static const std::map<std::string, const char*> help = {
             {"clip", "Registered AudioClip identity; null leaves this source unassigned"},
+            {"bus", "Route through Master, Music, Effects or Dialogue volume. All channels "
+                    "follow gameplay pause; changing channel preserves playback position"},
             {"play_on_start", "Start when this source is first realized; recovered autoplay "
                               "restarts at the beginning"},
             {"loop", "Repeat the clip after reaching its end"},
@@ -1104,6 +1109,9 @@ Json registration_options(const Builtin& type, const std::string& field) {
             {"outer_gain", "Linear angular volume outside the outer opening, multiplied by "
                            "distance falloff and source gain; 0 is silent, 1 is unchanged"}};
         value["description"] = help.at(field);
+        if (field == "bus") {
+            value["display_name"] = "Mix channel";
+        }
         if (field == "cone_enabled")
             value["display_name"] = "Directional sound";
         if (field == "inner_angle" || field == "outer_angle") {
@@ -1313,6 +1321,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.audio_source" && field == "attenuation") {
         type = "forge.AudioAttenuation";
         names = {"Inverse", "Linear", "Exponential"};
+    } else if (component == "forge.audio_source" && field == "bus") {
+        type = "forge.AudioBus";
+        names = {"Master", "Music", "Effects", "Dialogue"};
     } else if (component == "forge.physics_joint" && field == "kind") {
         type = "forge.JointKind";
         names = {"Distance", "Hinge", "Point", "Fixed", "Slider", "Swing Twist"};
@@ -1584,8 +1595,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")
-        for (const auto* field :
-             {"attenuation", "rolloff", "cone_enabled", "inner_angle", "outer_angle", "outer_gain"})
+        for (const auto* field : {"attenuation", "rolloff", "cone_enabled", "inner_angle",
+                                  "outer_angle", "outer_gain", "bus"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

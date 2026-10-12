@@ -95,6 +95,39 @@ behind after parent rotation. Offline independent cosine equations, disabled/
 nonspatial settings, transformed direction, degenerate-direction recovery and
 exact sample-cursor continuity form the focused gate. Device listening is separate.
 
+## Common mix channels
+
+AudioSource `bus` selects the reflected stable FORGE values:0 Master,1 Music,
+2 Effects,3 Dialogue. Old scene/prefab sources default to0. Source playback,
+spatialization and clip ownership are unchanged. Invalid authored/native route
+values use existing reflected admission and bounded failure recovery.
+
+Shared `game.audio` defaults add optional `music_volume`, `effects_volume` and
+`dialogue_volume`, finite linear0–1/default1, beside existing `master_volume`.
+Resolved legacy settings expose all channels without changing the project file.
+Player overrides use the existing settings document/requests and save transaction.
+GameSession applies admitted preferences to active/candidate worlds and future
+scene configuration. GameHostControls restores the previous complete mix if
+settings publication fails. SdkPlay and standalone startup use resolved preferences.
+Plain project audio uses declared project defaults.
+
+For this flat gain-only mixer, channel gain multiplies each existing voice's
+spatial-admitted source gain before the common gameplay Master group. This is
+linear volume mixing; no extra graph node or dynamic attachment is required.
+Master-route sources bypass category gain, but retain Master output gain.
+All channels follow gameplay pause. Channel/master updates validate every value
+before applying any gain. Zero volume mutes while source time continues.
+Changing route retains the voice, waveform cursor, clip and cache. Source volume
+retains the existing spatial-validity gate, so mixer edits cannot unmute an
+unresolved source. Runtime `channel_volumes` status is derived presentation data.
+
+Project Settings owns shared defaults; Inspector owns each source route and its
+independent prefab mask. Gallery33 uses the original tone at three pitches for
+separate audible channels, with relocated source-free PCM proof. SDK component
+layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
+This batch supplies four common channels. Custom buses, effects, streaming and
+separate unpaused UI/music remain future capabilities.
+
 ## Clock and presentation
 
 RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances; the selectable curves are described below. No Doppler, cone filtering or occlusion semantics.
@@ -113,7 +146,7 @@ Exact SDK appends a size/fingerprint-checked `audio_source` callback taking scen
 
 Audio tests use offline PCM and explicit null-device callback teardown. Process tests cover schema-only mode, pause/step/resume, private recovery reconstruction and rejected candidate preservation; shared SDK fixture checks typed components, Play/Stop and missing capability. Existing physics/runtime/render tests remain required. These tests cannot establish subjective spatial quality or physical-device playback.
 
-Later work includes asynchronous runtime first-use loading, streaming music, one-shots/voice stealing, buses/UI music separation, cue graphs/effects, multiple listeners, sample-accurate continuity, previews and device selection.
+Later work includes asynchronous runtime first-use loading, streaming music, one-shots/voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity, previews and device selection.
 
 
 ## Phase7 AudioClip import and selected revisions

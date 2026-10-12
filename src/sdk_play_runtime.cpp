@@ -213,7 +213,8 @@ struct SdkPlayRuntime::State {
         if (resolved_settings.contains("audio") && resolved_settings.at("audio").is_object() &&
             resolved_settings.at("audio").contains("master_volume") &&
             resolved_settings.at("audio").at("master_volume").is_number())
-            game->master_volume(resolved_settings.at("audio").at("master_volume").get<float>());
+            game->mix_volumes(resolved_settings.at("audio").at("master_volume").get<float>(),
+                              audio_channel_volumes(resolved_settings.at("audio")));
         host = std::make_unique<GameHostControls>(*game, queue, *storage, config.project, defaults,
                                                   config.input, user_settings, platform);
         if (!load_error.empty())

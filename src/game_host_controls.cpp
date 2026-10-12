@@ -80,7 +80,8 @@ void GameHostControls::apply_settings(Json user) {
         if (input_changed)
             game_.input_map(InputMap(candidate.at("input_map")));
         if (audio_changed)
-            game_.master_volume(candidate.at("audio").at("master_volume").get<float>());
+            game_.mix_volumes(candidate.at("audio").at("master_volume").get<float>(),
+                              audio_channel_volumes(candidate.at("audio")));
         storage_.save_settings(user, [&](const Json& value) {
             (void)resolve_game_settings(defaults_, value, project_input_);
         });
@@ -92,7 +93,8 @@ void GameHostControls::apply_settings(Json user) {
             if (input_changed)
                 game_.input_map(InputMap(settings_.at("input_map")));
             if (audio_changed)
-                game_.master_volume(settings_.at("audio").at("master_volume").get<float>());
+                game_.mix_volumes(settings_.at("audio").at("master_volume").get<float>(),
+                                  audio_channel_volumes(settings_.at("audio")));
         } catch (const std::exception& e) {
             std::clog << "Settings rollback failed: " << e.what() << '\n';
         }

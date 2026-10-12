@@ -688,3 +688,19 @@ forward recovery and cursor continuity. `audio_falloff_gallery` closes over both
 `audio_editor` includes real directional controls/history/reopen and finite
 227-segment guide checks. `editor_audio_cones` captures actual production controls
 and Scene guides at100/150/200%; final package starts exported Gallery32.
+
+## Common audio mixer
+
+`audio` measures independent per-channel/Master power, summed actual voices,
+invalid atomic mix admission, missing-listener safety, mute/unmute sample time
+and exact PCM continuity during route changes. Existing prefab masks retain an
+equal Master override while siblings inherit a new channel. Game foundation/host
+and SdkPlay tests cover old settings normalization, category preferences, failed
+settings-write rollback and a new scene inheriting the current mix.
+`audio_falloff_gallery` also exports Gallery33, removes the source project and
+measures actual cooked PCM through its three routes after relocation.
+`audio_editor` drives routing and four settings sliders at65/100/150/200%, including
+independent settings publication and scene Undo/save/reopen.
+`editor_audio_mixer` captures routing and project volumes at100/150/200%; final
+combined-package acceptance starts source-free Gallery33 in the production host.
+Native capture configuration is distinct from actual image/physical acceptance.

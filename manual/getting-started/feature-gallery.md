@@ -60,3 +60,8 @@ Scene **32 — Directional audio** shows a speaker aimed toward its camera/liste
 Select the speaker for its angular guide. Rotate **Aim parent** Y180degrees to
 hear the quieter rear side; **Outside volume** and full openings control that
 difference. [Audio controls](../editor/audio.md) explain direction and limits.
+
+Scene **33 — Audio mixer** plays three pitches through Music, Effects and Dialogue.
+Select each emitter for **Mix channel**. Change its shared volume in **Project
+Settings → Game defaults**, save settings while stopped, then Play/export to
+compare. Master affects every channel.

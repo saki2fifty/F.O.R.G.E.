@@ -110,3 +110,18 @@ scaled actual controls/history/save and matching C++/recovery consumers validate
 the integration. Public component layout/fingerprint changes require C++ rebuild.
 ABI1 tables and existing private autoplay recovery remain. Windows image review
 and physical sound acceptance are pending.
+
+## Common audio channels
+
+Audio Sources can route through Master, Music, Effects or Dialogue. Shared game
+defaults and saved player preferences expose four independent volume controls.
+Master affects the entire mix. Volume changes and route edits retain playback;
+zero category volume mutes while sound time continues. Flat gain mixing uses the
+existing voices and gameplay Master owner. All channels follow gameplay pause.
+
+Original Gallery33 plays three pitches from the original tone and supports cooked
+source-free export. Actual PCM, settings rollback/scene inheritance, scaled controls
+and matching C++ consumers form the gate. Existing scenes default to Master;
+legacy game settings resolve category volumes to1 without rewriting source files.
+The exact SDK component fingerprint/layout changes require matching C++ rebuild.
+Windows rendering and physical listening remain separate acceptance work.

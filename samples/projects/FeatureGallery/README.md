@@ -243,3 +243,12 @@ angular loss; equal openings create a hard boundary. Guides are finite spherical
 angular outlines at a displayed radius, with no effect on game geometry or range.
 Save authored values before export. The compiled game uses cooked PCM and current
 typed settings; no source WAV or editor is needed for playback.
+
+## 33 — Audio mixer
+
+`Scenes/33-audio-mixer.scene.json` reuses the original tone at low/middle/high
+pitches through Music, Effects and Dialogue. Stop Play, edit a category volume
+under Project Settings → Game defaults, save settings and Play again. Master
+changes all tones. Source **Mix channel** can be changed in the Inspector while
+playing. Export includes original routes and cooked PCM; the source WAV is not
+needed to run the exported scene.

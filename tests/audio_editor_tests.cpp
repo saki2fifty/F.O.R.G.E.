@@ -1,4 +1,5 @@
 #include "component_inspector.hpp"
+#include "project_settings.hpp"
 #include "spatial_helpers.hpp"
 #include <forge/audio_components.hpp>
 #include <forge/authoring.hpp>
@@ -65,6 +66,12 @@ int main(int argc, char** argv) {
             const auto root = scratch / AssetId::generate().str();
             SceneDocument::create_project(root, "Audio falloff Inspector");
             {
+                ProjectSettings initial(root);
+                auto data = initial.document();
+                data["game"] = default_game_settings("org.forge.audio-ui", "Audio UI");
+                initial.save(std::move(data));
+            }
+            {
                 EngineContext engine;
                 Scene scene(engine.world());
                 SceneDocument project(scene);
@@ -113,25 +120,35 @@ int main(int argc, char** argv) {
                 ui::ContextScope scope(context);
                 test::observe_ui = true;
                 ComponentInspector inspector;
+                ProjectSettingsEditor settings;
+                bool mixing = false;
+                std::string status;
                 std::string selected = id;
                 auto frame = [&] {
                     test::ui_targets.clear();
                     ImGui::NewFrame();
                     ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
                     ImGui::SetNextWindowSize({1500, 1400}, ImGuiCond_Always);
-                    ImGui::Begin("Audio Inspector", nullptr, ImGuiWindowFlags_NoResize);
-                    inspector.draw(scene, project, selected);
-                    ImGui::End();
+                    if (mixing)
+                        settings.draw(project, scene, false, status);
+                    else {
+                        ImGui::Begin("Audio Inspector", nullptr, ImGuiWindowFlags_NoResize);
+                        inspector.draw(scene, project, selected);
+                        ImGui::End();
+                    }
                     ImGui::Render();
                 };
                 auto click = [&](const char* field) {
-                    const auto name = std::string("component-field:forge.audio_source:") + field;
+                    const auto name = std::string(mixing ? "project-audio:"
+                                                         : "component-field:forge.audio_source:") +
+                                      field;
                     frame();
                     require(test::ui_targets.contains(name), "Missing audio widget: " + name);
                     auto target = test::ui_targets.at(name);
                     if (target.minimum.y < target.clip_minimum.y ||
                         target.maximum.y > target.clip_maximum.y) {
-                        auto* window = ImGui::FindWindowByName("Audio Inspector");
+                        auto* window = ImGui::FindWindowByName(
+                            mixing ? "Project Settings###Project Settings" : "Audio Inspector");
                         require(window, "Audio Inspector window missing");
                         ImGui::SetScrollY(window,
                                           window->Scroll.y +
@@ -217,14 +234,48 @@ int main(int argc, char** argv) {
                             std::abs(scene.entity(id).get<AudioSource>().outer_gain - .4f) < 1e-6,
                         "Cone outside volume lost Scene Undo/Redo");
                 project.save();
+                click("bus");
+                key(ImGuiKey_DownArrow);
+                key(ImGuiKey_Enter);
+                require(scene.entity(id).get<AudioSource>().bus == 1,
+                        "Actual mix dropdown did not route source to Music");
+                require(scene.undo() && scene.entity(id).get<AudioSource>().bus == 0 &&
+                            scene.redo() && scene.entity(id).get<AudioSource>().bus == 1,
+                        "Mix channel dropdown lost Scene Undo/Redo");
+                project.save();
                 project.open_project(root);
                 require(scene.entity(id).get<AudioSource>().attenuation == 1 &&
                             scene.entity(id).get<AudioSource>().rolloff == 2.5f,
                         "Audio settings did not survive save/reopen");
                 cone = scene.entity(id).get<AudioSource>();
-                require(cone.cone_enabled && cone.inner_angle == 40 && cone.outer_angle == 100 &&
-                            std::abs(cone.outer_gain - .4f) < 1e-6,
+                require(cone.bus == 1 && cone.cone_enabled && cone.inner_angle == 40 &&
+                            cone.outer_angle == 100 && std::abs(cone.outer_gain - .4f) < 1e-6,
                         "Directional source settings did not survive save/reopen");
+                mixing = true;
+                settings.open();
+                frame();
+                frame();
+                const auto scene_before_mix = scene.snapshot();
+                const std::array mix_fields{"master_volume", "music_volume", "effects_volume",
+                                            "dialogue_volume"};
+                const std::array mix_text{"0.8", "0.25", "0.5", "0.75"};
+                for (unsigned i = 0; i < mix_fields.size(); ++i) {
+                    io.AddKeyEvent(ImGuiMod_Ctrl, true);
+                    click(mix_fields[i]);
+                    key(ImGuiKey_A);
+                    io.AddKeyEvent(ImGuiMod_Ctrl, false);
+                    frame();
+                    io.AddInputCharactersUTF8(mix_text[i]);
+                    frame();
+                    key(ImGuiKey_Enter);
+                }
+                require(settings.dirty() && settings.save(project, status),
+                        "Actual mixer controls did not publish owning project settings");
+                const auto saved = ProjectSettings(root).document().at("game").at("audio");
+                require(std::abs(saved.at("master_volume").get<float>() - .8f) < 1e-6 &&
+                            audio_channel_volumes(saved) == std::array<float, 3>{.25f, .5f, .75f} &&
+                            scene.snapshot() == scene_before_mix,
+                        "Scaled mixer values did not persist independently of authored scene");
                 test::observe_ui = false;
                 ImGui::DestroyContext();
             }

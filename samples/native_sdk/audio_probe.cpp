@@ -27,6 +27,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
             next.inner_angle = 40;
             next.outer_angle = 100;
             next.outer_gain = .4f;
+            next.bus = 2; // Effects; shares the gameplay Master pause/output owner.
             e.set(next);
             const auto tick = ecs_get_world_info(h->world)->frame_count_total + 1;
             const auto result =

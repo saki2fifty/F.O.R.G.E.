@@ -196,7 +196,8 @@ int main(int argc, char** argv) {
         config.physics = project.physics();
         config.input = InputMap(settings.at("input_map"));
         config.audio = AudioConfig{root, software ? AudioOutput::Offline : AudioOutput::Device,
-                                   false, settings.at("audio").at("master_volume").get<float>()};
+                                   false, settings.at("audio").at("master_volume").get<float>(),
+                                   audio_channel_volumes(settings.at("audio"))};
         config.modules = project_native_modules(distribution ? distribution->root : root,
                                                 project.document(), bootstrap.access());
         config.preparation = [&](std::uint64_t ticket) { return presentation.prepare(ticket); };

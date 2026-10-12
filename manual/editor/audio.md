@@ -31,8 +31,23 @@ Start with a comfortable speaker/headphone volume. The example is a quiet, four-
 - **Inner opening (deg):** full angle receiving full angular volume, `0–360`. `360` is omnidirectional.
 - **Outer opening (deg):** full outer angle, at least the inner opening. Volume fades between the openings; equal openings make a hard boundary.
 - **Outside volume:** `0–1`, default `.25`; outside the outer opening, this multiplies distance falloff and gain. `0` is silent; `1` preserves volume.
+- **Mix channel:** choose **Master**, **Music**, **Effects** or **Dialogue**. Music, Effects and Dialogue use their own volume before Master. Changing channel keeps the sound playing.
 
 Numeric fields commit with **Enter**. Errors leave the previous authored value intact. Object scale does not multiply gain or range. Parent transforms still move a child's position normally.
+
+## Balance music, effects and dialogue
+
+Open **Tools → Project Settings → Game defaults**. The four volume sliders set
+shared starting values. Master affects all sounds; the other sliders affect
+sources assigned to that channel. **Save Settings** applies defaults to the next
+Play/export. A game's saved player preferences can override these defaults.
+Zero volume mutes without stopping a sound's playback position. All four channels
+pause with gameplay.
+
+Scene **33 — Audio mixer** plays low, middle and high tones through Music,
+Effects and Dialogue. Stop Play, change one channel's default volume, save settings
+and Play again to compare. Select each named emitter to inspect or change its
+**Mix channel**. Export preserves its routes and cooked tone.
 
 ## Position and listener
 

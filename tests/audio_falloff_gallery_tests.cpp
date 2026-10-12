@@ -6,6 +6,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <vector>
 using namespace forge;
 namespace {
@@ -39,8 +40,10 @@ int main(int argc, char** argv) {
         std::filesystem::copy(argv[1], project, std::filesystem::copy_options::recursive);
         const auto source = read(project / "Scenes/31-audio-falloff.scene.json");
         const auto cone_source = read(project / "Scenes/32-directional-audio.scene.json");
+        const auto mix_source = read(project / "Scenes/33-audio-mixer.scene.json");
         const std::array roots{source.at("asset_id").get<AssetId>(),
-                               cone_source.at("asset_id").get<AssetId>()};
+                               cone_source.at("asset_id").get<AssetId>(),
+                               mix_source.at("asset_id").get<AssetId>()};
         const auto clip = AssetId::parse("327101c1-e496-4293-b830-4c25b978607a");
         EngineContext author;
         Scene author_scene(author.world());
@@ -151,6 +154,47 @@ int main(int argc, char** argv) {
             simulation.tick(1.f / 60);
             require(std::abs(power(*audio) / front - .0625) < .004,
                     "Source-free parent rotation did not change actual angular volume");
+        }
+        {
+            const auto shipped = read(relocated / catalog.records().at(roots[2]).source);
+            require(shipped == mix_source, "Mixer export changed authored identity/channel routes");
+            EngineContext engine(WorldRole::Runtime, false,
+                                 {audio_module({relocated, AudioOutput::Offline, true})});
+            Scene scene(engine.world());
+            RuntimeSimulation simulation(engine.world(), scene);
+            scene.restore_snapshot(shipped);
+            simulation.reset_presentation();
+            simulation.sync_audio();
+            simulation.audio_paused(false);
+            auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            std::vector<EntityRef> sources;
+            for (const auto& row : shipped.at("entities")) {
+                auto entity = scene.entity(row.at("id"));
+                if (entity.has<AudioSource>()) {
+                    sources.push_back(engine.world().reference(entity.id()).value());
+                    audio->stop_source(sources.back());
+                }
+            }
+            require(sources.size() == 3, "Relocated mixer gallery lost routed emitters");
+            simulation.tick(1.f / 60);
+            std::set<unsigned> routes;
+            for (const auto ref : sources) {
+                const unsigned bus = scene.entity(ref.entity.str()).get<AudioSource>().bus;
+                require(bus >= 1 && bus <= 3 && routes.insert(bus).second,
+                        "Relocated mixer route missing or duplicated");
+                audio->mix_volumes(1, {1, 1, 1});
+                audio->play(ref);
+                simulation.tick(1.f / 60);
+                const auto nominal = power(*audio);
+                require(nominal > 1e-5, "Source-free routed emitter did not play");
+                std::array<float, 3> channels{1, 1, 1};
+                channels[bus - 1] = .5;
+                audio->mix_volumes(.5, channels);
+                require(std::abs(power(*audio) / nominal - .0625) < .004,
+                        "Relocated mixer PCM did not multiply its channel and Master");
+                audio->stop_source(ref);
+                simulation.tick(1.f / 60);
+            }
         }
         std::filesystem::remove_all(scratch);
         std::cout << "Original Gallery31 cooked audio/identity and three falloff modes play "

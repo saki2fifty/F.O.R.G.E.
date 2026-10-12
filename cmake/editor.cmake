@@ -289,6 +289,8 @@ if(BUILD_TESTING)
  set_tests_properties(editor_audio_falloff PROPERTIES TIMEOUT 120)
  add_test(NAME editor_audio_cones COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cone_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cones")
  set_tests_properties(editor_audio_cones PROPERTIES TIMEOUT 180)
+ add_test(NAME editor_audio_mixer COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_mixer_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-mixer")
+ set_tests_properties(editor_audio_mixer PROPERTIES TIMEOUT 180)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
  # The full authoring/export scenario includes native compilation and three
  # graph-worker preparations. Individual input/readiness deadlines remain bounded.

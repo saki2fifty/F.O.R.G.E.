@@ -2,6 +2,7 @@
 #include "runtime_io.hpp"
 #include "sdk_play_runtime.hpp"
 #include <forge/build.hpp>
+#include <forge/game_settings.hpp>
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
@@ -141,6 +142,14 @@ int main(int argc, char** argv) {
         }
         if (ui_enabled && project_root.empty())
             throw std::runtime_error("UI requires a project root");
+        if (audio_config) {
+            const auto project = forge::ProjectSettings(project_root);
+            if (project.document().contains("game")) {
+                const auto& audio = project.document().at("game").at("audio");
+                audio_config->master_volume = audio.at("master_volume").get<float>();
+                audio_config->channel_volumes = forge::audio_channel_volumes(audio);
+            }
+        }
         forge::PhysicsConfig physics_config =
             sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
         forge::RuntimeClock clock(config);
