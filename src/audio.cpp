@@ -1,6 +1,7 @@
 #include "audio_selection.hpp"
 #include "builtins.hpp"
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cctype>
 #include <cmath>
@@ -42,6 +43,24 @@ void validate(flecs::entity entity, const AudioSource& s) {
     detail::validate_reflected_value(entity, s);
     if (s.maximum_distance < s.minimum_distance)
         throw std::runtime_error("Audio maximum distance must be at least minimum distance");
+    if (s.outer_angle < s.inner_angle)
+        throw std::runtime_error("Audio outer opening must be at least inner opening");
+}
+bool same_failed_config(const AudioSource& a, const AudioSource& b) {
+    if (a == b)
+        return true;
+    if (a.clip != b.clip || a.play_on_start != b.play_on_start || a.loop != b.loop ||
+        a.spatialized != b.spatialized || a.attenuation != b.attenuation ||
+        a.cone_enabled != b.cone_enabled)
+        return false;
+    const std::array left{a.gain,    a.pitch,       a.minimum_distance, a.maximum_distance,
+                          a.rolloff, a.inner_angle, a.outer_angle,      a.outer_gain};
+    const std::array right{b.gain,    b.pitch,       b.minimum_distance, b.maximum_distance,
+                           b.rolloff, b.inner_angle, b.outer_angle,      b.outer_gain};
+    for (unsigned i = 0; i < left.size(); ++i)
+        if (!(left[i] == right[i] || (std::isnan(left[i]) && std::isnan(right[i]))))
+            return false;
+    return true;
 }
 } // namespace
 struct AudioRuntime::Impl {
@@ -82,6 +101,7 @@ struct AudioRuntime::Impl {
     };
     std::vector<Command> commands;
     std::size_t cache_bytes = 0;
+    std::uint64_t configuration_checks = 0;
     std::string listener_error;
     std::set<std::uint64_t> spatial_errors;
     Impl(WorldContext& w, AudioConfig c)
@@ -273,9 +293,11 @@ struct AudioRuntime::Impl {
             present.insert(e.id());
             const auto config_value = e.get<AudioSource>();
             const auto ref = world.reference(e.id()).value();
-            if (failed_config.contains(e.id()) && failed_config.at(e.id()) == config_value)
+            if (failed_config.contains(e.id()) &&
+                same_failed_config(failed_config.at(e.id()), config_value))
                 continue;
             try {
+                ++configuration_checks;
                 validate(e, config_value);
                 auto found = voices.find(e.id());
                 if (found != voices.end() && found->second->authored.clip != config_value.clip) {
@@ -309,14 +331,23 @@ struct AudioRuntime::Impl {
                 ma_sound_set_looping(&v.sound, config_value.loop);
                 ma_sound_set_pitch(&v.sound, config_value.pitch);
                 ma_sound_set_spatialization_enabled(&v.sound, config_value.spatialized);
-                const bool spatial_valid = listener_valid && usable_pose(e);
+                Double3 direction{0, 0, -1};
+                bool direction_valid = true;
+                if (config_value.spatialized && config_value.cone_enabled && usable_pose(e)) {
+                    direction = e.get<WorldTransform>().affine.vector({0, 0, -1});
+                    const auto length = std::hypot(direction[0], direction[1], direction[2]);
+                    direction_valid = std::isfinite(length) && length >= 1e-12;
+                    direction = unit(direction, {0, 0, -1});
+                }
+                const bool spatial_valid = listener_valid && usable_pose(e) && direction_valid;
                 ma_sound_set_volume(
                     &v.sound, (!config_value.spatialized || spatial_valid) ? config_value.gain : 0);
                 if (config_value.spatialized && !spatial_valid) {
                     if (spatial_errors.insert(e.id()).second)
                         diagnostic("audio.spatial_unavailable",
                                    "Spatial sound requires resolved source and listener transforms "
-                                   "within +/-1e9 meters and exactly one enabled listener",
+                                   "within +/-1e9 meters, exactly one enabled listener, and a "
+                                   "nonzero finite emitter forward for directional sound",
                                    ref, config_value.clip.id);
                 } else
                     spatial_errors.erase(e.id());
@@ -325,6 +356,15 @@ struct AudioRuntime::Impl {
                                                                   ma_attenuation_model_exponential};
                 ma_sound_set_attenuation_model(&v.sound, models[config_value.attenuation]);
                 ma_sound_set_rolloff(&v.sound, config_value.rolloff);
+                constexpr float radians = 0.017453292519943295f;
+                constexpr float full_opening = 6.283185307179586f;
+                ma_sound_set_direction(&v.sound, float(direction[0]), float(direction[1]),
+                                       float(direction[2]));
+                ma_sound_set_cone(
+                    &v.sound,
+                    config_value.cone_enabled ? config_value.inner_angle * radians : full_opening,
+                    config_value.cone_enabled ? config_value.outer_angle * radians : full_opening,
+                    config_value.outer_gain);
                 ma_sound_set_min_distance(&v.sound, config_value.minimum_distance);
                 ma_sound_set_max_distance(&v.sound, config_value.maximum_distance);
                 ma_sound_set_doppler_factor(&v.sound, 0);
@@ -402,6 +442,7 @@ Json AudioRuntime::status() const {
     }
     return {{"mixed_frames", impl_->mixed_frames.load(std::memory_order_relaxed)},
             {"playing_sources", playing},
+            {"configuration_checks", impl_->configuration_checks},
             {"output", impl_->config.output == AudioOutput::Offline          ? "offline"
                        : impl_->config.output == AudioOutput::NullDeviceTest ? "null_test"
                                                                              : "device"},

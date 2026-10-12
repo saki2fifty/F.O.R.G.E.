@@ -27,6 +27,11 @@ Start with a comfortable speaker/headphone volume. The example is a quiet, four-
 - **Distance falloff:** choose **Inverse**, **Linear**, or **Exponential**. Inverse is the default. Linear at strength1 fades to silence at maximum; the other curves can remain audible there.
 - **Falloff strength:** `0–10`, default `1`. Higher values fade more strongly with distance. `0` keeps left/right positioning without reducing volume over distance. These controls affect spatialized sources.
 
+- **Directional sound:** aim spatial audio along the object's negative Z axis. Rotate the source or its parent to change its direction. Disable this for ordinary sound in every direction.
+- **Inner opening (deg):** full angle receiving full angular volume, `0–360`. `360` is omnidirectional.
+- **Outer opening (deg):** full outer angle, at least the inner opening. Volume fades between the openings; equal openings make a hard boundary.
+- **Outside volume:** `0–1`, default `.25`; outside the outer opening, this multiplies distance falloff and gain. `0` is silent; `1` preserves volume.
+
 Numeric fields commit with **Enter**. Errors leave the previous authored value intact. Object scale does not multiply gain or range. Parent transforms still move a child's position normally.
 
 ## Position and listener
@@ -102,3 +107,18 @@ Move the camera nearer/farther while stopped, or change the selected source's li
 strength during Play. Save authored settings while stopped before exporting.
 An exported game includes the compiled engine and cooked sound; it needs the
 original WAV only when you return to authoring/reimport in the editor.
+
+## Aim a directional sound
+
+Open **32 — Directional audio** in the Feature Gallery and select **Directional
+speaker**. The Scene helper shows its forward arrow and inner/outer angular
+outlines. **Helpers** must be enabled. The outlines are visual aids, not a fixed
+mute distance. The source points along negative Z; the normal transform gizmo's
+blue axis shows positive Z.
+
+Play to hear the tone. Stop, select **Aim parent**, rotate Y by180degrees and
+Play again: the camera/listener is now behind the emitter, so it is quieter.
+Try **Outside volume**0 or1, or change the openings in live gameplay controls.
+Save authored edits while stopped before export. Older sounds stay omnidirectional
+until you enable **Directional sound**. A source with zero scale along its forward
+axis cannot be aimed and is muted while directional spatial sound is enabled.

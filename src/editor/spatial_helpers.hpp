@@ -3,6 +3,7 @@
 #include "authoring.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
+#include <forge/audio_components.hpp>
 #include <forge/render_scene.hpp>
 #include <numbers>
 namespace forge::ui {
@@ -10,7 +11,7 @@ namespace forge::ui {
 struct SpatialMarker {
     std::string entity, name, note;
     Double3 position{};
-    bool camera = false, enabled = true, selectable = true;
+    bool camera = false, audio = false, enabled = true, selectable = true;
     float offset = 0;
     std::vector<std::pair<Double3, Double3>> lines;
 };
@@ -37,9 +38,13 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
     const auto policies = extract_node_policies(source);
     for (const auto& row : source.at("entities")) {
         const auto& c = row.at("components");
-        for (const bool is_camera : {true, false}) {
-            if (!c.contains(is_camera ? "forge.camera" : "forge.light") ||
-                row.value("prefab", false) || !row.value("spatial_resolved", false))
+        for (unsigned kind = 0; kind < 3; ++kind) {
+            const bool is_camera = kind == 0, is_audio = kind == 2;
+            const auto component = is_camera  ? "forge.camera"
+                                   : is_audio ? "forge.audio_source"
+                                              : "forge.light";
+            if (!c.contains(component) || row.value("prefab", false) ||
+                !row.value("spatial_resolved", false))
                 continue;
             const auto policy = policies.entities.at(row.at("id").get<EntityId>());
             if (!policy.valid || !policy.visible)
@@ -48,7 +53,10 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
             marker.entity = row.at("id").get<std::string>();
             marker.name = row.value("name", marker.entity);
             marker.camera = is_camera;
-            if (c.contains("forge.camera") && c.contains("forge.light"))
+            marker.audio = is_audio;
+            if (is_audio && (c.contains("forge.camera") || c.contains("forge.light")))
+                marker.offset = 1.4f;
+            if (!is_audio && c.contains("forge.camera") && c.contains("forge.light"))
                 marker.offset = is_camera ? -.7f : .7f;
             marker.selectable = policy.selectable;
             const auto& values = row.at("world_affine");
@@ -109,6 +117,61 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                                         line(far_corners[i], far_corners[i | bit]);
                                 }
                     }
+                } else if (is_audio) {
+                    const auto settings = helper_component<AudioSource>(c, "forge.audio_source");
+                    marker.note = !settings.spatialized ? "Nonspatial sound; direction inactive"
+                                  : !settings.cone_enabled
+                                      ? "Omnidirectional spatial sound"
+                                      : "Directional sound; arrow is local -Z. Full openings " +
+                                            helper_number(settings.inner_angle) + " / " +
+                                            helper_number(settings.outer_angle) +
+                                            " deg; outside volume " +
+                                            helper_number(settings.outer_gain);
+                    if (settings.spatialized && settings.cone_enabled) {
+                        auto d = world.vector({0, 0, -1});
+                        const auto length = std::hypot(d[0], d[1], d[2]);
+                        if (!std::isfinite(length) || length < 1e-12)
+                            throw std::runtime_error(
+                                "Emitter forward is zero or nonfinite; spatial output muted");
+                        for (auto& v : d)
+                            v /= length;
+                        Double3 right =
+                            std::abs(d[1]) < .9 ? Double3{-d[2], 0, d[0]} : Double3{0, d[2], -d[1]};
+                        const auto right_length = std::hypot(right[0], right[1], right[2]);
+                        for (auto& v : right)
+                            v /= right_length;
+                        const Double3 up{d[1] * right[2] - d[2] * right[1],
+                                         d[2] * right[0] - d[0] * right[2],
+                                         d[0] * right[1] - d[1] * right[0]};
+                        const double radius =
+                            std::min(extent, std::max(2., double(settings.minimum_distance)));
+                        const auto endpoint = helper_add(marker.position, d, radius);
+                        line(marker.position, endpoint);
+                        line(endpoint,
+                             helper_add(helper_add(endpoint, d, -.2 * radius), right, .1 * radius));
+                        line(endpoint, helper_add(helper_add(endpoint, d, -.2 * radius), right,
+                                                  -.1 * radius));
+                        for (float opening : {settings.inner_angle, settings.outer_angle}) {
+                            const double half = opening * std::numbers::pi / 360.;
+                            ring(helper_add(marker.position, d, radius * std::cos(half)), right, up,
+                                 radius * std::sin(half));
+                            for (unsigned azimuth = 0; azimuth < 4; ++azimuth) {
+                                const double angle = azimuth * std::numbers::pi / 2.;
+                                const auto radial = helper_add(Double3{}, right, std::cos(angle));
+                                const auto side = helper_add(radial, up, std::sin(angle));
+                                auto previous = endpoint;
+                                for (unsigned step = 1; step <= 16; ++step) {
+                                    const auto polar = half * step / 16;
+                                    const auto next = helper_add(
+                                        helper_add(marker.position, d, radius * std::cos(polar)),
+                                        side, radius * std::sin(polar));
+                                    line(previous, next);
+                                    previous = next;
+                                }
+                            }
+                        }
+                        marker.note += "; angular guide at " + helper_number(radius) + " m";
+                    }
                 } else {
                     const auto settings = helper_component<Light>(c, "forge.light");
                     marker.enabled = settings.enabled;
@@ -160,9 +223,12 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                 }
             } catch (const std::exception& error) {
                 marker.lines.clear();
-                marker.note = std::string("Invalid camera/light: ") + error.what();
+                marker.note = std::string("Invalid spatial helper: ") + error.what();
             }
-            marker.note = std::string(is_camera ? "Camera | " : "Light | ") + marker.note;
+            marker.note = std::string(is_camera  ? "Camera | "
+                                      : is_audio ? "Sound | "
+                                                 : "Light | ") +
+                          marker.note;
             if (!marker.enabled)
                 marker.note += " | Disabled";
             if (!marker.selectable)
@@ -220,6 +286,7 @@ class SpatialHelpers {
             const auto color = active            ? IM_COL32(255, 203, 94, 255)
                                : !marker.enabled ? IM_COL32(141, 150, 163, 210)
                                : marker.camera   ? IM_COL32(124, 195, 238, 240)
+                               : marker.audio    ? IM_COL32(123, 226, 199, 240)
                                                  : IM_COL32(241, 220, 139, 240);
             if (active)
                 for (const auto& [a, b] : marker.lines)
@@ -237,6 +304,12 @@ class SpatialHelpers {
                 draw->AddRect(at(-.65f, -.4f), at(.2f, .4f), color, 2, 0, 1.5f * interface_scale);
                 draw->AddQuad(at(.2f, -.22f), at(.72f, -.55f), at(.72f, .55f), at(.2f, .22f), color,
                               1.5f * interface_scale);
+            } else if (marker.audio) {
+                draw->AddRect(at(-.6f, -.28f), at(-.2f, .28f), color, 0, 0, 1.5f * interface_scale);
+                draw->AddQuad(at(-.2f, -.28f), at(.25f, -.65f), at(.25f, .65f), at(-.2f, .28f),
+                              color, 1.5f * interface_scale);
+                draw->AddLine(at(.55f, -.35f), at(.7f, 0), color, 1.5f * interface_scale);
+                draw->AddLine(at(.7f, 0), at(.55f, .35f), color, 1.5f * interface_scale);
             } else {
                 draw->AddCircle(p, r * .35f, color, 16, 1.5f * interface_scale);
                 for (unsigned i = 0; i < 8; ++i) {

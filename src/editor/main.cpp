@@ -3706,6 +3706,7 @@ int main(int argc, char** argv) {
                     break;
                 case 217:
                     if (fixture.animation_exits) {
+                        forge::test::observe_ui = true;
                         forge::ui::style(1);
                         SDL_SetWindowSize(window.get(), 1920, 1080);
                         if (!animation_states.is_open())
@@ -3716,17 +3717,24 @@ int main(int argc, char** argv) {
                     break;
                 case 218:
                 case 221:
+                case 224:
+                case 227:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
                 case 222:
+                case 225:
+                case 228:
                     forge::ui::style(2);
                     break;
                 case 220:
-                    if (fixture.audio_falloff) {
+                case 223:
+                    if (fixture.audio_falloff || fixture.audio_cones) {
                         forge::ui::style(1);
                         SDL_SetWindowSize(window.get(), 1920, 1080);
-                        files.document.open_scene("Scenes/31-audio-falloff.scene.json");
+                        files.document.open_scene(fixture.audio_cones
+                                                      ? "Scenes/32-directional-audio.scene.json"
+                                                      : "Scenes/31-audio-falloff.scene.json");
                         const auto snapshot = scene.snapshot();
                         for (const auto& row : snapshot.at("entities"))
                             if (row.at("components").contains("forge.audio_source")) {
@@ -3738,6 +3746,22 @@ int main(int argc, char** argv) {
                         forge::test::observe_ui = true;
                         ImGui::SetWindowPos("Inspector", {30, 55});
                         ImGui::SetWindowSize("Inspector", {1860, 990});
+                    }
+                    break;
+                case 226:
+                    if (fixture.audio_cones) {
+                        forge::ui::style(1);
+                        workspace.inspector = false;
+                        spatial_helpers.visible = true;
+                        scene_tools.move_tool = false;
+                        camera.target = {0, 1, -.5f};
+                        camera.yaw = .6f;
+                        camera.pitch = -.25f;
+                        camera.distance = 6;
+                        if (auto* w = ImGui::FindWindowByName("###Scene"))
+                            ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos("###Scene", {30, 55});
+                        ImGui::SetWindowSize("###Scene", {1860, 990});
                     }
                     break;
                 case 112:
@@ -5936,10 +5960,12 @@ int main(int argc, char** argv) {
                         ImGui::SetScrollY(w, fixture.stage < 112 ? 0 : w->ScrollMax.y);
                     }
                 }
-                if (fixture.audio_falloff && fixture.stage >= 220 && fixture.stage <= 222) {
+                if ((fixture.audio_falloff && fixture.stage >= 220 && fixture.stage <= 222) ||
+                    (fixture.audio_cones && fixture.stage >= 223 && fixture.stage <= 225)) {
                     auto* w = ImGui::FindWindowByName("Inspector");
-                    const auto control =
-                        forge::test::ui_targets.find("component-field:forge.audio_source:rolloff");
+                    const auto control = forge::test::ui_targets.find(
+                        fixture.audio_cones ? "component-field:forge.audio_source:outer_gain"
+                                            : "component-field:forge.audio_source:rolloff");
                     if (!w || control == forge::test::ui_targets.end())
                         captured_document_visible = false;
                     else {
@@ -5956,6 +5982,24 @@ int main(int argc, char** argv) {
                             forge::test::ui_targets.contains(
                                 "component-field:forge.audio_source:attenuation");
                     }
+                }
+                if (fixture.audio_cones && fixture.stage >= 223 && fixture.stage <= 225)
+                    for (const auto* field :
+                         {"cone_enabled", "inner_angle", "outer_angle", "outer_gain"}) {
+                        const auto found = forge::test::ui_targets.find(
+                            std::string("component-field:forge.audio_source:") + field);
+                        captured_document_visible &=
+                            found != forge::test::ui_targets.end() && found->second.enabled &&
+                            found->second.minimum.y >= found->second.clip_minimum.y &&
+                            found->second.maximum.y <= found->second.clip_maximum.y;
+                    }
+                if (fixture.audio_cones && fixture.stage >= 226 && fixture.stage <= 228) {
+                    bool found = false;
+                    for (const auto& marker : spatial_helpers.markers())
+                        if (marker.entity == selected && marker.audio)
+                            found = marker.lines.size() == 227 &&
+                                    marker.note.find("Directional sound") != std::string::npos;
+                    captured_document_visible &= spatial_helpers.visible && found;
                 }
                 if (fixture.animation_exits && fixture.stage >= 217 && fixture.stage <= 219) {
                     if (auto* w = ImGui::FindWindowByName("Animation States###Animation States")) {
@@ -6056,10 +6100,12 @@ int main(int argc, char** argv) {
                     }
                     fixture.capture(device, context, rtv);
                     if ((!fixture.animation_exits && !fixture.audio_falloff &&
-                         fixture.stage == 217) ||
+                         !fixture.audio_cones && fixture.stage == 217) ||
                         (fixture.animation_exits && fixture.stage == 220) ||
-                        (fixture.audio_falloff && fixture.stage == 223)) {
-                        if (!fixture.animation_exits && !fixture.audio_falloff)
+                        (fixture.audio_falloff && fixture.stage == 223) ||
+                        (fixture.audio_cones && fixture.stage == 229)) {
+                        if (!fixture.animation_exits && !fixture.audio_falloff &&
+                            !fixture.audio_cones)
                             check_thumbnail_cache(presentation, context, files.document.project(),
                                                   mesh_resources);
                         play.stop();

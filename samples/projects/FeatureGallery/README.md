@@ -228,3 +228,18 @@ animation/audio license applies. The source and its immutable cooked revision
 ship with this editable gallery; source-free games include only cooked PCM.
 The same project/sample license applies as the other original gallery examples.
 Physical listening remains part of user acceptance.
+
+## 32 — Directional audio
+
+`Scenes/32-directional-audio.scene.json` reuses the original FalloffTone clip.
+Select **Directional speaker** to see the forward arrow and angular outlines.
+The effective local negative Z points toward the camera/listener. Full openings
+are60/120degrees, outside volume.25; distance strength0 isolates angular volume.
+Play, Stop, rotate **Aim parent** around Y180degrees, then Play again to compare.
+Behind the emitter, amplitude is one quarter (power one sixteenth) of the front.
+Change **Directional sound**, the openings or **Outside volume** in Inspector.
+Angular gain fades in cosine between half-opening boundaries. Inner360 disables
+angular loss; equal openings create a hard boundary. Guides are finite spherical
+angular outlines at a displayed radius, with no effect on game geometry or range.
+Save authored values before export. The compiled game uses cooked PCM and current
+typed settings; no source WAV or editor is needed for playback.

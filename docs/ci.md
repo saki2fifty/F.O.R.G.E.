@@ -680,3 +680,11 @@ relocates cooked content and measures all three curves without the source WAV.
 at65/100/150/200%. `editor_audio_falloff` captures the production Inspector at
 100/150/200%; final combined-package acceptance also launches the cooked scene
 with the production executable. Images/physical sound require separate review.
+
+`audio` additionally compares48directional cosine/PCM cases, transformed parent/
+World/Explicit direction, coincident references, invalid values, degenerate
+forward recovery and cursor continuity. `audio_falloff_gallery` closes over both
+31/32, measures source-free parent-directed front/back PCM after relocation.
+`audio_editor` includes real directional controls/history/reopen and finite
+227-segment guide checks. `editor_audio_cones` captures actual production controls
+and Scene guides at100/150/200%; final package starts exported Gallery32.

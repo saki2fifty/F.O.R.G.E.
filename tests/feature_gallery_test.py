@@ -47,7 +47,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -93,7 +93,7 @@ try:
         assert source['asset_id'] not in all_ids
         all_ids.add(source['asset_id'])
         ids = [entity['id'] for entity in source['entities']]
-        assert len(ids) == len(set(ids)) and len(ids) >= 6
+        assert len(ids) == len(set(ids)) and len(ids) >= (5 if path.name.startswith('32-') else 6)
         for entity_id in ids:
             assert str(uuid.UUID(entity_id)) == entity_id and entity_id not in all_ids
             all_ids.add(entity_id)
@@ -106,6 +106,12 @@ try:
         # admitted typed values explicitly expose their documented defaults.
         expected = json.loads(json.dumps(source))
         for row in expected['entities']:
+            sound = row['components'].get('forge.audio_source')
+            if sound is not None:
+                sound.setdefault('cone_enabled', False)
+                sound.setdefault('inner_angle', 60.)
+                sound.setdefault('outer_angle', 120.)
+                sound.setdefault('outer_gain', .25)
             body = row['components'].get('forge.physics_body')
             if body is not None:
                 body.setdefault('continuous_collision', False)
@@ -262,6 +268,13 @@ try:
                        and s['loop'] for s in sources)
             assert sum(s['play_on_start'] for s in sources) == 1
             assert any('forge.audio_listener' in row['components'] for row in loaded['entities'])
+        if path.name.startswith('32-'):
+            speakers = [row for row in loaded['entities'] if 'forge.audio_source' in row['components']]
+            assert len(speakers) == 1 and speakers[0].get('parent')
+            cone = speakers[0]['components']['forge.audio_source']
+            assert cone['cone_enabled'] and cone['inner_angle'] == 60 and cone['outer_angle'] == 120
+            assert cone['outer_gain'] == .25 and cone['rolloff'] == 0
+            assert cone['clip'] == by_source['Assets/FalloffTone.wav']['id']
     assert project['startup_scene']['asset'] == json.loads(scenes[0].read_text())['asset_id']
 finally:
     process.stdin.close()

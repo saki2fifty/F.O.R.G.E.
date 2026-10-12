@@ -55,3 +55,8 @@ exponential distance curves and a camera/listener. Only blue starts automaticall
 Stop to switch the source's **Play On Start**, move the camera and compare.
 **Falloff strength** changes distance loss without replacing the sound; strength0
 keeps positional panning. [Audio controls](../editor/audio.md) explain the limits.
+
+Scene **32 — Directional audio** shows a speaker aimed toward its camera/listener.
+Select the speaker for its angular guide. Rotate **Aim parent** Y180degrees to
+hear the quieter rear side; **Outside volume** and full openings control that
+difference. [Audio controls](../editor/audio.md) explain direction and limits.

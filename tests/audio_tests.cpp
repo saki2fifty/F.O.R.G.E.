@@ -90,6 +90,7 @@ struct Fixture {
     void tick() { simulation.tick(1.f / 60); }
 };
 #include "audio_attenuation_tests.hpp"
+#include "audio_cone_tests.hpp"
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Test path required");
@@ -101,6 +102,7 @@ int main(int argc, char** argv) {
               "Registration changed identity");
         auto catalog = AssetCatalog::open_project(root);
         attenuation_tests(root, record.id);
+        cone_tests(root, record.id);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));
@@ -440,6 +442,32 @@ int main(int argc, char** argv) {
         check(author.scene.entity(a).get<AudioSource>().attenuation == 2 &&
                   author.scene.entity(a).get<AudioSource>().rolloff == 2.5f,
               "Falloff override revert did not recover current prefab values");
+        const Json cone_overrides{{"cone_enabled", false}, {"outer_gain", .25}};
+        for (const auto& [field, value] : cone_overrides.items())
+            authoring_command(author.scene, "property.set",
+                              {{"entity", a},
+                               {"component", "forge.audio_source"},
+                               {"field", field},
+                               {"value", value}});
+        expected = library.source(prefab);
+        candidate = expected;
+        auto& cone_defaults = candidate["members"][0]["components"]["forge.audio_source"];
+        cone_defaults["cone_enabled"] = true;
+        cone_defaults["inner_angle"] = 45.;
+        cone_defaults["outer_gain"] = .5;
+        library.publish(author.scene, expected, candidate);
+        check(!author.scene.entity(a).get<AudioSource>().cone_enabled &&
+                  author.scene.entity(a).get<AudioSource>().outer_gain == .25f &&
+                  author.scene.entity(a).get<AudioSource>().inner_angle == 45 &&
+                  author.scene.entity(b).get<AudioSource>().cone_enabled &&
+                  author.scene.entity(b).get<AudioSource>().outer_gain == .5f,
+              "Equal directional overrides lost intent or froze unrelated inherited opening");
+        authoring_command(
+            author.scene, "property.revert",
+            {{"entity", a}, {"component", "forge.audio_source"}, {"field", "cone_enabled"}});
+        check(author.scene.entity(a).get<AudioSource>().cone_enabled &&
+                  author.scene.entity(a).get<AudioSource>().outer_gain == .25f,
+              "Directional property revert discarded independent outside-volume intent");
         const auto wrong_ref = author.ref();
         std::thread wrong([&] { reject([&] { author.audio->play(wrong_ref); }); });
         wrong.join();

@@ -93,3 +93,20 @@ gallery playback form the local gate. Public AudioSource layout/header fingerpri
 changes require matching C++ modules to rebuild. ABI1 tables, authored scene
 versions and the existing autoplay-from-frame0 private recovery policy remain.
 Native Windows delivery, image review and physical listening are pending.
+
+## Directional spatial sounds
+
+Audio Source adds optional **Directional sound**, full inner/outer openings and
+**Outside volume**. Emitters follow effective local negative Z, including parent
+rotation and explicit/world spaces. Angular gain combines with distance falloff;
+updates preserve a playing voice. Old scenes default to omnidirectional sound.
+Degenerate emitter forward mutes spatial output until corrected without retiring
+the voice. Existing prefab masks and Inspector Undo/Redo remain the authoring owners.
+
+Selected sources have an editor-only sound marker, arrow and bounded spherical
+angular guides. Original Gallery32 reuses the tone and exposes parent-directed
+front/back comparison with cooked source-free export. Independent PCM equations,
+scaled actual controls/history/save and matching C++/recovery consumers validate
+the integration. Public component layout/fingerprint changes require C++ rebuild.
+ABI1 tables and existing private autoplay recovery remain. Windows image review
+and physical sound acceptance are pending.

@@ -87,7 +87,11 @@ template <class T> Json encode(const T& p) {
                 {"minimum_distance", p.minimum_distance},
                 {"maximum_distance", p.maximum_distance},
                 {"attenuation", p.attenuation},
-                {"rolloff", p.rolloff}};
+                {"rolloff", p.rolloff},
+                {"cone_enabled", p.cone_enabled},
+                {"inner_angle", p.inner_angle},
+                {"outer_angle", p.outer_angle},
+                {"outer_gain", p.outer_gain}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController>)
@@ -246,8 +250,14 @@ template <class T> Value decode(const Json& p) {
         v.maximum_distance = p.at("maximum_distance");
         v.attenuation = p.value("attenuation", 0u);
         v.rolloff = p.value("rolloff", 1.f);
+        v.cone_enabled = p.value("cone_enabled", false);
+        v.inner_angle = p.value("inner_angle", 60.f);
+        v.outer_angle = p.value("outer_angle", 120.f);
+        v.outer_gain = p.value("outer_gain", .25f);
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
+        if (v.outer_angle < v.inner_angle)
+            throw std::runtime_error("Audio outer opening must be at least inner opening");
         return v;
     } else if constexpr (std::is_same_v<T, AudioListener>)
         return T{p.at("enabled")};
@@ -511,7 +521,11 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("minimum_distance")
             .template member<float>("maximum_distance")
             .template member<std::uint32_t>("attenuation")
-            .template member<float>("rolloff");
+            .template member<float>("rolloff")
+            .template member<bool>("cone_enabled")
+            .template member<float>("inner_angle")
+            .template member<float>("outer_angle")
+            .template member<float>("outer_gain");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController>)
@@ -1079,8 +1093,30 @@ Json registration_options(const Builtin& type, const std::string& field) {
             {"attenuation", "Distance falloff curve; changes loudness with listener distance. "
                             "Spatialized controls positional sound independently"},
             {"rolloff", "Falloff strength: 1 is standard, 0 keeps loudness with distance while "
-                        "preserving positional sound"}};
+                        "preserving positional sound"},
+            {"cone_enabled",
+             "Project spatial sound toward the source's effective local negative Z; "
+             "rotate the source or its parent to aim it"},
+            {"inner_angle",
+             "Full opening in degrees with full angular gain; 360 is omnidirectional"},
+            {"outer_angle", "Full outer opening in degrees; must be at least the inner opening. "
+                            "Angular gain fades between the two openings"},
+            {"outer_gain", "Linear angular volume outside the outer opening, multiplied by "
+                           "distance falloff and source gain; 0 is silent, 1 is unchanged"}};
         value["description"] = help.at(field);
+        if (field == "cone_enabled")
+            value["display_name"] = "Directional sound";
+        if (field == "inner_angle" || field == "outer_angle") {
+            value["display_name"] =
+                field == "inner_angle" ? "Inner opening (deg)" : "Outer opening (deg)";
+            value["minimum"] = 0;
+            value["maximum"] = 360;
+        }
+        if (field == "outer_gain") {
+            value["display_name"] = "Outside volume";
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+        }
         if (field == "clip") {
             value["asset_type"] = AudioClipAsset::type;
             value["nullable"] = true;
@@ -1548,7 +1584,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")
-        for (const auto* field : {"attenuation", "rolloff"})
+        for (const auto* field :
+             {"attenuation", "rolloff", "cone_enabled", "inner_angle", "outer_angle", "outer_gain"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

@@ -16,7 +16,7 @@ AudioSource holds `AssetRef<AudioClipAsset>`, autoplay/loop/spatialized flags, l
 
 AssetCatalog owns metadata in version1 `forge.assets.json`; ProjectPaths resolves contained project-relative locators. Registration is UI-independent and idempotent for a locator. UI calls require project writer ownership; a detected external index edit prevents publication. Metadata persistence is separate from scene Undo; no cross-document atomicity claim. The shared Phase7 importer/publication and source-watcher workflow below also supports AudioClip. Existing registered-only records remain readable without automatic migration.
 
-Sources are decoded once into bounded immutable PCM. Limits:256 voices,1024 queued commands,16MiB source,64MiB decoded clip,256MiB cache. Mono/stereo WAV only; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations do not retry every frame; changing configuration or restarting Play allows retry. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
+Sources are decoded once into bounded immutable PCM. Limits:256 voices,1024 queued commands,16MiB source,64MiB decoded clip,256MiB cache. Mono/stereo WAV only; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame; changing configuration or restarting Play allows retry. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
 
 ## Distance falloff
 
@@ -51,9 +51,53 @@ The export closes over cooked PCM and authored fields and excludes the source WA
 Offline tests measure independent power equations, invalid-value rejection,
 active-voice continuity and actual relocated source-free Gallery playback.
 
+## Directional emitters
+
+AudioSource adds `cone_enabled` (defaultfalse), `inner_angle`60, `outer_angle`120
+and `outer_gain`.25. Openings are full angles in degrees,0–360; outer must be at
+least inner. Outside volume is finite linear0–1. Settings remain valid and stored
+when disabled or nonspatial; neither mode applies angular loss. The existing
+builtin default-admission path keeps older scenes/prefabs omnidirectional.
+
+Emitter forward is the effective WorldTransform affine negative-Z vector,
+normalized before backend conversion. Structural/World/Explicit spaces and
+parent rotations therefore use the same transform owner as rendering. Scaling
+does not enlarge the angular guide or multiply volume. Zero or nonfinite forward
+mutes directional spatial output with the existing bounded spatial diagnostic;
+the voice remains playing and recovers when the transform is corrected. Native
+invalid parameters instead follow existing failed-configuration admission rules.
+
+For source-to-listener direction cosine c, inner/outer half-angle cosines i/o,
+the pinned backend applies amplitude1 for c>i; outside amplitude g for c<=o;
+between them it applies `g+(1-g)*(c-o)/(i-o)`. This is interpolation in cosine,
+not linear interpolation in angle. Equal openings have a hard boundary selecting
+outside volume at the cutoff. Inner360 bypasses angular loss. At coincident
+positions, backend angular loss is bypassed; stereo mixing remains its own
+calculation. Angular amplitude multiplies distance falloff and separate gain.
+No new sound manager, sample restart or gameplay clock is introduced. Runtime
+status configuration_checks counts actual reflected configuration validations;
+it is transient diagnostic data, not persisted or recovered playback state.
+The existing failure cache treats repeated NaNs as equivalent invalid values
+without changing public component equality or comparing uninitialized padding.
+
+The existing detached SpatialHelpers owner displays a selectable sound marker,
+forward arrow and two spherical-cap outlines for selected directional sources.
+Guides have bounded227segments, remain finite at0/180/360deg, and show their
+presentation radius. They are editor-only aids, with no hidden authored entities
+or runtime geometry and no promise that the guide boundary is a mute radius.
+Inspector values, Undo/Redo, independent equal-value prefab masks and public C++
+fields share the existing schema. Matching SDK modules rebuild after this appended
+layout/header fingerprint change; ABI1 tables and audio recovery policy remain.
+
+Original Gallery32 reuses Gallery31's tone, with an Aim parent above a directional
+speaker. Source-free relocated playback measures full front volume and1/16power
+behind after parent rotation. Offline independent cosine equations, disabled/
+nonspatial settings, transformed direction, degenerate-direction recovery and
+exact sample-cursor continuity form the focused gate. Device listening is separate.
+
 ## Clock and presentation
 
-RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances; the selectable curves are described below. No Doppler/cone semantics.
+RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances; the selectable curves are described below. No Doppler, cone filtering or occlusion semantics.
 
 The device callback mixes continuously and never advances gameplay time. Pause stops the gameplay group while keeping the device alive. Step updates intent/transforms once with the group still stopped; it does not request an audio timeslice. Resume starts the group. Play commands restart the source at frame0; Stop stops and resets it. Basic playback counts are diagnostic presentation state, not authoritative simulation clocks.
 

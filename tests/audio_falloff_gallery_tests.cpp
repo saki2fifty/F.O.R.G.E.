@@ -38,7 +38,9 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(scratch);
         std::filesystem::copy(argv[1], project, std::filesystem::copy_options::recursive);
         const auto source = read(project / "Scenes/31-audio-falloff.scene.json");
-        const std::array roots{source.at("asset_id").get<AssetId>()};
+        const auto cone_source = read(project / "Scenes/32-directional-audio.scene.json");
+        const std::array roots{source.at("asset_id").get<AssetId>(),
+                               cone_source.at("asset_id").get<AssetId>()};
         const auto clip = AssetId::parse("327101c1-e496-4293-b830-4c25b978607a");
         EngineContext author;
         Scene author_scene(author.world());
@@ -108,6 +110,47 @@ int main(int argc, char** argv) {
                         "Exported falloff did not match the independent power equation");
                 audio->stop_source(ref);
             }
+        }
+        {
+            const auto shipped_cone = read(relocated / catalog.records().at(roots[1]).source);
+            require(shipped_cone == cone_source,
+                    "Directional export changed authored identity/settings");
+            EngineContext engine(WorldRole::Runtime, false,
+                                 {audio_module({relocated, AudioOutput::Offline, true})});
+            Scene scene(engine.world());
+            RuntimeSimulation simulation(engine.world(), scene);
+            scene.restore_snapshot(shipped_cone);
+            simulation.reset_presentation();
+            simulation.sync_audio();
+            simulation.audio_paused(false);
+            flecs::entity speaker, listener;
+            std::string parent;
+            for (const auto& row : shipped_cone.at("entities")) {
+                const auto entity = scene.entity(row.at("id"));
+                if (entity.has<AudioSource>()) {
+                    speaker = entity;
+                    parent = row.at("parent");
+                }
+                if (entity.has<AudioListener>())
+                    listener = entity;
+            }
+            require(speaker && listener && !parent.empty(),
+                    "Directional Gallery hierarchy/listener missing");
+            const auto value = speaker.get<AudioSource>();
+            require(value.cone_enabled && value.inner_angle == 60 && value.outer_angle == 120 &&
+                        value.outer_gain == .25f,
+                    "Cooked scene lost public directional fields");
+            const auto position = speaker.get<WorldTransform>().affine.point({0, 0, 0});
+            listener.set<LocalTranslation>({position[0], position[1], position[2] - 6});
+            listener.set<LocalRotation>({});
+            simulation.tick(1.f / 60);
+            auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            const double front = power(*audio);
+            require(front > .001, "Relocated directional speaker did not play");
+            scene.entity(parent).set<LocalRotation>({0, 1, 0, 0});
+            simulation.tick(1.f / 60);
+            require(std::abs(power(*audio) / front - .0625) < .004,
+                    "Source-free parent rotation did not change actual angular volume");
         }
         std::filesystem::remove_all(scratch);
         std::cout << "Original Gallery31 cooked audio/identity and three falloff modes play "
