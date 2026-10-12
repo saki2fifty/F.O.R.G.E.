@@ -59,6 +59,11 @@ struct PhysicsJoint {
     float slider_motor_speed = 1;          // Signed metres/s, Body B relative to A.
     float max_motor_torque = 10;           // Hinge torque budget, N*m; zero coasts.
     float max_motor_force = 100;           // Slider force budget, N; zero coasts.
+    std::uint32_t motor_mode = 0;          // Velocity (0) or Position (1).
+    float hinge_motor_angle = 0;           // Signed degrees relative to rest frame.
+    float slider_motor_position = 0;       // Signed anchor distance in metres.
+    float motor_frequency = 2;             // Position spring frequency, Hz.
+    float motor_damping = 1;               // Position damping ratio; 1 is critical.
     bool operator==(const PhysicsJoint&) const = default;
 };
 struct BoxCollider {

@@ -179,6 +179,31 @@ int main(int argc, char** argv) {
                 require(scene.entity(id).get<PhysicsJoint>().hinge_motor_speed == -45 &&
                             scene.entity(id).get<PhysicsJoint>().max_motor_torque == 20,
                         "Actual signed hinge speed/torque fields failed");
+                click("component-field:forge.physics_joint:motor_mode");
+                key(ImGuiKey_DownArrow);
+                key(ImGuiKey_Enter);
+                require(scene.entity(id).get<PhysicsJoint>().motor_mode == 1,
+                        "Actual Position mode enum failed");
+                frame();
+                require(test::ui_targets.contains(
+                            "component-field:forge.physics_joint:hinge_motor_angle") &&
+                            test::ui_targets.contains(
+                                "component-field:forge.physics_joint:motor_frequency") &&
+                            !test::ui_targets.contains(
+                                "component-field:forge.physics_joint:hinge_motor_speed"),
+                        "Position mode Inspector lacks target/spring or shows inactive speed");
+                numeric("hinge_motor_angle", "30");
+                numeric("motor_frequency", "1.5");
+                numeric("motor_damping", "0.4");
+                require(scene.entity(id).get<PhysicsJoint>().hinge_motor_angle == 30 &&
+                            scene.entity(id).get<PhysicsJoint>().motor_frequency == 1.5f &&
+                            scene.entity(id).get<PhysicsJoint>().motor_damping == .4f,
+                        "Actual hinge position spring edits failed");
+                click("component-field:forge.physics_joint:motor_mode");
+                key(ImGuiKey_UpArrow);
+                key(ImGuiKey_Enter);
+                require(scene.entity(id).get<PhysicsJoint>().motor_mode == 0,
+                        "Actual Velocity mode enum failed");
                 click("component-field:forge.physics_joint:body_b");
                 click("entity-picker-clear");
                 require(!scene.entity(id).get<PhysicsJoint>().body_b.scene,
@@ -235,6 +260,21 @@ int main(int argc, char** argv) {
                     scene.undo() && scene.entity(id).get<PhysicsJoint>().max_motor_force == 100 &&
                         scene.redo() && scene.entity(id).get<PhysicsJoint>().max_motor_force == 3,
                     "Motor numeric Undo/Redo failed");
+                click("component-field:forge.physics_joint:motor_mode");
+                key(ImGuiKey_DownArrow);
+                key(ImGuiKey_Enter);
+                numeric("slider_motor_position", "-1.25");
+                numeric("motor_frequency", "1.75");
+                numeric("motor_damping", "0.6");
+                const auto positioned = scene.entity(id).get<PhysicsJoint>();
+                require(positioned.motor_mode == 1 && positioned.slider_motor_position == -1.25f &&
+                            positioned.hinge_motor_angle == 30 &&
+                            positioned.slider_motor_speed == -2 &&
+                            positioned.motor_frequency == 1.75f && positioned.motor_damping == .6f,
+                        "Actual slider position settings or inactive targets changed");
+                require(scene.undo() && scene.entity(id).get<PhysicsJoint>().motor_damping == .4f &&
+                            scene.redo() && scene.entity(id).get<PhysicsJoint>() == positioned,
+                        "Position spring Undo/Redo failed");
                 click("component-field:forge.physics_joint:enabled");
                 require(!scene.entity(id).get<PhysicsJoint>().enabled, "Enabled checkbox failed");
                 const auto retained = scene.entity(id).get<PhysicsJoint>();
@@ -250,11 +290,28 @@ int main(int argc, char** argv) {
                         "Inspector save/reopen lost settings");
                 // The shared enum focus correction also serves existing body fields.
                 selected = scene.canonical_id("b");
+                const auto before_motion = scene.entity(selected).get<PhysicsBody>().motion;
                 click("component-field:forge.physics_body:motion");
+                const auto after_click_motion = scene.entity(selected).get<PhysicsBody>().motion;
+                // A newly resized/scrolled popup may need another layout frame
+                // before its selected row receives navigation focus. Require
+                // actual readiness, rather than sending Up into NavId zero.
+                bool focused = false;
+                for (unsigned i = 0; i < 8 && !focused; ++i) {
+                    auto* context = ImGui::GetCurrentContext();
+                    auto* nav = context->NavWindow;
+                    focused = nav && context->NavId == nav->GetID("Dynamic");
+                    if (!focused)
+                        frame();
+                }
+                require(focused, "Existing body popup failed to focus the selected Dynamic row");
                 key(ImGuiKey_UpArrow);
                 key(ImGuiKey_Enter);
                 require(scene.entity(selected).get<PhysicsBody>().motion == 1,
-                        "Existing Dynamic body enum failed to navigate to Kinematic");
+                        "Existing Dynamic body enum failed to navigate to Kinematic: actual=" +
+                            std::to_string(scene.entity(selected).get<PhysicsBody>().motion) +
+                            " before=" + std::to_string(before_motion) + " after_click=" +
+                            std::to_string(after_click_motion) + " scale=" + std::to_string(scale));
                 require(scene.undo() && scene.entity(selected).get<PhysicsBody>().motion == 2,
                         "Existing body enum history regressed");
                 click("component-field:forge.physics_body:continuous_collision");

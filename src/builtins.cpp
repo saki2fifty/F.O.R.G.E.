@@ -566,7 +566,12 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("hinge_motor_speed")
             .template member<float>("slider_motor_speed")
             .template member<float>("max_motor_torque")
-            .template member<float>("max_motor_force");
+            .template member<float>("max_motor_force")
+            .template member<std::uint32_t>("motor_mode")
+            .template member<float>("hinge_motor_angle")
+            .template member<float>("slider_motor_position")
+            .template member<float>("motor_frequency")
+            .template member<float>("motor_damping");
     } else if constexpr (std::is_same_v<T, AssetCollider>) {
         register_asset_ref<CollisionAsset>(w, "forge.collision_ref");
         c.template member<AssetRef<CollisionAsset>>("asset");
@@ -891,6 +896,29 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = UINT32_MAX;
     }
     if (name == "forge.physics_joint") {
+        if (field == "motor_mode")
+            value["maximum"] = 1;
+        if (field == "hinge_motor_angle" || field == "slider_motor_position") {
+            const auto limit = field == "hinge_motor_angle" ? 180 : 10000;
+            value["minimum"] = -limit;
+            value["maximum"] = limit;
+            value["unit"] = field == "hinge_motor_angle" ? "degrees" : "meters";
+            value["description"] = "Position drive target relative to the admitted joint frame; "
+                                   "enabled position drives require a target inside joint limits";
+        }
+        if (field == "motor_frequency") {
+            value["minimum"] = .01;
+            value["maximum"] = 100;
+            value["unit"] = "Hz";
+            value["description"] = "Position spring frequency; high frequencies have substantial "
+                                   "fixed-step integration damping";
+        }
+        if (field == "motor_damping") {
+            value["maximum"] = 10;
+            value["unit"] = "ratio";
+            value["description"] = "Position spring damping ratio: 1 is critical. Implicit "
+                                   "integration also damps motion, including at ratio zero.";
+        }
         if (field == "body_a" || field == "body_b") {
             value["nullable"] = true;
             value["description"] =
@@ -1198,6 +1226,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.physics_joint" && field == "kind") {
         type = "forge.JointKind";
         names = {"Distance", "Hinge", "Point", "Fixed", "Slider"};
+    } else if (component == "forge.physics_joint" && field == "motor_mode") {
+        type = "forge.JointMotorMode";
+        names = {"Velocity", "Position"};
     } else if (component == "forge.physics_joint" &&
                (field.starts_with("axis_") || field.starts_with("normal_"))) {
         type = "forge.JointAxis";
@@ -1462,8 +1493,10 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_joint")
-        for (const auto* field : {"min_travel", "max_travel", "motor_enabled", "hinge_motor_speed",
-                                  "slider_motor_speed", "max_motor_torque", "max_motor_force"})
+        for (const auto* field :
+             {"min_travel", "max_travel", "motor_enabled", "hinge_motor_speed",
+              "slider_motor_speed", "max_motor_torque", "max_motor_force", "motor_mode",
+              "hinge_motor_angle", "slider_motor_position", "motor_frequency", "motor_damping"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     return current;

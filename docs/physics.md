@@ -541,8 +541,8 @@ and recovery use the existing joint owner.
 
 Scene24 contains vertical and inclined carriages under gravity. Inspector travel
 controls support ordinary Undo/save/reopen; Scene guides show the allowed interval
-and current signed travel. Velocity motors are described below; position motors, springs and break behavior
-are not implemented.
+and current signed travel. Velocity and position drives are described below;
+break behavior is not implemented.
 
 ### Bounded velocity motors
 
@@ -569,7 +569,7 @@ Recovery capture still requires synchronized component values; unsynchronized
 motor edits reject like other joint edits. Matching configuration plus exact native
 solver state restore active drives through private checkpoint4. Public field layout
 and SDK fingerprint change, requiring matching modules; ABI1 and authored versions
-are unchanged. Position targets and spring drives are not provided.
+are unchanged. Position targets and spring drives are described below.
 
 Gallery25 uses zero-gravity, force-limited slider and hinge drives to their positive
 stops. A separate compiled SDK fixture writes the same typed Slider controls before
@@ -577,6 +577,45 @@ Physics, observes actual copied body velocity afterward, and checks fresh worker
 recovery. Independent centered-box checks use F/m and torque/I: a0.6m cube of mass2
 has I=0.12kg*m²;1N yields0.5m/s² and0.06N*m yields0.5rad/s². These are fixture-specific
 checks, not a universal settling guarantee for arbitrary geometry or impacts.
+
+### Bounded position drives
+
+`motor_mode` is Velocity(0, default) or Position(1). Position uses
+`hinge_motor_angle` in signed degrees relative to the admitted rest frame, or
+`slider_motor_position` as signed anchor displacement in world meters. It shares
+the enable switch and physical torque/force budgets with velocity mode. An enabled
+position drive rejects targets outside the matching authored angle/travel interval
+before native mutation; it does not silently clamp an authored target. The angle
+is bounded to[-180,180] and displacement to[-10000,10000]. Hinge angle error uses
+the native wrapped rest-frame convention; a target is not a prescribed rotation path.
+
+`motor_frequency` is finite[.01,100]Hz (default2); `motor_damping` is a damping ratio
+in[0,10] (default1, critical). The existing pinned solver normalizes stiffness and
+damping by effective mass/inertia: k=m_eff*(2*pi*f)^2 and
+c=2*m_eff*ratio*(2*pi*f). Effort budgets, external load, speed limits and body
+geometry still affect motion and can prevent reaching the target. Zero effort
+coasts. Zero frequency is rejected because the selected Position motor would stop
+applying a restoring drive.
+
+The spring uses implicit Euler integration, which adds numerical damping even at
+ratio zero. Large frequency relative to the fixed rate has substantial integration
+damping; admitted input bounds are not an arbitrary-geometry settling guarantee.
+Independent centered single-axis checks use
+v_next=(v+dt*w^2*(target-x))/(1+2*ratio*w*dt+w^2*dt^2) and
+x_next=x+dt*v_next, with w=2*pi*f. Separate bounded-effort checks use F/m and torque/I.
+
+Mode/target/spring edits retain native geometry, manager order and warm state;
+inactive mode and kind values remain authored without driving or waking bodies.
+C++ writes the same typed controls before Physics. Synchronized checkpoint4 restores
+actual native spring trajectories in a fresh runtime; no additional owner, queue,
+public callback or durable state is introduced. Legacy values backfill Velocity,
+zero position targets and2Hz/ratio1. Matching public-layout/header fingerprint
+requires module rebuilds; ABI1 and authored versions remain unchanged.
+
+Inspector mode selection shows only relevant targets and spring controls, using
+existing Undo/save/reopen. Selected Scene guides show the target, frequency, damping
+and budget with a separate target marker. Original Gallery26 returns its slider to
+-.75m and hinge to-45degrees. It supports ordinary Play and source-free export.
 
 ### Editor joint guides and numerical limits
 

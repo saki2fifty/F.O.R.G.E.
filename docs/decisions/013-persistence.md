@@ -128,3 +128,14 @@ solver state, so no private version change or separate queue is needed. Capture 
 rejects unsynchronized component writes; C++ controls belong before Physics. Inactive
 kind data remains authored but cannot wake or drive bodies. No additional owner or
 durable motor history is introduced.
+
+## 2026-10-12 — bounded joint position drives
+
+Five trailing PhysicsJoint fields add Velocity(default)/Position mode, separate
+angle/displacement targets, frequency and damping ratio. Existing builtin defaults
+and codec admit legacy velocity controls without source rewriting. Matching SDK
+layout/fingerprint changes; authored formats and ABI1 remain unchanged. Active
+position targets must fit the matching joint interval before native realization.
+In-place mode/target/spring updates retain geometry/native order. Exact checkpoint4
+continues to carry full admitted controls and actual pinned native solver state,
+with synchronized capture; no new owner, queue or durable position-drive state.

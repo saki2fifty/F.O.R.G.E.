@@ -565,3 +565,23 @@ editable source and kit, verifies production startup, and runs the separately
 inventoried `--packaged-motors` graphical observer. It requires both constrained
 poses, two native joints and actual cyan rendered geometry. These are configured
 gates; Windows execution and physical GPU acceptance require separate evidence.
+
+### Bounded joint position drives
+
+The joint suite checks independent implicit-Euler spring position/velocity for
+critical and underdamped Hinge/Slider cases, finite effort and Dynamic reaction,
+active-target/limit rejection, mode changes, nonlast native constraint retention,
+sleeping wake, legacy velocity defaults and true fresh recovery. The compiled
+`native_sdk_physics_position` fixture compares actual copied native velocity and
+position with that independent recurrence and restores a new worker at tick20.
+Inspector fixtures navigate the actual mode enum and edit targets/frequency/damping
+with Undo/save/reopen at65/100/200percent scale. Keyboard input waits for confirmed
+selected-row navigation focus after a resized/scrolled dropdown's layout completes.
+
+Gallery26 checks signed targets, independently transformed hinge axes, settling,
+render resources and source-free relocated export. Native editor capture adds
+hinge/slider position controls and target guides at100/150/200percent. Final-package
+acceptance deletes the copied source/kit before production startup and the
+inventoried `--packaged-position` graphical observer, checking actual target poses,
+two native joints and cyan geometry. Configured Windows gates and physical GPU
+acceptance still require their own execution evidence.

@@ -67,6 +67,17 @@ void check_guides() {
                 slider_guide->motor_enabled && slider_guide->motor_speed == -2 &&
                 slider_guide->motor_budget == 3,
             "Slider guide lost signed travel bounds or current body frames");
+    auto position_snapshot = slider_snapshot;
+    auto& position = row(position_snapshot, id)["components"]["forge.physics_joint"];
+    position["motor_mode"] = 1;
+    position["slider_motor_position"] = -1.25;
+    position["motor_frequency"] = 1.75;
+    position["motor_damping"] = .6;
+    const auto position_guide = ui::prepare_physics_joint_guide(position_snapshot, id);
+    require(position_guide && position_guide->valid && position_guide->motor_mode == 1 &&
+                position_guide->motor_target == -1.25f &&
+                position_guide->motor_frequency == 1.75f && position_guide->motor_damping == .6f,
+            "Position guide lost target, frequency or damping");
     // Independent parent matrix: T(10,20,30) Rz(90) S(-2,3,4).
     require(error(guide->bodies[0].anchor, {1, 17, 41}) < 1e-5,
             "Guide anchor ignored rotated parent or signed scale");
@@ -179,6 +190,11 @@ void check_guides() {
                     overlay.status().find("travel") != std::string::npos &&
                     overlay.status().find("drive -2.000 m/s, budget 3.000 N") != std::string::npos,
                 "Actual slider guide lacks travel interval geometry/status");
+        const auto velocity_vertices = draw(slider_snapshot);
+        require(draw(position_snapshot) > velocity_vertices &&
+                    overlay.status().find("target -1.250 m, spring 1.750 Hz / 0.600") !=
+                        std::string::npos,
+                "Actual position guide lacks target marker and spring status");
         require(draw(altered) > 0 && overlay.status().find("distinct bodies") != std::string::npos,
                 "Invalid pairing lost visible diagnostic");
         auto invalid = snapshot;

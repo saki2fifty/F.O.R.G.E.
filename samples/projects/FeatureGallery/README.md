@@ -172,3 +172,13 @@ carriage to90degrees. Stop to change motor direction, speed, torque/force budget
 limits in the Inspector, then test/export again. Zero speed brakes with the given
 budget; zero budget coasts. No gameplay source/compiler is required. Scene guides
 show authored drive settings rather than measured runtime speed.
+
+## 26 — Position drives
+
+Open `Scenes/26-position-drives.scene.json` and Play. Its slider returns to-.75m
+and hinge to-45degrees with bounded restoring force/torque and critically damped
+2Hz springs. Stop to edit Position mode, angle/displacement target, frequency,
+damping or budget in the Inspector. Targets must fit the authored joint limits.
+Lower damping ratios can overshoot; the fixed-step solver also adds integration
+damping. Selected Scene guides show a pink target marker and authored settings.
+Ordinary source-free export needs no project C++ module or compiler.

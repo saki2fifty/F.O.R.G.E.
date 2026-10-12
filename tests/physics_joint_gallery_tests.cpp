@@ -172,6 +172,26 @@ void motor_motion(World& w) {
     }
     render_actors(w, {"Driven slider carriage", "Driven hinge carriage"});
 }
+void position_motion(World& w) {
+    require(w.physics->status().at("joints") == 2, "Gallery position constraints missing");
+    for (unsigned i = 0; i < 180; ++i)
+        w.simulation.tick(1.f / 60);
+    const double side = .6 * std::sqrt(.5);
+    require(
+        distance(w.point("Return slider carriage"), {-2.75, 4, 0}) < .001 &&
+            distance(w.point("Return hinge carriage"), {2, 4, 0}) < .001 &&
+            distance(w.point("Return hinge carriage", {1, 0, 0}), {2 + side, 4 - side, 0}) < 1e-5 &&
+            distance(w.point("Return hinge carriage", {0, 1, 0}), {2 + side, 4 + side, 0}) < 1e-5,
+        "Gallery position drives failed their independent target/frame equations");
+    for (const auto* name : {"Return slider carriage", "Return hinge carriage"}) {
+        const auto ref = w.engine.world().reference(w.named(name));
+        const auto state = ref ? w.physics->body_state(*ref) : std::nullopt;
+        require(state && distance(state->linear_velocity, {}) < .002 &&
+                    distance(state->angular_velocity, {}) < .002,
+                "Gallery position drive failed to settle at its target");
+    }
+    render_actors(w, {"Return slider carriage", "Return hinge carriage"});
+}
 void tuned_motion(World& w) {
     const std::vector<std::string> names{
         "No damping - free fall",  "Damping 3 per second", "Speed limit 2 metres per second",
@@ -209,10 +229,12 @@ int main(int argc, char** argv) {
         require(argc == 3 || argc == 4, "Need Gallery and scratch roots, optional extended mode");
         const std::string mode = argc == 4 ? argv[3] : "joints";
         require(mode == "joints" || mode == "extended" || mode == "ccd" || mode == "tuning" ||
-                    mode == "slider" || mode == "motors",
+                    mode == "slider" || mode == "motors" || mode == "position",
                 "Unknown Gallery mode");
         const auto validate = [&](World& world) {
-            if (mode == "motors")
+            if (mode == "position")
+                position_motion(world);
+            else if (mode == "motors")
                 motor_motion(world);
             else if (mode == "slider")
                 slider_motion(world);
@@ -229,7 +251,8 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source =
-            read(root / (mode == "motors"     ? "Scenes/25-velocity-motors.scene.json"
+            read(root / (mode == "position"   ? "Scenes/26-position-drives.scene.json"
+                         : mode == "motors"   ? "Scenes/25-velocity-motors.scene.json"
                          : mode == "slider"   ? "Scenes/24-slider-joints.scene.json"
                          : mode == "tuning"   ? "Scenes/23-body-motion-tuning.scene.json"
                          : mode == "ccd"      ? "Scenes/22-continuous-collision.scene.json"

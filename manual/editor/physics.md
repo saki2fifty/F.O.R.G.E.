@@ -297,6 +297,25 @@ speed, effort or limits in the Inspector, then Play again. The Scene guide displ
 the authored target and budget; it is not a live speed measurement. Export the scene
 to run the compiled engine behavior standalone without gameplay source or a compiler.
 
+### Returning to a chosen position
+
+Choose **Motor Mode → Position** on a Hinge or Slider and enable its motor.
+Set **Hinge Motor Angle** in degrees or **Slider Motor Position** in meters.
+The target is relative to the joint's rest frame and must fit inside its limits.
+Positive and negative targets move to opposite sides of that frame.
+
+**Motor Frequency** controls how quickly the spring tries to return; **Motor Damping**
+controls overshoot. A ratio of1 is critical damping; lower ratios can oscillate.
+The fixed-step solver also adds damping, especially at high frequencies. Begin with
+the default2Hz and ratio1, then adjust the force or torque budget for the mechanism's
+mass and load. A low budget may prevent it from holding or reaching the target.
+
+Stop Play to edit the authored settings, then Play again. Hidden speed/position
+values remain saved when switching mode. Undo and Save work like other joint fields.
+The selected Scene guide adds a pink target marker and spring settings. Gallery
+**26-position-drives** demonstrates a slider returning to-.75m and hinge to-45degrees;
+it exports and runs with the saved engine behavior, without C++ source or a compiler.
+
 ### Scene joint guides
 
 Select the joint entity in Scene to see its two anchors, connecting line and an

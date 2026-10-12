@@ -18,6 +18,8 @@ struct PhysicsJointGuide {
     float min_travel = 0, max_travel = 0;
     bool motor_enabled = false;
     float motor_speed = 0, motor_budget = 0;
+    unsigned motor_mode = 0;
+    float motor_target = 0, motor_frequency = 0, motor_damping = 0;
     std::array<unsigned, 2> axis{}, normal{};
     std::array<PhysicsJointGuideFrame, 2> bodies;
     std::string error;
@@ -43,6 +45,11 @@ inline std::optional<PhysicsJointGuide> prepare_physics_joint_guide(const Json& 
         guide.motor_enabled = joint.motor_enabled;
         guide.motor_speed = joint.kind == 1 ? joint.hinge_motor_speed : joint.slider_motor_speed;
         guide.motor_budget = joint.kind == 1 ? joint.max_motor_torque : joint.max_motor_force;
+        guide.motor_mode = joint.motor_mode;
+        guide.motor_target =
+            joint.kind == 1 ? joint.hinge_motor_angle : joint.slider_motor_position;
+        guide.motor_frequency = joint.motor_frequency;
+        guide.motor_damping = joint.motor_damping;
         guide.max_travel = joint.max_travel;
         guide.axis = {joint.axis_a, joint.axis_b};
         guide.normal = {joint.normal_a, joint.normal_b};

@@ -1073,16 +1073,24 @@ struct PhysicsRuntime::Impl {
         }
     }
     static void configure_joint_motor(JPH::Constraint& native, const PhysicsJoint& c) {
-        const auto state = c.motor_enabled ? JPH::EMotorState::Velocity : JPH::EMotorState::Off;
+        const auto state = !c.motor_enabled    ? JPH::EMotorState::Off
+                           : c.motor_mode == 0 ? JPH::EMotorState::Velocity
+                                               : JPH::EMotorState::Position;
+        const JPH::SpringSettings spring{JPH::ESpringMode::FrequencyAndDamping, c.motor_frequency,
+                                         c.motor_damping};
         if (c.kind == 1) {
             auto& hinge = static_cast<JPH::HingeConstraint&>(native);
             hinge.GetMotorSettings().SetTorqueLimit(c.max_motor_torque);
+            hinge.GetMotorSettings().mSpringSettings = spring;
             hinge.SetTargetAngularVelocity(c.hinge_motor_speed * std::numbers::pi_v<float> / 180);
+            hinge.SetTargetAngle(c.hinge_motor_angle * std::numbers::pi_v<float> / 180);
             hinge.SetMotorState(state);
         } else if (c.kind == 4) {
             auto& slider = static_cast<JPH::SliderConstraint&>(native);
             slider.GetMotorSettings().SetForceLimit(c.max_motor_force);
+            slider.GetMotorSettings().mSpringSettings = spring;
             slider.SetTargetVelocity(c.slider_motor_speed);
+            slider.SetTargetPosition(c.slider_motor_position);
             slider.SetMotorState(state);
         }
     }
@@ -1182,13 +1190,7 @@ struct PhysicsRuntime::Impl {
                 // warm solver state when only the motor settings changed.
                 const auto& before = record.desired.config;
                 const auto& after = v.config;
-                const bool controls_changed =
-                    (after.kind == 1 && (before.motor_enabled != after.motor_enabled ||
-                                         before.hinge_motor_speed != after.hinge_motor_speed ||
-                                         before.max_motor_torque != after.max_motor_torque)) ||
-                    (after.kind == 4 && (before.motor_enabled != after.motor_enabled ||
-                                         before.slider_motor_speed != after.slider_motor_speed ||
-                                         before.max_motor_force != after.max_motor_force));
+                const bool controls_changed = physics_detail::joint_motor_changed(before, after);
                 if (controls_changed)
                     configure_joint_motor(*record.native, after);
                 record.desired = v;

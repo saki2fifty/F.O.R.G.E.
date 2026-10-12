@@ -21,12 +21,23 @@ inline void validate_joint(const PhysicsJoint& v) {
         std::abs(v.slider_motor_speed) > 1000 || !std::isfinite(v.max_motor_torque) ||
         v.max_motor_torque < 0 || v.max_motor_torque > 1000000 ||
         !std::isfinite(v.max_motor_force) || v.max_motor_force < 0 || v.max_motor_force > 1000000 ||
+        v.motor_mode > 1 || !std::isfinite(v.hinge_motor_angle) ||
+        std::abs(v.hinge_motor_angle) > 180 || !std::isfinite(v.slider_motor_position) ||
+        std::abs(v.slider_motor_position) > 10000 || !std::isfinite(v.motor_frequency) ||
+        v.motor_frequency < .01f || v.motor_frequency > 100 || !std::isfinite(v.motor_damping) ||
+        v.motor_damping < 0 || v.motor_damping > 10 ||
         ((v.kind == 1 || v.kind == 3 || v.kind == 4) &&
          (v.axis_a == v.normal_a || v.axis_b == v.normal_b)) ||
         (v.kind == 4 && v.min_travel == v.max_travel) ||
         (v.kind == 1 && v.min_angle == v.max_angle))
         throw std::runtime_error(
             "Invalid joint kind, distance/travel interval, frame axes, angle limits or motor");
+    if (v.enabled && v.motor_enabled && v.motor_mode == 1 &&
+        ((v.kind == 1 &&
+          (v.hinge_motor_angle < v.min_angle || v.hinge_motor_angle > v.max_angle)) ||
+         (v.kind == 4 &&
+          (v.slider_motor_position < v.min_travel || v.slider_motor_position > v.max_travel))))
+        throw std::runtime_error("Position motor target must be inside the joint limits");
 }
 inline bool joint_same_geometry(const PhysicsJoint& a, PhysicsJoint b) {
     b.motor_enabled = a.motor_enabled;
@@ -34,7 +45,26 @@ inline bool joint_same_geometry(const PhysicsJoint& a, PhysicsJoint b) {
     b.slider_motor_speed = a.slider_motor_speed;
     b.max_motor_torque = a.max_motor_torque;
     b.max_motor_force = a.max_motor_force;
+    b.motor_mode = a.motor_mode;
+    b.hinge_motor_angle = a.hinge_motor_angle;
+    b.slider_motor_position = a.slider_motor_position;
+    b.motor_frequency = a.motor_frequency;
+    b.motor_damping = a.motor_damping;
     return a == b;
+}
+inline bool joint_motor_changed(const PhysicsJoint& a, const PhysicsJoint& b) {
+    if (b.kind != 1 && b.kind != 4)
+        return false;
+    if (a.motor_enabled != b.motor_enabled || a.motor_mode != b.motor_mode ||
+        (b.kind == 1 ? a.max_motor_torque != b.max_motor_torque
+                     : a.max_motor_force != b.max_motor_force))
+        return true;
+    if (b.motor_mode == 0)
+        return b.kind == 1 ? a.hinge_motor_speed != b.hinge_motor_speed
+                           : a.slider_motor_speed != b.slider_motor_speed;
+    return a.motor_frequency != b.motor_frequency || a.motor_damping != b.motor_damping ||
+           (b.kind == 1 ? a.hinge_motor_angle != b.hinge_motor_angle
+                        : a.slider_motor_position != b.slider_motor_position);
 }
 inline nlohmann::json joint_value(const PhysicsJoint& v) {
     validate_joint(v);
@@ -62,7 +92,12 @@ inline nlohmann::json joint_value(const PhysicsJoint& v) {
             {"hinge_motor_speed", v.hinge_motor_speed},
             {"slider_motor_speed", v.slider_motor_speed},
             {"max_motor_torque", v.max_motor_torque},
-            {"max_motor_force", v.max_motor_force}};
+            {"max_motor_force", v.max_motor_force},
+            {"motor_mode", v.motor_mode},
+            {"hinge_motor_angle", v.hinge_motor_angle},
+            {"slider_motor_position", v.slider_motor_position},
+            {"motor_frequency", v.motor_frequency},
+            {"motor_damping", v.motor_damping}};
 }
 inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     PhysicsJoint v;
@@ -93,6 +128,11 @@ inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     v.slider_motor_speed = p.value("slider_motor_speed", 1.f);
     v.max_motor_torque = p.value("max_motor_torque", 10.f);
     v.max_motor_force = p.value("max_motor_force", 100.f);
+    v.motor_mode = p.value("motor_mode", 0u);
+    v.hinge_motor_angle = p.value("hinge_motor_angle", 0.f);
+    v.slider_motor_position = p.value("slider_motor_position", 0.f);
+    v.motor_frequency = p.value("motor_frequency", 2.f);
+    v.motor_damping = p.value("motor_damping", 1.f);
     validate_joint(v);
     return v;
 }

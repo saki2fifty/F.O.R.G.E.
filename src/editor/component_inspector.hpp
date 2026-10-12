@@ -283,10 +283,20 @@ class ComponentInspector {
                 const std::string name = field.at("id");
                 if (key == "forge.physics_joint") {
                     const auto kind = values.at(key).at("kind").get<unsigned>();
+                    const auto mode = values.at(key).at("motor_mode").get<unsigned>();
                     if ((name.ends_with("distance") && kind != 0) ||
                         (name.ends_with("travel") && kind != 4) ||
                         (name.ends_with("angle") && kind != 1) ||
                         (name == "motor_enabled" && kind != 1 && kind != 4) ||
+                        ((name == "motor_mode" || name == "motor_frequency" ||
+                          name == "motor_damping") &&
+                         kind != 1 && kind != 4) ||
+                        ((name == "motor_frequency" || name == "motor_damping" ||
+                          name == "hinge_motor_angle" || name == "slider_motor_position") &&
+                         mode != 1) ||
+                        ((name == "hinge_motor_speed" || name == "slider_motor_speed") &&
+                         mode != 0) ||
+                        (name == "slider_motor_position" && kind != 4) ||
                         ((name == "hinge_motor_speed" || name == "max_motor_torque") &&
                          kind != 1) ||
                         ((name == "slider_motor_speed" || name == "max_motor_force") &&

@@ -5,6 +5,7 @@
 #include "spatial_helpers.hpp"
 #include <cstdio>
 #include <future>
+#include <numbers>
 namespace forge::ui {
 // Selected-object, Scene-only inspection. Preparation uses immutable copied input;
 // no editor Flecs world or live simulation body is touched by the worker.
@@ -294,6 +295,30 @@ class PhysicsOverlay {
                                               helper_add(end, body.axes[guide.normal[0]], .15),
                                               marker);
             }
+            if (i == 0 && (guide.kind == 1 || guide.kind == 4) && guide.motor_enabled &&
+                guide.motor_mode == 1) {
+                const auto& axis = body.axes[guide.axis[0]];
+                const auto& normal = body.axes[guide.normal[0]];
+                Double3 target;
+                if (guide.kind == 4)
+                    target = helper_add(body.anchor, axis, guide.motor_target);
+                else {
+                    const double angle = guide.motor_target * std::numbers::pi / 180;
+                    const Double3 tangent{axis[1] * normal[2] - axis[2] * normal[1],
+                                          axis[2] * normal[0] - axis[0] * normal[2],
+                                          axis[0] * normal[1] - axis[1] * normal[0]};
+                    target = helper_add(helper_add(body.anchor, normal, .6 * std::cos(angle)),
+                                        tangent, .6 * std::sin(angle));
+                    SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor, target,
+                                              IM_COL32(242, 142, 240, 240));
+                }
+                SpatialHelpers::draw_line(
+                    draw, camera, origin, area, helper_add(target, normal, -.12),
+                    helper_add(target, normal, .12), IM_COL32(242, 142, 240, 240));
+                SpatialHelpers::draw_line(
+                    draw, camera, origin, area, helper_add(target, axis, -.12),
+                    helper_add(target, axis, .12), IM_COL32(242, 142, 240, 240));
+            }
             const auto p = project_point(
                 camera, Vec3{float(body.anchor[0]), float(body.anchor[1]), float(body.anchor[2])},
                 area.x, area.y);
@@ -318,10 +343,17 @@ class PhysicsOverlay {
                 note += metric;
             }
             if ((guide.kind == 1 || guide.kind == 4) && guide.motor_enabled) {
-                char drive[96];
-                std::snprintf(drive, sizeof(drive), " | drive %.3f %s, budget %.3f %s",
-                              guide.motor_speed, guide.kind == 1 ? "deg/s" : "m/s",
-                              guide.motor_budget, guide.kind == 1 ? "N*m" : "N");
+                char drive[160];
+                if (guide.motor_mode == 0)
+                    std::snprintf(drive, sizeof(drive), " | drive %.3f %s, budget %.3f %s",
+                                  guide.motor_speed, guide.kind == 1 ? "deg/s" : "m/s",
+                                  guide.motor_budget, guide.kind == 1 ? "N*m" : "N");
+                else
+                    std::snprintf(drive, sizeof(drive),
+                                  " | target %.3f %s, spring %.3f Hz / %.3f, budget %.3f %s",
+                                  guide.motor_target, guide.kind == 1 ? "deg" : "m",
+                                  guide.motor_frequency, guide.motor_damping, guide.motor_budget,
+                                  guide.kind == 1 ? "N*m" : "N");
                 note += drive;
             }
         }

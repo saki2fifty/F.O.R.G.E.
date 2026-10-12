@@ -14,3 +14,18 @@ Play and source-free export. Matching SDK modules must be rebuilt because the
 component layout changes. Authored formats, ABI1 and private checkpoint4 remain
 unchanged. Windows delivery and physical review are pending; this entry does not
 claim a new delivered ZIP.
+
+## Bounded joint position drives
+
+Hinge and Slider can return to an angle or signed displacement using bounded
+force/torque, spring frequency and damping. Inspector mode selection retains hidden
+values, supports Undo/save/reopen and adds selected Scene target markers. Active
+targets outside joint limits are rejected before native mutation. The existing
+owner retains native constraint geometry/order when controls change; C++ edits use
+the same typed component before Physics. Legacy controls default to velocity mode.
+
+Original Gallery26 returns a slider to-.75m and hinge to-45degrees and supports
+source-free export. Fixed-step implicit integration adds damping even at authored
+ratio zero. Matching SDK modules require rebuilding; authored formats, ABI1 and
+private checkpoint4 remain unchanged. Windows delivery and physical review are
+pending; no new delivered ZIP is claimed.
