@@ -13,7 +13,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-mixer-captur
     result = subprocess.run([fixture, evidence, '--audio-mixer', project],
                             capture_output=True, text=True, timeout=160)
     (evidence/'capture.log').write_text(result.stdout+result.stderr)
-    assert result.returncode == 0, (result.stdout, result.stderr)
+    assert result.returncode == 0, (result.returncode, result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
     for label in ('audio-mix-channel', 'audio-mix-channel-150', 'audio-mix-channel-200',
                   'audio-mix-volumes', 'audio-mix-volumes-150', 'audio-mix-volumes-200',

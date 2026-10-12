@@ -1,3 +1,4 @@
+#include "animation_playback_access.hpp"
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "authored_inspection.hpp"
@@ -358,6 +359,15 @@ int main(int argc, char** argv) {
                             runtime->engine.services().audio());
                         forge::AudioSourceAccess::control(
                             *audio, request.at("source").get<forge::EntityRef>(), operation);
+                    } else if (command == "animation_playback") {
+                        if (!runtime->engine.services().available(forge::Capability::Animation))
+                            throw std::runtime_error(
+                                "Animation playback requires enabled animation");
+                        forge::AnimationPlaybackAccess::control(
+                            *std::static_pointer_cast<forge::AnimationRuntime>(
+                                runtime->engine.services().animation()),
+                            request.at("source").get<forge::EntityRef>(), request);
+                        runtime->simulation.sync_animation_pose();
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();
@@ -442,6 +452,20 @@ int main(int argc, char** argv) {
                                 watched.get<forge::EntityRef>());
                         } catch (const std::exception& error) {
                             response["audio_source"] = {
+                                {"source", watched}, {"available", false}, {"error", error.what()}};
+                        }
+                    }
+                    if (request.contains("animation_watch")) {
+                        const auto& watched = request.at("animation_watch");
+                        try {
+                            if (!runtime->engine.services().available(forge::Capability::Animation))
+                                throw std::runtime_error("Animation is disabled");
+                            response["animation_playback"] = forge::AnimationPlaybackAccess::status(
+                                *std::static_pointer_cast<forge::AnimationRuntime>(
+                                    runtime->engine.services().animation()),
+                                watched.get<forge::EntityRef>());
+                        } catch (const std::exception& error) {
+                            response["animation_playback"] = {
                                 {"source", watched}, {"available", false}, {"error", error.what()}};
                         }
                     }

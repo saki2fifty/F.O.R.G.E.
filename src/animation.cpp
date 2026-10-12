@@ -1,4 +1,5 @@
 #include "animation_asset.hpp"
+#include "animation_playback_access.hpp"
 #include "animation_resource.hpp"
 #include "animation_root_motion.hpp"
 #include "animation_states_resource.hpp"
@@ -14,6 +15,7 @@
 #include <forge/project_paths.hpp>
 #include <forge/runtime_content_access.hpp>
 #include <future>
+#include <limits>
 #include <set>
 #include <thread>
 #include <tuple>
@@ -1370,6 +1372,94 @@ void AnimationRuntime::event_delivery(bool enabled) {
     if (impl_) {
         impl_->deliver_events = enabled;
         impl_->events.clear();
+    }
+}
+bool AnimationRuntime::seek(EntityRef reference, double seconds, std::uint64_t current_tick) {
+    if (!std::isfinite(seconds) || seconds < 0)
+        throw ArchiveError("Animation seek requires finite nonnegative seconds");
+    if (!impl_ || !impl_->context.on_owner_thread() ||
+        (impl_->last_animation_tick && current_tick <= *impl_->last_animation_tick))
+        return false;
+    const auto status = playback(reference);
+    if (!status)
+        return false;
+    if (seconds > status->duration)
+        throw ArchiveError("Animation seek exceeds the admitted incoming duration");
+    const auto entity = impl_->context.resolve(reference).entity;
+    auto& p = impl_->states.at(entity);
+    const auto time = p.config.loop && seconds == status->duration ? 0. : seconds;
+    p.time = p.previous = p.tick_begin = time;
+    p.advance = p.tick_advance = 0;
+    p.previous_blend = p.blend;
+    p.entry_pending = false;
+    p.model_pose_applied = false;
+    p.discontinuous = true;
+    p.sampler->reset();
+    if (p.blend_sampler)
+        p.blend_sampler->reset();
+    p.root_samples.clear();
+    impl_->root_motions.erase(entity);
+    return true;
+}
+Json AnimationPlaybackAccess::status(AnimationRuntime& runtime, EntityRef ref) {
+    const auto value = runtime.playback(ref);
+    Json result{{"source", ref}, {"available", bool(value)}};
+    if (value) {
+        result.update({{"time", value->time},
+                       {"duration", value->duration},
+                       {"progress", value->progress},
+                       {"speed", value->speed},
+                       {"enabled", value->enabled},
+                       {"loop", value->loop},
+                       {"playing", value->playing},
+                       {"finished", value->finished},
+                       {"state_name", value->state_name},
+                       {"transitioning", value->transitioning},
+                       {"transition_weight", value->transition_weight},
+                       {"blend_weight", value->blend_weight}});
+    }
+    return result;
+}
+void AnimationPlaybackAccess::control(AnimationRuntime& runtime, EntityRef ref,
+                                      const Json& command) {
+    if (!runtime.impl_ || !runtime.impl_->context.on_owner_thread() || !runtime.playback(ref))
+        throw ArchiveError("Animation playback requires an admitted owner-thread player");
+    const auto operation = command.at("operation").get<std::string>();
+    const auto last = runtime.impl_->last_animation_tick.value_or(0);
+    if (last == std::numeric_limits<std::uint64_t>::max())
+        throw ArchiveError("Animation playback tick space is exhausted");
+    const auto id = runtime.impl_->context.resolve(ref).entity;
+    bool accepted = false;
+    if (operation == "seek") {
+        if (!command.at("position_seconds").is_number())
+            throw ArchiveError("Animation seek requires numeric seconds");
+        const auto seconds = command.at("position_seconds").get<double>();
+        const auto status = *runtime.playback(ref);
+        if (!std::isfinite(seconds) || seconds < 0 || seconds > status.duration)
+            throw ArchiveError("Animation seek requires seconds within its incoming duration");
+        const auto time = status.loop && seconds == status.duration ? 0. : seconds;
+        // Validate a temporary sample before changing the authoritative clock.
+        runtime.impl_->apply_model_poses(false, {{id, time}}, id);
+        accepted = runtime.seek(ref, seconds, last + 1);
+    } else {
+        AnimationControl op;
+        if (operation == "play")
+            op = AnimationControl::Play;
+        else if (operation == "pause")
+            op = AnimationControl::Pause;
+        else if (operation == "restart") {
+            op = AnimationControl::Restart;
+            const auto& player = runtime.impl_->states.at(id);
+            runtime.impl_->apply_model_poses(false, {{id, 0}}, id,
+                                             {{id, player.config.blend_weight}});
+        } else
+            throw ArchiveError("Unknown animation playback operation");
+        accepted = runtime.control(ref, op, last + 1);
+    }
+    if (!accepted)
+        throw ArchiveError("Animation playback request is unavailable");
+    if (operation == "seek" || operation == "restart") {
+        runtime.impl_->apply_model_poses(true, {}, id);
     }
 }
 void AnimationRuntime::reset_presentation() {

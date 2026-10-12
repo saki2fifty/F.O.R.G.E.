@@ -1,5 +1,22 @@
 # 2026-10-12
 
+## Live animation and seeking
+
+- Selected Animators show tinted Live animation controls during Play: Pause or
+  Resume clip, Restart clip and release-to-seek playhead. Clip pause remains
+  independent of game pause, and saved scene values stay unchanged.
+- Seeking retains playback intent and incoming fade. Skipped markers and root
+  displacement are not replayed; subsequent fixed ticks advance normally.
+  Selected joint poses update while other moving objects retain interpolation.
+- The matching C++ SDK exposes checked seeking, with an ordinary editable
+  ClipSeek example. The callback table fingerprint changed; rebuild project code
+  against the matching SDK. Authored formats and checkpoint versions are unchanged.
+- Real legacy/shared Play transports, original skinned fixtures, source-free
+  export, actual C++ consumers, recovery and scaled widgets receive focused local
+  checks. Native Windows execution and physical acceptance remain separate.
+- Audio mixer capture waits for the ordinary Play action after a scene switch,
+  preserving source-scan admission instead of failing on its first unavailable frame.
+
 ## Animation root motion
 
 - Animator supports Off, Apply to entity and Extract for C++, with a durable

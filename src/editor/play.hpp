@@ -57,18 +57,55 @@ class PlaySession {
     const Json& audio_status() const { return audio_status_; }
     const std::string& audio_mix_error() const { return audio_mix_error_; }
     bool audio_mix_pending() const {
-        return (!audio_command_.is_null() && audio_command_.value("command", "") == "audio_mix") ||
+        return (!live_command_.is_null() && live_command_.value("command", "") == "audio_mix") ||
                (waiting_ && sent_command_ == "audio_mix");
     }
     bool submit_audio_mix(const Json& values) {
-        if (!control_ready() || !audio_command_.is_null() ||
+        if (!control_ready() || !live_command_.is_null() ||
             !audio_status_.contains("master_volume"))
             return false;
         const auto mix = AudioMixValues::parse(values);
-        audio_command_ = {{"command", "audio_mix"}, {"mix", mix.document()}};
+        live_command_ = {{"command", "audio_mix"}, {"mix", mix.document()}};
         if (sdk_game_)
-            audio_command_["generation"] = sdk_activation_generation_;
+            live_command_["generation"] = sdk_activation_generation_;
         audio_mix_error_.clear();
+        return true;
+    }
+    void watch_animation(std::optional<EntityRef> ref) {
+        const Json value = ref ? Json(*ref) : Json();
+        if (animation_watch_ != value) {
+            animation_watch_ = value;
+            animation_watch_dirty_ = !value.is_null();
+            animation_status_ = nullptr;
+            animation_error_.clear();
+        }
+    }
+    const Json& animation_status() const { return animation_status_; }
+    const std::string& animation_error() const { return animation_error_; }
+    bool animation_pending() const {
+        return (!live_command_.is_null() &&
+                live_command_.value("command", "") == "animation_playback") ||
+               (waiting_ && sent_command_ == "animation_playback");
+    }
+    bool submit_animation(const Json& value) {
+        if (!control_ready() || !live_command_.is_null() || animation_watch_.is_null() ||
+            !animation_status_.value("available", false))
+            return false;
+        const auto op = value.value("operation", "");
+        if (op != "play" && op != "pause" && op != "restart" && op != "seek")
+            return false;
+        if (op == "seek" &&
+            (!value.contains("position_seconds") || !value.at("position_seconds").is_number() ||
+             !std::isfinite(value.at("position_seconds").get<double>()) ||
+             value.at("position_seconds").get<double>() < 0 ||
+             value.at("position_seconds").get<double>() > animation_status_.value("duration", 0.)))
+            return false;
+        live_command_ = value;
+        live_command_["command"] = "animation_playback";
+        live_command_["source"] = animation_watch_;
+        if (sdk_game_)
+            live_command_["generation"] = sdk_activation_generation_;
+        animation_error_.clear();
         return true;
     }
     void watch_audio_source(std::optional<EntityRef> ref) {
@@ -83,8 +120,7 @@ class PlaySession {
     const Json& audio_source_status() const { return audio_source_status_; }
     const std::string& audio_source_error() const { return audio_source_error_; }
     bool audio_source_pending() const {
-        return (!audio_command_.is_null() &&
-                audio_command_.value("command", "") == "audio_source") ||
+        return (!live_command_.is_null() && live_command_.value("command", "") == "audio_source") ||
                (waiting_ && sent_command_ == "audio_source");
     }
     bool submit_audio_source(bool play) {
@@ -92,7 +128,7 @@ class PlaySession {
                                         : AudioSourceOperation::Stop);
     }
     bool submit_audio_source(AudioSourceOperation operation) {
-        if (!control_ready() || !audio_command_.is_null() || audio_source_watch_.is_null() ||
+        if (!control_ready() || !live_command_.is_null() || audio_source_watch_.is_null() ||
             !audio_status_.contains("master_volume"))
             return false;
         const char* name;
@@ -112,10 +148,10 @@ class PlaySession {
         default:
             return false;
         }
-        audio_command_ = {
+        live_command_ = {
             {"command", "audio_source"}, {"source", audio_source_watch_}, {"operation", name}};
         if (sdk_game_)
-            audio_command_["generation"] = sdk_activation_generation_;
+            live_command_["generation"] = sdk_activation_generation_;
         audio_source_error_.clear();
         return true;
     }
@@ -764,10 +800,14 @@ class PlaySession {
                 }
                 if (!response.value("ok", false)) {
                     const auto error = response.value("error", "Runtime rejected request");
-                    if (sent_command_ == "audio_mix" || sent_command_ == "audio_source") {
+                    if (sent_command_ == "audio_mix" || sent_command_ == "audio_source" ||
+                        sent_command_ == "animation_playback") {
                         if (sent_command_ == "audio_mix")
                             audio_mix_error_ = error;
-                        else if (sent_audio_source_ == audio_source_watch_)
+                        else if (sent_command_ == "animation_playback") {
+                            if (sent_animation_ == animation_watch_)
+                                animation_error_ = error;
+                        } else if (sent_audio_source_ == audio_source_watch_)
                             audio_source_error_ = error;
                         send({{"command", "snapshot"}});
                         return;
@@ -864,6 +904,9 @@ class PlaySession {
                 if (response.contains("audio_source") &&
                     response.at("audio_source").value("source", Json()) == audio_source_watch_)
                     audio_source_status_ = response.at("audio_source");
+                if (response.contains("animation_playback") &&
+                    response.at("animation_playback").value("source", Json()) == animation_watch_)
+                    animation_status_ = response.at("animation_playback");
                 input_status_ = response.value("input", Json::object());
                 physics_status_ = response.value("physics", Json::object());
                 // SDK Play transport observations. Stage/none responses
@@ -1094,9 +1137,9 @@ class PlaySession {
                         auto command = std::move(property_tune_command_);
                         property_tune_command_ = nullptr;
                         send(std::move(command));
-                    } else if (!audio_command_.is_null()) {
-                        auto command = std::move(audio_command_);
-                        audio_command_ = nullptr;
+                    } else if (!live_command_.is_null()) {
+                        auto command = std::move(live_command_);
+                        live_command_ = nullptr;
                         send(std::move(command));
                     } else if (!ui_command_.is_null()) {
                         // UI clicks can queue neutral input. Ship those older events before
@@ -1116,9 +1159,9 @@ class PlaySession {
                         const auto command = control_;
                         control_.clear();
                         send({{"command", command}});
-                    } else if (!audio_command_.is_null()) {
-                        auto command = std::move(audio_command_);
-                        audio_command_ = nullptr;
+                    } else if (!live_command_.is_null()) {
+                        auto command = std::move(live_command_);
+                        live_command_ = nullptr;
                         send(std::move(command));
                     } else if (model_assets_changed_) {
                         model_assets_changed_ = false;
@@ -1134,7 +1177,7 @@ class PlaySession {
                             ui_command_ = nullptr;
                             send({{"command", "ui"}, {"ui_command", std::move(command)}});
                         }
-                    } else if ((!probe_ || audio_source_watch_dirty_) &&
+                    } else if ((!probe_ || audio_source_watch_dirty_ || animation_watch_dirty_) &&
                                SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 }
@@ -1209,8 +1252,11 @@ class PlaySession {
         session_.clear();
         ui_snapshot_ = ui_ack_ = ui_command_ = nullptr;
         audio_status_ = Json::object();
-        audio_command_ = nullptr;
+        live_command_ = nullptr;
         audio_mix_error_.clear();
+        animation_watch_ = animation_status_ = sent_animation_ = nullptr;
+        animation_error_.clear();
+        animation_watch_dirty_ = false;
         audio_source_watch_ = audio_source_status_ = sent_audio_source_ = nullptr;
         audio_source_error_.clear();
         audio_source_watch_dirty_ = false;
@@ -1349,6 +1395,14 @@ class PlaySession {
             (sent_command_ == "snapshot" || sent_command_ == "audio_source" ||
              sent_command_ == "audio_mix"))
             request["audio_source_watch"] = audio_source_watch_;
+        if (!animation_watch_.is_null() &&
+            (sent_command_ == "snapshot" || sent_command_ == "animation_playback" ||
+             sent_command_ == "step" || sent_command_ == "pause" || sent_command_ == "resume"))
+            request["animation_watch"] = animation_watch_;
+        if (sent_command_ == "animation_playback")
+            sent_animation_ = request.at("source");
+        if (sent_command_ == "snapshot")
+            animation_watch_dirty_ = false;
         if (sent_command_ == "audio_source")
             sent_audio_source_ = request.at("source");
         if (sent_command_ == "snapshot")
@@ -1437,8 +1491,11 @@ class PlaySession {
     std::string executable_, notice_, session_, control_;
     Json initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
-    Json audio_status_ = Json::object(), audio_command_;
+    Json audio_status_ = Json::object(), live_command_;
     std::string audio_mix_error_;
+    Json animation_watch_, animation_status_, sent_animation_;
+    std::string animation_error_;
+    bool animation_watch_dirty_ = false;
     Json audio_source_watch_, audio_source_status_, sent_audio_source_;
     std::string audio_source_error_;
     bool audio_source_watch_dirty_ = false;

@@ -72,6 +72,7 @@ struct Fixture {
     Json pose(double alpha = 1) { return animation->presentation(entity().id(), alpha); }
 };
 } // namespace
+#include "animation_seeking_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 5 || argc == 6,
@@ -137,6 +138,7 @@ int main(int argc, char** argv) {
         }
         require(scene.undo() && scene.document() == before, "Root mode Undo failed");
         require(scene.redo() && scene.document() == source, "Root mode Redo failed");
+        animation_seeking_tests(project, source, actor);
         for (const unsigned hz : {30u, 60u, 120u}) {
             Fixture f(project, source, actor);
             for (unsigned i = 0; i < hz * 3; ++i) {
@@ -223,6 +225,13 @@ int main(int argc, char** argv) {
             f.simulation.tick(.25f);
             near(f.motion()->translation[0], .3125);
             near(f.motion()->translation[2], .1875);
+            require(f.animation->seek(f.scene.reference(actor.str()), .9, 3),
+                    "Direct mixed seek failed");
+            (void)f.pose(.2);
+            (void)f.pose(.9);
+            f.simulation.tick(.25f);
+            near(f.motion()->translation[0], .4375);
+            near(f.motion()->translation[2], .0625);
         }
         {
             Fixture f(project, source, actor);
@@ -295,6 +304,7 @@ int main(int argc, char** argv) {
             definition.document["skeleton"] = selected.bindings.at("/rig/skeleton");
             definition.document["entry"] = 1;
             definition.document["next_id"] = 4;
+            definition.document["next_marker_id"] = 5;
             definition.document["states"] = Json::array({{{"id", 1},
                                                           {"name", "Forward"},
                                                           {"clip", forward},
@@ -314,6 +324,12 @@ int main(int argc, char** argv) {
                                                           {"loop", true},
                                                           {"speed", 1},
                                                           {"transition_seconds", .5}}});
+            definition.document["states"][0]["markers"] =
+                Json::array({{{"id", 1}, {"name", "Before seek"}, {"phase", .2}, {"value", 1}},
+                             {{"id", 2}, {"name", "After seek"}, {"phase", .75}, {"value", 2}}});
+            definition.document["states"][1]["markers"] =
+                Json::array({{{"id", 3}, {"name", "Before seek"}, {"phase", .2}, {"value", 1}},
+                             {{"id", 4}, {"name", "After seek"}, {"phase", .75}, {"value", 2}}});
             definition.validate();
             const auto path = "Assets/Root.states.json";
             atomic_write(project / path, definition.document.dump(2));
@@ -337,6 +353,7 @@ int main(int argc, char** argv) {
                     config["state"] = 1;
                 }
             Fixture f(project, state_source, actor);
+            animation_state_seeking_tests(project, state_source, actor);
             f.simulation.tick(.25f);
             require(f.entity().get<Animator>().state == 2 && f.motion() &&
                         f.motion()->clip == forward,
@@ -377,6 +394,10 @@ int main(int argc, char** argv) {
         exported.simulation.tick(.25f);
         near(exported.local().translation.z, .5);
         near(exported.pose()["local"][0]["translation"][2], 0);
+        require(exported.animation->seek(exported.scene.reference(actor.str()), .75, 2),
+                "Source-free imported seek failed");
+        exported.simulation.tick(.25f);
+        near(exported.local().translation.z, 1);
         require(!std::filesystem::exists(package / "Assets/LocomotionColumn.gltf"),
                 "Root export included authoring source");
         std::cout << "imported root motion, loop turns, blends, extraction, atomic validation, "

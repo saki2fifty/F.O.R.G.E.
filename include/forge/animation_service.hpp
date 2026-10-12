@@ -39,10 +39,12 @@ class AnimationService {
     virtual std::span<const AnimationEvent> events() const = 0;
     // Realized incoming clip, derived from authoritative clocks without sampling.
     virtual std::optional<AnimationPlayback> playback(EntityRef) const = 0;
-    // Clip-local, before actor scale/rotation. Read after Animation in this tick.
+    // Model-holder local, before actor scale/rotation. Read after Animation in this tick.
     // Repeated observations do not consume or reapply the delta.
     virtual std::optional<AnimationRootMotion> root_motion(EntityRef) const = 0;
     // Before Animation in the current fixed tick; affects the realized player only.
     virtual bool control(EntityRef, AnimationControl, std::uint64_t current_tick) = 0;
+    // Move the admitted incoming clock; skip markers/root displacement across the jump.
+    virtual bool seek(EntityRef, double seconds, std::uint64_t current_tick) = 0;
 };
 } // namespace forge

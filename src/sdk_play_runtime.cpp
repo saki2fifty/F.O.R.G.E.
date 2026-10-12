@@ -1,4 +1,5 @@
 #include "sdk_play_runtime.hpp"
+#include "animation_playback_access.hpp"
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "play_scene_admission.hpp"
@@ -980,6 +981,21 @@ Json SdkPlayRuntime::handle(const Json& request, RuntimeClock::Time now) {
                 {"source", watched}, {"available", false}, {"error", error.what()}};
         }
     }
+    if (response.value("ok", false) && request.contains("animation_watch")) {
+        const auto& watched = request.at("animation_watch");
+        try {
+            if (!state_->active_generation || !state_->game ||
+                !state_->game->active().engine.services().available(Capability::Animation))
+                throw std::runtime_error("Animation requires an active admitted world");
+            response["animation_playback"] = AnimationPlaybackAccess::status(
+                *std::static_pointer_cast<AnimationRuntime>(
+                    state_->game->active().engine.services().animation()),
+                watched.get<EntityRef>());
+        } catch (const std::exception& error) {
+            response["animation_playback"] = {
+                {"source", watched}, {"available", false}, {"error", error.what()}};
+        }
+    }
     return state_->enforce_response_size(std::move(response));
 }
 Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
@@ -1133,6 +1149,19 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             AudioSourceAccess::control(
                 *std::static_pointer_cast<AudioRuntime>(s.game->active().engine.services().audio()),
                 request.at("source").get<EntityRef>(), operation);
+            return s.snapshot_response(id);
+        }
+        if (command == "animation_playback") {
+            if (!s.active_generation || !s.game || !request.contains("generation") ||
+                !is_unsigned_int(request.at("generation")) ||
+                request.at("generation").get<std::uint64_t>() != s.active_generation)
+                return s.build_error(id, "Animation playback targets a stale world generation");
+            if (!s.game->active().engine.services().available(Capability::Animation))
+                return s.build_error(id, "Animation playback requires enabled animation");
+            AnimationPlaybackAccess::control(*std::static_pointer_cast<AnimationRuntime>(
+                                                 s.game->active().engine.services().animation()),
+                                             request.at("source").get<EntityRef>(), request);
+            s.game->active().simulation.sync_animation_pose();
             return s.snapshot_response(id);
         }
         if (command == "property_tune") {

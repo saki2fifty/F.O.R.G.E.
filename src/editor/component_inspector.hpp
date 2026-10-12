@@ -73,7 +73,8 @@ class ComponentInspector {
     void draw_runtime(
         const Json& effective, const Json& schema, const std::filesystem::path& project_root,
         const std::string& selected,
-        const std::function<bool(const std::string&, const std::string&, const Json&)>& submit) {
+        const std::function<bool(const std::string&, const std::string&, const Json&)>& submit,
+        bool show_playback = true) {
         if (!effective.is_object() || !schema.is_object() || !effective.contains("entities") ||
             !schema.contains("components"))
             return;
@@ -95,7 +96,7 @@ class ComponentInspector {
         ui::heading("Live gameplay", "Transient runtime values. Stop restores the authored "
                                      "scene and prefab state.");
         ImGui::TextColored({0.61f, 0.93f, 0.89f, 1.0f}, "PLAY — temporary values");
-        if (entity->contains("animation_playback"))
+        if (show_playback && entity->contains("animation_playback"))
             draw_animation_playback(entity->at("animation_playback"));
         for (const auto& type : schema.at("components")) {
             if (!type.is_object() || !type.value("custom", false) || !type.contains("admission") ||

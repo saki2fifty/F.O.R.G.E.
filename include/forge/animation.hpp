@@ -7,6 +7,8 @@ namespace forge {
 class AssetCatalog;
 EngineModule animation_module(std::filesystem::path project);
 class AnimationRuntime : public AnimationService {
+    friend struct AnimationPlaybackAccess;
+
   public:
     AnimationRuntime(WorldContext&, std::filesystem::path project);
     ~AnimationRuntime();
@@ -29,6 +31,7 @@ class AnimationRuntime : public AnimationService {
     std::optional<AnimationPlayback> playback(EntityRef) const override;
     std::optional<AnimationRootMotion> root_motion(EntityRef) const override;
     bool control(EntityRef, AnimationControl, std::uint64_t current_tick) override;
+    bool seek(EntityRef, double seconds, std::uint64_t current_tick) override;
     // Host-owned copied editor previews never deliver gameplay markers.
     void event_delivery(bool enabled);
     void reset_presentation();

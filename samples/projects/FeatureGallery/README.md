@@ -304,3 +304,12 @@ game; game Resume keeps an explicitly paused source silent until you resume it.
 Save before exporting. The standalone uses the selected animation and PCM with
 development sources removed. Physical listening is separate from offline PCM
 and source-free export validation.
+
+## Inspect animation playback
+
+Open scene36, start Play and select an animated entity. The tinted **Live animation**
+section offers clip Pause/Resume, Restart and a release-to-seek playhead. Pause the
+game to inspect a pose without advancing game time. A seek skips movement across
+the jump; root motion continues on the actual next interval. Stop restores saved
+scene values. `CodeExamples/ClipSeek.hpp` provides the ordinary compiled C++ path
+for the same behavior in an exported game. The scene runs without project code.

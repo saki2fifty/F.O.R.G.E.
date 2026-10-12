@@ -125,3 +125,17 @@ be positive for advancement. A pending Animator state change wins at synchroniza
 The helper controls the current admitted clip, never invents identity from names or
 stores a native handle. The real matching C++ integration fixture executes this
 helper and verifies pause/resume/restart through recovery in another process.
+
+## Seek the incoming animation
+
+Copy `ClipSeek.hpp` into `Native/Systems` and include it from an ordinary Gameplay
+System. Call `forge_seek_clip(host, entity.id(), seconds)` on an input pressed
+edge. It uses the entity's registered identity and the admitted incoming clip's
+seconds. It retains clip pause and fade, skips events/root movement across the
+jump, and returns false for an unavailable player or rejected position.
+
+Use the duration reported by `Client::animation_playback` to bound your request.
+The loop end maps to zero. An outgoing named state's clock remains independent.
+The Inspector's tinted Live animation section offers the same temporary playhead
+adjustment during editor Play. Rebuild and export project code with matching SDK
+kits; the game ships compiled C++ and needs no editor or compiler installed.

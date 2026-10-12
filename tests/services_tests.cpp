@@ -368,6 +368,7 @@ static void service_tests() {
         access.require(Capability::Diagnostics);
         struct Markers : AnimationService {
             std::optional<AnimationRootMotion> root_motion(EntityRef) const override { return {}; }
+            bool seek(EntityRef, double, std::uint64_t) override { return false; }
             bool control(EntityRef, AnimationControl, std::uint64_t) override { return false; }
             std::optional<AnimationPlayback> playback(EntityRef) const override { return {}; }
             std::span<const AnimationEvent> events() const override { return {}; }

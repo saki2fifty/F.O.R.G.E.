@@ -51,6 +51,7 @@ class PresentationPoses {
     void reset(const Nodes& nodes);
     void capture(const Nodes& nodes);
     void snap(std::uint64_t entity);
+    void snap(std::uint64_t entity, const TransformNode& current);
     std::map<std::uint64_t, EvaluatedTransform> evaluate(double alpha) const;
 
   private:
@@ -65,6 +66,8 @@ class RuntimeSimulation {
     void tick(float dt);
     void audio_paused(bool value);
     void sync_audio();
+    // Publish privately edited animation joints without changing other interpolation.
+    void sync_animation_pose();
     RuntimeInput& input() { return input_; }
     Json input_status() const {
         auto status = input_monitor_.status(input_.map());

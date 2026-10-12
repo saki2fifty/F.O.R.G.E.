@@ -162,6 +162,21 @@ void poses() {
     rejects([&] { history.evaluate(-.1); });
     rejects([&] { history.evaluate(1.1); });
 }
+void partial_pose_publish() {
+    PresentationPoses history;
+    PresentationPoses::Nodes nodes{{1, {}}, {2, {}}};
+    history.reset(nodes);
+    nodes.at(1).local.translation.x = 10;
+    nodes.at(2).local.translation.x = 6;
+    history.capture(nodes);
+    nodes.at(1).local.translation.x = 100;
+    history.snap(1, nodes.at(1));
+    for (const auto alpha : {0., .5, 1.}) {
+        const auto result = history.evaluate(alpha);
+        expect_near(result.at(1).affine.m[3], 100);
+        expect_near(result.at(2).affine.m[3], 6 * alpha);
+    }
+}
 void live() {
     EngineContext engine(WorldRole::Runtime);
     Scene scene(engine.world());
@@ -269,6 +284,7 @@ int main(int argc, char** argv) {
         clocks();
         signed_scale_interpolation();
         poses();
+        partial_pose_publish();
         live();
         test_runtime_entities();
         std::cout << "Clock, poses, live pipeline/presentation passed\n";

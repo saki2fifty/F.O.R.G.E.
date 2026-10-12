@@ -1,6 +1,6 @@
 # C++ skeletal playback controls
 
-The existing AnimationRuntime owns Play, Pause and Restart for a currently admitted
+The existing AnimationRuntime owns Play, Pause, Restart and Seek for a currently admitted
 skeletal Animator. `AnimationService::control(EntityRef, AnimationControl, tick)`
 uses the existing private player clocks and leases. It creates no command queue,
 second timer, player registry or new saved component.
@@ -36,7 +36,42 @@ Last-good admitted playback remains controllable after a failed request.
 Existing recovery fields preserve time, playing, fade and entry-marker intent,
 including a checkpoint taken after Restart and before advancement. No scene/schema
 or checkpoint format change is required. Stop discards runtime intent. There is no
-seek, reverse play, transform-animation control or automatic transition graph here.
+reverse play or transform-animation control here. Timed named-state exits are
+described in the animation state contract.
+
+## Seeking and editor Play
+
+`AnimationService::seek(EntityRef, seconds, tick)` uses the same Gameplay-before-
+Animation owner guard. Seconds must be finite and in [0, incoming duration]. A
+looping end maps to zero; a nonlooping end retains its end sample. Missing or
+unadmitted players return unavailable; invalid bounds throw. The next Animation
+stage samples the pose. The callback does not write joints or enable the player.
+
+Seek retains playing/pause intent, speed, fade elapsed time and blend weight. A
+direct second clip uses the existing shared normalized phase. A named outgoing
+clock remains independent; frozen outgoing poses remain frozen. It clears incoming
+sampling/root compatibility and interpolation history. Root displacement across
+the jump is skipped; the actual subsequent interval still moves the actor.
+
+Markers across skipped time are not synthesized, including entry markers when
+seeking to zero. Restart retains its existing entry behavior. Seek itself triggers no automatic state exit. Existing exit thresholds are still
+evaluated on the next actual advancing tick, including a sought position beyond
+that threshold. Paused/disabled/zero-speed players remain held.
+Recovery preserves the sought clock and original pause/fade fields without a new
+checkpoint version. Seeking does not reset the realized actor transform.
+
+The Inspector adds a tinted **Live animation** section for a selected runtime
+Animator during Play. Pause/Resume clip, Restart clip and a release-to-seek playhead
+operate on runtime intent. They do not edit the saved scene, speed or enabled
+settings. Global game Pause remains unchanged. In the editor's private owner
+boundary, a temporary sample validates a seek/restart pose before changing the
+clock; the existing pose transaction then publishes it without advancing game time.
+
+The existing editor Play transport carries copied selected EntityRef watches and
+one correlated live command queue shared with sound/mix commands. Invalid/stale
+requests retain Play for retry. Shared SDK Play also validates the active world
+generation. Session/selection/Stop clear retained observations. Exported games
+expose ordinary compiled C++ commands and contain no editor controls.
 
 ## Matching native SDK
 
@@ -63,3 +98,7 @@ The original Gallery `CodeExamples/ClipControl.hpp` combines this lookup and con
 for ordinary C++ entity Systems without hardcoded scene UUIDs. Its setup guide uses
 existing fixed action pressed edges, not a separate timer. Normal Gallery playback
 needs no compiler. Optional behavior ships as compiled project code on export.
+
+`animation_seek` / `Client::animation_seek` use canonical UUIDs and double seconds.
+Return1 accepted,0 unavailable/late,−1 invalid identity/bounds/context. The callback
+table/public-header fingerprint changed; rebuild matching modules.

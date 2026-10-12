@@ -1,6 +1,7 @@
 #include "authored_schema.hpp"
 #include "bounded_json.hpp"
 #include "runtime_entity_creation.hpp"
+#include <cmath>
 #include <cstring>
 #include <forge/animation_components.hpp>
 #include <forge/native_sdk.h>
@@ -223,6 +224,24 @@ struct Bridge {
                 return b.context.services.animation()->control(
                            reference, static_cast<AnimationControl>(operation),
                            b.context.input->tick)
+                           ? 1
+                           : 0;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.animation_seek = [](void* p, const char* scene, const char* entity,
+                                 double seconds) -> int32_t {
+            try {
+                if (!scene || !entity || !std::isfinite(seconds) || seconds < 0)
+                    return -1;
+                const EntityRef reference{AssetId::parse(scene), EntityId::parse(entity)};
+                auto& b = Bridge::get(p);
+                if (!b.runtime_active() || !b.context.input ||
+                    !b.context.services.available(Capability::Animation))
+                    return 0;
+                return b.context.services.animation()->seek(reference, seconds,
+                                                            b.context.input->tick)
                            ? 1
                            : 0;
             } catch (...) {

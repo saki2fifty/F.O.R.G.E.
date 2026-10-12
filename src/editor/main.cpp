@@ -15,6 +15,7 @@
 #include "ImGuiImplSDL3.hpp"
 #include "actions.hpp"
 #include "animation_debug.hpp"
+#include "animation_playback.hpp"
 #include "animation_preview.hpp"
 #include "animation_states_editor.hpp"
 #include "animation_timeline.hpp"
@@ -502,6 +503,7 @@ int main(int argc, char** argv) {
         forge::ProjectSettingsEditor project_settings;
         forge::AudioMixEditor audio_mix;
         forge::AudioSourceEditor audio_source;
+        forge::AnimationPlaybackEditor animation_playback;
         project_settings.draw_runtime_extension = [&] {
             if (play.active())
                 audio_mix.draw(play.session(), play.audio_status(), play.control_ready(),
@@ -3751,6 +3753,7 @@ int main(int argc, char** argv) {
                 case 245:
                 case 248:
                 case 251:
+                case 254:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3765,6 +3768,7 @@ int main(int argc, char** argv) {
                 case 246:
                 case 249:
                 case 252:
+                case 255:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3822,11 +3826,15 @@ int main(int argc, char** argv) {
                     break;
                 case 241:
                     if (fixture.audio_mixer) {
-                        forge::ui::style(1);
-                        files.document.open_scene("Scenes/34-audio-import-processing.scene.json");
-                        if (!actions.invoke("play"))
-                            throw std::runtime_error("Live audio capture could not start Play");
-                        project_settings.open();
+                        if (fixture.frames == 0) {
+                            forge::ui::style(1);
+                            files.document.open_scene(
+                                "Scenes/34-audio-import-processing.scene.json");
+                            project_settings.open();
+                        }
+                        // The source scan/action availability is refreshed next frame.
+                        // Wait through the existing bounded fixture instead of bypassing Play.
+                        ready = actions.invoke("play");
                     }
                     break;
                 case 244:
@@ -3850,8 +3858,7 @@ int main(int argc, char** argv) {
                 case 247:
                     if (fixture.audio_mixer) {
                         forge::ui::style(1);
-                        if (!actions.invoke("play"))
-                            throw std::runtime_error("Live source capture could not start Play");
+                        ready = actions.invoke("play");
                     }
                     break;
                 case 250:
@@ -3869,6 +3876,12 @@ int main(int argc, char** argv) {
                             }
                         component_inspector.fixture_focus_component = "forge.animator";
                         workspace.inspector = true;
+                    }
+                    break;
+                case 253:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        ready = actions.invoke("play");
                     }
                     break;
                 case 232:
@@ -4294,11 +4307,17 @@ int main(int argc, char** argv) {
                     ? forge::AudioSourceEditor::selected(play.effective_snapshot(), selected)
                     : std::optional<forge::EntityRef>{};
             play.watch_audio_source(live_sound);
-            if ((!live_inspector_ready && !live_sound) || !workspace.inspector)
+            const auto live_animation =
+                workspace.inspector && play.ready() && editor.selection.entities().size() == 1
+                    ? forge::AnimationPlaybackEditor::selected(play.effective_snapshot(), selected)
+                    : std::optional<forge::EntityRef>{};
+            play.watch_animation(live_animation);
+            if ((!live_inspector_ready && !live_sound && !live_animation) || !workspace.inspector)
                 live_inspector_entity.clear();
             if (workspace.inspector) {
                 if (ImGui::Begin("Inspector", &workspace.inspector)) {
-                    if ((live_inspector_ready || live_sound) && live_inspector_entity != selected) {
+                    if ((live_inspector_ready || live_sound || live_animation) &&
+                        live_inspector_entity != selected) {
                         ImGui::SetScrollY(0);
                         live_inspector_entity = selected;
                     }
@@ -4309,6 +4328,11 @@ int main(int argc, char** argv) {
                                           [&](forge::AudioSourceOperation value) {
                                               return play.submit_audio_source(value);
                                           });
+                    if (live_animation)
+                        animation_playback.draw(
+                            play.session(), *live_animation, play.animation_status(),
+                            play.control_ready(), play.animation_pending(), play.animation_error(),
+                            [&](const forge::Json& value) { return play.submit_animation(value); });
                     if (live_inspector_ready) {
                         // Play adds transient fields above the authored Inspector. Reveal
                         // them once per selected entity instead of retaining an old scroll
@@ -4319,7 +4343,8 @@ int main(int argc, char** argv) {
                             [&](const std::string& type, const std::string& property,
                                 const forge::Json& value) {
                                 return play.submit_property_tune(selected, type, property, value);
-                            });
+                            },
+                            !live_animation);
                         const auto& tune = play.property_tune_ack();
                         if (tune.is_object())
                             ImGui::TextWrapped(
@@ -6328,6 +6353,25 @@ int main(int argc, char** argv) {
                         forge::test::ui_targets.contains("animation_states:exit_phase") &&
                         forge::test::ui_targets.contains("animation_states:exit_target");
                 }
+                if (fixture.root_motion && fixture.stage >= 253 && fixture.stage <= 255) {
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    captured_document_visible &= w && play.control_ready() &&
+                                                 play.animation_status().value("available", false);
+                    if (w) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        ImGui::SetScrollY(w, 0);
+                        for (const auto* key : {"live-animation:pause", "live-animation:restart",
+                                                "live-animation:playhead"}) {
+                            const auto found = forge::test::ui_targets.find(key);
+                            captured_document_visible &=
+                                found != forge::test::ui_targets.end() && found->second.enabled &&
+                                found->second.minimum.y >= found->second.clip_minimum.y &&
+                                found->second.maximum.y <= found->second.clip_maximum.y;
+                        }
+                    }
+                }
                 if (fixture.root_motion && fixture.stage >= 250 && fixture.stage <= 252) {
                     auto* w = ImGui::FindWindowByName("Inspector");
                     const auto joint =
@@ -6442,7 +6486,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 253)) {
+                        (fixture.root_motion && fixture.stage == 256)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
                             !fixture.audio_preview && !fixture.root_motion)

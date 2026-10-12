@@ -350,6 +350,10 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* animation_root_motion)(void*, const char* scene, const char* entity,
                                                    ForgeSdkAnimationRootMotionV1*);
     uint64_t post_animation_phase;
+    /* Before Animation, seconds in [0, incoming duration]; loop end maps to zero.
+       Retains pause/fade; skipped time emits no markers or root displacement. */
+    int32_t(FORGE_SDK_CALL* animation_seek)(void*, const char* scene, const char* entity,
+                                            double seconds);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

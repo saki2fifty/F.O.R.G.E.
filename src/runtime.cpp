@@ -100,6 +100,10 @@ void PresentationPoses::snap(std::uint64_t entity) {
     if (current_.contains(entity))
         previous_[entity] = current_.at(entity);
 }
+void PresentationPoses::snap(std::uint64_t entity, const TransformNode& current) {
+    previous_[entity] = current;
+    current_[entity] = current;
+}
 std::map<std::uint64_t, EvaluatedTransform> PresentationPoses::evaluate(double alpha) const {
     if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)
         throw std::runtime_error("Presentation alpha must be between 0 and 1");
@@ -305,6 +309,18 @@ void RuntimeSimulation::audio_paused(bool value) {
 void RuntimeSimulation::sync_audio() {
     if (audio_)
         audio_->synchronize(input_tick_);
+}
+void RuntimeSimulation::sync_animation_pose() {
+    if (!animation_)
+        return;
+    const auto changed = animation_->take_discontinuities();
+    if (changed.empty())
+        return;
+    context_.evaluate_world_transforms();
+    const auto nodes = context_.transform_nodes();
+    for (const auto id : changed)
+        if (const auto found = nodes.find(id); found != nodes.end())
+            poses_.snap(id, found->second);
 }
 void RuntimeSimulation::reset_presentation() {
     context_.evaluate_world_transforms();

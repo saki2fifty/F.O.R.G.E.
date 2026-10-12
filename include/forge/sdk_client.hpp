@@ -74,6 +74,11 @@ class Client {
                    ? host_->animation_control(host_->context, scene, entity, operation)
                    : 0;
     }
+    int32_t animation_seek(const char* scene, const char* entity, double seconds) const {
+        return callable(Capability::Animation) && host_->animation_seek
+                   ? host_->animation_seek(host_->context, scene, entity, seconds)
+                   : 0;
+    }
     int32_t animation_playback(const char* scene, const char* entity,
                                ForgeSdkAnimationPlaybackV1& out) const {
         out = {};

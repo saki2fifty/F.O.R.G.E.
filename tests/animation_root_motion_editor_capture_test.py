@@ -15,7 +15,8 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
     (evidence/'capture.log').write_text(result.stdout+result.stderr, encoding='utf-8')
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
-    for label in ('animation-root-motion', 'animation-root-motion-150', 'animation-root-motion-200'):
+    for label in ('animation-root-motion', 'animation-root-motion-150', 'animation-root-motion-200',
+                  'live-animation', 'live-animation-150', 'live-animation-200'):
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
 print('Native root-motion mode and imported root-joint controls captured at100/150/200%')
