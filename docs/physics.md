@@ -479,8 +479,8 @@ bounds make a fixed-length tether. Hinge joins two anchor points and allows
 rotation around one selected X/Y/Z axis in each rigid body frame. Each selected
 normal axis must differ from its hinge axis. The angle is zero when the two normal
 frames agree; degree limits enclose zero, from [-180, 0] and [0, 180]. Equal zero hinge
-limits are rejected; use Fixed when zero angular freedom is required. Motors, break force,
-ragdolls and joint-specific connected-pair collision exclusion are not implemented.
+limits are rejected; use Fixed when zero angular freedom is required. Position motors, springs, break force, ragdolls and joint-specific connected-pair
+collision exclusion are not implemented.
 Existing project layers/masks continue to own collision filtering.
 
 Anchor coordinates use each entity's local origin, including effective signed
@@ -541,7 +541,42 @@ and recovery use the existing joint owner.
 
 Scene24 contains vertical and inclined carriages under gravity. Inspector travel
 controls support ordinary Undo/save/reopen; Scene guides show the allowed interval
-and current signed travel. No slider motor, spring or break behavior is claimed.
+and current signed travel. Velocity motors are described below; position motors, springs and break behavior
+are not implemented.
+
+### Bounded velocity motors
+
+Hinge and Slider use the existing joint value's disabled-by-default `motor_enabled`.
+Hinge's `hinge_motor_speed` is signed degrees/s ([-36000, 36000]); Slider's
+`slider_motor_speed` is signed meters/s ([-1000, 1000]). Targets describe Body B
+relative to Body A along the admitted frame. The owner converts hinge degrees to
+native radians once. `max_motor_torque` (N*m) and `max_motor_force` (N) bound native
+effort symmetrically in [0, 1000000]. Defaults are90degrees/s,1m/s,10N*m and100N.
+Zero effort coasts; an enabled zero target brakes with its finite effort budget.
+Body speed clamps, external loads, damping and joint limits can prevent attaining
+a target. A Dynamic support receives reaction effort; a Static support stays fixed.
+
+The Inspector shows only the active kind's motor controls. Inactive fields remain
+saved and bounded without driving or waking bodies. Legacy builtin admission and
+the codec backfill disabled motor defaults. Motor-only edits update the existing
+native constraint after complete candidate preflight, retain geometric frames,
+manager order and solver state, and wake moving bodies only when active controls
+change. Body replacement and structural edits retain their existing retirement path.
+No new command queue, constraint manager or motion owner is introduced.
+
+C++ can write the existing typed PhysicsJoint in the fixed phase before Physics.
+Recovery capture still requires synchronized component values; unsynchronized
+motor edits reject like other joint edits. Matching configuration plus exact native
+solver state restore active drives through private checkpoint4. Public field layout
+and SDK fingerprint change, requiring matching modules; ABI1 and authored versions
+are unchanged. Position targets and spring drives are not provided.
+
+Gallery25 uses zero-gravity, force-limited slider and hinge drives to their positive
+stops. A separate compiled SDK fixture writes the same typed Slider controls before
+Physics, observes actual copied body velocity afterward, and checks fresh worker
+recovery. Independent centered-box checks use F/m and torque/I: a0.6m cube of mass2
+has I=0.12kg*m²;1N yields0.5m/s² and0.06N*m yields0.5rad/s². These are fixture-specific
+checks, not a universal settling guarantee for arbitrary geometry or impacts.
 
 ### Editor joint guides and numerical limits
 

@@ -91,6 +91,10 @@ struct EditorFixture {
             return "Inspector";
         if (stage >= 172 && stage <= 174)
             return "###Scene";
+        if ((stage >= 175 && stage <= 177) || (stage >= 181 && stage <= 183))
+            return "Inspector";
+        if ((stage >= 178 && stage <= 180) || (stage >= 184 && stage <= 186))
+            return "###Scene";
         if (workflow)
             return nullptr;
         switch (stage) {
@@ -499,7 +503,19 @@ struct EditorFixture {
                                "physics-slider-limits-200",
                                "physics-slider-guides",
                                "physics-slider-guides-150",
-                               "physics-slider-guides-200"};
+                               "physics-slider-guides-200",
+                               "physics-slider-motor",
+                               "physics-slider-motor-150",
+                               "physics-slider-motor-200",
+                               "physics-slider-motor-guide",
+                               "physics-slider-motor-guide-150",
+                               "physics-slider-motor-guide-200",
+                               "physics-hinge-motor",
+                               "physics-hinge-motor-150",
+                               "physics-hinge-motor-200",
+                               "physics-hinge-motor-guide",
+                               "physics-hinge-motor-guide-150",
+                               "physics-hinge-motor-guide-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

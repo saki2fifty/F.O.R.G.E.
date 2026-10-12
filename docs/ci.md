@@ -547,3 +547,21 @@ source and runtime kit, verifies production startup, and checks both independent
 known carriage endpoints and locked orientations before saving the D3D12 image.
 Visible cyan geometry is required across the actual image. These configured gates
 are not claims of Windows execution or physical GPU acceptance.
+
+### Bounded joint velocity motors
+
+`physics_joints` checks independent slider F/m and hinge torque/inertia equations,
+signed reversal, braking, coasting, sleeping wake, native constraint retention,
+invalid-candidate rejection and fresh recovery. `native_sdk_physics_motor` compiles
+typed C++ joint controls, observes actual native velocity after Physics, and compares
+continued motion with a new worker restored from the synchronized checkpoint.
+Inspector/guide fixtures cover enable, signed speed, bounded effort, Undo/save/reopen
+and drive status. Gallery25 checks native endpoints and independently transformed
+frame points before source-free export and relocation.
+
+The native editor capture adds hinge/slider drive controls and guides at
+100/150/200percent scales. Final package acceptance exports Gallery25, removes its
+editable source and kit, verifies production startup, and runs the separately
+inventoried `--packaged-motors` graphical observer. It requires both constrained
+poses, two native joints and actual cyan rendered geometry. These are configured
+gates; Windows execution and physical GPU acceptance require separate evidence.

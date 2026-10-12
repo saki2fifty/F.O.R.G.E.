@@ -54,6 +54,11 @@ struct PhysicsJoint {
     float min_travel = -1, max_travel = 1; // Slider signed metres enclosing zero.
     std::uint32_t axis_a = 2, normal_a = 0, axis_b = 2, normal_b = 0; // X, Y, Z.
     float min_angle = -90, max_angle = 90; // Degrees enclosing the rest angle zero.
+    bool motor_enabled = false;            // Velocity drive for Hinge/Slider only.
+    float hinge_motor_speed = 90;          // Signed degrees/s, Body B relative to A.
+    float slider_motor_speed = 1;          // Signed metres/s, Body B relative to A.
+    float max_motor_torque = 10;           // Hinge torque budget, N*m; zero coasts.
+    float max_motor_force = 100;           // Slider force budget, N; zero coasts.
     bool operator==(const PhysicsJoint&) const = default;
 };
 struct BoxCollider {

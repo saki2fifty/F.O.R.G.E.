@@ -163,3 +163,12 @@ Edit `min_travel` and `max_travel` in metres; the interval must include zero.
 Axis/normal choices use each body's rigid frame. Travel limits remain metres even
 when bodies are scaled. Use Fixed for zero travel. Collisions between each small
 base and carriage are disabled with existing body masks. Motors are not included.
+
+## 25 — Velocity motors
+
+Open `Scenes/25-velocity-motors.scene.json` and Play. With gravity disabled, a bounded
+Slider drive moves its carriage to the positive1.5m stop, and a Hinge drive turns its
+carriage to90degrees. Stop to change motor direction, speed, torque/force budget or
+limits in the Inspector, then test/export again. Zero speed brakes with the given
+budget; zero budget coasts. No gameplay source/compiler is required. Scene guides
+show authored drive settings rather than measured runtime speed.

@@ -282,6 +282,21 @@ move them to their lower stops, then export the scene to run it standalone. Thes
 engine components require no gameplay source or compiler. The Inspector shows
 travel settings for Slider; values for other kinds remain saved when hidden.
 
+### Driving hinges and sliders
+
+Enable **Motor Enabled** on a Hinge or Slider. Set **Hinge Motor Speed** in degrees
+per second or **Slider Motor Speed** in meters per second. Positive and negative
+speeds drive opposite directions relative to Body A's axis. **Max Motor Torque**
+(for Hinge) and **Max Motor Force** (for Slider) limit how strongly the motor pushes.
+A zero budget applies no drive. A zero target speed with a positive budget brakes.
+Other loads and the body's speed limit can keep the motor below its target.
+
+Gallery **25-velocity-motors** contains both drives with gravity disabled. Play to
+watch them accelerate and reach their stops. Stop to adjust the authored direction,
+speed, effort or limits in the Inspector, then Play again. The Scene guide displays
+the authored target and budget; it is not a live speed measurement. Export the scene
+to run the compiled engine behavior standalone without gameplay source or a compiler.
+
 ### Scene joint guides
 
 Select the joint entity in Scene to see its two anchors, connecting line and an

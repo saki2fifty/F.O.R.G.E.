@@ -317,6 +317,13 @@ class PhysicsOverlay {
                               guide.min_travel, guide.max_travel);
                 note += metric;
             }
+            if ((guide.kind == 1 || guide.kind == 4) && guide.motor_enabled) {
+                char drive[96];
+                std::snprintf(drive, sizeof(drive), " | drive %.3f %s, budget %.3f %s",
+                              guide.motor_speed, guide.kind == 1 ? "deg/s" : "m/s",
+                              guide.motor_budget, guide.kind == 1 ? "N*m" : "N");
+                note += drive;
+            }
         }
         const auto width = std::max(40.f, area.x - 28.f);
         const auto extent = ImGui::CalcTextSize(note.c_str(), nullptr, false, width);

@@ -151,6 +151,27 @@ void slider_motion(World& w) {
         "Gallery slider carriage rotated away from its authored frame");
     render_actors(w, {"Vertical slider carriage", "Inclined slider carriage"});
 }
+void motor_motion(World& w) {
+    require(w.physics->status().at("joints") == 2, "Gallery motor constraints missing");
+    for (unsigned i = 0; i < 180; ++i)
+        w.simulation.tick(1.f / 60);
+    const auto hinge = w.named("Driven hinge carriage").get<LocalRotation>();
+    require(distance(w.point("Driven slider carriage"), {-.5, 4, 0}) < .004 &&
+                distance(w.point("Driven hinge carriage"), {2, 4, 0}) < .004 &&
+                distance(w.point("Driven hinge carriage", {1, 0, 0}), {2, 4.6, 0}) < 1e-5 &&
+                distance(w.point("Driven hinge carriage", {0, 1, 0}), {1.4, 4, 0}) < 1e-5,
+            "Gallery motor stops: slider=" + Json(w.point("Driven slider carriage")).dump() +
+                " hinge=" + Json(w.point("Driven hinge carriage")).dump() +
+                " q=" + Json::array({hinge.x, hinge.y, hinge.z, hinge.w}).dump());
+    for (const auto* name : {"Driven slider carriage", "Driven hinge carriage"}) {
+        const auto ref = w.engine.world().reference(w.named(name));
+        const auto state = ref ? w.physics->body_state(*ref) : std::nullopt;
+        require(state && distance(state->linear_velocity, {}) < .002 &&
+                    distance(state->angular_velocity, {}) < .002,
+                "Gallery motor continued through its native stop");
+    }
+    render_actors(w, {"Driven slider carriage", "Driven hinge carriage"});
+}
 void tuned_motion(World& w) {
     const std::vector<std::string> names{
         "No damping - free fall",  "Damping 3 per second", "Speed limit 2 metres per second",
@@ -188,10 +209,12 @@ int main(int argc, char** argv) {
         require(argc == 3 || argc == 4, "Need Gallery and scratch roots, optional extended mode");
         const std::string mode = argc == 4 ? argv[3] : "joints";
         require(mode == "joints" || mode == "extended" || mode == "ccd" || mode == "tuning" ||
-                    mode == "slider",
+                    mode == "slider" || mode == "motors",
                 "Unknown Gallery mode");
         const auto validate = [&](World& world) {
-            if (mode == "slider")
+            if (mode == "motors")
+                motor_motion(world);
+            else if (mode == "slider")
                 slider_motion(world);
             else if (mode == "tuning")
                 tuned_motion(world);
@@ -206,7 +229,8 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source =
-            read(root / (mode == "slider"     ? "Scenes/24-slider-joints.scene.json"
+            read(root / (mode == "motors"     ? "Scenes/25-velocity-motors.scene.json"
+                         : mode == "slider"   ? "Scenes/24-slider-joints.scene.json"
                          : mode == "tuning"   ? "Scenes/23-body-motion-tuning.scene.json"
                          : mode == "ccd"      ? "Scenes/22-continuous-collision.scene.json"
                          : mode == "extended" ? "Scenes/21-point-fixed-joints.scene.json"

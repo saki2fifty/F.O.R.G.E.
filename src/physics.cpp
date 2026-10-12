@@ -1062,12 +1062,28 @@ struct PhysicsRuntime::Impl {
     void retire_joints(const JointDesiredMap& desired) {
         for (auto it = joints.begin(); it != joints.end();) {
             auto next = desired.find(it->first);
-            if (next == desired.end() || next->second.config != it->second.desired.config ||
+            if (next == desired.end() ||
+                !physics_detail::joint_same_geometry(next->second.config,
+                                                     it->second.desired.config) ||
                 next->second.a != it->second.desired.a || next->second.b != it->second.desired.b) {
                 system.RemoveConstraint(it->second.native.GetPtr());
                 it = joints.erase(it);
             } else
                 ++it;
+        }
+    }
+    static void configure_joint_motor(JPH::Constraint& native, const PhysicsJoint& c) {
+        const auto state = c.motor_enabled ? JPH::EMotorState::Velocity : JPH::EMotorState::Off;
+        if (c.kind == 1) {
+            auto& hinge = static_cast<JPH::HingeConstraint&>(native);
+            hinge.GetMotorSettings().SetTorqueLimit(c.max_motor_torque);
+            hinge.SetTargetAngularVelocity(c.hinge_motor_speed * std::numbers::pi_v<float> / 180);
+            hinge.SetMotorState(state);
+        } else if (c.kind == 4) {
+            auto& slider = static_cast<JPH::SliderConstraint&>(native);
+            slider.GetMotorSettings().SetForceLimit(c.max_motor_force);
+            slider.SetTargetVelocity(c.slider_motor_speed);
+            slider.SetMotorState(state);
         }
     }
     JointRecord create_joint(std::uint64_t id, const JointDesired& v) {
@@ -1147,6 +1163,7 @@ struct PhysicsRuntime::Impl {
             }
             if (!native)
                 throw std::runtime_error("Jolt joint allocation failed");
+            configure_joint_motor(*native, c);
             system.AddConstraint(native.GetPtr());
         }
         auto& api = system.GetBodyInterface();
@@ -1157,9 +1174,32 @@ struct PhysicsRuntime::Impl {
         return {*context.reference(id), v, std::move(native)};
     }
     void realize_joints(const JointDesiredMap& desired) {
-        for (const auto& [id, v] : desired)
+        for (const auto& [id, v] : desired) {
             if (!joints.contains(id))
                 joints.emplace(id, create_joint(id, v));
+            else if (auto& record = joints.at(id); record.desired.config != v.config) {
+                // Preflight admitted all controls. Keep geometry, native order and
+                // warm solver state when only the motor settings changed.
+                const auto& before = record.desired.config;
+                const auto& after = v.config;
+                const bool controls_changed =
+                    (after.kind == 1 && (before.motor_enabled != after.motor_enabled ||
+                                         before.hinge_motor_speed != after.hinge_motor_speed ||
+                                         before.max_motor_torque != after.max_motor_torque)) ||
+                    (after.kind == 4 && (before.motor_enabled != after.motor_enabled ||
+                                         before.slider_motor_speed != after.slider_motor_speed ||
+                                         before.max_motor_force != after.max_motor_force));
+                if (controls_changed)
+                    configure_joint_motor(*record.native, after);
+                record.desired = v;
+                if (controls_changed) {
+                    auto& api = system.GetBodyInterface();
+                    for (auto body : {v.a, v.b})
+                        if (bodies.at(body).config.body.motion)
+                            api.ActivateBody(bodies.at(body).id);
+                }
+            }
+        }
     }
     Json joint_mapping() const {
         std::map<const JPH::Constraint*, const JointRecord*> lookup;

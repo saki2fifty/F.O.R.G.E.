@@ -15,7 +15,7 @@ struct GameHostFixture {
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
-         slider = false;
+         slider = false, motors = false;
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -73,8 +73,9 @@ struct GameHostFixture {
         contacts = argc == 3 && std::string_view(argv[1]) == "--packaged-contacts";
         volumes = argc == 3 && std::string_view(argv[1]) == "--packaged-volumes";
         slider = argc == 3 && std::string_view(argv[1]) == "--packaged-slider";
+        motors = argc == 3 && std::string_view(argv[1]) == "--packaged-motors";
         packaged = reference || mixed || loads || velocity || contacts || volumes || slider ||
-                   (argc == 3 && std::string_view(argv[1]) == "--packaged");
+                   motors || (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
             throw std::runtime_error("Game fixture requires output directory");
@@ -148,7 +149,7 @@ struct GameHostFixture {
         std::size_t imported_pixels = 0;
         std::size_t physics_actor_pixels = 0;
         std::size_t contact_actor_pixels = 0;
-        if (loads || velocity || contacts || volumes || slider)
+        if (loads || velocity || contacts || volumes || slider || motors)
             for (unsigned y = 0; y < desc.Height; ++y)
                 for (unsigned x = 0; x < desc.Width; ++x) {
                     const auto* p = pixels + y * data.Stride + x * 4;
@@ -177,9 +178,9 @@ struct GameHostFixture {
         }
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
-        if (!reference && !loads && !velocity && !contacts && !volumes && !slider)
+        if (!reference && !loads && !velocity && !contacts && !volumes && !slider && !motors)
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
-        if (loads || velocity || slider) {
+        if (loads || velocity || slider || motors) {
             check(physics_actor_pixels > 100,
                   "Authored physics actors are not visible in standalone rendering");
             atomic_write(output / "physics-render-result.json",
@@ -241,7 +242,7 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
-        if (slider) {
+        if (slider || motors) {
             const auto tick = game.status().at("clock").at("tick").get<unsigned>();
             if (tick < 180)
                 return;
@@ -249,14 +250,17 @@ struct GameHostFixture {
             Json carriages = Json::array();
             for (const auto& row : scene.at("entities")) {
                 const auto name = row.at("name").get<std::string>();
-                const bool vertical = name == "Vertical slider carriage";
-                if (!vertical && name != "Inclined slider carriage")
+                const bool first =
+                    name == (motors ? "Driven slider carriage" : "Vertical slider carriage");
+                if (!first &&
+                    name != (motors ? "Driven hinge carriage" : "Inclined slider carriage"))
                     continue;
                 const auto& components = row.at("components");
                 const auto& p = components.at("forge.local_translation");
                 const auto& q = components.at("forge.local_rotation");
-                const Double3 expected =
-                    vertical ? Double3{-2, 3, 0} : Double3{2 - std::sqrt(.5), 4 - std::sqrt(.5), 0};
+                const Double3 expected = motors  ? (first ? Double3{-.5, 4, 0} : Double3{2, 4, 0})
+                                         : first ? Double3{-2, 3, 0}
+                                                 : Double3{2 - std::sqrt(.5), 4 - std::sqrt(.5), 0};
                 double error = 0;
                 unsigned axis = 0;
                 for (const auto* field : {"x", "y", "z"}) {
@@ -265,18 +269,25 @@ struct GameHostFixture {
                 }
                 const LocalRotation rotation{q.at("x"), q.at("y"), q.at("z"), q.at("w")};
                 const LocalRotation expected_rotation =
-                    vertical ? LocalRotation{}
-                             : LocalRotation{0, 0, float(std::sin(std::numbers::pi / 8)),
-                                             float(std::cos(std::numbers::pi / 8))};
-                check(error < .004 * .004 && equivalent(rotation, expected_rotation),
+                    first ? LocalRotation{}
+                          : LocalRotation{0, 0, float(std::sin(std::numbers::pi / 8)),
+                                          float(std::cos(std::numbers::pi / 8))};
+                const bool frame_matches =
+                    motors ? std::abs(rotation.x) < 1e-6 && std::abs(rotation.y) < 1e-6 &&
+                                 std::abs(2 * std::atan2(rotation.z, rotation.w) -
+                                          (first ? 0 : std::numbers::pi / 2)) < 1e-5
+                           : equivalent(rotation, expected_rotation);
+                check(error < .004 * .004 && frame_matches,
                       "Exported slider carriage lost its signed limit or locked frame");
                 carriages.push_back({{"name", name}, {"components", components}});
             }
             check(carriages.size() == 2 && game.active().physics()->status().at("joints") == 2,
                   "Exported slider constraints or carriages missing");
-            atomic_write(output / "physics-slider-result.json",
+            atomic_write(output /
+                             (motors ? "physics-motors-result.json" : "physics-slider-result.json"),
                          Json{{"tick", tick}, {"carriages", carriages}}.dump(2));
-            capture("physics-slider-running.ppm", image, device, context);
+            capture(motors ? "physics-motors-running.ppm" : "physics-slider-running.ppm", image,
+                    device, context);
             running = false;
             return;
         }

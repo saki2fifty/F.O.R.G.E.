@@ -286,6 +286,11 @@ class ComponentInspector {
                     if ((name.ends_with("distance") && kind != 0) ||
                         (name.ends_with("travel") && kind != 4) ||
                         (name.ends_with("angle") && kind != 1) ||
+                        (name == "motor_enabled" && kind != 1 && kind != 4) ||
+                        ((name == "hinge_motor_speed" || name == "max_motor_torque") &&
+                         kind != 1) ||
+                        ((name == "slider_motor_speed" || name == "max_motor_force") &&
+                         kind != 4) ||
                         ((name.starts_with("axis_") || name.starts_with("normal_")) && kind != 1 &&
                          kind != 3 && kind != 4))
                         continue;

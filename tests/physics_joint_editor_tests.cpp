@@ -163,6 +163,22 @@ int main(int argc, char** argv) {
                 require(scene.entity(id).get<PhysicsJoint>().min_angle == -30 &&
                             scene.entity(id).get<PhysicsJoint>().max_angle == 60,
                         "Inspector angle edit");
+                require(test::ui_targets.contains(
+                            "component-field:forge.physics_joint:hinge_motor_speed") &&
+                            !test::ui_targets.contains(
+                                "component-field:forge.physics_joint:slider_motor_speed"),
+                        "Hinge drive fields lost their kind-specific visibility");
+                click("component-field:forge.physics_joint:motor_enabled");
+                require(scene.entity(id).get<PhysicsJoint>().motor_enabled,
+                        "Actual motor checkbox failed");
+                require(scene.undo() && !scene.entity(id).get<PhysicsJoint>().motor_enabled &&
+                            scene.redo() && scene.entity(id).get<PhysicsJoint>().motor_enabled,
+                        "Motor checkbox Undo/Redo failed");
+                numeric("hinge_motor_speed", "-45");
+                numeric("max_motor_torque", "20");
+                require(scene.entity(id).get<PhysicsJoint>().hinge_motor_speed == -45 &&
+                            scene.entity(id).get<PhysicsJoint>().max_motor_torque == 20,
+                        "Actual signed hinge speed/torque fields failed");
                 click("component-field:forge.physics_joint:body_b");
                 click("entity-picker-clear");
                 require(!scene.entity(id).get<PhysicsJoint>().body_b.scene,
@@ -187,6 +203,9 @@ int main(int argc, char** argv) {
                                  (expected >= 3)) &&
                                 (test::ui_targets.contains(
                                      "component-field:forge.physics_joint:min_travel") ==
+                                 (expected == 4)) &&
+                                (test::ui_targets.contains(
+                                     "component-field:forge.physics_joint:motor_enabled") ==
                                  (expected == 4)),
                             "Actual Point/Fixed Inspector fields differ");
                     require(scene.undo() &&
@@ -204,6 +223,18 @@ int main(int argc, char** argv) {
                         "Slider travel Undo failed");
                 require(scene.redo() && scene.entity(id).get<PhysicsJoint>().max_travel == 3,
                         "Slider travel Redo failed");
+                numeric("slider_motor_speed", "-2");
+                numeric("max_motor_force", "3");
+                require(scene.entity(id).get<PhysicsJoint>().slider_motor_speed == -2 &&
+                            scene.entity(id).get<PhysicsJoint>().max_motor_force == 3 &&
+                            scene.entity(id).get<PhysicsJoint>().hinge_motor_speed == -45 &&
+                            scene.entity(id).get<PhysicsJoint>().max_motor_torque == 20 &&
+                            scene.entity(id).get<PhysicsJoint>().motor_enabled,
+                        "Slider effort/target or inactive hinge settings changed");
+                require(
+                    scene.undo() && scene.entity(id).get<PhysicsJoint>().max_motor_force == 100 &&
+                        scene.redo() && scene.entity(id).get<PhysicsJoint>().max_motor_force == 3,
+                    "Motor numeric Undo/Redo failed");
                 click("component-field:forge.physics_joint:enabled");
                 require(!scene.entity(id).get<PhysicsJoint>().enabled, "Enabled checkbox failed");
                 const auto retained = scene.entity(id).get<PhysicsJoint>();

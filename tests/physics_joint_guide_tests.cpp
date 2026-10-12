@@ -58,9 +58,14 @@ void check_guides() {
     slider["kind"] = 4;
     slider["min_travel"] = -2;
     slider["max_travel"] = 3;
+    slider["motor_enabled"] = true;
+    slider["slider_motor_speed"] = -2;
+    slider["max_motor_force"] = 3;
     const auto slider_guide = ui::prepare_physics_joint_guide(slider_snapshot, id);
     require(slider_guide && slider_guide->valid && slider_guide->kind == 4 &&
-                slider_guide->min_travel == -2 && slider_guide->max_travel == 3,
+                slider_guide->min_travel == -2 && slider_guide->max_travel == 3 &&
+                slider_guide->motor_enabled && slider_guide->motor_speed == -2 &&
+                slider_guide->motor_budget == 3,
             "Slider guide lost signed travel bounds or current body frames");
     // Independent parent matrix: T(10,20,30) Rz(90) S(-2,3,4).
     require(error(guide->bodies[0].anchor, {1, 17, 41}) < 1e-5,
@@ -171,7 +176,8 @@ void check_guides() {
                 "Actual authored overlay absent or claims collision realization");
         require(draw(slider_snapshot) > visible_vertices &&
                     overlay.status().starts_with("Authored Slider joint") &&
-                    overlay.status().find("travel") != std::string::npos,
+                    overlay.status().find("travel") != std::string::npos &&
+                    overlay.status().find("drive -2.000 m/s, budget 3.000 N") != std::string::npos,
                 "Actual slider guide lacks travel interval geometry/status");
         require(draw(altered) > 0 && overlay.status().find("distinct bodies") != std::string::npos,
                 "Invalid pairing lost visible diagnostic");

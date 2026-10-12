@@ -16,13 +16,25 @@ inline void validate_joint(const PhysicsJoint& v) {
         !std::isfinite(v.min_angle) || !std::isfinite(v.max_angle) || v.min_angle < -180 ||
         v.min_angle > 0 || v.max_angle < 0 || v.max_angle > 180 || !std::isfinite(v.min_travel) ||
         !std::isfinite(v.max_travel) || v.min_travel < -10000 || v.min_travel > 0 ||
-        v.max_travel < 0 || v.max_travel > 10000 ||
+        v.max_travel < 0 || v.max_travel > 10000 || !std::isfinite(v.hinge_motor_speed) ||
+        std::abs(v.hinge_motor_speed) > 36000 || !std::isfinite(v.slider_motor_speed) ||
+        std::abs(v.slider_motor_speed) > 1000 || !std::isfinite(v.max_motor_torque) ||
+        v.max_motor_torque < 0 || v.max_motor_torque > 1000000 ||
+        !std::isfinite(v.max_motor_force) || v.max_motor_force < 0 || v.max_motor_force > 1000000 ||
         ((v.kind == 1 || v.kind == 3 || v.kind == 4) &&
          (v.axis_a == v.normal_a || v.axis_b == v.normal_b)) ||
         (v.kind == 4 && v.min_travel == v.max_travel) ||
         (v.kind == 1 && v.min_angle == v.max_angle))
         throw std::runtime_error(
-            "Invalid joint kind, distance/travel interval, frame axes or angle limits");
+            "Invalid joint kind, distance/travel interval, frame axes, angle limits or motor");
+}
+inline bool joint_same_geometry(const PhysicsJoint& a, PhysicsJoint b) {
+    b.motor_enabled = a.motor_enabled;
+    b.hinge_motor_speed = a.hinge_motor_speed;
+    b.slider_motor_speed = a.slider_motor_speed;
+    b.max_motor_torque = a.max_motor_torque;
+    b.max_motor_force = a.max_motor_force;
+    return a == b;
 }
 inline nlohmann::json joint_value(const PhysicsJoint& v) {
     validate_joint(v);
@@ -45,7 +57,12 @@ inline nlohmann::json joint_value(const PhysicsJoint& v) {
             {"axis_b", v.axis_b},
             {"normal_b", v.normal_b},
             {"min_angle", v.min_angle},
-            {"max_angle", v.max_angle}};
+            {"max_angle", v.max_angle},
+            {"motor_enabled", v.motor_enabled},
+            {"hinge_motor_speed", v.hinge_motor_speed},
+            {"slider_motor_speed", v.slider_motor_speed},
+            {"max_motor_torque", v.max_motor_torque},
+            {"max_motor_force", v.max_motor_force}};
 }
 inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     PhysicsJoint v;
@@ -71,6 +88,11 @@ inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     v.normal_b = p.at("normal_b").get<std::uint32_t>();
     v.min_angle = p.at("min_angle");
     v.max_angle = p.at("max_angle");
+    v.motor_enabled = p.value("motor_enabled", false);
+    v.hinge_motor_speed = p.value("hinge_motor_speed", 90.f);
+    v.slider_motor_speed = p.value("slider_motor_speed", 1.f);
+    v.max_motor_torque = p.value("max_motor_torque", 10.f);
+    v.max_motor_force = p.value("max_motor_force", 100.f);
     validate_joint(v);
     return v;
 }

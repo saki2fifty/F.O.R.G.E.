@@ -116,3 +116,15 @@ identity version changes. Public field layout/fingerprint changes require matchi
 SDK/module rebuilds. Private exact-build checkpoint4 includes admitted settings
 and actual native manager order; ABI1 and private version remain unchanged.
 No additional constraint manager, recovery database or durable state is introduced.
+
+## 2026-10-12 — bounded joint velocity motors
+
+Five trailing PhysicsJoint authoring fields backfill disabled defaults through the
+existing builtin admission/codec. Matching public layout/fingerprint is required;
+authored formats and ABI1 are unchanged. Motor-only native updates preserve frame,
+manager order and warm state; the existing constraint record owns admitted controls.
+Private exact-build checkpoint4 already maps full admitted settings and pinned native
+solver state, so no private version change or separate queue is needed. Capture still
+rejects unsynchronized component writes; C++ controls belong before Physics. Inactive
+kind data remains authored but cannot wake or drive bodies. No additional owner or
+durable motor history is introduced.

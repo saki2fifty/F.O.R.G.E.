@@ -3392,6 +3392,10 @@ int main(int argc, char** argv) {
                 case 168:
                 case 171:
                 case 174:
+                case 177:
+                case 180:
+                case 183:
+                case 186:
                     forge::ui::style(2);
                     break;
                 case 158:
@@ -3400,6 +3404,10 @@ int main(int argc, char** argv) {
                 case 167:
                 case 170:
                 case 173:
+                case 176:
+                case 179:
+                case 182:
+                case 185:
                     forge::ui::style(1.5f);
                     break;
                 case 157: {
@@ -3498,6 +3506,8 @@ int main(int argc, char** argv) {
                     break;
                 }
                 case 172:
+                case 178:
+                case 184:
                     physics_overlay.joint_visible = true;
                     workspace.inspector = false;
                     if (auto* w = ImGui::FindWindowByName("###Scene"))
@@ -3511,6 +3521,26 @@ int main(int argc, char** argv) {
                     camera.distance = 7;
                     forge::ui::style(1);
                     break;
+                case 175:
+                case 181: {
+                    auto joint = scene.entity(fixture.joint_entity).get<forge::PhysicsJoint>();
+                    joint.kind = fixture.stage == 175 ? 4 : 1;
+                    joint.axis_a = joint.axis_b = fixture.stage == 175 ? 0 : 2;
+                    joint.normal_a = joint.normal_b = fixture.stage == 175 ? 1 : 0;
+                    joint.motor_enabled = true;
+                    joint.slider_motor_speed = -2;
+                    joint.hinge_motor_speed = 45;
+                    joint.max_motor_force = 3;
+                    joint.max_motor_torque = 2;
+                    scene.entity(fixture.joint_entity).set<forge::PhysicsJoint>(joint);
+                    workspace.inspector = true;
+                    if (auto* w = ImGui::FindWindowByName("Inspector"))
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                    ImGui::SetWindowPos("Inspector", {30, 55});
+                    ImGui::SetWindowSize("Inspector", {1400, 960});
+                    forge::ui::style(1);
+                    break;
+                }
                 case 151:
                 case 154:
                     forge::authoring_command(scene, "property.set",
@@ -5504,10 +5534,16 @@ int main(int argc, char** argv) {
                     }
                 }
                 if ((fixture.stage >= 145 && fixture.stage <= 156) ||
-                    (fixture.stage >= 169 && fixture.stage <= 171)) {
+                    (fixture.stage >= 169 && fixture.stage <= 171) ||
+                    (fixture.stage >= 175 && fixture.stage <= 177) ||
+                    (fixture.stage >= 181 && fixture.stage <= 183)) {
                     const auto key =
                         fixture.stage < 148 || (fixture.stage >= 151 && fixture.stage <= 153)
                             ? "component-field:forge.physics_joint:body_b"
+                        : fixture.stage >= 181
+                            ? "component-field:forge.physics_joint:max_motor_torque"
+                        : fixture.stage >= 175
+                            ? "component-field:forge.physics_joint:max_motor_force"
                         : fixture.stage >= 169 ? "component-field:forge.physics_joint:max_travel"
                         : fixture.stage >= 154 ? "component-field:forge.physics_joint:normal_b"
                                                : "component-field:forge.physics_joint:max_angle";
@@ -5539,6 +5575,14 @@ int main(int argc, char** argv) {
                         physics_overlay.status().starts_with("Authored Slider joint") &&
                         physics_overlay.status().find("travel 1.000 m [-2.000, 3.000]") !=
                             std::string::npos;
+                if ((fixture.stage >= 178 && fixture.stage <= 180) ||
+                    (fixture.stage >= 184 && fixture.stage <= 186))
+                    captured_document_visible &=
+                        physics_overlay.joint_visible &&
+                        physics_overlay.status().find(
+                            fixture.stage < 184
+                                ? "drive -2.000 m/s, budget 3.000 N"
+                                : "drive 45.000 deg/s, budget 2.000 N*m") != std::string::npos;
                 if (fixture.stage >= 163 && fixture.stage <= 165) {
                     const auto field = forge::test::ui_targets.find(
                         "component-field:forge.physics_body:continuous_collision");
@@ -5846,7 +5890,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 175) {
+                    if (fixture.stage == 187) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

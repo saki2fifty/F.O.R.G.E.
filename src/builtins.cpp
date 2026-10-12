@@ -561,7 +561,12 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("axis_b")
             .template member<std::uint32_t>("normal_b")
             .template member<float>("min_angle")
-            .template member<float>("max_angle");
+            .template member<float>("max_angle")
+            .template member<bool>("motor_enabled")
+            .template member<float>("hinge_motor_speed")
+            .template member<float>("slider_motor_speed")
+            .template member<float>("max_motor_torque")
+            .template member<float>("max_motor_force");
     } else if constexpr (std::is_same_v<T, AssetCollider>) {
         register_asset_ref<CollisionAsset>(w, "forge.collision_ref");
         c.template member<AssetRef<CollisionAsset>>("asset");
@@ -908,6 +913,21 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = field == "min_travel" ? 0 : 10000;
             value["unit"] = "meters";
             value["description"] = "Signed slider displacement between anchors along Body A's axis";
+        }
+        if (field == "hinge_motor_speed" || field == "slider_motor_speed") {
+            const auto limit = field == "hinge_motor_speed" ? 36000 : 1000;
+            value["minimum"] = -limit;
+            value["maximum"] = limit;
+            value["unit"] = field == "hinge_motor_speed" ? "degrees/s" : "m/s";
+            value["description"] = "Signed target speed of Body B relative to Body A; zero brakes "
+                                   "with the configured budget. Body speed limits still apply.";
+        }
+        if (field == "max_motor_torque" || field == "max_motor_force") {
+            value["minimum"] = 0;
+            value["maximum"] = 1000000;
+            value["unit"] = field == "max_motor_torque" ? "N*m" : "N";
+            value["description"] =
+                "Maximum motor effort in either direction; zero applies no drive.";
         }
         if (field == "min_angle" || field == "max_angle") {
             value["minimum"] = field == "min_angle" ? -180 : 0;
@@ -1442,7 +1462,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_joint")
-        for (const auto* field : {"min_travel", "max_travel"})
+        for (const auto* field : {"min_travel", "max_travel", "motor_enabled", "hinge_motor_speed",
+                                  "slider_motor_speed", "max_motor_torque", "max_motor_force"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     return current;
