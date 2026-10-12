@@ -1,4 +1,5 @@
 #pragma once
+#include "../animation_playback_access.hpp"
 #include "../audio_mix.hpp"
 #include "event_time.hpp"
 #include "play_transport_worker.hpp"
@@ -163,12 +164,13 @@ class PlaySession {
     const Json& property_tune_ack() const { return property_tune_ack_; }
     bool submit_property_tune(const std::string& entity, const std::string& type,
                               const std::string& property, Json value) {
-        if (!sdk_game_ || !ready() || !property_tune_command_.is_null() ||
-            sdk_activation_generation_ == 0 || !snapshot_.is_object() ||
+        const auto generation = sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;
+        if ((!sdk_game_ && !AnimationPlaybackAccess::rig_type(type)) || !ready() ||
+            !property_tune_command_.is_null() || generation == 0 || !snapshot_.is_object() ||
             !snapshot_.contains("asset_id"))
             return false;
         property_tune_command_ = {{"command", "property_tune"},
-                                  {"generation", sdk_activation_generation_},
+                                  {"generation", generation},
                                   {"scene_asset", snapshot_.at("asset_id")},
                                   {"entity", entity},
                                   {"type", type},
@@ -660,6 +662,7 @@ class PlaySession {
         property_tune_command_ = nullptr;
         property_tune_ack_ = nullptr;
         runtime_schema_ = nullptr;
+        runtime_world_generation_ = 0;
         sdk_pending_platform_acks_ = false;
         sdk_platform_acks_ = nullptr;
         sdk_pending_editor_epoch_ = false;
@@ -857,7 +860,7 @@ class PlaySession {
                         }
                         return;
                     }
-                    if (sent_command_ == "property_tune" && sdk_game_) {
+                    if (sent_command_ == "property_tune") {
                         property_tune_ack_ = {{"ok", false}, {"error", error}};
                         notice_ = "Live property change rejected: " + error + ". ";
                         sent_at_ = 0;
@@ -865,7 +868,7 @@ class PlaySession {
                     }
                     throw std::runtime_error(error);
                 }
-                if (sent_command_ == "property_tune" && sdk_game_)
+                if (sent_command_ == "property_tune")
                     property_tune_ack_ = response.value("property_tune", Json());
                 if (stage_ == Stage::Hello && (exact_sdk_ || sdk_game_)) {
                     const auto info = response.value("runtime_contract", Json::object());
@@ -899,6 +902,7 @@ class PlaySession {
                 recovery_ = response.at("recovery");
                 effective_ = response.at("effective_scene");
                 runtime_schema_ = response.value("schema", Json());
+                runtime_world_generation_ = response.value("world_generation", std::uint64_t{});
                 timing_ = response.at("timing");
                 audio_status_ = response.value("audio", Json::object());
                 if (response.contains("audio_source") &&
@@ -1159,6 +1163,10 @@ class PlaySession {
                         const auto command = control_;
                         control_.clear();
                         send({{"command", command}});
+                    } else if (!property_tune_command_.is_null()) {
+                        auto command = std::move(property_tune_command_);
+                        property_tune_command_ = nullptr;
+                        send(std::move(command));
                     } else if (!live_command_.is_null()) {
                         auto command = std::move(live_command_);
                         live_command_ = nullptr;
@@ -1270,6 +1278,8 @@ class PlaySession {
         sdk_candidate_ticket_ = 0;
         sdk_candidate_fetched_ticket_ = 0;
         sdk_activation_generation_ = 0;
+        property_tune_command_ = property_tune_ack_ = runtime_schema_ = nullptr;
+        runtime_world_generation_ = 0;
         sdk_activation_active_ = false;
         sdk_expected_ticket_ = 0;
         sdk_loading_ = Json::object();
@@ -1491,6 +1501,7 @@ class PlaySession {
     std::string executable_, notice_, session_, control_;
     Json initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
+    std::uint64_t runtime_world_generation_ = 0;
     Json audio_status_ = Json::object(), live_command_;
     std::string audio_mix_error_;
     Json animation_watch_, animation_status_, sent_animation_;

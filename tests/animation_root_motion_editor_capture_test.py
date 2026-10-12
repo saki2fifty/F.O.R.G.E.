@@ -20,7 +20,9 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
                   'animation-subtree', 'animation-subtree-150', 'animation-subtree-200',
                   'animation-overlay', 'animation-overlay-150', 'animation-overlay-200',
                   'two-bone-ik', 'two-bone-ik-150', 'two-bone-ik-200',
-                  'joint-aim', 'joint-aim-150', 'joint-aim-200'):
+                  'joint-aim', 'joint-aim-150', 'joint-aim-200',
+                  'live-two-bone-ik', 'live-two-bone-ik-150', 'live-two-bone-ik-200',
+                  'live-joint-aim', 'live-joint-aim-150', 'live-joint-aim-200'):
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
 print('Native root motion, Live playback, subtree, additive, reach and aim controls captured at100/150/200%')

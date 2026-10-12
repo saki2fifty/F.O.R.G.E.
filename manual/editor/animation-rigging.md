@@ -11,6 +11,11 @@ Set Target X/Y/Z and enable it. Aim IK turns a selected bone's Forward direction
 toward a target. Up and Pole control its roll. These targets are measured relative
 to the model, before the model's overall placement in the scene.
 
+Bone pickers and Content drops show only bones from the selected holder's model.
+An existing missing or mismatched selection stays visible so you can correct it.
+Disable the constraint before replacing its chain, then enable it again once the
+chain is valid.
+
 Weight0 leaves the animation pose; Weight1 applies the whole correction. Intermediate
 weights blend the correction. A target beyond a limb's reach cannot stretch its
 bones. The bend axis is local to Middle; the pole is a direction, not a position.
@@ -24,6 +29,14 @@ mixed animation before rendering. Animate the bones with C++ or clips; constrain
 rotation paths without clip curves use the imported rest pose. Disabling/removing
 the constraint restores those paths to their sampled base. Stop restores the usual
 authored scene. **SetRigTarget.hpp** shows how C++ can move the target during Play.
+
+During Play, select the holder and use the tinted **Live gameplay** Inspector to
+adjust reach and aim. Press Enter to apply a numeric change. You can tune while
+animation is paused; the pose updates without moving its playback position.
+Invalid changes report a rejection and retain the previous values and pose.
+These temporary changes disappear after Stop. To keep a change for export, Stop,
+set it in the normal Inspector and save. A C++ system that updates a target may
+replace your temporary value on its next tick.
 
 Save and export the scene normally. The exported game uses the same compiled engine
 constraint feature and cooked model data; it does not require glTF sources or a

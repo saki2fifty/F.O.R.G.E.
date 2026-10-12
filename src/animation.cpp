@@ -426,7 +426,8 @@ struct AnimationRuntime::Impl {
                            flecs::entity_t only = 0,
                            const std::map<flecs::entity_t, double>& weights = {},
                            std::optional<std::uint64_t> motion_tick = {},
-                           std::map<flecs::entity_t, PreparedRig>* recovered_rigs = nullptr) {
+                           std::map<flecs::entity_t, PreparedRig>* recovered_rigs = nullptr,
+                           const RigInputs* tuned_rig = nullptr) {
         // One derived instance index per fixed tick. Native ChildOf lookup also
         // resolves Flecs Parent storage at the pinned revision. Nested roots are
         // boundaries, including roots belonging to another model.
@@ -504,6 +505,8 @@ struct AnimationRuntime::Impl {
                     inputs.reach = root.get<TwoBoneIK>();
                 if (root.has<AimIK>())
                     inputs.aim = root.get<AimIK>();
+                if (tuned_rig)
+                    inputs = *tuned_rig;
                 struct RigCandidate {
                     RigConstraints rig;
                     std::vector<AnimatedTransformChannel> affected, channels, next_channels;
@@ -718,9 +721,9 @@ struct AnimationRuntime::Impl {
                     single.emplace(id, *motion);
                     prepared_motion = single.extract(id);
                 }
-                const bool snap = playback.discontinuous || binding_errors.contains(id) ||
-                                  (new_rig && new_rig->layout_changed) ||
-                                  !same_rig_base(base, playback.rig_base);
+                const bool snap =
+                    tuned_rig || playback.discontinuous || binding_errors.contains(id) ||
+                    (new_rig && new_rig->layout_changed) || !same_rig_base(base, playback.rig_base);
                 std::optional<std::set<std::uint64_t>> prepared_discontinuities;
                 if (snap) {
                     // Prepare allocating bookkeeping before the first ECS write.
@@ -730,6 +733,15 @@ struct AnimationRuntime::Impl {
                         (void)write;
                         prepared_discontinuities->insert(target);
                     }
+                }
+                // Live tuning shares this complete-pose transaction. The typed
+                // request is adopted only after binding, solving, physics and
+                // allocating bookkeeping all succeeded. No clock is advanced.
+                if (tuned_rig) {
+                    if (inputs.reach && root.get<TwoBoneIK>() != *inputs.reach)
+                        root.set(*inputs.reach);
+                    if (inputs.aim && root.get<AimIK>() != *inputs.aim)
+                        root.set(*inputs.aim);
                 }
                 for (auto& [target, write] : writes) {
                     (void)target;
@@ -770,7 +782,7 @@ struct AnimationRuntime::Impl {
                 if (motion)
                     root_motions.insert(std::move(prepared_motion));
             } catch (const std::exception& ex) {
-                if (!commit)
+                if (!commit || tuned_rig)
                     throw;
                 if (binding_errors[id] != ex.what()) {
                     Diagnostic diagnostic{Severity::Error, "animation.binding", ex.what(), {}};
@@ -1762,6 +1774,45 @@ void AnimationPlaybackAccess::control(AnimationRuntime& runtime, EntityRef ref,
     if (operation == "seek" || operation == "restart") {
         runtime.impl_->apply_model_poses(true, {}, id);
     }
+}
+Json AnimationPlaybackAccess::tune_rig(AnimationRuntime& runtime, EntityRef ref,
+                                       const std::string& type, const std::string& property,
+                                       const Json& value) {
+    if (!rig_type(type) || !runtime.impl_ || runtime.impl_->context.role() != WorldRole::Runtime ||
+        !runtime.impl_->context.on_owner_thread())
+        throw ArchiveError("Live IK tuning requires the runtime animation owner");
+    const auto resolved = runtime.impl_->context.resolve(ref);
+    if (resolved.state != WorldContext::ResolveState::Available)
+        throw ArchiveError("Live IK target is unavailable");
+    auto root = runtime.impl_->context.world().entity(resolved.entity);
+    const auto player = runtime.impl_->states.find(root.id());
+    if (root.has(flecs::Prefab) || !root.has<ModelSource>() || root.get<ModelSource>().node.id ||
+        player == runtime.impl_->states.end() || runtime.impl_->pending.contains(root.id()) ||
+        !player->second.config.enabled)
+        throw ArchiveError("Live IK tuning needs an admitted model Animator holder");
+    const auto& catalog = detail::builtins();
+    const auto codec = std::find_if(catalog.begin(), catalog.end(),
+                                    [&](const auto& entry) { return type == entry.name; });
+    auto candidate = codec->read(root, true);
+    if (!candidate.is_object() || !candidate.contains(property))
+        throw ArchiveError("Live IK component or property is unavailable");
+    candidate[property] = value;
+    detail::validate_components(Json{{type, candidate}});
+    const auto typed = codec->decode(candidate);
+    RigInputs inputs;
+    if (root.has<TwoBoneIK>())
+        inputs.reach = root.get<TwoBoneIK>();
+    if (root.has<AimIK>())
+        inputs.aim = root.get<AimIK>();
+    if (type == "forge.two_bone_ik") {
+        inputs.reach = std::get<TwoBoneIK>(typed);
+        detail::validate_reflected_value(root, *inputs.reach);
+    } else {
+        inputs.aim = std::get<AimIK>(typed);
+        detail::validate_reflected_value(root, *inputs.aim);
+    }
+    runtime.impl_->apply_model_poses(true, {}, root.id(), {}, {}, nullptr, &inputs);
+    return codec->read(root, true).at(property);
 }
 void AnimationRuntime::reset_presentation() {
     if (!impl_)

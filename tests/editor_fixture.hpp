@@ -105,7 +105,7 @@ struct EditorFixture {
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
-        if (root_motion && stage >= 250 && stage <= 267)
+        if (root_motion && stage >= 250 && stage <= 273)
             return "Inspector";
         if (audio_preview && stage >= 235 && stage <= 240)
             return "Audio clip###Audio clip";
@@ -656,7 +656,13 @@ struct EditorFixture {
                                "two-bone-ik-200",
                                "joint-aim",
                                "joint-aim-150",
-                               "joint-aim-200"};
+                               "joint-aim-200",
+                               "live-two-bone-ik",
+                               "live-two-bone-ik-150",
+                               "live-two-bone-ik-200",
+                               "live-joint-aim",
+                               "live-joint-aim-150",
+                               "live-joint-aim-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

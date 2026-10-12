@@ -26,6 +26,34 @@ pole plane. Default forward+X/up+Y. One aim follows one reach, allowing an endpo
 to orient after the limb reaches. It is a single-joint target, not a multi-source
 aim constraint or iterative full-body solver.
 
+## Inspector authoring and Live tuning
+
+Animator root/subtree references and both constraint components' bone pickers use
+the holder's ModelSource model owner. Choices and Content drops exclude other
+models. A missing holder model offers no arbitrary project bones. Existing foreign
+or missing references remain visible for diagnosis; the picker never rewrites
+them. AssetCatalog remains the only picker projection, with no per-frame model
+conversion. The runtime still validates exact resource membership and chain order.
+
+During Play, the existing tinted Live gameplay Inspector exposes both constraints,
+including in projects with no C++ module. Numeric fields commit with Enter. The
+private property_tune command verifies its existing host world generation, scene,
+entity, field and reflected scalar/range contract. Normal hosts expose their
+existing successful-replacement generation as world_generation; SDK hosts retain
+their activation generation. AnimationRuntime binds and samples the requested
+typed candidate, validates the complete transform/physics pose and prepares
+bookkeeping before adopting the property or writing joints. Rejection preserves
+the property, transforms and clocks, and returns the existing Live feedback.
+Successful edits refresh presentation immediately at the current animation time,
+including while paused. Other built-in transform properties are not exposed by
+this command. Custom authored C++ components retain their existing admission path.
+
+Live values are transient runtime state. They do not add authored Undo entries,
+save project files or alter prefab authoring intent. Stop restores the authored
+scene. A runtime C++ system can overwrite these values on its next fixed tick.
+Disable a constraint while replacing its chain, then enable it after choosing a
+valid chain; active incomplete chains reject before applying the change.
+
 ## Evaluation and failure
 
 No active solve for disabled components or weight0. Nonzero constraints bind exact

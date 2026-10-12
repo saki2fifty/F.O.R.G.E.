@@ -4,6 +4,7 @@
 #include "audio_source_access.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
+#include "runtime_property_tune.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -1165,30 +1166,26 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             return s.snapshot_response(id);
         }
         if (command == "property_tune") {
-            if (!s.active_generation || !s.game || !request.contains("generation") ||
-                !is_unsigned_int(request.at("generation")) ||
-                request.at("generation").get<std::uint64_t>() != s.active_generation)
-                return s.build_error(id, "Live property targets a stale world generation");
-            if (!request.contains("scene_asset") || !request.at("scene_asset").is_string() ||
-                !request.contains("entity") || !request.at("entity").is_string() ||
-                !request.contains("type") || !request.at("type").is_string() ||
-                !request.contains("property") || !request.at("property").is_string() ||
-                !request.contains("value"))
-                return s.build_error(id, "Live property request needs typed target and value");
-            const auto scene_asset = request.at("scene_asset").get<std::string>();
-            const auto entity = request.at("entity").get<std::string>();
-            const auto type = request.at("type").get<std::string>();
-            const auto property = request.at("property").get<std::string>();
-            if (type.empty() || type.size() > 128 || property.empty() || property.size() > 128 ||
-                request.at("value").dump().size() > 8192)
-                return s.build_error(id, "Live property target/value exceeds limits");
-            const auto canonical_entity = EntityId::parse(entity).str();
-            const auto canonical_asset = AssetId::parse(scene_asset);
+            if (!s.game)
+                return s.build_error(id, "Live property requires an active world");
             auto& scene = s.game->active().scene;
-            if (scene.asset_id() != canonical_asset)
-                return s.build_error(id, "Live property targets a different scene asset");
-            const auto applied =
-                scene.tune_runtime_property(canonical_entity, type, property, request.at("value"));
+            const auto target =
+                RuntimePropertyTune::parse(request, s.active_generation, scene.asset_id());
+            const auto& type = target.type;
+            const auto& property = target.property;
+            const auto canonical_entity = target.target.entity.str();
+            Json applied;
+            if (AnimationPlaybackAccess::rig_type(type)) {
+                if (!s.game->active().engine.services().available(Capability::Animation))
+                    return s.build_error(id, "Live IK tuning requires enabled animation");
+                applied = AnimationPlaybackAccess::tune_rig(
+                    *std::static_pointer_cast<AnimationRuntime>(
+                        s.game->active().engine.services().animation()),
+                    target.target, type, property, request.at("value"));
+                s.game->active().simulation.sync_animation_pose();
+            } else
+                applied = scene.tune_runtime_property(canonical_entity, type, property,
+                                                      request.at("value"));
             auto response = s.snapshot_response(id);
             response["property_tune"] = {{"generation", s.active_generation},
                                          {"entity", canonical_entity},

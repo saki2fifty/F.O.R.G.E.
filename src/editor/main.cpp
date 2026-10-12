@@ -3758,6 +3758,8 @@ int main(int argc, char** argv) {
                 case 260:
                 case 263:
                 case 266:
+                case 269:
+                case 272:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3777,6 +3779,8 @@ int main(int argc, char** argv) {
                 case 261:
                 case 264:
                 case 267:
+                case 270:
+                case 273:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3931,9 +3935,12 @@ int main(int argc, char** argv) {
                     break;
                 case 262:
                 case 265:
+                case 268:
+                case 271:
                     if (fixture.root_motion) {
                         forge::ui::style(1);
-                        const bool aim = fixture.stage == 265;
+                        actions.invoke("stop");
+                        const bool aim = fixture.stage == 265 || fixture.stage == 271;
                         files.document.open_scene(aim ? "Scenes/41-joint-aim.scene.json"
                                                       : "Scenes/40-two-bone-ik.scene.json");
                         const std::string key = aim ? "forge.aim_ik" : "forge.two_bone_ik";
@@ -3946,6 +3953,8 @@ int main(int argc, char** argv) {
                             }
                         component_inspector.fixture_focus_component = key;
                         workspace.inspector = true;
+                        if (fixture.stage >= 268)
+                            ready = actions.invoke("play");
                     }
                     break;
                 case 232:
@@ -4364,8 +4373,8 @@ int main(int argc, char** argv) {
                 }
                 ImGui::End();
             }
-            const bool live_inspector_ready = play.active() && play.sdk_play() && play.ready() &&
-                                              editor.selection.entities().size() == 1;
+            const bool live_inspector_ready =
+                play.active() && play.ready() && editor.selection.entities().size() == 1;
             const auto live_sound =
                 workspace.inspector && play.ready() && editor.selection.entities().size() == 1
                     ? forge::AudioSourceEditor::selected(play.effective_snapshot(), selected)
@@ -6502,6 +6511,27 @@ int main(int argc, char** argv) {
                             field->second.minimum.y >= field->second.clip_minimum.y &&
                             field->second.maximum.y <= field->second.clip_maximum.y;
                 }
+                if (fixture.root_motion && fixture.stage >= 268 && fixture.stage <= 273) {
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    const auto field = forge::test::ui_targets.find(
+                        fixture.stage <= 270 ? "runtime-field:forge.two_bone_ik:weight"
+                                             : "runtime-field:forge.aim_ik:weight");
+                    captured_document_visible &=
+                        w && play.control_ready() && field != forge::test::ui_targets.end();
+                    if (w) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        ImGui::SetScrollY(w, 0);
+                    }
+                    if (field != forge::test::ui_targets.end())
+                        captured_document_visible &=
+                            field->second.enabled &&
+                            field->second.minimum.x >= field->second.clip_minimum.x &&
+                            field->second.maximum.x <= field->second.clip_maximum.x &&
+                            field->second.minimum.y >= field->second.clip_minimum.y &&
+                            field->second.maximum.y <= field->second.clip_maximum.y;
+                }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -6589,7 +6619,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 268)) {
+                        (fixture.root_motion && fixture.stage == 274)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
                             !fixture.audio_preview && !fixture.root_motion)

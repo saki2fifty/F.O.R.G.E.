@@ -1,3 +1,4 @@
+#include "animation_playback_access.hpp"
 #include "animation_preview.hpp"
 #include "animation_rig_binding.hpp"
 #include "animation_states_authoring.hpp"
@@ -184,6 +185,53 @@ int main(int argc, char** argv) {
         World full(project, source, actor);
         for (unsigned c = 0; c < 3; ++c)
             near(position(full.pose(), end)[c], std::array<double, 3>{1, 1, 0}[c]);
+        {
+            stage = "Live IK transaction";
+            World live(project, source, actor);
+            live.simulation.tick(.1f);
+            const auto reference = live.scene.reference(actor.str());
+            AnimationPlaybackAccess::control(*live.animation, reference, {{"operation", "pause"}});
+            const auto time = live.pose().at("time");
+            const auto undo = live.scene.can_undo(), redo = live.scene.can_redo();
+            auto tune = [&](const std::string& field, const Json& value) {
+                return AnimationPlaybackAccess::tune_rig(*live.animation, reference,
+                                                         "forge.two_bone_ik", field, value);
+            };
+            require(tune("target_x", .8) == Json(double(.8f)),
+                    "Live acknowledgement not canonical");
+            live.simulation.sync_animation_pose();
+            near(position(live.pose(), end)[0], .8);
+            require(live.pose().at("time") == time && live.scene.can_undo() == undo &&
+                        live.scene.can_redo() == redo && scene.snapshot() == source,
+                    "Live IK tuning advanced time or entered authored history");
+            const auto preserved = live.scene.snapshot(), pose = live.pose();
+            const auto reject = [&](const std::string& field, const Json& value) {
+                bool rejected = false;
+                try {
+                    tune(field, value);
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                require(rejected && live.scene.snapshot() == preserved && live.pose() == pose,
+                        "Rejected Live IK changed a property, clock or complete pose");
+            };
+            reject("middle", side);
+            reject("end", AssetId::generate());
+            reject("axis_z", 0);
+            reject("weight", 2);
+            reject("enabled", "true");
+            reject("unknown", 1);
+            live.animation->pose_validator(
+                [](const auto&) { throw std::runtime_error("Live IK complete physics veto"); });
+            reject("target_x", .7);
+            live.animation->pose_validator({});
+            tune("enabled", false);
+            near(position(live.pose(), end)[0], 0);
+            tune("enabled", true);
+            near(position(live.pose(), end)[0], .8);
+            require(live.pose().at("time") == time, "Live enable toggled the animation clock");
+            stage = "initial reach";
+        }
         World interpolated(project, source, actor);
         auto moving = reach;
         moving.target_x = .8f;

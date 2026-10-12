@@ -1,5 +1,6 @@
 #pragma once
 #include "editor_capture_layout.hpp"
+#include "model_node_scope.hpp"
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
 void require(bool condition, const char* message);
@@ -72,6 +73,31 @@ inline void test_asset_picker() {
     require(asset_picker_entries(catalog, "mesh", "Engine /", false).empty() &&
                 !asset_picker_entries(catalog, "mesh", "Engine /", true).empty(),
             "Asset picker ignored engine visibility policy");
+    const auto first_model = AssetId::generate(), second_model = AssetId::generate(),
+               own_bone = AssetId::generate(), other_bone = AssetId::generate();
+    AssetRecord own{own_bone, "model_node", "Assets/First.gltf", 1, {}};
+    own.subasset = AssetSubasset{first_model, "bone", false};
+    AssetRecord other{other_bone, "model_node", "Assets/Second.gltf", 1, {}};
+    other.subasset = AssetSubasset{second_model, "bone", false};
+    AssetCatalog bones(std::filesystem::current_path());
+    bones.replace_all({{first_model, "model", "Assets/First.gltf", 1, {}},
+                       {second_model, "model", "Assets/Second.gltf", 1, {}},
+                       own,
+                       other});
+    const auto scoped = asset_picker_entries(bones, "model_node", "", false, first_model);
+    require(scoped.size() == 1 && scoped.front().id == own_bone &&
+                !asset_picker_scope_matches(other, first_model),
+            "Bone picker/drop scope admitted another model");
+    require(asset_picker_entries(bones, "model_node", "", false, AssetId{}).empty(),
+            "Bone picker without a model admitted arbitrary project bones");
+    const Json refs = {{"forge.model_source", {{"model", first_model}}}};
+    const Json bone_field = {{"asset_type", "model_node"}};
+    require(model_node_scope(refs, "forge.two_bone_ik", bone_field) == first_model &&
+                model_node_scope(refs, "forge.aim_ik", bone_field) == first_model &&
+                model_node_scope(refs, "forge.animator", bone_field) == first_model &&
+                !model_node_scope(refs, "project.custom", bone_field) &&
+                model_node_scope(Json::object(), "forge.aim_ik", bone_field).has_value(),
+            "Bone scope lost builtin ownership or restricted custom C++ semantics");
     ImGui::CreateContext();
     auto& io = ImGui::GetIO();
     io.IniFilename = nullptr;
@@ -86,16 +112,26 @@ inline void test_asset_picker() {
     ImGuiWindow* popup = nullptr;
     bool committed = false;
     const char* title = "Mesh test";
+    const AssetCatalog* displayed_catalog = &catalog;
+    std::string displayed_type = "mesh";
+    std::optional<AssetId> displayed_owner, dragged_asset;
     auto frame = [&] {
         ImGui::NewFrame();
         ImGui::SetNextWindowPos({0, 0});
         ImGui::SetNextWindowSize({700, 500});
         ImGui::Begin("Asset picker test");
+        if (dragged_asset && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+            const auto id = dragged_asset->str();
+            ImGui::SetDragDropPayload("FORGE_ASSET", id.c_str(), 37);
+            ImGui::TextUnformatted("Content bone");
+            ImGui::EndDragDropSource();
+        }
         combo = ImGui::GetCursorScreenPos();
         combo.x += 30;
         combo.y += ImGui::GetFrameHeight() * .5f;
         ImGui::SetNextItemWidth(500);
-        committed |= asset_ref_picker(catalog, value, "mesh", title, false);
+        committed |= asset_ref_picker(*displayed_catalog, value, displayed_type, title, false,
+                                      displayed_owner);
         ImGui::End();
         ImGui::Render();
         popup = nullptr;
@@ -158,6 +194,32 @@ inline void test_asset_picker() {
                 "Large selected asset list hid search/Clear or stopped clipping at UI scale");
         ImGui::ClosePopupToLevel(0, true);
     }
+    displayed_catalog = &bones;
+    displayed_type = "model_node";
+    displayed_owner = first_model;
+    title = "Scoped bone";
+    value = other_bone;
+    committed = false;
+    frame();
+    frame();
+    require(!committed && value == Json(other_bone),
+            "Inspecting a foreign bone silently replaced its identity");
+    const auto drop = [&](AssetId id) {
+        dragged_asset = id;
+        io.AddMousePosEvent(combo.x, combo.y);
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
+        dragged_asset.reset();
+        frame();
+    };
+    drop(other_bone);
+    require(!committed && value == Json(other_bone),
+            "Actual Content drop assigned a bone from another model");
+    drop(own_bone);
+    require(committed && value == Json(own_bone), "Actual Content drop rejected this model's bone");
     ui::style(1);
     ImGui::DestroyContext();
 }

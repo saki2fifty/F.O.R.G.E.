@@ -3,6 +3,7 @@
 #include "audio_source_access.hpp"
 #include "authored_inspection.hpp"
 #include "runtime_io.hpp"
+#include "runtime_property_tune.hpp"
 #include "sdk_play_runtime.hpp"
 #include <forge/build.hpp>
 #include <forge/game_settings.hpp>
@@ -368,6 +369,22 @@ int main(int argc, char** argv) {
                                 runtime->engine.services().animation()),
                             request.at("source").get<forge::EntityRef>(), request);
                         runtime->simulation.sync_animation_pose();
+                    } else if (command == "property_tune") {
+                        const auto target = forge::RuntimePropertyTune::parse(
+                            request, ui_generation, runtime->scene.asset_id());
+                        if (!forge::AnimationPlaybackAccess::rig_type(target.type) ||
+                            !runtime->engine.services().available(forge::Capability::Animation))
+                            throw std::runtime_error("Live property type is not authorable");
+                        const auto value = forge::AnimationPlaybackAccess::tune_rig(
+                            *std::static_pointer_cast<forge::AnimationRuntime>(
+                                runtime->engine.services().animation()),
+                            target.target, target.type, target.property, request.at("value"));
+                        runtime->simulation.sync_animation_pose();
+                        response["property_tune"] = {{"generation", ui_generation},
+                                                     {"entity", target.target.entity},
+                                                     {"type", target.type},
+                                                     {"property", target.property},
+                                                     {"value", value}};
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();
@@ -494,6 +511,7 @@ int main(int argc, char** argv) {
                     response["diagnostic"] = forge::diagnostic_json(diagnostic);
                 }
                 response["timing"] = clock.status();
+                response["world_generation"] = ui_generation;
                 response["activation"] = {{"state", activation},
                                           {"generation", activation_generation},
                                           {"tick", activation_tick}};

@@ -1,6 +1,8 @@
 #pragma once
+#include "../animation_playback_access.hpp"
 #include "component_choices.hpp"
 #include "document.hpp"
+#include "model_node_scope.hpp"
 #include "model_variant_controls.hpp"
 #include "property_drawer.hpp"
 #include <algorithm>
@@ -99,13 +101,15 @@ class ComponentInspector {
         if (show_playback && entity->contains("animation_playback"))
             draw_animation_playback(entity->at("animation_playback"));
         for (const auto& type : schema.at("components")) {
-            if (!type.is_object() || !type.value("custom", false) || !type.contains("admission") ||
-                !type.contains("fields"))
+            if (!type.is_object() || !type.contains("fields"))
                 continue;
             const auto key = type.at("id").get<std::string>();
+            const bool rig = AnimationPlaybackAccess::rig_type(key);
+            if (!rig && (!type.value("custom", false) || !type.contains("admission")))
+                continue;
             const auto& components = entity->at("components");
             if (!components.contains(key) || !components.at(key).is_object() ||
-                components.at(key).value("$forge", Json()) != type.at("admission"))
+                (!rig && components.at(key).value("$forge", Json()) != type.at("admission")))
                 continue;
             ui::IdScope component_scope(key.c_str());
             if (!ImGui::CollapsingHeader(type.value("display_name", key).c_str(),
@@ -119,7 +123,8 @@ class ComponentInspector {
                 auto value = components.at(key).at(name);
                 const bool read_only = field.value("read_only", false);
                 ImGui::BeginDisabled(read_only);
-                const bool changed = property_field(project_root, field, value);
+                const bool changed = property_field(project_root, field, value, true,
+                                                    model_node_scope(components, key, field));
                 ImGui::EndDisabled();
                 FORGE_UI_PROBE("runtime-field:" + key + ":" + name);
                 if (changed && !read_only && !submit(key, name, value))
@@ -334,7 +339,8 @@ class ComponentInspector {
                 const bool changed =
                     key == "forge.mesh_renderer" && name == "materials" && material_slots
                         ? material_slots(values.at(key), value)
-                        : property_field(project.project(), *display_field, value);
+                        : property_field(project.project(), *display_field, value, true,
+                                         model_node_scope(values, key, field));
                 FORGE_UI_PROBE("component-field:" + key + ":" + name);
                 if (changed)
                     edit_property(scene, entity, key, name, value);

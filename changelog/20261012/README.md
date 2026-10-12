@@ -252,3 +252,13 @@ Windows rendering and physical listening remain separate acceptance work.
   preview and export. `SetRigTarget.hpp` supplies a compiled C++ example.
 - Exact SDK fingerprint changes; modules need rebuilding. Native Windows visual
   review and physical acceptance remain pending for the local bundle.
+
+## Rig authoring controls
+
+- Reach and aim appear in the tinted Live gameplay Inspector, including projects
+  without C++ modules. Numeric tuning commits with Enter and preserves animation
+  time; invalid changes retain the complete previous pose and property.
+- Animator and rig bone pickers and Content drops use the selected model's bones.
+  Existing missing/foreign selections remain visible for correction.
+- Local runtime, actual Inspector and normal/shared transport checks are separate
+  from pending native Windows execution and physical acceptance.

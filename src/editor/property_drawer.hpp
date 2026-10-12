@@ -13,6 +13,7 @@
 #include <forge/project_paths.hpp>
 #include <map>
 #include <misc/cpp/imgui_stdlib.h>
+#include <optional>
 namespace forge {
 inline std::string property_label(const Json& field) {
     if (field.contains("display_name"))
@@ -44,26 +45,29 @@ struct AssetPickerEntry {
     std::string label;
     bool engine = false, removed = false;
 };
+inline bool asset_picker_scope_matches(const AssetRecord& record,
+                                       const std::optional<AssetId>& owner) {
+    return !owner || (bool(*owner) && record.subasset && record.subasset->owner == *owner);
+}
 #ifdef FORGE_UI_FIXTURE
 // Actual Inspector control capture hook; absent from the shipped editor.
 inline bool fixture_open_mesh_picker = false;
 #endif
 // Disposable projection of the admitted catalog. No source reads or private
 // asset registry; only the popup's visible rows are submitted to ImGui.
-inline std::vector<AssetPickerEntry> asset_picker_entries(const AssetCatalog& catalog,
-                                                          std::string_view type,
-                                                          std::string_view search,
-                                                          bool include_engine) {
+inline std::vector<AssetPickerEntry>
+asset_picker_entries(const AssetCatalog& catalog, std::string_view type, std::string_view search,
+                     bool include_engine, std::optional<AssetId> owner = {}) {
     std::vector<AssetPickerEntry> rows;
     const auto query = search_key(std::string(search));
-    if (include_engine)
+    if (include_engine && !owner)
         for (const auto& asset : engine_assets()) {
             auto label = std::string("Engine / ") + asset.name;
             if (type == asset.type && search_key(label).find(query) != std::string::npos)
                 rows.push_back({asset.id, std::move(label), true, false});
         }
     for (const auto& [id, record] : catalog.records()) {
-        if (record.type != type || engine_asset(id))
+        if (record.type != type || engine_asset(id) || !asset_picker_scope_matches(record, owner))
             continue;
         auto label = asset_display(record);
         const bool removed = record.subasset && record.subasset->removed;
@@ -80,7 +84,8 @@ inline std::vector<AssetPickerEntry> asset_picker_entries(const AssetCatalog& ca
     return rows;
 }
 inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std::string& type,
-                             const char* title, bool include_engine = true) {
+                             const char* title, bool include_engine = true,
+                             std::optional<AssetId> owner = {}) {
     ui::IdScope scope(title);
     try {
         std::string label = "None";
@@ -89,6 +94,8 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             label = resolved.record ? asset_display(*resolved.record) : "Unresolved asset";
             if (resolved.state != AssetState::Available)
                 label += " (missing / incompatible)";
+            else if (resolved.record && !asset_picker_scope_matches(*resolved.record, owner))
+                label += " (different model)";
         }
         bool changed = false;
 #ifdef FORGE_UI_FIXTURE
@@ -120,7 +127,8 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             }
             ui::help(
                 "Clear this reference. Required resources will report a missing-asset diagnostic.");
-            const auto rows = asset_picker_entries(catalog, type, search.data(), include_engine);
+            const auto rows =
+                asset_picker_entries(catalog, type, search.data(), include_engine, owner);
             const auto selected = value.is_null() ? AssetId{} : value.get<AssetId>();
             const float height = ImGui::GetTextLineHeight();
             // Keep search/Clear outside the scrolling results. Default focus on
@@ -168,8 +176,11 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                         ImGui::EndDisabled();
                     }
                 if (rows.empty())
-                    ImGui::TextWrapped("No matching assets. Use Content > Create / Register for "
-                                       "supported asset workflows.");
+                    ImGui::TextWrapped(owner
+                                           ? "No matching bones in this model. Import and "
+                                             "place a model with the required joints."
+                                           : "No matching assets. Use Content > Create / Register "
+                                             "for supported asset workflows.");
             }
             ImGui::EndChild();
             ImGui::EndCombo();
@@ -186,11 +197,14 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                     const auto it = catalog.records().find(id);
                     const auto* builtin = engine_asset(id);
                     const bool compatible =
-                        builtin ? include_engine && type == builtin->type
+                        builtin ? include_engine && !owner && type == builtin->type
                                 : it != catalog.records().end() && it->second.type == type &&
-                                      (!it->second.subasset || !it->second.subasset->removed);
+                                      (!it->second.subasset || !it->second.subasset->removed) &&
+                                      asset_picker_scope_matches(it->second, owner);
                     if (!compatible)
-                        ImGui::SetTooltip("This field requires a current %s asset", type.c_str());
+                        ImGui::SetTooltip(owner ? "Choose a current bone from this model"
+                                                : "This field requires a current %s asset",
+                                          type.c_str());
                     if (compatible && payload->IsDelivery()) {
                         value = id;
                         changed = true;
@@ -213,9 +227,11 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
     }
 }
 inline bool asset_ref_picker(const std::filesystem::path& project, Json& value,
-                             const std::string& type, const char* title) {
+                             const std::string& type, const char* title,
+                             std::optional<AssetId> owner = {}) {
     try {
-        return asset_ref_picker(AssetCatalog::open_project(project), value, type, title);
+        return asset_ref_picker(AssetCatalog::open_project(project), value, type, title, true,
+                                owner);
     } catch (const std::exception& e) {
         ui::field_error(e.what());
         return false;
@@ -232,7 +248,7 @@ inline bool numeric_property(const char* label, ImGuiDataType type, const char* 
     return true;
 }
 inline bool property_field(const std::filesystem::path& root, const Json& field, Json& value,
-                           bool commit_on_enter = true);
+                           bool commit_on_enter = true, std::optional<AssetId> owner = {});
 // A new collection element is a detached UI draft, not an authored default.
 // It must pass native-derived validation before the collection can be committed.
 inline Json property_draft_seed(const Json& field) {
@@ -374,7 +390,7 @@ inline bool property_collection(const std::filesystem::path& root, const Json& f
     return changed;
 }
 inline bool property_field_body(const std::filesystem::path& root, const Json& field, Json& value,
-                                bool commit_on_enter) {
+                                bool commit_on_enter, std::optional<AssetId> owner) {
     auto visible_label = property_label(field);
     const auto unit = field.value("unit", std::string("unitless"));
     if (unit != "unitless" && !unit.empty())
@@ -405,7 +421,7 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
     ui::property_label_row(visible_label.c_str(),
                            field.value("description", std::string{}).c_str());
     if (type == "asset_ref")
-        return asset_ref_picker(root, value, field.at("asset_type"), label.c_str());
+        return asset_ref_picker(root, value, field.at("asset_type"), label.c_str(), owner);
     bool changed = false;
     const auto property = field.value("property_id", std::string{});
     if (property == "forge.physics_body.layer" || property == "forge.physics_body.mask" ||
@@ -574,10 +590,10 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
     return changed;
 }
 inline bool property_field(const std::filesystem::path& root, const Json& field, Json& value,
-                           bool commit_on_enter) {
+                           bool commit_on_enter, std::optional<AssetId> owner) {
     const bool read_only = field.value("read_only", false);
     ImGui::BeginDisabled(read_only);
-    const bool changed = property_field_body(root, field, value, commit_on_enter);
+    const bool changed = property_field_body(root, field, value, commit_on_enter, owner);
     ImGui::EndDisabled();
     return changed && !read_only;
 }
