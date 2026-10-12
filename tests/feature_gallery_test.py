@@ -48,7 +48,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -107,6 +107,10 @@ try:
         # admitted typed values explicitly expose their documented defaults.
         expected = json.loads(json.dumps(source))
         for row in expected['entities']:
+            animator = row['components'].get('forge.animator')
+            if animator is not None:
+                animator.setdefault('root_motion', 0)
+                animator.setdefault('root_joint', None)
             sound = row['components'].get('forge.audio_source')
             if sound is not None:
                 sound.setdefault('cone_enabled', False)
@@ -306,6 +310,18 @@ try:
             assert all(row['parent'] == parents[0]['id'] and row['spatial']['mode'] == 'follow_structure' for row in sounds)
             assert parents[0]['components']['forge.transform_animator']['clip'] == by_source['Assets/DopplerPass.animation.json']['id']
             assert sum(row['components']['forge.audio_source']['play_on_start'] for row in sounds) == 1
+        if path.name.startswith('36-'):
+            actors = [row for row in loaded['entities'] if 'forge.animator' in row['components']]
+            assert len(actors) == 3
+            assert {row['components']['forge.animator']['root_motion'] for row in actors} == {0, 1, 2}
+            records = {record['id']: record for record in assets}
+            for actor in actors:
+                animator = actor['components']['forge.animator']
+                model = actor['components']['forge.model_source']['model']
+                assert records[model]['source'] == 'Assets/LocomotionColumn.gltf'
+                for field, kind in [('root_joint', 'model_node'), ('clip', 'animation_clip'), ('skeleton', 'skeleton')]:
+                    record = records[animator[field]]
+                    assert record['type'] == kind and record['subasset']['owner'] == model
     assert project['startup_scene']['asset'] == json.loads(scenes[0].read_text(encoding="utf-8"))['asset_id']
 finally:
     process.stdin.close()

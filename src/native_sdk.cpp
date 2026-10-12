@@ -140,6 +140,45 @@ struct Bridge {
         host.fixed_tag = c.world.id<FixedSimulation>();
         host.post_physics_phase =
             c.world.entity("forge.runtime.PostPhysics").add(flecs::Phase).id();
+        host.post_animation_phase =
+            c.world.entity("forge.runtime.PostAnimation").add(flecs::Phase).id();
+        host.animation_root_motion = [](void* p, const char* scene, const char* entity,
+                                        ForgeSdkAnimationRootMotionV1* output) -> int32_t {
+            if (!output || output->size != sizeof(*output))
+                return -1;
+            *output = {};
+            output->size = sizeof(*output);
+            output->version = 1;
+            try {
+                if (!scene || !entity)
+                    return -1;
+                const EntityRef reference{AssetId::parse(scene), EntityId::parse(entity)};
+                auto& b = Bridge::get(p);
+                if (!b.context.owner->on_owner_thread() || !b.runtime_active() ||
+                    !b.context.input || !b.context.services.available(Capability::Animation))
+                    return 0;
+                const auto value = b.context.services.animation()->root_motion(reference);
+                if (!value || value->tick != b.context.input->tick)
+                    return 0;
+                auto copy = *output;
+                copy.applied = value->applied;
+                copy.tick = value->tick;
+                std::copy(value->translation.begin(), value->translation.end(), copy.translation);
+                std::copy(value->rotation.begin(), value->rotation.end(), copy.rotation_xyzw);
+                const auto uuid = [](auto& destination, const auto& id) {
+                    const auto text = id.str();
+                    std::memcpy(destination, text.c_str(), text.size() + 1);
+                };
+                uuid(copy.scene_uuid, reference.scene);
+                uuid(copy.entity_uuid, reference.entity);
+                uuid(copy.joint_uuid, value->joint);
+                uuid(copy.clip_uuid, value->clip);
+                *output = copy;
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
         host.entity_reference = [](void* p, uint64_t entity,
                                    ForgeSdkEntityRefV1* output) -> int32_t {
             if (!output || output->size != sizeof(*output))

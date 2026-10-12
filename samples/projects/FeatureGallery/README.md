@@ -17,6 +17,14 @@ needed. The same saved scene can be exported and run independently.
 
 ## Open and inspect
 
+Scene **36-animation-root-motion** compares the same original skinned column
+with Root motion **Off**, **Apply**, and **Extract**. Apply moves its object around
+a square; Extract keeps the root pose neutral and makes motion available to C++.
+Inspect each holder's Animator settings, then save and export normally. The
+scene needs no C++ compiler. `CodeExamples/RootMotionKinematic.hpp` separately
+shows how a compiled controller can pass extracted motion to a Kinematic Body.
+The editor package includes the guide at `manual/editor/animation-root-motion.md`.
+
 1. Copy the entire `Examples/FeatureGallery` folder to a writable place outside
    the FORGE installation. Keep the complete folder, including `Assets`,
    `forge.assets.json` and the hidden `.forge` cooked cache.

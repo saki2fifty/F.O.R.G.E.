@@ -3750,6 +3750,7 @@ int main(int argc, char** argv) {
                 case 242:
                 case 245:
                 case 248:
+                case 251:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3763,6 +3764,7 @@ int main(int argc, char** argv) {
                 case 243:
                 case 246:
                 case 249:
+                case 252:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3850,6 +3852,23 @@ int main(int argc, char** argv) {
                         forge::ui::style(1);
                         if (!actions.invoke("play"))
                             throw std::runtime_error("Live source capture could not start Play");
+                    }
+                    break;
+                case 250:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        files.document.open_scene("Scenes/36-animation-root-motion.scene.json");
+                        const auto authored = scene.snapshot();
+                        for (const auto& row : authored.at("entities"))
+                            if (row.at("components").contains("forge.animator") &&
+                                row.at("components")
+                                        .at("forge.animator")
+                                        .value("root_motion", 0u) == 1) {
+                                selected = row.at("id").get<std::string>();
+                                break;
+                            }
+                        component_inspector.fixture_focus_component = "forge.animator";
+                        workspace.inspector = true;
                     }
                     break;
                 case 232:
@@ -5451,7 +5470,7 @@ int main(int argc, char** argv) {
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
                         (fixture.stage >= 103 && fixture.stage <= 141) ||
                         (fixture.stage >= 145 && fixture.stage <= 168) ||
-                        (fixture.stage >= 217 && fixture.stage <= 249))
+                        (fixture.stage >= 217 && fixture.stage <= 252))
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
@@ -6309,6 +6328,33 @@ int main(int argc, char** argv) {
                         forge::test::ui_targets.contains("animation_states:exit_phase") &&
                         forge::test::ui_targets.contains("animation_states:exit_target");
                 }
+                if (fixture.root_motion && fixture.stage >= 250 && fixture.stage <= 252) {
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    const auto joint =
+                        forge::test::ui_targets.find("component-field:forge.animator:root_joint");
+                    const auto mode =
+                        forge::test::ui_targets.find("component-field:forge.animator:root_motion");
+                    if (!w || joint == forge::test::ui_targets.end() ||
+                        mode == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        component_inspector.fixture_focus_component.clear();
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const auto& target = joint->second;
+                        if (target.maximum.y > target.clip_maximum.y)
+                            ImGui::SetScrollY(w, w->Scroll.y + target.maximum.y -
+                                                     target.clip_maximum.y + 12);
+                        else if (target.minimum.y < target.clip_minimum.y)
+                            ImGui::SetScrollY(w, w->Scroll.y + target.minimum.y -
+                                                     target.clip_minimum.y - 12);
+                        for (const auto* control : {&mode->second, &joint->second})
+                            captured_document_visible &=
+                                control->enabled && control->minimum.y >= control->clip_minimum.y &&
+                                control->maximum.y <= control->clip_maximum.y;
+                    }
+                }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -6390,14 +6436,16 @@ int main(int argc, char** argv) {
                     fixture.capture(device, context, rtv);
                     if ((!fixture.animation_exits && !fixture.audio_falloff &&
                          !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview &&
-                         fixture.stage == 217) ||
+                         !fixture.root_motion && fixture.stage == 217) ||
                         (fixture.animation_exits && fixture.stage == 220) ||
                         (fixture.audio_falloff && fixture.stage == 223) ||
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
-                        (fixture.audio_preview && fixture.stage == 241)) {
+                        (fixture.audio_preview && fixture.stage == 241) ||
+                        (fixture.root_motion && fixture.stage == 253)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
-                            !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview)
+                            !fixture.audio_cones && !fixture.audio_mixer &&
+                            !fixture.audio_preview && !fixture.root_motion)
                             check_thumbnail_cache(presentation, context, files.document.project(),
                                                   mesh_resources);
                         play.stop();

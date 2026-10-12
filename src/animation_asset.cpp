@@ -15,6 +15,25 @@ namespace forge::animation_detail {
 static_assert(std::endian::native == std::endian::little,
               "FORGE Ozz admission currently supports little-endian hosts");
 namespace {
+LocalPose pose_lane(const ozz::math::SoaTransform& local, unsigned lane) {
+    float values[10][4];
+    ozz::math::StorePtrU(local.translation.x, values[0]);
+    ozz::math::StorePtrU(local.translation.y, values[1]);
+    ozz::math::StorePtrU(local.translation.z, values[2]);
+    ozz::math::StorePtrU(local.rotation.x, values[3]);
+    ozz::math::StorePtrU(local.rotation.y, values[4]);
+    ozz::math::StorePtrU(local.rotation.z, values[5]);
+    ozz::math::StorePtrU(local.rotation.w, values[6]);
+    ozz::math::StorePtrU(local.scale.x, values[7]);
+    ozz::math::StorePtrU(local.scale.y, values[8]);
+    ozz::math::StorePtrU(local.scale.z, values[9]);
+    for (const auto& row : values)
+        if (!std::isfinite(row[lane]))
+            throw ArchiveError("Animation root local pose is not finite");
+    return {{values[0][lane], values[1][lane], values[2][lane]},
+            {values[7][lane], values[8][lane], values[9][lane]},
+            {values[3][lane], values[4][lane], values[5][lane], values[6][lane]}};
+}
 class ReadOnlyStream final : public ozz::io::Stream {
   public:
     explicit ReadOnlyStream(std::span<const std::byte> data) : data_(data) {}
@@ -103,6 +122,11 @@ std::vector<Matrix> Skeleton::rest_pose() const {
     }
     return result;
 }
+LocalPose Skeleton::joint_rest_pose(std::size_t joint) const {
+    if (joint >= info_.tracks)
+        throw ArchiveError("Root joint exceeds its admitted skeleton");
+    return pose_lane(impl_->value.joint_rest_poses()[joint / 4], unsigned(joint % 4));
+}
 Clip::Clip(std::span<const std::byte> bytes) {
     info_ = validate_archive(bytes, ArchiveKind::Animation);
     impl_ = std::make_unique<Impl>();
@@ -124,6 +148,10 @@ struct Sampler::Impl {
     std::vector<ozz::math::SoaTransform> local, blended, transition_source;
     std::vector<ozz::math::Float4x4> model;
     bool sampled = false;
+    std::optional<std::size_t> root_joint;
+    std::optional<LocalPose> raw_root;
+    LocalPose rest_root;
+    std::uint64_t sampling_jobs = 0;
     Impl(std::shared_ptr<const Skeleton> s, std::shared_ptr<const Clip> c)
         : skeleton(std::move(s)), clip(std::move(c)), context(int(skeleton->info().tracks)),
           local((skeleton->info().tracks + 3) / 4), model(skeleton->info().tracks) {}
@@ -137,7 +165,21 @@ Sampler::~Sampler() = default;
 void Sampler::reset() {
     impl_->context.Invalidate();
     impl_->sampled = false;
+    impl_->raw_root.reset();
 }
+void Sampler::root_motion_joint(std::optional<std::size_t> joint) {
+    if (joint == impl_->root_joint)
+        return;
+    if (joint &&
+        (*joint >= impl_->model.size() || impl_->skeleton->info().parents.at(*joint) != -1))
+        throw ArchiveError("Root motion requires an admitted skeleton root joint");
+    if (joint)
+        impl_->rest_root = impl_->skeleton->joint_rest_pose(*joint);
+    impl_->root_joint = joint;
+    impl_->raw_root.reset();
+}
+std::optional<LocalPose> Sampler::sampled_root() const { return impl_->raw_root; }
+std::uint64_t Sampler::sampling_jobs() const { return impl_->sampling_jobs; }
 void Sampler::sample_local(float ratio) {
     impl_->sampled = false;
     if (!std::isfinite(ratio) || ratio < 0 || ratio > 1)
@@ -149,6 +191,10 @@ void Sampler::sample_local(float ratio) {
     sample.output = ozz::make_span(impl_->local);
     if (!sample.Run())
         throw ArchiveError("Ozz animation sampling failed");
+    ++impl_->sampling_jobs;
+    if (impl_->root_joint)
+        impl_->raw_root =
+            pose_lane(impl_->local[*impl_->root_joint / 4], unsigned(*impl_->root_joint % 4));
 }
 std::vector<Matrix> Sampler::sample(float ratio) {
     sample_local(ratio);
@@ -247,6 +293,23 @@ std::vector<Matrix> Sampler::sample_transition(float ratio, std::span<const Loca
     return evaluate_model();
 }
 std::vector<Matrix> Sampler::evaluate_model() {
+    if (impl_->root_joint) {
+        auto& local = impl_->local[*impl_->root_joint / 4];
+        const auto lane = unsigned(*impl_->root_joint % 4);
+        auto replace = [&](auto& field, float value) {
+            float values[4];
+            ozz::math::StorePtrU(field, values);
+            values[lane] = value;
+            field = ozz::math::simd_float4::LoadPtrU(values);
+        };
+        replace(local.translation.x, impl_->rest_root.translation[0]);
+        replace(local.translation.y, impl_->rest_root.translation[1]);
+        replace(local.translation.z, impl_->rest_root.translation[2]);
+        replace(local.rotation.x, impl_->rest_root.rotation[0]);
+        replace(local.rotation.y, impl_->rest_root.rotation[1]);
+        replace(local.rotation.z, impl_->rest_root.rotation[2]);
+        replace(local.rotation.w, impl_->rest_root.rotation[3]);
+    }
     ozz::animation::LocalToModelJob model;
     model.skeleton = &impl_->skeleton->impl_->value;
     model.input = ozz::make_span(impl_->local);

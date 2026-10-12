@@ -27,7 +27,7 @@ struct EditorFixture {
     Uint64 started = SDL_GetTicks(), stage_started = started;
     bool prepared = false, workflow = false, physics = false, sdk_play = false,
          sdk_onboarding = false, animation_exits = false, audio_falloff = false,
-         audio_cones = false, audio_mixer = false, audio_preview = false;
+         audio_cones = false, audio_mixer = false, audio_preview = false, root_motion = false;
     bool scene_create = false, hierarchy_create = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
@@ -42,6 +42,9 @@ struct EditorFixture {
     std::filesystem::path sdk_root, user_data;
     std::string joint_entity;
     explicit EditorFixture(int argc, char** argv) {
+        root_motion = argc == 4 && std::string(argv[2]) == "--root-motion";
+        if (root_motion)
+            stage = 250;
         animation_exits = argc == 4 && std::string(argv[2]) == "--animation-exits";
         if (animation_exits)
             stage = 217;
@@ -64,7 +67,7 @@ struct EditorFixture {
         // --sdk-play needs EXE OUTPUT --sdk-play PROJECT SDK USERDATA: 6 args.
         sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
         if (!physics && !sdk_play && !sdk_onboarding && !animation_exits && !audio_falloff &&
-            !audio_cones && !audio_mixer && !audio_preview && argc != 2 &&
+            !audio_cones && !audio_mixer && !audio_preview && !root_motion && argc != 2 &&
             (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
                 "Expected fixture output directory [--workflow | --physics PROJECT | "
@@ -82,12 +85,12 @@ struct EditorFixture {
             config = output / ".fixture-preferences";
         } else {
             project = physics || animation_exits || audio_falloff || audio_cones || audio_mixer ||
-                              audio_preview
+                              audio_preview || root_motion
                           ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                           : output / ("project-" + AssetId::generate().str());
             config = physics ? output / ".fixture-preferences" : project / ".fixture-preferences";
             if (!physics && !animation_exits && !audio_falloff && !audio_cones && !audio_mixer &&
-                !audio_preview)
+                !audio_preview && !root_motion)
                 SceneDocument::create_project(project, "UX fixture");
         }
         std::filesystem::create_directories(config);
@@ -102,6 +105,8 @@ struct EditorFixture {
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
+        if (root_motion && stage >= 250 && stage <= 252)
+            return "Inspector";
         if (audio_preview && stage >= 235 && stage <= 240)
             return "Audio clip###Audio clip";
         if (audio_mixer && stage >= 229 && stage <= 231)
@@ -633,7 +638,10 @@ struct EditorFixture {
                                "audio-doppler-200",
                                "live-audio-source",
                                "live-audio-source-150",
-                               "live-audio-source-200"};
+                               "live-audio-source-200",
+                               "animation-root-motion",
+                               "animation-root-motion-150",
+                               "animation-root-motion-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

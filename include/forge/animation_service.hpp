@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <forge/identity.hpp>
 #include <optional>
 #include <span>
@@ -22,6 +23,14 @@ struct AnimationPlayback {
     double transition_weight = 1, blend_weight = 0;
     bool enabled = false, loop = false, playing = false, finished = false, transitioning = false;
 };
+struct AnimationRootMotion {
+    EntityRef entity;
+    AssetId joint, clip;
+    std::uint64_t tick = 0;
+    std::array<double, 3> translation{};
+    std::array<float, 4> rotation{0, 0, 0, 1};
+    bool applied = false;
+};
 // Owner-thread broadcast observations, valid until the next fixed tick/restore/stop.
 // Consumers resolve EntityRef before acting; observations own no live entity pointer.
 class AnimationService {
@@ -30,6 +39,9 @@ class AnimationService {
     virtual std::span<const AnimationEvent> events() const = 0;
     // Realized incoming clip, derived from authoritative clocks without sampling.
     virtual std::optional<AnimationPlayback> playback(EntityRef) const = 0;
+    // Clip-local, before actor scale/rotation. Read after Animation in this tick.
+    // Repeated observations do not consume or reapply the delta.
+    virtual std::optional<AnimationRootMotion> root_motion(EntityRef) const = 0;
     // Before Animation in the current fixed tick; affects the realized player only.
     virtual bool control(EntityRef, AnimationControl, std::uint64_t current_tick) = 0;
 };

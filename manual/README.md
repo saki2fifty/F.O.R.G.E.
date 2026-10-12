@@ -17,6 +17,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Navigation](editor/navigation.md): build static navmeshes and test nonphysics agents.
 - [Transform animation timeline](editor/transform-animation.md): keyframe an object, preview it and export its motion.
 - [Animation](editor/animation.md): convert glTF skeletons/clips and test Animator playback.
+- [Animation root motion](editor/animation-root-motion.md): move an imported model or pass its movement to C++ physics.
 - [Preview and blend two animations](editor/animation-blending.md)
 - [Choose named animation states](editor/animation-states.md)
 - [Trigger C++ actions during an animation](editor/animation-markers.md)

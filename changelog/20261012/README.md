@@ -1,5 +1,24 @@
 # 2026-10-12
 
+## Animation root motion
+
+- Animator supports Off, Apply to entity and Extract for C++, with a durable
+  imported root-joint selection. Enabled modes remove root translation/rotation
+  from the skeleton pose, preventing doubled movement.
+- Loops compose movement and turns across complete cycles. Direct blends and
+  named transitions blend interval deltas; paused playback and frozen outgoing
+  poses contribute no movement. Existing transform and physics validation admit
+  the complete actor/joint pose before writing it.
+- PostAnimation exposes the current fixed-tick delta through the matching C++
+  SDK. An original example queues existing kinematic-body movement. Matching
+  SDK modules require rebuilding; authored scene/checkpoint versions are unchanged.
+- Editable Gallery36 compares all three modes using an original locomotion rig.
+  Local tests check actual skinned geometry, fixed-rate playback, interrupted
+  transitions, recovery, physics ownership and relocated source-free exports.
+  Native scaled controls are configured; Windows execution, visual review and
+  physical acceptance remain separate evidence.
+
+
 ## Moving audio and source playback
 
 - Spatial Audio Sources expose Doppler strength0–5, off by default. Actual fixed-tick source/listener motion affects pitch; inherited teleports and animation loop jumps reset motion. Extreme speeds remain bounded.

@@ -172,8 +172,11 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
                                     stage([&] { animation_->tick(it.delta_time(), input_tick_); });
                             });
     animation_system_.add<FixedSimulation>();
-    navigation_phase_ =
-        world.entity("forge.runtime.Navigation").add(flecs::Phase).depends_on(animation_phase_);
+    post_animation_phase_ =
+        world.entity("forge.runtime.PostAnimation").add(flecs::Phase).depends_on(animation_phase_);
+    navigation_phase_ = world.entity("forge.runtime.Navigation")
+                            .add(flecs::Phase)
+                            .depends_on(post_animation_phase_);
     navigation_system_ =
         world.system("forge.runtime.NavigationUpdate")
             .kind(navigation_phase_)
@@ -243,6 +246,7 @@ RuntimeSimulation::~RuntimeSimulation() {
         animation_->pose_validator({});
     navigation_system_.destruct();
     navigation_phase_.destruct();
+    post_animation_phase_.destruct();
     animation_system_.destruct();
     animation_phase_.destruct();
     pre_physics_.destruct();

@@ -2,6 +2,7 @@
 #include "animation_archive.hpp"
 #include <array>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -23,6 +24,7 @@ class Skeleton {
     std::vector<std::string> joint_names() const;
     // Evaluated through native LocalToModelJob after archive admission.
     std::vector<Matrix> rest_pose() const;
+    LocalPose joint_rest_pose(std::size_t joint) const;
 
   private:
     friend class Sampler;
@@ -62,6 +64,11 @@ class Sampler {
     // Copied directly from native sampled SoA lanes; valid after successful sample.
     // No matrix decomposition, including at zero or signed scale.
     std::vector<LocalPose> local_pose() const;
+    // Capture the unblended layer root and remove its translation/rotation before
+    // the existing single LocalToModel pass. Animated scale remains unchanged.
+    void root_motion_joint(std::optional<std::size_t> joint);
+    std::optional<LocalPose> sampled_root() const;
+    std::uint64_t sampling_jobs() const;
     void reset();
 
   private:

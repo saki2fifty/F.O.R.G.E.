@@ -76,6 +76,13 @@ typedef struct ForgeSdkAnimationPlaybackV1 {
     char scene_uuid[37], entity_uuid[37], states_uuid[37], clip_uuid[37], blend_clip_uuid[37];
     char state_name[65];
 } ForgeSdkAnimationPlaybackV1;
+typedef struct ForgeSdkAnimationRootMotionV1 {
+    uint32_t size, version, applied;
+    uint64_t tick;
+    double translation[3];
+    float rotation_xyzw[4];
+    char scene_uuid[37], entity_uuid[37], joint_uuid[37], clip_uuid[37];
+} ForgeSdkAnimationRootMotionV1;
 typedef struct ForgeSdkSaveSchemaV1 {
     uint32_t size, version;
     void* userdata;
@@ -336,6 +343,13 @@ typedef struct ForgeSdkWorldV1 {
        Native surfaces/tolerances, not enclosed-mesh containment or cache events. */
     int32_t(FORGE_SDK_CALL* physics_overlap_shape)(void*, const ForgeSdkOverlapV1*,
                                                    ForgeSdkEntityRefV1*, uint32_t capacity);
+    /* Current fixed tick only. Model-holder local pre-scale rigid delta, meters
+       and x/y/z/w unit quaternion. Reads do not consume it. Read in PostAnimation
+       before PrePhysics to queue solver-owned movement. 1 available,0 unavailable,
+       -1 invalid/context; unavailable outputs are cleared for valid size. */
+    int32_t(FORGE_SDK_CALL* animation_root_motion)(void*, const char* scene, const char* entity,
+                                                   ForgeSdkAnimationRootMotionV1*);
+    uint64_t post_animation_phase;
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

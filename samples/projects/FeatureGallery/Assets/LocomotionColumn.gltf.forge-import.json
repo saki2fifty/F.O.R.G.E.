@@ -1,0 +1,149 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.gltf",
+    "importer_revision": "9dd0e4e4ac31b9b9d2dd97ea6707f9c8e497f0561148ba628c37e0d83998c97b",
+    "key_version": 2,
+    "output_format": "forge.model-bundle",
+    "output_version": 4,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "3969aeaaad6e88ca0e9f74c56ef75ae26b8ae8b9edd6682038205b6cce380182",
+    "source_dependencies": {},
+    "tool_revisions": {
+      "gltf2ozz": "1d931ef96576c645eba57be33f525895cacf8feeb38714145072c000dfb3b468"
+    }
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "1d877faa02f947eb68e328af51c080eb7c9ad0f7f71f5ef330463adf859b7d4c",
+        "display_name": "Quarter turn",
+        "exporter_key": "",
+        "id": "0947854d-1726-4613-89e8-74dcd2e31d79",
+        "key": "member/0947854d-1726-4613-89e8-74dcd2e31d79",
+        "removed": false,
+        "semantic_digest": "3f507e13a5386fd586e488f73adac52278fcd66e4d045d69de10ffb64c0c7b35",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "4e02fd8c9f128218147390d6aad878881ebcad11d1a1c48c073c5fbc1f1ae20d",
+        "display_name": "Skinned column",
+        "exporter_key": "",
+        "id": "3226bbb5-d02f-4108-a277-35d4fa873af4",
+        "key": "member/3226bbb5-d02f-4108-a277-35d4fa873af4",
+        "removed": false,
+        "semantic_digest": "14064a34c40f30c3f7c055a639333e67d35379149fb30cda5201ce561bf8ad64",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "f884b6910e22cdcac4b341f939961452efee22e0637751c63497e3cb12cc059a",
+        "display_name": "Rig root",
+        "exporter_key": "",
+        "id": "33c52e41-e576-44a9-b2bc-19b932130ca5",
+        "key": "member/33c52e41-e576-44a9-b2bc-19b932130ca5",
+        "removed": false,
+        "semantic_digest": "7d6ee6c26510937a1c309b7ce626dc40558d0d9813110d44d43a3a52d709e675",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "cac7cdcdd912d807a1dd326cb84d358907e390efa72d9434d5eb062de2147038",
+        "display_name": "Upper joint",
+        "exporter_key": "",
+        "id": "4c86d5b0-76eb-4d07-a5ab-8d1aee961d3d",
+        "key": "member/4c86d5b0-76eb-4d07-a5ab-8d1aee961d3d",
+        "removed": false,
+        "semantic_digest": "edb5525c2e5b53ff4fbd86916c6a22998210310bd90d4eb50232c1165d69fa2b",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "68f9c617c895ef3a297bdfc46550f17b4273e0e08070b2df8d159094ae3bc184",
+        "display_name": "Strafe",
+        "exporter_key": "",
+        "id": "5193ee5b-5103-40dd-b534-eb11a9562fa6",
+        "key": "member/5193ee5b-5103-40dd-b534-eb11a9562fa6",
+        "removed": false,
+        "semantic_digest": "3f507e13a5386fd586e488f73adac52278fcd66e4d045d69de10ffb64c0c7b35",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "2c874e8c1b335c8e431c5af7a2497b0e5c7e32e4069957c8a6d82232838d90fe",
+        "display_name": "Offset forward",
+        "exporter_key": "",
+        "id": "58016fe7-afc2-4b66-82c1-157992deda53",
+        "key": "member/58016fe7-afc2-4b66-82c1-157992deda53",
+        "removed": false,
+        "semantic_digest": "3f507e13a5386fd586e488f73adac52278fcd66e4d045d69de10ffb64c0c7b35",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "75a9ab6adc01bf9769b1a6bbcf1ce5787a17d522cf94b91edc69b4fcb0a1f42d",
+        "display_name": "Forward",
+        "exporter_key": "",
+        "id": "596a5889-62a9-4155-9099-4691125e1bbe",
+        "key": "member/596a5889-62a9-4155-9099-4691125e1bbe",
+        "removed": false,
+        "semantic_digest": "3f507e13a5386fd586e488f73adac52278fcd66e4d045d69de10ffb64c0c7b35",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "8f75ab1135cef85289792158b1f9650c71d93dd71f766de45d8c635b0174a5ab",
+        "display_name": "Model skeleton",
+        "exporter_key": "",
+        "id": "5e31d01c-8a17-4086-8c1c-f95f03421174",
+        "key": "member/5e31d01c-8a17-4086-8c1c-f95f03421174",
+        "removed": false,
+        "semantic_digest": "97edb6223910b54d1757f05b9a3dcaab02d9aa50068ddb179a6df47ee536db0a",
+        "type": "skeleton"
+      },
+      {
+        "content_digest": "bcf62955a3eda35633dfd978b9e7999942f2d31f8cbe8103b7da05389474f00b",
+        "display_name": "Column",
+        "exporter_key": "",
+        "id": "72f03f89-704d-437f-a6cc-97322796a249",
+        "key": "member/72f03f89-704d-437f-a6cc-97322796a249",
+        "removed": false,
+        "semantic_digest": "e6488f6713f960f3d27f3c1554612856859399133cdb35627e3d8901ad61c3e9",
+        "type": "mesh"
+      },
+      {
+        "content_digest": "a224b2e61205be8f188f3ab0ee3b2fb9dd25c49b9642cfa25e0d0df3c67be3bd",
+        "display_name": "Blue column",
+        "exporter_key": "",
+        "id": "e98de28f-a0a2-4a1f-84d0-4574665befb0",
+        "key": "member/e98de28f-a0a2-4a1f-84d0-4574665befb0",
+        "removed": false,
+        "semantic_digest": "5268482896f61d8b9c633e8c4402ba09b7697d4ab81430e6f9f0415cb193fa47",
+        "type": "material"
+      }
+    ],
+    "evidence_schema": "forge.gltf-model.v1",
+    "format": "forge.subasset-identity",
+    "owner": "255957ec-6dc7-45b8-86d5-2440f36c8134",
+    "source": "Assets/LocomotionColumn.gltf",
+    "source_digest": "3969aeaaad6e88ca0e9f74c56ef75ae26b8ae8b9edd6682038205b6cce380182",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.gltf",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

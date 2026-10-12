@@ -76,7 +76,9 @@ template <class T> Json encode(const T& p) {
                 {"blend_weight", p.blend_weight},
                 {"transition_seconds", p.transition_seconds},
                 {"states", p.states.id ? Json(p.states.id) : Json()},
-                {"state", p.state}};
+                {"state", p.state},
+                {"root_motion", p.root_motion},
+                {"root_joint", p.root_joint.id ? Json(p.root_joint.id) : Json()}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -236,6 +238,9 @@ template <class T> Value decode(const Json& p) {
         if (p.contains("states") && !p.at("states").is_null())
             v.states.id = p.at("states").get<AssetId>();
         v.state = p.value("state", std::uint32_t(0));
+        v.root_motion = p.value("root_motion", std::uint32_t(0));
+        if (p.contains("root_joint") && !p.at("root_joint").is_null())
+            v.root_joint.id = p.at("root_joint").get<AssetId>();
         if (!v.blend_clip.id && v.blend_weight != 0)
             throw std::runtime_error("Animator blend target needs a second clip");
         return v;
@@ -496,6 +501,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         register_asset_ref<SkeletonAsset>(w, "forge.skeleton_ref");
         register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
         register_asset_ref<AnimationStatesAsset>(w, "forge.animation_states_ref");
+        register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
         c.template member<AssetRef<SkeletonAsset>>("skeleton")
             .template member<AssetRef<AnimationClipAsset>>("clip")
             .template member<bool>("enabled")
@@ -506,7 +512,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("blend_weight")
             .template member<float>("transition_seconds")
             .template member<AssetRef<AnimationStatesAsset>>("states")
-            .template member<std::uint32_t>("state");
+            .template member<std::uint32_t>("state")
+            .template member<std::uint32_t>("root_motion")
+            .template member<AssetRef<ModelNodeAsset>>("root_joint");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -1162,7 +1170,18 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.animator" || name == "forge.transform_animator") {
-        if (field == "states") {
+        if (field == "root_motion") {
+            value["display_name"] = "Root motion";
+            value["description"] =
+                "Off keeps the animated root in its pose; Apply moves this model entity; Extract "
+                "exposes the current fixed-tick delta to C++";
+        } else if (field == "root_joint") {
+            value["display_name"] = "Root joint";
+            value["asset_type"] = ModelNodeAsset::type;
+            value["nullable"] = true;
+            value["description"] = "Durable imported skeleton root node. None selects the unique "
+                                   "root; display names and array positions do not bind it";
+        } else if (field == "states") {
             value["asset_type"] = AnimationStatesAsset::type;
             value["nullable"] = true;
             value["description"] = "Optional named clip set; C++ selects its stable state ID";
@@ -1334,6 +1353,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.audio_source" && field == "bus") {
         type = "forge.AudioBus";
         names = {"Master", "Music", "Effects", "Dialogue"};
+    } else if (component == "forge.animator" && field == "root_motion") {
+        type = "forge.RootMotionMode";
+        names = {"Off", "Apply", "Extract"};
     } else if (component == "forge.physics_joint" && field == "kind") {
         type = "forge.JointKind";
         names = {"Distance", "Hinge", "Point", "Fixed", "Slider", "Swing Twist"};
@@ -1600,8 +1622,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         !current.contains("material_variant"))
         current["material_variant"] = nullptr;
     if (std::string_view(type.name) == "forge.animator")
-        for (const auto* field :
-             {"blend_clip", "blend_weight", "transition_seconds", "states", "state"})
+        for (const auto* field : {"blend_clip", "blend_weight", "transition_seconds", "states",
+                                  "state", "root_motion", "root_joint"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")

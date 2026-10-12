@@ -151,9 +151,9 @@ sanitizer, conversion and numeric sampling tests before the new pin is adopted.
 - [Windows Job Objects](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 - [SHA-256 specification, FIPS180-4](https://csrc.nist.gov/pubs/fips/180-4/upd1/final)
 
-Deferred: root motion application, blending graphs, state machines, IK, retargeting,
-skinned mesh/material rendering. The separate model importer/cooker is in progress;
-Phase6E navigation is already implemented.
+The imported model path supports [root motion](animation-root-motion.md),
+two-clip blending, named states and skinned mesh rendering. General blend graphs,
+IK and retargeting remain separate work.
 
 ### Matrix rest transforms in the legacy bridge
 

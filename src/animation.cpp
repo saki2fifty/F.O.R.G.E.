@@ -1,5 +1,6 @@
 #include "animation_asset.hpp"
 #include "animation_resource.hpp"
+#include "animation_root_motion.hpp"
 #include "animation_states_resource.hpp"
 #include "asset_bytes.hpp"
 #include "builtins.hpp"
@@ -9,6 +10,7 @@
 #include <cmath>
 #include <forge/animation.hpp>
 #include <forge/assets.hpp>
+#include <forge/navigation_components.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/runtime_content_access.hpp>
 #include <future>
@@ -50,7 +52,44 @@ struct Playback {
     // Automatic admission failures belong to the held player, not a new ECS request.
     bool automatic_failure = false;
     bool model_pose_applied = false, discontinuous = true;
+    struct RootSamples {
+        std::shared_ptr<const Clip> clip;
+        std::size_t joint = 0;
+        RootRigid start, end, previous;
+        double phase = -1;
+    };
+    std::map<const Clip*, RootSamples> root_samples;
 };
+RootRigid root_rigid(const LocalPose& value) {
+    RootRigid result;
+    std::copy(value.translation.begin(), value.translation.end(), result.translation.begin());
+    std::copy(value.rotation.begin(), value.rotation.end(), result.rotation.begin());
+    return root_checked(result);
+}
+std::optional<std::size_t> root_joint(const Playback& p) {
+    if (p.config.root_motion > 2)
+        throw ArchiveError("Unknown Animator root motion mode");
+    if (!p.config.root_motion)
+        return {};
+    if (!p.assets.model)
+        throw ArchiveError("Root motion requires an imported model with durable skeleton nodes");
+    const auto& skeleton = p.assets.model.skeleton.get();
+    const auto& parents = p.assets.skeleton->info().parents;
+    if (skeleton.joint_assets.size() != parents.size())
+        throw ArchiveError("Reimport model to obtain durable root joint identities");
+    std::optional<std::size_t> selected;
+    for (std::size_t i = 0; i < parents.size(); ++i) {
+        if (parents[i] != -1 ||
+            (p.config.root_joint.id && skeleton.joint_assets[i] != p.config.root_joint.id))
+            continue;
+        if (selected)
+            throw ArchiveError("Choose a root joint for this multi-root skeleton");
+        selected = i;
+    }
+    if (!selected)
+        throw ArchiveError("Root joint must identify a root of this imported skeleton");
+    return selected;
+}
 std::size_t evaluated_joints(const Playback& p) {
     const bool two_layers = p.blend_sampler || (p.definition && p.blend < 1);
     return p.assets.skeleton->info().tracks * (two_layers ? 2 : 1);
@@ -87,12 +126,14 @@ void append_markers(const Playback& p, std::uint64_t tick, std::vector<Animation
 struct SampledPose {
     std::vector<Matrix> model;
     std::vector<LocalPose> local;
+    std::optional<LocalPose> incoming, second, outgoing;
 };
 SampledPose sample_pose(Playback& p, double time, double blend, bool temporary = false,
                         double outgoing_time = -1) {
     std::unique_ptr<Sampler> first, second;
     auto* sampler = p.sampler.get();
     auto* blend_sampler = p.blend_sampler.get();
+    const auto joint = root_joint(p);
     if (temporary) {
         first = std::make_unique<Sampler>(p.assets.skeleton, p.assets.clip);
         sampler = first.get();
@@ -101,8 +142,12 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
             blend_sampler = second.get();
         }
     }
+    sampler->root_motion_joint(joint);
+    if (blend_sampler)
+        blend_sampler->root_motion_joint(joint);
     const auto ratio = float(std::clamp(time / p.assets.clip->info().duration, 0., 1.));
     std::vector<Matrix> model;
+    std::optional<LocalPose> outgoing_root;
     if (p.definition && blend < 1 && (!p.frozen.empty() || p.outgoing_sampler)) {
         if (!p.frozen.empty())
             model = sampler->sample_transition(ratio, p.frozen, float(blend));
@@ -113,17 +158,72 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
                 outgoing = std::make_unique<Sampler>(p.assets.skeleton, p.outgoing_assets.clip);
                 previous = outgoing.get();
             }
+            previous->root_motion_joint(joint);
             model = sampler->sample_transition(
                 ratio, *previous,
                 float(std::clamp((outgoing_time < 0 ? p.outgoing_time : outgoing_time) /
                                      p.outgoing_assets.clip->info().duration,
                                  0., 1.)),
                 float(blend));
+            outgoing_root = previous->sampled_root();
         }
     } else
         model = blend_sampler ? sampler->sample_blended(ratio, *blend_sampler, float(blend))
                               : sampler->sample(ratio);
-    return {std::move(model), sampler->local_pose()};
+    return {std::move(model), sampler->local_pose(), sampler->sampled_root(),
+            blend_sampler ? blend_sampler->sampled_root() : std::nullopt, outgoing_root};
+}
+RootRigid layer_motion(Playback& p, const Pair& assets, std::size_t joint, double begin,
+                       double advance, bool loop, double time,
+                       const std::optional<LocalPose>& sampled) {
+    auto found = p.root_samples.find(assets.clip.get());
+    if (found == p.root_samples.end() || found->second.joint != joint) {
+        Sampler sampler(assets.skeleton, assets.clip);
+        sampler.root_motion_joint(joint);
+        Playback::RootSamples value;
+        value.clip = assets.clip;
+        value.joint = joint;
+        (void)sampler.sample(0);
+        value.start = root_rigid(*sampler.sampled_root());
+        (void)sampler.sample(1);
+        value.end = root_rigid(*sampler.sampled_root());
+        found = p.root_samples.insert_or_assign(assets.clip.get(), std::move(value)).first;
+    }
+    auto& cache = found->second;
+    const auto sample = [&](double phase) {
+        Sampler sampler(assets.skeleton, assets.clip);
+        sampler.root_motion_joint(joint);
+        (void)sampler.sample(float(std::clamp(phase / assets.clip->info().duration, 0., 1.)));
+        return root_rigid(*sampler.sampled_root());
+    };
+    const auto previous = cache.phase == begin ? cache.previous : sample(begin);
+    const auto current = sampled ? root_rigid(*sampled) : sample(time);
+    const auto delta = root_interval(previous, current, cache.start, cache.end, loop, begin,
+                                     advance, assets.clip->info().duration);
+    cache.previous = current;
+    cache.phase = time;
+    return delta;
+}
+RootRigid root_motion_delta(Playback& p, const SampledPose& pose, std::size_t joint) {
+    auto incoming = layer_motion(p, p.assets, joint, p.tick_begin, p.tick_advance, p.config.loop,
+                                 p.time, pose.incoming);
+    const double weight = (p.previous_blend + p.blend) * .5;
+    if (p.definition && p.previous_blend < 1) {
+        RootRigid outgoing;
+        if (p.outgoing_sampler)
+            outgoing =
+                layer_motion(p, p.outgoing_assets, joint, p.outgoing_previous, p.outgoing_advance,
+                             p.outgoing_config.loop, p.outgoing_time, pose.outgoing);
+        incoming = root_blend(outgoing, incoming, weight);
+    } else if (p.blend_sampler) {
+        const double ratio = p.blend_assets.clip->info().duration / p.assets.clip->info().duration;
+        const auto second =
+            layer_motion(p, p.blend_assets, joint, p.tick_begin * ratio, p.tick_advance * ratio,
+                         p.config.loop, p.time * ratio, pose.second);
+        incoming = root_blend(incoming, second, weight);
+    }
+    const auto rest = root_rigid(p.assets.skeleton->joint_rest_pose(joint));
+    return root_compose(root_compose(rest, incoming), root_inverse(rest));
 }
 const std::vector<AnimatedTransformChannel>& animated_channels(const Playback& p) {
     return p.transform_channels;
@@ -147,6 +247,7 @@ struct AnimationRuntime::Impl {
     ResourcePool<AnimationStatesAsset> state_pool{{1, 64, 64, 4 * 1024 * 1024}};
     std::map<AssetId, ResourceTicket> state_requests;
     std::map<flecs::entity_t, Playback> states;
+    std::map<flecs::entity_t, AnimationRootMotion> root_motions;
     std::set<flecs::entity_t> pending;
     std::map<flecs::entity_t, std::string> errors;
     std::map<flecs::entity_t, std::string> binding_errors;
@@ -168,7 +269,8 @@ struct AnimationRuntime::Impl {
     }
     void apply_model_poses(bool commit = true, const std::map<flecs::entity_t, double>& times = {},
                            flecs::entity_t only = 0,
-                           const std::map<flecs::entity_t, double>& weights = {}) {
+                           const std::map<flecs::entity_t, double>& weights = {},
+                           std::optional<std::uint64_t> motion_tick = {}) {
         // One derived instance index per fixed tick. Native ChildOf lookup also
         // resolves Flecs Parent storage at the pinned revision. Nested roots are
         // boundaries, including roots belonging to another model.
@@ -252,6 +354,60 @@ struct AnimationRuntime::Impl {
                 };
                 std::map<flecs::entity_t, Write> writes;
                 auto candidate = context.transform_nodes();
+                std::optional<AnimationRootMotion> motion;
+                if (const auto joint = root_joint(playback)) {
+                    const auto target = instances[id].find(skeleton.joint_assets.at(*joint));
+                    if (target == instances[id].end() || !candidate.contains(target->second))
+                        throw ArchiveError("Root motion joint is missing from the model instance");
+                    const auto entity = context.world().entity(target->second);
+                    auto value = context.get_local_transform(entity);
+                    const auto& local = locals.at(*joint);
+                    value.translation = {local.translation[0], local.translation[1],
+                                         local.translation[2]};
+                    value.rotation = normalized({local.rotation[0], local.rotation[1],
+                                                 local.rotation[2], local.rotation[3]});
+                    writes.emplace(entity.id(), Write{entity, value,
+                                                      unsigned(TransformChannel::Translation) |
+                                                          unsigned(TransformChannel::Rotation)});
+                    candidate.at(entity.id()).local = value;
+                    if (motion_tick) {
+                        const auto delta = root_motion_delta(playback, pose, *joint);
+                        motion = AnimationRootMotion{playback.reference,
+                                                     skeleton.joint_assets.at(*joint),
+                                                     playback.config.clip.id, *motion_tick};
+                        motion->translation = delta.translation;
+                        std::copy(delta.rotation.begin(), delta.rotation.end(),
+                                  motion->rotation.begin());
+                        motion->applied = playback.config.root_motion == 1;
+                        if (motion->applied) {
+                            if (root.has<NavigationAgent>() &&
+                                root.get<NavigationAgent>().enabled &&
+                                root.get<NavigationAgent>().has_destination)
+                                throw ArchiveError("Root motion Apply conflicts with an active "
+                                                   "Navigation Agent; use Extract");
+                            if (!candidate.contains(id))
+                                throw ArchiveError("Root motion entity has no local transform");
+                            const auto previous = context.get_local_transform(root);
+                            LocalTransform rigid;
+                            rigid.translation = {delta.translation[0], delta.translation[1],
+                                                 delta.translation[2]};
+                            rigid.rotation = normalized({motion->rotation[0], motion->rotation[1],
+                                                         motion->rotation[2], motion->rotation[3]});
+                            auto value = decompose(
+                                affine_transform(previous) * affine_transform(rigid), &previous);
+                            if (!equivalent(value.scale, previous.scale))
+                                throw ArchiveError("Root motion rotation cannot preserve this "
+                                                   "entity scale; use Extract");
+                            value.scale = previous.scale;
+                            detail::validate_reflected_value(root, value.translation);
+                            detail::validate_reflected_value(root, value.rotation);
+                            writes.emplace(id, Write{root, value,
+                                                     unsigned(TransformChannel::Translation) |
+                                                         unsigned(TransformChannel::Rotation)});
+                            candidate.at(id).local = value;
+                        }
+                    }
+                }
                 for (const auto& channel : animated_channels(playback)) {
                     const auto found = std::find(skeleton.joint_nodes.begin(),
                                                  skeleton.joint_nodes.end(), channel.node);
@@ -295,6 +451,17 @@ struct AnimationRuntime::Impl {
                     pose_validator(candidate);
                 if (!commit)
                     continue;
+                // Allocate one observation node before any ECS write. Publishing
+                // an extracted node does not allocate or copy earlier actors.
+                decltype(root_motions)::node_type prepared_motion;
+                if (motion) {
+                    if (root_motions.contains(id))
+                        throw ArchiveError(
+                            "Root motion observation duplicated in one fixed interval");
+                    decltype(root_motions) single;
+                    single.emplace(id, *motion);
+                    prepared_motion = single.extract(id);
+                }
                 const bool snap = playback.discontinuous || binding_errors.contains(id);
                 std::optional<std::set<std::uint64_t>> prepared_discontinuities;
                 if (snap) {
@@ -327,6 +494,8 @@ struct AnimationRuntime::Impl {
                 playback.model_pose_applied = true;
                 playback.discontinuous = false;
                 binding_errors.erase(id);
+                if (motion)
+                    root_motions.insert(std::move(prepared_motion));
             } catch (const std::exception& ex) {
                 if (!commit)
                     throw;
@@ -615,7 +784,9 @@ struct AnimationRuntime::Impl {
             if (!prepared && old != states.end() && old->second.definition &&
                 old->second.definition.identity() == definition.identity() &&
                 old->second.config.state == target.id && old->second.assets.clip == selected.clip) {
-                if (old->second.config.enabled != config.enabled) {
+                if (old->second.config.enabled != config.enabled ||
+                    old->second.config.root_motion != config.root_motion ||
+                    old->second.config.root_joint != config.root_joint) {
                     old->second.discontinuous = true;
                     old->second.model_pose_applied = false;
                 }
@@ -853,7 +1024,9 @@ struct AnimationRuntime::Impl {
                            old->second.config.clip == config.clip &&
                            old->second.config.blend_clip == config.blend_clip &&
                            !old->second.definition) {
-                    if (old->second.config.enabled != config.enabled) {
+                    if (old->second.config.enabled != config.enabled ||
+                        old->second.config.root_motion != config.root_motion ||
+                        old->second.config.root_joint != config.root_joint) {
                         old->second.discontinuous = true;
                         old->second.model_pose_applied = false;
                     }
@@ -1010,6 +1183,7 @@ void AnimationRuntime::tick(float dt, std::uint64_t tick) {
     if (!std::isfinite(dt) || dt <= 0)
         throw ArchiveError("Animation requires a positive fixed delta");
     impl_->last_animation_tick = tick;
+    impl_->root_motions.clear();
     impl_->events.clear();
     impl_->event_candidates.clear();
     auto profile = impl_->context.services().profile("animation", "FixedPlayback");
@@ -1055,7 +1229,7 @@ void AnimationRuntime::tick(float dt, std::uint64_t tick) {
         }
         p.tick_advance = p.advance;
     }
-    impl_->apply_model_poses();
+    impl_->apply_model_poses(true, {}, 0, {}, tick);
     impl_->transforms.tick(dt);
     if (impl_->deliver_events) {
         try {
@@ -1140,6 +1314,19 @@ std::optional<AnimationPlayback> AnimationRuntime::playback(EntityRef reference)
         result.blend_weight = p.blend;
     }
     return result;
+}
+std::optional<AnimationRootMotion> AnimationRuntime::root_motion(EntityRef reference) const {
+    if (!impl_ || !impl_->context.on_owner_thread())
+        return {};
+    const auto resolved = impl_->context.resolve(reference);
+    if (resolved.state != WorldContext::ResolveState::Available ||
+        !impl_->context.world().entity(resolved.entity).has<Animator>() ||
+        impl_->pending.contains(resolved.entity) || impl_->binding_errors.contains(resolved.entity))
+        return {};
+    const auto found = impl_->root_motions.find(resolved.entity);
+    if (found == impl_->root_motions.end())
+        return {};
+    return found->second;
 }
 bool AnimationRuntime::control(EntityRef reference, AnimationControl command,
                                std::uint64_t current_tick) {

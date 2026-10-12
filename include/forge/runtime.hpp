@@ -94,6 +94,7 @@ class RuntimeSimulation {
     std::shared_ptr<AudioRuntime> audio_;
     std::shared_ptr<AnimationRuntime> animation_;
     flecs::entity animation_phase_, animation_system_;
+    flecs::entity post_animation_phase_;
     std::shared_ptr<NavigationRuntime> navigation_;
     flecs::entity navigation_phase_, navigation_system_;
     std::exception_ptr stage_error_;
