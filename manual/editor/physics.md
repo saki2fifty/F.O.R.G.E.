@@ -269,6 +269,30 @@ current relative orientation. Position bodies so the two anchors meet and their
 frames agree before Play. The Inspector shows fields relevant to the selected kind. Inactive values remain
 saved when switching kind but have no solver effect for Point or Fixed. Scene21 provides both examples.
 
+### Distance-joint springs
+
+Choose **Distance** and set **Min Distance/Max Distance** to the same length for an
+elastic link. Set **Spring Frequency** above 0 to enable it. Higher frequency pulls
+back faster; the unit is Hz. Leave it at 0 to keep the original hard distance limit.
+
+**Spring Damping** controls the return: below 1 oscillates, 1 returns smoothly
+without overshoot in the basic example, and above 1 returns more slowly. Damping
+has no effect while frequency is 0. The controls accept 0 or 0.01–100 Hz and a
+damping ratio of 0–10. Use **Collide Connected** to choose whether the two connected
+bodies can contact one another.
+
+Different minimum/maximum lengths create a free interval. The spring pulls towards
+the nearest bound when the link leaves that interval. Elastic links may stretch
+past those bounds; they are not rigid stops. Keep both body-local anchors at your
+intended attachment points. Save and restart Play after editing authored settings.
+
+Open **29-distance-springs.scene.json** to compare a blue oscillating link with a
+yellow critically damped link. Both start stretched and have gravity disabled so
+you can isolate the spring response. Their sleeping option is disabled for this
+small demonstration. Stop and restart Play to repeat the motion. The Scene guide
+reports the selected link's range, frequency and damping. Export the scene to run
+this same compiled physics behavior outside the editor.
+
 ### Swing-and-twist joints
 
 Choose **Swing Twist** to connect two bodies like a limited ball-and-socket joint.

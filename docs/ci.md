@@ -566,6 +566,26 @@ inventoried `--packaged-motors` graphical observer. It requires both constrained
 poses, two native joints and actual cyan rendered geometry. These are configured
 gates; Windows execution and physical GPU acceptance require separate evidence.
 
+### Distance-joint springs
+
+The native spring gate independently measures implicit Euler trajectories for four
+damping ratios and two masses, unequal-mass momentum/reaction, free intervals and
+unilateral soft bounds, fresh recovery, native order retention, sleep/wake,
+inactive-kind settings, hard compatibility and invalid atomicity. The public C++
+probe changes frequency/damping during fixed-step gameplay; its tests compare
+independent position/velocity and genuinely fresh workers before/after the change.
+
+Actual Inspector and derived guide tests run at 100%, 150% and 200% scale. Original
+Gallery 29 verifies low/critical damping numerically, render resources and
+source-free relocated content. Its two numerical-demo bodies disable sleeping;
+the ordinary sleeping default and inactive-control wake checks remain covered.
+Native captures 211–216 configure Distance spring Inspector/guide views; the full
+suite ends at stage 217 within the existing 600-second total and 45-second stage
+budgets. Final combined package configures production startup and a
+`--packaged-springs` observer requiring native joints, distinct damping responses
+and cyan geometry after source/kit removal. Actual Windows execution/image review
+and physical acceptance require separate evidence.
+
 ### Swing-and-twist joints
 
 Joint tests independently measure native angular integration/unequal cone bounds,

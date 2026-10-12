@@ -574,7 +574,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("motor_damping")
             .template member<bool>("collide_connected")
             .template member<float>("swing_normal_angle")
-            .template member<float>("swing_plane_angle");
+            .template member<float>("swing_plane_angle")
+            .template member<float>("distance_spring_frequency")
+            .template member<float>("distance_spring_damping");
     } else if constexpr (std::is_same_v<T, AssetCollider>) {
         register_asset_ref<CollisionAsset>(w, "forge.collision_ref");
         c.template member<AssetRef<CollisionAsset>>("asset");
@@ -899,6 +901,22 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = UINT32_MAX;
     }
     if (name == "forge.physics_joint") {
+        if (field == "distance_spring_frequency") {
+            value["minimum"] = 0;
+            value["maximum"] = 100;
+            value["unit"] = "Hz";
+            value["display_name"] = "Spring Frequency";
+            value["description"] = "Distance joint: 0 keeps hard limits; 0.01 to 100 Hz makes "
+                                   "limits elastic. Frequency is normalized to effective mass.";
+        }
+        if (field == "distance_spring_damping") {
+            value["minimum"] = 0;
+            value["maximum"] = 10;
+            value["unit"] = "ratio";
+            value["display_name"] = "Spring Damping";
+            value["description"] = "Distance spring damping ratio: below 1 oscillates, 1 is "
+                                   "critical, above 1 is more damped. Inactive at frequency 0.";
+        }
         if (field == "swing_normal_angle" || field == "swing_plane_angle") {
             value["minimum"] = 0;
             value["maximum"] = 180;
@@ -1518,7 +1536,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
              {"min_travel", "max_travel", "motor_enabled", "hinge_motor_speed",
               "slider_motor_speed", "max_motor_torque", "max_motor_force", "motor_mode",
               "hinge_motor_angle", "slider_motor_position", "motor_frequency", "motor_damping",
-              "collide_connected", "swing_normal_angle", "swing_plane_angle"})
+              "collide_connected", "swing_normal_angle", "swing_plane_angle",
+              "distance_spring_frequency", "distance_spring_damping"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     return current;

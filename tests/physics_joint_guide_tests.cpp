@@ -196,6 +196,29 @@ void check_guides() {
                     overlay.status().find("target -1.250 m, spring 1.750 Hz / 0.600") !=
                         std::string::npos,
                 "Actual position guide lacks target marker and spring status");
+        auto distance_spring = snapshot;
+        auto& elastic = row(distance_spring, id)["components"]["forge.physics_joint"];
+        elastic["kind"] = 0;
+        elastic["min_distance"] = 1;
+        elastic["max_distance"] = 2;
+        elastic["distance_spring_frequency"] = 1.75;
+        elastic["distance_spring_damping"] = .6;
+        const auto spring_guide = ui::prepare_physics_joint_guide(distance_spring, id);
+        require(spring_guide && spring_guide->valid && spring_guide->min_distance == 1 &&
+                    spring_guide->max_distance == 2 &&
+                    spring_guide->distance_spring_frequency == 1.75f &&
+                    spring_guide->distance_spring_damping == .6f,
+                "Derived Distance guide lost copied spring settings");
+        require(draw(distance_spring) > 0 &&
+                    overlay.status().starts_with("Authored Distance joint") &&
+                    overlay.status().find("elastic range [1.000, 2.000] m") != std::string::npos &&
+                    overlay.status().find("spring 1.750 Hz / 0.600 ratio") != std::string::npos,
+                "Actual Distance guide lacks elastic range/frequency/damping status");
+        elastic["distance_spring_frequency"] = 0;
+        require(draw(distance_spring) > 0 &&
+                    overlay.status().find("hard range [1.000, 2.000] m") != std::string::npos &&
+                    overlay.status().find("Hz") == std::string::npos,
+                "Hard Distance guide advertises an inactive spring");
         require(draw(altered) > 0 && overlay.status().find("distinct bodies") != std::string::npos,
                 "Invalid pairing lost visible diagnostic");
         auto swing = snapshot;

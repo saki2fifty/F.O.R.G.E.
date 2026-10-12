@@ -16,8 +16,9 @@ struct GameHostFixture {
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
          slider = false, motors = false, position_drive = false, connected = false,
-         swing_twist = false;
+         swing_twist = false, distance_springs = false;
     std::array<double, 2> swing_maximum{}, swing_minimum{180, 180};
+    std::array<double, 2> spring_minimum{100, 100}, spring_maximum{};
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -79,8 +80,9 @@ struct GameHostFixture {
         position_drive = argc == 3 && std::string_view(argv[1]) == "--packaged-position";
         connected = argc == 3 && std::string_view(argv[1]) == "--packaged-connected";
         swing_twist = argc == 3 && std::string_view(argv[1]) == "--packaged-swing";
+        distance_springs = argc == 3 && std::string_view(argv[1]) == "--packaged-springs";
         packaged = reference || mixed || loads || velocity || contacts || volumes || slider ||
-                   motors || position_drive || connected || swing_twist ||
+                   motors || position_drive || connected || swing_twist || distance_springs ||
                    (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
@@ -156,7 +158,7 @@ struct GameHostFixture {
         std::size_t physics_actor_pixels = 0;
         std::size_t contact_actor_pixels = 0;
         if (loads || velocity || contacts || volumes || slider || motors || position_drive ||
-            connected || swing_twist)
+            connected || swing_twist || distance_springs)
             for (unsigned y = 0; y < desc.Height; ++y)
                 for (unsigned x = 0; x < desc.Width; ++x) {
                     const auto* p = pixels + y * data.Stride + x * 4;
@@ -186,9 +188,10 @@ struct GameHostFixture {
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
         if (!reference && !loads && !velocity && !contacts && !volumes && !slider && !motors &&
-            !position_drive && !connected && !swing_twist)
+            !position_drive && !connected && !swing_twist && !distance_springs)
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
-        if (loads || velocity || slider || motors || position_drive || connected || swing_twist) {
+        if (loads || velocity || slider || motors || position_drive || connected || swing_twist ||
+            distance_springs) {
             check(physics_actor_pixels > 100,
                   "Authored physics actors are not visible in standalone rendering");
             atomic_write(output / "physics-render-result.json",
@@ -250,6 +253,46 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (distance_springs) {
+            const auto tick = game.status().at("clock").at("tick").get<unsigned>();
+            const auto document = game.active().scene.document();
+            std::array<forge::Double3, 2> anchors{}, bodies{};
+            unsigned found = 0;
+            for (const auto& row : document.at("entities")) {
+                const auto name = row.at("name").get<std::string>();
+                if (name != "Oscillating spring anchor" && name != "Oscillating spring body" &&
+                    name != "Critical spring anchor" && name != "Critical spring body")
+                    continue;
+                const auto i = name.starts_with("Oscillating") ? 0 : 1;
+                const auto& value = row.at("components").at("forge.local_translation");
+                auto& position = name.ends_with("anchor") ? anchors[i] : bodies[i];
+                position = {value.at("x").get<double>(), value.at("y").get<double>(),
+                            value.at("z").get<double>()};
+                ++found;
+            }
+            check(found == 4, "Exported spring actors missing");
+            std::array<double, 2> gaps{};
+            for (unsigned i = 0; i < 2; ++i) {
+                gaps[i] = std::abs(anchors[i][1] - bodies[i][1]);
+                spring_minimum[i] = std::min(spring_minimum[i], gaps[i]);
+                spring_maximum[i] = std::max(spring_maximum[i], gaps[i]);
+            }
+            if (tick < 240)
+                return;
+            check(game.active().physics()->status().at("joints") == 2 && spring_minimum[0] < 1.1 &&
+                      spring_minimum[1] >= 1.2999 && spring_maximum[0] - spring_minimum[0] > .25 &&
+                      spring_maximum[1] - spring_minimum[1] > .3 && std::abs(gaps[0] - 1.3) < .03 &&
+                      std::abs(gaps[1] - 1.3) < .002,
+                  "Exported spring response lacks distinct oscillating/critical native motion");
+            atomic_write(output / "physics-springs-result.json", Json{{"tick", tick},
+                                                                      {"gaps", gaps},
+                                                                      {"minimum", spring_minimum},
+                                                                      {"maximum", spring_maximum}}
+                                                                     .dump(2));
+            capture("physics-springs-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (swing_twist) {
             const auto tick = game.status().at("clock").at("tick").get<unsigned>();
             const auto scene = game.active().scene.document();

@@ -67,6 +67,8 @@ struct PhysicsJoint {
     bool collide_connected = true;         // Enabled joints may suppress this body pair.
     float swing_normal_angle = 45;         // Swing cone half-angle towards frame normal, degrees.
     float swing_plane_angle = 45;          // Swing cone half-angle towards plane axis, degrees.
+    float distance_spring_frequency = 0;   // Distance limits: 0 is hard; otherwise Hz.
+    float distance_spring_damping = 1;     // Distance spring damping ratio; 1 is critical.
     bool operator==(const PhysicsJoint&) const = default;
 };
 struct BoxCollider {

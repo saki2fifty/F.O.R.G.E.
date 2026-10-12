@@ -1,5 +1,15 @@
 # 2026-10-12
 
+## Elastic distance joints
+
+Distance links now expose Spring Frequency and Spring Damping. Frequency 0 keeps
+hard limits; positive frequency gives an elastic rest length or free interval with
+soft bounds. Existing controls retain native geometry/order and support typed C++
+updates/recovery. Inspector history and selected guide use the same values.
+Original Gallery 29 compares oscillating and critical return, with source-free
+export. Matching SDK rebuild required; ABI 1/private 4/authored formats unchanged.
+Windows delivery/visual/physical acceptance require separate evidence.
+
 ## Swing-and-twist joints
 
 Swing Twist adds limited ball-and-socket motion, two swing cone half-angles and

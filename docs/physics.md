@@ -474,8 +474,9 @@ raise `physics.invalid_joint` with the joint identity and related body reference
 The complete desired joint set is checked before body/command mutation, including
 animation transform candidate admission. Up to 4096 enabled joints are admitted.
 
-Distance preserves a finite min/max interval in meters (.001..10000); equal
-bounds make a fixed-length tether. Hinge joins two anchor points and allows
+With spring frequency 0, Distance preserves a finite min/max interval in meters
+(.001..10000); equal bounds make a fixed-length tether. Optional elastic distance
+limits are described below. Hinge joins two anchor points and allows
 rotation around one selected X/Y/Z axis in each rigid body frame. Each selected
 normal axis must differ from its hinge axis. The angle is zero when the two normal
 frames agree; degree limits enclose zero, from [-180, 0] and [0, 180]. Equal zero hinge
@@ -521,6 +522,46 @@ Fixed disables automatic point detection. Distance/angle settings are inactive
 but preserved and bounded for these kinds. The existing native2 recovery envelope
 and lifetime/admission/identity rules are unchanged. Public enum documentation
 updates the exactSDK fingerprint; native ABI1 and field layout remain unchanged.
+
+### Distance-joint springs
+
+Distance joints can make their existing distance limits elastic. The trailing
+`distance_spring_frequency` defaults to 0 Hz, preserving hard distance behavior;
+positive values must be finite and within 0.01–100 Hz. The trailing
+`distance_spring_damping` defaults to 1 and accepts finite ratios 0–10.
+A ratio below 1 oscillates, 1 is critical, and above 1 is more damped. Native
+implicit integration also adds numerical damping, including at ratio 0.
+
+Equal min/max distances specify a bilateral spring rest length. An interval is
+force-free inside its range and applies a unilateral spring towards the nearest
+bound outside it. These are soft limits: spring motion can pass beyond the authored
+range. Frequency 0 uses the previous native hard limits and ignores damping.
+Minimum distances still require at least 0.001 m. No world endpoint is implied.
+
+Frequency and damping are normalized to the effective mass along the anchor
+separation, including the existing body-origin/COM and signed-scale conversion.
+For a centered one-dimensional fixture, with w=2*pi*f and damping ratio zeta,
+Newton's law gives the independent implicit Euler recurrence:
+`v_next=(v-dt*w*w*(x-rest))/(1+2*zeta*w*dt+w*w*dt*dt)` and
+`x_next=x+dt*v_next`. Two Dynamic endpoints use their reduced effective mass;
+their reaction preserves linear momentum. This recurrence is an acceptance case,
+not a substitute solver or a claim for arbitrary rotating anchor configurations.
+
+The existing native controls path applies spring-only changes without retiring
+geometry, native constraint order or warm state, and wakes moving endpoints.
+Editing damping while frequency is 0, or editing either field on another joint
+kind, preserves inactive settings without waking bodies. Full preflight remains
+atomic. Structural frame/range changes still use existing rebuild rules.
+
+Inspector **Spring Frequency** and **Spring Damping** use ordinary component history
+and appear only for Distance. The selected Scene guide reports hard/elastic range
+and active frequency/damping without advancing simulation. Original Gallery 29
+compares low and critical damping; its two demo bodies disable sleeping so their
+full numerical response can be measured. Ordinary body sleeping defaults remain.
+C++ accesses the same typed fields before Physics and observes copied motion after.
+ABI 1/private checkpoint 4/authored formats remain unchanged; matching SDK
+layout/fingerprint requires rebuilding modules. Existing connected collision policy
+and fresh recovery apply. Springs do not add breakage or vehicle ownership.
 
 ### Swing-and-twist joints
 

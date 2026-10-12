@@ -157,6 +157,21 @@ int main(int argc, char** argv) {
                         "Joint Inspector undo");
                 require(scene.redo() && scene.entity(id).get<PhysicsJoint>().min_distance == 2,
                         "Joint Inspector redo");
+                require(test::ui_targets.contains(
+                            "component-field:forge.physics_joint:distance_spring_frequency") &&
+                            test::ui_targets.contains(
+                                "component-field:forge.physics_joint:distance_spring_damping"),
+                        "Distance Inspector lacks spring controls");
+                numeric("distance_spring_frequency", "2");
+                numeric("distance_spring_damping", "0.15");
+                require(scene.entity(id).get<PhysicsJoint>().distance_spring_frequency == 2 &&
+                            scene.entity(id).get<PhysicsJoint>().distance_spring_damping == .15f,
+                        "Actual Distance spring edits failed");
+                require(scene.undo() &&
+                            scene.entity(id).get<PhysicsJoint>().distance_spring_damping == 1 &&
+                            scene.redo() &&
+                            scene.entity(id).get<PhysicsJoint>().distance_spring_damping == .15f,
+                        "Distance spring Undo/Redo failed");
                 click("component-field:forge.physics_joint:kind");
                 key(ImGuiKey_DownArrow);
                 key(ImGuiKey_Enter);
@@ -320,6 +335,13 @@ int main(int argc, char** argv) {
                             scene.entity(id).get<PhysicsJoint>().min_angle == -25 &&
                             scene.entity(id).get<PhysicsJoint>().max_angle == 35,
                         "Actual swing/twist numerical controls failed");
+                require(!test::ui_targets.contains(
+                            "component-field:forge.physics_joint:distance_spring_frequency") &&
+                            !test::ui_targets.contains(
+                                "component-field:forge.physics_joint:distance_spring_damping") &&
+                            scene.entity(id).get<PhysicsJoint>().distance_spring_frequency == 2 &&
+                            scene.entity(id).get<PhysicsJoint>().distance_spring_damping == .15f,
+                        "Swing Twist exposes or loses inactive Distance spring values");
                 require(scene.undo() && scene.entity(id).get<PhysicsJoint>().max_angle == 60 &&
                             scene.redo() && scene.entity(id).get<PhysicsJoint>().max_angle == 35,
                         "Swing/twist numerical Undo/Redo failed");

@@ -285,6 +285,7 @@ class ComponentInspector {
                     const auto kind = values.at(key).at("kind").get<unsigned>();
                     const auto mode = values.at(key).at("motor_mode").get<unsigned>();
                     if ((name.ends_with("distance") && kind != 0) ||
+                        (name.starts_with("distance_spring_") && kind != 0) ||
                         (name.ends_with("travel") && kind != 4) ||
                         ((name == "min_angle" || name == "max_angle") && kind != 1 && kind != 5) ||
                         (name.starts_with("swing_") && kind != 5) ||

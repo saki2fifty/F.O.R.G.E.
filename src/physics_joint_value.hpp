@@ -28,7 +28,11 @@ inline void validate_joint(const PhysicsJoint& v) {
         v.motor_damping < 0 || v.motor_damping > 10 || !std::isfinite(v.swing_normal_angle) ||
         v.swing_normal_angle < 0 || v.swing_normal_angle > 180 ||
         !std::isfinite(v.swing_plane_angle) || v.swing_plane_angle < 0 ||
-        v.swing_plane_angle > 180 ||
+        v.swing_plane_angle > 180 || !std::isfinite(v.distance_spring_frequency) ||
+        v.distance_spring_frequency < 0 || v.distance_spring_frequency > 100 ||
+        (v.distance_spring_frequency > 0 && v.distance_spring_frequency < .01f) ||
+        !std::isfinite(v.distance_spring_damping) || v.distance_spring_damping < 0 ||
+        v.distance_spring_damping > 10 ||
         ((v.kind == 1 || v.kind == 3 || v.kind == 4 || v.kind == 5) &&
          (v.axis_a == v.normal_a || v.axis_b == v.normal_b)) ||
         (v.kind == 4 && v.min_travel == v.max_travel) ||
@@ -54,9 +58,15 @@ inline bool joint_same_geometry(const PhysicsJoint& a, PhysicsJoint b) {
     b.motor_frequency = a.motor_frequency;
     b.motor_damping = a.motor_damping;
     b.collide_connected = a.collide_connected;
+    b.distance_spring_frequency = a.distance_spring_frequency;
+    b.distance_spring_damping = a.distance_spring_damping;
     return a == b;
 }
-inline bool joint_motor_changed(const PhysicsJoint& a, const PhysicsJoint& b) {
+inline bool joint_controls_changed(const PhysicsJoint& a, const PhysicsJoint& b) {
+    if (b.kind == 0)
+        return a.distance_spring_frequency != b.distance_spring_frequency ||
+               (b.distance_spring_frequency > 0 &&
+                a.distance_spring_damping != b.distance_spring_damping);
     if (b.kind != 1 && b.kind != 4)
         return false;
     if (a.motor_enabled != b.motor_enabled || a.motor_mode != b.motor_mode ||
@@ -104,7 +114,9 @@ inline nlohmann::json joint_value(const PhysicsJoint& v) {
             {"motor_damping", v.motor_damping},
             {"collide_connected", v.collide_connected},
             {"swing_normal_angle", v.swing_normal_angle},
-            {"swing_plane_angle", v.swing_plane_angle}};
+            {"swing_plane_angle", v.swing_plane_angle},
+            {"distance_spring_frequency", v.distance_spring_frequency},
+            {"distance_spring_damping", v.distance_spring_damping}};
 }
 inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     PhysicsJoint v;
@@ -143,6 +155,8 @@ inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     v.collide_connected = p.value("collide_connected", true);
     v.swing_normal_angle = p.value("swing_normal_angle", 45.f);
     v.swing_plane_angle = p.value("swing_plane_angle", 45.f);
+    v.distance_spring_frequency = p.value("distance_spring_frequency", 0.f);
+    v.distance_spring_damping = p.value("distance_spring_damping", 1.f);
     validate_joint(v);
     return v;
 }

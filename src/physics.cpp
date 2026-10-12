@@ -1130,7 +1130,14 @@ struct PhysicsRuntime::Impl {
                 ++it;
         }
     }
-    static void configure_joint_motor(JPH::Constraint& native, const PhysicsJoint& c) {
+    static void configure_joint_controls(JPH::Constraint& native, const PhysicsJoint& c) {
+        if (c.kind == 0) {
+            auto& distance = static_cast<JPH::DistanceConstraint&>(native);
+            distance.SetLimitsSpringSettings({JPH::ESpringMode::FrequencyAndDamping,
+                                              c.distance_spring_frequency,
+                                              c.distance_spring_damping});
+            return;
+        }
         const auto state = !c.motor_enabled    ? JPH::EMotorState::Off
                            : c.motor_mode == 0 ? JPH::EMotorState::Velocity
                                                : JPH::EMotorState::Position;
@@ -1244,7 +1251,7 @@ struct PhysicsRuntime::Impl {
             }
             if (!native)
                 throw std::runtime_error("Jolt joint allocation failed");
-            configure_joint_motor(*native, c);
+            configure_joint_controls(*native, c);
             system.AddConstraint(native.GetPtr());
         }
         auto& api = system.GetBodyInterface();
@@ -1260,12 +1267,12 @@ struct PhysicsRuntime::Impl {
                 joints.emplace(id, create_joint(id, v));
             else if (auto& record = joints.at(id); record.desired.config != v.config) {
                 // Preflight admitted all controls. Keep geometry, native order and
-                // warm solver state when only the motor settings changed.
+                // warm solver state when only motor/spring settings changed.
                 const auto& before = record.desired.config;
                 const auto& after = v.config;
-                const bool controls_changed = physics_detail::joint_motor_changed(before, after);
+                const bool controls_changed = physics_detail::joint_controls_changed(before, after);
                 if (controls_changed)
-                    configure_joint_motor(*record.native, after);
+                    configure_joint_controls(*record.native, after);
                 record.desired = v;
                 if (controls_changed) {
                     auto& api = system.GetBodyInterface();

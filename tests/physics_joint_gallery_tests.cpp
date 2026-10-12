@@ -237,6 +237,38 @@ void swing_twist_motion(World& w) {
     render_actors(w, {"Wide socket anchor", "Wide socket body", "Narrow socket anchor",
                       "Narrow socket body"});
 }
+void distance_spring_motion(World& w) {
+    require(w.physics->status().at("joints") == 2, "Gallery distance springs missing");
+    std::array<double, 2> position{1.8, 1.8}, velocity{}, minimum{1.8, 1.8};
+    const double dt = double(1.f / 60), omega = 2 * std::numbers::pi;
+    for (unsigned tick = 0; tick < 240; ++tick) {
+        w.simulation.tick(1.f / 60);
+        for (unsigned i = 0; i < 2; ++i) {
+            const auto label = i == 0 ? "Oscillating" : "Critical";
+            const double damping = i == 0 ? double(.15f) : 1.;
+            velocity[i] = (velocity[i] - dt * omega * omega * (position[i] - 1.3)) /
+                          (1 + 2 * damping * omega * dt + omega * omega * dt * dt);
+            position[i] += dt * velocity[i];
+            const auto a = w.point(std::string(label) + " spring anchor");
+            const auto b = w.point(std::string(label) + " spring body");
+            const auto gap = distance(a, b);
+            require(std::abs(gap - position[i]) < 1e-4 && std::abs(a[0] - b[0]) < 1e-5 &&
+                        std::abs(a[2] - b[2]) < 1e-5,
+                    "Gallery spring motion differs at tick " + std::to_string(tick + 1) + " for " +
+                        label + ": gap " + std::to_string(gap) + " expected " +
+                        std::to_string(position[i]) + " anchors " + std::to_string(a[0]) + "," +
+                        std::to_string(a[1]) + "," + std::to_string(a[2]) + " body " +
+                        std::to_string(b[0]) + "," + std::to_string(b[1]) + "," +
+                        std::to_string(b[2]));
+            minimum[i] = std::min(minimum[i], gap);
+        }
+    }
+    require(minimum[0] < 1.1 && minimum[1] >= 1.2999 && std::abs(position[0] - 1.3) < .03 &&
+                std::abs(position[1] - 1.3) < .001,
+            "Gallery spring damping does not distinguish oscillating/critical response");
+    render_actors(w, {"Oscillating spring anchor", "Oscillating spring body",
+                      "Critical spring anchor", "Critical spring body"});
+}
 void tuned_motion(World& w) {
     const std::vector<std::string> names{
         "No damping - free fall",  "Damping 3 per second", "Speed limit 2 metres per second",
@@ -275,10 +307,12 @@ int main(int argc, char** argv) {
         const std::string mode = argc == 4 ? argv[3] : "joints";
         require(mode == "joints" || mode == "extended" || mode == "ccd" || mode == "tuning" ||
                     mode == "slider" || mode == "motors" || mode == "position" ||
-                    mode == "connected" || mode == "swing",
+                    mode == "connected" || mode == "swing" || mode == "springs",
                 "Unknown Gallery mode");
         const auto validate = [&](World& world) {
-            if (mode == "swing")
+            if (mode == "springs")
+                distance_spring_motion(world);
+            else if (mode == "swing")
                 swing_twist_motion(world);
             else if (mode == "connected")
                 connected_collision_motion(world);
@@ -301,7 +335,8 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source =
-            read(root / (mode == "swing"       ? "Scenes/28-swing-twist-joints.scene.json"
+            read(root / (mode == "springs"     ? "Scenes/29-distance-springs.scene.json"
+                         : mode == "swing"     ? "Scenes/28-swing-twist-joints.scene.json"
                          : mode == "connected" ? "Scenes/27-connected-collisions.scene.json"
                          : mode == "position"  ? "Scenes/26-position-drives.scene.json"
                          : mode == "motors"    ? "Scenes/25-velocity-motors.scene.json"

@@ -388,6 +388,18 @@ class PhysicsOverlay {
                               guide.min_travel, guide.max_travel);
                 note += metric;
             }
+            if (guide.kind == 0) {
+                char limits[160];
+                std::snprintf(limits, sizeof(limits), " | %s range [%.3f, %.3f] m",
+                              guide.distance_spring_frequency > 0 ? "elastic" : "hard",
+                              guide.min_distance, guide.max_distance);
+                note += limits;
+                if (guide.distance_spring_frequency > 0) {
+                    std::snprintf(limits, sizeof(limits), " | spring %.3f Hz / %.3f ratio",
+                                  guide.distance_spring_frequency, guide.distance_spring_damping);
+                    note += limits;
+                }
+            }
             if (guide.kind == 5) {
                 char limits[128];
                 std::snprintf(limits, sizeof(limits),

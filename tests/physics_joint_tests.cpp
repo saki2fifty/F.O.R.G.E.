@@ -760,6 +760,7 @@ void authoring_and_identity() {
         }
     throw std::runtime_error("Joint absent from schema");
 }
+#include "physics_distance_spring_tests.hpp"
 #include "physics_joint_collision_tests.hpp"
 #include "physics_motor_tests.hpp"
 #include "physics_position_motor_tests.hpp"
@@ -768,7 +769,14 @@ void authoring_and_identity() {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 2, "Need joint scratch root");
+        require(argc == 2 || (argc == 3 && std::string_view(argv[2]) == "springs"),
+                "Need joint scratch root and optional springs gate");
+        if (argc == 3) {
+            distance_springs();
+            std::cout
+                << "Distance springs, independent integration/reaction and fresh recovery passed\n";
+            return 0;
+        }
         simulate();
         point_and_fixed();
         slider_motion_and_recovery();

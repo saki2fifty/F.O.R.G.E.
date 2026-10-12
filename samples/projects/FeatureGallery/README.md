@@ -194,3 +194,12 @@ damping or budget in the Inspector. Targets must fit the authored joint limits.
 Lower damping ratios can overshoot; the fixed-step solver also adds integration
 damping. Selected Scene guides show a pink target marker and authored settings.
 Ordinary source-free export needs no project C++ module or compiler.
+
+### 29 — distance springs
+
+Open `Scenes/29-distance-springs.scene.json`. The blue link oscillates with damping
+0.15; the yellow link returns with critical damping 1. Both have a 1.3 m rest length,
+1 Hz frequency and no gravity. Sleeping is disabled for the two demo bodies so the
+full numerical response remains measurable. Stop/restart Play to repeat. Select a
+Distance joint to edit frequency/damping and view its hard/elastic range guide.
+Export uses the same native physics after source files and kits are removed.

@@ -3406,6 +3406,8 @@ int main(int argc, char** argv) {
                 case 204:
                 case 207:
                 case 210:
+                case 213:
+                case 216:
                     forge::ui::style(2);
                     break;
                 case 158:
@@ -3426,6 +3428,8 @@ int main(int argc, char** argv) {
                 case 203:
                 case 206:
                 case 209:
+                case 212:
+                case 215:
                     forge::ui::style(1.5f);
                     break;
                 case 157: {
@@ -3530,6 +3534,7 @@ int main(int argc, char** argv) {
                 case 196:
                 case 202:
                 case 208:
+                case 214:
                     physics_overlay.joint_visible = true;
                     workspace.inspector = false;
                     if (auto* w = ImGui::FindWindowByName("###Scene"))
@@ -3548,15 +3553,22 @@ int main(int argc, char** argv) {
                 case 187:
                 case 193:
                 case 199:
-                case 205: {
+                case 205:
+                case 211: {
                     auto joint = scene.entity(fixture.joint_entity).get<forge::PhysicsJoint>();
                     const bool slider = fixture.stage == 175 || fixture.stage == 187;
                     const bool contact_policy = fixture.stage == 199;
                     const bool swing_twist = fixture.stage == 205;
-                    joint.kind = contact_policy ? 0 : swing_twist ? 5 : slider ? 4 : 1;
+                    const bool distance_spring = fixture.stage == 211;
+                    joint.kind = contact_policy || distance_spring ? 0
+                                 : swing_twist                     ? 5
+                                 : slider                          ? 4
+                                                                   : 1;
                     joint.axis_a = joint.axis_b = slider ? 0 : 2;
                     joint.normal_a = joint.normal_b = slider ? 1 : 0;
-                    joint.motor_enabled = !contact_policy && !swing_twist;
+                    joint.motor_enabled = !contact_policy && !swing_twist && !distance_spring;
+                    joint.distance_spring_frequency = distance_spring ? 1.75f : 0;
+                    joint.distance_spring_damping = .6f;
                     joint.swing_normal_angle = 20;
                     joint.swing_plane_angle = 10;
                     if (swing_twist) {
@@ -5581,10 +5593,13 @@ int main(int argc, char** argv) {
                     (fixture.stage >= 187 && fixture.stage <= 189) ||
                     (fixture.stage >= 193 && fixture.stage <= 195) ||
                     (fixture.stage >= 199 && fixture.stage <= 201) ||
-                    (fixture.stage >= 205 && fixture.stage <= 207)) {
+                    (fixture.stage >= 205 && fixture.stage <= 207) ||
+                    (fixture.stage >= 211 && fixture.stage <= 213)) {
                     const auto key =
                         fixture.stage < 148 || (fixture.stage >= 151 && fixture.stage <= 153)
                             ? "component-field:forge.physics_joint:body_b"
+                        : fixture.stage >= 211
+                            ? "component-field:forge.physics_joint:distance_spring_damping"
                         : fixture.stage >= 205
                             ? "component-field:forge.physics_joint:swing_plane_angle"
                         : fixture.stage >= 199
@@ -5649,6 +5664,11 @@ int main(int argc, char** argv) {
                     captured_document_visible &=
                         physics_overlay.joint_visible &&
                         physics_overlay.status().find("swing normal/plane 20.000 / 10.000 deg") !=
+                            std::string::npos;
+                if (fixture.stage >= 214 && fixture.stage <= 216)
+                    captured_document_visible &=
+                        physics_overlay.joint_visible &&
+                        physics_overlay.status().find("spring 1.750 Hz / 0.600 ratio") !=
                             std::string::npos;
                 if (fixture.stage >= 163 && fixture.stage <= 165) {
                     const auto field = forge::test::ui_targets.find(
@@ -5957,7 +5977,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 211) {
+                    if (fixture.stage == 217) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

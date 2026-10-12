@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-12](20261012/README.md) — Joint drives, collision policy and swing/twist limits, with editable Gallery25–28; Windows delivery pending.
+- [2026-10-12](20261012/README.md) — Joint drives, collision policy, swing/twist limits and distance springs, with editable Gallery 25–29; Windows delivery pending.
 
 - [2026-10-11](20261011/README.md) — Animation timeline, blending, named states and C++ markers validated locally; Windows delivery pending.
 

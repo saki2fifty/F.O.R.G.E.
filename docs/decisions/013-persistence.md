@@ -163,3 +163,13 @@ use the existing joint structural rebuild path; connected collision policy remai
 the current owner-derived pair setting. Builtin Meta annotation batches its pinned
 32-field descriptors in ascending physical order, then verifies every native field
 offset/size. The existing zero-offset workaround and admission authority remain.
+
+## 2026-10-12 — elastic distance limits
+
+Distance kind 0 adds two trailing spring settings, backfilled as hard frequency 0
+and damping ratio 1. The existing controls path applies frequency/damping without
+retiring native geometry/order, and current admitted settings remain the recovery
+mapping. Inactive values are preserved. No new owner or authored/private version;
+ABI 1/private checkpoint 4 remain exact-build/fingerprint gated. Matching SDK
+layout and module rebuilding remain required. Reflection uses the accepted bounded
+physical-order descriptor batches with verified offsets/sizes.
