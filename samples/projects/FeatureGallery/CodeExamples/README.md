@@ -139,3 +139,11 @@ The loop end maps to zero. An outgoing named state's clock remains independent.
 The Inspector's tinted Live animation section offers the same temporary playhead
 adjustment during editor Play. Rebuild and export project code with matching SDK
 kits; the game ships compiled C++ and needs no editor or compiler installed.
+
+### Select a skeletal blend subtree
+
+`SetBlendSubtree.hpp` updates the existing typed Animator from an ordinary C++
+Gameplay System. Pass a durable ModelNodeAsset reference belonging to that imported
+skeleton; an empty reference blends the whole rig. Assign compatible primary and
+secondary clips first. The engine retains phase and its current fade. Rebuild your
+module against the matching SDK after the Animator layout update.

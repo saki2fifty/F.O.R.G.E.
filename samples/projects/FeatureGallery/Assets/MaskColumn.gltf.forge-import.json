@@ -1,0 +1,149 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.gltf",
+    "importer_revision": "d6a6a1dbb2e538d65b726b3b79cba2ecace278695d2dfd0e61af20dcb1a54dcf",
+    "key_version": 2,
+    "output_format": "forge.model-bundle",
+    "output_version": 4,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "67aec9b261b554f092786f631a6ce738efa71e162e6b71b874e717d3836315b2",
+    "source_dependencies": {},
+    "tool_revisions": {
+      "gltf2ozz": "1d931ef96576c645eba57be33f525895cacf8feeb38714145072c000dfb3b468"
+    }
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "4c00fddc93bdf6451d38142c5ca1285ae85e7b49c9fa4c2455f6cd3a93e4bc6b",
+        "display_name": "Model skeleton",
+        "exporter_key": "",
+        "id": "075384e2-87fc-4f53-8f83-672992c4453d",
+        "key": "member/075384e2-87fc-4f53-8f83-672992c4453d",
+        "removed": false,
+        "semantic_digest": "97edb6223910b54d1757f05b9a3dcaab02d9aa50068ddb179a6df47ee536db0a",
+        "type": "skeleton"
+      },
+      {
+        "content_digest": "eb3d28ee18680880ebb8b93ac23917d2ca443ab8e7674294e45f5c9ab1b61dfb",
+        "display_name": "Side joint",
+        "exporter_key": "",
+        "id": "0a422c9a-87b3-49e8-98b2-676bcae6a9f8",
+        "key": "member/0a422c9a-87b3-49e8-98b2-676bcae6a9f8",
+        "removed": false,
+        "semantic_digest": "3633afef2a8feb780386fbf576998f1f40281e097b00b18dd10fb0421e9fb211",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "c620d52d59b5b5d7dd350fce711f23129cc8048cdbbb239f38fff0c359907477",
+        "display_name": "Upper joint",
+        "exporter_key": "",
+        "id": "3b1e6a95-e51d-4540-99e0-0230b9241fda",
+        "key": "member/3b1e6a95-e51d-4540-99e0-0230b9241fda",
+        "removed": false,
+        "semantic_digest": "212aeb48b824682e2acad3f94825bdf9bc05dc684d807da1a6a4c07e198cdc82",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "31c244006c6531292e4fefcc0768b5fd21d64ec7722fa0e9f6db743c51675bda",
+        "display_name": "Tip joint",
+        "exporter_key": "",
+        "id": "5b09747d-d6bb-4db6-bee7-10f05ee1a822",
+        "key": "member/5b09747d-d6bb-4db6-bee7-10f05ee1a822",
+        "removed": false,
+        "semantic_digest": "d43ff740096c1cc2a1d2e4af07e786487aaf7e9e57e56af87d3298104b9bec82",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "a224b2e61205be8f188f3ab0ee3b2fb9dd25c49b9642cfa25e0d0df3c67be3bd",
+        "display_name": "Blue column",
+        "exporter_key": "",
+        "id": "78aa4e41-ba12-4ed1-b299-2d13ba3f7a61",
+        "key": "member/78aa4e41-ba12-4ed1-b299-2d13ba3f7a61",
+        "removed": false,
+        "semantic_digest": "5268482896f61d8b9c633e8c4402ba09b7697d4ab81430e6f9f0415cb193fa47",
+        "type": "material"
+      },
+      {
+        "content_digest": "fffa31961152aef7916cc81ca04139a25e9ca4bee71697aa41fbe31efe5fcbfa",
+        "display_name": "Idle",
+        "exporter_key": "",
+        "id": "d16232b5-f883-4ca0-8ff6-5d8e87b3149c",
+        "key": "member/d16232b5-f883-4ca0-8ff6-5d8e87b3149c",
+        "removed": false,
+        "semantic_digest": "dde86a3c7e7d5d6a98bd5729d9b647b3e063affb2c53c217cecd199b610604b7",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "4e02fd8c9f128218147390d6aad878881ebcad11d1a1c48c073c5fbc1f1ae20d",
+        "display_name": "Skinned column",
+        "exporter_key": "",
+        "id": "ef60ba10-7916-4d1c-a547-c7b521f57007",
+        "key": "member/ef60ba10-7916-4d1c-a547-c7b521f57007",
+        "removed": false,
+        "semantic_digest": "1088eb5d1102a62d9f204eaeb7320a8a38f2939e38cdde1c4fc2972e5906a7a0",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "bcf62955a3eda35633dfd978b9e7999942f2d31f8cbe8103b7da05389474f00b",
+        "display_name": "Column",
+        "exporter_key": "",
+        "id": "f440eff5-0533-48d2-8698-15ec7f0ed3e9",
+        "key": "member/f440eff5-0533-48d2-8698-15ec7f0ed3e9",
+        "removed": false,
+        "semantic_digest": "e6488f6713f960f3d27f3c1554612856859399133cdb35627e3d8901ad61c3e9",
+        "type": "mesh"
+      },
+      {
+        "content_digest": "4a0b13160473b8cea0616a46ab608b6aacce79339da31668be635550813bf198",
+        "display_name": "Rig root",
+        "exporter_key": "",
+        "id": "fd4c7c8a-77d3-4bd3-9316-4922ce6ba0f0",
+        "key": "member/fd4c7c8a-77d3-4bd3-9316-4922ce6ba0f0",
+        "removed": false,
+        "semantic_digest": "30199f308c537b84b89966db2d74a036262b71778f60741fd32687be7d28bf55",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "617a8826ff71f2ff1cd02569a4401c18a5fdc2177c6e9b2e2cbf4a4ae50154d4",
+        "display_name": "Reach",
+        "exporter_key": "",
+        "id": "fef43048-2c08-443f-b7f3-f4746f944b9d",
+        "key": "member/fef43048-2c08-443f-b7f3-f4746f944b9d",
+        "removed": false,
+        "semantic_digest": "cdcbeefeb87555adfd1d70d2d8a82493ec95f28d3f82f2bafc9653905a6fb70a",
+        "type": "animation_clip"
+      }
+    ],
+    "evidence_schema": "forge.gltf-model.v1",
+    "format": "forge.subasset-identity",
+    "owner": "68396b2f-7051-4a23-95ec-958c9c7a3c51",
+    "source": "Assets/MaskColumn.gltf",
+    "source_digest": "67aec9b261b554f092786f631a6ce738efa71e162e6b71b874e717d3836315b2",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.gltf",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

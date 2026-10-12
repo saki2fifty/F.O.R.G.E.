@@ -139,6 +139,46 @@ int main(int argc, char** argv) {
         require(scene.undo() && scene.document() == before, "Root mode Undo failed");
         require(scene.redo() && scene.document() == source, "Root mode Redo failed");
         animation_seeking_tests(project, source, actor);
+        {
+            Fixture filtered(project, source, actor);
+            auto config = filtered.entity().get<Animator>();
+            config.blend_clip.id = strafe;
+            config.blend_weight = 1;
+            config.transition_seconds = 0;
+            config.blend_root.id = selected.bindings.at("/nodes/1");
+            filtered.entity().set(config);
+            const auto deadline = std::chrono::steady_clock::now() + 10s;
+            for (;;) {
+                (void)filtered.animation->prepare_initial_pose();
+                const auto status =
+                    filtered.animation->playback(filtered.scene.reference(actor.str()));
+                if (status && status->blend_clip == strafe)
+                    break;
+                require(std::chrono::steady_clock::now() < deadline,
+                        "Masked root motion admission timeout: " +
+                            Json(filtered.engine.services().diagnostics()).dump());
+                std::this_thread::sleep_for(1ms);
+            }
+            filtered.simulation.tick(.25f);
+            require(bool(filtered.motion()),
+                    "Masked root delta unavailable: " +
+                        Json(filtered.engine.services().diagnostics()).dump());
+            near(filtered.motion()->translation[0], 0);
+            near(filtered.motion()->translation[2], .5);
+            require(filtered.animation->seek(filtered.scene.reference(actor.str()), .9, 2),
+                    "Subtree root-motion seek failed");
+            filtered.simulation.tick(.25f);
+            near(filtered.motion()->translation[0], 0);
+            near(filtered.motion()->translation[2], .5);
+            const auto checkpoint = filtered.animation->checkpoint();
+            Fixture restored(project, filtered.scene.snapshot(), actor);
+            restored.animation->restore(checkpoint);
+            filtered.simulation.tick(.25f);
+            restored.simulation.tick(.25f);
+            near(filtered.local().translation.z, restored.local().translation.z);
+            near(restored.motion()->translation[0], 0);
+            near(restored.motion()->translation[2], .5);
+        }
         for (const unsigned hz : {30u, 60u, 120u}) {
             Fixture f(project, source, actor);
             for (unsigned i = 0; i < hz * 3; ++i) {

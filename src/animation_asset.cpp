@@ -147,6 +147,7 @@ struct Sampler::Impl {
     ozz::animation::SamplingJob::Context context;
     std::vector<ozz::math::SoaTransform> local, blended, transition_source;
     std::vector<ozz::math::Float4x4> model;
+    std::vector<ozz::math::SimdFloat4> primary_weights, secondary_weights;
     bool sampled = false;
     std::optional<std::size_t> root_joint;
     std::optional<LocalPose> raw_root;
@@ -200,16 +201,41 @@ std::vector<Matrix> Sampler::sample(float ratio) {
     sample_local(ratio);
     return evaluate_model();
 }
-std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float weight) {
+std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float weight,
+                                            std::span<const float> joint_mask) {
     if (this == &second || impl_->skeleton != second.impl_->skeleton || !std::isfinite(weight) ||
         weight < 0 || weight > 1)
         throw ArchiveError("Invalid skeletal blend weight or skeleton compatibility");
+    if (!joint_mask.empty()) {
+        if (joint_mask.size() != impl_->model.size())
+            throw ArchiveError("Skeletal blend mask must match the admitted joint count");
+        for (const auto value : joint_mask)
+            if (!std::isfinite(value) || value < 0 || value > 1)
+                throw ArchiveError("Skeletal blend mask values must be finite in [0,1]");
+        impl_->primary_weights.resize(impl_->local.size());
+        impl_->secondary_weights.resize(impl_->local.size());
+        for (std::size_t i = 0; i < impl_->local.size(); ++i) {
+            float primary[4], secondary[4];
+            for (unsigned lane = 0; lane < 4; ++lane) {
+                const auto joint = i * 4 + lane;
+                secondary[lane] = joint < joint_mask.size() ? weight * joint_mask[joint] : 0;
+                primary[lane] = 1 - secondary[lane];
+            }
+            impl_->primary_weights[i] = ozz::math::simd_float4::LoadPtrU(primary);
+            impl_->secondary_weights[i] = ozz::math::simd_float4::LoadPtrU(secondary);
+        }
+    }
     sample_local(ratio);
     second.sample_local(ratio);
     impl_->blended.resize(impl_->local.size());
-    const ozz::animation::BlendingJob::Layer layers[] = {
+    ozz::animation::BlendingJob::Layer layers[] = {
         {1 - weight, ozz::make_span(impl_->local), {}},
         {weight, ozz::make_span(second.impl_->local), {}}};
+    if (!joint_mask.empty()) {
+        layers[0].weight = layers[1].weight = 1;
+        layers[0].joint_weights = ozz::make_span(impl_->primary_weights);
+        layers[1].joint_weights = ozz::make_span(impl_->secondary_weights);
+    }
     ozz::animation::BlendingJob blend;
     blend.layers = ozz::make_span(layers);
     blend.rest_pose = impl_->skeleton->impl_->value.joint_rest_poses();

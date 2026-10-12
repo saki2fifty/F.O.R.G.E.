@@ -35,6 +35,8 @@ struct Animator {
     std::uint32_t root_motion = 0;
     // Null selects the unique skeleton root; explicit values use durable node IDs.
     AssetRef<ModelNodeAsset> root_joint{};
+    // Null blends the whole skeleton; otherwise second clip affects this subtree.
+    AssetRef<ModelNodeAsset> blend_root{};
     bool operator==(const Animator&) const = default;
 };
 } // namespace forge

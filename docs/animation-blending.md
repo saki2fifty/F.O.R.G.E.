@@ -14,6 +14,16 @@ edit them; scene/prefab persistence, atomic history and asset reference discover
 use the existing reflected schema. Direct C++ component changes use the same
 runtime validation. A nonzero target requires a second clip.
 
+`blend_root` is a nullable durable ModelNodeAsset reference displayed as **Blend
+subtree**. Null preserves full-skeleton blending. A selected joint restricts the
+second clip to that joint and all descendants; other joints retain the primary
+clip. It requires a second clip and durable imported skeleton metadata. Foreign,
+missing and non-joint nodes fail admission before changing the selected pose.
+The existing last-good player remains owned and may advance on later ticks. Names and
+source array positions are never bindings. Named-state Animators exclude this
+direct blend configuration; attaching a state set clears it in the existing
+authoring transaction. Older scenes load null without a scene-format change.
+
 At realization, the authored mix is applied immediately. A later target or duration
 change records the current evaluated mix as its start. During enabled, playing
 fixed updates with nonzero speed, elapsed simulation seconds advance toward the
@@ -31,6 +41,25 @@ so different durations do not cause phase drift. Speed controls phase; transitio
 duration is measured in simulation seconds and is not multiplied by speed.
 Presentation samples phase and evaluated weight between the same fixed boundaries;
 reads never advance authoritative state.
+
+For a selected subtree, the existing admitted parent hierarchy produces one
+cached binary mask per player/configuration. Complementary native joint weights
+are `(1 - mix * mask[j], mix * mask[j])`; their sum is one, preserving the primary
+pose outside the subtree even at mix1. The same two sampling jobs and single
+LocalToModel pass remain. The existing union of both explicit channel sets retains
+ownership, including
+secondary-only paths. Outside the mask those paths sample the primary rest value,
+so changing a subtree cannot leave the previous secondary pose behind. Paths
+absent from both clips retain authored values.
+Root motion uses the selected root's effective mean interval weight, so an
+upper-only blend cannot replace base locomotion. This does not add morph layers:
+the existing two-clip rejection of morph-weight curves remains in force.
+
+Changing a valid subtree preserves phase and fades and snaps presentation at the
+next successful pose application. Recovery derives the mask from the saved typed
+component and admitted exact skeleton; no serialized mask indices or new checkpoint
+version are introduced. C++ can update `Animator::blend_root` through the existing
+component path; the changed physical layout/exact fingerprint requires SDK rebuild.
 
 ## Sampling and binding
 

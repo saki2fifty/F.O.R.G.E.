@@ -78,7 +78,8 @@ template <class T> Json encode(const T& p) {
                 {"states", p.states.id ? Json(p.states.id) : Json()},
                 {"state", p.state},
                 {"root_motion", p.root_motion},
-                {"root_joint", p.root_joint.id ? Json(p.root_joint.id) : Json()}};
+                {"root_joint", p.root_joint.id ? Json(p.root_joint.id) : Json()},
+                {"blend_root", p.blend_root.id ? Json(p.blend_root.id) : Json()}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -241,8 +242,12 @@ template <class T> Value decode(const Json& p) {
         v.root_motion = p.value("root_motion", std::uint32_t(0));
         if (p.contains("root_joint") && !p.at("root_joint").is_null())
             v.root_joint.id = p.at("root_joint").get<AssetId>();
+        if (p.contains("blend_root") && !p.at("blend_root").is_null())
+            v.blend_root.id = p.at("blend_root").get<AssetId>();
         if (!v.blend_clip.id && v.blend_weight != 0)
             throw std::runtime_error("Animator blend target needs a second clip");
+        if (v.blend_root.id && !v.blend_clip.id)
+            throw std::runtime_error("Animator blend subtree needs a second clip");
         return v;
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         AudioSource v;
@@ -514,7 +519,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<AssetRef<AnimationStatesAsset>>("states")
             .template member<std::uint32_t>("state")
             .template member<std::uint32_t>("root_motion")
-            .template member<AssetRef<ModelNodeAsset>>("root_joint");
+            .template member<AssetRef<ModelNodeAsset>>("root_joint")
+            .template member<AssetRef<ModelNodeAsset>>("blend_root");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -1181,6 +1187,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["nullable"] = true;
             value["description"] = "Durable imported skeleton root node. None selects the unique "
                                    "root; display names and array positions do not bind it";
+        } else if (field == "blend_root") {
+            value["display_name"] = "Blend subtree";
+            value["asset_type"] = ModelNodeAsset::type;
+            value["nullable"] = true;
+            value["description"] = "Second clip affects this imported skeleton joint and its "
+                                   "descendants. None blends the whole skeleton";
         } else if (field == "states") {
             value["asset_type"] = AnimationStatesAsset::type;
             value["nullable"] = true;
@@ -1623,7 +1635,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         current["material_variant"] = nullptr;
     if (std::string_view(type.name) == "forge.animator")
         for (const auto* field : {"blend_clip", "blend_weight", "transition_seconds", "states",
-                                  "state", "root_motion", "root_joint"})
+                                  "state", "root_motion", "root_joint", "blend_root"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")

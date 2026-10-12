@@ -18,6 +18,23 @@ Entering game Play, closing the document, editing the scene, changing projects o
 removing the selected object or publishing updated imported assets ends preview.
 Choose primary and secondary clips in Inspector; the preview document tunes their mix and timing.
 
+## Blend part of a character
+
+Open **Scenes / 37-animation-subtree-blending.scene.json** in the Gallery and
+press **Play**. The left column uses the base Idle clip. The middle applies Reach
+to **Upper joint** and its children while keeping the lower part on Idle. The
+right applies Reach to the whole skeleton, including its movement and turn.
+
+Stop, select **Upper subtree - Reach**, and find **Animator → Blend subtree**.
+Choose a joint from the same imported rig to restrict the second clip to that
+joint and its children. **None** blends the whole skeleton. **Blend Weight** and
+**Transition Seconds** work as before. Choose both clips before selecting a
+subtree; clear the subtree before removing the second clip.
+
+Preview, Play and export use the same selection. With root motion enabled, an
+upper-only selection keeps the primary clip's root movement. This filter applies
+to skeletal animation; two-clip blending still rejects morph-weight curves.
+
 ## Control it from C++
 
 Set a new blend target on the existing Animator. FORGE advances the transition

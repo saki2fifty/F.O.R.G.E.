@@ -1,5 +1,21 @@
 # 2026-10-12
 
+## Skeletal subtree blending
+
+- Animator's Blend subtree selects a durable imported joint and its descendants
+  for the second clip; None retains full-skeleton blending. Preview, C++, Play,
+  recovery and export use the same existing animation owner.
+- Complementary per-joint weights preserve the primary pose outside the subtree.
+  Existing declared channel ownership resets previous secondary movement when
+  the selection changes, while unanimated paths retain authored values. An
+  upper-only blend keeps the primary clip's root movement.
+- Original editable Gallery37 compares base, upper-body and full-skeleton poses.
+  Local checks verify descendant/sibling membership, durable reimport, actual skin
+  geometry and relocated source-free export. Native Windows captures are configured;
+  execution, visual review and physical acceptance are separate evidence.
+- The typed Animator layout changed; rebuild project code against the matching
+  SDK. Authored scene/checkpoint versions and dependency pins remain unchanged.
+
 ## Live animation and seeking
 
 - Selected Animators show tinted Live animation controls during Play: Pause or

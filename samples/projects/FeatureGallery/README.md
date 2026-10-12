@@ -313,3 +313,12 @@ game to inspect a pose without advancing game time. A seek skips movement across
 the jump; root motion continues on the actual next interval. Stop restores saved
 scene values. `CodeExamples/ClipSeek.hpp` provides the ordinary compiled C++ path
 for the same behavior in an exported game. The scene runs without project code.
+
+### 37. Skeletal subtree blending
+
+`Scenes/37-animation-subtree-blending.scene.json` compares base Idle, Reach on the
+Upper joint subtree and full-skeleton Reach. The original MaskColumn extends the
+FORGE-owned column with a tip and separate side joint, plus root movement/turning.
+Select **Upper subtree - Reach** while stopped and change **Animator → Blend
+subtree**; None selects the whole rig. Preview, Play and source-free export share
+the selection. Local tests check actual skin geometry and subtree membership.

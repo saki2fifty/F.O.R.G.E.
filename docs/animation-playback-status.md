@@ -61,12 +61,17 @@ This is ordinary compiled C++, not a new condition graph or automatic editor rul
 Effective runtime scene output includes read-only `animation_playback` beside
 `animation_pose`. The former uses fixed status; the latter retains render-time
 interpolation. Consumers must not infer authoritative completion from interpolated
-poses. The live gameplay Inspector displays state, progress, time, playback flags,
-named incoming fade or direct clip mix. This section has no editing controls and
-never enters saved scene/component data. Runtime/GPU transforms are unchanged.
+poses. The live animation Inspector displays state, progress, time, playback flags,
+named incoming fade or direct clip mix. Its copied status never enters saved
+scene/component data. Separate [playback commands](animation-playback-controls.md)
+provide Pause, Resume, Restart and release seeking in the same panel, without
+advancing paused game time or editing authored values.
 
-No transform-animation status, cumulative loop count, automatic transitions,
-retargeting, root-motion movement or complete animation graph is claimed.
+These observations describe skeletal playback rather than transform-animation
+status or a cumulative loop counter. [Named states](animation-states.md) own
+automatic transitions, and [root motion](animation-root-motion.md) has a separate
+current-tick observation. Retargeting and a complete animation graph remain
+separate work.
 
 [C++ playback controls](animation-playback-controls.md) use these same realized
-clocks for per-player Play, Pause and Restart before the Animation stage.
+clocks for per-player Play, Pause, Restart and Seek before the Animation stage.

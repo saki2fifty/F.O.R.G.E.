@@ -3754,6 +3754,7 @@ int main(int argc, char** argv) {
                 case 248:
                 case 251:
                 case 254:
+                case 257:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3769,6 +3770,7 @@ int main(int argc, char** argv) {
                 case 249:
                 case 252:
                 case 255:
+                case 258:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3882,6 +3884,26 @@ int main(int argc, char** argv) {
                     if (fixture.root_motion) {
                         forge::ui::style(1);
                         ready = actions.invoke("play");
+                    }
+                    break;
+                case 256:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        actions.invoke("stop");
+                        files.document.open_scene(
+                            "Scenes/37-animation-subtree-blending.scene.json");
+                        const auto authored = scene.snapshot();
+                        for (const auto& row : authored.at("entities"))
+                            if (row.at("components").contains("forge.animator") &&
+                                !row.at("components")
+                                     .at("forge.animator")
+                                     .at("blend_root")
+                                     .is_null()) {
+                                selected = row.at("id").get<std::string>();
+                                break;
+                            }
+                        component_inspector.fixture_focus_component = "forge.animator";
+                        workspace.inspector = true;
                     }
                     break;
                 case 232:
@@ -6399,6 +6421,29 @@ int main(int argc, char** argv) {
                                 control->maximum.y <= control->clip_maximum.y;
                     }
                 }
+                if (fixture.root_motion && fixture.stage >= 256 && fixture.stage <= 258) {
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    const auto joint =
+                        forge::test::ui_targets.find("component-field:forge.animator:blend_root");
+                    if (!w || joint == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        component_inspector.fixture_focus_component.clear();
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const auto& target = joint->second;
+                        if (target.maximum.y > target.clip_maximum.y)
+                            ImGui::SetScrollY(w, w->Scroll.y + target.maximum.y -
+                                                     target.clip_maximum.y + 12);
+                        else if (target.minimum.y < target.clip_minimum.y)
+                            ImGui::SetScrollY(w, w->Scroll.y + target.minimum.y -
+                                                     target.clip_minimum.y - 12);
+                        captured_document_visible &= target.enabled &&
+                                                     target.minimum.y >= target.clip_minimum.y &&
+                                                     target.maximum.y <= target.clip_maximum.y;
+                    }
+                }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -6486,7 +6531,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 256)) {
+                        (fixture.root_motion && fixture.stage == 259)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
                             !fixture.audio_preview && !fixture.root_motion)

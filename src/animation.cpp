@@ -45,6 +45,7 @@ struct Playback {
     EntityRef reference;
     Pair assets, blend_assets;
     std::vector<AnimatedTransformChannel> transform_channels;
+    std::vector<float> blend_mask;
     std::unique_ptr<Sampler> sampler, blend_sampler;
     double blend = 0, previous_blend = 0, blend_from = 0, blend_elapsed = 0;
     double time = 0, previous = 0, advance = 0;
@@ -130,6 +131,25 @@ struct SampledPose {
     std::vector<LocalPose> local;
     std::optional<LocalPose> incoming, second, outgoing;
 };
+std::vector<float> subtree_mask(const Pair& assets, AssetId selected) {
+    if (!selected)
+        return {};
+    if (!assets.model)
+        throw ArchiveError("Blend subtree requires an imported model with durable skeleton nodes");
+    const auto& joints = assets.model.skeleton->joint_assets;
+    const auto& parents = assets.skeleton->info().parents;
+    if (joints.size() != parents.size())
+        throw ArchiveError("Reimport model to obtain durable blend joint identities");
+    const auto found = std::find(joints.begin(), joints.end(), selected);
+    if (found == joints.end())
+        throw ArchiveError("Blend subtree must identify a joint of this imported skeleton");
+    const auto root = std::size_t(found - joints.begin());
+    std::vector<float> result(parents.size(), 0);
+    // Admitted skeletons have parents before children, so one pass includes descendants.
+    for (std::size_t i = 0; i < parents.size(); ++i)
+        result[i] = i == root || (parents[i] >= 0 && result[std::size_t(parents[i])] != 0) ? 1 : 0;
+    return result;
+}
 SampledPose sample_pose(Playback& p, double time, double blend, bool temporary = false,
                         double outgoing_time = -1) {
     std::unique_ptr<Sampler> first, second;
@@ -170,8 +190,9 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
             outgoing_root = previous->sampled_root();
         }
     } else
-        model = blend_sampler ? sampler->sample_blended(ratio, *blend_sampler, float(blend))
-                              : sampler->sample(ratio);
+        model = blend_sampler
+                    ? sampler->sample_blended(ratio, *blend_sampler, float(blend), p.blend_mask)
+                    : sampler->sample(ratio);
     return {std::move(model), sampler->local_pose(), sampler->sampled_root(),
             blend_sampler ? blend_sampler->sampled_root() : std::nullopt, outgoing_root};
 }
@@ -222,7 +243,8 @@ RootRigid root_motion_delta(Playback& p, const SampledPose& pose, std::size_t jo
         const auto second =
             layer_motion(p, p.blend_assets, joint, p.tick_begin * ratio, p.tick_advance * ratio,
                          p.config.loop, p.time * ratio, pose.second);
-        incoming = root_blend(incoming, second, weight);
+        const auto root_weight = p.blend_mask.empty() ? 1. : double(p.blend_mask.at(joint));
+        incoming = root_blend(incoming, second, weight * root_weight);
     }
     const auto rest = root_rigid(p.assets.skeleton->joint_rest_pose(joint));
     return root_compose(root_compose(rest, incoming), root_inverse(rest));
@@ -604,6 +626,9 @@ struct AnimationRuntime::Impl {
                     sm.at("artifact_sha256"), cm.at("artifact_sha256")};
     }
     bool prepare_blend(Playback& p) {
+        if (p.config.blend_root.id && !p.config.blend_clip.id)
+            throw ArchiveError("Animator blend subtree needs a second clip");
+        p.blend_mask = subtree_mask(p.assets, p.config.blend_root.id);
         if (p.assets.model)
             p.transform_channels = p.assets.model.clip->transform_channels;
         if (!p.config.blend_clip.id)
@@ -694,7 +719,7 @@ struct AnimationRuntime::Impl {
             return;
         try {
             detail::validate_reflected_value(e, requested);
-            if (requested.blend_clip.id || requested.blend_weight != 0)
+            if (requested.blend_clip.id || requested.blend_weight != 0 || requested.blend_root.id)
                 throw ArchiveError(
                     "Named animation states cannot also use manual two-clip blending");
             if (!model_catalog) {
@@ -966,6 +991,8 @@ struct AnimationRuntime::Impl {
                 detail::validate_reflected_value(e, config);
                 if (!config.blend_clip.id && config.blend_weight != 0)
                     throw ArchiveError("Animator blend target needs a second clip");
+                if (config.blend_root.id && !config.blend_clip.id)
+                    throw ArchiveError("Animator blend subtree needs a second clip");
                 if (reload) {
                     auto assets = load(config);
                     if (!assets)
@@ -1026,6 +1053,12 @@ struct AnimationRuntime::Impl {
                            old->second.config.clip == config.clip &&
                            old->second.config.blend_clip == config.blend_clip &&
                            !old->second.definition) {
+                    if (old->second.config.blend_root != config.blend_root) {
+                        auto mask = subtree_mask(old->second.assets, config.blend_root.id);
+                        old->second.blend_mask = std::move(mask);
+                        old->second.discontinuous = true;
+                        old->second.model_pose_applied = false;
+                    }
                     if (old->second.config.enabled != config.enabled ||
                         old->second.config.root_motion != config.root_motion ||
                         old->second.config.root_joint != config.root_joint) {
