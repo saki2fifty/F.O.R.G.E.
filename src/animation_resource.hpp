@@ -21,6 +21,8 @@ struct AnimatedTransformChannel {
 struct ClipResourceData {
     std::shared_ptr<const Clip> native;
     std::unique_ptr<const asset_detail::MorphAnimation> morphs;
+    // Exact admitted defaults only for this clip's explicit morph curve nodes.
+    std::vector<asset_detail::MorphWeightsSample> morph_defaults;
     AssetId model, skeleton;
     // Legacy companions have no channel intent. Never infer it from sampled values.
     bool has_transform_channels = false;

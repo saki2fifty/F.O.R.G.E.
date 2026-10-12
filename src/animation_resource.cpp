@@ -31,8 +31,12 @@ std::size_t SkeletonResourceData::resident_bytes() const {
            joint_assets.capacity() * sizeof(AssetId);
 }
 std::size_t ClipResourceData::resident_bytes() const {
-    return sizeof(*this) + native->resident_bytes() + morphs->resident_bytes() +
-           transform_channels.capacity() * sizeof(AnimatedTransformChannel);
+    auto bytes = sizeof(*this) + native->resident_bytes() + morphs->resident_bytes() +
+                 transform_channels.capacity() * sizeof(AnimatedTransformChannel) +
+                 morph_defaults.capacity() * sizeof(asset_detail::MorphWeightsSample);
+    for (const auto& entry : morph_defaults)
+        bytes += entry.weights.capacity() * sizeof(float);
+    return bytes;
 }
 ModelAnimationResources::ModelAnimationResources(std::filesystem::path project)
     : project_(std::move(project)), skeletons_({1, 64, 64, 64 * 1024 * 1024}),
@@ -117,6 +121,16 @@ ModelAnimationRequest ModelAnimationResources::request(std::shared_ptr<const Ass
                 if (entry.at("file") == clip_member.artifact.file) {
                     data->morphs = std::make_unique<const asset_detail::MorphAnimation>(
                         entry.at("morph_tracks"));
+                    for (const auto& track : entry.at("morph_tracks")) {
+                        const auto node = track.at("node").get<std::size_t>();
+                        auto defaults = selection.index.hierarchy.at("nodes")
+                                            .at(node)
+                                            .at("weights")
+                                            .get<std::vector<float>>();
+                        require(defaults.size() == track.at("components").get<std::size_t>(),
+                                "Morph curve defaults differ from admitted target count");
+                        data->morph_defaults.push_back({node, std::move(defaults)});
+                    }
                     data->has_transform_channels = plan.at("version") == 2;
                     if (data->has_transform_channels)
                         for (const auto& channel : entry.at("transform_channels")) {

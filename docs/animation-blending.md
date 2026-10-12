@@ -7,7 +7,7 @@ manager, graph asset, dependency or gameplay language is introduced.
 ## Authored configuration and C++ control
 
 Animator keeps its existing skeleton, primary `clip`, enabled/play-on-start/loop
-and speed fields. Additive fields are `blend_clip` (nullable AnimationClipAsset),
+and speed fields. Additional fields are `blend_clip` (nullable AnimationClipAsset),
 `blend_weight` (0–1 target, default 0) and `transition_seconds` (0–10, default .25).
 Old documents load with these defaults. Inspector and normal property commands
 edit them; scene/prefab persistence, atomic history and asset reference discovery
@@ -52,8 +52,9 @@ secondary-only paths. Outside the mask those paths sample the primary rest value
 so changing a subtree cannot leave the previous secondary pose behind. Paths
 absent from both clips retain authored values.
 Root motion uses the selected root's effective mean interval weight, so an
-upper-only blend cannot replace base locomotion. This does not add morph layers:
-the existing two-clip rejection of morph-weight curves remains in force.
+upper-only blend cannot replace base locomotion. The same admitted hierarchy filter
+applies to animated morph nodes; a mesh outside the selected subtree keeps its
+base weights.
 
 Changing a valid subtree preserves phase and fades and snaps presentation at the
 next successful pose application. Recovery derives the mask from the saved typed
@@ -78,8 +79,39 @@ both explicit transform-channel sets is prepared once at resource adoption.
 Within that union, a missing channel uses its converter-provided rest value. Paths
 outside the union retain current authored/local values. Model instance resolution,
 complete-pose transform/physics validation and presentation snaps reuse existing
-owners. Two-clip morph-weight curves are explicitly rejected in this skeletal
-bundle; single-clip morph playback remains unchanged.
+owners. Morph curves use the explicit node union and exact admitted per-node defaults
+for a missing curve. Two-clip morph sampling shares normalized phase and evaluated
+mix with the skeletal pose. Nodes outside the union retain their usual defaults.
+
+## Additive overlays
+
+`blend_mode` is a reflected enum: Blend0 (backward-compatible default), Additive1.
+Additive requires a second clip. Named-state configuration excludes this direct
+mode along with the other manual mix fields; attaching states clears them in the
+existing transaction. Mode changes preserve phase/fade and snap the next complete
+pose application. Exact SDK/component layout changes require native module rebuild.
+
+An ordinary absolute second clip is converted relative to the admitted skeleton
+rest pose: `deltaT = sourceT - restT`, `deltaQ = inverse(restQ) * sourceQ`, and
+`ratioS = sourceS / restS`. The native base layer keeps weight1; Ozz additive_layers
+applies weight `mix * subtree[j]`. Translation offsets add in parent local axes;
+rotation is `baseQ * nlerp(identity, deltaQ, weight)` with shortest-hemisphere
+normalization; scale is `baseS * (1 + weight * (ratioS - 1))`. One LocalToModel pass
+remains. Signed scales are valid. A zero reference scale with unchanged zero uses
+identity ratio; a selected nonzero offset from zero is undefined and rejects that
+candidate before ECS writes. Excluded joints and weight0 have identity offsets.
+
+Additive morph weights are `base + weight * (secondary - modelDefault)`; ordinary
+Blend uses `(1-weight)*base + weight*secondary`. Evaluation uses doubles and checks
+finite float storage before returning the pose. Weights are not clamped to [0,1],
+preserving signed/extrapolated morph semantics. The explicit morph node union is
+bounded to the existing 1024-track profile, with at most256 targets per node.
+
+Root motion follows [018](decisions/018-animation-root-motion.md): additive mode
+composes the base interval with the secondary interval weighted from identity,
+then applies rest-root conjugation. A filtered-out root contributes no secondary
+motion. The raw roots are captured before the final pose is neutralized, preventing
+double application. This opt-in interval policy retains existing Blend behavior.
 
 Both samplers and resource leases live with their Animator. Second-clip admission
 is complete before either resource pair is adopted. Pending or failed replacements
@@ -90,11 +122,18 @@ The importer, optimized Ozz format and asset catalog schema are unchanged.
 
 ## Recovery and preview
 
-Private animation checkpoint v1 entries add a `blend` object: secondary clip,
+Private animation checkpoint entries retain a `blend` object: secondary clip,
 exact revision, evaluated weight, start weight, elapsed seconds, target and duration.
 Recovery validates bounded finite values, progress consistency, configuration and
 all exact revisions, then samples candidate poses before replacing any clocks.
 Older entries without `blend` remain valid for a single-clip zero-mix configuration.
+Named-state checkpoint v2 adds optional `frozen_morphs` beside its frozen local pose.
+Interrupted transitions freeze the complete evaluated expression. Recovery validates
+the exact explicit node union, target counts and finite values before adopting any
+clock or source. Old non-morph state checkpoints remain readable; a morph transition
+requires its complete frozen expression. Restart and completed fades clear both
+frozen sources. Independent outgoing seconds use the same presentation interpolation
+as outgoing skeletal sampling. No persistent asset or authored scene version changes.
 The exact-SDK header fingerprint changes with Animator's added fields; native
 modules must be rebuilt against the matching SDK. The SDK ABI version is unchanged.
 
@@ -121,4 +160,8 @@ clips. Reach also animates joint translation, exercising rest-value mixing where
 Idle has no translation channel. Scene 09 places three independent model instances
 at mixes 0, .5 and 1.
 Their source and admitted `.ozz` artifacts are included in editor ZIP assembly.
+Original Gallery38 OverlayColumn compares base, Blend and Additive, including signed
+morph curves. Gallery39 uses the same model with Base/Overlay/Rest automatic states;
+Rest has no morph curve and demonstrates model-default fallback. Both export through
+ordinary saved-scene dependency closure with no source glTF or compiler requirement.
 See the [user walkthrough](../manual/editor/animation-blending.md).

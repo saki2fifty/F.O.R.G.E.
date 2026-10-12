@@ -1,0 +1,793 @@
+{
+  "version": 3,
+  "asset_id": "b3fd9fce-9204-4d2b-93a7-4f20762e9a24",
+  "entities": [
+    {
+      "components": {
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.30000001192092896,
+          "z": 14.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.15,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "94f67803-8ff5-4818-a0f4-112773f9ea01",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "3a4e35ea-febc-4c28-9de4-4db2eb4720ef",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f297c233-2885-45b5-9941-0fe695ca07f1",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_weight": 0.0,
+          "clip": "94fde9b9-b533-4079-95f3-d9ab5d2ebe81",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+          "transition_seconds": 0.4,
+          "states": "f85e79f0-c93e-49fb-bf2a-91a21e37706f",
+          "state": 1,
+          "blend_root": null,
+          "root_motion": 0,
+          "root_joint": null,
+          "blend_mode": 0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "213b0bc5-b852-4fa5-8220-9726da32dfd1",
+      "name": "Base expression",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "b1812660-54ef-4fc7-972c-c184e412ae31"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2a186781-e20f-4126-8b77-cf2ba7bb4a7c",
+      "name": "Rig root",
+      "parent": "213b0bc5-b852-4fa5-8220-9726da32dfd1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "6abed594-1a57-4157-90bf-96056cc39525"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f7f2ecce-3c36-4beb-b40d-e5cd95505c49",
+      "name": "Upper joint",
+      "parent": "2a186781-e20f-4126-8b77-cf2ba7bb4a7c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "ba211baa-94a2-4383-8e5c-efba91783d90",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "0b7f4452-132e-4ec7-993b-583536cf46f9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5debeebc-7e6f-4f96-9ad7-d6c282ee9d5e",
+      "name": "Skinned column",
+      "parent": "2a186781-e20f-4126-8b77-cf2ba7bb4a7c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.5,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "13cb1881-3e8d-4477-b3c7-bdb382f40392"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fa0374e3-bd66-48ad-93b1-0eaa8eefd2e1",
+      "name": "Tip joint",
+      "parent": "f7f2ecce-3c36-4beb-b40d-e5cd95505c49",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "286c4864-1f3b-4dc4-95cb-026581a1609f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b0224a64-00bd-4c76-ae67-7b58cd9d9501",
+      "name": "Side joint",
+      "parent": "2a186781-e20f-4126-8b77-cf2ba7bb4a7c",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_weight": 0.0,
+          "clip": "94fde9b9-b533-4079-95f3-d9ab5d2ebe81",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+          "transition_seconds": 0.4,
+          "states": "f85e79f0-c93e-49fb-bf2a-91a21e37706f",
+          "state": 2,
+          "blend_root": null,
+          "root_motion": 0,
+          "root_joint": null,
+          "blend_mode": 0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "933b5a9e-95eb-4f97-811a-ddcdd82af25f",
+      "name": "Overlay expression",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "b1812660-54ef-4fc7-972c-c184e412ae31"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2d4afb01-2a89-4bae-afb3-88b658c85262",
+      "name": "Rig root",
+      "parent": "933b5a9e-95eb-4f97-811a-ddcdd82af25f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "6abed594-1a57-4157-90bf-96056cc39525"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "43841086-55d8-43d3-a2c9-85e02eceeb61",
+      "name": "Upper joint",
+      "parent": "2d4afb01-2a89-4bae-afb3-88b658c85262",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "ba211baa-94a2-4383-8e5c-efba91783d90",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "0b7f4452-132e-4ec7-993b-583536cf46f9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c34e89b7-07cb-467a-825f-0879bc936b7a",
+      "name": "Skinned column",
+      "parent": "2d4afb01-2a89-4bae-afb3-88b658c85262",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.5,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "13cb1881-3e8d-4477-b3c7-bdb382f40392"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2d7c53d7-ebb2-4c86-9fc4-e366e8023ae3",
+      "name": "Tip joint",
+      "parent": "43841086-55d8-43d3-a2c9-85e02eceeb61",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "286c4864-1f3b-4dc4-95cb-026581a1609f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "2d48e4a5-3ebe-4fb6-90aa-776f955c4166",
+      "name": "Side joint",
+      "parent": "2d4afb01-2a89-4bae-afb3-88b658c85262",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.animator": {
+          "blend_clip": null,
+          "blend_weight": 0.0,
+          "clip": "94fde9b9-b533-4079-95f3-d9ab5d2ebe81",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "skeleton": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+          "transition_seconds": 0.4,
+          "states": "f85e79f0-c93e-49fb-bf2a-91a21e37706f",
+          "state": 3,
+          "blend_root": null,
+          "root_motion": 0,
+          "root_joint": null,
+          "blend_mode": 0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": null
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "32ab6490-4a2a-4270-a72a-56b09f6d4456",
+      "name": "Rest defaults",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "b1812660-54ef-4fc7-972c-c184e412ae31"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8407ea7b-add1-4724-b76d-5d6cbc9f740e",
+      "name": "Rig root",
+      "parent": "32ab6490-4a2a-4270-a72a-56b09f6d4456",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "6abed594-1a57-4157-90bf-96056cc39525"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "73e3ed68-0415-4a35-93c3-c6f27e7c92a6",
+      "name": "Upper joint",
+      "parent": "8407ea7b-add1-4724-b76d-5d6cbc9f740e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "ba211baa-94a2-4383-8e5c-efba91783d90",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "0b7f4452-132e-4ec7-993b-583536cf46f9"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "41a47582-5d51-4afc-b996-9d1c77665fc1",
+      "name": "Skinned column",
+      "parent": "8407ea7b-add1-4724-b76d-5d6cbc9f740e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.5,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "13cb1881-3e8d-4477-b3c7-bdb382f40392"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9a8ea06a-a946-450e-b863-34c3501f3877",
+      "name": "Tip joint",
+      "parent": "73e3ed68-0415-4a35-93c3-c6f27e7c92a6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.model_source": {
+          "model": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+          "node": "286c4864-1f3b-4dc4-95cb-026581a1609f"
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "377ec170-cef3-4033-a618-e49f9f07aa43",
+      "name": "Side joint",
+      "parent": "8407ea7b-add1-4724-b76d-5d6cbc9f740e",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ]
+}

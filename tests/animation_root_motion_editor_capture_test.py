@@ -17,7 +17,8 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
     assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
     for label in ('animation-root-motion', 'animation-root-motion-150', 'animation-root-motion-200',
                   'live-animation', 'live-animation-150', 'live-animation-200',
-                  'animation-subtree', 'animation-subtree-150', 'animation-subtree-200'):
+                  'animation-subtree', 'animation-subtree-150', 'animation-subtree-200',
+                  'animation-overlay', 'animation-overlay-150', 'animation-overlay-200'):
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
-print('Native root motion, Live playback and subtree controls captured at100/150/200%')
+print('Native root motion, Live playback, subtree and additive controls captured at100/150/200%')

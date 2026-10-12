@@ -322,3 +322,18 @@ FORGE-owned column with a tip and separate side joint, plus root movement/turnin
 Select **Upper subtree - Reach** while stopped and change **Animator → Blend
 subtree**; None selects the whole rig. Preview, Play and source-free export share
 the selection. Local tests check actual skin geometry and subtree membership.
+
+## Additive and morph animation examples
+
+**38-animation-additive-overlays** compares the original base motion, full Blend
+replacement and Additive overlay. The overlay keeps base motion and adds offsets
+from the imported rest pose. Stop, select the right actor and change Animator's
+**Blend mode**, **Blend Weight** or **Blend subtree**. Preview and export use the
+same bone and signed morph curves.
+
+**39-animation-morph-states** starts three columns in Base, Overlay and Rest and
+automatically cycles them with smooth fades. Rest has no morph curve and returns
+to the model's default shape. Open **MorphMix.states.json** in Content to edit the
+states and exits. Both scenes use FORGE's original **OverlayColumn.gltf**, with
+editable source and cooked animation/mesh data included. No optional C++ code is
+needed to run them.

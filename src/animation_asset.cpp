@@ -1,4 +1,5 @@
 #include "animation_asset.hpp"
+#include "animation_additive.hpp"
 #include <bit>
 #include <cmath>
 #include <cstring>
@@ -145,7 +146,7 @@ struct Sampler::Impl {
     std::shared_ptr<const Skeleton> skeleton;
     std::shared_ptr<const Clip> clip;
     ozz::animation::SamplingJob::Context context;
-    std::vector<ozz::math::SoaTransform> local, blended, transition_source;
+    std::vector<ozz::math::SoaTransform> local, blended, transition_source, additive_source;
     std::vector<ozz::math::Float4x4> model;
     std::vector<ozz::math::SimdFloat4> primary_weights, secondary_weights;
     bool sampled = false;
@@ -202,7 +203,7 @@ std::vector<Matrix> Sampler::sample(float ratio) {
     return evaluate_model();
 }
 std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float weight,
-                                            std::span<const float> joint_mask) {
+                                            std::span<const float> joint_mask, bool additive) {
     if (this == &second || impl_->skeleton != second.impl_->skeleton || !std::isfinite(weight) ||
         weight < 0 || weight > 1)
         throw ArchiveError("Invalid skeletal blend weight or skeleton compatibility");
@@ -238,6 +239,46 @@ std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float 
     }
     ozz::animation::BlendingJob blend;
     blend.layers = ozz::make_span(layers);
+    ozz::animation::BlendingJob::Layer additive_layer;
+    if (additive) {
+        auto& source = impl_->additive_source;
+        source.resize(impl_->local.size());
+        for (std::size_t i = 0; i < source.size(); ++i) {
+            float values[10][4];
+            for (unsigned lane = 0; lane < 4; ++lane) {
+                const auto joint = i * 4 + lane;
+                LocalPose delta;
+                if (joint < impl_->model.size() && weight != 0 &&
+                    (joint_mask.empty() || joint_mask[joint] != 0))
+                    delta = additive_delta(pose_lane(second.impl_->local[i], lane),
+                                           impl_->skeleton->joint_rest_pose(joint));
+                for (unsigned j = 0; j < 3; ++j) {
+                    values[j][lane] = delta.translation[j];
+                    values[7 + j][lane] = delta.scale[j];
+                }
+                for (unsigned j = 0; j < 4; ++j)
+                    values[3 + j][lane] = delta.rotation[j];
+            }
+            source[i].translation = {ozz::math::simd_float4::LoadPtrU(values[0]),
+                                     ozz::math::simd_float4::LoadPtrU(values[1]),
+                                     ozz::math::simd_float4::LoadPtrU(values[2])};
+            source[i].rotation = {ozz::math::simd_float4::LoadPtrU(values[3]),
+                                  ozz::math::simd_float4::LoadPtrU(values[4]),
+                                  ozz::math::simd_float4::LoadPtrU(values[5]),
+                                  ozz::math::simd_float4::LoadPtrU(values[6])};
+            source[i].scale = {ozz::math::simd_float4::LoadPtrU(values[7]),
+                               ozz::math::simd_float4::LoadPtrU(values[8]),
+                               ozz::math::simd_float4::LoadPtrU(values[9])};
+        }
+        layers[0] = {1, ozz::make_span(impl_->local), {}};
+        blend.layers = {layers, 1};
+        additive_layer = {weight, ozz::make_span(source), {}};
+        if (!joint_mask.empty()) {
+            additive_layer.weight = 1;
+            additive_layer.joint_weights = ozz::make_span(impl_->secondary_weights);
+        }
+        blend.additive_layers = {&additive_layer, 1};
+    }
     blend.rest_pose = impl_->skeleton->impl_->value.joint_rest_poses();
     blend.output = ozz::make_span(impl_->blended);
     if (!blend.Run())

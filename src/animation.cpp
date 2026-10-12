@@ -1,4 +1,5 @@
 #include "animation_asset.hpp"
+#include "animation_morph_blend.hpp"
 #include "animation_playback_access.hpp"
 #include "animation_resource.hpp"
 #include "animation_root_motion.hpp"
@@ -42,10 +43,12 @@ struct Playback {
     Animator outgoing_config;
     double outgoing_time = 0, outgoing_previous = 0, outgoing_advance = 0;
     std::vector<LocalPose> frozen;
+    MorphPose frozen_morphs, morph_defaults;
     EntityRef reference;
     Pair assets, blend_assets;
     std::vector<AnimatedTransformChannel> transform_channels;
     std::vector<float> blend_mask;
+    std::vector<float> morph_mask;
     std::unique_ptr<Sampler> sampler, blend_sampler;
     double blend = 0, previous_blend = 0, blend_from = 0, blend_elapsed = 0;
     double time = 0, previous = 0, advance = 0;
@@ -130,6 +133,7 @@ struct SampledPose {
     std::vector<Matrix> model;
     std::vector<LocalPose> local;
     std::optional<LocalPose> incoming, second, outgoing;
+    MorphPose morphs;
 };
 std::vector<float> subtree_mask(const Pair& assets, AssetId selected) {
     if (!selected)
@@ -149,6 +153,39 @@ std::vector<float> subtree_mask(const Pair& assets, AssetId selected) {
     for (std::size_t i = 0; i < parents.size(); ++i)
         result[i] = i == root || (parents[i] >= 0 && result[std::size_t(parents[i])] != 0) ? 1 : 0;
     return result;
+}
+std::vector<float> morph_subtree_mask(const Playback& p, std::span<const float> joints) {
+    if (joints.empty() || p.morph_defaults.empty())
+        return {};
+    std::vector<float> result;
+    const auto& nodes = p.assets.model.skeleton->joint_nodes;
+    for (const auto& value : p.morph_defaults) {
+        const auto found = std::find(nodes.begin(), nodes.end(), value.node);
+        if (found == nodes.end())
+            throw ArchiveError("Morph curve node has no admitted skeleton mapping");
+        result.push_back(joints[std::size_t(found - nodes.begin())]);
+    }
+    return result;
+}
+MorphPose sample_morphs(const Playback& p, double time, double blend, double outgoing_time) {
+    if (!p.assets.model || p.morph_defaults.empty())
+        return {};
+    const auto incoming = p.assets.model.clip->morphs->sample(time);
+    if (p.definition) {
+        MorphPose outgoing;
+        if (!p.frozen.empty())
+            outgoing = p.frozen_morphs;
+        else if (p.outgoing_sampler)
+            outgoing = p.outgoing_assets.model.clip->morphs->sample(
+                outgoing_time < 0 ? p.outgoing_time : outgoing_time);
+        return blend_morph_samples(p.morph_defaults, outgoing, incoming, blend);
+    }
+    MorphPose second;
+    if (p.blend_assets.model)
+        second = p.blend_assets.model.clip->morphs->sample(
+            time * p.blend_assets.clip->info().duration / p.assets.clip->info().duration);
+    return blend_morph_samples(p.morph_defaults, incoming, second, p.blend_sampler ? blend : 0,
+                               p.config.blend_mode == 1, p.morph_mask);
 }
 SampledPose sample_pose(Playback& p, double time, double blend, bool temporary = false,
                         double outgoing_time = -1) {
@@ -190,11 +227,12 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
             outgoing_root = previous->sampled_root();
         }
     } else
-        model = blend_sampler
-                    ? sampler->sample_blended(ratio, *blend_sampler, float(blend), p.blend_mask)
-                    : sampler->sample(ratio);
-    return {std::move(model), sampler->local_pose(), sampler->sampled_root(),
-            blend_sampler ? blend_sampler->sampled_root() : std::nullopt, outgoing_root};
+        model = blend_sampler ? sampler->sample_blended(ratio, *blend_sampler, float(blend),
+                                                        p.blend_mask, p.config.blend_mode == 1)
+                              : sampler->sample(ratio);
+    return {std::move(model),        sampler->local_pose(),
+            sampler->sampled_root(), blend_sampler ? blend_sampler->sampled_root() : std::nullopt,
+            outgoing_root,           sample_morphs(p, time, blend, outgoing_time)};
 }
 RootRigid layer_motion(Playback& p, const Pair& assets, std::size_t joint, double begin,
                        double advance, bool loop, double time,
@@ -244,7 +282,9 @@ RootRigid root_motion_delta(Playback& p, const SampledPose& pose, std::size_t jo
             layer_motion(p, p.blend_assets, joint, p.tick_begin * ratio, p.tick_advance * ratio,
                          p.config.loop, p.time * ratio, pose.second);
         const auto root_weight = p.blend_mask.empty() ? 1. : double(p.blend_mask.at(joint));
-        incoming = root_blend(incoming, second, weight * root_weight);
+        incoming = p.config.blend_mode == 1
+                       ? root_compose(incoming, root_blend({}, second, weight * root_weight))
+                       : root_blend(incoming, second, weight * root_weight);
     }
     const auto rest = root_rigid(p.assets.skeleton->joint_rest_pose(joint));
     return root_compose(root_compose(rest, incoming), root_inverse(rest));
@@ -629,8 +669,10 @@ struct AnimationRuntime::Impl {
         if (p.config.blend_root.id && !p.config.blend_clip.id)
             throw ArchiveError("Animator blend subtree needs a second clip");
         p.blend_mask = subtree_mask(p.assets, p.config.blend_root.id);
-        if (p.assets.model)
+        if (p.assets.model) {
             p.transform_channels = p.assets.model.clip->transform_channels;
+            p.morph_defaults = merge_morph_defaults(p.assets.model.clip->morph_defaults, {});
+        }
         if (!p.config.blend_clip.id)
             return true;
         auto second = p.config;
@@ -645,10 +687,10 @@ struct AnimationRuntime::Impl {
             bool(loaded->model) != bool(p.assets.model) ||
             loaded->model_generation != p.assets.model_generation)
             throw ArchiveError("Blend clips must use the same exact skeleton and model revision");
-        if (p.assets.model && (!p.assets.model.clip->morphs->sample(0).empty() ||
-                               !loaded->model.clip->morphs->sample(0).empty()))
-            throw ArchiveError("Two-clip skeletal blending does not support morph-weight curves");
         if (loaded->model) {
+            p.morph_defaults =
+                merge_morph_defaults(p.morph_defaults, loaded->model.clip->morph_defaults);
+            p.morph_mask = morph_subtree_mask(p, p.blend_mask);
             std::set<std::pair<std::size_t, AnimatedTransformPath>> seen;
             for (const auto& c : p.transform_channels)
                 seen.emplace(c.node, c.path);
@@ -719,7 +761,8 @@ struct AnimationRuntime::Impl {
             return;
         try {
             detail::validate_reflected_value(e, requested);
-            if (requested.blend_clip.id || requested.blend_weight != 0 || requested.blend_root.id)
+            if (requested.blend_clip.id || requested.blend_weight != 0 || requested.blend_root.id ||
+                requested.blend_mode != 0)
                 throw ArchiveError(
                     "Named animation states cannot also use manual two-clip blending");
             if (!model_catalog) {
@@ -763,6 +806,7 @@ struct AnimationRuntime::Impl {
             config.state = target.id;
             std::map<AssetId, Pair> clips;
             std::vector<AnimatedTransformChannel> channels;
+            MorphPose morph_defaults;
             std::set<std::pair<std::size_t, AnimatedTransformPath>> seen;
             std::optional<Pair> primary;
             for (const auto& item : definition->states) {
@@ -785,9 +829,8 @@ struct AnimationRuntime::Impl {
                     throw ArchiveError(
                         "All animation states must use the same exact skeleton/model revision");
                 if (pair->model) {
-                    if (!pair->model.clip->morphs->sample(0).empty())
-                        throw ArchiveError(
-                            "Named skeletal states do not support morph-weight curves");
+                    morph_defaults =
+                        merge_morph_defaults(morph_defaults, pair->model.clip->morph_defaults);
                     for (const auto& channel : pair->model.clip->transform_channels)
                         if (seen.emplace(channel.node, channel.path).second)
                             channels.push_back(channel);
@@ -841,6 +884,7 @@ struct AnimationRuntime::Impl {
             next.state_clips = std::move(clips);
             next.assets = selected;
             next.transform_channels = std::move(channels);
+            next.morph_defaults = std::move(morph_defaults);
             next.reference = *context.reference(e.id());
             next.sampler = std::make_unique<Sampler>(next.assets.skeleton, next.assets.clip);
             next.blend = next.previous_blend = next.blend_from = 1;
@@ -853,8 +897,9 @@ struct AnimationRuntime::Impl {
                 next.blend = next.previous_blend = next.blend_from = 0;
                 if ((old->second.definition && old->second.blend < 1) ||
                     old->second.blend_sampler) {
-                    next.frozen =
-                        sample_pose(old->second, old->second.time, old->second.blend, true).local;
+                    auto pose = sample_pose(old->second, old->second.time, old->second.blend, true);
+                    next.frozen = std::move(pose.local);
+                    next.frozen_morphs = std::move(pose.morphs);
                 } else {
                     next.outgoing_assets = old->second.assets;
                     next.outgoing_config = old->second.config;
@@ -993,6 +1038,8 @@ struct AnimationRuntime::Impl {
                     throw ArchiveError("Animator blend target needs a second clip");
                 if (config.blend_root.id && !config.blend_clip.id)
                     throw ArchiveError("Animator blend subtree needs a second clip");
+                if (config.blend_mode > 1 || (config.blend_mode != 0 && !config.blend_clip.id))
+                    throw ArchiveError("Animator blend mode is invalid or needs a second clip");
                 if (reload) {
                     auto assets = load(config);
                     if (!assets)
@@ -1055,13 +1102,16 @@ struct AnimationRuntime::Impl {
                            !old->second.definition) {
                     if (old->second.config.blend_root != config.blend_root) {
                         auto mask = subtree_mask(old->second.assets, config.blend_root.id);
+                        auto morph_mask = morph_subtree_mask(old->second, mask);
                         old->second.blend_mask = std::move(mask);
+                        old->second.morph_mask = std::move(morph_mask);
                         old->second.discontinuous = true;
                         old->second.model_pose_applied = false;
                     }
                     if (old->second.config.enabled != config.enabled ||
                         old->second.config.root_motion != config.root_motion ||
-                        old->second.config.root_joint != config.root_joint) {
+                        old->second.config.root_joint != config.root_joint ||
+                        old->second.config.blend_mode != config.blend_mode) {
                         old->second.discontinuous = true;
                         old->second.model_pose_applied = false;
                     }
@@ -1251,6 +1301,7 @@ void AnimationRuntime::tick(float dt, std::uint64_t tick) {
             p.outgoing_assets = {};
             p.outgoing_time = p.outgoing_previous = p.outgoing_advance = 0;
             p.frozen.clear();
+            p.frozen_morphs.clear();
         }
         auto duration = p.assets.clip->info().duration;
         p.advance = double(dt) * p.config.playback_speed;
@@ -1394,6 +1445,7 @@ bool AnimationRuntime::control(EntityRef reference, AnimationControl command,
     p.outgoing_config = {};
     p.outgoing_time = p.outgoing_previous = p.outgoing_advance = 0;
     p.frozen.clear();
+    p.frozen_morphs.clear();
     p.sampler->reset();
     if (p.blend_sampler)
         p.blend_sampler->reset();
@@ -1541,7 +1593,7 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
                           {"scale", local.scale}});
     auto morphs = Json::array();
     if (p.assets.model)
-        for (const auto& morph : p.assets.model.clip->morphs->sample(time))
+        for (const auto& morph : pose.morphs)
             morphs.push_back({{"node", morph.node}, {"weights", morph.weights}});
     Json result = {{"parents", p.assets.skeleton->info().parents},
                    {"model", pose.model},
@@ -1645,6 +1697,9 @@ Json AnimationRuntime::checkpoint() const {
                    {"seconds", p.config.transition_seconds}}}});
             if (p.definition) {
                 auto frozen = Json::array();
+                auto frozen_morphs = Json::array();
+                for (const auto& value : p.frozen_morphs)
+                    frozen_morphs.push_back({{"node", value.node}, {"weights", value.weights}});
                 for (const auto& pose : p.frozen)
                     frozen.push_back({{"translation", pose.translation},
                                       {"rotation", pose.rotation},
@@ -1658,7 +1713,8 @@ Json AnimationRuntime::checkpoint() const {
                     {"outgoing_state", p.outgoing_sampler ? p.outgoing_config.state : 0},
                     {"outgoing_time", p.outgoing_time},
                     {"outgoing_speed", p.outgoing_sampler ? p.outgoing_config.playback_speed : 0},
-                    {"frozen", frozen}};
+                    {"frozen", frozen},
+                    {"frozen_morphs", frozen_morphs}};
             }
         }
     return {{"version", 2},
@@ -1709,6 +1765,7 @@ void AnimationRuntime::restore(const Json& data) {
         Animator outgoing_config;
         double outgoing_time = 0;
         std::vector<LocalPose> frozen;
+        MorphPose frozen_morphs;
         bool entry_pending = false;
     };
     std::vector<RestoreValue> values;
@@ -1798,6 +1855,22 @@ void AnimationRuntime::restore(const Json& data) {
                 value.frozen.push_back({pose.at("translation").get<std::array<float, 3>>(),
                                         pose.at("scale").get<std::array<float, 3>>(),
                                         pose.at("rotation").get<std::array<float, 4>>()});
+            const auto morphs = state.value("frozen_morphs", Json::array());
+            if (!morphs.is_array() ||
+                (value.frozen.empty() ? !morphs.empty() : morphs.size() != p.morph_defaults.size()))
+                throw ArchiveError("Animation state recovery frozen morph node count differs");
+            for (const auto& morph : morphs) {
+                const auto& weights = morph.at("weights");
+                if (!weights.is_array() || weights.size() > 256)
+                    throw ArchiveError(
+                        "Animation state recovery morph target count exceeds profile");
+                value.frozen_morphs.push_back(
+                    {morph.at("node").get<std::size_t>(), weights.get<std::vector<float>>()});
+            }
+            std::sort(value.frozen_morphs.begin(), value.frozen_morphs.end(),
+                      [](const auto& a, const auto& b) { return a.node < b.node; });
+            if (!value.frozen.empty())
+                (void)blend_morph_samples(p.morph_defaults, {}, value.frozen_morphs, 1);
             if (!value.frozen.empty()) {
                 Sampler check(p.assets.skeleton, p.assets.clip);
                 (void)check.sample_transition(float(time / p.assets.clip->info().duration),
@@ -1827,10 +1900,12 @@ void AnimationRuntime::restore(const Json& data) {
             auto old_source = std::move(p.outgoing_sampler);
             auto old_assets = p.outgoing_assets;
             auto old_frozen = std::move(p.frozen);
+            auto old_morphs = std::move(p.frozen_morphs);
             const auto old_time = p.outgoing_time;
             p.outgoing_sampler = std::move(value.outgoing);
             p.outgoing_assets = value.outgoing_assets;
-            p.frozen = value.frozen;
+            p.frozen = std::move(value.frozen);
+            p.frozen_morphs = std::move(value.frozen_morphs);
             p.outgoing_time = value.outgoing_time;
             try {
                 (void)sample_pose(p, time, blend, true);
@@ -1839,16 +1914,22 @@ void AnimationRuntime::restore(const Json& data) {
                                              {{entity.entity, blend}});
             } catch (...) {
                 value.outgoing = std::move(p.outgoing_sampler);
+                value.frozen = std::move(p.frozen);
+                value.frozen_morphs = std::move(p.frozen_morphs);
                 p.outgoing_sampler = std::move(old_source);
                 p.outgoing_assets = old_assets;
                 p.frozen = std::move(old_frozen);
+                p.frozen_morphs = std::move(old_morphs);
                 p.outgoing_time = old_time;
                 throw;
             }
             value.outgoing = std::move(p.outgoing_sampler);
+            value.frozen = std::move(p.frozen);
+            value.frozen_morphs = std::move(p.frozen_morphs);
             p.outgoing_sampler = std::move(old_source);
             p.outgoing_assets = old_assets;
             p.frozen = std::move(old_frozen);
+            p.frozen_morphs = std::move(old_morphs);
             p.outgoing_time = old_time;
         } else {
             if (entry.contains("states"))
@@ -1884,6 +1965,7 @@ void AnimationRuntime::restore(const Json& data) {
                 std::swap(p.outgoing_config, value.outgoing_config);
                 std::swap(p.outgoing_time, value.outgoing_time);
                 std::swap(p.frozen, value.frozen);
+                std::swap(p.frozen_morphs, value.frozen_morphs);
             }
     };
     swap_sources();
@@ -1916,6 +1998,7 @@ void AnimationRuntime::restore(const Json& data) {
             p.outgoing_time = p.outgoing_previous = value.outgoing_time;
             p.outgoing_advance = 0;
             p.frozen = std::move(value.frozen);
+            p.frozen_morphs = std::move(value.frozen_morphs);
         }
         p.sampler->reset();
         if (p.blend_sampler)

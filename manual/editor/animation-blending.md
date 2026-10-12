@@ -32,8 +32,33 @@ joint and its children. **None** blends the whole skeleton. **Blend Weight** and
 subtree; clear the subtree before removing the second clip.
 
 Preview, Play and export use the same selection. With root motion enabled, an
-upper-only selection keeps the primary clip's root movement. This filter applies
-to skeletal animation; two-clip blending still rejects morph-weight curves.
+upper-only selection keeps the primary clip's root movement. The filter also applies
+to animated morph nodes: a mesh outside that subtree keeps its base expression.
+
+## Add a motion over another motion
+
+Open **Scenes / 38-animation-additive-overlays.scene.json** and press **Play**.
+The left column shows the base motion. The middle blends fully to the second clip.
+The right keeps the base and adds the second clip's movement and deformation.
+
+Stop, select **Additive - overlay**, and find **Animator → Blend mode**. Choose
+**Additive** to add the second clip's changes relative to the imported rest pose.
+Choose **Blend** to mix the two poses normally. **Blend Weight**, **Transition
+Seconds** and **Blend subtree** control either mode. Both clips keep their timing
+when you change the mode. The Animation Preview document identifies the selected
+mode and uses the same calculation.
+
+## Blend animated shapes
+
+Imported morph animations can change mesh shapes, such as facial expressions.
+FORGE blends these curves along with bone animation. Signed weights and values
+above1 are preserved when the source uses them.
+
+Open **Scenes / 39-animation-morph-states.scene.json**, then press **Play**. Three
+columns start in different expressions and automatically fade through Base,
+Overlay and Rest. Rest has no shape curve, so it returns to the model's default
+shape. Stop and open **MorphMix.states.json** in Content to edit its states, fade
+times and exits. Preview and exported games use the same expressions.
 
 ## Control it from C++
 
@@ -64,6 +89,5 @@ Step advances one simulation tick. Loop repeats the primary clip's phase. With
 Loop off, playback holds its final phase and mix when the primary clip finishes.
 
 Save the Scene and export normally. Both referenced clips are included as cooked
-data, and the standalone game plays the same blend without the source glTF,
-editor or compiler. Clips with morph-weight curves currently use single-clip
-playback; FORGE diagnoses them when selected for this two-clip skeletal blend.
+data, and the standalone game plays the same bone and morph blend without the
+source glTF, editor or compiler.

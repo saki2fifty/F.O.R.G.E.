@@ -1,0 +1,50 @@
+{
+  "format": "forge.animation-states",
+  "version": 2,
+  "asset_id": "f85e79f0-c93e-49fb-bf2a-91a21e37706f",
+  "skeleton": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+  "entry": 1,
+  "next_id": 4,
+  "next_marker_id": 1,
+  "states": [
+    {
+      "id": 1,
+      "name": "Base",
+      "clip": "94fde9b9-b533-4079-95f3-d9ab5d2ebe81",
+      "loop": true,
+      "speed": 1,
+      "transition_seconds": 0.4,
+      "exit": {
+        "state": 2,
+        "phase": 0.75
+      },
+      "markers": []
+    },
+    {
+      "id": 2,
+      "name": "Overlay",
+      "clip": "a66f4aff-6465-4be0-b596-887a92cbe3cf",
+      "loop": true,
+      "speed": 1,
+      "transition_seconds": 0.4,
+      "exit": {
+        "state": 3,
+        "phase": 0.75
+      },
+      "markers": []
+    },
+    {
+      "id": 3,
+      "name": "Rest",
+      "clip": "2870d6c4-5745-438a-bb88-21b45e1ec2da",
+      "loop": true,
+      "speed": 1,
+      "transition_seconds": 0.4,
+      "exit": {
+        "state": 1,
+        "phase": 0.75
+      },
+      "markers": []
+    }
+  ]
+}

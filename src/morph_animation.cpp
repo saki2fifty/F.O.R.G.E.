@@ -59,6 +59,9 @@ MorphAnimation::MorphAnimation(const Json& tracks) {
             track.values.push_back(scalar(value));
         tracks_.push_back(std::move(track));
     }
+    // Derived order is established once, allowing a linear runtime curve merge.
+    std::sort(tracks_.begin(), tracks_.end(),
+              [](const Track& a, const Track& b) { return a.node < b.node; });
 }
 std::size_t MorphAnimation::resident_bytes() const {
     std::size_t bytes = sizeof(*this) + tracks_.capacity() * sizeof(Track);

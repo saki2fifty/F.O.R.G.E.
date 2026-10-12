@@ -224,3 +224,17 @@ and matching C++ consumers form the gate. Existing scenes default to Master;
 legacy game settings resolve category volumes to1 without rewriting source files.
 The exact SDK component fingerprint/layout changes require matching C++ rebuild.
 Windows rendering and physical listening remain separate acceptance work.
+
+## Additive overlays and morph mixing
+
+- Animator's Blend mode now offers opt-in Additive overlays relative to the exact
+  imported skeleton rest pose, using the existing subtree filter and one native
+  LocalToModel pass. C++ changes preserve the shared clip phase and fade.
+- Two-clip and named-state playback now blend imported morph curves with explicit
+  node ownership and model-default fallback. Interrupted fades retain their full
+  expression through validated recovery; signed and extrapolated weights remain.
+- Additive root extraction retains base displacement and composes the weighted
+  secondary interval under the existing complete transform/physics validation.
+- Original editable Gallery38/39 compare additive motion and automatic morph
+  states. Their cooked data follows ordinary source-free export. The packaged C++
+  mix example uses the matching SDK and existing typed component path.

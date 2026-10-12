@@ -147,3 +147,14 @@ Gameplay System. Pass a durable ModelNodeAsset reference belonging to that impor
 skeleton; an empty reference blends the whole rig. Assign compatible primary and
 secondary clips first. The engine retains phase and its current fade. Rebuild your
 module against the matching SDK after the Animator layout update.
+
+## Choose a blend or additive overlay
+
+`SetAnimationMix.hpp` changes the existing Animator mode, weight and fade duration
+from a C++ fixed System before Animation. Mode0 blends absolute poses; mode1 adds
+offsets from the imported rest pose. It returns false for invalid input or missing
+secondary clips. Assign both clips first. Combine it with `SetBlendSubtree.hpp`
+to select an upper-body overlay without changing the playback phase. The actual
+native SDK integration fixture compiles and executes these helpers, including
+morph curves and fresh shared-worker recovery. Use the SDK from the same editor
+build and rebuild your module after updating FORGE.

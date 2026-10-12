@@ -79,7 +79,8 @@ template <class T> Json encode(const T& p) {
                 {"state", p.state},
                 {"root_motion", p.root_motion},
                 {"root_joint", p.root_joint.id ? Json(p.root_joint.id) : Json()},
-                {"blend_root", p.blend_root.id ? Json(p.blend_root.id) : Json()}};
+                {"blend_root", p.blend_root.id ? Json(p.blend_root.id) : Json()},
+                {"blend_mode", p.blend_mode}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -244,10 +245,13 @@ template <class T> Value decode(const Json& p) {
             v.root_joint.id = p.at("root_joint").get<AssetId>();
         if (p.contains("blend_root") && !p.at("blend_root").is_null())
             v.blend_root.id = p.at("blend_root").get<AssetId>();
+        v.blend_mode = p.value("blend_mode", std::uint32_t(0));
         if (!v.blend_clip.id && v.blend_weight != 0)
             throw std::runtime_error("Animator blend target needs a second clip");
         if (v.blend_root.id && !v.blend_clip.id)
             throw std::runtime_error("Animator blend subtree needs a second clip");
+        if (v.blend_mode > 1 || (v.blend_mode != 0 && !v.blend_clip.id))
+            throw std::runtime_error("Animator blend mode is invalid or needs a second clip");
         return v;
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         AudioSource v;
@@ -520,7 +524,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("state")
             .template member<std::uint32_t>("root_motion")
             .template member<AssetRef<ModelNodeAsset>>("root_joint")
-            .template member<AssetRef<ModelNodeAsset>>("blend_root");
+            .template member<AssetRef<ModelNodeAsset>>("blend_root")
+            .template member<std::uint32_t>("blend_mode");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -1176,7 +1181,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
     }
     if (name == "forge.animator" || name == "forge.transform_animator") {
-        if (field == "root_motion") {
+        if (field == "blend_mode") {
+            value["display_name"] = "Blend mode";
+            value["description"] = "Blend mixes two absolute poses; Additive adds second-clip "
+                                   "offsets relative to the admitted skeleton rest pose";
+        } else if (field == "root_motion") {
             value["display_name"] = "Root motion";
             value["description"] =
                 "Off keeps the animated root in its pose; Apply moves this model entity; Extract "
@@ -1365,6 +1374,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.audio_source" && field == "bus") {
         type = "forge.AudioBus";
         names = {"Master", "Music", "Effects", "Dialogue"};
+    } else if (component == "forge.animator" && field == "blend_mode") {
+        type = "forge.AnimationBlendMode";
+        names = {"Blend", "Additive"};
     } else if (component == "forge.animator" && field == "root_motion") {
         type = "forge.RootMotionMode";
         names = {"Off", "Apply", "Extract"};
@@ -1635,7 +1647,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         current["material_variant"] = nullptr;
     if (std::string_view(type.name) == "forge.animator")
         for (const auto* field : {"blend_clip", "blend_weight", "transition_seconds", "states",
-                                  "state", "root_motion", "root_joint", "blend_root"})
+                                  "state", "root_motion", "root_joint", "blend_root", "blend_mode"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")

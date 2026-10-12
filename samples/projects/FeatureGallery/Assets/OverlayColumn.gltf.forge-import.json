@@ -1,0 +1,159 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.gltf",
+    "importer_revision": "2f1b3d89cccc601a41404fcb337357b0170a47c6af88ade50680890b5dfb1eb3",
+    "key_version": 2,
+    "output_format": "forge.model-bundle",
+    "output_version": 4,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "6655da879b4b805324fdebe3e318f1835c4ab007bbfb8421f104991098dfbf3a",
+    "source_dependencies": {},
+    "tool_revisions": {
+      "gltf2ozz": "1d931ef96576c645eba57be33f525895cacf8feeb38714145072c000dfb3b468"
+    }
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "55f69a451085afb712c21f4f403a54b18df2756b59285323ccded41e1426958d",
+        "display_name": "Model skeleton",
+        "exporter_key": "",
+        "id": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+        "key": "member/03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+        "removed": false,
+        "semantic_digest": "97edb6223910b54d1757f05b9a3dcaab02d9aa50068ddb179a6df47ee536db0a",
+        "type": "skeleton"
+      },
+      {
+        "content_digest": "509c7d86e865d7826cff6d53a5367de09cc0988643c3c26d5d7644aa7a762564",
+        "display_name": "Skinned column",
+        "exporter_key": "",
+        "id": "0b7f4452-132e-4ec7-993b-583536cf46f9",
+        "key": "member/0b7f4452-132e-4ec7-993b-583536cf46f9",
+        "removed": false,
+        "semantic_digest": "ecfabf03ffd0550aed2903a5dc614847c312775858e2d93648811bb6645f9241",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "a224b2e61205be8f188f3ab0ee3b2fb9dd25c49b9642cfa25e0d0df3c67be3bd",
+        "display_name": "Blue column",
+        "exporter_key": "",
+        "id": "0e0f5170-2a26-4a19-87fa-f18bffd3d923",
+        "key": "member/0e0f5170-2a26-4a19-87fa-f18bffd3d923",
+        "removed": false,
+        "semantic_digest": "4853e70e8e6238cac5a5cec5db93a929978d747f319de733513affd768451603",
+        "type": "material"
+      },
+      {
+        "content_digest": "31c244006c6531292e4fefcc0768b5fd21d64ec7722fa0e9f6db743c51675bda",
+        "display_name": "Tip joint",
+        "exporter_key": "",
+        "id": "13cb1881-3e8d-4477-b3c7-bdb382f40392",
+        "key": "member/13cb1881-3e8d-4477-b3c7-bdb382f40392",
+        "removed": false,
+        "semantic_digest": "cd33424833a787736aa9fea0b318f0e7bf23296ea67a150b59dd7adc623ff6d2",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "eb3d28ee18680880ebb8b93ac23917d2ca443ab8e7674294e45f5c9ab1b61dfb",
+        "display_name": "Side joint",
+        "exporter_key": "",
+        "id": "286c4864-1f3b-4dc4-95cb-026581a1609f",
+        "key": "member/286c4864-1f3b-4dc4-95cb-026581a1609f",
+        "removed": false,
+        "semantic_digest": "e4d5a6f7e41c31a13ba2f9ab95c75ef00f7dd552b83549739285905795850ef9",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "5cdd1eafb9f9461b98658b4beb61cbd7fa700165ac85eb3de0e4f4d57dbbd1b5",
+        "display_name": "Rest",
+        "exporter_key": "",
+        "id": "2870d6c4-5745-438a-bb88-21b45e1ec2da",
+        "key": "member/2870d6c4-5745-438a-bb88-21b45e1ec2da",
+        "removed": false,
+        "semantic_digest": "c90567b9f6bfefe63cbdafcfe55e2150911d86dd118d28347b1e4b1e47ead8c2",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "c620d52d59b5b5d7dd350fce711f23129cc8048cdbbb239f38fff0c359907477",
+        "display_name": "Upper joint",
+        "exporter_key": "",
+        "id": "6abed594-1a57-4157-90bf-96056cc39525",
+        "key": "member/6abed594-1a57-4157-90bf-96056cc39525",
+        "removed": false,
+        "semantic_digest": "2586f485dda5aba1180c82b45c7b3ecf83329a88e98101dd951a66e4c5d83cc2",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "3a6ffc8ad4e1dfde3ed90b4936780d69c1f7c601d41a46f484e983577e85eeb2",
+        "display_name": "Base",
+        "exporter_key": "",
+        "id": "94fde9b9-b533-4079-95f3-d9ab5d2ebe81",
+        "key": "member/94fde9b9-b533-4079-95f3-d9ab5d2ebe81",
+        "removed": false,
+        "semantic_digest": "e496b51d9948745fa1a3b4ba1e1f689e664fa3bda5113e761589c1e22529b92c",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "912f68d41c86a94d2da31b0b05d1c1ab0cdb165109cdf2152137ba4e138065e6",
+        "display_name": "Overlay",
+        "exporter_key": "",
+        "id": "a66f4aff-6465-4be0-b596-887a92cbe3cf",
+        "key": "member/a66f4aff-6465-4be0-b596-887a92cbe3cf",
+        "removed": false,
+        "semantic_digest": "1e7fb9a19946d526660aa229579d8eba15a0b0535628ba51e8a2872b92075bac",
+        "type": "animation_clip"
+      },
+      {
+        "content_digest": "2823887d91b708087372cda27000a6dc2bb3fb5448da5b51f920f8a610cb0ab0",
+        "display_name": "Rig root",
+        "exporter_key": "",
+        "id": "b1812660-54ef-4fc7-972c-c184e412ae31",
+        "key": "member/b1812660-54ef-4fc7-972c-c184e412ae31",
+        "removed": false,
+        "semantic_digest": "6166162955bbb2bd144f311d3cdbf6bb75ea4c5977334fc1b5dfff800176f4f6",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "869c818cead1d4a3669d0d47a1fd1373c687400e954bdf913000c05b2377677f",
+        "display_name": "Column",
+        "exporter_key": "",
+        "id": "ba211baa-94a2-4383-8e5c-efba91783d90",
+        "key": "member/ba211baa-94a2-4383-8e5c-efba91783d90",
+        "removed": false,
+        "semantic_digest": "e6488f6713f960f3d27f3c1554612856859399133cdb35627e3d8901ad61c3e9",
+        "type": "mesh"
+      }
+    ],
+    "evidence_schema": "forge.gltf-model.v1",
+    "format": "forge.subasset-identity",
+    "owner": "0df4bee7-11b2-4411-ab6f-417838bab27d",
+    "source": "Assets/OverlayColumn.gltf",
+    "source_digest": "6655da879b4b805324fdebe3e318f1835c4ab007bbfb8421f104991098dfbf3a",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.gltf",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

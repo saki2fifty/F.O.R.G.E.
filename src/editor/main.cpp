@@ -3755,6 +3755,7 @@ int main(int argc, char** argv) {
                 case 251:
                 case 254:
                 case 257:
+                case 260:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3771,6 +3772,7 @@ int main(int argc, char** argv) {
                 case 252:
                 case 255:
                 case 258:
+                case 261:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3899,6 +3901,23 @@ int main(int argc, char** argv) {
                                      .at("forge.animator")
                                      .at("blend_root")
                                      .is_null()) {
+                                selected = row.at("id").get<std::string>();
+                                break;
+                            }
+                        component_inspector.fixture_focus_component = "forge.animator";
+                        workspace.inspector = true;
+                    }
+                    break;
+                case 259:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        files.document.open_scene(
+                            "Scenes/38-animation-additive-overlays.scene.json");
+                        const auto authored = scene.snapshot();
+                        for (const auto& row : authored.at("entities"))
+                            if (row.at("components").contains("forge.animator") &&
+                                row.at("components").at("forge.animator").value("blend_mode", 0u) ==
+                                    1) {
                                 selected = row.at("id").get<std::string>();
                                 break;
                             }
@@ -6421,10 +6440,11 @@ int main(int argc, char** argv) {
                                 control->maximum.y <= control->clip_maximum.y;
                     }
                 }
-                if (fixture.root_motion && fixture.stage >= 256 && fixture.stage <= 258) {
+                if (fixture.root_motion && fixture.stage >= 256 && fixture.stage <= 261) {
                     auto* w = ImGui::FindWindowByName("Inspector");
-                    const auto joint =
-                        forge::test::ui_targets.find("component-field:forge.animator:blend_root");
+                    const auto joint = forge::test::ui_targets.find(
+                        fixture.stage <= 258 ? "component-field:forge.animator:blend_root"
+                                             : "component-field:forge.animator:blend_mode");
                     if (!w || joint == forge::test::ui_targets.end())
                         captured_document_visible = false;
                     else {
@@ -6531,7 +6551,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 259)) {
+                        (fixture.root_motion && fixture.stage == 262)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
                             !fixture.audio_preview && !fixture.root_motion)

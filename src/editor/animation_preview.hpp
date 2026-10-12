@@ -165,6 +165,11 @@ class AnimationPreviewEditor {
             const bool can_blend =
                 target_.entity && scene.entity(target_.entity.str()).has<Animator>() &&
                 bool(scene.entity(target_.entity.str()).get<Animator>().blend_clip.id);
+            if (can_blend)
+                ImGui::TextUnformatted(
+                    scene.entity(target_.entity.str()).get<Animator>().blend_mode == 1
+                        ? "Additive overlay: adds offsets to the base clip."
+                        : "Blend: mixes the two clip poses.");
             ImGui::BeginDisabled(!can_blend);
             bool changed = ImGui::SliderFloat("Blend target", &weight_, 0, 1, "%.3f");
             FORGE_UI_PROBE("animation_preview:weight");

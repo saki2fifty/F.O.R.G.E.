@@ -37,6 +37,8 @@ struct Animator {
     AssetRef<ModelNodeAsset> root_joint{};
     // Null blends the whole skeleton; otherwise second clip affects this subtree.
     AssetRef<ModelNodeAsset> blend_root{};
+    // 0 mixes absolute poses; 1 adds second-clip offsets relative to skeleton rest.
+    std::uint32_t blend_mode = 0;
     bool operator==(const Animator&) const = default;
 };
 } // namespace forge

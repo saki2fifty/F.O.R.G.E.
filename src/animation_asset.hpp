@@ -55,7 +55,8 @@ class Sampler {
     std::vector<Matrix> sample(float ratio);
     // Native Ozz local-space blending, before the single local-to-model pass.
     std::vector<Matrix> sample_blended(float ratio, Sampler& second, float weight,
-                                       std::span<const float> joint_mask = {});
+                                       std::span<const float> joint_mask = {},
+                                       bool additive = false);
     // State transitions use independent clip phases. Interrupted transitions can
     // blend from an already evaluated local pose without another sampling layer.
     std::vector<Matrix> sample_transition(float ratio, Sampler& outgoing, float outgoing_ratio,

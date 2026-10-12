@@ -29,6 +29,14 @@ at the mean of the interval's previous and current weights. Frozen outgoing pose
 contribute identity motion. Rest-root conjugation converts the resulting delta
 to model-holder local coordinates before entity scale.
 
+Direct Additive mode extends this interval rule explicitly: retain the full base
+delta, compose it with the secondary delta weighted from identity at the same mean
+interval weight, including the subtree root mask, then perform rest conjugation.
+This treats secondary motion as an additional local displacement rather than a
+replacement locomotion source. Blend mode and state fades retain the existing
+weighted interval rule. Both modes neutralize root translation/rotation only after
+raw per-layer capture, and preserve the existing complete pose/physics transaction.
+
 Apply composes the exact actor local affine with this rigid delta, uses the
 existing signed TRS decomposition with its continuity hint, and requires the
 actor's scale to remain unchanged. Unrepresentable shear or scale changes reject

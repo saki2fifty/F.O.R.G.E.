@@ -534,10 +534,11 @@ class AnimationStatesEditor {
                               {"state", 0},
                               {"blend_clip", nullptr},
                               {"blend_root", nullptr},
+                              {"blend_mode", 0},
                               {"blend_weight", 0}};
             // Clear weight before clearing its clip; each staged property must remain valid.
             for (const auto* field :
-                 {"blend_weight", "blend_root", "blend_clip", "states", "state"}) {
+                 {"blend_weight", "blend_root", "blend_mode", "blend_clip", "states", "state"}) {
                 const auto& value = values.at(field);
                 commands.push_back({{"operation", "property.set"},
                                     {"arguments",
