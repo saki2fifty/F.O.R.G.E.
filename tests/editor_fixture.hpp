@@ -27,7 +27,7 @@ struct EditorFixture {
     Uint64 started = SDL_GetTicks(), stage_started = started;
     bool prepared = false, workflow = false, physics = false, sdk_play = false,
          sdk_onboarding = false, animation_exits = false, audio_falloff = false,
-         audio_cones = false, audio_mixer = false;
+         audio_cones = false, audio_mixer = false, audio_preview = false;
     bool scene_create = false, hierarchy_create = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
@@ -54,6 +54,9 @@ struct EditorFixture {
         audio_mixer = argc == 4 && std::string(argv[2]) == "--audio-mixer";
         if (audio_mixer)
             stage = 229;
+        audio_preview = argc == 4 && std::string(argv[2]) == "--audio-preview";
+        if (audio_preview)
+            stage = 235;
         sdk_onboarding = argc == 4 && std::string(argv[2]) == "--sdk-onboarding";
         if (sdk_onboarding)
             sdk_root = std::filesystem::absolute(std::filesystem::u8path(argv[3]));
@@ -61,7 +64,7 @@ struct EditorFixture {
         // --sdk-play needs EXE OUTPUT --sdk-play PROJECT SDK USERDATA: 6 args.
         sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
         if (!physics && !sdk_play && !sdk_onboarding && !animation_exits && !audio_falloff &&
-            !audio_cones && !audio_mixer && argc != 2 &&
+            !audio_cones && !audio_mixer && !audio_preview && argc != 2 &&
             (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
                 "Expected fixture output directory [--workflow | --physics PROJECT | "
@@ -78,11 +81,13 @@ struct EditorFixture {
             std::filesystem::create_directories(user_data);
             config = output / ".fixture-preferences";
         } else {
-            project = physics || animation_exits || audio_falloff || audio_cones || audio_mixer
+            project = physics || animation_exits || audio_falloff || audio_cones || audio_mixer ||
+                              audio_preview
                           ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                           : output / ("project-" + AssetId::generate().str());
             config = physics ? output / ".fixture-preferences" : project / ".fixture-preferences";
-            if (!physics && !animation_exits && !audio_falloff && !audio_cones && !audio_mixer)
+            if (!physics && !animation_exits && !audio_falloff && !audio_cones && !audio_mixer &&
+                !audio_preview)
                 SceneDocument::create_project(project, "UX fixture");
         }
         std::filesystem::create_directories(config);
@@ -91,12 +96,14 @@ struct EditorFixture {
         active_wait_probe = nullptr;
         std::error_code ec;
         if (!physics && !sdk_play && !animation_exits && !audio_falloff && !audio_cones &&
-            !audio_mixer)
+            !audio_mixer && !audio_preview)
             std::filesystem::remove_all(project, ec);
         if (sdk_play)
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
+        if (audio_preview && stage >= 235 && stage <= 237)
+            return "Audio clip###Audio clip";
         if (audio_mixer && stage >= 229 && stage <= 231)
             return "Inspector";
         if (audio_mixer && stage >= 232 && stage <= 234)
@@ -607,7 +614,10 @@ struct EditorFixture {
                                "audio-mix-channel-200",
                                "audio-mix-volumes",
                                "audio-mix-volumes-150",
-                               "audio-mix-volumes-200"};
+                               "audio-mix-volumes-200",
+                               "audio-clip-preview",
+                               "audio-clip-preview-150",
+                               "audio-clip-preview-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

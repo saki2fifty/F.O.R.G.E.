@@ -1,5 +1,16 @@
 # 2026-10-12
 
+## AudioClip editor preview
+
+- AudioClip tabs can Play/Restart, Stop and Loop a clip without game Play, with
+  temporary preview volume independent of saved game mix defaults.
+- One isolated preview uses FORGE's existing audio provider and published clip
+  admission; close, selection/revision/project changes and Play/import locks
+  release its sound/device/cache. Selecting a clip does not autoplay.
+- Original offline PCM, strict sanitizer, explicit test-device lifecycle and
+  actual scaled controls cover loop/completion/restart/volume and authoring
+  isolation. Native preview images are configured; physical listening is separate.
+
 ## Timed animation exits
 
 Named states can advance to another stable state ID at a normalized exit time,

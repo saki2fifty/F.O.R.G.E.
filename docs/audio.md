@@ -128,6 +128,31 @@ layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
 This batch supplies four common channels. Custom buses, effects, streaming and
 separate unpaused UI/music remain future capabilities.
 
+## Editor clip audition
+
+The AudioClip document offers explicit Play/Restart preview, Stop, Loop and
+temporary Preview volume0–1/default.5. Selecting a clip never autoplays it.
+These controls change no authored source, shared settings, asset index or history.
+Preview volume is independent of gameplay mix channels.
+
+The editor-only AudioClipPreview consumer owns one temporary Runtime-role world
+with one nonspatial AudioSource, using the normal audio provider and selected
+cooked revision admission. Authoring worlds still expose no audio service.
+Selected identity/type/schema/source/metadata must match the current catalog;
+the existing loader independently admits artifact digest/PCM. The preview provider reads published cooked bytes independently of the original
+WAV; opening its document retains the existing import-editor contract. No private codec or runtime
+backend is duplicated, no new asset ownership or gameplay clock is introduced.
+
+Explicit audition performs the existing bounded clip load (source16MiB/PCM64MiB).
+The device callback plays the retained voice; poll does no decode. Loop edits
+update that voice; preview volume updates its existing Master gain. Unchanged
+controls do no synchronization. Natural completion, Stop, close, selection or
+revision change, project change, import draft/job/lock and game Play release the
+voice, device and decoded cache. Failed initialization reports the actual audio
+error without a null-device fallback. Explicit offline/null outputs are test-only.
+Seeking, waveform display and asynchronous first-use loading remain deferred.
+Actual offline PCM and scaled widget tests do not prove physical sound quality.
+
 ## Clock and presentation
 
 RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances; the selectable curves are described below. No Doppler, cone filtering or occlusion semantics.
@@ -146,7 +171,7 @@ Exact SDK appends a size/fingerprint-checked `audio_source` callback taking scen
 
 Audio tests use offline PCM and explicit null-device callback teardown. Process tests cover schema-only mode, pause/step/resume, private recovery reconstruction and rejected candidate preservation; shared SDK fixture checks typed components, Play/Stop and missing capability. Existing physics/runtime/render tests remain required. These tests cannot establish subjective spatial quality or physical-device playback.
 
-Later work includes asynchronous runtime first-use loading, streaming music, one-shots/voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity, previews and device selection.
+Later work includes asynchronous runtime first-use loading, streaming music, one-shots/voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity, waveform/seek previews and device selection.
 
 
 ## Phase7 AudioClip import and selected revisions

@@ -704,3 +704,15 @@ independent settings publication and scene Undo/save/reopen.
 `editor_audio_mixer` captures routing and project volumes at100/150/200%; final
 combined-package acceptance starts source-free Gallery33 in the production host.
 Native capture configuration is distinct from actual image/physical acceptance.
+
+### AudioClip preview gate
+
+`audio_preview` reads actual offline PCM through the normal provider, proving
+volume/loop/end/restart, cursor continuity, stale/corrupt selected revisions,
+source-free cooked audition and authoring/index isolation. Explicit null backend
+teardown is a lifecycle test; it is never an automatic device fallback.
+`audio_preview_editor` uses actual Play/Stop/Loop/volume widgets at65/100/150/200%
+and verifies PCM and selection/project/Play-lock teardown. Typed gain clamps and
+nonfinite input cannot change the last admitted output. `editor_audio_preview`
+captures the real AudioClip tab at100/150/200% on a copied original Gallery,
+without requesting a device or autoplay. Physical listening remains separate.

@@ -21,6 +21,7 @@
 #include "animation_tools.hpp"
 #include "asset_actions.hpp"
 #include "audio_imports.hpp"
+#include "audio_preview.hpp"
 #include "authored_components.hpp"
 #include "automation.hpp"
 #include "blockout.hpp"
@@ -827,7 +828,8 @@ int main(int argc, char** argv) {
                                                    "forge_asset_build.exe");
         forge::AudioImportEditor audio_imports(std::filesystem::path(base) /
                                                "forge_asset_build.exe");
-        audio_imports.draw_extension = [&](auto&, bool) {
+        forge::AudioPreviewEditor audio_preview;
+        audio_imports.draw_extension = [&](auto& document, bool locked) {
             forge::ui::heading("Clip details",
                                "Metadata of the successfully published audio clip.");
             if (const auto* record = content.record(audio_imports.selected_asset()))
@@ -837,6 +839,8 @@ int main(int argc, char** argv) {
                 forge::ui::help(
                     "The catalog refreshes asynchronously, even when Content is closed.");
             }
+            audio_preview.draw(document.project(), content.record(audio_imports.selected_asset()),
+                               locked || play.active());
         };
         std::unique_ptr<forge::TextureViewer> texture_viewer;
         forge::TextureViewerDocument texture_view_document(presentation, context);
@@ -1133,6 +1137,8 @@ int main(int argc, char** argv) {
                     material_editor.document()->source().asset() == id && material_editor.dirty());
         };
         content_imports.published = [&](forge::AssetId id, auto catalog) {
+            if (id == audio_imports.selected_asset())
+                audio_preview.stop();
             texture_imports.source_published(id);
             audio_imports.source_published(id);
             model_imports.source_published(id);
@@ -1356,12 +1362,16 @@ int main(int argc, char** argv) {
                        [&] { audio_imports.request_save(); },
                        {},
                        {},
-                       [&] { audio_imports.request_close(); },
+                       [&] {
+                           audio_preview.stop();
+                           audio_imports.request_close();
+                       },
                        {},
                        {},
                        {},
                        [&] { return std::exchange(audio_imports.close_cancelled, false); }});
         asset_editors.add({"audio_clip", "Open audio clip", [&](const forge::AssetRecord& asset) {
+                               audio_preview.stop();
                                audio_imports.open(files.document, asset.source);
                            }});
         documents.add({"texture_import",
@@ -2326,6 +2336,7 @@ int main(int argc, char** argv) {
                     // and SDK Play; physical output has separate acceptance.
                     play.set_headless_audio(true);
 #endif
+                    audio_preview.stop();
                     play.start(forge::path_utf8(executable), scene.snapshot());
                     workspace.game = true;
                     focus_game = true;
@@ -3721,6 +3732,7 @@ int main(int argc, char** argv) {
                 case 227:
                 case 230:
                 case 233:
+                case 236:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3729,6 +3741,7 @@ int main(int argc, char** argv) {
                 case 228:
                 case 231:
                 case 234:
+                case 237:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3768,6 +3781,14 @@ int main(int argc, char** argv) {
                             ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                         ImGui::SetWindowPos("###Scene", {30, 55});
                         ImGui::SetWindowSize("###Scene", {1860, 990});
+                    }
+                    break;
+                case 235:
+                    if (fixture.audio_preview) {
+                        forge::test::observe_ui = true;
+                        forge::ui::style(1);
+                        SDL_SetWindowSize(window.get(), 1920, 1080);
+                        audio_imports.open(files.document, "Assets/FalloffTone.wav");
                     }
                     break;
                 case 232:
@@ -4020,6 +4041,10 @@ int main(int argc, char** argv) {
                     graph_editor.asset_catalog_changed(catalog);
                     content.refresh(files);
                 }
+                audio_preview.poll(
+                    files.document.project(), content.record(audio_imports.selected_asset()),
+                    audio_imports.is_open() && !audio_imports.dirty() && !audio_imports.pending() &&
+                        !asset_document_locked && !play.active());
                 texture_imports.poll(files.document, message);
                 if (auto catalog = texture_imports.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -6027,6 +6052,28 @@ int main(int argc, char** argv) {
                                     marker.note.find("Directional sound") != std::string::npos;
                     captured_document_visible &= spatial_helpers.visible && found;
                 }
+                if (fixture.audio_preview && fixture.stage >= 235 && fixture.stage <= 237) {
+                    auto* w = ImGui::FindWindowByName("Audio clip###Audio clip");
+                    const auto last = forge::test::ui_targets.find("audio-preview:volume");
+                    if (!w || last == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        if (last->second.maximum.y > last->second.clip_maximum.y)
+                            ImGui::SetScrollY(w, w->Scroll.y + last->second.maximum.y -
+                                                     last->second.clip_maximum.y + 12);
+                        for (const auto* field : {"play", "loop", "volume"}) {
+                            const auto found =
+                                forge::test::ui_targets.find(std::string("audio-preview:") + field);
+                            captured_document_visible &=
+                                found != forge::test::ui_targets.end() && found->second.enabled &&
+                                found->second.minimum.y >= found->second.clip_minimum.y &&
+                                found->second.maximum.y <= found->second.clip_maximum.y;
+                        }
+                    }
+                }
                 if (fixture.audio_mixer && fixture.stage >= 232 && fixture.stage <= 234) {
                     auto* w = ImGui::FindWindowByName("Project Settings###Project Settings");
                     if (!w)
@@ -6154,13 +6201,15 @@ int main(int argc, char** argv) {
                     }
                     fixture.capture(device, context, rtv);
                     if ((!fixture.animation_exits && !fixture.audio_falloff &&
-                         !fixture.audio_cones && !fixture.audio_mixer && fixture.stage == 217) ||
+                         !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview &&
+                         fixture.stage == 217) ||
                         (fixture.animation_exits && fixture.stage == 220) ||
                         (fixture.audio_falloff && fixture.stage == 223) ||
                         (fixture.audio_cones && fixture.stage == 229) ||
-                        (fixture.audio_mixer && fixture.stage == 235)) {
+                        (fixture.audio_mixer && fixture.stage == 235) ||
+                        (fixture.audio_preview && fixture.stage == 238)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
-                            !fixture.audio_cones && !fixture.audio_mixer)
+                            !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview)
                             check_thumbnail_cache(presentation, context, files.document.project(),
                                                   mesh_resources);
                         play.stop();

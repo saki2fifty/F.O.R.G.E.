@@ -1,5 +1,21 @@
 # Audio
 
+## Listen to a clip in the editor
+
+In **Content**, double-click an AudioClip to open its **Audio clip** tab. Under
+**Clip preview**, click **Play preview**. **Restart preview** starts it again;
+**Stop preview** releases it. **Loop preview** repeats the sound, and
+**Preview volume** changes how loudly you hear it.
+
+You do not need a camera, Audio Source entity or game Play for this preview.
+Its loop and volume changes are temporary: they do not change your scene or the
+game's mix volumes. Closing the tab, choosing another clip/project, reimporting,
+or starting game Play stops it. Save import changes before previewing.
+
+To try it, open the packaged Feature Gallery and double-click
+**Assets/FalloffTone.wav** in Content. The original tone used by its audio scenes
+is ready to preview. If sound output cannot open, the tab explains the error.
+
 An **Audio Source** plays a registered WAV clip during Play. An **Audio Listener** is the position and orientation from which spatial sounds are heard. Both are ordinary scene components and work with prefab inheritance and Undo/Redo.
 
 ## Hear your first sound
