@@ -47,7 +47,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -93,7 +93,7 @@ try:
         assert source['asset_id'] not in all_ids
         all_ids.add(source['asset_id'])
         ids = [entity['id'] for entity in source['entities']]
-        assert len(ids) == len(set(ids)) and len(ids) >= (5 if path.name.startswith('32-') else 6)
+        assert len(ids) == len(set(ids)) and len(ids) >= (5 if path.name.startswith(('32-', '34-')) else 6)
         for entity_id in ids:
             assert str(uuid.UUID(entity_id)) == entity_id and entity_id not in all_ids
             all_ids.add(entity_id)
@@ -281,6 +281,21 @@ try:
             assert len(channels) == 3 and {item['bus'] for item in channels} == {1,2,3}
             assert {item['pitch'] for item in channels} == {.75,1.,1.5}
             assert all(not item['spatialized'] and item['play_on_start'] and item['clip'] == by_source['Assets/FalloffTone.wav']['id'] for item in channels)
+        if path.name.startswith('34-'):
+            sources = [row['components']['forge.audio_source'] for row in loaded['entities'] if 'forge.audio_source' in row['components']]
+            original = by_source['Assets/ProcessingOriginal.wav']
+            processed = by_source['Assets/ProcessingMono.wav']
+            assert len(sources) == 2 and sum(item['play_on_start'] for item in sources) == 1
+            assert next(item for item in sources if item['play_on_start'])['clip'] == processed['id']
+            assert {item['clip'] for item in sources} == {original['id'], processed['id']}
+            assert all(not item['spatialized'] and item['loop'] for item in sources)
+            assert original['metadata']['forge.audio']['channels'] == 2 and original['metadata']['forge.audio']['frames'] == 67200
+            assert processed['metadata']['forge.audio']['channels'] == 1 and processed['metadata']['forge.audio']['frames'] == 48000
+            assert (project_root / original['source']).read_bytes() == (project_root / processed['source']).read_bytes()
+            sidecar = json.loads((project_root / (processed['source'] + '.forge-import.json')).read_text())
+            assert sidecar['settings']['overrides'] == dict(force_mono=True, normalize_peak=True, trim_silence=True, trim_threshold_db=-60)
+            for asset in (original, processed):
+                assert (project_root / '.forge/cache/derived' / asset['metadata']['forge.import']['key'] / 'audio.fpcm').is_file()
     assert project['startup_scene']['asset'] == json.loads(scenes[0].read_text())['asset_id']
 finally:
     process.stdin.close()

@@ -1,6 +1,7 @@
 #pragma once
 #include "editor_state.hpp"
 #include "icons.hpp"
+#include "ui_probe.hpp"
 #include <forge/import_settings.hpp>
 #include <map>
 #include <misc/cpp/imgui_stdlib.h>
@@ -104,6 +105,7 @@ inline bool import_settings_fields(
         } else {
             ImGui::TextUnformatted("This setting requires a supported typed editor.");
         }
+        FORGE_UI_PROBE("import-setting:" + schema.importer() + ":" + rule.key);
         help(rule.help.c_str());
         try {
             if (edited) {

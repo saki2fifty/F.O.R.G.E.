@@ -15,7 +15,8 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-preview-capt
     (evidence/'capture.log').write_text(result.stdout+result.stderr)
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
-    for label in ('audio-clip-preview', 'audio-clip-preview-150', 'audio-clip-preview-200'):
+    for label in ('audio-clip-preview', 'audio-clip-preview-150', 'audio-clip-preview-200',
+                  'audio-import-processing', 'audio-import-processing-150', 'audio-import-processing-200'):
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
-print('Native AudioClip preview controls captured at100/150/200%; no physical playback claim')
+print('Native AudioClip preview/import controls captured at100/150/200%; no physical playback claim')

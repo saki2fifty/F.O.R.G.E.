@@ -5,10 +5,15 @@
 #include "audio_bundle.hpp"
 #include "audio_importer.hpp"
 #include "audio_selection.hpp"
+#include "runtime_package.hpp"
+#include <array>
+#include <bit>
+#include <cmath>
 #include <forge/audio.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <source_location>
 using namespace forge;
 using namespace forge::asset_detail;
@@ -101,6 +106,112 @@ void format_tests() {
     bad.assign(max_audio_source_bytes + 1, std::byte{});
     rejects([&] { decode_audio_wav(bad); });
 }
+std::vector<std::byte> float_wav(const AudioClipData& clip) {
+    std::vector<std::byte> bytes;
+    auto put = [&](std::uint32_t value, unsigned count) {
+        for (unsigned i = 0; i < count; ++i)
+            bytes.push_back(std::byte(value >> (i * 8)));
+    };
+    auto text = [&](std::string_view word) {
+        for (char c : word)
+            bytes.push_back(std::byte(c));
+    };
+    text("RIFF");
+    put(36 + clip.pcm.size() * 4, 4);
+    text("WAVEfmt ");
+    put(16, 4);
+    put(3, 2);
+    put(clip.channels, 2);
+    put(clip.rate, 4);
+    put(clip.rate * clip.channels * 4, 4);
+    put(clip.channels * 4, 2);
+    put(32, 2);
+    text("data");
+    put(clip.pcm.size() * 4, 4);
+    for (float sample : clip.pcm)
+        put(std::bit_cast<std::uint32_t>(sample), 4);
+    return bytes;
+}
+void processing_tests(const std::filesystem::path& root, bool direct,
+                      const std::filesystem::path& worker) {
+    auto cook = [&](const AudioClipData& clip, const Json& overrides) {
+        const auto source = float_wav(clip);
+        ImportProcessRequest request{
+            {{"recipe", "forge.audio.wav"},
+             {"revision", audio_recipe_revision()},
+             {"source_digest", content_digest(source)},
+             {"settings", ImportSettingsDocument{"forge.audio.wav", 1, overrides}}},
+            {{"source.wav", source}}};
+        auto output = direct ? execute_audio_recipe(request)
+                             : run_import_process(worker, root, request, audio_worker_limits());
+        return audio_bundle_clip(output);
+    };
+    const AudioClipData stereo{{.5f, .25f, -.25f, .5f, 0, 0}, 3, 2, 48000};
+    check(cook(stereo, Json::object()).pcm == stereo.pcm,
+          "Default audio processing changed source samples");
+    const auto mono = cook(stereo, {{"force_mono", true}});
+    check(mono.channels == 1 && mono.frames == 3 && mono.rate == 48000 &&
+              mono.pcm == std::vector<float>{.375f, .125f, 0},
+          "Stereo averaging differs");
+    const auto normalized = cook(stereo, {{"normalize_peak", true}});
+    check(normalized.channels == 2 && normalized.pcm == std::vector<float>{1, .5f, -.5f, 1, 0, 0},
+          "Stereo peak normalization changed channel ratio");
+    const auto both = cook(stereo, {{"force_mono", true}, {"normalize_peak", true}});
+    check(both.pcm[0] == 1 && std::abs(both.pcm[1] - 1.f / 3) < 1e-6 && both.pcm[2] == 0,
+          "Mono/normalization order differs");
+    AudioClipData opposite{{.5f, -.5f, -.5f, .5f}, 2, 2, 24000};
+    check(cook(opposite, {{"force_mono", true}, {"normalize_peak", true}}).pcm ==
+              std::vector<float>{0, 0},
+          "Antiphase mono normalization invented sound");
+    AudioClipData extreme{
+        {std::numeric_limits<float>::max(), std::numeric_limits<float>::max()}, 1, 2, 48000};
+    check(cook(extreme, {{"force_mono", true}, {"normalize_peak", true}}).pcm ==
+              std::vector<float>{1},
+          "Finite float downmix overflowed");
+    AudioClipData tiny{{std::numeric_limits<float>::denorm_min(), 0}, 2, 1, 48000};
+    check(cook(tiny, {{"normalize_peak", true}}).pcm == std::vector<float>{1, 0},
+          "Tiny finite peak normalization overflowed or lost sound");
+    for (unsigned rate : {24000u, 48000u, 96000u}) {
+        AudioClipData padded{std::vector<float>(rate / 10 * 2, 0), rate / 10, 2, rate};
+        for (unsigned frame = rate / 50; frame < rate * 8 / 100; ++frame)
+            padded.pcm[frame * 2 + 1] = .5f;
+        const auto trimmed = cook(padded, {{"trim_silence", true}});
+        const auto fade = rate / 200;
+        check(trimmed.frames == rate * 6 / 100 && trimmed.channels == 2 && trimmed.rate == rate &&
+                  trimmed.pcm[1] == 0 && trimmed.pcm.back() == 0 &&
+                  trimmed.pcm[(fade - 1) * 2 + 1] == .5f &&
+                  trimmed.pcm[(trimmed.frames - fade) * 2 + 1] == .5f,
+              "Trim duration/channel boundaries or rate-based fade differs");
+        for (std::size_t i = 0; i < trimmed.pcm.size(); i += 2)
+            check(trimmed.pcm[i] == 0, "Trimming mixed channels");
+        check(std::abs(trimmed.pcm[3] - .5f / (fade - 1)) < 1e-7, "Trim edge ramp is not linear");
+        const auto repeated = cook(padded, {{"trim_silence", true}});
+        check(repeated.pcm == trimmed.pcm, "Processed cook is not deterministic");
+        const auto normalized_trim =
+            cook(padded, {{"normalize_peak", true}, {"trim_silence", true}});
+        check(normalized_trim.frames == trimmed.frames &&
+                  normalized_trim.pcm[(fade - 1) * 2 + 1] == 1,
+              "Normalize did not precede trimming");
+    }
+    const auto short_clip = cook({{0, .25f, .5f, 0}, 4, 1, 48000}, {{"trim_silence", true}});
+    check(short_clip.frames == 2 && short_clip.pcm == std::vector<float>{.25f, .5f},
+          "Trim fades erased a very short clip");
+    const auto quiet =
+        cook({{0, 0, 0, 0}, 2, 2, 48000}, {{"trim_silence", true}, {"normalize_peak", true}});
+    check(quiet.frames == 1 && quiet.pcm == std::vector<float>{0, 0},
+          "Entirely quiet processing returned an empty/invalid clip");
+    const auto threshold = cook({{.01f, .1f, .01f}, 3, 1, 48000},
+                                {{"trim_silence", true}, {"trim_threshold_db", -30.}});
+    check(threshold.frames == 1 && threshold.pcm == std::vector<float>{.1f},
+          "Trim threshold did not control retained frames");
+    const auto schema = audio_settings();
+    for (const Json& invalid : {Json(-100.), Json(-1.), Json("-60"), Json(nullptr)})
+        rejects([&] { (void)schema.edit({"forge.audio.wav"}, "trim_threshold_db", invalid); });
+    rejects([&] { (void)schema.edit({"forge.audio.wav"}, "force_mono", 1); });
+    ImportSettingsDocument invalid{"forge.audio.wav"};
+    invalid.overrides["trim_threshold_db"] = std::numeric_limits<double>::quiet_NaN();
+    rejects([&] { (void)schema.effective(invalid); });
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -111,14 +222,18 @@ int main(int argc, char** argv) {
         if (std::filesystem::exists(root))
             std::filesystem::remove_all(root);
         std::filesystem::create_directories(root / "Assets");
+        processing_tests(root, direct, std::filesystem::absolute(argv[2]));
         auto bytes = wav();
         write(root / "Assets/tone.wav", bytes);
         // Explicitly upgrade an existing registered record without changing ID.
         const auto original = AssetCatalog::register_audio_clip(root, "Assets/tone.wav");
         auto importer =
             audio_importer(direct ? std::filesystem::path{} : std::filesystem::absolute(argv[2]));
-        AssetImportRequest request{
-            original.id, root, "Assets/tone.wav", {"portable", "none", "cpu"}, {"forge.audio.wav"}};
+        AssetImportRequest request{original.id,
+                                   root,
+                                   "Assets/tone.wav",
+                                   {"windows", "d3d12", "desktop"},
+                                   {"forge.audio.wav"}};
         auto plan = importer->discover(request, {});
         auto cook = [&](const AssetImportPlan& intended) {
             if (!direct)
@@ -263,6 +378,55 @@ int main(int argc, char** argv) {
             load_audio_clip(root, copied_publication.catalog.records().at(copy.result)).channels ==
                 2,
             "Copied audio cannot be reimported under its new identity");
+        // Publish processing settings on the normal transaction, then export only
+        // the selected immutable clip. The original WAV and prior revision survive.
+        const auto source_before = read_bytes(root / request.source, max_audio_source_bytes);
+        request.settings = audio_settings().edit(request.settings, "force_mono", true);
+        request.settings = audio_settings().edit(request.settings, "normalize_peak", true);
+        const auto processed_plan = importer->discover(request, {});
+        check(processed_plan.input.key() != plan.input.key(),
+              "Processing did not change the canonical DDC key");
+        const auto processed = publisher.publish(candidate(processed_plan, cook(processed_plan)),
+                                                 *importer, [](const auto&, const auto&) {});
+        const auto processed_record = processed.catalog.records().at(copy.result);
+        const auto processed_clip = load_audio_clip(root, processed_record);
+        check(processed_clip.channels == 1 && processed_clip.rate == 24000 &&
+                  processed_clip.frames == 480 &&
+                  std::all_of(processed_clip.pcm.begin(), processed_clip.pcm.end(),
+                              [](float x) { return x == 1; }) &&
+                  read_bytes(root / request.source, max_audio_source_bytes) == source_before &&
+                  load_audio_clip(root, next_record).channels == 2,
+              "Processed publication changed source/previous selection or cooked samples");
+        const auto exported =
+            root.parent_path() / (AssetId::generate().str() + "-processed-export");
+        const std::array roots{copy.result};
+        prepare_runtime_content_catalog(lease, roots, {}, scene.schema());
+        package_runtime_content(root, exported, roots, {"windows", "d3d12"}, {}, {},
+                                scene.schema());
+        const auto relocated = exported.string() + "-relocated";
+        std::filesystem::rename(exported, relocated);
+        std::filesystem::remove(root / request.source);
+        const auto shipped = open_runtime_content(relocated, {"windows", "d3d12"});
+        const auto shipped_clip = load_audio_clip(relocated, shipped.records().at(copy.result));
+        check(shipped_clip.pcm == processed_clip.pcm && shipped_clip.channels == 1,
+              "Relocated export lost processed AudioClip PCM");
+        EngineContext exported_engine(WorldRole::Runtime, false,
+                                      {audio_module({relocated, AudioOutput::Offline, true})});
+        Scene exported_scene(exported_engine.world());
+        auto exported_document = scene.snapshot();
+        for (auto& row : exported_document["entities"])
+            if (row["components"].contains("forge.audio_source"))
+                row["components"]["forge.audio_source"]["clip"] = copy.result;
+        exported_scene.restore_snapshot(exported_document);
+        RuntimeSimulation exported_simulation(exported_engine.world(), exported_scene);
+        exported_simulation.sync_audio();
+        exported_simulation.audio_paused(false);
+        auto exported_audio =
+            std::static_pointer_cast<AudioRuntime>(exported_engine.services().audio());
+        exported_audio->read_offline(output);
+        check(std::any_of(output.begin(), output.end(), [](float sample) { return sample > .1f; }),
+              "Runtime did not play relocated processed PCM");
+        std::filesystem::remove_all(relocated);
         std::cout << "WAV/PCM admission, identity, metadata, deterministic cook, DDC, last-good "
                      "and runtime output passed\n";
     } catch (const std::exception& error) {

@@ -99,7 +99,27 @@ class AudioImporter final : public AssetImporter {
     }
 };
 } // namespace
-ImportSettingsSchema audio_settings() { return {"forge.audio.wav", 1, {}}; }
+ImportSettingsSchema audio_settings() {
+    std::vector<ImportSettingRule> rules{
+        {"force_mono", "Force mono",
+         "Average stereo channels into one channel during import. The source WAV is unchanged.",
+         ImportSettingType::Boolean, false},
+        {"normalize_peak", "Normalize peak",
+         "Scale the imported peak to 1 before trimming. This is peak, not loudness, normalization.",
+         ImportSettingType::Boolean, false},
+        {"trim_silence", "Trim silence",
+         "Remove quiet leading/trailing frames and soften removed edges with a 5 ms fade. Entirely "
+         "quiet clips become one silent frame.",
+         ImportSettingType::Boolean, false}};
+    ImportSettingRule threshold{"trim_threshold_db", "Trim threshold (dB)",
+                                "Used only when Trim silence is enabled. Any channel above this "
+                                "level keeps its frame. Normalization runs first.",
+                                ImportSettingType::Number, -60.};
+    threshold.minimum = -96;
+    threshold.maximum = -6;
+    rules.push_back(std::move(threshold));
+    return {"forge.audio.wav", 1, std::move(rules)};
+}
 std::string audio_recipe_revision() {
     return asset_build_digest({{"source", FORGE_AUDIO_RECIPE_FINGERPRINT},
                                {"configuration", FORGE_AUDIO_RECIPE_CONFIGURATION}});

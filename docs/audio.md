@@ -211,6 +211,39 @@ finite samples,16MiB source and64MiB decoded limits. The pinned WAV decoder's
 WAV encoding has an acceptance fixture. Fixtures cover PCM16 at24/48/96kHz.
 The worker limit is512MiB/30seconds with bounded input/output and cancellation.
 
+The version1 settings schema adds optional `force_mono`, `normalize_peak` and
+`trim_silence` booleans, all false by default, and finite `trim_threshold_db`
+in[-96,-6], default-60. Existing empty overrides preserve decoded samples,
+channels and sample rate. Settings enter the existing canonical cook key and
+sidecar; the exact recipe fingerprint changes with the processing implementation.
+The worker processes the decoded buffer once, without adding runtime DSP:
+
+- Force mono averages stereo `(L+R)/2` with a double intermediate. Mono is unchanged;
+  opposite-phase channels can cancel.
+- Normalize peak divides every channel by the shared absolute peak, using double
+  arithmetic. Zero silence is unchanged. This is peak normalization, not loudness
+  normalization or compression.
+- Trim silence retains frames where any channel exceeds `10^(threshold_dB/20)`,
+  removes only quiet leading/trailing frames, and preserves channel alignment.
+  Entirely quiet input becomes one silent frame. Each edge actually removed gets
+  a5ms linear ramp, capped at half the kept frames; ramps shorter than2 frames
+  are skipped. The first/last ramp sample is zero, and the inward endpoint is1.
+
+The order is mono, normalization, then trimming/ramps. Final peak can therefore
+fall below1. Cancellation is checked within long passes. Source WAV bytes and
+runtime source/mixer volumes are unchanged. Metadata and preview describe the
+new selected PCM after successful reimport; dirty import settings stop/release
+the previous audition/envelope. Failed admission/publication keeps the prior
+selected revision. Source-free export includes the processed immutable PCM.
+
+Original Gallery34 compares untouched stereo with normalized, trimmed mono.
+Direct and isolated worker fixtures cover exact defaults, unequal/antiphase
+channels, finite extreme/subnormal samples, silence, short clips and24/48/96kHz
+ramps. Generated controls use real input at65/100/150/200%; the editor workflow
+covers audition teardown, publication, waveform replacement and reset/reload.
+Relocated Gallery export validates actual processed PCM/playback after source
+removal. Native import images and physical listening have separate acceptance.
+
 Cooked `forge.audio-clip` version1 contains two immutable files: `audio.fpcm`
 and `audio.json`. PCM has an explicit32-byte little-endian header: eight-byte
 `FORGEAUD` magic, u32 version1, u32 channels, u32 sample rate, u32 zero reserved,

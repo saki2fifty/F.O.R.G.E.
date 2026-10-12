@@ -1,0 +1,45 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.audio.wav",
+    "importer_revision": "c01ef6f01fcb6e5e00ad143d48493ae54da63b0432dd0b8f87072fa91cbc42ae",
+    "key_version": 1,
+    "output_format": "forge.audio-clip",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "force_mono": true,
+      "normalize_peak": true,
+      "trim_silence": true,
+      "trim_threshold_db": -60
+    },
+    "settings_version": 1,
+    "source": "340096cae62b7d1ef3b5e3543a673ee425c0999649b52178a7ca2b153d3aa105",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.audio.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "58355f97-2f43-4c40-9bd4-af5ac3ab891a",
+    "source": "Assets/ProcessingMono.wav",
+    "source_digest": "340096cae62b7d1ef3b5e3543a673ee425c0999649b52178a7ca2b153d3aa105",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.audio.wav",
+    "overrides": {
+      "force_mono": true,
+      "normalize_peak": true,
+      "trim_silence": true,
+      "trim_threshold_db": -60
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

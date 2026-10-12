@@ -1,3 +1,4 @@
+#include "audio_selection.hpp"
 #include "runtime_package.hpp"
 #include <array>
 #include <cmath>
@@ -41,9 +42,12 @@ int main(int argc, char** argv) {
         const auto source = read(project / "Scenes/31-audio-falloff.scene.json");
         const auto cone_source = read(project / "Scenes/32-directional-audio.scene.json");
         const auto mix_source = read(project / "Scenes/33-audio-mixer.scene.json");
+        const auto processing_source =
+            read(project / "Scenes/34-audio-import-processing.scene.json");
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                cone_source.at("asset_id").get<AssetId>(),
-                               mix_source.at("asset_id").get<AssetId>()};
+                               mix_source.at("asset_id").get<AssetId>(),
+                               processing_source.at("asset_id").get<AssetId>()};
         const auto clip = AssetId::parse("327101c1-e496-4293-b830-4c25b978607a");
         EngineContext author;
         Scene author_scene(author.world());
@@ -55,6 +59,9 @@ int main(int argc, char** argv) {
         }
         require(!std::filesystem::exists(output / "Assets/FalloffTone.wav"),
                 "Export shipped the original WAV");
+        require(!std::filesystem::exists(output / "Assets/ProcessingMono.wav") &&
+                    !std::filesystem::exists(output / "Assets/ProcessingOriginal.wav"),
+                "Processing export shipped development WAVs");
         const auto relocated = scratch / "relocated";
         std::filesystem::rename(output, relocated);
         std::filesystem::remove_all(project);
@@ -195,6 +202,46 @@ int main(int argc, char** argv) {
                 audio->stop_source(ref);
                 simulation.tick(1.f / 60);
             }
+        }
+        {
+            const auto shipped = read(relocated / catalog.records().at(roots[3]).source);
+            require(shipped == processing_source,
+                    "Processing export changed scene identity/values");
+            EngineContext engine(WorldRole::Runtime, false,
+                                 {audio_module({relocated, AudioOutput::Offline, true})});
+            Scene scene(engine.world());
+            RuntimeSimulation simulation(engine.world(), scene);
+            scene.restore_snapshot(shipped);
+            unsigned original = 0, processed = 0;
+            for (const auto& row : shipped.at("entities")) {
+                const auto entity = scene.entity(row.at("id"));
+                if (!entity.has<AudioSource>())
+                    continue;
+                const auto sound = entity.get<AudioSource>();
+                const auto clip =
+                    asset_detail::load_audio_clip(relocated, catalog.records().at(sound.clip.id));
+                if (sound.play_on_start) {
+                    require(clip.channels == 1 && clip.frames == 48000 && clip.rate == 48000 &&
+                                clip.pcm.front() == 0 && clip.pcm.back() == 0,
+                            "Export lost mono trimming or click-prevention ramps");
+                    double peak = 0;
+                    for (float sample : clip.pcm)
+                        peak = std::max(peak, std::abs(double(sample)));
+                    require(peak == 1, "Export lost peak normalization");
+                    ++processed;
+                } else {
+                    require(clip.channels == 2 && clip.frames == 67200 && clip.rate == 48000,
+                            "Export processed the untouched comparison source");
+                    ++original;
+                }
+            }
+            require(original == 1 && processed == 1, "Processing comparison emitters missing");
+            simulation.reset_presentation();
+            simulation.sync_audio();
+            simulation.audio_paused(false);
+            simulation.tick(1.f / 60);
+            auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            require(power(*audio) > .001, "Source-free processed gallery did not play cooked PCM");
         }
         std::filesystem::remove_all(scratch);
         std::cout << "Original Gallery31 cooked audio/identity and three falloff modes play "

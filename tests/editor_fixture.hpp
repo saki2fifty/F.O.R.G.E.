@@ -102,7 +102,7 @@ struct EditorFixture {
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
-        if (audio_preview && stage >= 235 && stage <= 237)
+        if (audio_preview && stage >= 235 && stage <= 240)
             return "Audio clip###Audio clip";
         if (audio_mixer && stage >= 229 && stage <= 231)
             return "Inspector";
@@ -617,7 +617,10 @@ struct EditorFixture {
                                "audio-mix-volumes-200",
                                "audio-clip-preview",
                                "audio-clip-preview-150",
-                               "audio-clip-preview-200"};
+                               "audio-clip-preview-200",
+                               "audio-import-processing",
+                               "audio-import-processing-150",
+                               "audio-import-processing-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

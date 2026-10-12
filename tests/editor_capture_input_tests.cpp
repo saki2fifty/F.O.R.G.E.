@@ -54,6 +54,17 @@ int main() {
         require(hover, "Vertex capture pointer not applied");
         frame(142, 23);
         require(!hover, "Vertex setup did not end at finite bound");
+        for (unsigned stage : {235u, 238u}) {
+            input.queue(io, {50, 50}, 0);
+            frame(stage, 4);
+            input.queue(io, {50, 50}, 1);
+            frame(stage, 5);
+            input.queue(io, {50, 50}, 2);
+            frame(stage, 6);
+            require(clicked, "Audio capture did not receive actual click/release");
+            frame(stage, 10);
+            require(!hover, "Audio setup leaked pointer past its finite bound");
+        }
         input.queue(io, {std::numeric_limits<float>::quiet_NaN(), 50}, 0);
         frame(124, 5);
         require(!hover && !input.valid, "Nonfinite fixture pointer accepted");

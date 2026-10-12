@@ -252,3 +252,21 @@ under Project Settings → Game defaults, save settings and Play again. Master
 changes all tones. Source **Mix channel** can be changed in the Inspector while
 playing. Export includes original routes and cooked PCM; the source WAV is not
 needed to run the exported scene.
+
+## 34 — Audio import processing
+
+`Scenes/34-audio-import-processing.scene.json` compares two copies of an original
+synthetic tone. **ProcessingOriginal.wav** keeps its two channels and1.4second
+duration, including0.2seconds of quiet at each end. **ProcessingMono.wav** uses
+Force mono, Normalize peak and Trim silence; its published clip is mono and1second
+long, with short fades at the trimmed edges. Both source WAV files remain identical.
+
+Double-click either WAV in Content. Use Show waveform or Play preview to compare
+channels, duration and volume; preview volume is temporary. Expand Import settings
+to change processing and Import/Reimport. Reset to defaults and reimport restores
+the original stereo sound. Gameplay uses the selected cooked revision.
+
+Only the processed cube starts automatically. To compare in Play, stop, turn its
+Play On Start off and turn that setting on for **Original stereo**, then Play again.
+Both sounds are nonspatial and loop quietly through Master. Export the saved scene
+to compare the same processed PCM in a standalone game without the original WAVs.

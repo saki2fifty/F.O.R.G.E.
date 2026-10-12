@@ -3734,6 +3734,7 @@ int main(int argc, char** argv) {
                 case 230:
                 case 233:
                 case 236:
+                case 239:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3743,6 +3744,7 @@ int main(int argc, char** argv) {
                 case 231:
                 case 234:
                 case 237:
+                case 240:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3790,6 +3792,12 @@ int main(int argc, char** argv) {
                         forge::ui::style(1);
                         SDL_SetWindowSize(window.get(), 1920, 1080);
                         audio_imports.open(files.document, "Assets/FalloffTone.wav");
+                    }
+                    break;
+                case 238:
+                    if (fixture.audio_preview) {
+                        forge::ui::style(1);
+                        audio_imports.open(files.document, "Assets/ProcessingMono.wav");
                     }
                     break;
                 case 232:
@@ -6086,6 +6094,39 @@ int main(int argc, char** argv) {
                         }
                     }
                 }
+                if (fixture.audio_preview && fixture.stage >= 238 && fixture.stage <= 240) {
+                    auto* w = ImGui::FindWindowByName("Audio clip###Audio clip");
+                    if (fixture.stage == 238 && fixture.frames >= 4 && fixture.frames <= 5)
+                        if (const auto target = forge::test::ui_targets.find("import:settings");
+                            target != forge::test::ui_targets.end()) {
+                            const auto& item = target->second;
+                            fixture.capture_input.queue(ImGui::GetIO(),
+                                                        {(item.minimum.x + item.maximum.x) * .5f,
+                                                         (item.minimum.y + item.maximum.y) * .5f},
+                                                        fixture.frames == 4 ? 1 : 2);
+                        }
+                    const auto last = forge::test::ui_targets.find(
+                        "import-setting:forge.audio.wav:trim_threshold_db");
+                    if (!w || last == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        if (last->second.maximum.y > last->second.clip_maximum.y)
+                            ImGui::SetScrollY(w, w->Scroll.y + last->second.maximum.y -
+                                                     last->second.clip_maximum.y + 12);
+                        for (const auto* key : {"force_mono", "normalize_peak", "trim_silence",
+                                                "trim_threshold_db"}) {
+                            const auto found = forge::test::ui_targets.find(
+                                std::string("import-setting:forge.audio.wav:") + key);
+                            captured_document_visible &=
+                                found != forge::test::ui_targets.end() && found->second.enabled &&
+                                found->second.minimum.y >= found->second.clip_minimum.y &&
+                                found->second.maximum.y <= found->second.clip_maximum.y;
+                        }
+                    }
+                }
                 if (fixture.audio_mixer && fixture.stage >= 232 && fixture.stage <= 234) {
                     auto* w = ImGui::FindWindowByName("Project Settings###Project Settings");
                     if (!w)
@@ -6185,7 +6226,8 @@ int main(int argc, char** argv) {
                     if ((fixture.stage == 28 || fixture.stage == 29) &&
                         !material_preview->diagnostics().empty())
                         throw std::runtime_error("Material editor fixture preview failed");
-                    if (fixture.stage >= 64 && !material_preview->diagnostics().empty())
+                    if (fixture.stage >= 64 && fixture.stage <= 216 &&
+                        !material_preview->diagnostics().empty())
                         throw std::runtime_error("Custom surface fixture preview failed");
                     if ((fixture.stage == 26 || fixture.stage == 27) &&
                         !texture_viewer->error().empty())
@@ -6220,7 +6262,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_falloff && fixture.stage == 223) ||
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 235) ||
-                        (fixture.audio_preview && fixture.stage == 238)) {
+                        (fixture.audio_preview && fixture.stage == 241)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview)
                             check_thumbnail_cache(presentation, context, files.document.project(),

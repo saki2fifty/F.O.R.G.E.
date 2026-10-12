@@ -1,6 +1,6 @@
 # Explore the Feature Gallery
 
-The packaged **Examples/FeatureGallery** project gives you twenty-one short scenes to
+The packaged **Examples/FeatureGallery** project gives you focused scenes to
 open in the editor and export as standalone games. You can see how each effect is
 authored, change it, then compare the result in Play and in the exported game.
 
@@ -65,3 +65,9 @@ Scene **33 — Audio mixer** plays three pitches through Music, Effects and Dial
 Select each emitter for **Mix channel**. Change its shared volume in **Project
 Settings → Game defaults**, save settings while stopped, then Play/export to
 compare. Master affects every channel.
+
+Scene **34 — Audio import processing** compares original stereo and processed
+mono sound. Open its WAVs from Content to compare waveforms and audition them.
+Change mono, peak normalization and silence trimming under Import settings,
+then reimport. The source remains unchanged; Play and export use the processed
+clip. See [Process a clip during import](../editor/audio.md).

@@ -266,6 +266,8 @@ class AssetImportEditor {
                 const bool show_settings =
                     !preview_before_settings || ImGui::CollapsingHeader("Import settings");
                 if (preview_before_settings)
+                    FORGE_UI_PROBE("import:settings");
+                if (preview_before_settings)
                     ui::help("Edit source cooking settings. These remain a draft until Import "
                              "succeeds.");
                 if (show_settings) {

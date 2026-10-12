@@ -11,7 +11,7 @@ struct EditorCaptureInput {
     bool active(unsigned stage, unsigned frames) const {
         return valid && (((stage == 121 || stage == 124) && frames >= 4 && frames <= 25) ||
                          (stage == 142 && frames >= 4 && frames <= 22) ||
-                         (stage == 235 && frames >= 4 && frames <= 9));
+                         ((stage == 235 || stage == 238) && frames >= 4 && frames <= 9));
     }
     static bool document_focus_allowed(unsigned stage, bool popup_open) {
         // A forced parent-window focus steals keyboard navigation from its combo.

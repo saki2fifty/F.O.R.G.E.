@@ -32,6 +32,28 @@ is ready to preview. If sound output cannot open, the tab explains the error.
 
 An **Audio Source** plays a registered WAV clip during Play. An **Audio Listener** is the position and orientation from which spatial sounds are heard. Both are ordinary scene components and work with prefab inheritance and Undo/Redo.
 
+## Process a clip during import
+
+Open an AudioClip from **Content**, then expand **Import settings** below its
+preview. All processing is off by default.
+
+- **Force mono** combines the Left and Right channels. Opposite-phase stereo sounds can cancel when combined.
+- **Normalize peak** raises or lowers the clip so its largest sample reaches full scale. It does not make different sounds equally loud.
+- **Trim silence** removes quiet time at the beginning and end. **Trim threshold (dB)** chooses what counts as quiet; lower values preserve quieter sounds. Removed edges receive a short fade to reduce clicks. Entirely quiet clips keep one silent frame.
+
+Click **Import / Reimport** to apply the settings. FORGE combines channels first,
+then normalizes, then trims. The preview shows the resulting channels and duration.
+Editing settings stops the old preview. **Reload saved settings** discards the
+draft; **Reset to defaults** creates a draft with processing turned off.
+
+Your original WAV remains unchanged. Games use the processed clip already built
+during import, including in exported games. Stop and restart Play after reimport
+to hear the new revision in a running scene. Scene Undo does not undo an import.
+
+Try **34 — Audio import processing** in the Feature Gallery. Its two WAV sources
+contain identical original tones: one keeps stereo and quiet edges; the other
+uses mono, normalization and trimming. Preview either clip to compare.
+
 ## Hear your first sound
 
 1. Copy the included `Examples/Audio/test-tone.wav` into your project's `Assets` folder. You can also use your own small mono or stereo WAV.

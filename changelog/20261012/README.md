@@ -1,5 +1,18 @@
 # 2026-10-12
 
+## Audio import processing
+
+- WAV import settings support Force mono, Normalize peak, Trim silence and a
+  finite dB threshold. Defaults preserve original samples; processing occurs
+  once in the existing isolated cooker without changing source WAVs.
+- Reimport updates selected channels/duration and preview waveform. Draft edits
+  release the old preview; existing reset/reload and last-good publication apply.
+- Original editable Gallery34 compares stereo with processed mono. Export ships
+  the selected processed PCM and runs without development WAVs.
+- Direct/worker, strict sanitizer, actual scaled controls, publication and
+  source-free playback checks cover the processing path. Native images and
+  physical listening remain separate acceptance evidence.
+
 ## AudioClip editor preview
 
 - AudioClip tabs can Play/Restart, Stop and Loop a clip without game Play, with
