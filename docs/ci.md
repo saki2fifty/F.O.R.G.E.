@@ -566,6 +566,30 @@ inventoried `--packaged-motors` graphical observer. It requires both constrained
 poses, two native joints and actual cyan rendered geometry. These are configured
 gates; Windows execution and physical GPU acceptance require separate evidence.
 
+### Swing-and-twist joints
+
+Joint tests independently measure native angular integration/unequal cone bounds,
+asymmetric twist, locked/free cases, equal-inertia momentum reaction, six-kind
+manager order/fresh recovery, atomic invalid candidates and signed-scale offset-COM
+anchors. The expanded native joint gate allows 240 seconds for sanitizer execution;
+its numerical assertions are unchanged. They exercise the enlarged typed component through physically ordered
+Flecs descriptor batches with post-registration layout verification. The actual
+Inspector enum/conditional fields/Undo/save/reopen and selected cone/twist guide
+are checked at 100%, 150% and 200% scale. The compiled probe writes typed limits before
+Physics, reads copied angular velocity and restores genuine fresh workers.
+
+Gallery 28 tests gravity-driven wide/narrow motion, independent bounds/pivots,
+render resources and source-free relocation. Native captures 205–210 and final
+package `--packaged-swing` observer/production startup are configured; the graphical
+observer requires actual native joints, distinct motion ranges and cyan geometry.
+Windows execution, image review and physical acceptance require separate evidence.
+
+The expanded editor capture fixture has a 600-second total deadline and a separate
+45-second stage deadline; CTest allows 620 seconds including teardown. Windows build 167
+completed stage 178 and stopped 0.6 seconds into stage 179 at the old 240-second total budget,
+rather than exhausting that stage's deadline. The wider total permits the larger
+suite; it does not weaken layout/visibility assertions or hide a per-stage stall.
+
 ### Connected-body collision policy
 
 Joint tests cover full32-bit mutual masks, cached-contact on/off transitions,
@@ -601,7 +625,7 @@ selected-row navigation focus after a resized/scrolled dropdown's layout complet
 
 Gallery26 checks signed targets, independently transformed hinge axes, settling,
 render resources and source-free relocated export. Native editor capture adds
-hinge/slider position controls and target guides at100/150/200percent. Final-package
+hinge/slider position controls and target guides at 100%, 150% and 200% scale. Final-package
 acceptance deletes the copied source/kit before production startup and the
 inventoried `--packaged-position` graphical observer, checking actual target poses,
 two native joints and cyan geometry. Configured Windows gates and physical GPU

@@ -572,7 +572,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("slider_motor_position")
             .template member<float>("motor_frequency")
             .template member<float>("motor_damping")
-            .template member<bool>("collide_connected");
+            .template member<bool>("collide_connected")
+            .template member<float>("swing_normal_angle")
+            .template member<float>("swing_plane_angle");
     } else if constexpr (std::is_same_v<T, AssetCollider>) {
         register_asset_ref<CollisionAsset>(w, "forge.collision_ref");
         c.template member<AssetRef<CollisionAsset>>("asset");
@@ -897,6 +899,17 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = UINT32_MAX;
     }
     if (name == "forge.physics_joint") {
+        if (field == "swing_normal_angle" || field == "swing_plane_angle") {
+            value["minimum"] = 0;
+            value["maximum"] = 180;
+            value["unit"] = "degrees";
+            value["description"] = "Swing Twist cone half-angle towards the frame normal "
+                                   "(plane cross twist) or plane axis; below 0.5 degrees locks, "
+                                   "above 179.5 degrees is free";
+        }
+        if (field.starts_with("axis_") || field.starts_with("normal_"))
+            value["description"] = "Body-local axis; Swing Twist uses Axis as twist and Normal "
+                                   "as plane axis. The two choices must differ.";
         if (field == "motor_mode")
             value["maximum"] = 1;
         if (field == "hinge_motor_angle" || field == "slider_motor_position") {
@@ -962,7 +975,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["minimum"] = field == "min_angle" ? -180 : 0;
             value["maximum"] = field == "min_angle" ? 0 : 180;
             value["unit"] = "degrees";
-            value["description"] = "Hinge angle bound relative to the two body-local normal axes";
+            value["description"] = "Hinge angle or Swing Twist twist bound relative to the "
+                                   "body-local joint frames; degrees enclosing zero";
         }
     }
     if (name == "forge.physics_body") {
@@ -1226,7 +1240,7 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
         names = {"Directional", "Point", "Spot"};
     } else if (component == "forge.physics_joint" && field == "kind") {
         type = "forge.JointKind";
-        names = {"Distance", "Hinge", "Point", "Fixed", "Slider"};
+        names = {"Distance", "Hinge", "Point", "Fixed", "Slider", "Swing Twist"};
     } else if (component == "forge.physics_joint" && field == "motor_mode") {
         type = "forge.JointMotorMode";
         names = {"Velocity", "Position"};
@@ -1257,8 +1271,6 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
     if (!structure)
         throw std::runtime_error("Reflection metadata is missing");
     const int count = ecs_vec_count(&structure->members);
-    if (count > ECS_MEMBER_DESC_CACHE_SIZE)
-        throw std::runtime_error("Builtin exceeds reflection descriptor capacity");
     // Copy names and descriptors before registration can reallocate EcsStruct storage.
     std::vector<std::string> names;
     std::vector<ecs_member_t> members;
@@ -1267,11 +1279,9 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
         names.emplace_back(source[i].name);
         members.push_back(source[i]);
     }
-    ecs_struct_desc_t desc{};
-    desc.entity = component.id();
-    desc.create_member_entities = true;
+    std::vector<ecs_member_t> annotated(count);
     for (int i = 0; i < count; ++i) {
-        auto& m = desc.members[i];
+        auto& m = annotated[i];
         m = members[i];
         m.name = names[i].c_str();
         m.use_offset = true;
@@ -1298,10 +1308,20 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
     // Physical order avoids a later zero offset recomputing earlier members.
     // Keep names/field semantics independent of registration order, and verify
     // the native result before a codec can use it (see flecs-known-issues.md).
-    std::stable_sort(desc.members, desc.members + count,
+    std::stable_sort(annotated.begin(), annotated.end(),
                      [](const auto& a, const auto& b) { return a.offset < b.offset; });
-    if (!ecs_struct_init(world.c_ptr(), &desc))
-        throw std::runtime_error("Builtin member metadata registration failed");
+    // The exact pinned API updates named members, without clearing the structure.
+    // Its fixed descriptor is a batch cache, not a reflected-type member limit.
+    // Keep physical ordering across batches for the zero-offset workaround above.
+    for (int start = 0; start < count; start += ECS_MEMBER_DESC_CACHE_SIZE) {
+        ecs_struct_desc_t desc{};
+        desc.entity = component.id();
+        desc.create_member_entities = true;
+        const auto batch = std::min(count - start, ECS_MEMBER_DESC_CACHE_SIZE);
+        std::copy_n(annotated.begin() + start, batch, desc.members);
+        if (!ecs_struct_init(world.c_ptr(), &desc))
+            throw std::runtime_error("Builtin member metadata registration failed");
+    }
     for (int i = 0; i < count; ++i) {
         const auto* actual = ecs_struct_get_member(world.c_ptr(), component.id(), names[i].c_str());
         if (!actual || actual->offset != members[i].offset || actual->size != members[i].size)
@@ -1494,10 +1514,11 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_joint")
-        for (const auto* field : {"min_travel", "max_travel", "motor_enabled", "hinge_motor_speed",
-                                  "slider_motor_speed", "max_motor_torque", "max_motor_force",
-                                  "motor_mode", "hinge_motor_angle", "slider_motor_position",
-                                  "motor_frequency", "motor_damping", "collide_connected"})
+        for (const auto* field :
+             {"min_travel", "max_travel", "motor_enabled", "hinge_motor_speed",
+              "slider_motor_speed", "max_motor_torque", "max_motor_force", "motor_mode",
+              "hinge_motor_angle", "slider_motor_position", "motor_frequency", "motor_damping",
+              "collide_connected", "swing_normal_angle", "swing_plane_angle"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     return current;

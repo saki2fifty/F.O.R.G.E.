@@ -1,5 +1,16 @@
 # 2026-10-12
 
+## Swing-and-twist joints
+
+Swing Twist adds limited ball-and-socket motion, two swing cone half-angles and
+signed twist limits. Inspector controls/history and selected Scene cone/twist
+guides use existing owners; original Gallery28 compares two gravity-driven
+pendulums and supports source-free export. C++ uses the same typed settings.
+Matching SDK rebuild required; ABI1/private4/authored formats unchanged.
+Builtin reflection annotation now accepts components larger than a single pinned
+descriptor batch while retaining physical-layout validation. Local/native Windows
+execution and physical acceptance are recorded separately.
+
 ## Connected-body collision policy
 
 All joint kinds expose **Collide connected**, enabled by default for compatibility.

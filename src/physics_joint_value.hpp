@@ -10,7 +10,7 @@ inline void validate_joint(const PhysicsJoint& v) {
          {v.anchor_a_x, v.anchor_a_y, v.anchor_a_z, v.anchor_b_x, v.anchor_b_y, v.anchor_b_z})
         if (!std::isfinite(x) || std::abs(x) > 10000)
             throw std::runtime_error("Joint anchors must be finite within +/-10000 meters");
-    if (v.kind > 4 || v.axis_a > 2 || v.normal_a > 2 || v.axis_b > 2 || v.normal_b > 2 ||
+    if (v.kind > 5 || v.axis_a > 2 || v.normal_a > 2 || v.axis_b > 2 || v.normal_b > 2 ||
         !std::isfinite(v.min_distance) || !std::isfinite(v.max_distance) ||
         v.min_distance < .001f || v.max_distance > 10000 || v.min_distance > v.max_distance ||
         !std::isfinite(v.min_angle) || !std::isfinite(v.max_angle) || v.min_angle < -180 ||
@@ -25,8 +25,11 @@ inline void validate_joint(const PhysicsJoint& v) {
         std::abs(v.hinge_motor_angle) > 180 || !std::isfinite(v.slider_motor_position) ||
         std::abs(v.slider_motor_position) > 10000 || !std::isfinite(v.motor_frequency) ||
         v.motor_frequency < .01f || v.motor_frequency > 100 || !std::isfinite(v.motor_damping) ||
-        v.motor_damping < 0 || v.motor_damping > 10 ||
-        ((v.kind == 1 || v.kind == 3 || v.kind == 4) &&
+        v.motor_damping < 0 || v.motor_damping > 10 || !std::isfinite(v.swing_normal_angle) ||
+        v.swing_normal_angle < 0 || v.swing_normal_angle > 180 ||
+        !std::isfinite(v.swing_plane_angle) || v.swing_plane_angle < 0 ||
+        v.swing_plane_angle > 180 ||
+        ((v.kind == 1 || v.kind == 3 || v.kind == 4 || v.kind == 5) &&
          (v.axis_a == v.normal_a || v.axis_b == v.normal_b)) ||
         (v.kind == 4 && v.min_travel == v.max_travel) ||
         (v.kind == 1 && v.min_angle == v.max_angle))
@@ -99,7 +102,9 @@ inline nlohmann::json joint_value(const PhysicsJoint& v) {
             {"slider_motor_position", v.slider_motor_position},
             {"motor_frequency", v.motor_frequency},
             {"motor_damping", v.motor_damping},
-            {"collide_connected", v.collide_connected}};
+            {"collide_connected", v.collide_connected},
+            {"swing_normal_angle", v.swing_normal_angle},
+            {"swing_plane_angle", v.swing_plane_angle}};
 }
 inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     PhysicsJoint v;
@@ -136,6 +141,8 @@ inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     v.motor_frequency = p.value("motor_frequency", 2.f);
     v.motor_damping = p.value("motor_damping", 1.f);
     v.collide_connected = p.value("collide_connected", true);
+    v.swing_normal_angle = p.value("swing_normal_angle", 45.f);
+    v.swing_plane_angle = p.value("swing_plane_angle", 45.f);
     validate_joint(v);
     return v;
 }

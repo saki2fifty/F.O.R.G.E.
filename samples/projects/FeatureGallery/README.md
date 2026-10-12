@@ -9,6 +9,12 @@ For compiled C++ physics forces, impulses and torque, open the separate
 [Physics Loads project](../PhysicsLoads/README.md). Its six-cube comparison uses
 the same editor and standalone export workflow with the matching native module.
 
+## Swing-and-twist comparison
+Scene **28-swing-twist-joints** compares a blue wide-swing pendulum with a yellow
+narrow one under gravity. Inspect their joint entities to adjust cone half-angles,
+twist limits and body-local axes. Both start inside their limits; no C++ module is
+needed. The same saved scene can be exported and run independently.
+
 ## Open and inspect
 
 1. Copy the entire `Examples/FeatureGallery` folder to a writable place outside

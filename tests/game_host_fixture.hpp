@@ -15,7 +15,9 @@ struct GameHostFixture {
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
-         slider = false, motors = false, position_drive = false, connected = false;
+         slider = false, motors = false, position_drive = false, connected = false,
+         swing_twist = false;
+    std::array<double, 2> swing_maximum{}, swing_minimum{180, 180};
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -76,8 +78,9 @@ struct GameHostFixture {
         motors = argc == 3 && std::string_view(argv[1]) == "--packaged-motors";
         position_drive = argc == 3 && std::string_view(argv[1]) == "--packaged-position";
         connected = argc == 3 && std::string_view(argv[1]) == "--packaged-connected";
+        swing_twist = argc == 3 && std::string_view(argv[1]) == "--packaged-swing";
         packaged = reference || mixed || loads || velocity || contacts || volumes || slider ||
-                   motors || position_drive || connected ||
+                   motors || position_drive || connected || swing_twist ||
                    (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
@@ -153,7 +156,7 @@ struct GameHostFixture {
         std::size_t physics_actor_pixels = 0;
         std::size_t contact_actor_pixels = 0;
         if (loads || velocity || contacts || volumes || slider || motors || position_drive ||
-            connected)
+            connected || swing_twist)
             for (unsigned y = 0; y < desc.Height; ++y)
                 for (unsigned x = 0; x < desc.Width; ++x) {
                     const auto* p = pixels + y * data.Stride + x * 4;
@@ -183,9 +186,9 @@ struct GameHostFixture {
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
         if (!reference && !loads && !velocity && !contacts && !volumes && !slider && !motors &&
-            !position_drive && !connected)
+            !position_drive && !connected && !swing_twist)
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
-        if (loads || velocity || slider || motors || position_drive || connected) {
+        if (loads || velocity || slider || motors || position_drive || connected || swing_twist) {
             check(physics_actor_pixels > 100,
                   "Authored physics actors are not visible in standalone rendering");
             atomic_write(output / "physics-render-result.json",
@@ -247,6 +250,42 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (swing_twist) {
+            const auto tick = game.status().at("clock").at("tick").get<unsigned>();
+            const auto scene = game.active().scene.document();
+            Json angles = Json::object();
+            for (const auto& row : scene.at("entities")) {
+                const auto name = row.at("name").get<std::string>();
+                if (name != "Wide socket body" && name != "Narrow socket body")
+                    continue;
+                const auto& q = row.at("components").at("forge.local_rotation");
+                const auto angle =
+                    std::abs(2 * std::atan2(q.at("z").get<double>(), q.at("w").get<double>()) *
+                             180 / std::numbers::pi);
+                angles[name] = angle;
+                if (tick >= 30) {
+                    const auto i = name == "Wide socket body" ? 0 : 1;
+                    swing_maximum[i] = std::max(swing_maximum[i], angle);
+                    swing_minimum[i] = std::min(swing_minimum[i], angle);
+                }
+            }
+            if (tick < 240)
+                return;
+            check(angles.size() == 2 && game.active().physics()->status().at("joints") == 2,
+                  "Exported swing/twist actors or native joints missing");
+            check(swing_maximum[0] > 30 && swing_maximum[0] < 50.5 && swing_maximum[1] > 5 &&
+                      swing_maximum[1] < 15.5 && swing_maximum[0] - swing_minimum[0] > 10 &&
+                      swing_maximum[1] - swing_minimum[1] > 5,
+                  "Exported gravity-driven swing/twist limits do not match independent bounds");
+            atomic_write(output / "physics-swing-result.json", Json{{"tick", tick},
+                                                                    {"angles", angles},
+                                                                    {"maximum", swing_maximum},
+                                                                    {"minimum", swing_minimum}}
+                                                                   .dump(2));
+            capture("physics-swing-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (connected) {
             const auto tick = game.status().at("clock").at("tick").get<unsigned>();
             if (tick < 240)

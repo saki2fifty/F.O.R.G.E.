@@ -46,7 +46,7 @@ struct PhysicsBody {
 // use the entity origin (not center of mass) and include effective signed scale.
 struct PhysicsJoint {
     bool enabled = true;
-    std::uint32_t kind = 0; // Distance, Hinge, Point, Fixed, Slider.
+    std::uint32_t kind = 0; // Distance, Hinge, Point, Fixed, Slider, Swing Twist.
     EntityRef body_a, body_b;
     float anchor_a_x = 0, anchor_a_y = 0, anchor_a_z = 0;
     float anchor_b_x = 0, anchor_b_y = 0, anchor_b_z = 0;
@@ -65,6 +65,8 @@ struct PhysicsJoint {
     float motor_frequency = 2;             // Position spring frequency, Hz.
     float motor_damping = 1;               // Position damping ratio; 1 is critical.
     bool collide_connected = true;         // Enabled joints may suppress this body pair.
+    float swing_normal_angle = 45;         // Swing cone half-angle towards frame normal, degrees.
+    float swing_plane_angle = 45;          // Swing cone half-angle towards plane axis, degrees.
     bool operator==(const PhysicsJoint&) const = default;
 };
 struct BoxCollider {

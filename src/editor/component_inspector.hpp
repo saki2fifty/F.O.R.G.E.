@@ -286,7 +286,9 @@ class ComponentInspector {
                     const auto mode = values.at(key).at("motor_mode").get<unsigned>();
                     if ((name.ends_with("distance") && kind != 0) ||
                         (name.ends_with("travel") && kind != 4) ||
-                        (name.ends_with("angle") && kind != 1) ||
+                        ((name == "min_angle" || name == "max_angle") && kind != 1 && kind != 5) ||
+                        (name.starts_with("swing_") && kind != 5) ||
+                        (name == "hinge_motor_angle" && kind != 1) ||
                         (name == "motor_enabled" && kind != 1 && kind != 4) ||
                         ((name == "motor_mode" || name == "motor_frequency" ||
                           name == "motor_damping") &&
@@ -302,7 +304,7 @@ class ComponentInspector {
                         ((name == "slider_motor_speed" || name == "max_motor_force") &&
                          kind != 4) ||
                         ((name.starts_with("axis_") || name.starts_with("normal_")) && kind != 1 &&
-                         kind != 3 && kind != 4))
+                         kind != 3 && kind != 4 && kind != 5))
                         continue;
                 }
                 if (!component_match &&
@@ -311,10 +313,26 @@ class ComponentInspector {
                     continue;
                 ui::IdScope field_scope(name.c_str());
                 auto value = values.at(key).at(name);
+                Json contextual;
+                const Json* display_field = &field;
+                if (key == "forge.physics_joint" && values.at(key).at("kind") == 5) {
+                    const auto* label = name == "axis_a"      ? "Twist Axis A"
+                                        : name == "axis_b"    ? "Twist Axis B"
+                                        : name == "normal_a"  ? "Plane Axis A"
+                                        : name == "normal_b"  ? "Plane Axis B"
+                                        : name == "min_angle" ? "Min Twist Angle"
+                                        : name == "max_angle" ? "Max Twist Angle"
+                                                              : nullptr;
+                    if (label) {
+                        contextual = field;
+                        contextual["display_name"] = label;
+                        display_field = &contextual;
+                    }
+                }
                 const bool changed =
                     key == "forge.mesh_renderer" && name == "materials" && material_slots
                         ? material_slots(values.at(key), value)
-                        : property_field(project.project(), field, value);
+                        : property_field(project.project(), *display_field, value);
                 FORGE_UI_PROBE("component-field:" + key + ":" + name);
                 if (changed)
                     edit_property(scene, entity, key, name, value);

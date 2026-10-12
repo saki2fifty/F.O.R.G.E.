@@ -198,8 +198,21 @@ void check_guides() {
                 "Actual position guide lacks target marker and spring status");
         require(draw(altered) > 0 && overlay.status().find("distinct bodies") != std::string::npos,
                 "Invalid pairing lost visible diagnostic");
+        auto swing = snapshot;
+        auto& limits = row(swing, id)["components"]["forge.physics_joint"];
+        limits["kind"] = 5;
+        limits["swing_normal_angle"] = 20;
+        limits["swing_plane_angle"] = 10;
+        limits["min_angle"] = -25;
+        limits["max_angle"] = 35;
+        require(draw(swing) > visible_vertices &&
+                    overlay.status().starts_with("Authored Swing Twist joint") &&
+                    overlay.status().find("swing normal/plane 20.000 / 10.000 deg") !=
+                        std::string::npos &&
+                    overlay.status().find("twist [-25.000, 35.000] deg") != std::string::npos,
+                "Actual swing/twist guide lacks cone boundary or angular status");
         auto invalid = snapshot;
-        row(invalid, id)["components"]["forge.physics_joint"]["kind"] = 5;
+        row(invalid, id)["components"]["forge.physics_joint"]["kind"] = 6;
         require(draw(invalid) > 0 && overlay.status().starts_with("Authored joint") &&
                     overlay.status().find("disabled") == std::string::npos,
                 "Invalid settings received an incorrect kind/disabled label");

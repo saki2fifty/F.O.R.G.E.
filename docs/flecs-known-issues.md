@@ -51,6 +51,11 @@ A workaround is scoped to the stated consumer; it is not a general upstream fix.
   offset order, then compare every reflected offset, field extent, component size
   and alignment against the typed declaration before admitting generic serialization.
   Reject mismatches. Keep display order independent of physical layout.
+- **Builtin descriptor batches:** `annotate_type` preserves this ordering across
+  bounded `ecs_struct_init` calls when a typed builtin exceeds the32-member
+  descriptor cache. Exact4.1.6 `struct_ts.c` updates named members on nonempty
+  calls; that cache is not a reflected-type member limit. Every resulting offset/
+  extent is verified as before. No direct member-entity workaround or pin change.
 - **Evidence:** fresh narrow two-world probe passed field-value transfer across
   different layouts using physical-order registration, then equal-value IsA override,
   Revert and the fact that ranges do not veto writes. The deliberately failing

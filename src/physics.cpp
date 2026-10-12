@@ -33,6 +33,7 @@
 #include <Jolt/Physics/Constraints/HingeConstraint.h>
 #include <Jolt/Physics/Constraints/PointConstraint.h>
 #include <Jolt/Physics/Constraints/SliderConstraint.h>
+#include <Jolt/Physics/Constraints/SwingTwistConstraint.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/StateRecorderImpl.h>
 #include <algorithm>
@@ -1213,6 +1214,21 @@ struct PhysicsRuntime::Impl {
                 settings.mNormalAxis2 = axis(c.normal_b);
                 settings.mLimitsMin = c.min_travel;
                 settings.mLimitsMax = c.max_travel;
+                native = settings.Create(*ba, *bb);
+            } else if (c.kind == 5) {
+                JPH::SwingTwistConstraintSettings settings;
+                settings.mSpace = JPH::EConstraintSpace::LocalToBodyCOM;
+                settings.mPosition1 = pa;
+                settings.mPosition2 = pb;
+                settings.mTwistAxis1 = axis(c.axis_a);
+                settings.mPlaneAxis1 = axis(c.normal_a);
+                settings.mTwistAxis2 = axis(c.axis_b);
+                settings.mPlaneAxis2 = axis(c.normal_b);
+                const auto radians = std::numbers::pi_v<float> / 180;
+                settings.mNormalHalfConeAngle = c.swing_normal_angle * radians;
+                settings.mPlaneHalfConeAngle = c.swing_plane_angle * radians;
+                settings.mTwistMinAngle = c.min_angle * radians;
+                settings.mTwistMaxAngle = c.max_angle * radians;
                 native = settings.Create(*ba, *bb);
             } else {
                 JPH::FixedConstraintSettings settings;

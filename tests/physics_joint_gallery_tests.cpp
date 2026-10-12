@@ -1,12 +1,14 @@
 #include "model_instance_pose.hpp"
 #include "model_render_resource.hpp"
 #include "runtime_package.hpp"
+#include <cmath>
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
 #include <forge/game_session.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <numbers>
 using namespace forge;
 using namespace forge::asset_detail;
 namespace {
@@ -205,6 +207,36 @@ void connected_collision_motion(World& w) {
         require(std::abs(p[1] - .25) < .02, "Pair policy suppressed unrelated Gallery floor");
     render_actors(w, {"Ignored pair A", "Ignored pair B", "Colliding pair A", "Colliding pair B"});
 }
+void swing_twist_motion(World& w) {
+    require(w.physics->status().at("joints") == 2, "Gallery swing/twist joints missing");
+    double wide = 0, narrow = 0;
+    for (unsigned tick = 0; tick < 240; ++tick) {
+        w.simulation.tick(1.f / 60);
+        for (const auto* label : {"Wide", "Narrow"}) {
+            const auto body = std::string(label) + " socket body";
+            require(distance(w.point(std::string(label) + " socket anchor"),
+                             w.point(body, {0, .75, 0})) < .025,
+                    "Swing/twist Gallery lost its body-origin pivot");
+            const auto q = w.named(body).get<LocalRotation>();
+            require(std::abs(q.x) < 1e-4 && std::abs(q.y) < 1e-4,
+                    "Planar Gallery pendulum acquired unsupported coupled rotation");
+            const auto angle = std::abs(2 * std::atan2(q.z, q.w) * 180 / std::numbers::pi);
+            if (tick >= 30) {
+                if (label[0] == 'W')
+                    wide = std::max(wide, angle);
+                else {
+                    narrow = std::max(narrow, angle);
+                    require(angle < 15.5,
+                            "Narrow Gallery pendulum exceeded its independent 15-degree bound");
+                }
+            }
+        }
+    }
+    require(wide > 30 && wide < 50.5 && narrow > 5,
+            "Gravity-driven Gallery did not distinguish wide and narrow swing limits");
+    render_actors(w, {"Wide socket anchor", "Wide socket body", "Narrow socket anchor",
+                      "Narrow socket body"});
+}
 void tuned_motion(World& w) {
     const std::vector<std::string> names{
         "No damping - free fall",  "Damping 3 per second", "Speed limit 2 metres per second",
@@ -243,10 +275,12 @@ int main(int argc, char** argv) {
         const std::string mode = argc == 4 ? argv[3] : "joints";
         require(mode == "joints" || mode == "extended" || mode == "ccd" || mode == "tuning" ||
                     mode == "slider" || mode == "motors" || mode == "position" ||
-                    mode == "connected",
+                    mode == "connected" || mode == "swing",
                 "Unknown Gallery mode");
         const auto validate = [&](World& world) {
-            if (mode == "connected")
+            if (mode == "swing")
+                swing_twist_motion(world);
+            else if (mode == "connected")
                 connected_collision_motion(world);
             else if (mode == "position")
                 position_motion(world);
@@ -267,14 +301,15 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source =
-            read(root / (mode == "connected"  ? "Scenes/27-connected-collisions.scene.json"
-                         : mode == "position" ? "Scenes/26-position-drives.scene.json"
-                         : mode == "motors"   ? "Scenes/25-velocity-motors.scene.json"
-                         : mode == "slider"   ? "Scenes/24-slider-joints.scene.json"
-                         : mode == "tuning"   ? "Scenes/23-body-motion-tuning.scene.json"
-                         : mode == "ccd"      ? "Scenes/22-continuous-collision.scene.json"
-                         : mode == "extended" ? "Scenes/21-point-fixed-joints.scene.json"
-                                              : "Scenes/20-physics-joints.scene.json"));
+            read(root / (mode == "swing"       ? "Scenes/28-swing-twist-joints.scene.json"
+                         : mode == "connected" ? "Scenes/27-connected-collisions.scene.json"
+                         : mode == "position"  ? "Scenes/26-position-drives.scene.json"
+                         : mode == "motors"    ? "Scenes/25-velocity-motors.scene.json"
+                         : mode == "slider"    ? "Scenes/24-slider-joints.scene.json"
+                         : mode == "tuning"    ? "Scenes/23-body-motion-tuning.scene.json"
+                         : mode == "ccd"       ? "Scenes/22-continuous-collision.scene.json"
+                         : mode == "extended"  ? "Scenes/21-point-fixed-joints.scene.json"
+                                               : "Scenes/20-physics-joints.scene.json"));
         World live(root, source);
         validate(live);
         const std::array roots{source.at("asset_id").get<AssetId>()};

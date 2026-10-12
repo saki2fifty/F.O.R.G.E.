@@ -253,29 +253,30 @@ void four_type_recovery() {
     };
     const auto fixed = add("Fixed", 3);
     add("Slider", 4);
+    add("Swing Twist", 5);
     const auto distance_id = add("Last distance", 0);
     f.physics->teleport(f.ref("b"), {.2, 3, .1}, {0, 0, .1f, std::sqrt(.99f)}, true);
     f.tick(3);
-    require(f.physics->status().at("joints") == 6, "Five native joint types not realized");
+    require(f.physics->status().at("joints") == 7, "Six native joint types not realized");
     joint.enabled = false;
     f.entity("j").set<PhysicsJoint>(joint);
     f.tick();
     const auto snapshot = f.scene.snapshot(), checkpoint = f.physics->checkpoint();
-    require(checkpoint.at("joints").size() == 5 &&
+    require(checkpoint.at("joints").size() == 6 &&
                 checkpoint.at("joints").at(0).at("entity").at("entity") == distance_id,
-            "Five-type native swapped-order capture differs");
+            "Six-type native swapped-order capture differs");
     Fixture recovered;
     recovered.scene.restore_snapshot(snapshot);
     recovered.physics->restore(checkpoint);
     require(recovered.physics->checkpoint().at("joints") == checkpoint.at("joints"),
-            "Five-type native mapping/configuration not restored");
+            "Six-type native mapping/configuration not restored");
     for (unsigned i = 0; i < 45; ++i) {
         f.tick();
         recovered.tick();
         require(distance(point(f, "b"), point(recovered, "b")) < 1e-5 &&
                     distance(direction(f, "b", {1, 0, 0}), direction(recovered, "b", {1, 0, 0})) <
                         1e-5,
-                "Five-type restored trajectory/frame diverged");
+                "Six-type restored trajectory/frame diverged");
     }
     auto invalid = recovered.scene.entity(fixed).get<PhysicsJoint>();
     invalid.normal_a = invalid.axis_a;
@@ -284,7 +285,7 @@ void four_type_recovery() {
     rejects([&] { recovered.physics->synchronize(1.f / 60); });
     require(recovered.physics->status() == before, "Invalid fixed frame mutated native world");
     invalid = f.scene.entity(fixed).get<PhysicsJoint>();
-    invalid.kind = 5;
+    invalid.kind = 6;
     recovered.scene.entity(fixed).set<PhysicsJoint>(invalid);
     rejects([&] { recovered.physics->synchronize(1.f / 60); });
     require(recovered.physics->status() == before, "Unknown joint kind mutated native world");
@@ -449,7 +450,7 @@ void offset_center_of_mass(const std::filesystem::path& scratch) {
             require(std::abs(distance(point(f, "a"), point(f, "b")) - 2) < .04,
                     "Joint anchor used collider COM instead of entity origin");
         }
-        for (unsigned kind : {1u, 2u, 3u}) {
+        for (unsigned kind : {1u, 2u, 3u, 5u}) {
             auto joint = f.entity("j").get<PhysicsJoint>();
             joint.kind = kind;
             joint.anchor_b_x = .3f;
@@ -763,6 +764,7 @@ void authoring_and_identity() {
 #include "physics_motor_tests.hpp"
 #include "physics_position_motor_tests.hpp"
 #include "physics_slider_tests.hpp"
+#include "physics_swing_twist_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -773,6 +775,7 @@ int main(int argc, char** argv) {
         joint_velocity_motors();
         joint_position_motors();
         joint_collision_policy();
+        swing_twist_limits_and_recovery();
         four_type_recovery();
         lifecycle_and_recovery();
         rejection_and_scale();

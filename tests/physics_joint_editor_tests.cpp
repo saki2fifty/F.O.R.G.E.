@@ -294,12 +294,44 @@ int main(int argc, char** argv) {
                 require(scene.undo() && scene.entity(id).get<PhysicsJoint>().collide_connected &&
                             scene.redo() && !scene.entity(id).get<PhysicsJoint>().collide_connected,
                         "Connected-body collision checkbox Undo/Redo failed");
+                click("component-field:forge.physics_joint:kind");
+                key(ImGuiKey_DownArrow);
+                key(ImGuiKey_Enter);
+                require(scene.entity(id).get<PhysicsJoint>().kind == 5,
+                        "Actual Swing Twist enum choice failed");
+                frame();
+                require(
+                    test::ui_targets.contains("component-field:forge.physics_joint:min_angle") &&
+                        test::ui_targets.contains(
+                            "component-field:forge.physics_joint:swing_normal_angle") &&
+                        test::ui_targets.contains(
+                            "component-field:forge.physics_joint:swing_plane_angle") &&
+                        !test::ui_targets.contains(
+                            "component-field:forge.physics_joint:motor_enabled") &&
+                        !test::ui_targets.contains(
+                            "component-field:forge.physics_joint:min_travel"),
+                    "Swing Twist Inspector exposes unsupported controls or lacks limits");
+                numeric("swing_normal_angle", "20");
+                numeric("swing_plane_angle", "10");
+                numeric("min_angle", "-25");
+                numeric("max_angle", "35");
+                require(scene.entity(id).get<PhysicsJoint>().swing_normal_angle == 20 &&
+                            scene.entity(id).get<PhysicsJoint>().swing_plane_angle == 10 &&
+                            scene.entity(id).get<PhysicsJoint>().min_angle == -25 &&
+                            scene.entity(id).get<PhysicsJoint>().max_angle == 35,
+                        "Actual swing/twist numerical controls failed");
+                require(scene.undo() && scene.entity(id).get<PhysicsJoint>().max_angle == 60 &&
+                            scene.redo() && scene.entity(id).get<PhysicsJoint>().max_angle == 35,
+                        "Swing/twist numerical Undo/Redo failed");
                 click("component-field:forge.physics_joint:enabled");
                 require(!scene.entity(id).get<PhysicsJoint>().enabled, "Enabled checkbox failed");
                 const auto retained = scene.entity(id).get<PhysicsJoint>();
                 require(retained.min_distance == 2 && retained.max_distance == 3 &&
-                            retained.min_angle == -30 && retained.max_angle == 60,
-                        "Switching joint kind discarded inactive authored settings");
+                            retained.min_angle == -25 && retained.max_angle == 35 &&
+                            retained.hinge_motor_angle == 30 &&
+                            retained.slider_motor_position == -1.25f &&
+                            retained.max_motor_force == 3 && retained.motor_damping == .6f,
+                        "Swing/twist edits discarded unrelated inactive authored settings");
                 scene.save(root / "joint.scene.json");
                 EngineContext reopened;
                 Scene saved{reopened.world()};

@@ -151,3 +151,15 @@ Pinned native group-filter pointers are excluded from solver binary state, while
 full admitted joint settings/contact state remain in exact-build checkpoint4.
 No authored format, private version or ABI1 change; SDK layout/fingerprint requires
 matching rebuilt modules. Mask/layer bits and query geometry remain unchanged.
+
+## 2026-10-12 — swing-and-twist joints
+
+Kind5 appends Swing Twist without renumbering existing kinds. Trailing default45
+swing cone fields backfill through the existing builtin codec; min/max angle are
+the twist interval in this kind. Admitted values/native constraint order/state stay
+in the existing exact-build private4 mapping. No new owner or authored format.
+Matching SDK layout/fingerprint requires rebuilding, ABI1 unchanged. Native limits
+use the existing joint structural rebuild path; connected collision policy remains
+the current owner-derived pair setting. Builtin Meta annotation batches its pinned
+32-field descriptors in ascending physical order, then verifies every native field
+offset/size. The existing zero-offset workaround and admission authority remain.

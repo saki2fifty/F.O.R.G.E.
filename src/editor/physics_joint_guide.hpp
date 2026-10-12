@@ -14,13 +14,14 @@ struct PhysicsJointGuideFrame {
 };
 struct PhysicsJointGuide {
     bool enabled = true, valid = false;
-    unsigned kind = 5; // Invalid/unavailable settings until the shared codec admits them.
+    unsigned kind = 6; // Invalid/unavailable settings until the shared codec admits them.
     float min_travel = 0, max_travel = 0;
     bool motor_enabled = false;
     bool collide_connected = true;
     float motor_speed = 0, motor_budget = 0;
     unsigned motor_mode = 0;
     float motor_target = 0, motor_frequency = 0, motor_damping = 0;
+    float min_angle = 0, max_angle = 0, swing_normal_angle = 0, swing_plane_angle = 0;
     std::array<unsigned, 2> axis{}, normal{};
     std::array<PhysicsJointGuideFrame, 2> bodies;
     std::string error;
@@ -42,6 +43,10 @@ inline std::optional<PhysicsJointGuide> prepare_physics_joint_guide(const Json& 
             physics_detail::joint_from_value(joint_row->at("components").at("forge.physics_joint"));
         guide.enabled = joint.enabled;
         guide.kind = joint.kind;
+        guide.min_angle = joint.min_angle;
+        guide.max_angle = joint.max_angle;
+        guide.swing_normal_angle = joint.swing_normal_angle;
+        guide.swing_plane_angle = joint.swing_plane_angle;
         guide.min_travel = joint.min_travel;
         guide.motor_enabled = joint.motor_enabled;
         guide.collide_connected = joint.collide_connected;

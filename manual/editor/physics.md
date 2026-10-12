@@ -269,6 +269,33 @@ current relative orientation. Position bodies so the two anchors meet and their
 frames agree before Play. The Inspector shows fields relevant to the selected kind. Inactive values remain
 saved when switching kind but have no solver effect for Point or Fixed. Scene21 provides both examples.
 
+### Swing-and-twist joints
+
+Choose **Swing Twist** to connect two bodies like a limited ball-and-socket joint.
+**Twist Axis A/B** select each body's local twist direction. **Plane Axis A/B**
+select a different local axis to orient the swing cone. The other cone direction
+is perpendicular to both. Set the body-local anchors to the same intended pivot.
+
+**Swing Normal Angle** and **Swing Plane Angle** are half-angles in degrees,
+so 30 allows a 30-degree tilt to either side in that direction. Different values
+make an elliptical cone. **Min Twist Angle/Max Twist Angle** limit spinning around
+the twist axis and must include zero. Set both twist values to 0 to lock twisting.
+For the selected solver, swing values below 0.5 degrees lock that direction; above
+179.5 degrees leave it free. Similar twist limits near zero/±180 degrees lock/free twist.
+Motor controls belong to Hinge/Slider and are hidden in Swing Twist mode.
+Limits are solver targets: combined fast motion can briefly overshoot while the
+physics solver corrects the angle over subsequent steps.
+
+The selected Scene guide draws the cone and twist bounds at a fixed display size;
+it does not change the bodies or the joint entity's transform. Save and restart
+Play after changing limits. Undo and prefab overrides follow ordinary component
+editing. **Collide Connected** applies to this joint too.
+
+Open **28-swing-twist-joints** in Feature Gallery. The blue pendulum swings within
+a50-degree cone direction; the yellow one has a15-degree bound. Both start inside
+their limits and move under gravity. Save/export/run the same scene without a
+C++ compiler. This is a joint tool; skeletal ragdoll authoring remains later work.
+
 ### Slider joints
 
 Choose **Slider** for a carriage that travels along one axis while keeping its

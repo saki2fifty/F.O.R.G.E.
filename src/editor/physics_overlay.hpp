@@ -241,14 +241,15 @@ class PhysicsOverlay {
     bool joint_selected_ = false;
     void draw_joint(const PhysicsJointGuide& guide, const EditorCamera& camera, ImVec2 origin,
                     ImVec2 area) {
-        static constexpr const char* kinds[] = {"Distance", "Hinge", "Point", "Fixed", "Slider"};
+        static constexpr const char* kinds[] = {"Distance", "Hinge",  "Point",
+                                                "Fixed",    "Slider", "Swing Twist"};
         const auto color = !guide.error.empty() ? IM_COL32(255, 112, 120, 230)
                            : !guide.enabled     ? IM_COL32(160, 170, 185, 230)
                            : guide.valid        ? IM_COL32(74, 231, 187, 230)
                                                 : IM_COL32(255, 112, 120, 230);
         auto* draw = ImGui::GetWindowDrawList();
         draw->PushClipRect(origin, {origin.x + area.x, origin.y + area.y}, true);
-        std::string note = guide.kind < 5 ? std::string("Authored ") + kinds[guide.kind] + " joint"
+        std::string note = guide.kind < 6 ? std::string("Authored ") + kinds[guide.kind] + " joint"
                                           : "Authored joint";
         if (!guide.enabled)
             note += " | disabled";
@@ -267,7 +268,7 @@ class PhysicsOverlay {
                 SpatialHelpers::draw_line(draw, camera, origin, area,
                                           helper_add(body.anchor, axis, -.08),
                                           helper_add(body.anchor, axis, .08), marker);
-            if (guide.kind == 1 || guide.kind == 3 || guide.kind == 4) {
+            if (guide.kind == 1 || guide.kind == 3 || guide.kind == 4 || guide.kind == 5) {
                 SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor,
                                           helper_add(body.anchor, body.axes[guide.axis[i]], .6),
                                           marker);
@@ -281,6 +282,49 @@ class PhysicsOverlay {
                                     z[0] * x[1] - z[1] * x[0]};
                     SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor,
                                               helper_add(body.anchor, y, .35), marker);
+                }
+            }
+            if (guide.kind == 5 && i == 0) {
+                const auto& twist = body.axes[guide.axis[0]];
+                const auto& plane = body.axes[guide.normal[0]];
+                const Double3 normal{plane[1] * twist[2] - plane[2] * twist[1],
+                                     plane[2] * twist[0] - plane[0] * twist[2],
+                                     plane[0] * twist[1] - plane[1] * twist[0]};
+                // Native cone limits form an ellipse in swing-quaternion space.
+                // Project its boundary through the rotated twist direction. Length
+                // is display-only; this guide does not inspect or modify the solver.
+                const auto effective = [](float angle) {
+                    return angle < .5f ? 0.f : angle > 179.5f ? 180.f : angle;
+                };
+                const auto sy =
+                    std::sin(effective(guide.swing_plane_angle) * std::numbers::pi / 360);
+                const auto sz =
+                    std::sin(effective(guide.swing_normal_angle) * std::numbers::pi / 360);
+                Double3 previous{};
+                for (unsigned step = 0; step <= 48; ++step) {
+                    const auto angle = 2 * std::numbers::pi * step / 48;
+                    const auto y = sy * std::cos(angle), z = sz * std::sin(angle);
+                    const auto w = std::sqrt(std::max(0., 1 - y * y - z * z));
+                    auto direction =
+                        helper_add(helper_add(helper_add({}, twist, 1 - 2 * (y * y + z * z)),
+                                              normal, 2 * w * z),
+                                   plane, -2 * w * y);
+                    const auto point = helper_add(body.anchor, direction, .6);
+                    if (step)
+                        SpatialHelpers::draw_line(draw, camera, origin, area, previous, point,
+                                                  marker);
+                    if (step % 12 == 0 && step < 48)
+                        SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor, point,
+                                                  marker);
+                    previous = point;
+                }
+                for (const auto degrees : {guide.min_angle, guide.max_angle}) {
+                    const auto angle = degrees * std::numbers::pi / 180;
+                    const auto direction =
+                        helper_add(helper_add({}, normal, std::cos(angle)), plane, std::sin(angle));
+                    SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor,
+                                              helper_add(body.anchor, direction, .35),
+                                              IM_COL32(242, 142, 240, 240));
                 }
             }
             if (guide.kind == 4 && i == 0) {
@@ -343,6 +387,14 @@ class PhysicsOverlay {
                               gap[0] * axis[0] + gap[1] * axis[1] + gap[2] * axis[2],
                               guide.min_travel, guide.max_travel);
                 note += metric;
+            }
+            if (guide.kind == 5) {
+                char limits[128];
+                std::snprintf(limits, sizeof(limits),
+                              " | swing normal/plane %.3f / %.3f deg | twist [%.3f, %.3f] deg",
+                              guide.swing_normal_angle, guide.swing_plane_angle, guide.min_angle,
+                              guide.max_angle);
+                note += limits;
             }
             if ((guide.kind == 1 || guide.kind == 4) && guide.motor_enabled) {
                 char drive[160];

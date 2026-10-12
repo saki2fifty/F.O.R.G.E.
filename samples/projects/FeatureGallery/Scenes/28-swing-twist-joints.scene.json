@@ -1,0 +1,450 @@
+{
+  "version": 3,
+  "asset_id": "ba6d11db-a4ef-413d-8026-599c24de74cc",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05000000074505806,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975803375244,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.5,
+          "z": -13.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bf8083fe-efef-45b9-89b9-d815cf3d3871",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981852531433,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "48292d35-a3ab-4b3d-a202-edafb16a5469",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 12.0,
+          "y": 0.5,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.5,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "1a17bf15-83da-4e2f-a4f8-1a0c8b635566",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 0.35,
+          "y": 0.35,
+          "z": 0.35
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.0,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15,
+          "g": 0.8,
+          "b": 1.0
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "id": "17cb553b-f4f7-45ac-99e9-0900aba03664",
+      "name": "Wide socket anchor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 0.6,
+          "y": 1.6,
+          "z": 0.6
+        },
+        "forge.local_translation": {
+          "x": -1.228654868376153,
+          "y": 3.0807466682572264,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.0,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 2.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "linear_damping": 0.05,
+          "angular_damping": 0.05,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15,
+          "g": 0.8,
+          "b": 1.0
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.3420201433256687,
+          "w": 0.9396926207859084
+        }
+      },
+      "id": "70987fd9-2cfe-47ac-b510-a428287c34d7",
+      "name": "Wide socket body",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "id": "53df4763-523a-4ea5-9139-f04c8a26c1e1",
+      "name": "Wide socket joint",
+      "components": {
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.physics_joint": {
+          "enabled": true,
+          "kind": 5,
+          "body_a": {
+            "scene": "ba6d11db-a4ef-413d-8026-599c24de74cc",
+            "entity": "17cb553b-f4f7-45ac-99e9-0900aba03664"
+          },
+          "body_b": {
+            "scene": "ba6d11db-a4ef-413d-8026-599c24de74cc",
+            "entity": "70987fd9-2cfe-47ac-b510-a428287c34d7"
+          },
+          "anchor_a_x": 0.0,
+          "anchor_a_y": 0.0,
+          "anchor_a_z": 0.0,
+          "anchor_b_x": 0.0,
+          "anchor_b_y": 0.75,
+          "anchor_b_z": 0.0,
+          "min_distance": 0.001,
+          "max_distance": 2.0,
+          "min_travel": -1.5,
+          "max_travel": 1.5,
+          "axis_a": 1,
+          "axis_b": 1,
+          "normal_a": 0,
+          "normal_b": 0,
+          "min_angle": -20.0,
+          "max_angle": 20.0,
+          "motor_enabled": false,
+          "hinge_motor_speed": 45.0,
+          "slider_motor_speed": 1.0,
+          "max_motor_torque": 5.0,
+          "max_motor_force": 25.0,
+          "motor_mode": 0,
+          "hinge_motor_angle": -45.0,
+          "slider_motor_position": -0.75,
+          "motor_frequency": 2.0,
+          "motor_damping": 1.0,
+          "collide_connected": false,
+          "swing_normal_angle": 20.0,
+          "swing_plane_angle": 50.0
+        }
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 0.35,
+          "y": 0.35,
+          "z": 0.35
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.0,
+          "gravity_factor": 0.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 1.0,
+          "g": 0.75,
+          "b": 0.15
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "id": "d1286761-8a1e-464c-a7f7-60e754473407",
+      "name": "Narrow socket anchor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 0.6,
+          "y": 1.6,
+          "z": 0.6
+        },
+        "forge.local_translation": {
+          "x": 2.249494028981311,
+          "y": 2.8262228791194333,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.0,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 2.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "linear_damping": 0.05,
+          "angular_damping": 0.05,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 1.0,
+          "g": 0.75,
+          "b": 0.15
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.10452846326765347,
+          "w": 0.9945218953682733
+        }
+      },
+      "id": "c973397e-9afb-4aa6-bfcf-09cc237059b4",
+      "name": "Narrow socket body",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "id": "fb9d7919-bff5-4ac3-91b5-c849327a8a16",
+      "name": "Narrow socket joint",
+      "components": {
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.physics_joint": {
+          "enabled": true,
+          "kind": 5,
+          "body_a": {
+            "scene": "ba6d11db-a4ef-413d-8026-599c24de74cc",
+            "entity": "d1286761-8a1e-464c-a7f7-60e754473407"
+          },
+          "body_b": {
+            "scene": "ba6d11db-a4ef-413d-8026-599c24de74cc",
+            "entity": "c973397e-9afb-4aa6-bfcf-09cc237059b4"
+          },
+          "anchor_a_x": 0.0,
+          "anchor_a_y": 0.0,
+          "anchor_a_z": 0.0,
+          "anchor_b_x": 0.0,
+          "anchor_b_y": 0.75,
+          "anchor_b_z": 0.0,
+          "min_distance": 0.001,
+          "max_distance": 2.0,
+          "min_travel": -1.5,
+          "max_travel": 1.5,
+          "axis_a": 1,
+          "axis_b": 1,
+          "normal_a": 0,
+          "normal_b": 0,
+          "min_angle": -20.0,
+          "max_angle": 20.0,
+          "motor_enabled": false,
+          "hinge_motor_speed": 45.0,
+          "slider_motor_speed": 1.0,
+          "max_motor_torque": 5.0,
+          "max_motor_force": 25.0,
+          "motor_mode": 0,
+          "hinge_motor_angle": -45.0,
+          "slider_motor_position": -0.75,
+          "motor_frequency": 2.0,
+          "motor_damping": 1.0,
+          "collide_connected": false,
+          "swing_normal_angle": 20.0,
+          "swing_plane_angle": 15.0
+        }
+      }
+    }
+  ]
+}

@@ -274,7 +274,8 @@ if(BUILD_TESTING)
  add_dependencies(forge_editor_fixture forge_editor forge_runtime forge_schema_worker_fixture)
  copy_required_dlls(forge_editor_fixture)
  add_test(NAME editor_redesign_render COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor")
- set_tests_properties(editor_redesign_render PROPERTIES TIMEOUT 260)
+ # Full scaled capture suite: internal600s total/45s per-stage; allow teardown.
+ set_tests_properties(editor_redesign_render PROPERTIES TIMEOUT 620)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
  # The full authoring/export scenario includes native compilation and three
  # graph-worker preparations. Individual input/readiness deadlines remain bounded.

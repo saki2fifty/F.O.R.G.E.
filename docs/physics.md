@@ -479,9 +479,10 @@ bounds make a fixed-length tether. Hinge joins two anchor points and allows
 rotation around one selected X/Y/Z axis in each rigid body frame. Each selected
 normal axis must differ from its hinge axis. The angle is zero when the two normal
 frames agree; degree limits enclose zero, from [-180, 0] and [0, 180]. Equal zero hinge
-limits are rejected; use Fixed when zero angular freedom is required. Position motors, springs, break force, ragdolls and joint-specific connected-pair
-collision exclusion are not implemented.
-Existing project layers/masks continue to own collision filtering.
+limits are rejected; use Fixed when zero angular freedom is required. Hinge/Slider
+velocity and bounded spring position drives, plus joint-specific connected-pair
+collision policy, are described below. Break force and ragdoll/skin integration
+are not implemented. Project layers/masks still govern all permitted body pairs.
 
 Anchor coordinates use each entity's local origin, including effective signed
 scale. Native construction converts them into Jolt COM-relative coordinates by
@@ -520,6 +521,38 @@ Fixed disables automatic point detection. Distance/angle settings are inactive
 but preserved and bounded for these kinds. The existing native2 recovery envelope
 and lifetime/admission/identity rules are unchanged. Public enum documentation
 updates the exactSDK fingerprint; native ABI1 and field layout remain unchanged.
+
+### Swing-and-twist joints
+
+Kind 5 **Swing Twist** is a limited ball-and-socket joint using the existing owner.
+It joins body-origin anchors and uses Axis A/B as the twist axis, Normal A/B as
+the perpendicular plane axis. Native frame X is twist, Y is plane cross twist,
+Z is plane. Axis and plane choices must differ on both bodies. Body rotations,
+signed-scale anchors and collider COM conversion follow the existing joint rules.
+
+`swing_normal_angle` and `swing_plane_angle` are cone half-angles in degrees,
+default 45, finite 0–180. They bound tilt towards frame normal/plane respectively,
+forming an elliptical cone in swing-quaternion space. Existing min_angle/max_angle
+bound signed twist around the twist axis, include zero and allow equal 0 for a lock.
+Exact pinned solver treats each swing half-angle below 0.5 degrees as locked and above
+179.5 degrees as free; twist locks when both bounds lie within (-0.5, 0.5) degrees, becomes free
+when they extend below -179.5 and above 179.5 degrees. Boundary values remain constrained.
+These are iterative solver targets. Simultaneous moving swing can briefly exceed
+the nominal cone; the pinned position solver applies partial Baumgarte correction
+per iteration. Stopping angular motion settles onto the independently measured
+cone boundary. The existing native solver retains ownership.
+
+The Inspector labels Twist Axis/Plane Axis/Min Twist Angle/Max Twist Angle in this
+mode, shows both swing bounds and hides other joint types' controls. Hinge/Slider
+motor settings remain preserved inactive values. Swing motors/friction/ragdoll
+owners are not part of this feature. The Scene guide derives cone/twist boundaries
+at a fixed display length and shows authored angular limits; it owns no simulation.
+
+Structural frame/limit edits rebuild through existing native lifecycle/order;
+connected contact policy remains an in-place pair setting. Full admitted settings
+and native state use exact-build private4 recovery. ABI1/authored formats unchanged;
+matching SDK modules require rebuilding. Original Gallery28 demonstrates wide and
+narrow gravity-driven pendulums starting inside their authored cone limits.
 
 ### Slider joints
 
