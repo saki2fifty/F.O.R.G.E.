@@ -66,6 +66,10 @@ Select each emitter for **Mix channel**. Change its shared volume in **Project
 Settings → Game defaults**, save settings while stopped, then Play/export to
 compare. Master affects every channel.
 
+While playing, use **Project Settings → Live audio mix → Apply live mix** to
+adjust the current four volumes. Saved defaults stay unchanged; Stop and Play
+restores them. The section also reports output, voice counts and clip cache use.
+
 Scene **34 — Audio import processing** compares original stereo and processed
 mono sound. Open its WAVs from Content to compare waveforms and audition them.
 Change mono, peak normalization and silence trimming under Import settings,

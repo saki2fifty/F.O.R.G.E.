@@ -55,14 +55,16 @@ int main() {
         frame(142, 23);
         require(!hover, "Vertex setup did not end at finite bound");
         for (unsigned stage : {235u, 238u}) {
-            input.queue(io, {50, 50}, 0);
+            input.click_once(io, stage, 4, {50, 50}, false);
             frame(stage, 4);
-            input.queue(io, {50, 50}, 1);
-            frame(stage, 5);
-            input.queue(io, {50, 50}, 2);
-            frame(stage, 6);
+            require(!hover, "Audio capture clicked before its widget became ready");
+            input.click_once(io, stage, 40, {50, 50}, true);
+            frame(stage, 41);
+            input.click_once(io, stage, 41, {50, 50}, true);
+            frame(stage, 42);
             require(clicked, "Audio capture did not receive actual click/release");
-            frame(stage, 10);
+            input.click_once(io, stage, 43, {50, 50}, true);
+            frame(stage, 45);
             require(!hover, "Audio setup leaked pointer past its finite bound");
         }
         input.queue(io, {std::numeric_limits<float>::quiet_NaN(), 50}, 0);

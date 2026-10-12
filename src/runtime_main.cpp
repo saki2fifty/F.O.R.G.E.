@@ -1,3 +1,4 @@
+#include "audio_mix.hpp"
 #include "authored_inspection.hpp"
 #include "runtime_io.hpp"
 #include "sdk_play_runtime.hpp"
@@ -338,6 +339,16 @@ int main(int argc, char** argv) {
                         runtime->physics()->refresh_assets();
                         if (runtime->engine.services().available(forge::Capability::Resources))
                             runtime->engine.services().resources()->refresh();
+                    } else if (command == "audio_mix") {
+                        const auto mix = forge::AudioMixValues::parse(request.at("mix"));
+                        if (!audio_config ||
+                            !runtime->engine.services().available(forge::Capability::Audio))
+                            throw std::runtime_error("Live audio mix requires enabled audio");
+                        std::static_pointer_cast<forge::AudioRuntime>(
+                            runtime->engine.services().audio())
+                            ->mix_volumes(mix.master, mix.channels);
+                        audio_config->master_volume = mix.master;
+                        audio_config->channel_volumes = mix.channels;
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();

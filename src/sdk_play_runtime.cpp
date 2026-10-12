@@ -1,4 +1,5 @@
 #include "sdk_play_runtime.hpp"
+#include "audio_mix.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
 #include <algorithm>
@@ -1090,6 +1091,17 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                         return s.build_error(id, "candidate_ack was rejected by the channel");
                 }
             }
+            return s.snapshot_response(id);
+        }
+        if (command == "audio_mix") {
+            if (!s.active_generation || !s.game || !request.contains("generation") ||
+                !is_unsigned_int(request.at("generation")) ||
+                request.at("generation").get<std::uint64_t>() != s.active_generation)
+                return s.build_error(id, "Live audio mix targets a stale world generation");
+            const auto mix = AudioMixValues::parse(request.at("mix"));
+            if (!s.game->active().engine.services().available(Capability::Audio))
+                return s.build_error(id, "Live audio mix requires enabled audio");
+            s.game->mix_volumes(mix.master, mix.channels);
             return s.snapshot_response(id);
         }
         if (command == "property_tune") {

@@ -43,6 +43,23 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   initial=worker.request('replace',scene=scene)
   assert initial['audio']['paused'] and initial['audio']['voices']==1
   assert 'audio' not in initial['scene'] and 'audio' not in initial['recovery']
+  mix=dict(master_volume=.25,channel_volumes=[.5,0,.75])
+  mixed=worker.request('audio_mix',mix=mix)
+  assert mixed['audio']['master_volume']==.25 and mixed['audio']['channel_volumes']==[.5,0,.75]
+  assert mixed['timing']['tick']==initial['timing']['tick'] and mixed['audio']['paused']
+  assert mixed['scene']==initial['scene'] and mixed['audio']['voices']==1
+  for invalid in (dict(master_volume=-1e-50,channel_volumes=[1,1,1]),
+                  dict(master_volume=1,channel_volumes=[1,1]),
+                  dict(master_volume=1,channel_volumes=[1,1,2]),
+                  dict(master_volume=True,channel_volumes=[1,1,1]),
+                  dict(master_volume=None,channel_volumes=[1,1,1]),
+                  dict(master_volume=1,channel_volumes=[1,1,1],unexpected=0)):
+   try:worker.request('audio_mix',mix=invalid)
+   except AssertionError:pass
+   else:raise AssertionError('Invalid audio mix accepted')
+   kept=worker.request('snapshot')
+   assert kept['audio']['master_volume']==.25 and kept['audio']['channel_volumes']==[.5,0,.75]
+   assert kept['timing']['tick']==initial['timing']['tick'] and kept['audio']['voices']==1
   before=initial['timing']['tick'];time.sleep(.04)
   assert worker.request('snapshot')['timing']['tick']==before
   for n in range(1,5):
@@ -62,6 +79,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   assert paused['timing']['tick']>4 and paused['audio']['paused']
   restored=worker.request('replace',scene=checkpoint['scene'],recovery=checkpoint,recovery_session=checkpoint['session'],recovery_tick=checkpoint['tick'])
   assert restored['timing']['tick']==4 and restored['audio']['paused'] and restored['audio']['playing_sources']==1
+  assert restored['audio']['master_volume']==.25 and restored['audio']['channel_volumes']==[.5,0,.75]
   # Corrupt candidate leaves the old audio-bearing world intact and paused.
   bad=copy.deepcopy(checkpoint);bad['integrity']='bad'
   try:worker.request('replace',scene=checkpoint['scene'],recovery=bad,recovery_session=checkpoint['session'],recovery_tick=checkpoint['tick'])
@@ -74,6 +92,9 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   try:
    assert headless.request('hello')['audio']['output']=='disabled'
    assert headless.request('replace',scene=scene)['audio']['output']=='disabled'
+   try:headless.request('audio_mix',mix=mix)
+   except AssertionError:pass
+   else:raise AssertionError('Headless audio mix accepted')
    assert headless.request('step')['timing']['tick']==1
   finally:headless.close()
 print('Audio protocol/recovery/headless/exact-SDK policy passed; no hardware playback claim')

@@ -21,6 +21,7 @@
 #include "animation_tools.hpp"
 #include "asset_actions.hpp"
 #include "audio_imports.hpp"
+#include "audio_mix.hpp"
 #include "audio_preview.hpp"
 #include "authored_components.hpp"
 #include "automation.hpp"
@@ -498,6 +499,15 @@ int main(int argc, char** argv) {
         }
 #endif
         forge::ProjectSettingsEditor project_settings;
+        forge::AudioMixEditor audio_mix;
+        project_settings.draw_runtime_extension = [&] {
+            if (play.active())
+                audio_mix.draw(play.session(), play.audio_status(), play.control_ready(),
+                               play.audio_mix_pending(), play.audio_mix_error(),
+                               [&](const auto& values) { return play.submit_audio_mix(values); });
+            else
+                audio_mix.reset();
+        };
         bool scene_lighting_open = false;
         const char* base = SDL_GetBasePath();
         if (!base)
@@ -3735,6 +3745,7 @@ int main(int argc, char** argv) {
                 case 233:
                 case 236:
                 case 239:
+                case 242:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3745,6 +3756,7 @@ int main(int argc, char** argv) {
                 case 234:
                 case 237:
                 case 240:
+                case 243:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3798,6 +3810,15 @@ int main(int argc, char** argv) {
                     if (fixture.audio_preview) {
                         forge::ui::style(1);
                         audio_imports.open(files.document, "Assets/ProcessingMono.wav");
+                    }
+                    break;
+                case 241:
+                    if (fixture.audio_mixer) {
+                        forge::ui::style(1);
+                        files.document.open_scene("Scenes/34-audio-import-processing.scene.json");
+                        if (!actions.invoke("play"))
+                            throw std::runtime_error("Live audio capture could not start Play");
+                        project_settings.open();
                     }
                     break;
                 case 232:
@@ -5386,7 +5407,8 @@ int main(int argc, char** argv) {
                         (fixture.stage >= 73 && fixture.stage < 82) ||
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
                         (fixture.stage >= 103 && fixture.stage <= 141) ||
-                        (fixture.stage >= 145 && fixture.stage <= 168))
+                        (fixture.stage >= 145 && fixture.stage <= 168) ||
+                        (fixture.stage >= 217 && fixture.stage <= 243))
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
@@ -6063,24 +6085,28 @@ int main(int argc, char** argv) {
                 }
                 if (fixture.audio_preview && fixture.stage >= 235 && fixture.stage <= 237) {
                     auto* w = ImGui::FindWindowByName("Audio clip###Audio clip");
-                    if (fixture.stage == 235 && fixture.frames >= 4 && fixture.frames <= 5) {
+                    if (w) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                    }
+                    if (fixture.stage == 235 && fixture.frames >= 4) {
                         if (const auto target =
                                 forge::test::ui_targets.find("audio-preview:waveform-load");
                             target != forge::test::ui_targets.end()) {
                             const auto& item = target->second;
-                            fixture.capture_input.queue(ImGui::GetIO(),
-                                                        {(item.minimum.x + item.maximum.x) * .5f,
-                                                         (item.minimum.y + item.maximum.y) * .5f},
-                                                        fixture.frames == 4 ? 1 : 2);
+                            fixture.capture_input.click_once(
+                                ImGui::GetIO(), fixture.stage, fixture.frames,
+                                {(item.minimum.x + item.maximum.x) * .5f,
+                                 (item.minimum.y + item.maximum.y) * .5f},
+                                item.enabled && item.minimum.y >= item.clip_minimum.y &&
+                                    item.maximum.y <= item.clip_maximum.y);
                         }
                     }
                     const auto last = forge::test::ui_targets.find("audio-preview:waveform");
                     if (!w || last == forge::test::ui_targets.end())
                         captured_document_visible = false;
                     else {
-                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
-                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
-                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
                         if (last->second.maximum.y > last->second.clip_maximum.y)
                             ImGui::SetScrollY(w, w->Scroll.y + last->second.maximum.y -
                                                      last->second.clip_maximum.y + 12);
@@ -6096,23 +6122,27 @@ int main(int argc, char** argv) {
                 }
                 if (fixture.audio_preview && fixture.stage >= 238 && fixture.stage <= 240) {
                     auto* w = ImGui::FindWindowByName("Audio clip###Audio clip");
-                    if (fixture.stage == 238 && fixture.frames >= 4 && fixture.frames <= 5)
+                    if (w) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                    }
+                    if (fixture.stage == 238 && fixture.frames >= 4)
                         if (const auto target = forge::test::ui_targets.find("import:settings");
                             target != forge::test::ui_targets.end()) {
                             const auto& item = target->second;
-                            fixture.capture_input.queue(ImGui::GetIO(),
-                                                        {(item.minimum.x + item.maximum.x) * .5f,
-                                                         (item.minimum.y + item.maximum.y) * .5f},
-                                                        fixture.frames == 4 ? 1 : 2);
+                            fixture.capture_input.click_once(
+                                ImGui::GetIO(), fixture.stage, fixture.frames,
+                                {(item.minimum.x + item.maximum.x) * .5f,
+                                 (item.minimum.y + item.maximum.y) * .5f},
+                                item.enabled && item.minimum.y >= item.clip_minimum.y &&
+                                    item.maximum.y <= item.clip_maximum.y);
                         }
                     const auto last = forge::test::ui_targets.find(
                         "import-setting:forge.audio.wav:trim_threshold_db");
                     if (!w || last == forge::test::ui_targets.end())
                         captured_document_visible = false;
                     else {
-                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
-                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
-                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
                         if (last->second.maximum.y > last->second.clip_maximum.y)
                             ImGui::SetScrollY(w, w->Scroll.y + last->second.maximum.y -
                                                      last->second.clip_maximum.y + 12);
@@ -6148,6 +6178,27 @@ int main(int argc, char** argv) {
                                                   "dialogue_volume"}) {
                             const auto found =
                                 forge::test::ui_targets.find(std::string("project-audio:") + field);
+                            captured_document_visible &=
+                                found != forge::test::ui_targets.end() && found->second.enabled &&
+                                found->second.minimum.y >= found->second.clip_minimum.y &&
+                                found->second.maximum.y <= found->second.clip_maximum.y;
+                        }
+                    }
+                }
+                if (fixture.audio_mixer && fixture.stage >= 241 && fixture.stage <= 243) {
+                    auto* w = ImGui::FindWindowByName("Project Settings###Project Settings");
+                    captured_document_visible &=
+                        play.ready() && play.audio_status().contains("master_volume");
+                    if (!w)
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        ImGui::SetScrollY(w, 0);
+                        for (const auto* field : {"Master", "Music", "Effects", "Dialogue"}) {
+                            const auto found =
+                                forge::test::ui_targets.find(std::string("live-audio:") + field);
                             captured_document_visible &=
                                 found != forge::test::ui_targets.end() && found->second.enabled &&
                                 found->second.minimum.y >= found->second.clip_minimum.y &&
@@ -6261,7 +6312,7 @@ int main(int argc, char** argv) {
                         (fixture.animation_exits && fixture.stage == 220) ||
                         (fixture.audio_falloff && fixture.stage == 223) ||
                         (fixture.audio_cones && fixture.stage == 229) ||
-                        (fixture.audio_mixer && fixture.stage == 235) ||
+                        (fixture.audio_mixer && fixture.stage == 244) ||
                         (fixture.audio_preview && fixture.stage == 241)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview)

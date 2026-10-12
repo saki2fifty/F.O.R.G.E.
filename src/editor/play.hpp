@@ -1,4 +1,5 @@
 #pragma once
+#include "../audio_mix.hpp"
 #include "event_time.hpp"
 #include "play_transport_worker.hpp"
 #include <SDL3/SDL.h>
@@ -51,6 +52,21 @@ class PlaySession {
         return ready() && control_.empty() && (!waiting_ || sent_command_ == "snapshot");
     }
     const Json& timing() const { return timing_; }
+    const Json& audio_status() const { return audio_status_; }
+    const std::string& audio_mix_error() const { return audio_mix_error_; }
+    bool audio_mix_pending() const {
+        return !audio_mix_command_.is_null() || (waiting_ && sent_command_ == "audio_mix");
+    }
+    bool submit_audio_mix(const Json& values) {
+        if (!control_ready() || audio_mix_pending() || !audio_status_.contains("master_volume"))
+            return false;
+        const auto mix = AudioMixValues::parse(values);
+        audio_mix_command_ = {{"command", "audio_mix"}, {"mix", mix.document()}};
+        if (sdk_game_)
+            audio_mix_command_["generation"] = sdk_activation_generation_;
+        audio_mix_error_.clear();
+        return true;
+    }
     Json physics_debug_selection;
     const Json& physics_status() const { return physics_status_; }
     const Json& input_status() const { return input_status_; }
@@ -696,6 +712,11 @@ class PlaySession {
                 }
                 if (!response.value("ok", false)) {
                     const auto error = response.value("error", "Runtime rejected request");
+                    if (sent_command_ == "audio_mix") {
+                        audio_mix_error_ = error;
+                        send({{"command", "snapshot"}});
+                        return;
+                    }
                     // Too-late SDK loading cancel: the runtime
                     // reports the cancel ticket no longer matches
                     // the prepared scene. This is a nonfatal race
@@ -784,6 +805,7 @@ class PlaySession {
                 effective_ = response.at("effective_scene");
                 runtime_schema_ = response.value("schema", Json());
                 timing_ = response.at("timing");
+                audio_status_ = response.value("audio", Json::object());
                 input_status_ = response.value("input", Json::object());
                 physics_status_ = response.value("physics", Json::object());
                 // SDK Play transport observations. Stage/none responses
@@ -1014,6 +1036,10 @@ class PlaySession {
                         auto command = std::move(property_tune_command_);
                         property_tune_command_ = nullptr;
                         send(std::move(command));
+                    } else if (!audio_mix_command_.is_null()) {
+                        auto command = std::move(audio_mix_command_);
+                        audio_mix_command_ = nullptr;
+                        send(std::move(command));
                     } else if (!ui_command_.is_null()) {
                         // UI clicks can queue neutral input. Ship those older events before
                         // a command such as rebind_begin, which would otherwise be cancelled
@@ -1032,6 +1058,10 @@ class PlaySession {
                         const auto command = control_;
                         control_.clear();
                         send({{"command", command}});
+                    } else if (!audio_mix_command_.is_null()) {
+                        auto command = std::move(audio_mix_command_);
+                        audio_mix_command_ = nullptr;
+                        send(std::move(command));
                     } else if (model_assets_changed_) {
                         model_assets_changed_ = false;
                         send({{"command", "refresh_model_assets"}});
@@ -1119,6 +1149,9 @@ class PlaySession {
         control_.clear();
         session_.clear();
         ui_snapshot_ = ui_ack_ = ui_command_ = nullptr;
+        audio_status_ = Json::object();
+        audio_mix_command_ = nullptr;
+        audio_mix_error_.clear();
         model_assets_changed_ = false;
         waiting_ = false;
         // SDK Play transport state. Pending ack/epoch buffers MUST also
@@ -1334,6 +1367,8 @@ class PlaySession {
     std::string executable_, notice_, session_, control_;
     Json initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
+    Json audio_status_ = Json::object(), audio_mix_command_;
+    std::string audio_mix_error_;
     Json diagnostics_ = Json::array();
     std::string audio_project_;
     bool probe_ = false, recoverable_ = false;

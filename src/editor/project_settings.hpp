@@ -3,9 +3,11 @@
 #include "editor_state.hpp"
 #include "widgets.hpp"
 #include <forge/game_settings.hpp>
+#include <functional>
 namespace forge {
 class ProjectSettingsEditor {
   public:
+    std::function<void()> draw_runtime_extension;
     void open() {
         open_ = true;
         focus_requested_ = true;
@@ -85,6 +87,8 @@ class ProjectSettingsEditor {
             save(document, status);
         }
         if (expanded) {
+            if (draw_runtime_extension)
+                draw_runtime_extension();
             ImGui::TextWrapped("%s | Save Settings owns this draft. Scene Undo does not edit it.",
                                dirty() ? "Unsaved settings" : "Saved settings");
             if (ui::button("Close Settings",

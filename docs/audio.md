@@ -128,6 +128,32 @@ layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
 This batch supplies four common channels. Custom buses, effects, streaming and
 separate unpaused UI/music remain future capabilities.
 
+## Live Play mix and status
+
+Project Settings presents a runtime-only section above the disabled authored
+defaults during Play. It reports output mode, pause state, playing/allocated
+voices and decoded clip cache count/bytes from the existing runtime snapshot.
+Four linear0–1 sliders edit a session-local draft; Apply live mix sends one
+request and Reload live values discards that draft. Neither action edits project
+settings, scene history or saved player preferences. Dragging a slider sends no
+per-frame transport traffic. Pending requests disable further edits.
+
+The private `audio_mix` request admits one finite master and exactly three finite
+channel values before changing the existing AudioRuntime. SDK Play also requires
+the current active world generation. Disabled audio and invalid/stale requests
+retain the previous complete mix. PlaySession uses its existing single correlated
+transport worker, keeps audio telemetry from receipts, and queues at most one mix
+request. A correlated rejection reports an error and requests a fresh snapshot;
+the healthy session remains usable and a later Apply can retry.
+
+Both legacy and SDK Play update gains without restarting voices, reopening output
+or advancing a paused simulation. Retained runtime configuration preserves the
+mix through world reconstruction within the same process. Stop, a new process or
+a new Play session reloads saved defaults. The editor clears its draft and queued
+request on teardown. No installed SDK API/layout, authored schema, backend, thread
+or exported editor is added. Gallery33 demonstrates category balancing; Gallery34
+also exercises the live controls with processed cooked PCM.
+
 ## Editor clip audition
 
 The AudioClip document offers explicit Play/Restart preview, Stop, Pause/Resume, Loop and

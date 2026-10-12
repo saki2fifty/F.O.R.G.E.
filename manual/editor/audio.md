@@ -101,6 +101,20 @@ Effects and Dialogue. Stop Play, change one channel's default volume, save setti
 and Play again to compare. Select each named emitter to inspect or change its
 **Mix channel**. Export preserves its routes and cooked tone.
 
+### Adjust the current game while it plays
+
+During Play, open **Tools → Project Settings**. **Live audio mix** shows the sound
+output, whether it is paused, voice counts and clip cache use. Change Master,
+Music, Effects or Dialogue, then click **Apply live mix** to hear the change.
+**Reload live values** discards an unapplied draft. Controls briefly disable while
+the game applies a request; a rejected request shows an error and can be retried.
+
+You can adjust the mix while paused without advancing the game. These values
+affect only the current Play session. Stop and Play again to return to saved
+defaults. To make a starting mix permanent, stop, edit **Game defaults** and save
+settings. Try the live sliders in **33 — Audio mixer** or **34 — Audio import
+processing**.
+
 ## Position and listener
 
 Spatial sources use the scene's effective world positions. **Follow Structure**, **World**, and **Explicit** child spaces behave as described in [Scenes](scenes.md). Position updates follow completed game ticks. Audio does not move objects or run an independent transform simulation.
@@ -120,7 +134,7 @@ Use the existing prefab property **Revert** controls or the component header’s
 Import runs in a separate worker. It validates the WAV, prepares immutable audio
 data, and records **Duration**, **Channels**, **Sample rate** and format. Select
 the AudioClip in Content to see these details in Inspector, or double-click it to
-open **Audio clip**. Its **Clip details** update even when Content is closed or folded. The WAV importer has no configurable conversion settings. Drop it onto an Audio Source's **Clip** field to assign it;
+open **Audio clip**. Its **Clip details** update even when Content is closed or folded. Import settings can combine channels, normalize peaks and trim quiet edges. Drop it onto an Audio Source's **Clip** field to assign it;
 an incompatible asset type is rejected.
 
 Keep `forge.assets.json`, the WAV and its `.forge-import.json` sidecar in source

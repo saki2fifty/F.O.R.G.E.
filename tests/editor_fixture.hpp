@@ -108,6 +108,8 @@ struct EditorFixture {
             return "Inspector";
         if (audio_mixer && stage >= 232 && stage <= 234)
             return "Project Settings###Project Settings";
+        if (audio_mixer && stage >= 241 && stage <= 243)
+            return "Project Settings###Project Settings";
         if (audio_cones && stage >= 223 && stage <= 225)
             return "Inspector";
         if (audio_cones && stage >= 226 && stage <= 228)
@@ -620,7 +622,10 @@ struct EditorFixture {
                                "audio-clip-preview-200",
                                "audio-import-processing",
                                "audio-import-processing-150",
-                               "audio-import-processing-200"};
+                               "audio-import-processing-200",
+                               "live-audio-mix",
+                               "live-audio-mix-150",
+                               "live-audio-mix-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;
@@ -660,6 +665,8 @@ struct EditorFixture {
         if (!complete || !label.empty())
             return;
         ++stage;
+        if (audio_mixer && stage == 235)
+            stage = 241;
         stage_started = SDL_GetTicks();
         frames = 0;
         prepared = false;

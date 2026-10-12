@@ -253,6 +253,12 @@ changes all tones. Source **Mix channel** can be changed in the Inspector while
 playing. Export includes original routes and cooked PCM; the source WAV is not
 needed to run the exported scene.
 
+While Play is active, open Project Settings → Live audio mix. Adjust Master,
+Music, Effects or Dialogue and Apply live mix to balance these tones without
+restarting them. Reload live values discards a draft. Voice/cache/output status
+comes from the current game. These temporary values do not change saved defaults;
+Stop and Play again restores the starting mix.
+
 ## 34 — Audio import processing
 
 `Scenes/34-audio-import-processing.scene.json` compares two copies of an original

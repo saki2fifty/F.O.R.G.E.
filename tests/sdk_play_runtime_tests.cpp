@@ -68,6 +68,7 @@ struct Fixture {
     Capture capture;
     std::vector<EngineModule> modules;
     std::filesystem::path content_root;
+    bool audio_enabled = false;
 
     explicit Fixture() {
         project_root = temp_root();
@@ -102,6 +103,8 @@ SdkPlayRuntime::Config make_config(Fixture& f) {
     config.modules = std::move(f.modules);
     config.defaults = std::move(f.defaults);
     config.ui = false;
+    if (f.audio_enabled)
+        config.audio = AudioConfig{f.content_root, AudioOutput::Offline, true};
     return config;
 }
 
@@ -187,6 +190,45 @@ std::unique_ptr<SdkPlayRuntime> build_activated(Fixture& f, std::string& session
     check(f.capture.service != nullptr,
           "activated fixture: Game service not captured by start callback");
     return host;
+}
+
+void live_audio_mix_controls() {
+    Fixture f;
+    f.audio_enabled = true;
+    std::string session;
+    auto host = build_activated(f, session);
+    auto request = [&](const char* command, Json fields = Json::object()) {
+        static std::uint64_t id = 30;
+        fields["protocol"] = 2;
+        fields["id"] = ++id;
+        fields["session"] = session;
+        fields["command"] = command;
+        return host->handle(fields);
+    };
+    const auto before = request("snapshot");
+    const auto generation = before.at("activation").at("generation");
+    const Json mix{{"master_volume", .25}, {"channel_volumes", {.5, 0, .75}}};
+    const auto applied = request("audio_mix", {{"generation", generation}, {"mix", mix}});
+    check(applied.value("ok", false) && applied.at("audio").at("master_volume") == .25 &&
+              applied.at("audio").at("channel_volumes") == Json::array({.5, 0, .75}) &&
+              applied.at("timing").at("tick") == before.at("timing").at("tick") &&
+              applied.at("timing").at("paused") == true &&
+              applied.at("scene") == before.at("scene"),
+          "SDK live mix changed paused clock/scene or missed existing mixer");
+    for (const auto& fields :
+         {Json{{"generation", generation.get<std::uint64_t>() + 1}, {"mix", mix}},
+          Json{{"mix", mix}},
+          Json{{"generation", generation},
+               {"mix", {{"master_volume", 2}, {"channel_volumes", {1, 1, 1}}}}},
+          Json{{"generation", generation},
+               {"mix", {{"master_volume", .5}, {"channel_volumes", {1, 1}}}}}}) {
+        check(!request("audio_mix", fields).value("ok", false), "Invalid SDK mix accepted");
+        const auto kept = request("snapshot");
+        check(kept.at("audio").at("master_volume") == .25 &&
+                  kept.at("audio").at("channel_volumes") == Json::array({.5, 0, .75}) &&
+                  kept.at("scene") == before.at("scene"),
+              "Rejected SDK mix changed live state");
+    }
 }
 
 std::uint64_t issue_cursor(Fixture& f) {
@@ -2072,6 +2114,7 @@ int run() {
         platform_acks_rejects_unknown_token();
         platform_settings_rejects_display_changes_via_game_request();
         platform_settings_applies_audio_and_input();
+        live_audio_mix_controls();
         game_control_queue_pending_query_consults_active_endpoint();
         initial_candidate_failure_keeps_old_world_active();
         input_events_require_clock_or_snapshot_command();

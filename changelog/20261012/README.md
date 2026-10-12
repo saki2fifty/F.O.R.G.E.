@@ -1,5 +1,12 @@
 # 2026-10-12
 
+## Live audio mix and status
+
+- Project Settings shows runtime-only Master, Music, Effects and Dialogue drafts during Play, with explicit Apply and Reload live values. Saved defaults stay unchanged.
+- Output mode, pause state, voice counts and decoded clip cache use come from the current game. Mix edits preserve voice playback and paused game time.
+- Legacy and shared-SDK Play use the existing correlated transport and mixer. Invalid or stale requests retain the previous mix; a rejected request leaves Play usable for retry.
+- Actual scaled widgets, real process/Play transport, rejection/retry and strict sanitizer checks cover the controls. Native images and physical listening remain separate acceptance evidence.
+
 ## Audio import processing
 
 - WAV import settings support Force mono, Normalize peak, Trim silence and a
