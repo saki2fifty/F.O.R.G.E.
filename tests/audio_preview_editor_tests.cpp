@@ -72,11 +72,42 @@ int main(int argc, char** argv) {
                 frame();
                 frame();
                 require(!preview.active(), "Selecting clip started unexpected autoplay");
+                click("waveform-load");
+                require(!preview.active() && test::ui_targets.contains("audio-preview:waveform"),
+                        "Showing waveform opened playback or omitted the waveform");
                 click("loop");
                 click("play");
                 require(preview.active(), "Actual Play preview button did not start sound");
                 const auto baseline = power(preview);
                 require(baseline > 1e-5, "Preview button opened no actual PCM");
+                click("pause");
+                require(preview.paused(), "Pause preview button did not pause");
+                const auto held = preview.position();
+                require(power(preview) < 1e-12 && preview.position() == held,
+                        "Paused preview emitted samples or advanced displayed time");
+                click("waveform");
+                const auto duration =
+                    record.metadata.at("forge.audio").at("duration").get<double>();
+                require(preview.paused() && std::abs(preview.position() - duration * .5) < .001,
+                        "Waveform click did not seek while preserving pause");
+                // Commit a typed timeline value through the actual double slider.
+                io.AddKeyEvent(ImGuiMod_Ctrl, true);
+                click("position");
+                io.AddKeyEvent(ImGuiKey_A, true);
+                frame();
+                io.AddKeyEvent(ImGuiKey_A, false);
+                io.AddKeyEvent(ImGuiMod_Ctrl, false);
+                io.AddInputCharactersUTF8("0.25");
+                frame();
+                io.AddKeyEvent(ImGuiKey_Enter, true);
+                frame();
+                io.AddKeyEvent(ImGuiKey_Enter, false);
+                frame();
+                require(preview.paused() && std::abs(preview.position() - .25) < .001,
+                        "Typed timeline position did not commit seeking");
+                click("pause");
+                require(!preview.paused() && power(preview) > 1e-5,
+                        "Resume preview button did not restore actual sound");
                 std::vector<float> two_seconds(192000);
                 preview.read_offline(two_seconds);
                 frame();

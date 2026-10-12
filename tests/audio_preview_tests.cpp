@@ -1,4 +1,5 @@
 #include "audio_preview.hpp"
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <forge/scene.hpp>
@@ -24,6 +25,103 @@ std::string bytes(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
     require(bool(file), "Cannot read preview fixture");
     return {std::istreambuf_iterator<char>(file), {}};
+}
+void waveform_checks() {
+    asset_detail::AudioClipData clip{{-.7f, .2f, .9f, -.4f, .3f, .8f}, 3, 2, 24000};
+    auto waveform = asset_detail::audio_waveform(clip);
+    require(waveform.buckets() == 3 && waveform.channels == 2 && waveform.rate == 24000 &&
+                waveform.duration() == 3. / 24000 && waveform.peaks[0][0] == -.7f &&
+                waveform.peaks[3][1] == -.4f && waveform.peaks[5][1] == .8f,
+            "Short stereo envelope lost sample/channel identity");
+    clip = {std::vector<float>(8193, 0), 8193, 1, 48000};
+    clip.pcm[0] = -.8f;
+    clip.pcm[1] = .5f;
+    clip.pcm.back() = 1.2f;
+    waveform = asset_detail::audio_waveform(clip);
+    require(waveform.buckets() == 4096 && waveform.peaks[0] == std::array<float, 2>{-.8f, .5f} &&
+                waveform.peaks.back()[1] == 1.2f,
+            "Envelope dropped extrema or nondivisible tail");
+    clip.pcm.back() = std::numeric_limits<float>::quiet_NaN();
+    reject([&] { asset_detail::audio_waveform(clip); });
+}
+void seek_checks(const std::filesystem::path& root, unsigned rate) {
+    const auto project = root / ("seek-" + std::to_string(rate));
+    std::filesystem::create_directories(project / "Assets");
+    std::ofstream out(project / "Assets/seek.wav", std::ios::binary);
+    auto integer = [&](std::uint32_t value, unsigned n) {
+        for (unsigned i = 0; i < n; ++i)
+            out.put(char(value >> (8 * i)));
+    };
+    out.write("RIFF", 4);
+    integer(36 + rate * 2, 4);
+    out.write("WAVEfmt ", 8);
+    integer(16, 4);
+    integer(1, 2);
+    integer(1, 2);
+    integer(rate, 4);
+    integer(rate * 2, 4);
+    integer(2, 2);
+    integer(16, 2);
+    out.write("data", 4);
+    integer(rate * 2, 4);
+    for (unsigned i = 0; i < rate; ++i)
+        integer(std::uint16_t(std::int16_t(i < rate / 2 ? 8192 : -16384)), 2);
+    out.close();
+    auto record = AssetCatalog::register_audio_clip(project, "Assets/seek.wav");
+    AudioClipPreview preview, reference;
+    preview.configure(true, 1);
+    reference.configure(true, 1);
+    preview.load_waveform(project, record);
+    require(!preview.active() && preview.waveform_matches(project, record) &&
+                preview.waveform()->peaks.front()[1] == .25f &&
+                preview.waveform()->peaks.back()[0] == -.5f,
+            "Loading waveform opened playback or changed PCM extrema");
+    preview.start(project, record, AudioOutput::Offline);
+    reference.start(project, record, AudioOutput::Offline);
+    std::array<float, 2048> a{}, b{};
+    preview.read_offline(a);
+    reference.read_offline(b);
+    preview.paused(true);
+    const auto held = preview.position();
+    preview.read_offline(a);
+    require(preview.paused() && preview.position() == held &&
+                std::all_of(a.begin(), a.end(), [](float x) { return x == 0; }),
+            "Pause advanced preview time or output PCM");
+    preview.paused(false);
+    preview.read_offline(a);
+    reference.read_offline(b);
+    require(a == b, "Pause/resume lost sample continuity");
+    preview.seek(.75);
+    require(std::abs(preview.position() - .75) < 1. / rate, "Seek position used wrong sample rate");
+    preview.read_offline(a);
+    require(std::abs(preview.position() - (.75 + 1024. / 48000)) < 2. / rate && a.back() < -.3f,
+            "Seek retained old cached PCM or advanced time at source rate");
+    preview.paused(true);
+    preview.seek(.25);
+    require(preview.paused() && std::abs(preview.position() - .25) < 1. / rate,
+            "Seeking resumed a paused preview");
+    for (double value : {-1., 2., std::numeric_limits<double>::quiet_NaN(),
+                         std::numeric_limits<double>::infinity()}) {
+        reject([&] { preview.seek(value); });
+        require(preview.active() && preview.paused() &&
+                    std::abs(preview.position() - .25) < 1. / rate,
+                "Invalid seek changed admitted preview state");
+    }
+    preview.paused(false);
+    preview.read_offline(a);
+    require(a.back() > .15f, "Seek backward did not discard stale resampler state");
+    preview.seek(.99);
+    preview.read_offline(a);
+    require(preview.position() < .02 && a.back() > .15f,
+            "Seek-to-loop wrap used stale time or PCM");
+    preview.configure(false, 1);
+    preview.seek(1);
+    preview.read_offline(a);
+    preview.poll();
+    require(!preview.active() && preview.waveform(), "End seek retained sound or dropped envelope");
+    preview.clear();
+    reference.clear();
+    require(!preview.waveform(), "Preview close retained waveform selection");
 }
 double power(AudioClipPreview& preview) {
     std::array<float, 8192> warm{};
@@ -53,6 +151,9 @@ int main(int argc, char** argv) {
         Scene authored(author.world());
         authored.restore_snapshot(Json::parse(original_scene));
         const auto snapshot = authored.snapshot();
+        waveform_checks();
+        seek_checks(root, 48000);
+        seek_checks(root, 24000);
         AudioClipPreview preview;
         preview.configure(true, 1);
         preview.start(root, record, AudioOutput::Offline);
@@ -141,6 +242,11 @@ int main(int argc, char** argv) {
         std::filesystem::rename(held, wave);
         for (unsigned i = 0; i < 3; ++i) {
             preview.start(root, record, AudioOutput::NullDeviceTest);
+            for (unsigned seek = 0; seek < 12; ++seek) {
+                preview.paused(seek % 2);
+                preview.seek((seek % 3) * .2);
+                require(std::isfinite(preview.position()), "Device preview time became nonfinite");
+            }
             preview.stop();
         }
         require(bytes(index) == original_index && bytes(scene_path) == original_scene &&

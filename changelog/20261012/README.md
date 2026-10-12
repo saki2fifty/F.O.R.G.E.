@@ -4,6 +4,11 @@
 
 - AudioClip tabs can Play/Restart, Stop and Loop a clip without game Play, with
   temporary preview volume independent of saved game mix defaults.
+- Show waveform displays separate mono/stereo envelopes without opening sound
+  output. Pause/Resume, waveform-click seeking and a release-to-seek position
+  control preserve preview-only state and retain the output device/decoded clip.
+- Preview controls precede collapsed import settings. Closing or changing clips
+  clears the envelope; stopping sound keeps its overview visible.
 - One isolated preview uses FORGE's existing audio provider and published clip
   admission; close, selection/revision/project changes and Play/import locks
   release its sound/device/cache. Selecting a clip does not autoplay.

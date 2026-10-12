@@ -1,7 +1,32 @@
 #include "audio_preview.hpp"
+#include "audio_preview_access.hpp"
+#include "audio_selection.hpp"
+#include <algorithm>
 #include <cmath>
 #include <forge/scene.hpp>
 namespace forge {
+namespace asset_detail {
+AudioWaveform audio_waveform(const AudioClipData& clip) {
+    validate_audio_clip(clip);
+    AudioWaveform result{{}, clip.frames, clip.channels, clip.rate};
+    const auto count = std::min<std::uint64_t>(4096, clip.frames);
+    result.peaks.reserve(count * clip.channels);
+    for (std::uint64_t bucket = 0; bucket < count; ++bucket) {
+        const auto begin = bucket * clip.frames / count;
+        const auto end = (bucket + 1) * clip.frames / count;
+        for (unsigned channel = 0; channel < clip.channels; ++channel) {
+            float minimum = clip.pcm[begin * clip.channels + channel], maximum = minimum;
+            for (auto frame = begin + 1; frame < end; ++frame) {
+                const auto sample = clip.pcm[frame * clip.channels + channel];
+                minimum = std::min(minimum, sample);
+                maximum = std::max(maximum, sample);
+            }
+            result.peaks.push_back({minimum, maximum});
+        }
+    }
+    return result;
+}
+} // namespace asset_detail
 namespace {
 bool same_revision(const AssetRecord& a, const AssetRecord& b) {
     return a.id == b.id && a.type == b.type && a.source == b.source &&
@@ -25,6 +50,9 @@ struct AudioClipPreview::PreviewWorld {
     Scene scene;
     std::shared_ptr<AudioRuntime> audio;
     std::string actor = AssetId::generate().str();
+    bool paused = false;
+    double seek_offset = 0;
+    EntityRef ref() const { return scene.reference(actor); }
     PreviewWorld(const std::filesystem::path& root, const AssetRecord& expected, AudioOutput output,
                  bool loop, float volume)
         : project(root), record(selected(root, expected)),
@@ -62,8 +90,70 @@ void AudioClipPreview::start(const std::filesystem::path& project, const AssetRe
                              AudioOutput output) {
     stop();
     world_ = std::make_unique<PreviewWorld>(project, record, output, loop_, volume_);
+    try {
+        if (!waveform_matches(project, record)) {
+            waveform_ = asset_detail::audio_waveform(
+                AudioPreviewAccess::clip(*world_->audio, world_->ref()));
+            waveform_project_ = project;
+            waveform_record_ = record;
+        }
+    } catch (...) {
+        stop();
+        throw;
+    }
 }
 void AudioClipPreview::stop() { world_.reset(); }
+void AudioClipPreview::clear() {
+    stop();
+    waveform_ = {};
+    waveform_project_.clear();
+    waveform_record_.reset();
+}
+void AudioClipPreview::load_waveform(const std::filesystem::path& project,
+                                     const AssetRecord& record) {
+    const auto admitted = selected(project, record);
+    if (waveform_matches(project, admitted))
+        return;
+    auto envelope = asset_detail::audio_waveform(asset_detail::load_audio_clip(project, admitted));
+    waveform_ = std::move(envelope);
+    waveform_project_ = project;
+    waveform_record_ = admitted;
+}
+const asset_detail::AudioWaveform* AudioClipPreview::waveform() const {
+    return waveform_record_ ? &waveform_ : nullptr;
+}
+bool AudioClipPreview::waveform_matches(const std::filesystem::path& project,
+                                        const AssetRecord& record) const {
+    return waveform_record_ && waveform_project_ == project &&
+           same_revision(*waveform_record_, record);
+}
+void AudioClipPreview::paused(bool value) {
+    if (!world_)
+        throw std::runtime_error("Audio preview is stopped");
+    world_->audio->paused(value);
+    world_->paused = value;
+}
+bool AudioClipPreview::paused() const { return world_ && world_->paused; }
+void AudioClipPreview::seek(double seconds) {
+    if (!world_)
+        throw std::runtime_error("Audio preview is stopped");
+    if (!std::isfinite(seconds) || seconds < 0 || seconds > waveform_.duration())
+        throw std::runtime_error("Preview position must be within the clip duration");
+    try {
+        world_->seek_offset = AudioPreviewAccess::seek(*world_->audio, world_->ref(), seconds);
+    } catch (...) {
+        stop();
+        throw;
+    }
+}
+double AudioClipPreview::position() const {
+    if (!world_)
+        return 0;
+    const auto duration = waveform_.duration();
+    const double seconds =
+        world_->seek_offset + AudioPreviewAccess::elapsed(*world_->audio, world_->ref());
+    return loop_ ? std::fmod(seconds, duration) : std::min(seconds, duration);
+}
 void AudioClipPreview::configure(bool loop, float volume) {
     if (!std::isfinite(volume) || volume < 0 || volume > 1)
         throw std::runtime_error("Preview volume must be finite and between zero and one");

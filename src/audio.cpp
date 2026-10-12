@@ -1,3 +1,4 @@
+#include "audio_preview_access.hpp"
 #include "audio_selection.hpp"
 #include "builtins.hpp"
 #include <algorithm>
@@ -484,6 +485,47 @@ void AudioRuntime::read_offline(std::span<float> out) {
         throw std::runtime_error("PCM reads require explicit offline stereo output");
     checked(ma_engine_read_pcm_frames(&impl_->engine, out.data(), out.size() / 2, nullptr),
             "Offline audio read");
+}
+const asset_detail::AudioClipData& AudioPreviewAccess::clip(AudioRuntime& runtime, EntityRef ref) {
+    runtime.impl_->check();
+    const auto resolved = runtime.impl_->world.resolve(ref);
+    const auto found = runtime.impl_->voices.find(resolved.entity);
+    if (resolved.state != WorldContext::ResolveState::Available ||
+        found == runtime.impl_->voices.end() || !found->second->ready ||
+        runtime.impl_->voices.size() != 1 || found->second->authored.spatialized ||
+        found->second->authored.pitch != 1 || found->second->authored.bus != 0)
+        throw std::runtime_error("Preview transport requires one live nonspatial unpitched source");
+    return *found->second->clip;
+}
+double AudioPreviewAccess::elapsed(AudioRuntime& runtime, EntityRef ref) {
+    (void)clip(runtime, ref);
+    const auto& voice = runtime.impl_->voices.at(runtime.impl_->world.resolve(ref).entity);
+    // Atomic output-node clock, not the mutable source cursor. Pitch is fixed at1.
+    return double(ma_sound_get_time_in_pcm_frames(&voice->sound)) /
+           ma_engine_get_sample_rate(&runtime.impl_->engine);
+}
+double AudioPreviewAccess::seek(AudioRuntime& runtime, EntityRef ref, double seconds) {
+    const auto& data = clip(runtime, ref);
+    if (!std::isfinite(seconds) || seconds < 0 || seconds > data.duration())
+        throw std::runtime_error("Preview position must be within the clip duration");
+    const auto frame = std::min<std::uint64_t>(std::uint64_t(seconds * data.rate), data.frames - 1);
+    auto& impl = *runtime.impl_;
+    auto& voice = *impl.voices.at(impl.world.resolve(ref).entity);
+    // Pinned miniaudio uninit detaches/waits graph readers before returning.
+    // Recreate the node to discard resampler/processing caches, retaining PCM/device.
+    ma_sound_uninit(&voice.sound);
+    voice.ready = false;
+    checked(ma_audio_buffer_ref_seek_to_pcm_frame(&voice.buffer, frame), "Preview seek");
+    voice.sound = {};
+    checked(
+        ma_sound_init_from_data_source(&impl.engine, &voice.buffer, 0, &impl.group, &voice.sound),
+        "Preview sound reset");
+    voice.ready = true;
+    ma_sound_set_spatialization_enabled(&voice.sound, MA_FALSE);
+    ma_sound_set_looping(&voice.sound, voice.authored.loop);
+    ma_sound_set_volume(&voice.sound, voice.source_volume);
+    checked(ma_sound_start(&voice.sound), "Preview sound resume");
+    return double(frame) / data.rate;
 }
 EngineModule audio_module(AudioConfig config) {
     auto result = audio_schema_module();

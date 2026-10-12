@@ -829,6 +829,7 @@ int main(int argc, char** argv) {
         forge::AudioImportEditor audio_imports(std::filesystem::path(base) /
                                                "forge_asset_build.exe");
         forge::AudioPreviewEditor audio_preview;
+        audio_imports.preview_before_settings = true;
         audio_imports.draw_extension = [&](auto& document, bool locked) {
             forge::ui::heading("Clip details",
                                "Metadata of the successfully published audio clip.");
@@ -6054,7 +6055,18 @@ int main(int argc, char** argv) {
                 }
                 if (fixture.audio_preview && fixture.stage >= 235 && fixture.stage <= 237) {
                     auto* w = ImGui::FindWindowByName("Audio clip###Audio clip");
-                    const auto last = forge::test::ui_targets.find("audio-preview:volume");
+                    if (fixture.stage == 235 && fixture.frames >= 4 && fixture.frames <= 5) {
+                        if (const auto target =
+                                forge::test::ui_targets.find("audio-preview:waveform-load");
+                            target != forge::test::ui_targets.end()) {
+                            const auto& item = target->second;
+                            fixture.capture_input.queue(ImGui::GetIO(),
+                                                        {(item.minimum.x + item.maximum.x) * .5f,
+                                                         (item.minimum.y + item.maximum.y) * .5f},
+                                                        fixture.frames == 4 ? 1 : 2);
+                        }
+                    }
+                    const auto last = forge::test::ui_targets.find("audio-preview:waveform");
                     if (!w || last == forge::test::ui_targets.end())
                         captured_document_visible = false;
                     else {
@@ -6164,11 +6176,12 @@ int main(int argc, char** argv) {
                     (fixture.stage != 59 || (!model_imports.dirty() && !model_imports.pending() &&
                                              model_viewer && model_viewer->ready())) &&
                     ((fixture.stage < 60 || fixture.stage > 62) || asset_view_document.ready()) &&
-                    (fixture.stage < 64 ||
+                    ((fixture.stage < 64 || fixture.stage > 216) ||
                      (material_preview && !material_preview->pending() &&
                       !material_editor.dirty() && !material_editor.pending())) &&
-                    (fixture.stage < 50 || (!shader_imports.dirty() && !shader_imports.pending() &&
-                                            shader_imports.diagnostic().empty()))) {
+                    ((fixture.stage < 50 || fixture.stage > 216) ||
+                     (!shader_imports.dirty() && !shader_imports.pending() &&
+                      shader_imports.diagnostic().empty()))) {
                     if ((fixture.stage == 28 || fixture.stage == 29) &&
                         !material_preview->diagnostics().empty())
                         throw std::runtime_error("Material editor fixture preview failed");

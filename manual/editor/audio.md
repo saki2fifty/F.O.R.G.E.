@@ -7,6 +7,20 @@ In **Content**, double-click an AudioClip to open its **Audio clip** tab. Under
 **Stop preview** releases it. **Loop preview** repeats the sound, and
 **Preview volume** changes how loudly you hear it.
 
+Click **Show waveform** to see the sound without playing it. Mono clips show one
+band; stereo clips show separate Left and Right bands. Playing also loads the
+waveform. The time display shows the current position and total duration.
+
+During preview, use **Pause preview** and **Resume preview** to hold or continue
+the same position. Click the waveform to jump to a point, or adjust
+**Position (seconds)**. Dragging the position control seeks when you release it.
+Seeking while paused keeps the preview paused. **Stop preview** releases sound
+output and keeps the waveform visible; closing the tab releases the preview.
+
+The waveform shows a compact overview, including short peaks. It does not edit
+or trim the audio. Loading happens once for the selected clip; larger clips may
+take a moment on their first load. Import settings are below the preview.
+
 You do not need a camera, Audio Source entity or game Play for this preview.
 Its loop and volume changes are temporary: they do not change your scene or the
 game's mix volumes. Closing the tab, choosing another clip/project, reimporting,

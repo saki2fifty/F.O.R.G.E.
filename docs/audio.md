@@ -130,7 +130,7 @@ separate unpaused UI/music remain future capabilities.
 
 ## Editor clip audition
 
-The AudioClip document offers explicit Play/Restart preview, Stop, Loop and
+The AudioClip document offers explicit Play/Restart preview, Stop, Pause/Resume, Loop and
 temporary Preview volume0–1/default.5. Selecting a clip never autoplays it.
 These controls change no authored source, shared settings, asset index or history.
 Preview volume is independent of gameplay mix channels.
@@ -150,7 +150,28 @@ controls do no synchronization. Natural completion, Stop, close, selection or
 revision change, project change, import draft/job/lock and game Play release the
 voice, device and decoded cache. Failed initialization reports the actual audio
 error without a null-device fallback. Explicit offline/null outputs are test-only.
-Seeking, waveform display and asynchronous first-use loading remain deferred.
+Show waveform explicitly loads through the same bounded selected-clip admission,
+without an audio device. PCM is reduced once to at most4096 min/max buckets per
+channel, then released. Playing derives the envelope from the retained voice PCM.
+No cook revision, catalog array or second PCM cache is introduced. A bucket spans
+`[floor(i*frames/N), floor((i+1)*frames/N))`, including the final partial range.
+Mono/stereo channel extrema remain separate; values above unit amplitude are
+displayed using a common scale. Stop/natural completion retain only the envelope;
+close, selection/revision/project change and Play/import locks release it.
+
+Preview pause uses the existing gameplay sound group. Seeking commits on timeline
+release or waveform click and preserves pause. Private AudioPreviewAccess admits
+only the preview's single nonspatial pitch1/bus0 source. It detaches/uninitializes
+that sound node before seeking its buffer, then recreates the node to discard old
+resampler/processing cache. Exact miniaudio sound uninit waits graph readers; the
+decoded PCM and output device remain retained. It never reads the live mutable
+data-source cursor from the editor. End seeking clamps to the final source frame.
+The UI time is source seek offset plus the atomically read sound output-node time
+divided by engine sample rate, modulo duration when looping. It measures mixed
+playback position, not physical device latency or sample-accurate audible time.
+Nonfinite/out-of-range positions reject before changing the admitted preview.
+The private friend declaration is not an installed SDK header or ABI callback.
+Asynchronous first-use loading remains deferred.
 Actual offline PCM and scaled widget tests do not prove physical sound quality.
 
 ## Clock and presentation
@@ -171,7 +192,7 @@ Exact SDK appends a size/fingerprint-checked `audio_source` callback taking scen
 
 Audio tests use offline PCM and explicit null-device callback teardown. Process tests cover schema-only mode, pause/step/resume, private recovery reconstruction and rejected candidate preservation; shared SDK fixture checks typed components, Play/Stop and missing capability. Existing physics/runtime/render tests remain required. These tests cannot establish subjective spatial quality or physical-device playback.
 
-Later work includes asynchronous runtime first-use loading, streaming music, one-shots/voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity, waveform/seek previews and device selection.
+Later work includes asynchronous runtime first-use loading, streaming music, one-shots/voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
 ## Phase7 AudioClip import and selected revisions
@@ -214,9 +235,9 @@ packaging. Scene Undo does not reverse asset imports.
 
 The central Audio clip document owns import/reimport/close guards. Content
 Inspector shows duration/channels/sample rate/format. Typed AudioSource picking
-and drop reuse the existing shared field. There is no audition player: adding
-one requires an editor-owned audio output lifecycle, which the runtime provider
-does not supply. This optional preview remains deferred; use Play for playback.
+and drop reuse the existing shared field. The editor clip audition described above
+uses a separate temporary Runtime-role world and the existing provider; it does
+not enable audio on the authored scene.
 
 Validation covers direct and actual worker decode, deterministic output, cache
 hit, stable legacy ID, corrupt/truncated/nonfinite data, successful/stale/failed

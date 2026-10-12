@@ -30,6 +30,7 @@ class AudioRuntime : public AudioService {
     void read_offline(std::span<float> stereo);
 
   private:
+    friend struct AudioPreviewAccess;
     struct Impl;
     std::unique_ptr<Impl> impl_;
 };
