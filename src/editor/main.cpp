@@ -3400,6 +3400,8 @@ int main(int argc, char** argv) {
                 case 192:
                 case 195:
                 case 198:
+                case 201:
+                case 204:
                     forge::ui::style(2);
                     break;
                 case 158:
@@ -3416,6 +3418,8 @@ int main(int argc, char** argv) {
                 case 191:
                 case 194:
                 case 197:
+                case 200:
+                case 203:
                     forge::ui::style(1.5f);
                     break;
                 case 157: {
@@ -3518,6 +3522,7 @@ int main(int argc, char** argv) {
                 case 184:
                 case 190:
                 case 196:
+                case 202:
                     physics_overlay.joint_visible = true;
                     workspace.inspector = false;
                     if (auto* w = ImGui::FindWindowByName("###Scene"))
@@ -3534,13 +3539,16 @@ int main(int argc, char** argv) {
                 case 175:
                 case 181:
                 case 187:
-                case 193: {
+                case 193:
+                case 199: {
                     auto joint = scene.entity(fixture.joint_entity).get<forge::PhysicsJoint>();
                     const bool slider = fixture.stage == 175 || fixture.stage == 187;
-                    joint.kind = slider ? 4 : 1;
+                    const bool contact_policy = fixture.stage == 199;
+                    joint.kind = contact_policy ? 0 : slider ? 4 : 1;
                     joint.axis_a = joint.axis_b = slider ? 0 : 2;
                     joint.normal_a = joint.normal_b = slider ? 1 : 0;
-                    joint.motor_enabled = true;
+                    joint.motor_enabled = !contact_policy;
+                    joint.collide_connected = !contact_policy;
                     joint.motor_mode = fixture.stage >= 187 ? 1 : 0;
                     joint.slider_motor_position = -1.25f;
                     joint.hinge_motor_angle = 30;
@@ -5556,10 +5564,13 @@ int main(int argc, char** argv) {
                     (fixture.stage >= 175 && fixture.stage <= 177) ||
                     (fixture.stage >= 181 && fixture.stage <= 183) ||
                     (fixture.stage >= 187 && fixture.stage <= 189) ||
-                    (fixture.stage >= 193 && fixture.stage <= 195)) {
+                    (fixture.stage >= 193 && fixture.stage <= 195) ||
+                    (fixture.stage >= 199 && fixture.stage <= 201)) {
                     const auto key =
                         fixture.stage < 148 || (fixture.stage >= 151 && fixture.stage <= 153)
                             ? "component-field:forge.physics_joint:body_b"
+                        : fixture.stage >= 199
+                            ? "component-field:forge.physics_joint:collide_connected"
                         : fixture.stage >= 187 ? "component-field:forge.physics_joint:motor_damping"
                         : fixture.stage >= 181
                             ? "component-field:forge.physics_joint:max_motor_torque"
@@ -5612,6 +5623,10 @@ int main(int argc, char** argv) {
                             fixture.stage < 196 ? "target -1.250 m, spring 1.750 Hz / 0.600"
                                                 : "target 30.000 deg, spring 1.750 Hz / 0.600") !=
                             std::string::npos;
+                if (fixture.stage >= 202 && fixture.stage <= 204)
+                    captured_document_visible &= physics_overlay.joint_visible &&
+                                                 physics_overlay.status().find(
+                                                     "connected contacts off") != std::string::npos;
                 if (fixture.stage >= 163 && fixture.stage <= 165) {
                     const auto field = forge::test::ui_targets.find(
                         "component-field:forge.physics_body:continuous_collision");
@@ -5919,7 +5934,7 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if (fixture.stage == 199) {
+                    if (fixture.stage == 205) {
                         check_thumbnail_cache(presentation, context, files.document.project(),
                                               mesh_resources);
                         play.stop();

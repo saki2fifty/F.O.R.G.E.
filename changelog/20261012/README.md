@@ -1,5 +1,20 @@
 # 2026-10-12
 
+## Connected-body collision policy
+
+All joint kinds expose **Collide connected**, enabled by default for compatibility.
+Turning it off suppresses only that connected pair; ordinary floor/other contacts
+and query visibility remain. Existing owner applies changes before native contact
+solving and retains bodies/constraints/order. Inspector history, guide status,
+typed C++ controls/recovery and original editable Gallery27 are integrated.
+Matching SDK modules require rebuilding; ABI1/authored formats/private4 unchanged.
+Local coherent validation and Windows delivery are tracked separately.
+
+Windows166 passed core/SDK/editor checks but its final export rejected an unsupported
+alpha field on two PhysicsVolumes example tints. The example now uses the actual
+RGB contract, with compiled-schema source-free content export coverage. Unknown
+dependency-field rejection is preserved. No new accepted ZIP is claimed here.
+
 ## Bounded hinge and slider velocity motors
 
 PhysicsJoint supports optional velocity drives for Hinge and Slider. Hinge speed

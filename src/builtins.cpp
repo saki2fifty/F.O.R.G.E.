@@ -571,7 +571,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("hinge_motor_angle")
             .template member<float>("slider_motor_position")
             .template member<float>("motor_frequency")
-            .template member<float>("motor_damping");
+            .template member<float>("motor_damping")
+            .template member<bool>("collide_connected");
     } else if constexpr (std::is_same_v<T, AssetCollider>) {
         register_asset_ref<CollisionAsset>(w, "forge.collision_ref");
         c.template member<AssetRef<CollisionAsset>>("asset");
@@ -1493,10 +1494,10 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_joint")
-        for (const auto* field :
-             {"min_travel", "max_travel", "motor_enabled", "hinge_motor_speed",
-              "slider_motor_speed", "max_motor_torque", "max_motor_force", "motor_mode",
-              "hinge_motor_angle", "slider_motor_position", "motor_frequency", "motor_damping"})
+        for (const auto* field : {"min_travel", "max_travel", "motor_enabled", "hinge_motor_speed",
+                                  "slider_motor_speed", "max_motor_torque", "max_motor_force",
+                                  "motor_mode", "hinge_motor_angle", "slider_motor_position",
+                                  "motor_frequency", "motor_damping", "collide_connected"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     return current;

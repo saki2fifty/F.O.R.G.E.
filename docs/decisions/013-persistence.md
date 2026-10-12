@@ -139,3 +139,15 @@ position targets must fit the matching joint interval before native realization.
 In-place mode/target/spring updates retain geometry/native order. Exact checkpoint4
 continues to carry full admitted controls and actual pinned native solver state,
 with synchronized capture; no new owner, queue or durable position-drive state.
+
+## 2026-10-12 — connected-body collision policy
+
+Trailing PhysicsJoint.collide_connected=true preserves existing saved behavior.
+Builtin admission and codec backfill it without rewriting sources. The existing
+runtime owner derives canonical exclusion pairs from admitted enabled joints;
+private generation tokens and filter views are not a second policy database or
+authored identity. Fresh recovery derives pairs before native reconstruction.
+Pinned native group-filter pointers are excluded from solver binary state, while
+full admitted joint settings/contact state remain in exact-build checkpoint4.
+No authored format, private version or ABI1 change; SDK layout/fingerprint requires
+matching rebuilt modules. Mask/layer bits and query geometry remain unchanged.

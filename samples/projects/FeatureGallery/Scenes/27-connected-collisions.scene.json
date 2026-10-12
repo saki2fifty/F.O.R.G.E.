@@ -1,0 +1,446 @@
+{
+  "asset_id": "6eeb5c80-b606-442f-ae8b-9c0ed862ebb9",
+  "version": 3,
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05000000074505806,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975803375244,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.5,
+          "z": -13.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f8a67e85-fa2f-4ae8-a936-d729ab36a629",
+      "name": "Game camera",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": true,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 3.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981852531433,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b5528021-5762-437e-8f57-e15f7ec6a1f2",
+      "name": "Sun",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 12.0,
+          "y": 0.5,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.5,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "b": 0.36000001430511475,
+          "g": 0.3100000023841858,
+          "r": 0.2800000011920929
+        }
+      },
+      "id": "c691aebc-13f4-41f8-8ecc-616d0b1dfb05",
+      "name": "Floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.3,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.0,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15,
+          "g": 0.8,
+          "b": 1.0
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "id": "906635a1-6011-452c-a2b0-5612a4c49bb8",
+      "name": "Ignored pair A",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.7,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.0,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 0.15,
+          "g": 0.8,
+          "b": 1.0
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "id": "5bd7c61c-cf3e-46e3-becd-4c1b1424ced5",
+      "name": "Ignored pair B",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "id": "23fa6a47-c99d-4a17-a857-8ed93967d448",
+      "name": "Ignored pair joint",
+      "components": {
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.physics_joint": {
+          "enabled": true,
+          "kind": 0,
+          "body_a": {
+            "scene": "6eeb5c80-b606-442f-ae8b-9c0ed862ebb9",
+            "entity": "906635a1-6011-452c-a2b0-5612a4c49bb8"
+          },
+          "body_b": {
+            "scene": "6eeb5c80-b606-442f-ae8b-9c0ed862ebb9",
+            "entity": "5bd7c61c-cf3e-46e3-becd-4c1b1424ced5"
+          },
+          "anchor_a_x": 0.0,
+          "anchor_a_y": 0.0,
+          "anchor_a_z": 0.0,
+          "anchor_b_x": 0.0,
+          "anchor_b_y": 0.0,
+          "anchor_b_z": 0.0,
+          "min_distance": 0.001,
+          "max_distance": 2.0,
+          "min_travel": -1.5,
+          "max_travel": 1.5,
+          "axis_a": 0,
+          "axis_b": 0,
+          "normal_a": 1,
+          "normal_b": 1,
+          "min_angle": -90.0,
+          "max_angle": 90.0,
+          "motor_enabled": false,
+          "hinge_motor_speed": 45.0,
+          "slider_motor_speed": 1.0,
+          "max_motor_torque": 5.0,
+          "max_motor_force": 25.0,
+          "motor_mode": 0,
+          "hinge_motor_angle": -45.0,
+          "slider_motor_position": -0.75,
+          "motor_frequency": 2.0,
+          "motor_damping": 1.0,
+          "collide_connected": false
+        }
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.7,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.0,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 1.0,
+          "g": 0.75,
+          "b": 0.15
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "id": "e164396c-5ea5-4a18-919f-ddbab1c25efd",
+      "name": "Colliding pair A",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.3,
+          "y": 4.0,
+          "z": 0.0
+        },
+        "forge.physics_body": {
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.0,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false,
+          "linear_damping": 0.0,
+          "angular_damping": 0.0,
+          "allow_sleeping": true
+        },
+        "forge.primitive": {
+          "kind": 0
+        },
+        "forge.tint": {
+          "r": 1.0,
+          "g": 0.75,
+          "b": 0.15
+        },
+        "forge.local_rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        }
+      },
+      "id": "b7f1b243-a99e-4f94-9817-a6481562b46a",
+      "name": "Colliding pair B",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "id": "7f7f96e6-05cb-4adc-a02a-3f11dec56247",
+      "name": "Colliding pair joint",
+      "components": {
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.physics_joint": {
+          "enabled": true,
+          "kind": 0,
+          "body_a": {
+            "scene": "6eeb5c80-b606-442f-ae8b-9c0ed862ebb9",
+            "entity": "e164396c-5ea5-4a18-919f-ddbab1c25efd"
+          },
+          "body_b": {
+            "scene": "6eeb5c80-b606-442f-ae8b-9c0ed862ebb9",
+            "entity": "b7f1b243-a99e-4f94-9817-a6481562b46a"
+          },
+          "anchor_a_x": 0.0,
+          "anchor_a_y": 0.0,
+          "anchor_a_z": 0.0,
+          "anchor_b_x": 0.0,
+          "anchor_b_y": 0.0,
+          "anchor_b_z": 0.0,
+          "min_distance": 0.001,
+          "max_distance": 2.0,
+          "min_travel": -1.5,
+          "max_travel": 1.5,
+          "axis_a": 0,
+          "axis_b": 0,
+          "normal_a": 1,
+          "normal_b": 1,
+          "min_angle": -90.0,
+          "max_angle": 90.0,
+          "motor_enabled": false,
+          "hinge_motor_speed": 45.0,
+          "slider_motor_speed": 1.0,
+          "max_motor_torque": 5.0,
+          "max_motor_force": 25.0,
+          "motor_mode": 0,
+          "hinge_motor_angle": -45.0,
+          "slider_motor_position": -0.75,
+          "motor_frequency": 2.0,
+          "motor_damping": 1.0,
+          "collide_connected": true
+        }
+      }
+    }
+  ]
+}

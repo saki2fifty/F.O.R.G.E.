@@ -50,6 +50,7 @@ inline bool joint_same_geometry(const PhysicsJoint& a, PhysicsJoint b) {
     b.slider_motor_position = a.slider_motor_position;
     b.motor_frequency = a.motor_frequency;
     b.motor_damping = a.motor_damping;
+    b.collide_connected = a.collide_connected;
     return a == b;
 }
 inline bool joint_motor_changed(const PhysicsJoint& a, const PhysicsJoint& b) {
@@ -97,7 +98,8 @@ inline nlohmann::json joint_value(const PhysicsJoint& v) {
             {"hinge_motor_angle", v.hinge_motor_angle},
             {"slider_motor_position", v.slider_motor_position},
             {"motor_frequency", v.motor_frequency},
-            {"motor_damping", v.motor_damping}};
+            {"motor_damping", v.motor_damping},
+            {"collide_connected", v.collide_connected}};
 }
 inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     PhysicsJoint v;
@@ -133,6 +135,7 @@ inline PhysicsJoint joint_from_value(const nlohmann::json& p) {
     v.slider_motor_position = p.value("slider_motor_position", 0.f);
     v.motor_frequency = p.value("motor_frequency", 2.f);
     v.motor_damping = p.value("motor_damping", 1.f);
+    v.collide_connected = p.value("collide_connected", true);
     validate_joint(v);
     return v;
 }

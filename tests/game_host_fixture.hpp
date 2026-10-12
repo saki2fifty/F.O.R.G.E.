@@ -15,7 +15,7 @@ struct GameHostFixture {
     unsigned stage = 0, frames = 0;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
-         slider = false, motors = false, position_drive = false;
+         slider = false, motors = false, position_drive = false, connected = false;
     bool reference = false, reference_reopen = false, reference_error = false,
          reference_missing = false, reference_settings = false;
     std::filesystem::path missing_source, missing_held;
@@ -75,8 +75,9 @@ struct GameHostFixture {
         slider = argc == 3 && std::string_view(argv[1]) == "--packaged-slider";
         motors = argc == 3 && std::string_view(argv[1]) == "--packaged-motors";
         position_drive = argc == 3 && std::string_view(argv[1]) == "--packaged-position";
+        connected = argc == 3 && std::string_view(argv[1]) == "--packaged-connected";
         packaged = reference || mixed || loads || velocity || contacts || volumes || slider ||
-                   motors || position_drive ||
+                   motors || position_drive || connected ||
                    (argc == 3 && std::string_view(argv[1]) == "--packaged");
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
         if (argc != 2 && !packaged && !prepare_only)
@@ -151,7 +152,8 @@ struct GameHostFixture {
         std::size_t imported_pixels = 0;
         std::size_t physics_actor_pixels = 0;
         std::size_t contact_actor_pixels = 0;
-        if (loads || velocity || contacts || volumes || slider || motors || position_drive)
+        if (loads || velocity || contacts || volumes || slider || motors || position_drive ||
+            connected)
             for (unsigned y = 0; y < desc.Height; ++y)
                 for (unsigned x = 0; x < desc.Width; ++x) {
                     const auto* p = pixels + y * data.Stride + x * 4;
@@ -181,9 +183,9 @@ struct GameHostFixture {
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
         if (!reference && !loads && !velocity && !contacts && !volumes && !slider && !motors &&
-            !position_drive)
+            !position_drive && !connected)
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
-        if (loads || velocity || slider || motors || position_drive) {
+        if (loads || velocity || slider || motors || position_drive || connected) {
             check(physics_actor_pixels > 100,
                   "Authored physics actors are not visible in standalone rendering");
             atomic_write(output / "physics-render-result.json",
@@ -245,6 +247,36 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (connected) {
+            const auto tick = game.status().at("clock").at("tick").get<unsigned>();
+            if (tick < 240)
+                return;
+            const auto scene = game.active().scene.document();
+            std::map<std::string, Double3> positions;
+            for (const auto& row : scene.at("entities")) {
+                const auto name = row.at("name").get<std::string>();
+                if (!name.starts_with("Ignored pair ") && !name.starts_with("Colliding pair "))
+                    continue;
+                if (row.at("components").contains("forge.physics_joint"))
+                    continue;
+                const auto& p = row.at("components").at("forge.local_translation");
+                positions[name] = {p.at("x"), p.at("y"), p.at("z")};
+            }
+            check(positions.size() == 4 && game.active().physics()->status().at("joints") == 2,
+                  "Exported connected-pair actors or joints missing");
+            check(std::abs(positions.at("Ignored pair A")[0] + 2.3) < 1e-4 &&
+                      std::abs(positions.at("Ignored pair B")[0] + 1.7) < 1e-4 &&
+                      positions.at("Colliding pair B")[0] - positions.at("Colliding pair A")[0] >
+                          .98,
+                  "Exported mutual collision policy differs from authored choice");
+            for (const auto& [name, p] : positions)
+                check(std::abs(p[1] - .25) < .02, "Exported pair policy lost floor collision");
+            atomic_write(output / "physics-connected-result.json",
+                         Json{{"tick", tick}, {"positions", positions}}.dump(2));
+            capture("physics-connected-running.ppm", image, device, context);
+            running = false;
+            return;
+        }
         if (slider || motors || position_drive) {
             const auto tick = game.status().at("clock").at("tick").get<unsigned>();
             if (tick < 180)

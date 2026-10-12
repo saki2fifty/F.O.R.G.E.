@@ -192,6 +192,19 @@ void position_motion(World& w) {
     }
     render_actors(w, {"Return slider carriage", "Return hinge carriage"});
 }
+void connected_collision_motion(World& w) {
+    require(w.physics->status().at("joints") == 2, "Gallery pair policies missing");
+    for (unsigned tick = 0; tick < 240; ++tick)
+        w.simulation.tick(1.f / 60);
+    const auto a = w.point("Ignored pair A"), b = w.point("Ignored pair B"),
+               c = w.point("Colliding pair A"), d = w.point("Colliding pair B");
+    require(std::abs(a[0] + 2.3) < 1e-4 && std::abs(b[0] + 1.7) < 1e-4 &&
+                std::abs(distance(a, b) - .6) < 1e-4 && distance(c, d) > .98,
+            "Gallery pair suppression differs: " + Json::array({a, b, c, d}).dump());
+    for (const auto& p : {a, b, c, d})
+        require(std::abs(p[1] - .25) < .02, "Pair policy suppressed unrelated Gallery floor");
+    render_actors(w, {"Ignored pair A", "Ignored pair B", "Colliding pair A", "Colliding pair B"});
+}
 void tuned_motion(World& w) {
     const std::vector<std::string> names{
         "No damping - free fall",  "Damping 3 per second", "Speed limit 2 metres per second",
@@ -229,10 +242,13 @@ int main(int argc, char** argv) {
         require(argc == 3 || argc == 4, "Need Gallery and scratch roots, optional extended mode");
         const std::string mode = argc == 4 ? argv[3] : "joints";
         require(mode == "joints" || mode == "extended" || mode == "ccd" || mode == "tuning" ||
-                    mode == "slider" || mode == "motors" || mode == "position",
+                    mode == "slider" || mode == "motors" || mode == "position" ||
+                    mode == "connected",
                 "Unknown Gallery mode");
         const auto validate = [&](World& world) {
-            if (mode == "position")
+            if (mode == "connected")
+                connected_collision_motion(world);
+            else if (mode == "position")
                 position_motion(world);
             else if (mode == "motors")
                 motor_motion(world);
@@ -251,7 +267,8 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source =
-            read(root / (mode == "position"   ? "Scenes/26-position-drives.scene.json"
+            read(root / (mode == "connected"  ? "Scenes/27-connected-collisions.scene.json"
+                         : mode == "position" ? "Scenes/26-position-drives.scene.json"
                          : mode == "motors"   ? "Scenes/25-velocity-motors.scene.json"
                          : mode == "slider"   ? "Scenes/24-slider-joints.scene.json"
                          : mode == "tuning"   ? "Scenes/23-body-motion-tuning.scene.json"

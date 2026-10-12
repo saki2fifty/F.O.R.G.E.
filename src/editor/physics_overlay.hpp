@@ -335,6 +335,8 @@ class PhysicsOverlay {
             std::snprintf(metric, sizeof(metric), " | anchor gap %.3f m",
                           std::sqrt(gap[0] * gap[0] + gap[1] * gap[1] + gap[2] * gap[2]));
             note += metric;
+            note +=
+                guide.collide_connected ? " | connected contacts on" : " | connected contacts off";
             if (guide.kind == 4) {
                 const auto& axis = guide.bodies[0].axes[guide.axis[0]];
                 std::snprintf(metric, sizeof(metric), " | travel %.3f m [%.3f, %.3f]",

@@ -17,6 +17,7 @@ struct PhysicsJointGuide {
     unsigned kind = 5; // Invalid/unavailable settings until the shared codec admits them.
     float min_travel = 0, max_travel = 0;
     bool motor_enabled = false;
+    bool collide_connected = true;
     float motor_speed = 0, motor_budget = 0;
     unsigned motor_mode = 0;
     float motor_target = 0, motor_frequency = 0, motor_damping = 0;
@@ -43,6 +44,7 @@ inline std::optional<PhysicsJointGuide> prepare_physics_joint_guide(const Json& 
         guide.kind = joint.kind;
         guide.min_travel = joint.min_travel;
         guide.motor_enabled = joint.motor_enabled;
+        guide.collide_connected = joint.collide_connected;
         guide.motor_speed = joint.kind == 1 ? joint.hinge_motor_speed : joint.slider_motor_speed;
         guide.motor_budget = joint.kind == 1 ? joint.max_motor_torque : joint.max_motor_force;
         guide.motor_mode = joint.motor_mode;

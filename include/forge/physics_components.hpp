@@ -64,6 +64,7 @@ struct PhysicsJoint {
     float slider_motor_position = 0;       // Signed anchor distance in metres.
     float motor_frequency = 2;             // Position spring frequency, Hz.
     float motor_damping = 1;               // Position damping ratio; 1 is critical.
+    bool collide_connected = true;         // Enabled joints may suppress this body pair.
     bool operator==(const PhysicsJoint&) const = default;
 };
 struct BoxCollider {

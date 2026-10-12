@@ -46,6 +46,12 @@ the same editor and standalone export workflow with the matching native module.
 
 ## Export and run a scene
 
+`27-connected-collisions` compares two original pairs of overlapping falling cubes.
+The blue pair's joint disables **Collide connected**, so their overlap is retained;
+the yellow pair keeps normal mutual contacts and separates. Both land on the floor.
+Select either joint to edit the setting, save, then restart Play or export. This
+demonstrates pair filtering without disabling the objects' ordinary scene layers.
+
 1. Open the scene you want to export and save it.
 2. In **Tools → Project Settings**, choose **Use saved current scene as startup**,
    then **Save Settings**. The gallery exports the selected startup scene; it

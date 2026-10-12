@@ -391,7 +391,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     for label, scene_path, observer_mode, result_file in (
         ('Slider Joint', 'Scenes/24-slider-joints.scene.json', '--packaged-slider', 'physics-slider-result.json'),
         ('Velocity Motors', 'Scenes/25-velocity-motors.scene.json', '--packaged-motors', 'physics-motors-result.json'),
-        ('Position Drives', 'Scenes/26-position-drives.scene.json', '--packaged-position', 'physics-position-result.json')):
+        ('Position Drives', 'Scenes/26-position-drives.scene.json', '--packaged-position', 'physics-position-result.json'),
+        ('Connected Contacts', 'Scenes/27-connected-collisions.scene.json', '--packaged-connected', 'physics-connected-result.json')):
         slider_source = root / (label + ' Gallery Copy')
         shutil.copytree(gallery, slider_source)
         slider_scene = scene_path

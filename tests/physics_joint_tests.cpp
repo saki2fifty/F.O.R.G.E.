@@ -759,6 +759,7 @@ void authoring_and_identity() {
         }
     throw std::runtime_error("Joint absent from schema");
 }
+#include "physics_joint_collision_tests.hpp"
 #include "physics_motor_tests.hpp"
 #include "physics_position_motor_tests.hpp"
 #include "physics_slider_tests.hpp"
@@ -771,6 +772,7 @@ int main(int argc, char** argv) {
         slider_motion_and_recovery();
         joint_velocity_motors();
         joint_position_motors();
+        joint_collision_policy();
         four_type_recovery();
         lifecycle_and_recovery();
         rejection_and_scale();

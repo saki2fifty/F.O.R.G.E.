@@ -316,6 +316,23 @@ The selected Scene guide adds a pink target marker and spring settings. Gallery
 **26-position-drives** demonstrates a slider returning to-.75m and hinge to-45degrees;
 it exports and runs with the saved engine behavior, without C++ source or a compiler.
 
+### Collisions between connected bodies
+
+**Collide connected** controls whether the two bodies selected by a joint collide
+with each other. It starts enabled so existing scenes keep their behavior. Turn it
+off when connected parts overlap by design. They still collide with the floor and
+other objects according to their collision layers and masks.
+
+If several enabled joints connect the same bodies, one disabled **Collide connected**
+choice suppresses their mutual contacts. Disabling or removing that joint removes
+its choice. The setting does not hide either body from physics queries. C++ can
+change the same typed setting before Physics; it takes effect at synchronization.
+
+Open `27-connected-collisions` in the Feature Gallery. The blue pair starts with
+overlapping cubes and ignores mutual contacts; the yellow pair separates under
+normal contacts. Both pairs fall onto the same floor. Select either joint to change
+**Collide connected**, then restart Play or export the saved scene.
+
 ### Scene joint guides
 
 Select the joint entity in Scene to see its two anchors, connecting line and an

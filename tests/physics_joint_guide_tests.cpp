@@ -73,9 +73,10 @@ void check_guides() {
     position["slider_motor_position"] = -1.25;
     position["motor_frequency"] = 1.75;
     position["motor_damping"] = .6;
+    position["collide_connected"] = false;
     const auto position_guide = ui::prepare_physics_joint_guide(position_snapshot, id);
-    require(position_guide && position_guide->valid && position_guide->motor_mode == 1 &&
-                position_guide->motor_target == -1.25f &&
+    require(position_guide && position_guide->valid && !position_guide->collide_connected &&
+                position_guide->motor_mode == 1 && position_guide->motor_target == -1.25f &&
                 position_guide->motor_frequency == 1.75f && position_guide->motor_damping == .6f,
             "Position guide lost target, frequency or damping");
     // Independent parent matrix: T(10,20,30) Rz(90) S(-2,3,4).

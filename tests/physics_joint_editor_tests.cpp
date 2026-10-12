@@ -71,7 +71,8 @@ int main(int argc, char** argv) {
                     ImGui::NewFrame();
                     ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
                     ImGui::SetNextWindowSize({1500, 1000}, ImGuiCond_Always);
-                    ImGui::Begin("Joint Inspector");
+                    // The fixture fixes the window size, as in a docked Inspector.
+                    ImGui::Begin("Joint Inspector", nullptr, ImGuiWindowFlags_NoResize);
                     inspector.draw(scene, project, selected);
                     ImGui::End();
                     ImGui::Render();
@@ -98,8 +99,16 @@ int main(int argc, char** argv) {
                 };
                 auto click = [&](const std::string& name) {
                     auto at = target(name);
-                    io.AddMousePosEvent(at.x, at.y);
-                    frame();
+                    for (unsigned i = 0; i < 6; ++i) {
+                        io.AddMousePosEvent(at.x, at.y);
+                        frame();
+                        const auto t = test::ui_targets.at(name);
+                        if (ImGui::GetCurrentContext()->HoveredId == t.id)
+                            break;
+                        at = {(t.minimum.x + t.maximum.x) / 2, (t.minimum.y + t.maximum.y) / 2};
+                    }
+                    require(ImGui::GetCurrentContext()->HoveredId == test::ui_targets.at(name).id,
+                            "Pointer did not reach actual widget: " + name);
                     io.AddMouseButtonEvent(0, true);
                     frame();
                     io.AddMouseButtonEvent(0, false);
@@ -275,6 +284,16 @@ int main(int argc, char** argv) {
                 require(scene.undo() && scene.entity(id).get<PhysicsJoint>().motor_damping == .4f &&
                             scene.redo() && scene.entity(id).get<PhysicsJoint>() == positioned,
                         "Position spring Undo/Redo failed");
+                click("component-field:forge.physics_joint:collide_connected");
+                require(!scene.entity(id).get<PhysicsJoint>().collide_connected,
+                        "Actual connected-body collision checkbox failed: scale=" +
+                            std::to_string(scale) + " error=" +
+                            (context.problems.items().empty()
+                                 ? "none"
+                                 : context.problems.items().back().text));
+                require(scene.undo() && scene.entity(id).get<PhysicsJoint>().collide_connected &&
+                            scene.redo() && !scene.entity(id).get<PhysicsJoint>().collide_connected,
+                        "Connected-body collision checkbox Undo/Redo failed");
                 click("component-field:forge.physics_joint:enabled");
                 require(!scene.entity(id).get<PhysicsJoint>().enabled, "Enabled checkbox failed");
                 const auto retained = scene.entity(id).get<PhysicsJoint>();
@@ -304,7 +323,12 @@ int main(int argc, char** argv) {
                     if (!focused)
                         frame();
                 }
-                require(focused, "Existing body popup failed to focus the selected Dynamic row");
+                require(focused, "Existing body popup failed to focus Dynamic: nav=" +
+                                     std::to_string(ImGui::GetCurrentContext()->NavId) +
+                                     " window=" +
+                                     (ImGui::GetCurrentContext()->NavWindow
+                                          ? ImGui::GetCurrentContext()->NavWindow->Name
+                                          : "none"));
                 key(ImGuiKey_UpArrow);
                 key(ImGuiKey_Enter);
                 require(scene.entity(selected).get<PhysicsBody>().motion == 1,

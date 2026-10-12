@@ -566,6 +566,27 @@ inventoried `--packaged-motors` graphical observer. It requires both constrained
 poses, two native joints and actual cyan rendered geometry. These are configured
 gates; Windows execution and physical GPU acceptance require separate evidence.
 
+### Connected-body collision policy
+
+Joint tests cover full32-bit mutual masks, cached-contact on/off transitions,
+unchanged-policy sleep and changed-policy wake, reversed/duplicate opt-outs,
+retirement/body replacement, third-body floor response, CCD, query visibility,
+atomic admission and fresh native recovery. The compiled SDK probe cycles the
+typed policy and reports actual copied contacts/body positions; three genuinely
+fresh workers restore its authored counter and solver state across transitions.
+Actual Inspector checkbox/Undo/save/reopen and derived Scene guide status are
+checked independently. Gallery27 passes native pair/floor motion, render resources
+and source-free relocation; final Windows package runs production startup plus
+the inventoried `--packaged-connected` graphical observer after deleting source/kit.
+
+`forge_cpp_example_content_tests` accepts a prepared C++ project, matching inspected
+schema JSON and scratch root. It uses the real content preparation/package/load
+path, checks source-free relocation and preserved custom values/identity, and
+injects unknown Tint alpha to preserve fail-closed export coverage. Run it against
+fresh matching installed examples; it is content proof, not native graphical or
+standalone executable proof. Windows166 exposed this previously missing consumer
+coverage for PhysicsVolumes. No unsupported alpha feature is introduced.
+
 ### Bounded joint position drives
 
 The joint suite checks independent implicit-Euler spring position/velocity for

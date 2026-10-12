@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-12](20261012/README.md) — Bounded hinge/slider velocity and position drives, with editable Gallery25–26; Windows delivery pending.
+- [2026-10-12](20261012/README.md) — Joint drives and connected-body collision controls, with editable Gallery25–27; Windows delivery pending.
 
 - [2026-10-11](20261011/README.md) — Animation timeline, blending, named states and C++ markers validated locally; Windows delivery pending.
 
@@ -13,7 +13,7 @@ Browse FORGE changes by **UTC day**, newest first. Each day has one continuously
 
 | Day | Changes |
 | --- | --- |
-| [2026-10-12](20261012/README.md) | Joint velocity/position drives, Inspector controls and source-free Gallery25–26 gates. |
+| [2026-10-12](20261012/README.md) | Joint drives, connected-body collision controls and source-free Gallery25–27 gates. |
 | [2026-10-11](20261011/README.md) | Animation runtime/UI/Gallery and C++ timing-marker checks passed locally. |
 | [2026-10-10](20261010/README.md) | Reusable transform clips, timeline editing/preview and standalone playback. |
 | [2026-10-04](20261004/README.md) | Build 261004-000148 delivered; compact Content search and complete C++ onboarding validated. |

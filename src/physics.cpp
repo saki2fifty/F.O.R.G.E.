@@ -82,11 +82,25 @@ JPH::Quat rotation(LocalRotation q) {
 // Exact-pin CollisionGroup supplies full 32-bit application group/subgroup
 // values without changing Jolt's 16-bit ObjectLayer ABI. Broadphase remains the
 // engine-owned Static/Moving partition. No Flecs access from native workers.
+using JointCollisionPairs = std::set<std::pair<std::uint64_t, std::uint64_t>>;
 struct ProjectGroupFilter final : JPH::GroupFilter {
+    const JointCollisionPairs* excluded = nullptr;
+    std::uint64_t entity = 0;
+    explicit ProjectGroupFilter(const JointCollisionPairs* pairs = nullptr, std::uint64_t body = 0)
+        : excluded(pairs), entity(body) {}
     bool CanCollide(const JPH::CollisionGroup& a, const JPH::CollisionGroup& b) const override {
-        return a.GetSubGroupID() < 32 && b.GetSubGroupID() < 32 &&
-               (a.GetGroupID() & (std::uint32_t{1} << b.GetSubGroupID())) &&
-               (b.GetGroupID() & (std::uint32_t{1} << a.GetSubGroupID()));
+        if (a.GetSubGroupID() >= 32 || b.GetSubGroupID() >= 32 ||
+            !(a.GetGroupID() & (std::uint32_t{1} << b.GetSubGroupID())) ||
+            !(b.GetGroupID() & (std::uint32_t{1} << a.GetSubGroupID())))
+            return false;
+        if (!entity || !excluded || excluded->empty())
+            return true;
+        // PhysicsRuntime owns every group filter in this private native system.
+        // Character filters use token0; native workers read only joined owner data.
+        const auto* other = static_cast<const ProjectGroupFilter*>(b.GetGroupFilter());
+        return !other || !other->entity ||
+               !excluded->contains(
+                   {std::min(entity, other->entity), std::max(entity, other->entity)});
     }
 };
 struct QueryBodyFilter final : JPH::BodyFilter {
@@ -481,6 +495,9 @@ struct PhysicsRuntime::Impl {
     Layers layers;
     BroadFilter broad;
     PairFilter pairs;
+    // Derived from admitted joint values. Declared before filters/system so views
+    // remain valid until native bodies and workers have been destroyed.
+    JointCollisionPairs excluded_joint_pairs;
     JPH::RefConst<ProjectGroupFilter> group_filter = new ProjectGroupFilter;
     JPH::TempAllocatorImpl allocator{32 * 1024 * 1024};
     JPH::JobSystemThreadPool jobs{JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers,
@@ -522,6 +539,31 @@ struct PhysicsRuntime::Impl {
         std::uint64_t a, b;
     };
     using JointDesiredMap = std::map<std::uint64_t, JointDesired>;
+    static JointCollisionPairs joint_collision_pairs(const JointDesiredMap& desired) {
+        JointCollisionPairs result;
+        for (const auto& [id, joint] : desired)
+            if (!joint.config.collide_connected)
+                result.emplace(std::min(joint.a, joint.b), std::max(joint.a, joint.b));
+        return result;
+    }
+    void adopt_joint_collision_pairs(JointCollisionPairs next) {
+        auto& api = system.GetBodyInterface();
+        // Pair selection happens before Jolt contact-cache reuse, including CCD.
+        // Wake only changed effective pairs; duplicate joints cannot undo an opt-out.
+        auto wake = [&](const auto& pair) {
+            for (auto id : {pair.first, pair.second})
+                if (auto body = bodies.find(id);
+                    body != bodies.end() && body->second.config.body.motion)
+                    api.ActivateBody(body->second.id);
+        };
+        for (const auto& pair : next)
+            if (!excluded_joint_pairs.contains(pair))
+                wake(pair);
+        for (const auto& pair : excluded_joint_pairs)
+            if (!next.contains(pair))
+                wake(pair);
+        excluded_joint_pairs.swap(next);
+    }
     struct JointRecord {
         EntityRef ref;
         JointDesired desired;
@@ -919,6 +961,21 @@ struct PhysicsRuntime::Impl {
         }
 
         auto& api = system.GetBodyInterface();
+        if (it->second.config.body.motion != 2 && !it->second.config.body.sensor) {
+            // A sleeping body cannot discover removal/re-filtering of its support.
+            // Wake moving neighbors in the old native bounds before retiring a
+            // Static/Kinematic solid. Release the read lock before the native query.
+            JPH::AABox bounds;
+            {
+                JPH::BodyLockRead lock(system.GetBodyLockInterface(), it->second.id);
+                if (!lock.Succeeded())
+                    throw std::runtime_error("Retired support body is unavailable");
+                bounds = lock.GetBody().GetWorldSpaceBounds();
+            }
+            api.ActivateBodiesInAABox(bounds,
+                                      JPH::SpecifiedBroadPhaseLayerFilter(JPH::BroadPhaseLayer(1)),
+                                      JPH::SpecifiedObjectLayerFilter(1));
+        }
         api.RemoveBody(it->second.id);
         api.DestroyBody(it->second.id);
         bodies.erase(it);
@@ -1236,8 +1293,10 @@ struct PhysicsRuntime::Impl {
         JPH::BodyCreationSettings settings(
             prepared.GetPtr(), position(pose.translation), rotation(pose.rotation),
             static_cast<JPH::EMotionType>(c.body.motion), c.body.motion ? 1 : 0);
+        const JPH::RefConst<ProjectGroupFilter> body_filter =
+            new ProjectGroupFilter(&excluded_joint_pairs, entity);
         settings.mCollisionGroup =
-            JPH::CollisionGroup(group_filter.GetPtr(), c.body.mask, c.body.layer);
+            JPH::CollisionGroup(body_filter.GetPtr(), c.body.mask, c.body.layer);
         settings.mIsSensor = c.body.sensor;
         settings.mMotionQuality =
             c.body.continuous_collision && c.body.motion == 2 && !c.body.sensor
@@ -1372,6 +1431,7 @@ void PhysicsRuntime::synchronize(float dt) {
     }
     const auto desired = s.desired(&nodes);
     const auto desired_joints = s.desired_joints(desired);
+    auto excluded_pairs = Impl::joint_collision_pairs(desired_joints);
     // Same solver ownership check used by reject-before-write animation admission.
     s.validate_dynamic_writes(desired, commanded);
     // Complete native shape admission before authored command writes or retiring
@@ -1507,6 +1567,7 @@ void PhysicsRuntime::synchronize(float dt) {
     }
     s.commands.clear();
     s.realize_joints(desired_joints);
+    s.adopt_joint_collision_pairs(std::move(excluded_pairs));
     s.synchronize_characters();
 }
 void PhysicsRuntime::step(float dt) {
@@ -2186,6 +2247,9 @@ void PhysicsRuntime::restore(const Json& payload) {
             throw std::runtime_error("Recovery physics command policy mismatch");
         commands.push_back({ref, translation, command_rotation, kind, clear, at_point, value});
     }
+    // Re-derive tokens in this fresh world's generations, before native restore.
+    // GroupFilter pointers are intentionally absent from Jolt binary state.
+    s.excluded_joint_pairs = Impl::joint_collision_pairs(desired_joints);
     for (const auto& item : pending) {
         const auto& [c, p] = desired.at(item.entity);
         s.bodies.emplace(item.entity, s.create(item.entity, c, p, item.body));

@@ -33,7 +33,7 @@ Input → Gameplay → PrePhysics (transform evaluation / realization / targets)
 
 Static placement comes from evaluated world transforms. Kinematic targets use upstream `MoveKinematic` with fixed dt, not per-render-frame teleportation. Dynamic bodies require spatial World and write only local simulation translation/rotation after Update. WorldTransform remains exclusively derived by the transform module. Scale is folded into shape geometry. Physics rejects shear and zero or Jolt-invalid world scale; sphere/capsule world scale magnitudes must be uniform. Signed box/sphere/capsule scales describe symmetric solids: magnitudes are baked into dimensions without changing authored scale signs. Scaled collider dimensions must remain .001..10000 meters to bound mass/inertia calculations. Physics requires unambiguous scene/entity references within its world; repeated simultaneous instances of the same scene asset need a future runtime instance scope. Coordinates are bounded to ±1 billion meters with double Jolt positions; this is an input bound, not a large-world quality claim.
 
-Config changes are compared against realized settings at a safe boundary. Compatible motion-type rebuilds preserve linear/angular velocity and activation. Motion-type changes initialize new state. Unchanged bodies are not recreated or reactivated. Invalid realization is diagnosed; no approximation discards shear. Dynamic direct transform writes are rejected; gameplay must use explicit teleport. Teleport writes supported local channels and resets existing presentation history after the tick.
+Config changes are compared against realized settings at a safe boundary. Compatible motion-type rebuilds preserve linear/angular velocity and activation. Motion-type changes initialize new state. Unchanged bodies are not ordinarily recreated or reactivated. Retiring or rebuilding a solid Static/Kinematic body wakes moving bodies intersecting its previous world bounds, so sleeping bodies respond when support is removed or its collision mask changes. Sensors do not trigger this support wake. Invalid realization is diagnosed; no approximation discards shear. Dynamic direct transform writes are rejected; gameplay must use explicit teleport. Teleport writes supported local channels and resets existing presentation history after the tick.
 
 ## Body motion tuning
 
@@ -616,6 +616,30 @@ Inspector mode selection shows only relevant targets and spring controls, using
 existing Undo/save/reopen. Selected Scene guides show the target, frequency, damping
 and budget with a separate target marker. Original Gallery26 returns its slider to
 -.75m and hinge to-45degrees. It supports ordinary Play and source-free export.
+
+### Connected-body collision policy
+
+`PhysicsJoint.collide_connected` defaults to true, preserving legacy contacts.
+An enabled, admitted joint with false suppresses solid contacts between its two
+rigid bodies. Their contacts with other objects still obey the normal mutual
+layer masks. Any enabled opt-out wins when several joints connect the same pair;
+reversing Body A/B does not change that pair. Disabled or removed joints contribute
+no exclusion. This setting applies to all supported joint kinds.
+
+PhysicsRuntime derives a bounded canonical pair set from admitted joint values at
+the joined synchronization boundary. Private per-body group-filter views carry
+current entity generation tokens; full32-bit masks and project layers remain intact.
+The pinned native broadphase and continuous cast consult this filter before contact
+cache reuse or solving. Pair-only edits retain bodies/constraints/order/warm state;
+only changed effective pairs wake nonstatic endpoints. Native workers read const
+owner data and never access Flecs. Ray/shape/volume queries still see excluded bodies.
+
+Recovery derives the fresh world's pair set before native reconstruction; group
+filter pointers are not native serialized data. The existing exact-build mapping
+includes the new setting and native contact/activation state. ABI1, private4 and
+authored formats remain unchanged; matching SDK modules need a rebuild. Original
+Gallery27 compares mutual-contact suppression with normal contacts, while both
+pairs still land on an unrelated floor.
 
 ### Editor joint guides and numerical limits
 

@@ -11,15 +11,19 @@ struct UiTarget {
     ImVec2 minimum, maximum;
     bool enabled;
     ImVec2 clip_minimum{-FLT_MAX, -FLT_MAX}, clip_maximum{FLT_MAX, FLT_MAX};
+    ImGuiID id = 0;
 };
 inline bool observe_ui = false;
 inline std::map<std::string, UiTarget> ui_targets;
 inline void observe_item(const std::string& name) {
     if (observe_ui)
         ui_targets[name] = {
-            ImGui::GetItemRectMin(), ImGui::GetItemRectMax(),
+            ImGui::GetItemRectMin(),
+            ImGui::GetItemRectMax(),
             !(ImGui::GetCurrentContext()->LastItemData.ItemFlags & ImGuiItemFlags_Disabled),
-            ImGui::GetCurrentWindow()->ClipRect.Min, ImGui::GetCurrentWindow()->ClipRect.Max};
+            ImGui::GetCurrentWindow()->ClipRect.Min,
+            ImGui::GetCurrentWindow()->ClipRect.Max,
+            ImGui::GetItemID()};
 }
 inline void observe_tab(const std::string& name) {
     const auto* window = ImGui::GetCurrentWindow();
