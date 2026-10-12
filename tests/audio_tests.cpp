@@ -89,6 +89,7 @@ struct Fixture {
     }
     void tick() { simulation.tick(1.f / 60); }
 };
+#include "audio_attenuation_tests.hpp"
 int main(int argc, char** argv) {
     try {
         check(argc == 2, "Test path required");
@@ -99,6 +100,7 @@ int main(int argc, char** argv) {
         check(AssetCatalog::register_audio_clip(root, "Assets/tone.wav").id == record.id,
               "Registration changed identity");
         auto catalog = AssetCatalog::open_project(root);
+        attenuation_tests(root, record.id);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));
@@ -419,6 +421,25 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 4; i++)
             author.scene.undo();
         check(author.scene.entity(a).get<AudioSource>().gain == 1, "Revert undo failed");
+        authoring_command(author.scene, "property.set",
+                          {{"entity", a},
+                           {"component", "forge.audio_source"},
+                           {"field", "attenuation"},
+                           {"value", 0}});
+        expected = library.source(prefab);
+        candidate = expected;
+        candidate["members"][0]["components"]["forge.audio_source"]["attenuation"] = 2;
+        candidate["members"][0]["components"]["forge.audio_source"]["rolloff"] = 2.5;
+        library.publish(author.scene, expected, candidate);
+        check(author.scene.entity(a).get<AudioSource>().attenuation == 0 &&
+                  author.scene.entity(a).get<AudioSource>().rolloff == 2.5f &&
+                  author.scene.entity(b).get<AudioSource>().attenuation == 2,
+              "Equal falloff override lost intent or froze inherited strength");
+        authoring_command(author.scene, "component.revert",
+                          {{"entity", a}, {"component", "forge.audio_source"}});
+        check(author.scene.entity(a).get<AudioSource>().attenuation == 2 &&
+                  author.scene.entity(a).get<AudioSource>().rolloff == 2.5f,
+              "Falloff override revert did not recover current prefab values");
         const auto wrong_ref = author.ref();
         std::thread wrong([&] { reject([&] { author.audio->play(wrong_ref); }); });
         wrong.join();

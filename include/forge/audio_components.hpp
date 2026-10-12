@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <forge/asset_ref.hpp>
 namespace forge {
 struct AudioClipAsset {
@@ -10,6 +11,9 @@ struct AudioSource {
     float gain = 1, pitch = 1;
     bool spatialized = true;
     float minimum_distance = 1, maximum_distance = 100;
+    // FORGE distance curves: 0 inverse, 1 linear, 2 exponential.
+    std::uint32_t attenuation = 0;
+    float rolloff = 1;
     bool operator==(const AudioSource&) const = default;
 };
 struct AudioListener {

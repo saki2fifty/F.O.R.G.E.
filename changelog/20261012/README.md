@@ -76,3 +76,20 @@ source-free export. Fixed-step implicit integration adds damping even at authore
 ratio zero. Matching SDK modules require rebuilding; authored formats, ABI1 and
 private checkpoint4 remain unchanged. Windows delivery and physical review are
 pending; no new delivered ZIP is claimed.
+
+## Spatial-audio distance falloff
+
+Audio Source adds **Distance falloff** (Inverse, Linear, Exponential) and **Falloff
+strength**0–10. Existing scenes keep inverse/1 defaults. Edits update the current
+voice without restarting it; strength0 keeps positional panning with no distance
+loss. Distance limits clamp the curve rather than defining a universal mute radius;
+equal limits disable distance loss. Inspector Undo/Redo and independent prefab
+override intent use the existing authoring system.
+
+Original Gallery31 includes three colored emitters, a camera/listener and a
+synthetic WAV, with cooked source-free export. Offline PCM equations, compiled
+and installed-only SDK consumers, Inspector history/save/reopen and relocated
+gallery playback form the local gate. Public AudioSource layout/header fingerprint
+changes require matching C++ modules to rebuild. ABI1 tables, authored scene
+versions and the existing autoplay-from-frame0 private recovery policy remain.
+Native Windows delivery, image review and physical listening are pending.

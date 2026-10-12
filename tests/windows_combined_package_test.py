@@ -395,7 +395,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         ('Connected Contacts', 'Scenes/27-connected-collisions.scene.json', '--packaged-connected', 'physics-connected-result.json'),
         ('Swing Twist', 'Scenes/28-swing-twist-joints.scene.json', '--packaged-swing', 'physics-swing-result.json'),
         ('Distance Springs', 'Scenes/29-distance-springs.scene.json', '--packaged-springs', 'physics-springs-result.json'),
-        ('Animation Exits', 'Scenes/30-animation-exits.scene.json', '--packaged-exits', 'animation-exits-result.json')):
+        ('Animation Exits', 'Scenes/30-animation-exits.scene.json', '--packaged-exits', 'animation-exits-result.json'),
+        ('Audio Falloff', 'Scenes/31-audio-falloff.scene.json', None, None)):
         slider_source = root / (label + ' Gallery Copy')
         shutil.copytree(gallery, slider_source)
         slider_scene = scene_path
@@ -423,14 +424,20 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         assert not (slider_export / 'Scenes').exists() and not (slider_export / 'Assets').exists()
         slider_evidence = evidence.parent / label
         slider_evidence.mkdir(parents=True, exist_ok=True)
-        for executable, arguments, log in (
-            ('forge_game.exe', ['--verify-startup'], 'production-startup.log'),
-            ('forge_game_fixture.exe', [observer_mode, str(slider_evidence)], 'capture-host.log')):
+        runs = [('forge_game.exe', ['--verify-startup'], 'production-startup.log')]
+        if observer_mode:
+            runs.append(('forge_game_fixture.exe', [observer_mode, str(slider_evidence)], 'capture-host.log'))
+        for executable, arguments, log in runs:
             result = subprocess.run([str(slider_export / executable), *arguments], cwd=slider_export,
                 env=env, text=True, capture_output=True, timeout=180)
             (slider_evidence / log).write_text(result.stdout + result.stderr)
             assert result.returncode == 0, (executable, result.returncode, result.stdout, result.stderr)
             assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
+        if observer_mode is None:
+            # Actual offline PCM equations and relocated closure run in audio_falloff_gallery.
+            # Here the final shipped executable must initialize that cooked scene cleanly.
+            assert not (slider_export/'Assets/FalloffTone.wav').exists()
+            continue
         proof = json.loads((slider_evidence / result_file).read_text())
         if observer_mode == '--packaged-exits':
             assert len(proof['actors']) == 3 and set(proof['actors'].values()) == {14}

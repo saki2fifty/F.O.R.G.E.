@@ -50,6 +50,8 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
    if module:
     assert stepped['audio']['playing_sources']==n%2,(n,stepped['audio'],stepped['diagnostics'])
     assert stepped['scene']['entities'][0]['components']['forge.audio_source']['gain']==.5
+    assert stepped['scene']['entities'][0]['components']['forge.audio_source']['attenuation']==1
+    assert stepped['scene']['entities'][0]['components']['forge.audio_source']['rolloff']==.5
     assert any(d['text']=='Audio SDK command queued' for d in stepped['diagnostics'])
   checkpoint=stepped['recovery']
   worker.request('resume');time.sleep(.05);paused=worker.request('pause')

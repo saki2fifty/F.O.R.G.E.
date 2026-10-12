@@ -21,6 +21,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
         .each([h](flecs::entity e, const forge::AudioSource& old) {
             auto next = old;
             next.gain = .5f;
+            next.attenuation = 1; // FORGE linear falloff, independent of backend enum values.
+            next.rolloff = .5f;
             e.set(next);
             const auto tick = ecs_get_world_info(h->world)->frame_count_total + 1;
             const auto result =

@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.audio.wav",
+    "importer_revision": "37c4138a380af2e07b46b0153aa0a925309c4db706cf9f615cb4f903105ffa06",
+    "key_version": 1,
+    "output_format": "forge.audio-clip",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "14b353e629abec588924c473d35b907d4181b251920c589a5e498b8994f52441",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.audio.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "327101c1-e496-4293-b830-4c25b978607a",
+    "source": "Assets/FalloffTone.wav",
+    "source_digest": "14b353e629abec588924c473d35b907d4181b251920c589a5e498b8994f52441",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.audio.wav",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

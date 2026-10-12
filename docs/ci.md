@@ -667,3 +667,16 @@ Final combined-package acceptance uses the shared SDK runtime kit for its matchi
 SDK-enabled observer (which imports flecs.dll). The ordinary static production
 runtime is tested separately. Gallery30's exported observer requires all three
 characters to visit all three states before successful capture/exit.
+
+### Spatial-audio falloff gate
+
+`audio` measures actual offline PCM against independent equations for three curves
+and strength/range boundaries, including zero-strength panning, invalid native
+configuration recovery, playback continuity and partial prefab intent.
+`native_sdk_audio` compiles the matching public component fields and checks worker
+recovery. `audio_falloff_gallery` exports Gallery31, removes the original project,
+relocates cooked content and measures all three curves without the source WAV.
+`audio_editor` exercises actual Inspector choices/strength, Undo/Redo and save/reopen
+at65/100/150/200%. `editor_audio_falloff` captures the production Inspector at
+100/150/200%; final combined-package acceptance also launches the cooked scene
+with the production executable. Images/physical sound require separate review.

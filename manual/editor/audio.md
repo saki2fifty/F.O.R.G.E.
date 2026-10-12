@@ -22,7 +22,10 @@ Start with a comfortable speaker/headphone volume. The example is a quiet, four-
 - **Gain:** linear volume. `0` is silent, `1` is nominal; the supported range is `0–4`. Values above `1` amplify and may clip when mixed.
 - **Pitch:** playback speed and pitch together; `1` is normal, `0.25–4` is supported. This is not independent time stretching.
 - **Spatialized:** enable positioning and distance attenuation. Disable it for ordinary stereo playback that needs no listener or transform.
-- **Minimum distance / Maximum distance:** meters. The inverse-distance attenuation calculation clamps distance to these limits; maximum distance is not a hard mute radius. Maximum must be at least minimum.
+- **Minimum distance / Maximum distance:** meters. Distance is clamped to these limits. Maximum is not a universal mute radius. Maximum must be at least minimum; equal limits disable distance loss.
+
+- **Distance falloff:** choose **Inverse**, **Linear**, or **Exponential**. Inverse is the default. Linear at strength1 fades to silence at maximum; the other curves can remain audible there.
+- **Falloff strength:** `0–10`, default `1`. Higher values fade more strongly with distance. `0` keeps left/right positioning without reducing volume over distance. These controls affect spatialized sources.
 
 Numeric fields commit with **Enter**. Errors leave the previous authored value intact. Object scale does not multiply gain or range. Parent transforms still move a child's position normally.
 
@@ -87,3 +90,15 @@ recover playback. There is no editor audition player, device picker, mixer bus
 editor, one-shot pool, MP3/FLAC support, streaming music or live voice replacement.
 
 Headless runs can omit audio entirely. Automated offline/null-device tests verify logic and sample output; actual speakers/headphones require this manual test.
+
+## Compare the included falloff scene
+
+Open **Examples/FeatureGallery/Scenes/31-audio-falloff.scene.json**. The blue,
+yellow and red cubes use inverse, linear and exponential falloff. The camera is
+the listener. Only blue starts automatically, so the sounds remain easy to compare.
+
+Stop, disable **Play On Start** on blue, enable it on one other cube, and Play.
+Move the camera nearer/farther while stopped, or change the selected source's live
+strength during Play. Save authored settings while stopped before exporting.
+An exported game includes the compiled engine and cooked sound; it needs the
+original WAV only when you return to authoring/reimport in the editor.

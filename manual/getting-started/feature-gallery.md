@@ -47,3 +47,11 @@ Scene **22-continuous-collision** compares blue continuous and amber discrete cu
 falling onto very thin platforms. Press Play and watch the landing area. The example
 uses normal project gravity and engine components; no C++ compilation is required.
 The camera starts below the falling cubes, so they enter from above.
+
+### Spatial sound comparison
+
+Scene **31 — Audio falloff** contains three cubes with inverse, linear and
+exponential distance curves and a camera/listener. Only blue starts automatically.
+Stop to switch the source's **Play On Start**, move the camera and compare.
+**Falloff strength** changes distance loss without replacing the sound; strength0
+keeps positional panning. [Audio controls](../editor/audio.md) explain the limits.

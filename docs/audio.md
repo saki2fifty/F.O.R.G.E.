@@ -12,15 +12,48 @@ Shutdown stops the device and waits for callback completion, then destroys voice
 
 ## ECS and assets
 
-AudioSource holds `AssetRef<AudioClipAsset>`, autoplay/loop/spatialized flags, linear gain, pitch multiplier and minimum/maximum distance. AudioListener holds enabled. These use the existing qualified component/property schemas, nullable typed AssetRef and bool metadata, scene formats and prefab override machinery. Known references serialize as UUID or null, not file paths or runtime handles. No scene version or identity changes.
+AudioSource holds `AssetRef<AudioClipAsset>`, autoplay/loop/spatialized flags, linear gain, pitch multiplier, minimum/maximum distance, distance-falloff choice and strength. AudioListener holds enabled. These use the existing qualified component/property schemas, nullable typed AssetRef and bool metadata, scene formats and prefab override machinery. Known references serialize as UUID or null, not file paths or runtime handles. No scene version or identity changes.
 
 AssetCatalog owns metadata in version1 `forge.assets.json`; ProjectPaths resolves contained project-relative locators. Registration is UI-independent and idempotent for a locator. UI calls require project writer ownership; a detected external index edit prevents publication. Metadata persistence is separate from scene Undo; no cross-document atomicity claim. The shared Phase7 importer/publication and source-watcher workflow below also supports AudioClip. Existing registered-only records remain readable without automatic migration.
 
 Sources are decoded once into bounded immutable PCM. Limits:256 voices,1024 queued commands,16MiB source,64MiB decoded clip,256MiB cache. Mono/stereo WAV only; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations do not retry every frame; changing configuration or restarting Play allows retry. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
 
+## Distance falloff
+
+`AudioSource::attenuation` uses FORGE values0 inverse,1 linear,2 exponential;
+`rolloff` is a finite strength0–10. The backend mapping is private. Old authored
+components omit these fields safely and receive inverse/1 through the existing
+builtin admission/default path. Reflection, typed native values, Scene Undo/Redo
+and independent prefab override masks use the same component owner.
+
+For distance `d` clamped between minimum `m` and maximum `M`, amplitude is:
+
+- Inverse: `m / (m + r * (d - m))`.
+- Linear: `1 - r * (d - m) / (M - m)`.
+- Exponential: `(d / m)^(-r)`.
+
+The backend clamps resulting amplitude to0–1. With linear strength1, maximum is
+silent; other strengths and curves need not be. Maximum is a clamp distance,
+not a universal mute radius. Equal minimum/maximum disables distance loss for
+all curves. Strength0 retains positional panning while disabling distance loss.
+Nonspatial playback ignores these distance controls. Source gain remains separate.
+Values update an existing voice at fixed synchronization boundaries and do not
+restart its sample cursor. Backend gain changes have a finite smoothing ramp.
+
+The public AudioSource layout/header fingerprint changes with these appended
+fields. Rebuild C++ modules with this exact installed SDK; ABI1 callback tables
+and authored scene versions are unchanged. Private recovery still reconstructs
+audio according to autoplay from frame0, without a sample-cursor continuity claim.
+
+Original Gallery31 supplies three colored emitters and a one-second synthetic
+440Hz WAV. Its camera also carries the listener; only inverse autoplays initially.
+The export closes over cooked PCM and authored fields and excludes the source WAV.
+Offline tests measure independent power equations, invalid-value rejection,
+active-voice continuity and actual relocated source-free Gallery playback.
+
 ## Clock and presentation
 
-RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Initial attenuation uses miniaudio inverse distance with rolloff1 and clamped min/max distances; no Doppler/cone semantics.
+RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances; the selectable curves are described below. No Doppler/cone semantics.
 
 The device callback mixes continuously and never advances gameplay time. Pause stops the gameplay group while keeping the device alive. Step updates intent/transforms once with the group still stopped; it does not request an audio timeslice. Resume starts the group. Play commands restart the source at frame0; Stop stops and resets it. Basic playback counts are diagnostic presentation state, not authoritative simulation clocks.
 

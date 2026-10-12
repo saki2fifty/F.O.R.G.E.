@@ -211,3 +211,20 @@ characters cycle Idle → Walk → Run, each beginning in a different state.
 Open `Assets/TimedLocomotion.states.json` from Content to adjust automatic targets,
 exit times and destination fades. Save / Publish and restart Play. The existing
 CC0 Quaternius clips and license are reused. Source-free export runs the same cycle.
+
+## 31 — Spatial audio falloff
+
+Open `Scenes/31-audio-falloff.scene.json`. Blue uses inverse, yellow linear, red
+exponential; each has strength1 and range2–18m. The camera contains the listener.
+Only blue autoplays. Stop and switch **Play On Start** to solo another source;
+move the camera and compare **Distance falloff** / **Falloff strength** in Inspector.
+Strength0 preserves positional sound with no distance loss. Maximum clamps the
+calculation; linear strength1 reaches silence there, while inverse/exponential
+remain audible. Equal distance limits disable distance loss. Save before export.
+
+`Assets/FalloffTone.wav` is an original one-second mono48kHz PCM16 440Hz sine tone
+generated for FORGE, with amplitude10000. No downloaded sound or third-party
+animation/audio license applies. The source and its immutable cooked revision
+ship with this editable gallery; source-free games include only cooked PCM.
+The same project/sample license applies as the other original gallery examples.
+Physical listening remains part of user acceptance.

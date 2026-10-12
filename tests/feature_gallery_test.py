@@ -47,7 +47,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
-        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json'} <= {p.name for p in scenes}
+        '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
 assert project['game']['application_id'] == 'org.forge.feature-gallery'
 assert project['game']['display']['mode'] == 'windowed'
@@ -253,6 +253,15 @@ try:
             assert graph['version'] == 2
             assert [s['exit'] for s in graph['states']] == [
                 dict(state=2, phase=1), dict(state=3, phase=1), dict(state=1, phase=1)]
+        if path.name.startswith('31-'):
+            sources = [row['components']['forge.audio_source'] for row in loaded['entities']
+                       if 'forge.audio_source' in row['components']]
+            tone = by_source['Assets/FalloffTone.wav']
+            assert sorted(s['attenuation'] for s in sources) == [0, 1, 2]
+            assert all(s['clip'] == tone['id'] and s['rolloff'] == 1 and s['spatialized']
+                       and s['loop'] for s in sources)
+            assert sum(s['play_on_start'] for s in sources) == 1
+            assert any('forge.audio_listener' in row['components'] for row in loaded['entities'])
     assert project['startup_scene']['asset'] == json.loads(scenes[0].read_text())['asset_id']
 finally:
     process.stdin.close()

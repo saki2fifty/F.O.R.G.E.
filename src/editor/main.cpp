@@ -3715,10 +3715,30 @@ int main(int argc, char** argv) {
                     }
                     break;
                 case 218:
+                case 221:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
+                case 222:
                     forge::ui::style(2);
+                    break;
+                case 220:
+                    if (fixture.audio_falloff) {
+                        forge::ui::style(1);
+                        SDL_SetWindowSize(window.get(), 1920, 1080);
+                        files.document.open_scene("Scenes/31-audio-falloff.scene.json");
+                        const auto snapshot = scene.snapshot();
+                        for (const auto& row : snapshot.at("entities"))
+                            if (row.at("components").contains("forge.audio_source")) {
+                                editor.selection.select_entity(row.at("id").get<std::string>());
+                                break;
+                            }
+                        component_inspector.fixture_focus_component = "forge.audio_source";
+                        workspace.inspector = true;
+                        forge::test::observe_ui = true;
+                        ImGui::SetWindowPos("Inspector", {30, 55});
+                        ImGui::SetWindowSize("Inspector", {1860, 990});
+                    }
                     break;
                 case 112:
                     forge::ui::style(1);
@@ -5916,6 +5936,27 @@ int main(int argc, char** argv) {
                         ImGui::SetScrollY(w, fixture.stage < 112 ? 0 : w->ScrollMax.y);
                     }
                 }
+                if (fixture.audio_falloff && fixture.stage >= 220 && fixture.stage <= 222) {
+                    auto* w = ImGui::FindWindowByName("Inspector");
+                    const auto control =
+                        forge::test::ui_targets.find("component-field:forge.audio_source:rolloff");
+                    if (!w || control == forge::test::ui_targets.end())
+                        captured_document_visible = false;
+                    else {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const auto& target = control->second;
+                        if (target.maximum.y > target.clip_maximum.y)
+                            ImGui::SetScrollY(w, w->Scroll.y + target.maximum.y -
+                                                     target.clip_maximum.y + 12);
+                        captured_document_visible &=
+                            target.enabled && target.minimum.y >= target.clip_minimum.y &&
+                            target.maximum.y <= target.clip_maximum.y &&
+                            forge::test::ui_targets.contains(
+                                "component-field:forge.audio_source:attenuation");
+                    }
+                }
                 if (fixture.animation_exits && fixture.stage >= 217 && fixture.stage <= 219) {
                     if (auto* w = ImGui::FindWindowByName("Animation States###Animation States")) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
@@ -6014,9 +6055,11 @@ int main(int argc, char** argv) {
                             metrics.dump(2));
                     }
                     fixture.capture(device, context, rtv);
-                    if ((!fixture.animation_exits && fixture.stage == 217) ||
-                        (fixture.animation_exits && fixture.stage == 220)) {
-                        if (!fixture.animation_exits)
+                    if ((!fixture.animation_exits && !fixture.audio_falloff &&
+                         fixture.stage == 217) ||
+                        (fixture.animation_exits && fixture.stage == 220) ||
+                        (fixture.audio_falloff && fixture.stage == 223)) {
+                        if (!fixture.animation_exits && !fixture.audio_falloff)
                             check_thumbnail_cache(presentation, context, files.document.project(),
                                                   mesh_resources);
                         play.stop();

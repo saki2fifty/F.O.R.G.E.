@@ -320,7 +320,11 @@ struct AudioRuntime::Impl {
                                    ref, config_value.clip.id);
                 } else
                     spatial_errors.erase(e.id());
-                ma_sound_set_attenuation_model(&v.sound, ma_attenuation_model_inverse);
+                static constexpr ma_attenuation_model models[] = {ma_attenuation_model_inverse,
+                                                                  ma_attenuation_model_linear,
+                                                                  ma_attenuation_model_exponential};
+                ma_sound_set_attenuation_model(&v.sound, models[config_value.attenuation]);
+                ma_sound_set_rolloff(&v.sound, config_value.rolloff);
                 ma_sound_set_min_distance(&v.sound, config_value.minimum_distance);
                 ma_sound_set_max_distance(&v.sound, config_value.maximum_distance);
                 ma_sound_set_doppler_factor(&v.sound, 0);

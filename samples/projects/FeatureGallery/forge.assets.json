@@ -1015,6 +1015,46 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "327101c1-e496-4293-b830-4c25b978607a",
+      "metadata": {
+        "forge.audio": {
+          "channels": 1,
+          "duration": 1.0,
+          "encoding": "pcm-f32-le",
+          "format": "forge.audio-clip",
+          "frames": 48000,
+          "sample_rate": 48000,
+          "source_digest": "14b353e629abec588924c473d35b907d4181b251920c589a5e498b8994f52441",
+          "source_format": "wav",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "72ddd0cdeff0afef7e18a386269b378bbb705bf210ab5d1dc7528ba6615703e7",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.audio.wav",
+          "importer_revision": "37c4138a380af2e07b46b0153aa0a925309c4db706cf9f615cb4f903105ffa06",
+          "key": "fedcb1357463c7f46f7d7039c268b71e3aedc0cd8d1c2a82d9e56a6f341cfd3a",
+          "output_format": "forge.audio-clip",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "0d7ceacfb95e3d9c2f37d477615f561cb688331e7b2e35df240f0cefa6c42073",
+          "source_digest": "14b353e629abec588924c473d35b907d4181b251920c589a5e498b8994f52441",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/FalloffTone.wav",
+      "source_dependencies": [],
+      "type": "audio_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "32766a10-d94d-43dd-b610-2df2701e69ea",
       "metadata": {
         "forge.import": {

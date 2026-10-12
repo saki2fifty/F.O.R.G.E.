@@ -85,7 +85,9 @@ template <class T> Json encode(const T& p) {
                 {"pitch", p.pitch},
                 {"spatialized", p.spatialized},
                 {"minimum_distance", p.minimum_distance},
-                {"maximum_distance", p.maximum_distance}};
+                {"maximum_distance", p.maximum_distance},
+                {"attenuation", p.attenuation},
+                {"rolloff", p.rolloff}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController>)
@@ -242,6 +244,8 @@ template <class T> Value decode(const Json& p) {
         v.spatialized = p.at("spatialized");
         v.minimum_distance = p.at("minimum_distance");
         v.maximum_distance = p.at("maximum_distance");
+        v.attenuation = p.value("attenuation", 0u);
+        v.rolloff = p.value("rolloff", 1.f);
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
         return v;
@@ -505,7 +509,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("pitch")
             .template member<bool>("spatialized")
             .template member<float>("minimum_distance")
-            .template member<float>("maximum_distance");
+            .template member<float>("maximum_distance")
+            .template member<std::uint32_t>("attenuation")
+            .template member<float>("rolloff");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController>)
@@ -1067,9 +1073,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
              "Playback speed and pitch multiplier: one is normal; no independent time stretching"},
             {"spatialized",
              "Use world position and one enabled listener; nonspatial sounds need no listener"},
-            {"minimum_distance", "Closest distance used for inverse attenuation"},
-            {"maximum_distance",
-             "Farthest distance used for inverse attenuation; not a hard mute radius"}};
+            {"minimum_distance", "Closest distance used for the selected distance falloff"},
+            {"maximum_distance", "Farthest clamped falloff distance; not a hard mute radius. Equal "
+                                 "minimum/maximum disables distance loss"},
+            {"attenuation", "Distance falloff curve; changes loudness with listener distance. "
+                            "Spatialized controls positional sound independently"},
+            {"rolloff", "Falloff strength: 1 is standard, 0 keeps loudness with distance while "
+                        "preserving positional sound"}};
         value["description"] = help.at(field);
         if (field == "clip") {
             value["asset_type"] = AudioClipAsset::type;
@@ -1082,6 +1092,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
         if (field == "pitch") {
             value["minimum"] = .25;
             value["maximum"] = 4;
+        }
+        if (field == "attenuation") {
+            value["display_name"] = "Distance falloff";
+        }
+        if (field == "rolloff") {
+            value["display_name"] = "Falloff strength";
+            value["minimum"] = 0;
+            value["maximum"] = 10;
         }
         if (field.ends_with("distance")) {
             value["minimum"] = .001;
@@ -1256,6 +1274,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.light" && field == "kind") {
         type = "forge.LightKind";
         names = {"Directional", "Point", "Spot"};
+    } else if (component == "forge.audio_source" && field == "attenuation") {
+        type = "forge.AudioAttenuation";
+        names = {"Inverse", "Linear", "Exponential"};
     } else if (component == "forge.physics_joint" && field == "kind") {
         type = "forge.JointKind";
         names = {"Distance", "Hinge", "Point", "Fixed", "Slider", "Swing Twist"};
@@ -1357,7 +1378,8 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
             help = "Local translation along the " + name + " axis, in meters.";
         if (id == "forge.physics_body" && name == "mass")
             help = "Mass in kilograms; zero computes mass from density and collider volume.";
-        member.set_doc_name(friendly_name(name).c_str()).set_doc_brief(help.c_str());
+        const auto label = options.value("display_name", friendly_name(name));
+        member.set_doc_name(label.c_str()).set_doc_brief(help.c_str());
     }
 }
 const Json& validation_schema(const char* name) {
@@ -1523,6 +1545,10 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
     if (std::string_view(type.name) == "forge.animator")
         for (const auto* field :
              {"blend_clip", "blend_weight", "transition_seconds", "states", "state"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
+    if (std::string_view(type.name) == "forge.audio_source")
+        for (const auto* field : {"attenuation", "rolloff"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")
