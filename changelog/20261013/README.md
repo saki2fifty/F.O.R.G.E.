@@ -1,5 +1,11 @@
 # 2026-10-13
 
+## Animation timeline navigation
+
+- Zoom, pan, fit the whole clip or fit selected keys without changing source timing.
+- Shift-drag rectangle selection supports adding/removing groups and safe cancellation.
+- Scrubbing and key dragging follow the visible time range; off-screen keys are clipped.
+
 ## Transform animation timing
 
 - Scale whole-clip duration and key times together while adjusting curve slopes.

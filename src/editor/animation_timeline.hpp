@@ -2,6 +2,7 @@
 #include "../texture_authoring.hpp"
 #include "../transform_animation_authoring.hpp"
 #include "../transform_animation_preview.hpp"
+#include "animation_timeline_view.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
 #include <algorithm>
@@ -20,19 +21,24 @@ class AnimationTimelineEditor {
         return document_ && (document_->dirty() || curve_dirty_ || needs_publish_ || pending());
     }
     bool can_undo() const {
-        return document_ && !pending() && (curve_dirty_ || curve_drag_ || document_->can_undo());
+        return document_ && !pending() &&
+               (curve_dirty_ || curve_drag_ || box_ || pan_ || document_->can_undo());
     }
     bool can_redo() const {
-        return document_ && !pending() && !curve_dirty_ && !curve_drag_ && document_->can_redo();
+        return document_ && !pending() && !curve_dirty_ && !curve_drag_ && !box_ && !pan_ &&
+               document_->can_redo();
     }
     const TransformAnimationDocument* document() const { return document_.get(); }
+    const std::set<AssetId>& selected_keys() const { return selected_keys_; }
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() {
+        cancel_ruler_capture();
         cancel_key_drag();
         cancel_curve_drag();
         save_ = true;
     }
     void request_close() {
+        cancel_ruler_capture();
         cancel_key_drag();
         cancel_curve_drag();
         stop_preview();
@@ -41,6 +47,10 @@ class AnimationTimelineEditor {
             finish_close();
     }
     void undo() {
+        if (box_ || pan_) {
+            cancel_ruler_capture();
+            return;
+        }
         if (curve_drag_) {
             cancel_curve_drag();
             return;
@@ -172,8 +182,15 @@ class AnimationTimelineEditor {
             request_close();
         if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             ui::editor_context->task.focus_document("animation_timeline", "Animation Timeline");
+        if ((box_ || pan_) && (locked || pending() || ImGui::GetIO().AppFocusLost || !document_ ||
+                               ruler_revision_ != document_->revision() ||
+                               !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
+                               ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId) ||
+                               ImGui::IsKeyPressed(ImGuiKey_Escape)))
+            cancel_ruler_capture();
         if (drag_key_ && (locked || pending() || ImGui::GetIO().AppFocusLost || !document_ ||
                           drag_revision_ != document_->revision() ||
+                          ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId) ||
                           !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)))
             cancel_key_drag();
         if (curve_drag_ &&
@@ -259,6 +276,7 @@ class AnimationTimelineEditor {
             if (preview_)
                 ImGui::TextColored({.4f, .85f, 1, 1},
                                    "PREVIEW — temporary view; Scene source is unchanged");
+            view_controls();
             ruler();
             key_controls(scene);
             ImGui::EndDisabled();
@@ -349,6 +367,17 @@ class AnimationTimelineEditor {
     double key_offset_seconds_ = 0;
     double retimed_seconds_ = 2;
     int frame_grid_fps_ = 30;
+    AnimationTimelineView view_, pan_before_;
+    bool box_ = false, pan_ = false;
+    bool box_updated_ = false;
+    int box_mode_ = 0;
+    ImVec2 ruler_origin_{}, ruler_extent_{}, ruler_pointer_{};
+    ImVec2 box_last_{};
+    std::uint64_t ruler_revision_ = 0;
+    std::set<AssetId> box_before_;
+    AssetId box_active_;
+    double box_time_ = 0;
+    bool box_preview_ = false, box_playing_ = false;
     AssetJobId job_ = 0;
     bool needs_publish_ = false, save_ = false, close_ = false, preview_ = false, playing_ = false,
          preview_loop_ = true;
@@ -381,6 +410,9 @@ class AnimationTimelineEditor {
         ui::report_error(std::string("animation_timeline/") + action, why);
     }
     void finish_close() {
+        box_ = pan_ = false;
+        box_before_.clear();
+        view_ = {};
         curve_drag_ = false;
         curve_fit_handles_ = false;
         stop_preview();
@@ -423,8 +455,10 @@ class AnimationTimelineEditor {
         error_.clear();
     }
     void changed() {
+        cancel_ruler_capture();
         curve_drag_ = false;
         clip_ = document_->source().clip();
+        view_.reconcile(double(clip_->duration));
         needs_publish_ = true;
         time_ = std::min(time_, double(clip_->duration));
         if (key_) {
@@ -643,27 +677,226 @@ class AnimationTimelineEditor {
         }
         ImGui::NewLine();
     }
+    void cancel_ruler_capture() {
+        if (box_) {
+            selected_keys_ = box_before_;
+            key_ = box_active_;
+            time_ = box_time_;
+            preview_ = box_preview_;
+            playing_ = box_playing_;
+        }
+        if (pan_)
+            view_ = pan_before_;
+        box_ = pan_ = false;
+        box_before_.clear();
+    }
+    void view_controls() {
+        view_.reconcile(double(clip_->duration));
+        ImGui::BeginDisabled(bool(drag_key_) || curve_drag_ || box_ || pan_);
+        if (ui::button("Fit clip", "Show the entire clip without changing its source."))
+            view_.fit_clip();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(selected_keys_.empty());
+        if (ui::button("Fit selected keys", "Frame selected times with a small margin.")) {
+            double low = clip_->duration, high = 0;
+            for (const auto& key : clip_->keys)
+                if (selected_keys_.contains(key.id)) {
+                    low = std::min(low, double(key.time));
+                    high = std::max(high, double(key.time));
+                }
+            view_.fit(low, high);
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ui::button("Zoom in", "Zoom into the center of the visible time range."))
+            view_.zoom(2, .5);
+        ImGui::SameLine();
+        if (ui::button("Zoom out", "Zoom out around the visible time range's center."))
+            view_.zoom(.5, .5);
+        ImGui::EndDisabled();
+        ui::help("Ctrl-wheel zooms around the pointer. Middle-drag pans time. Shift-drag selects "
+                 "key diamonds; Ctrl adds and Alt removes. Escape cancels a held gesture.");
+    }
     void ruler() {
         const auto start = ImGui::GetCursorScreenPos();
         const float width = std::max(140.f, ImGui::GetContentRegionAvail().x), height = 100;
-        ImGui::InvisibleButton("Animation ruler", {width, height});
+        ImGui::InvisibleButton("Animation ruler", {width, height},
+                               ImGuiButtonFlags_MouseButtonLeft |
+                                   ImGuiButtonFlags_MouseButtonMiddle);
         FORGE_UI_PROBE("animation:ruler");
+        const bool hovered = ImGui::IsItemHovered();
+        const bool popup = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+        if (hovered && !popup && ImGui::GetIO().KeyCtrl)
+            ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
+        if ((box_ || pan_) && (start.x != ruler_origin_.x || start.y != ruler_origin_.y ||
+                               width != ruler_extent_.x || height != ruler_extent_.y))
+            cancel_ruler_capture();
+        if (drag_key_ && (start.x != ruler_origin_.x || start.y != ruler_origin_.y ||
+                          width != ruler_extent_.x || height != ruler_extent_.y ||
+                          view_.first != pan_before_.first || view_.span != pan_before_.span))
+            cancel_key_drag();
+        const auto mouse = ImGui::GetIO().MousePos;
+        const bool valid_mouse =
+            ImGui::IsMousePosValid(&mouse) && std::isfinite(mouse.x) && std::isfinite(mouse.y);
+        if ((box_ || pan_) && !valid_mouse)
+            cancel_ruler_capture();
+        if (drag_key_ && !valid_mouse)
+            cancel_key_drag();
+        if ((box_ && !ImGui::IsMouseDown(0) && !ImGui::IsMouseReleased(0)) ||
+            (pan_ && !ImGui::IsMouseDown(2) && !ImGui::IsMouseReleased(2)))
+            cancel_ruler_capture();
+        if (hovered && !popup && !drag_key_ && !curve_drag_ && !box_ && !pan_ && valid_mouse) {
+            if (ImGui::GetIO().KeyCtrl && ImGui::GetIO().MouseWheel != 0)
+                view_.zoom(
+                    std::pow(2., std::clamp(double(ImGui::GetIO().MouseWheel), -8., 8.) * .5),
+                    double(mouse.x - start.x) / width);
+            if (ImGui::IsMouseClicked(2)) {
+                pan_ = true;
+                pan_before_ = view_;
+                ruler_pointer_ = mouse;
+                ruler_origin_ = start;
+                ruler_extent_ = {width, height};
+                ruler_revision_ = document_->revision();
+            }
+        }
+        if (pan_ && (ImGui::IsMouseDown(2) || ImGui::IsMouseReleased(2))) {
+            view_ = pan_before_;
+            view_.pan(-(double(mouse.x) - ruler_pointer_.x) / width * view_.span);
+            if (ImGui::IsMouseReleased(2))
+                pan_ = false;
+        }
+        const auto x = [&](double time) { return start.x + float(view_.fraction(time)) * width; };
+        if (hovered && !popup && !pan_ && ImGui::IsMouseClicked(0) && valid_mouse) {
+            cancel_curve_drag();
+            if (!apply_pending_curves())
+                return;
+            if (ImGui::GetIO().KeyShift) {
+                box_ = true;
+                box_updated_ = false;
+                box_mode_ = ImGui::GetIO().KeyAlt ? -1 : ImGui::GetIO().KeyCtrl ? 1 : 0;
+                ruler_origin_ = start;
+                ruler_extent_ = {width, height};
+                ruler_pointer_ = mouse;
+                ruler_revision_ = document_->revision();
+                box_before_ = selected_keys_;
+                box_active_ = key_;
+                box_time_ = time_;
+                box_preview_ = preview_;
+                box_playing_ = playing_;
+                playing_ = false;
+            } else {
+                AssetId selected;
+                for (const auto& key : clip_->keys)
+                    if (view_.visible(double(key.time)) &&
+                        std::abs(x(double(key.time)) - mouse.x) < 7) {
+                        selected = key.id;
+                        break;
+                    }
+                if (selected) {
+                    if (ImGui::GetIO().KeyCtrl)
+                        toggle_key(selected);
+                    else {
+                        if (!selected_keys_.contains(selected))
+                            select_key(selected);
+                        else
+                            activate_key(selected);
+                        drag_key_ = selected;
+                        ruler_origin_ = start;
+                        ruler_extent_ = {width, height};
+                        pan_before_ = view_;
+                        drag_origin_ = std::int64_t(time_);
+                        drag_pointer_x_ = mouse.x;
+                        drag_moved_ = false;
+                        drag_offset_ = 0;
+                        drag_revision_ = document_->revision();
+                        drag_keys_.clear();
+                        drag_min_ = clip_->duration;
+                        drag_max_ = 0;
+                        for (const auto& key : clip_->keys)
+                            if (selected_keys_.contains(key.id)) {
+                                drag_keys_.push_back(key.id);
+                                drag_min_ = std::min(drag_min_, key.time);
+                                drag_max_ = std::max(drag_max_, key.time);
+                            }
+                    }
+                } else {
+                    key_ = {};
+                    selected_keys_.clear();
+                    time_ = view_.time(double(mouse.x - start.x) / width);
+                    fields(clip_->sample(time_));
+                }
+                preview_ = bool(target_.entity);
+                playing_ = false;
+            }
+        }
+        ImVec2 box_low{}, box_high{};
+        if (box_) {
+            const ImVec2 current{std::clamp(mouse.x, start.x, start.x + width),
+                                 std::clamp(mouse.y, start.y, start.y + height)};
+            box_low = {std::min(current.x, ruler_pointer_.x),
+                       std::min(current.y, ruler_pointer_.y)};
+            box_high = {std::max(current.x, ruler_pointer_.x),
+                        std::max(current.y, ruler_pointer_.y)};
+            if (!box_updated_ || current.x != box_last_.x || current.y != box_last_.y) {
+                selected_keys_ = box_mode_ == 0 ? std::set<AssetId>{} : box_before_;
+                for (const auto& key : clip_->keys) {
+                    if (!view_.visible(double(key.time)))
+                        continue;
+                    const auto at = x(double(key.time));
+                    bool hit = false;
+                    for (unsigned row = 0; row < 3; ++row) {
+                        const float y = start.y + 36 + row * 22;
+                        hit |= (clip_->channels & (1u << row)) && at + 5 >= box_low.x &&
+                               at - 5 <= box_high.x && y + 5 >= box_low.y && y - 5 <= box_high.y;
+                    }
+                    if (hit) {
+                        if (box_mode_ < 0)
+                            selected_keys_.erase(key.id);
+                        else
+                            selected_keys_.insert(key.id);
+                    }
+                }
+                box_last_ = current;
+                box_updated_ = true;
+            }
+        }
+        if (drag_key_ && ImGui::IsKeyPressed(ImGuiKey_Escape))
+            cancel_key_drag();
+        if (drag_key_ && valid_mouse && (ImGui::IsMouseDown(0) || ImGui::IsMouseReleased(0))) {
+            drag_moved_ |= ImGui::IsMouseDragging(0) ||
+                           std::abs(mouse.x - drag_pointer_x_) >= ImGui::GetIO().MouseDragThreshold;
+            if (drag_moved_) {
+                const auto wanted =
+                    std::int64_t(std::llround(
+                        std::clamp((double(mouse.x) - drag_pointer_x_) / width * view_.span,
+                                   -double(clip_->duration), double(clip_->duration)) /
+                        1000)) *
+                    1000;
+                drag_offset_ = std::clamp(wanted, -drag_min_, clip_->duration - drag_max_);
+                time_ = double(drag_origin_ + drag_offset_);
+            }
+        }
         auto* draw = ImGui::GetWindowDrawList();
+        draw->PushClipRect(start, {start.x + width, start.y + height}, true);
         draw->AddRectFilled(start, {start.x + width, start.y + height}, IM_COL32(19, 27, 36, 255));
-        const auto x = [&](double time) { return start.x + float(time / clip_->duration) * width; };
-        for (int i = 0; i <= 10; ++i) {
-            const float at = start.x + width * i / 10;
+        const int ticks =
+            std::clamp(int(width / (ImGui::CalcTextSize("3600.000000").x + 16)), 1, 10);
+        for (int i = 0; i <= ticks; ++i) {
+            const float at = start.x + width * i / ticks;
             draw->AddLine({at, start.y}, {at, start.y + height}, IM_COL32(50, 63, 75, 255));
             char text[32];
-            std::snprintf(text, sizeof(text), "%.2f",
-                          double(clip_->duration) / animation_timebase * i / 10);
+            std::snprintf(text, sizeof(text), "%.6f",
+                          view_.time(double(i) / ticks) / animation_timebase);
             draw->AddText({at + 2, start.y + 2}, IM_COL32(180, 190, 200, 255), text);
         }
         for (const auto& key : clip_->keys) {
-            const float at =
-                x(double(key.time) +
-                  (drag_key_ && selected_keys_.contains(key.id) ? double(drag_offset_) : 0.));
-            for (int row = 0; row < 3; ++row)
+            const auto shown_time =
+                double(key.time) +
+                (drag_key_ && selected_keys_.contains(key.id) ? double(drag_offset_) : 0.);
+            if (!view_.visible(shown_time))
+                continue;
+            const float at = x(shown_time);
+            for (unsigned row = 0; row < 3; ++row)
                 if (clip_->channels & (1u << row)) {
                     const float y = start.y + 36 + row * 22;
                     const auto color = selected_keys_.contains(key.id)
@@ -672,69 +905,30 @@ class AnimationTimelineEditor {
                     draw->AddQuadFilled({at, y - 5}, {at + 5, y}, {at, y + 5}, {at - 5, y}, color);
                 }
         }
-        draw->AddLine({x(time_), start.y}, {x(time_), start.y + height},
-                      IM_COL32(110, 235, 190, 255), 2);
-        if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0)) {
-            cancel_curve_drag();
-            if (!apply_pending_curves())
-                return;
-            const float mouse = ImGui::GetIO().MousePos.x;
-            AssetId selected;
+        if (view_.visible(time_))
+            draw->AddLine({x(time_), start.y}, {x(time_), start.y + height},
+                          IM_COL32(110, 235, 190, 255), 2);
+        if (box_) {
+            draw->AddRectFilled(box_low, box_high, IM_COL32(90, 177, 229, 35));
+            draw->AddRect(box_low, box_high, IM_COL32(90, 177, 229, 255));
+        }
+        draw->PopClipRect();
+        if (box_ && ImGui::IsMouseReleased(0)) {
+            box_ = false;
+            box_before_.clear();
+            if (!selected_keys_.contains(key_))
+                key_ = {};
             for (const auto& key : clip_->keys)
-                if (std::abs(x(double(key.time)) - mouse) < 7) {
-                    selected = key.id;
+                if (!key_ && selected_keys_.contains(key.id)) {
+                    key_ = key.id;
                     break;
                 }
-            if (selected) {
-                if (ImGui::GetIO().KeyCtrl)
-                    toggle_key(selected);
-                else {
-                    if (!selected_keys_.contains(selected))
-                        select_key(selected);
-                    else
-                        activate_key(selected);
-                    drag_key_ = selected;
-                    drag_origin_ = std::int64_t(time_);
-                    drag_pointer_x_ = ImGui::GetIO().MousePos.x;
-                    drag_moved_ = false;
-                    drag_offset_ = 0;
-                    drag_revision_ = document_->revision();
-                    drag_keys_.clear();
-                    drag_min_ = clip_->duration;
-                    drag_max_ = 0;
-                    for (const auto& key : clip_->keys)
-                        if (selected_keys_.contains(key.id)) {
-                            drag_keys_.push_back(key.id);
-                            drag_min_ = std::min(drag_min_, key.time);
-                            drag_max_ = std::max(drag_max_, key.time);
-                        }
-                }
-            } else {
-                key_ = {};
-                selected_keys_.clear();
-                time_ = std::clamp(double(mouse - start.x) / width, 0., 1.) * clip_->duration;
+            if (key_)
+                activate_key(key_);
+            else
                 fields(clip_->sample(time_));
-            }
             preview_ = bool(target_.entity);
             playing_ = false;
-        }
-        if (drag_key_ && ImGui::IsKeyPressed(ImGuiKey_Escape)) {
-            cancel_key_drag();
-            return;
-        }
-        const auto mouse = ImGui::GetIO().MousePos;
-        if (drag_key_ && ImGui::IsMousePosValid(&mouse) && std::isfinite(mouse.x) &&
-            (ImGui::IsMouseDown(0) || ImGui::IsMouseReleased(0))) {
-            drag_moved_ |= ImGui::IsMouseDragging(0) ||
-                           std::abs(mouse.x - drag_pointer_x_) >= ImGui::GetIO().MouseDragThreshold;
-            if (drag_moved_) {
-                const auto delta =
-                    std::clamp((double(mouse.x) - double(drag_pointer_x_)) / width, -1., 1.);
-                const auto wanted =
-                    std::int64_t(std::llround(delta * clip_->duration / 1000)) * 1000;
-                drag_offset_ = std::clamp(wanted, -drag_min_, clip_->duration - drag_max_);
-                time_ = double(drag_origin_ + drag_offset_);
-            }
         }
         if (drag_key_ && ImGui::IsMouseReleased(0)) {
             const auto keys = drag_keys_;

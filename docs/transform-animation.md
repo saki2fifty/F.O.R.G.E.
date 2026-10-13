@@ -54,8 +54,32 @@ millisecond times. The final release position is sampled even without an interve
 held frame. Offset clamping preserves spacing inside the duration. Escape, Play,
 pending publication, focus loss, close, project or revision changes cancel capture.
 Scene preview motion evaluates the applied clip until release. Numeric offsets are
-bounded to ±3600seconds, then checked against every selected time. No ripple edit,
-box selection or motion-preview retiming claim is made.
+bounded to ±3600seconds, then checked against every selected time. No ripple edit
+or motion-preview retiming claim is made.
+
+### Timeline view and rectangle selection
+
+The ruler has an ephemeral microsecond time viewport, bounded to the admitted clip.
+**Fit clip** restores the full duration; **Fit selected keys** adds a margin around
+selected times (including a single key). **Zoom in/out** use the view center;
+Ctrl-wheel anchors zoom at the pointer; middle-drag pans horizontally. View spans
+stay between one microsecond and the clip duration. Scrubbing and group movement
+map through this same viewport; group movement retains its1ms snap and clip bounds.
+Duration changes reconcile the viewport, retaining full-duration framing when it
+was full. Only visible keys/playhead are drawn or hit; ruler output is clipped.
+
+Shift-left-drag selects intersecting visible key-diamond bounds in enabled channel
+rows. Ctrl adds to the original selection; Alt removes, taking precedence over Ctrl;
+otherwise the rectangle replaces selection. Each key UUID participates once even
+when shown on several rows. Held selection uses editor state, not source/history;
+an unchanged pointer does not rebuild it. Release samples the final position and
+chooses a surviving active key, or clears it when no keys remain selected.
+
+Captures retain revision, geometry and baseline view/selection. Escape, source or
+geometry changes, focus loss, popup, Play, publication, close, Save or Undo cancel
+and restore the relevant baseline. View/selection controls share current Play and
+publication guards. View and selection are not serialized and do not request
+publication, add document Undo, or alter runtime/exported motion.
 
 ### Whole-clip retiming and frame placement
 

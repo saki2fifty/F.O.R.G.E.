@@ -55,6 +55,19 @@ changing projects or deleting the preview object ends preview.
 the fields. It does not capture the temporary preview. Timeline **Undo / Redo**
 affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
+## Navigate and select keys
+
+Choose **Zoom in** or **Zoom out** to inspect a smaller or larger time range.
+Hold **Ctrl** and scroll over the ruler to zoom around the pointer. Drag with the
+middle mouse button to pan. **Fit clip** shows the whole clip again; **Fit selected
+keys** focuses on the keys you have selected. These controls only change your view.
+
+Hold **Shift** and drag a rectangle across key diamonds to select a group. Add
+**Ctrl** to keep earlier selections, or **Alt** to remove keys from the selection.
+Release applies the selection. Escape, losing focus, resizing the ruler or entering
+Play cancels a held gesture. Selecting and navigating create no clip Undo step.
+Ordinary key clicks, Ctrl-click toggles and dragging a selected group still work.
+
 ## Adjust timing
 
 To make an entire clip slower or faster, enter **Retimed duration (seconds)**,
