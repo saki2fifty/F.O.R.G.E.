@@ -225,6 +225,39 @@ of authored geometry and the Scene owner. No selection is serialized or exported
 published geometry uses the established resource/package route. Shared native SDK
 headers/fingerprint inputs are unchanged by these private editor controls.
 
+## Model face groups
+
+The existing Face domain now holds a transient stable face-ID set in the Mesh
+editor, alongside its active face context. Plain list/canvas clicks replace it;
+Ctrl toggles exactly one nearest visible face. Canvas picking resolves depth before
+changing selection, so overlapping polygons cannot toggle several faces in one
+click. All/clear/invert operate on source faces and connected selection follows
+the existing shared-geometric-edge adjacency. Selection-only changes create no
+source revision, history entry or persisted selection database.
+
+Face transforms derive the canonical union of referenced vertex IDs and call the
+existing transform kernel once. Shared vertices therefore move once. Original
+planar/convex/manifold admission remains; invalid group deformations reject without
+replacing the good source. Inset/extrusion/active-face triangulation remain explicit
+single-face tools and require that the active face belongs to the Model selection.
+Extrusion selects its generated cap; inset retains its original inner face.
+
+Selected triangulation calls the existing span kernel, retains selected original
+IDs and selects newly allocated source face IDs after acceptance. The source
+exclusively owns their creation and allocator. Existing topology source Undo/Redo
+prunes IDs that disappear and keeps surviving IDs; transient selections are not
+history payloads. If a previously nonempty selection loses every face, it falls
+back to the available active face, preserving the established single-face workflow.
+An explicitly cleared selection stays empty. Close/reopen selects one active face.
+
+Selected facing uses existing shared-edge winding validation; a partial closed
+surface reversal rejects, while connected/all selection reverses the complete
+surface. Accepted edits use one existing source Undo, reset invalid UV scopes and
+reconcile Model selection. Source/preview revision keys retain derived-cache
+invalidation; highlight groups stay outside cached geometry. Source/cook formats,
+installed native SDK headers, importer recipe and immutable resource/export owners
+remain unchanged. No batch inset/extrusion or region extrusion is claimed.
+
 ## Derived Model view cache
 
 The private editor cache scopes projected points, original positions, depths and

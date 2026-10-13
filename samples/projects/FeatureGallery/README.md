@@ -58,13 +58,18 @@ The editor package includes the guide at `manual/editor/animation-root-motion.md
 | `15-brush-symmetry` | Open **SculptOneSide.mesh.json**, **SculptMirrored.mesh.json** or **PaintMirrored.mesh.json** in Content. Choose Sculpt or Paint and enable Mirror X/Y/Z before dragging. Save & Publish. | Three original spheres compare one-sided displacement, X-mirrored influence and XYZ-mirrored vertex color. Play and export use the same published Mesh streams. |
 | `16-authored-triangulation` | Open **PolygonCube.mesh.json**, **TriangleCube.mesh.json** or **TriangleSculpt.mesh.json** in Content. Compare polygon and triangle edges; use Triangulate face/Mesh, then sculpt or move vertices. Save & Publish. | Polygon and triangle cubes render equivalent shapes; the third has a sculpted, colored corner. Published geometry/UVs/colors survive Play and export. |
 
-## Export and run a scene
+For Model face groups, open the editable Meshes in scenes 12, 16 or 19. Ctrl-click
+faces in the Model list or wireframe, use all/clear/invert/connected selection, then
+transform, triangulate or reverse the selected surface. Inset and extrusion use
+the active face. See the [face-group walkthrough](../../../manual/editor/editable-meshes.md#work-with-several-model-faces).
 
 `27-connected-collisions` compares two original pairs of overlapping falling cubes.
 The blue pair's joint disables **Collide connected**, so their overlap is retained;
 the yellow pair keeps normal mutual contacts and separates. Both land on the floor.
 Select either joint to edit the setting, save, then restart Play or export. This
 demonstrates pair filtering without disabling the objects' ordinary scene layers.
+
+## Export and run a scene
 
 1. Open the scene you want to export and save it.
 2. In **Tools → Project Settings**, choose **Use saved current scene as startup**,

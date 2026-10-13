@@ -11,7 +11,7 @@ Use an editable Mesh when you want to shape a simple static object inside FORGE.
 
 ## Shape the Mesh
 
-Choose **Vertex**, **Edge** or **Face** in the Model tab. Click an element in the list or wireframe; Ctrl-click adds or removes vertices. Edge and face modes select one element. Enter **Move**, **Rotate (deg)** and **Scale** values, turn on **Preview transform** if useful, then **Apply transform**. **Cancel transform** clears those pending values. The operation is one source Undo step. Use **Triangulate Mesh** before deforming individual quad corners; faces still need to remain planar and convex.
+Choose **Vertex**, **Edge** or **Face** in the Model tab. Click an element in the list or wireframe; Ctrl-click adds or removes vertices or faces. Edge mode selects one edge. Enter **Move**, **Rotate (deg)** and **Scale** values, turn on **Preview transform** if useful, then **Apply transform**. **Cancel transform** clears those pending values. The operation is one source Undo step. Use **Triangulate Mesh** before deforming individual quad corners; faces still need to remain planar and convex.
 
 In **Vertex** mode, use **Select all vertices**, **Clear vertex selection**, or **Invert vertex selection** to choose a group. Turn on **Box select vertices**, then drag a rectangle in the wireframe. Ctrl adds the rectangle's vertices to your current selection. This includes projected vertices on both sides of the Mesh. The selection count appears beside the controls. Turn box mode off to use ordinary clicks again.
 
@@ -20,6 +20,29 @@ Press Esc during a rectangle drag to cancel. Changing focus, the view, the sourc
 Select a face, enter a positive **Inset distance**, and use **Preview inset** or **Inset selected face** to create a border. The inner face stays selected. **Cancel inset** drops the preview. The distance is measured inward from each edge in the Mesh’s own coordinates; an inset that collapses the face is rejected.
 
 Enter an **Extrude distance** and use **Preview extrusion** or **Extrude selected face**. A positive distance raises the face; a negative distance creates a recess. The original face becomes a new cap with side walls; the cap remains selected. **Cancel extrusion** drops the preview. Press Esc while the Model tab has focus to cancel a preview. Inset, extrusion and transform previews are exclusive. Invalid edits, such as a nonplanar face or zero scale, report an error and leave the source unchanged.
+
+### Work with several Model faces
+
+In **Face** mode, Ctrl-click the list or wireframe to toggle faces. **Select all
+faces**, **Clear face selection**, **Invert face selection** and **Select connected
+faces** help choose a surface. Connected selection follows geometric shared edges.
+The selected count and active face appear beside the controls; gold faces show the
+group. Selection changes leave the source and Undo history untouched.
+
+**Apply transform** moves the group's shared vertices once. **Triangulate selected
+faces** splits its polygons and selects all resulting triangles in one Undo step.
+**Reverse selected faces** flips the selected surface; a partial selection that
+would break shared-edge winding reports an error. Select a connected surface or
+all faces when reversing a closed shape.
+
+Inset, extrusion and **Triangulate face** use only the active selected face. Inset
+keeps its inner face; extrusion selects the new cap. Group transforms still require
+valid planar convex source faces, so triangulate before arbitrary corner deformation.
+Empty selections disable edit controls. Source Undo/Redo keeps surviving selection
+IDs and removes deleted ones; it does not replay selection history. If a topology
+change removes every selected face, the editor selects the available active face.
+Closing/reopening returns to one active face. **Save & Publish** updates Scene,
+Play and export through the same shared Mesh resource.
 
 ## Sculpt and paint
 

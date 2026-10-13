@@ -30,6 +30,7 @@ class EditableMeshEditor {
     const EditableMeshDocument* document() const { return document_.get(); }
 #ifdef FORGE_UI_FIXTURE
     const std::set<MeshUvCorner>& observed_uv_selection() const { return uv_selection_; }
+    const std::set<std::uint32_t>& observed_face_selection() const { return faces_; }
 #endif
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() {
@@ -288,6 +289,7 @@ class EditableMeshEditor {
     int start_shape_ = 0;
     std::string error_;
     SelectionMode mode_ = SelectionMode::Face;
+    std::set<std::uint32_t> faces_;
     std::set<std::uint32_t> vertices_;
     bool box_select_vertices_ = false;
     struct VertexBox {
@@ -405,10 +407,12 @@ class EditableMeshEditor {
         service_ = std::move(service);
         needs_publish_ = needs;
         face_ = 13;
+        faces_.clear();
         vertices_.clear();
         edge_ = {};
         reset_uv_scope();
         reconcile_selection();
+        faces_.insert(face_);
         preview_transform_ = preview_extrude_ = preview_inset_ = preview_uv_ = false;
         cancel_stroke();
         error_.clear();
@@ -418,6 +422,7 @@ class EditableMeshEditor {
         uv_preview_.reset();
     }
     void finish_close() {
+        faces_.clear();
         cancel_vertex_box();
         model_wire_view_.clear();
         reset_uv_scope();
@@ -465,6 +470,11 @@ class EditableMeshEditor {
         if (!edges().contains(edge_))
             edge_ = {};
         const auto& faces = document_->source().document.at("faces");
+        const bool had_face_selection = !faces_.empty();
+        std::set<std::uint32_t> existing_faces;
+        for (const auto& face : faces)
+            existing_faces.insert(face.at("id").get<std::uint32_t>());
+        std::erase_if(faces_, [&](auto key) { return !existing_faces.contains(key); });
         const auto selected = std::find_if(faces.begin(), faces.end(), [&](const Json& face) {
             return face.at("id").get<std::uint32_t>() == face_;
         });
@@ -472,6 +482,8 @@ class EditableMeshEditor {
             face_ = faces.front().at("id").get<std::uint32_t>();
             reset_uv_scope();
         }
+        if (had_face_selection && faces_.empty())
+            faces_.insert(face_);
         sync_uv_selection();
     }
     std::vector<std::uint32_t> selected_vertices() const {
@@ -479,15 +491,28 @@ class EditableMeshEditor {
             return {vertices_.begin(), vertices_.end()};
         if (mode_ == SelectionMode::Edge && edge_.first && edge_.second)
             return {edge_.first, edge_.second};
-        if (mode_ == SelectionMode::Face)
+        if (mode_ == SelectionMode::Face) {
+            std::set<std::uint32_t> result;
             for (const auto& candidate : document_->source().document.at("faces"))
-                if (candidate.at("id").get<std::uint32_t>() == face_) {
-                    std::vector<std::uint32_t> result;
+                if (faces_.contains(candidate.at("id").get<std::uint32_t>()))
                     for (const auto& corner : candidate.at("corners"))
-                        result.push_back(corner.at("vertex").get<std::uint32_t>());
-                    return result;
-                }
+                        result.insert(corner.at("vertex").get<std::uint32_t>());
+            return {result.begin(), result.end()};
+        }
         return {};
+    }
+    void select_model_face(std::uint32_t key, bool toggle) {
+        if (!toggle)
+            faces_.clear();
+        if (!toggle || !faces_.erase(key))
+            faces_.insert(key);
+        const auto active = faces_.contains(key) || faces_.empty() ? key : *faces_.begin();
+        if (face_ != active) {
+            face_ = active;
+            reset_uv_scope();
+        }
+        if (!faces_.contains(face_))
+            preview_extrude_ = preview_inset_ = false;
     }
     std::set<std::pair<std::uint32_t, std::uint32_t>> edges() const {
         std::set<std::pair<std::uint32_t, std::uint32_t>> result;
@@ -511,6 +536,46 @@ class EditableMeshEditor {
                 preview_extrude_ = preview_inset_ = false;
         }
         FORGE_UI_PROBE("mesh:selection_mode");
+        if (mode_ == SelectionMode::Face) {
+            ImGui::BeginDisabled(locked || pending() || stroke_active_);
+            auto replace_faces = [&](bool all, bool invert) {
+                std::set<std::uint32_t> selected;
+                if (all)
+                    for (const auto& face : document_->source().document.at("faces")) {
+                        const auto key = face.at("id").get<std::uint32_t>();
+                        if (!invert || !faces_.contains(key))
+                            selected.insert(key);
+                    }
+                faces_ = std::move(selected);
+                if (!faces_.empty() && !faces_.contains(face_)) {
+                    face_ = *faces_.begin();
+                    reset_uv_scope();
+                }
+                if (faces_.empty())
+                    preview_extrude_ = preview_inset_ = false;
+            };
+            if (ui::button("Select all faces",
+                           "Select every source face without editing the Mesh."))
+                replace_faces(true, false);
+            ui::next_text_button("Clear face selection");
+            if (ui::button("Clear face selection", "Clear the temporary Model face selection."))
+                replace_faces(false, false);
+            ui::next_text_button("Invert face selection");
+            if (ui::button("Invert face selection", "Select previously unselected Model faces."))
+                replace_faces(true, true);
+            ImGui::BeginDisabled(!faces_.contains(face_));
+            if (ui::button("Select connected faces",
+                           "Select the active face's shared-edge surface.")) {
+                const auto connected = document_->source().connected_faces(face_);
+                faces_ = {connected.begin(), connected.end()};
+            }
+            ImGui::EndDisabled();
+            ImGui::EndDisabled();
+            ImGui::Text("%zu selected faces | Active face %u", faces_.size(), face_);
+            ui::help(
+                "Ctrl-click toggles faces. Transforms use their shared vertices once. Inset and "
+                "extrusion use only the active selected face.");
+        }
         if (mode_ == SelectionMode::Vertex) {
             ImGui::BeginDisabled(locked || pending() || vertex_box_.active || stroke_active_);
             if (ui::button("Select all vertices",
@@ -573,15 +638,15 @@ class EditableMeshEditor {
                 for (const auto& candidate : document_->source().document.at("faces")) {
                     const auto key = candidate.at("id").get<std::uint32_t>();
                     const auto label = "Face " + std::to_string(key);
-                    if (ImGui::Selectable(label.c_str(), face_ == key) && face_ != key) {
-                        face_ = key;
-                        reset_uv_scope();
-                    }
+                    const auto clicked = ImGui::Selectable(label.c_str(), faces_.contains(key));
+                    FORGE_UI_PROBE("mesh:face:" + std::to_string(key));
+                    if (clicked)
+                        select_model_face(key, ImGui::GetIO().KeyCtrl);
                 }
         }
         ImGui::EndChild();
         FORGE_UI_PROBE("mesh:vertex_list");
-        ui::help("Select a face, edge or vertex. Ctrl-click adds vertices to the selection.");
+        ui::help("Select faces, an edge or vertices. Ctrl-click toggles faces or vertices.");
     }
     void reverse_facing(bool connected) {
         const auto revision = document_->revision();
@@ -596,6 +661,24 @@ class EditableMeshEditor {
                    source.reverse_faces(faces);
                });
         if (document_->revision() != revision) {
+            reset_uv_scope();
+            reconcile_selection();
+        }
+    }
+    void triangulate_face_selection() {
+        const auto revision = document_->revision();
+        std::set<std::uint32_t> original;
+        for (const auto& face : document_->source().document.at("faces"))
+            original.insert(face.at("id").get<std::uint32_t>());
+        const std::vector<std::uint32_t> selected{faces_.begin(), faces_.end()};
+        mutate("Triangulate selected faces",
+               [&](auto& source) { source.triangulate_faces(selected); });
+        if (document_->revision() != revision) {
+            for (const auto& face : document_->source().document.at("faces")) {
+                const auto key = face.at("id").get<std::uint32_t>();
+                if (!original.contains(key))
+                    faces_.insert(key);
+            }
             reset_uv_scope();
             reconcile_selection();
         }
@@ -637,6 +720,8 @@ class EditableMeshEditor {
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
             ImGui::IsKeyPressed(ImGuiKey_Escape))
             preview_transform_ = preview_extrude_ = preview_inset_ = false;
+        if (!faces_.contains(face_))
+            preview_extrude_ = preview_inset_ = false;
         const auto& source = document_->source();
         if (preview_extrude_ || preview_inset_ || preview_transform_) {
             const auto ids = selected_vertices();
@@ -697,10 +782,22 @@ class EditableMeshEditor {
         ImGui::SeparatorText("Facing");
         ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
                              preview_extrude_);
-        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !face_);
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !faces_.contains(face_));
         if (ui::button("Reverse connected surface",
                        "Reverse the selected face and every face connected to it by shared edges."))
             reverse_facing(true);
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || faces_.empty());
+        if (ui::button("Reverse selected faces",
+                       "Reverse the selected faces; reject broken shared-edge winding.")) {
+            const auto revision = document_->revision();
+            const std::vector<std::uint32_t> selected{faces_.begin(), faces_.end()};
+            mutate("Reverse selected faces", [&](auto& source) { source.reverse_faces(selected); });
+            if (document_->revision() != revision) {
+                reset_uv_scope();
+                reconcile_selection();
+            }
+        }
         ImGui::EndDisabled();
         if (ui::button("Reverse Mesh facing",
                        "Reverse all surfaces while preserving geometry and complete corner data."))
@@ -721,7 +818,8 @@ class EditableMeshEditor {
                         [](const Json& face) { return face.at("corners").size() > 3; });
         ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
                              preview_extrude_);
-        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !polygon_face);
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !faces_.contains(face_) ||
+                             !polygon_face);
         if (ui::button("Triangulate face",
                        "Split the selected polygon into its ordered triangles as one Undo step.")) {
             const auto revision = document_->revision();
@@ -733,6 +831,17 @@ class EditableMeshEditor {
                 reconcile_selection();
             }
         }
+        ImGui::EndDisabled();
+        const bool polygon_selection =
+            std::any_of(document_->source().document.at("faces").begin(),
+                        document_->source().document.at("faces").end(), [&](const Json& face) {
+                            return faces_.contains(face.at("id").get<std::uint32_t>()) &&
+                                   face.at("corners").size() > 3;
+                        });
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !polygon_selection);
+        if (ui::button("Triangulate selected faces",
+                       "Split selected polygons and select all their resulting triangles."))
+            triangulate_face_selection();
         ImGui::EndDisabled();
         ImGui::BeginDisabled(!polygon_mesh);
         if (ui::button("Triangulate Mesh",
@@ -759,8 +868,10 @@ class EditableMeshEditor {
         ImGui::InputFloat3("Rotate (deg)", rotation_);
         ImGui::InputFloat3("Scale", scale_);
         FORGE_UI_PROBE("mesh:model_scale");
+        ImGui::BeginDisabled(selected_vertices().empty());
         if (ImGui::Checkbox("Preview transform", &preview_transform_) && preview_transform_)
             preview_extrude_ = preview_inset_ = false;
+        FORGE_UI_PROBE("mesh:preview_transform");
         if (ui::button("Apply transform",
                        "Move, rotate and scale selected elements as one Undo step.")) {
             const auto ids = selected_vertices();
@@ -771,6 +882,7 @@ class EditableMeshEditor {
             });
             preview_transform_ = false;
         }
+        ImGui::EndDisabled();
         if (ui::button("Cancel transform",
                        "Discard pending transform values without editing the Mesh.")) {
             std::fill(std::begin(translation_), std::end(translation_), 0);
@@ -781,7 +893,7 @@ class EditableMeshEditor {
         ImGui::SeparatorText("Inset face");
         ImGui::InputFloat("Inset distance", &inset_);
         FORGE_UI_PROBE("mesh:inset_distance");
-        ImGui::BeginDisabled(mode_ != SelectionMode::Face);
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !faces_.contains(face_));
         if (ImGui::Checkbox("Preview inset", &preview_inset_) && preview_inset_)
             preview_transform_ = preview_extrude_ = false;
         FORGE_UI_PROBE("mesh:preview_inset");
@@ -800,11 +912,11 @@ class EditableMeshEditor {
         ImGui::SeparatorText("Extrude face");
         ImGui::InputFloat("Extrude distance", &extrusion_);
         FORGE_UI_PROBE("mesh:extrude_distance");
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || !faces_.contains(face_));
         if (ImGui::Checkbox("Preview extrusion", &preview_extrude_) && preview_extrude_)
             preview_transform_ = preview_inset_ = false;
         FORGE_UI_PROBE("mesh:preview_extrude");
         ImGui::TextDisabled("Positive distance raises; negative distance recesses.");
-        ImGui::BeginDisabled(mode_ != SelectionMode::Face);
         if (ui::button("Extrude selected face", "Add a cap and side walls as one Undo step.")) {
             std::uint32_t cap = 0;
             mutate("Extrude face", [&](EditableMeshSource& source) {
@@ -812,6 +924,7 @@ class EditableMeshEditor {
             });
             if (cap) {
                 face_ = cap;
+                faces_ = {cap};
                 reconcile_selection();
                 reset_uv_scope();
             }
@@ -1473,6 +1586,7 @@ class EditableMeshEditor {
                 }
             } else {
                 double nearest_depth = -std::numeric_limits<double>::infinity();
+                std::uint32_t hit = 0;
                 for (const auto& polygon : source.document.at("faces")) {
                     const auto& corners = polygon.at("corners");
                     bool inside = false;
@@ -1489,18 +1603,20 @@ class EditableMeshEditor {
                     depth /= corners.size();
                     if (inside && depth > nearest_depth) {
                         nearest_depth = depth;
-                        const auto key = polygon.at("id").get<std::uint32_t>();
-                        if (face_ != key) {
-                            face_ = key;
-                            reset_uv_scope();
-                        }
+                        hit = polygon.at("id").get<std::uint32_t>();
                     }
+                }
+                if (hit)
+                    select_model_face(hit, ImGui::GetIO().KeyCtrl);
+                else if (!ImGui::GetIO().KeyCtrl) {
+                    faces_.clear();
+                    preview_extrude_ = preview_inset_ = false;
                 }
             }
         }
         for (const auto& face : view.faces) {
             const auto& loop = face.loop;
-            const bool selected = face.id == face_ && mode_ == SelectionMode::Face;
+            const bool selected = faces_.contains(face.id) && mode_ == SelectionMode::Face;
             draw->AddConvexPolyFilled(loop.data(), static_cast<int>(loop.size()),
                                       selected ? IM_COL32(176, 132, 42, 105)
                                                : IM_COL32(59, 117, 145, 34));

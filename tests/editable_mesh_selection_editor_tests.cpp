@@ -185,7 +185,8 @@ int main(int argc, char** argv) {
                 click("button:Clear vertex selection");
                 count(0);
                 unchanged();
-                click("button:Apply transform");
+                require(!test::ui_targets.at("button:Apply transform").enabled,
+                        "Empty vertex selection retained an enabled transform action");
                 unchanged();
                 click("mesh:vertex:1");
                 count(1);

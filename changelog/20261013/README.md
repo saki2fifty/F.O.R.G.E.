@@ -1,5 +1,14 @@
 # 2026-10-13
 
+## Model face groups
+
+- Model Face mode supports Ctrl selection across the list and wireframe, with
+  all/clear/invert/connected controls and shared-vertex group transforms.
+- Selected-face triangulation selects generated triangles; selected facing keeps
+  existing shared-edge winding checks. Inset/extrusion keep their active-face scope.
+- Groups remain temporary editor selection. Applied geometry uses existing source
+  Undo, Save & Publish, Scene/Play resources and source-free export.
+
 ## UV selection and arrangement
 
 - UV box selection supports corners, full faces and connected islands, with
