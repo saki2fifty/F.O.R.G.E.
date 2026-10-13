@@ -33,6 +33,21 @@ move it. Ctrl-click selects several nodes. Delete removes selected nodes; Ctrl+C
 copies/pastes them. A copied parameter becomes a separate parameter. Middle mouse
 pans; the wheel zooms around the pointer; **Frame graph** fits the nodes.
 
+## Select and arrange nodes
+
+Use **Selection** for Select all, Clear or Invert. Drag a rectangle from empty
+canvas space to select node bodies. Hold Ctrl to add or Alt to remove nodes.
+Press Escape to cancel and restore the previous selection.
+
+With nodes selected, open **Arrange**. Align their edges or centers horizontally
+or vertically, space at least three centers evenly, or snap their top-left
+positions to a grid. Grid spacing uses graph units, independently of zoom.
+An applied layout is one Undo step; selection changes do not add Undo steps.
+The same tools work inside functions.
+
+Moving and arranging nodes keeps the current shader preview. **Save & Compile**
+still saves their layout; changing values or connections updates the preview.
+
 ## Thresholds and rounding
 
 Search **Add node** for these Math nodes, then choose their **Value type**:

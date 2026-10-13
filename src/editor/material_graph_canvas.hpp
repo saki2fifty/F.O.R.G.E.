@@ -1,4 +1,5 @@
 #pragma once
+#include "../material_graph_layout.hpp"
 #include "property_drawer.hpp"
 #include "search.hpp"
 #include <forge/material_graph.hpp>
@@ -25,6 +26,9 @@ class MaterialGraphCanvas {
         property_dirty_ = false;
         linking_.reset();
         dragging_ = false;
+        drag_positions_.clear();
+        boxing_ = false;
+        preview_changed_ = false;
         frame_ = true;
     }
     Json preview_graph(const Json& graph) const {
@@ -47,6 +51,8 @@ class MaterialGraphCanvas {
         property_dirty_ = false;
     }
     void draw(const Json& graph, uint64_t revision, const Edit& edit, bool locked) {
+        const bool popup_was_open =
+            ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
         std::vector<std::pair<std::string, std::function<void(Json&)>>> actions;
         bool frame_after_edit = false;
         auto queue = [&](std::string label, std::function<void(Json&)> f) {
@@ -75,6 +81,70 @@ class MaterialGraphCanvas {
         ImGui::Text("View %.3g%%", double(zoom) * 100);
         ui::help("Wheel zooms this graph. Middle mouse pans. Global interface zoom remains "
                  "Ctrl+Plus/Minus.");
+        if (ui::button("Selection", "Select graph nodes without changing source or history."))
+            ImGui::OpenPopup("Graph selection");
+        FORGE_UI_PROBE("graph:selection");
+        if (ImGui::BeginPopup("Graph selection")) {
+            if (ImGui::MenuItem("Select all")) {
+                selection.clear();
+                for (const auto& node : graph.at("nodes"))
+                    selection.insert(node.at("id").get<GraphNodeId>());
+            }
+            FORGE_UI_PROBE("graph:select-all");
+            if (ImGui::MenuItem("Clear selection"))
+                selection.clear();
+            FORGE_UI_PROBE("graph:select-clear");
+            if (ImGui::MenuItem("Invert selection")) {
+                std::set<GraphNodeId> next;
+                for (const auto& node : graph.at("nodes")) {
+                    const auto id = node.at("id").get<GraphNodeId>();
+                    if (!selection.contains(id))
+                        next.insert(id);
+                }
+                selection = std::move(next);
+            }
+            FORGE_UI_PROBE("graph:select-invert");
+            ImGui::EndPopup();
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(locked || selection.empty());
+        if (ui::button("Arrange", "Align selected node bodies, space their centers or snap their "
+                                  "positions. Each applied change is one source Undo."))
+            ImGui::OpenPopup("Arrange graph nodes");
+        FORGE_UI_PROBE("graph:arrange");
+        ImGui::EndDisabled();
+        if (ImGui::BeginPopup("Arrange graph nodes")) {
+            ImGui::BeginDisabled(locked || selection.empty());
+            auto operation = [&](const char* label, const char* key, GraphLayout action,
+                                 unsigned axis) {
+                ImGui::BeginDisabled(action == GraphLayout::Distribute && selection.size() < 3);
+                if (ImGui::MenuItem(label)) {
+                    const auto ids = selection;
+                    const double spacing = grid_spacing_;
+                    queue("Arrange graph nodes", [ids, action, axis, spacing](Json& g) {
+                        arrange_material_graph(g, ids, action, axis, spacing);
+                    });
+                }
+                FORGE_UI_PROBE("graph:arrange:" + std::string(key));
+                ImGui::EndDisabled();
+            };
+            operation("Align left", "left", GraphLayout::Start, 0);
+            operation("Align horizontal centers", "center-x", GraphLayout::Center, 0);
+            operation("Align right", "right", GraphLayout::End, 0);
+            operation("Align top", "top", GraphLayout::Start, 1);
+            operation("Align vertical centers", "center-y", GraphLayout::Center, 1);
+            operation("Align bottom", "bottom", GraphLayout::End, 1);
+            ImGui::Separator();
+            operation("Space horizontal centers", "space-x", GraphLayout::Distribute, 0);
+            operation("Space vertical centers", "space-y", GraphLayout::Distribute, 1);
+            ImGui::InputDouble("Grid spacing", &grid_spacing_, 0, 0, "%.3g");
+            FORGE_UI_PROBE("graph:grid-spacing");
+            ui::help("1–1024 authored graph units. Snap top-left positions to the origin grid; "
+                     "halfway ties round away from zero.");
+            operation("Snap positions to grid", "grid", GraphLayout::Grid, 0);
+            ImGui::EndDisabled();
+            ImGui::EndPopup();
+        }
         if (open_add_) {
             ImGui::OpenPopup("Add graph node");
             open_add_ = false;
@@ -121,6 +191,23 @@ class MaterialGraphCanvas {
         auto* draw = ImGui::GetWindowDrawList();
         const auto mouse = ImGui::GetIO().MousePos;
         const bool hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+        const bool cancel_gesture = locked || popup_was_open || revision != gesture_revision_ ||
+                                    ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+                                    !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+        if (cancel_gesture) {
+            if (boxing_)
+                selection = box_base_;
+            boxing_ = dragging_ = false;
+            drag_positions_.clear();
+            linking_.reset();
+        }
+        if (boxing_ &&
+            (origin.x != box_origin_.x || origin.y != box_origin_.y || size.x != box_size_.x ||
+             size.y != box_size_.y || ImGui::GetIO().MouseWheel != 0 ||
+             ImGui::IsMouseDown(ImGuiMouseButton_Middle))) {
+            selection = box_base_;
+            boxing_ = false;
+        }
         if (frame_ && !graph.at("nodes").empty()) {
             double minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
             for (const auto& n : graph.at("nodes")) {
@@ -178,9 +265,11 @@ class MaterialGraphCanvas {
             } catch (const std::exception&) {
             }
             node.height =
-                (42 + 24 * std::max(node.inputs.size(), node.outputs.size())) * zoom * scale;
+                material_graph_node_height(node.inputs.size(), node.outputs.size()) * zoom * scale;
             nodes.emplace(n.at("id").get<GraphNodeId>(), std::move(node));
         }
+        if (actions.empty())
+            std::erase_if(selection, [&](const auto& id) { return !nodes.contains(id); });
         auto endpoint = [&](const Json& ref, bool input) {
             const auto found = nodes.find(ref.at("node").get<GraphNodeId>());
             if (found == nodes.end())
@@ -206,6 +295,8 @@ class MaterialGraphCanvas {
             const auto p = n.position;
             const float width = 240 * zoom * scale;
             const ImVec2 end{p.x + width, p.y + n.height};
+            if (hovered && mouse.x >= p.x && mouse.x <= end.x && mouse.y >= p.y && mouse.y <= end.y)
+                hit = true;
             if (p.x > origin.x + size.x || end.x < origin.x || p.y > origin.y + size.y ||
                 end.y < origin.y)
                 continue;
@@ -264,6 +355,7 @@ class MaterialGraphCanvas {
                 } else if (!selection.contains(id))
                     selection = {id};
                 if (!locked && selection.contains(id)) {
+                    gesture_revision_ = revision;
                     dragging_ = true;
                     drag_positions_.clear();
                     for (const auto& selected : selection)
@@ -320,8 +412,10 @@ class MaterialGraphCanvas {
                                        : "Drag this output to a matching input. Several inputs may "
                                          "share one output.");
                     }
-                    if (!locked && !input && ImGui::IsItemClicked())
+                    if (!locked && !input && ImGui::IsItemClicked()) {
                         linking_ = Link{id, port.key, port.type, center};
+                        gesture_revision_ = revision;
+                    }
                     if (!locked && input && linking_ &&
                         ImGui::IsMouseReleased(ImGuiMouseButton_Left) &&
                         ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem)) {
@@ -386,13 +480,45 @@ class MaterialGraphCanvas {
                 drag_positions_.clear();
             }
         }
-        if (hovered && !hit && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
-            selection.clear();
+        if (!locked && !popup_was_open && actions.empty() && hovered && !hit &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !dragging_) {
+            boxing_ = true;
+            box_start_ = mouse;
+            box_origin_ = origin;
+            box_size_ = size;
+            box_base_ = selection;
+            box_mode_ = ImGui::GetIO().KeyAlt ? -1 : ImGui::GetIO().KeyCtrl ? 1 : 0;
+            gesture_revision_ = revision;
+        }
+        if (boxing_) {
+            const ImVec2 end{std::clamp(mouse.x, origin.x, origin.x + size.x),
+                             std::clamp(mouse.y, origin.y, origin.y + size.y)};
+            const ImVec2 low{std::min(box_start_.x, end.x), std::min(box_start_.y, end.y)},
+                high{std::max(box_start_.x, end.x), std::max(box_start_.y, end.y)};
+            const bool moved = std::max(high.x - low.x, high.y - low.y) >= 4 * scale;
+            selection = box_mode_ == 0 ? std::set<GraphNodeId>{} : box_base_;
+            if (moved) {
+                for (const auto& [id, node] : nodes)
+                    if (node.position.x <= high.x && node.position.y <= high.y &&
+                        node.position.x + 240 * zoom * scale >= low.x &&
+                        node.position.y + node.height >= low.y) {
+                        if (box_mode_ < 0)
+                            selection.erase(id);
+                        else
+                            selection.insert(id);
+                    }
+                draw->AddRectFilled(low, high, IM_COL32(80, 160, 220, 35));
+                draw->AddRect(low, high, IM_COL32(95, 180, 245, 220));
+            }
+            if (ImGui::IsMouseReleased(ImGuiMouseButton_Left))
+                boxing_ = false;
+        }
         if (!locked && hovered && !hit && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
             open_add_ = true;
         draw->PopClipRect();
         ImGui::SetCursorScreenPos(origin);
         ImGui::Dummy(size);
+        FORGE_UI_PROBE("graph:canvas");
         const bool canvas_focus = ImGui::IsWindowFocused();
         ImGui::EndChild();
         ImGui::SameLine();
@@ -443,6 +569,12 @@ class MaterialGraphCanvas {
     std::optional<Link> linking_;
     bool dragging_ = false, frame_ = true, property_dirty_ = false, preview_changed_ = false,
          open_add_ = false;
+    bool boxing_ = false;
+    int box_mode_ = 0;
+    ImVec2 box_start_{}, box_origin_{}, box_size_{};
+    std::set<GraphNodeId> box_base_;
+    uint64_t gesture_revision_ = 0;
+    double grid_spacing_ = 16;
     std::map<GraphNodeId, std::array<double, 2>> drag_positions_;
     Json clipboard_, property_;
     uint64_t property_revision_ = 0;

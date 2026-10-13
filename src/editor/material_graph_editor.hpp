@@ -59,19 +59,21 @@ class MaterialGraphEditor {
     }
     void undo() {
         if (can_undo()) {
+            const auto before = preview_graph();
             flush();
             document_->undo();
             function_.reset();
             canvas.reset();
-            changed();
+            source_changed(before);
         }
     }
     void redo() {
         if (can_redo()) {
+            const auto before = preview_graph();
             document_->redo();
             function_.reset();
             canvas.reset();
-            changed();
+            source_changed(before);
         }
     }
     bool inspect(std::string_view key) const {
@@ -583,6 +585,8 @@ class MaterialGraphEditor {
     MaterialGraphCanvas::Edit edit_callback() {
         return [this](std::string label, const std::function<void(Json&)>& f) {
             try {
+                const auto before = preview_graph();
+                const auto revision = document_->revision();
                 document_->edit(document_->revision(), std::move(label), [&](Json& source) {
                     if (!function_)
                         f(source["graph"]);
@@ -607,8 +611,10 @@ class MaterialGraphEditor {
                                 "Selected function no longer exists; return to the surface graph.");
                     }
                 });
-                needs_publish_ = true;
-                changed();
+                if (document_->revision() != revision) {
+                    needs_publish_ = true;
+                    source_changed(before);
+                }
             } catch (const std::exception& e) {
                 error_ = e.what();
             }
@@ -655,6 +661,12 @@ class MaterialGraphEditor {
         return root;
     }
     void flush() { canvas.flush(edit_callback()); }
+    void source_changed(const Json& before) {
+        // Source/history/publication still track layout. Preview compilation
+        // depends on the program, including property drafts and function bodies.
+        if (!material_graph_layout_equivalent(before, preview_graph()))
+            changed();
+    }
     void changed() {
         ++generation_;
         edited_ = std::chrono::steady_clock::now();

@@ -84,6 +84,12 @@ signatures are checked before projection. Device compilation/reflection and comp
 GPU candidate admission still enforce actual target capabilities.
 
 Preview compilation runs in the existing bounded worker after a300ms debounce.
+Pure node-position edits in the surface or function bodies, including their
+Undo/Redo, do not restart that preview worker. The editor compares admitted graph
+drafts ignoring only declared node position fields. IDs, ordering, functions,
+binding labels, properties and opaque data remain part of the comparison. Source
+dirty state/hash and Save & Compile/publication still include layout; explicit
+Refresh preview and material/texture preview changes still request preparation.
 Generation/cancellation checks discard stale results. Preview uses an independent
 MaterialPreview; it does not publish the asset or alter scene state. Preview texture
 choices are temporary; durable choices belong in a MaterialSource. Previous usable
@@ -97,6 +103,23 @@ discard or continued editing; discard does not undo source already saved to disk
 Undo/Redo belongs to this source document, not scene history or asset-file publication.
 Background Shader imports submit without opening import-settings UI and leave no
 invisible dirty settings document after success or failure.
+
+## Graph selection and layout
+
+Canvas selection/view/settings remain transient. Selection All/Clear/Invert and
+rectangle replace/Ctrl-add/Alt-remove do not edit source/history. Rectangles
+intersect node bodies and clip to the canvas; Escape, locking, changed source,
+lost focus and canvas movement/resize/navigation cancel unfinished rectangles.
+Node drags and port links also cancel on Escape, locking or changed source.
+
+Arrange aligns selected rectangle edges/centers or spaces at least three centers
+evenly on one axis. End centers remain exact; ties sort by node identity. Grid
+placement snaps both top-left coordinates to the graph origin, spacing1–1024
+authored units (default16), nearest with halfway ties away from zero. Layout works
+inside functions and on preserved unavailable nodes. IDs/edges/opaque data and
+unselected records remain; finite±1e6 source bounds and current budgets admit the
+entire candidate before one source Undo. Aligned/no-op layouts add no history.
+No automatic topology layout or new authored graph format is introduced.
 
 ## Backend and export contract
 

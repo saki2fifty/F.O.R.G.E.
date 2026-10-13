@@ -1,5 +1,14 @@
 # 2026-10-13
 
+## Material graph selection and layout
+
+- Graph rectangle selection, All/Clear/Invert, rectangle alignment, even center
+  spacing and graph-grid placement share existing source/history controls.
+- Position changes and their Undo/Redo preserve automatic shader previews;
+  source saving/publication still tracks layout. Value and connection edits
+  continue to request preview compilation.
+- Pending gestures cancel safely on Escape, document changes or locking.
+
 ## Material thresholds and rounding
 
 - Step, Smoothstep, Ceiling and Round support scalar, vector and color graph
