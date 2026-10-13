@@ -35,6 +35,27 @@ Preview, Play and export use the same selection. With root motion enabled, an
 upper-only selection keeps the primary clip's root movement. The filter also applies
 to animated morph nodes: a mesh outside that subtree keeps its base expression.
 
+## Reuse weighted bone masks
+
+Open **Scenes / 42-animation-bone-masks.scene.json** and press **Play**. The left
+column blends its whole skeleton. The middle blends only its upper branch. The
+right uses different influences for the root, upper joint and tip, with a smaller
+shape-animation influence. Stop to edit the mask.
+
+1. In Content, open **Assets / Weighted.mask.json**. The **Animation Mask** document shows its skeleton, default influence and bone overrides.
+2. Select a bone row. Change **Bone influence** and press Enter. `0` keeps the first clip; `1` gives the second clip its full **Blend Weight**; `.5` gives it half that influence.
+3. Enable **Include descendants** to pass the influence to children. A child's own override takes priority. With the option off, only that bone changes; its children keep the earlier inherited or default influence.
+4. Use **Save / Publish**, then Play again. Undo/Redo applies to the mask document. Failed publication keeps the previous working version.
+5. To create your own, choose **Content → Create / Register → New animation mask...**. Choose an imported skeleton, use **New bone → Add bone**, and save the mask. Select an object with that skeleton and two clips, then use **Attach to selected Animator** or Inspector's **Bone mask** picker. Save the scene.
+
+**Default influence** applies where no descendant-scoped override has supplied a
+weight. **Blend subtree** still restricts the result. The mask works with both
+Blend and Additive modes, including root movement and animated shapes. Changing a
+mask does not restart animation time. A mask is tied to its imported skeleton;
+rebuild it after that model's selected content revision changes. Missing bones are
+reported instead of silently selecting another bone. Exported games include the
+compiled mask and its required assets.
+
 ## Add a motion over another motion
 
 Open **Scenes / 38-animation-additive-overlays.scene.json** and press **Play**.
@@ -80,6 +101,8 @@ void set_reaching(flecs::entity actor, bool reaching) {
 Assign both clips in Inspector before using this function. Call it from a C++
 System when the desired action changes. Gameplay still uses C++ only. Rebuild your
 project's native module with the SDK matching this editor after updating FORGE.
+The Gallery's **CodeExamples / SetBoneMask.hpp** shows a typed C++ helper for
+assigning or clearing an already-authored mask at a fixed tick.
 
 ## Play and export
 

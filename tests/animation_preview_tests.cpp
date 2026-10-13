@@ -300,10 +300,16 @@ int main(int argc, char** argv) {
                                    {"component", "forge.animator"},
                                    {"field", "blend_weight"},
                                    {"value", .5}});
+                authoring_command(scene, "property.set",
+                                  {{"entity", actor},
+                                   {"component", "forge.animator"},
+                                   {"field", "blend_mask"},
+                                   {"value", AssetId::generate()}});
                 const auto before_attach = scene.document();
                 click("Attach to selected Animator");
-                require(scene.entity(actor).get<Animator>().state == 0,
-                        "UI state attachment did not select entry");
+                require(scene.entity(actor).get<Animator>().state == 0 &&
+                            !scene.entity(actor).get<Animator>().blend_mask.id,
+                        "UI state attachment did not select entry and clear the direct mask");
                 require(scene.undo() && scene.document() == before_attach,
                         "State attachment was not one Scene Undo step");
                 number("animation_states:fade", "0.5");

@@ -1770,6 +1770,83 @@
       "type": "mesh"
     },
     {
+      "dependencies": [
+        "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+        "0b7f4452-132e-4ec7-993b-583536cf46f9",
+        "13cb1881-3e8d-4477-b3c7-bdb382f40392",
+        "6abed594-1a57-4157-90bf-96056cc39525",
+        "b1812660-54ef-4fc7-972c-c184e412ae31"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "319345e19b3e249fde4bc853adbb0e7430d32fa56c0d3840892b2f8577294074",
+          "role": "mask.skeleton",
+          "target": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+          "type": "skeleton"
+        },
+        {
+          "kind": "runtime",
+          "revision": "319345e19b3e249fde4bc853adbb0e7430d32fa56c0d3840892b2f8577294074",
+          "role": "mask.joint:0b7f4452-132e-4ec7-993b-583536cf46f9",
+          "target": "0b7f4452-132e-4ec7-993b-583536cf46f9",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "319345e19b3e249fde4bc853adbb0e7430d32fa56c0d3840892b2f8577294074",
+          "role": "mask.joint:13cb1881-3e8d-4477-b3c7-bdb382f40392",
+          "target": "13cb1881-3e8d-4477-b3c7-bdb382f40392",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "319345e19b3e249fde4bc853adbb0e7430d32fa56c0d3840892b2f8577294074",
+          "role": "mask.joint:6abed594-1a57-4157-90bf-96056cc39525",
+          "target": "6abed594-1a57-4157-90bf-96056cc39525",
+          "type": "model_node"
+        },
+        {
+          "kind": "runtime",
+          "revision": "319345e19b3e249fde4bc853adbb0e7430d32fa56c0d3840892b2f8577294074",
+          "role": "mask.joint:b1812660-54ef-4fc7-972c-c184e412ae31",
+          "target": "b1812660-54ef-4fc7-972c-c184e412ae31",
+          "type": "model_node"
+        }
+      ],
+      "id": "32a72c42-010b-4b49-b379-648f1f6ef9fa",
+      "metadata": {
+        "forge.animation_mask": {
+          "bytes": 564,
+          "file": "mask.json",
+          "sha256": "b96a408124a7640b5133a142a0b349767f3dcfbc58c7dcc74319221bf7d5f309",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "12b9247dce9fbb3af72f62cd23f98274bbcd479306ad66a4630113ff50e28bf8",
+          "backend": "d3d12",
+          "dependency_digest": "61b45ff2bfaaa23670abd4449ab1d065957e2b07892fb270d3c66ad238e5c513",
+          "generation": 1,
+          "importer": "forge.animation.mask",
+          "importer_revision": "forge.animation.mask.v1",
+          "key": "22030badabcce28298ea6af56c2d2d2f52537d8c7d4f428623b0b092e8859a78",
+          "output_format": "forge.animation-mask",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "505feded8c0c49800a74dd868edc20f5d50ae551eff15028b0d7d3399e1ca958",
+          "source_digest": "846f5b1e1d1394e836286443c1d3c2b570e36a32ab31c26bbb7922c7ed37e37f",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Weighted.mask.json",
+      "source_dependencies": [],
+      "type": "animation_mask"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae",

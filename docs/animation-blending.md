@@ -24,6 +24,11 @@ source array positions are never bindings. Named-state Animators exclude this
 direct blend configuration; attaching a state set clears it in the existing
 authoring transaction. Older scenes load null without a scene-format change.
 
+`blend_mask` is a nullable AnimationMaskAsset reference displayed as **Bone mask**.
+It supplies reusable fractional influences for the second clip, multiplied by the
+existing subtree and global blend weight. See [bone masks](animation-bone-masks.md)
+for source authoring, exact skeleton binding, lifetime, recovery and export.
+
 At realization, the authored mix is applied immediately. A later target or duration
 change records the current evaluated mix as its start. During enabled, playing
 fixed updates with nonzero speed, elapsed simulation seconds advance toward the

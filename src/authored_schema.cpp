@@ -131,6 +131,7 @@ std::vector<ReflectedAdapter> authoring_value_adapters(flecs::world& world) {
     FORGE_REF(SkeletonAsset);
     FORGE_REF(AnimationClipAsset);
     FORGE_REF(AnimationStatesAsset);
+    FORGE_REF(AnimationMaskAsset);
     FORGE_REF(NavMeshAsset);
     FORGE_REF(UiDocumentAsset);
 #undef FORGE_REF

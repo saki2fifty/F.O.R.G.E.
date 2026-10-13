@@ -25,7 +25,9 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
                   'live-joint-aim', 'live-joint-aim-150', 'live-joint-aim-200',
                   'reach-target', 'reach-target-150', 'reach-target-200',
                   'aim-target', 'aim-target-150', 'aim-target-200',
-                  'live-reach-target', 'live-aim-target'):
+                  'live-reach-target', 'live-aim-target',
+                  'animation-bone-mask', 'animation-bone-mask-150', 'animation-bone-mask-200',
+                  'weighted-mask-game'):
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
-print('Native animation controls and reach/aim target guides captured at100/150/200%; live target markers at100%')
+print('Native animation controls, target guides and bone-mask document captured at100/150/200%; Game markers and weighted masks at100%')

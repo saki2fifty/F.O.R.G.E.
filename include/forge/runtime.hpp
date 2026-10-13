@@ -67,7 +67,7 @@ class RuntimeSimulation {
     void audio_paused(bool value);
     void sync_audio();
     // Publish privately edited animation joints without changing other interpolation.
-    void sync_animation_pose();
+    void sync_animation_pose() const;
     RuntimeInput& input() { return input_; }
     Json input_status() const {
         auto status = input_monitor_.status(input_.map());
@@ -84,7 +84,7 @@ class RuntimeSimulation {
   private:
     WorldContext& context_;
     Scene& scene_;
-    PresentationPoses poses_;
+    mutable PresentationPoses poses_;
     RuntimeInput input_;
     InputMonitor input_monitor_;
     std::uint64_t input_tick_ = 0;

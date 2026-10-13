@@ -4,6 +4,7 @@
 #include "asset_storage.hpp"
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
+#include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/asset_publication.hpp>
 #include <forge/material_graph.hpp>
@@ -357,6 +358,46 @@ int main(int argc, char** argv) {
             inspect_asset_references(reference_scene.schema(), opaque_documents, {rig});
         check(!opaque_impact.uninspected.empty(),
               "State extensions falsely claimed complete reference coverage");
+        auto mask = AnimationMaskSource::create(AssetId::generate());
+        const auto bone = AssetId::generate();
+        mask.document["skeleton"] = rig;
+        mask.document["entries"] =
+            Json::array({{{"joint", bone}, {"weight", .5}, {"descendants", true}}});
+        write(project / "Assets/Upper.mask.json", mask.document);
+        catalog = AssetCatalog::open_project(project);
+        catalog.add({mask.asset(), AnimationMaskAsset::type, "Assets/Upper.mask.json", 1, {}});
+        catalog.save(AssetCatalog::project_index(project));
+        rejects([&] {
+            prepare_asset_file_operation(
+                project, {AssetFileAction::Duplicate, mask.asset(), "Moved/wrong.json"}, rewrite);
+        });
+        const auto mask_copy = prepare_asset_file_operation(
+            project, {AssetFileAction::Duplicate, mask.asset(), "Moved/Copy.mask.json"}, rewrite);
+        transaction.commit(mask_copy.changes, false);
+        const AnimationMaskSource copied_mask{read(project / "Moved/Copy.mask.json")};
+        copied_mask.validate();
+        check(copied_mask.asset() == mask_copy.result && copied_mask.asset() != mask.asset() &&
+                  copied_mask.document.at("entries") == mask.document.at("entries") &&
+                  copied_mask.document.at("skeleton") == Json(rig),
+              "Mask duplicate changed skeleton or durable joint references");
+        const auto mask_move = prepare_asset_file_operation(
+            project, {AssetFileAction::Move, mask_copy.result, "Assets/Copy.mask.json"}, rewrite);
+        transaction.commit(mask_move.changes, false);
+        check(read(project / "Assets/Copy.mask.json") == copied_mask.document,
+              "Mask move changed identity or bone influences");
+        const std::array mask_documents{
+            AssetReferenceDocument{"Assets/Upper.mask.json", mask.document}};
+        const auto mask_impact =
+            inspect_asset_references(reference_scene.schema(), mask_documents, {rig, bone});
+        check(mask_impact.references.size() == 2 && mask_impact.uninspected.empty(),
+              "Mask skeleton/bone impact review lost typed coverage");
+        auto opaque_mask = mask.document;
+        opaque_mask["entries"][0]["future"] = rig;
+        const std::array opaque_masks{
+            AssetReferenceDocument{"Assets/Upper.mask.json", opaque_mask}};
+        check(!inspect_asset_references(reference_scene.schema(), opaque_masks, {rig})
+                   .uninspected.empty(),
+              "Mask extensions falsely claimed complete reference coverage");
         test_asset_file_service(project / "service");
         std::cout << "Asset file scene/family/move/delete/duplicate/publication tests passed\n";
         return 0;

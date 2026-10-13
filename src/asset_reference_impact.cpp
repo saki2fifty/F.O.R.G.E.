@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
+#include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/material_source.hpp>
 #include <forge/scene_render_settings.hpp>
@@ -160,6 +161,26 @@ struct Inspect {
                 if (key != "format" && key != "version" && key != "asset_id" && key != "entities" &&
                     key != "members" && key != "revision" && key != "root" && key != "legacy_ids" &&
                     key != "rendering" && !(prefab && key == "dependencies"))
+                    unknown(key);
+            }
+        } else if (doc.value("format", std::string{}) == "forge.animation-mask") {
+            AnimationMaskSource{doc}.validate();
+            if (!doc.at("skeleton").is_null())
+                reference(doc.at("skeleton"), "skeleton", "Mask skeleton", SkeletonAsset::type);
+            std::size_t index = 0;
+            for (const auto& entry : doc.at("entries")) {
+                const auto scope = "entries." + std::to_string(index++);
+                reference(entry.at("joint"), scope + ".joint", "Mask bone", ModelNodeAsset::type);
+                for (const auto& [key, unused] : entry.items()) {
+                    (void)unused;
+                    if (key != "joint" && key != "weight" && key != "descendants")
+                        unknown(scope + "." + key);
+                }
+            }
+            for (const auto& [key, unused] : doc.items()) {
+                (void)unused;
+                if (key != "format" && key != "version" && key != "asset_id" && key != "skeleton" &&
+                    key != "default_weight" && key != "entries")
                     unknown(key);
             }
         } else if (doc.value("format", std::string{}) == "forge.animation-states") {

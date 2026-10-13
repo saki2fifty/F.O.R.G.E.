@@ -1,4 +1,6 @@
 #include "runtime_package.hpp"
+#include "animation_mask_binding.hpp"
+#include "animation_mask_resource.hpp"
 #include "asset_bytes.hpp"
 #include "audio_bundle.hpp"
 #include "bounded_json.hpp"
@@ -169,9 +171,10 @@ AssetRecord runtime_record(AssetRecord record) {
         return record;
     }
     Json metadata = Json::object();
-    for (const auto* name : {"forge.import", "forge.model", "forge.mesh", "forge.material",
-                             "forge.shader", "forge.audio", "forge.ui_source", "forge.collision",
-                             "forge.transform_animation", "forge.animation_states"})
+    for (const auto* name :
+         {"forge.import", "forge.model", "forge.mesh", "forge.material", "forge.shader",
+          "forge.audio", "forge.ui_source", "forge.collision", "forge.transform_animation",
+          "forge.animation_states", "forge.animation_mask"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -205,7 +208,21 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     const auto format = root.metadata.at("forge.import").at("output_format");
     if (root.type == ModelAsset::type && format == "forge.model-bundle")
         (void)validate_model_bundle(artifact.files);
-    else if (root.type == AnimationStatesAsset::type && format == "forge.animation-states") {
+    else if (root.type == AnimationMaskAsset::type && format == "forge.animation-mask") {
+        require(root.metadata.at("forge.import").at("importer") == "forge.animation.mask" &&
+                    root.metadata.at("forge.import").at("importer_revision") ==
+                        "forge.animation.mask.v1" &&
+                    root.metadata.at("forge.import").at("output_version") == 1 &&
+                    root.metadata.at("forge.animation_mask").at("version") == 1 &&
+                    root.metadata.at("forge.animation_mask").at("file") == "mask.json" &&
+                    artifact.files.size() == 1 && artifact.files.front().name == "mask.json" &&
+                    root.metadata.at("forge.animation_mask").at("sha256") ==
+                        content_digest(artifact.files.front().bytes) &&
+                    root.metadata.at("forge.animation_mask").at("bytes") ==
+                        artifact.files.front().bytes.size(),
+                "Animation Mask selection differs from its cooked data");
+        (void)decode_animation_mask(artifact.files.front().bytes, root.id);
+    } else if (root.type == AnimationStatesAsset::type && format == "forge.animation-states") {
         require(root.metadata.at("forge.import").at("importer") == "forge.animation.states" &&
                     root.metadata.at("forge.animation_states").at("version") == 1 &&
                     root.metadata.at("forge.animation_states").at("file") == "states.json" &&
@@ -295,6 +312,22 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
                 request_collision(pool, root, std::make_shared<const AssetCatalog>(catalog), {id});
             require(pool.wait(ticket, std::chrono::seconds(60)) && bool(pool.acquire(ticket)),
                     "Collision package native admission failed: " + ticket.inspect().diagnostic);
+        } else if (record.type == AnimationMaskAsset::type) {
+            ResourcePool<AnimationMaskAsset> pool;
+            const auto ticket = request_animation_mask(pool, root, record);
+            require(pool.wait(ticket, std::chrono::seconds(30)), ticket.inspect().diagnostic);
+            const auto mask = pool.acquire(ticket);
+            require(bool(mask), "Animation Mask package native admission failed");
+            const auto skeleton = catalog.resolve(mask->mask.skeleton, SkeletonAsset::type);
+            require(skeleton.state == AssetState::Available &&
+                        skeleton.record->subasset.has_value(),
+                    "Animation Mask package skeleton is unavailable");
+            const auto selected =
+                load_model_selection(root, catalog, skeleton.record->subasset->owner, stop);
+            require(selected.revision == mask->skeleton_revision,
+                    "Animation Mask package mixes model revisions");
+            const auto joints = animation_mask_joints(selected, mask->mask.skeleton);
+            (void)mask->mask.weights(mask->mask.skeleton, joints.assets, joints.parents);
         } else if (record.type == ModelAsset::type)
             (void)load_model_selection(root, catalog, id, stop);
         else if (record.type == MaterialAsset::type) {

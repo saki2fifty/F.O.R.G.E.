@@ -340,6 +340,12 @@ needed to run them.
 
 ## Reach and aim
 
+**42-animation-bone-masks** compares a whole-skeleton blend, an upper subtree and
+a reusable fractional mask. Open **Assets / Weighted.mask.json** to edit per-bone
+influence and descendant scope. Save / Publish, Play and export use the same mask.
+The root has influence.25, Upper.5, Tip.75 and the animated mesh.25; Side keeps the
+base motion. **CodeExamples / SetBoneMask.hpp** shows ordinary typed C++ control.
+
 **40-two-bone-ik** and **41-joint-aim** show three copies of the original column
 with weights0, .5 and1. Select the model holder and adjust its Two Bone IK or Aim IK
 component while stopped, then use Animator preview or Play. Targets are measured

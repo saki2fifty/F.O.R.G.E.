@@ -9,6 +9,7 @@
 #include "ui_inspection.hpp"
 #include <forge/scene.hpp>
 #ifdef FORGE_ASSET_TOOLS
+#include "animation_mask_authoring.hpp"
 #include "animation_states_authoring.hpp"
 #include "asset_bytes.hpp"
 #include "collision_authoring.hpp"
@@ -205,9 +206,11 @@ int asset_tools_cli(int argc, char** argv) {
             const bool collision = path_utf8(source).ends_with(".collision.json");
             const bool material = path_utf8(source).ends_with(".material.json");
             const bool animation_states = path_utf8(source).ends_with(".states.json");
+            const bool animation_mask = path_utf8(source).ends_with(".mask.json");
             const bool transform_animation = path_utf8(source).ends_with(".animation.json");
             const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
-            auto registry = animation_states      ? animation_states_import_registry()
+            auto registry = animation_mask        ? animation_mask_import_registry()
+                            : animation_states    ? animation_states_import_registry()
                             : transform_animation ? transform_animation_import_registry()
                             : collision           ? collision_import_registry()
                             : material            ? material_import_registry()
@@ -239,7 +242,12 @@ int asset_tools_cli(int argc, char** argv) {
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         editable_mesh_source_byte_limit))
                                .asset();
-            if (animation_states)
+            if (animation_mask)
+                identity = AnimationMaskSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        animation_mask_byte_limit))
+                               .asset();
+            else if (animation_states)
                 identity = AnimationStatesSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         animation_states_byte_limit))
@@ -285,8 +293,14 @@ int asset_tools_cli(int argc, char** argv) {
             service.submit(
                 std::move(draft),
                 [decisions, collision, material, editable_mesh, transform_animation,
-                 animation_states](auto& candidate, const auto& plan, const auto& catalog) {
-                    if (animation_states) {
+                 animation_states,
+                 animation_mask](auto& candidate, const auto& plan, const auto& catalog) {
+                    if (animation_mask) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Animation Mask has no subasset correspondence decisions");
+                        prepare_animation_mask_publication(candidate, plan);
+                    } else if (animation_states) {
                         if (!decisions.empty())
                             throw std::runtime_error(
                                 "Animation States has no subasset correspondence decisions");

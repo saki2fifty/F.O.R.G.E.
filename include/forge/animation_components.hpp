@@ -11,6 +11,9 @@ struct AnimationClipAsset {
 struct AnimationStatesAsset {
     static constexpr const char* type = "animation_states";
 };
+struct AnimationMaskAsset {
+    static constexpr const char* type = "animation_mask";
+};
 struct TransformAnimationAsset {
     static constexpr const char* type = "transform_animation";
 };
@@ -39,6 +42,8 @@ struct Animator {
     AssetRef<ModelNodeAsset> blend_root{};
     // 0 mixes absolute poses; 1 adds second-clip offsets relative to skeleton rest.
     std::uint32_t blend_mode = 0;
+    // Optional reusable influence multiplied by the selected blend subtree.
+    AssetRef<AnimationMaskAsset> blend_mask{};
     bool operator==(const Animator&) const = default;
 };
 // Opt-in constraints on an imported model holder. Values are in skeleton model

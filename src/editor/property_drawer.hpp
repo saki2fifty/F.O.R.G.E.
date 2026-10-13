@@ -14,6 +14,7 @@
 #include <map>
 #include <misc/cpp/imgui_stdlib.h>
 #include <optional>
+#include <set>
 namespace forge {
 inline std::string property_label(const Json& field) {
     if (field.contains("display_name"))
@@ -57,17 +58,19 @@ inline bool fixture_open_mesh_picker = false;
 // asset registry; only the popup's visible rows are submitted to ImGui.
 inline std::vector<AssetPickerEntry>
 asset_picker_entries(const AssetCatalog& catalog, std::string_view type, std::string_view search,
-                     bool include_engine, std::optional<AssetId> owner = {}) {
+                     bool include_engine, std::optional<AssetId> owner = {},
+                     const std::set<AssetId>* allowed = nullptr) {
     std::vector<AssetPickerEntry> rows;
     const auto query = search_key(std::string(search));
-    if (include_engine && !owner)
+    if (include_engine && !owner && !allowed)
         for (const auto& asset : engine_assets()) {
             auto label = std::string("Engine / ") + asset.name;
             if (type == asset.type && search_key(label).find(query) != std::string::npos)
                 rows.push_back({asset.id, std::move(label), true, false});
         }
     for (const auto& [id, record] : catalog.records()) {
-        if (record.type != type || engine_asset(id) || !asset_picker_scope_matches(record, owner))
+        if (record.type != type || engine_asset(id) || !asset_picker_scope_matches(record, owner) ||
+            (allowed && !allowed->contains(id)))
             continue;
         auto label = asset_display(record);
         const bool removed = record.subasset && record.subasset->removed;
@@ -85,7 +88,8 @@ asset_picker_entries(const AssetCatalog& catalog, std::string_view type, std::st
 }
 inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std::string& type,
                              const char* title, bool include_engine = true,
-                             std::optional<AssetId> owner = {}) {
+                             std::optional<AssetId> owner = {},
+                             const std::set<AssetId>* allowed = nullptr) {
     ui::IdScope scope(title);
     try {
         std::string label = "None";
@@ -96,6 +100,8 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                 label += " (missing / incompatible)";
             else if (resolved.record && !asset_picker_scope_matches(*resolved.record, owner))
                 label += " (different model)";
+            else if (allowed && !allowed->contains(value.get<AssetId>()))
+                label += " (not a bone of this skeleton)";
         }
         bool changed = false;
 #ifdef FORGE_UI_FIXTURE
@@ -128,7 +134,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
             ui::help(
                 "Clear this reference. Required resources will report a missing-asset diagnostic.");
             const auto rows =
-                asset_picker_entries(catalog, type, search.data(), include_engine, owner);
+                asset_picker_entries(catalog, type, search.data(), include_engine, owner, allowed);
             const auto selected = value.is_null() ? AssetId{} : value.get<AssetId>();
             const float height = ImGui::GetTextLineHeight();
             // Keep search/Clear outside the scrolling results. Default focus on
@@ -197,10 +203,11 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                     const auto it = catalog.records().find(id);
                     const auto* builtin = engine_asset(id);
                     const bool compatible =
-                        builtin ? include_engine && !owner && type == builtin->type
+                        builtin ? include_engine && !owner && !allowed && type == builtin->type
                                 : it != catalog.records().end() && it->second.type == type &&
                                       (!it->second.subasset || !it->second.subasset->removed) &&
-                                      asset_picker_scope_matches(it->second, owner);
+                                      asset_picker_scope_matches(it->second, owner) &&
+                                      (!allowed || allowed->contains(id));
                     if (!compatible)
                         ImGui::SetTooltip(owner ? "Choose a current bone from this model"
                                                 : "This field requires a current %s asset",

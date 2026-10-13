@@ -310,7 +310,7 @@ void RuntimeSimulation::sync_audio() {
     if (audio_)
         audio_->synchronize(input_tick_);
 }
-void RuntimeSimulation::sync_animation_pose() {
+void RuntimeSimulation::sync_animation_pose() const {
     if (!animation_)
         return;
     const auto changed = animation_->take_discontinuities();
@@ -337,6 +337,7 @@ Json RuntimeSimulation::presentation(double alpha) const {
         (void)physics_->prepare_assets();
     if (animation_)
         animation_->synchronize();
+    sync_animation_pose();
     auto profile = context_.services().profile("runtime", "PresentationExtraction", input_tick_);
     auto result = scene_.effective_document();
     const auto values = poses_.evaluate(alpha);

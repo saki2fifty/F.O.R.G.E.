@@ -1,4 +1,5 @@
 #include "animation_asset.hpp"
+#include "animation_mask_resource.hpp"
 #include "animation_morph_blend.hpp"
 #include "animation_playback_access.hpp"
 #include "animation_resource.hpp"
@@ -38,6 +39,7 @@ struct Pair {
 struct Playback {
     Animator config, requested;
     ResourceLease<AnimationStatesAsset> definition;
+    ResourceLease<AnimationMaskAsset> mask;
     std::map<AssetId, Pair> state_clips;
     std::unique_ptr<Sampler> outgoing_sampler;
     Pair outgoing_assets;
@@ -401,6 +403,8 @@ struct AnimationRuntime::Impl {
     std::map<std::pair<AssetId, AssetId>, ModelAnimationRequest> model_requests;
     ResourcePool<AnimationStatesAsset> state_pool{{1, 64, 64, 4 * 1024 * 1024}};
     std::map<AssetId, ResourceTicket> state_requests;
+    ResourcePool<AnimationMaskAsset> mask_pool{{1, 64, 64, 4 * 1024 * 1024}};
+    std::map<AssetId, ResourceTicket> mask_requests;
     std::map<flecs::entity_t, Playback> states;
     std::map<flecs::entity_t, AnimationRootMotion> root_motions;
     std::set<flecs::entity_t> pending;
@@ -427,7 +431,7 @@ struct AnimationRuntime::Impl {
                            const std::map<flecs::entity_t, double>& weights = {},
                            std::optional<std::uint64_t> motion_tick = {},
                            std::map<flecs::entity_t, PreparedRig>* recovered_rigs = nullptr,
-                           const RigInputs* tuned_rig = nullptr) {
+                           const RigInputs* tuned_rig = nullptr, bool transactional = false) {
         // One derived instance index per fixed tick. Native ChildOf lookup also
         // resolves Flecs Parent storage at the pinned revision. Nested roots are
         // boundaries, including roots belonging to another model.
@@ -782,7 +786,7 @@ struct AnimationRuntime::Impl {
                 if (motion)
                     root_motions.insert(std::move(prepared_motion));
             } catch (const std::exception& ex) {
-                if (!commit || tuned_rig)
+                if (!commit || tuned_rig || transactional)
                     throw;
                 if (binding_errors[id] != ex.what()) {
                     Diagnostic diagnostic{Severity::Error, "animation.binding", ex.what(), {}};
@@ -887,9 +891,46 @@ struct AnimationRuntime::Impl {
                     sm.at("artifact_sha256"), cm.at("artifact_sha256")};
     }
     bool prepare_blend(Playback& p) {
-        if (p.config.blend_root.id && !p.config.blend_clip.id)
-            throw ArchiveError("Animator blend subtree needs a second clip");
+        if ((p.config.blend_root.id || p.config.blend_mask.id) && !p.config.blend_clip.id)
+            throw ArchiveError("Animator blend subtree or bone mask needs a second clip");
         p.blend_mask = subtree_mask(p.assets, p.config.blend_root.id);
+        if (p.config.blend_mask.id) {
+            if (!p.assets.model)
+                throw ArchiveError(
+                    "Animation Mask requires an imported skeleton with durable bones");
+            if (!model_catalog) {
+                if (!catalog_error.empty())
+                    throw ArchiveError(catalog_error);
+                return false;
+            }
+            const auto resolved = model_catalog->resolve(p.config.blend_mask);
+            if (resolved.state != AssetState::Available)
+                throw ArchiveError("Animation Mask unavailable: " + resolved.diagnostic);
+            auto ticket = mask_requests.find(p.config.blend_mask.id);
+            if (ticket == mask_requests.end())
+                ticket = mask_requests
+                             .emplace(p.config.blend_mask.id,
+                                      request_animation_mask(mask_pool, project, *resolved.record))
+                             .first;
+            const auto status = ticket->second.inspect();
+            if (status.state == ResourceState::Failed ||
+                status.state == ResourceState::DependencyFailed)
+                throw ArchiveError(status.diagnostic);
+            p.mask = mask_pool.acquire(ticket->second);
+            if (!p.mask)
+                return false;
+            if (p.mask->skeleton_revision != p.assets.skeleton_revision)
+                throw ArchiveError(
+                    "Animation Mask and skeleton use different model revisions; rebuild the mask");
+            auto weights =
+                p.mask->mask.weights(p.config.skeleton.id, p.assets.model.skeleton->joint_assets,
+                                     p.assets.skeleton->info().parents);
+            if (p.blend_mask.empty())
+                p.blend_mask = std::move(weights);
+            else
+                for (std::size_t i = 0; i < weights.size(); ++i)
+                    p.blend_mask[i] *= weights[i];
+        }
         if (p.assets.model) {
             p.transform_channels = p.assets.model.clip->transform_channels;
             p.morph_defaults = merge_morph_defaults(p.assets.model.clip->morph_defaults, {});
@@ -934,6 +975,7 @@ struct AnimationRuntime::Impl {
         catalog_error.clear();
         model_catalog = std::move(selected);
         state_requests.clear();
+        mask_requests.clear();
         reload_pending.swap(changed);
         reload_errors.clear();
         failed_configurations.clear();
@@ -983,7 +1025,7 @@ struct AnimationRuntime::Impl {
         try {
             detail::validate_reflected_value(e, requested);
             if (requested.blend_clip.id || requested.blend_weight != 0 || requested.blend_root.id ||
-                requested.blend_mode != 0)
+                requested.blend_mask.id || requested.blend_mode != 0)
                 throw ArchiveError(
                     "Named animation states cannot also use manual two-clip blending");
             if (!model_catalog) {
@@ -1190,20 +1232,25 @@ struct AnimationRuntime::Impl {
     void synchronize(float fixed_dt = 0, bool preview_command = false) {
         bool needs_catalog = transforms.has_players();
         if (!model_catalog && !initial_catalog_requested)
-            context.world().each([&](const Animator& c) { needs_catalog |= bool(c.states.id); });
+            context.world().each([&](const Animator& c) {
+                needs_catalog |= bool(c.states.id) || bool(c.blend_mask.id);
+            });
         if (!model_catalog && needs_catalog && !initial_catalog_requested) {
             initial_catalog_requested = true;
             refresh_assets();
         }
         poll_catalog();
         state_pool.pump();
+        mask_pool.pump();
         if (model_resources)
             model_resources->pump();
         pending.clear();
         std::set<flecs::entity_t> alive;
         std::set<std::pair<AssetId, AssetId>> used;
-        std::set<AssetId> used_skeletons, used_clips, used_states;
+        std::set<AssetId> used_skeletons, used_clips, used_states, used_masks;
         auto retain = [&](const Animator& config) {
+            if (config.blend_mask.id)
+                used_masks.insert(config.blend_mask.id);
             used.insert({config.skeleton.id, config.clip.id});
             used_skeletons.insert(config.skeleton.id);
             used_clips.insert(config.clip.id);
@@ -1247,6 +1294,12 @@ struct AnimationRuntime::Impl {
                 retain(old->second.config);
             const bool reload = old != states.end() && old->second.config == config &&
                                 reload_pending.contains(e.id());
+            const bool replace_mask = old != states.end() && !old->second.definition &&
+                                      old->second.config.skeleton == config.skeleton &&
+                                      old->second.config.clip == config.clip &&
+                                      old->second.config.blend_clip == config.blend_clip &&
+                                      (old->second.config.blend_mask != config.blend_mask ||
+                                       old->second.config.blend_root != config.blend_root);
             if (old != states.end() && old->second.config == config && !reload) {
                 errors.erase(e.id());
                 failed_configurations.erase(e.id());
@@ -1264,11 +1317,11 @@ struct AnimationRuntime::Impl {
                     throw ArchiveError("Animator blend subtree needs a second clip");
                 if (config.blend_mode > 1 || (config.blend_mode != 0 && !config.blend_clip.id))
                     throw ArchiveError("Animator blend mode is invalid or needs a second clip");
-                if (reload) {
+                if (reload || replace_mask) {
                     auto assets = load(config);
                     if (!assets)
                         return; // Continue the previous good playback while loading.
-                    if (fixed_dt == 0)
+                    if (fixed_dt == 0 && !replace_mask)
                         return; // Pause may prepare resources, but cannot apply a new pose.
                     Playback next;
                     next.config = config;
@@ -1281,8 +1334,12 @@ struct AnimationRuntime::Impl {
                         return a.skeleton == b.skeleton && a.clip == b.clip &&
                                a.model_generation == b.model_generation;
                     };
+                    const bool same_mask =
+                        bool(next.mask) == bool(old->second.mask) &&
+                        (!next.mask || next.mask.identity() == old->second.mask.identity());
                     if (same(next.assets, old->second.assets) &&
-                        same(next.blend_assets, old->second.blend_assets)) {
+                        same(next.blend_assets, old->second.blend_assets) && same_mask &&
+                        next.config == old->second.config) {
                         reload_pending.erase(e.id());
                         return;
                     }
@@ -1290,6 +1347,13 @@ struct AnimationRuntime::Impl {
                     next.previous_blend = next.blend;
                     next.blend_from = old->second.blend_from;
                     next.blend_elapsed = old->second.blend_elapsed;
+                    if (next.config.blend_weight != old->second.config.blend_weight ||
+                        next.config.transition_seconds != old->second.config.transition_seconds) {
+                        next.blend_from = next.blend;
+                        next.blend_elapsed = 0;
+                        if (next.config.transition_seconds == 0)
+                            next.blend = next.previous_blend = next.config.blend_weight;
+                    }
                     std::size_t joints = evaluated_joints(next);
                     for (const auto& [other, state] : states)
                         if (other != e.id())
@@ -1314,7 +1378,10 @@ struct AnimationRuntime::Impl {
                     // Validate transform/physics compatibility before adopting either resource.
                     std::swap(old->second, next);
                     try {
-                        apply_model_poses(false, {{e.id(), target_time}}, e.id());
+                        // Between ticks an explicit edit must publish its complete pose now.
+                        // During a tick this remains preflight; the Animation stage commits it.
+                        apply_model_poses(fixed_dt == 0, {{e.id(), target_time}}, e.id(), {}, {},
+                                          nullptr, nullptr, true);
                     } catch (...) {
                         std::swap(old->second, next);
                         throw;
@@ -1325,14 +1392,6 @@ struct AnimationRuntime::Impl {
                            old->second.config.clip == config.clip &&
                            old->second.config.blend_clip == config.blend_clip &&
                            !old->second.definition) {
-                    if (old->second.config.blend_root != config.blend_root) {
-                        auto mask = subtree_mask(old->second.assets, config.blend_root.id);
-                        auto morph_mask = morph_subtree_mask(old->second, mask);
-                        old->second.blend_mask = std::move(mask);
-                        old->second.morph_mask = std::move(morph_mask);
-                        old->second.discontinuous = true;
-                        old->second.model_pose_applied = false;
-                    }
                     if (old->second.config.enabled != config.enabled ||
                         old->second.config.root_motion != config.root_motion ||
                         old->second.config.root_joint != config.root_joint ||
@@ -1430,6 +1489,14 @@ struct AnimationRuntime::Impl {
             }
             state_pool.unload(AssetRef<AnimationStatesAsset>{it->first});
             it = state_requests.erase(it);
+        }
+        for (auto it = mask_requests.begin(); it != mask_requests.end();) {
+            if (used_masks.contains(it->first)) {
+                ++it;
+                continue;
+            }
+            mask_pool.unload(AssetRef<AnimationMaskAsset>{it->first});
+            it = mask_requests.erase(it);
         }
         std::erase_if(states, [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(errors, [&](const auto& entry) { return !alive.contains(entry.first); });
@@ -1973,6 +2040,8 @@ Json AnimationRuntime::checkpoint() const {
                  {"blend",
                   {{"clip", p.config.blend_clip.id ? Json(p.config.blend_clip.id) : Json()},
                    {"revision", p.blend_assets.clip_revision},
+                   {"mask", p.config.blend_mask.id ? Json(p.config.blend_mask.id) : Json()},
+                   {"mask_revision", p.mask ? p.mask.identity().revision : ""},
                    {"weight", p.blend},
                    {"from", p.blend_from},
                    {"elapsed", p.blend_elapsed},
@@ -2013,6 +2082,13 @@ void AnimationRuntime::restore(const Json& data) {
         // deadline across all model dependencies, not a timeout per entity.
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
         while (!impl_->pending.empty() && std::chrono::steady_clock::now() < deadline) {
+            for (const auto& [asset, request] : impl_->mask_requests) {
+                (void)asset;
+                const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    deadline - std::chrono::steady_clock::now());
+                if (!impl_->mask_pool.wait(request, remaining))
+                    throw ArchiveError("Animation Mask recovery resources failed or timed out");
+            }
             for (const auto& [asset, request] : impl_->state_requests) {
                 (void)asset;
                 const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -2100,6 +2176,10 @@ void AnimationRuntime::restore(const Json& data) {
             elapsed = b.at("elapsed");
             if (b.at("clip") != (p.config.blend_clip.id ? Json(p.config.blend_clip.id) : Json()) ||
                 b.at("revision") != p.blend_assets.clip_revision ||
+                b.value("mask", Json()) !=
+                    (p.config.blend_mask.id ? Json(p.config.blend_mask.id) : Json()) ||
+                b.value("mask_revision", std::string()) !=
+                    (p.mask ? p.mask.identity().revision : "") ||
                 b.at("target") != p.config.blend_weight ||
                 b.at("seconds") != p.config.transition_seconds || !std::isfinite(blend) ||
                 blend < 0 || blend > 1 || !std::isfinite(from) || from < 0 || from > 1 ||

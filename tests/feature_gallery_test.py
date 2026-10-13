@@ -36,7 +36,8 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/DopplerPass.animation.json', 'animation.clip'),
                        ('Assets/BatchOriginal.animation.json', 'animation.clip'),
                        ('Assets/BatchShifted.animation.json', 'animation.clip'),
-                       ('Assets/BatchRepeated.animation.json', 'animation.clip')):
+                       ('Assets/BatchRepeated.animation.json', 'animation.clip'),
+                       ('Assets/Weighted.mask.json', 'mask.json')):
     asset = by_source[source]
     assert json.loads((project_root / source).read_text(encoding="utf-8"))['asset_id'] == asset['id']
     assert (project_root / '.forge/cache/derived' /
@@ -48,7 +49,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '07-vertex-paint.scene.json', '08-transform-animation.scene.json',
         '09-animation-blending.scene.json', '10-animation-states.scene.json',
         '38-animation-additive-overlays.scene.json', '39-animation-morph-states.scene.json',
-        '40-two-bone-ik.scene.json', '41-joint-aim.scene.json',
+        '40-two-bone-ik.scene.json', '41-joint-aim.scene.json', '42-animation-bone-masks.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
         '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json', '37-animation-subtree-blending.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
@@ -115,6 +116,7 @@ try:
                 animator.setdefault('root_joint', None)
                 animator.setdefault('blend_root', None)
                 animator.setdefault('blend_mode', 0)
+                animator.setdefault('blend_mask', None)
             sound = row['components'].get('forge.audio_source')
             if sound is not None:
                 sound.setdefault('cone_enabled', False)

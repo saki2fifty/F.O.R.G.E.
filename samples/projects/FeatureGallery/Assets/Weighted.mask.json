@@ -1,0 +1,29 @@
+{
+  "format": "forge.animation-mask",
+  "version": 1,
+  "asset_id": "32a72c42-010b-4b49-b379-648f1f6ef9fa",
+  "skeleton": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
+  "default_weight": 0.0,
+  "entries": [
+    {
+      "joint": "b1812660-54ef-4fc7-972c-c184e412ae31",
+      "weight": 0.25,
+      "descendants": false
+    },
+    {
+      "joint": "6abed594-1a57-4157-90bf-96056cc39525",
+      "weight": 0.5,
+      "descendants": true
+    },
+    {
+      "joint": "13cb1881-3e8d-4477-b3c7-bdb382f40392",
+      "weight": 0.75,
+      "descendants": false
+    },
+    {
+      "joint": "0b7f4452-132e-4ec7-993b-583536cf46f9",
+      "weight": 0.25,
+      "descendants": true
+    }
+  ]
+}
