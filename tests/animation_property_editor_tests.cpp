@@ -20,7 +20,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     const auto actor =
         authoring_command(scene, "entity.create", {{"name", "Lens and light"}})["selected"]
             .get<std::string>();
-    for (const char* component : {"forge.camera", "forge.light"})
+    for (const char* component : {"forge.camera", "forge.light", "forge.audio_source"})
         authoring_command(scene, "component.add", {{"entity", actor}, {"component", component}});
     auto document = TransformAnimationDocument::create(project.writer_guard(),
                                                        "Assets/Properties.animation.json");
@@ -106,8 +106,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     click("animation:properties");
     click("animation:property:forge.camera.vertical_fov");
     click("animation:property:forge.light.intensity");
+    click("animation:property:forge.audio_source.gain");
+    click("animation:property:forge.audio_source.pitch");
     check(editor.document()->source().document["version"] == 3 &&
-              editor.document()->source().clip().properties == 5,
+              editor.document()->source().clip().properties == 197,
           "Typed property checkboxes did not add bindings");
     for (const char* name : {"Position", "Rotation", "Scale"})
         click(std::string("animation:channel:") + name);
@@ -120,11 +122,15 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     mouse(p, false);
     type("animation:value:forge.camera.vertical_fov", "90");
     type("animation:value:forge.light.intensity", "10");
+    type("animation:value:forge.audio_source.gain", "0.25");
+    type("animation:value:forge.audio_source.pitch", "2");
     click("button:Add / Update key at playhead");
     const auto source = editor.document()->source();
     check(source.clip().keys.size() == 2, "Property UI did not create second key");
     check(std::abs(source.clip().keys.back().properties[0] - std::numbers::pi / 2) < 1e-7 &&
-              source.clip().keys.back().properties[2] == 10,
+              source.clip().keys.back().properties[2] == 10 &&
+              source.clip().keys.back().properties[6] == .25 &&
+              source.clip().keys.back().properties[7] == 2,
           "Property UI did not convert degrees or save values");
     const auto revision = editor.document()->revision();
     type("animation:value:forge.camera.vertical_fov", "0");
@@ -138,15 +144,26 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     editor.undo();
     check(editor.document()->source().document == source.document,
           "Property UI Undo lost key values/identity");
+    const auto audio_revision = editor.document()->revision();
+    type("animation:value:forge.audio_source.pitch", "0");
+    click("button:Add / Update key at playhead");
+    check(editor.document()->revision() == audio_revision &&
+              editor.document()->source().document == source.document,
+          "Rejected audio pitch UI edit changed source/history");
+    type("animation:value:forge.audio_source.pitch", "2");
     click("button:Capture authored pose");
     click("button:Add / Update key at playhead");
     check(std::abs(editor.document()->source().clip().keys.back().properties[0] -
-                   std::numbers::pi / 3) < 1e-7,
+                   std::numbers::pi / 3) < 1e-7 &&
+              editor.document()->source().clip().keys.back().properties[6] == 1 &&
+              editor.document()->source().clip().keys.back().properties[7] == 1,
           "Capture omitted authored camera field");
     editor.undo();
     const auto preview = editor.preview(scene.effective_document());
     check(preview != scene.effective_document() && scene.document() == authored &&
-              scene.revision() == scene_revision,
+              scene.revision() == scene_revision &&
+              preview["entities"][0]["components"]["forge.audio_source"]["gain"] == .25 &&
+              preview["entities"][0]["components"]["forge.audio_source"]["pitch"] == 2,
           "Property preview changed Scene history or omitted substitution");
     editor.stop_preview();
     check(editor.preview(scene.effective_document()) == scene.effective_document(),
@@ -154,7 +171,9 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     locked = true;
     frame();
     check(!test::ui_targets.at("animation:property:forge.camera.vertical_fov").enabled &&
-              !test::ui_targets.at("animation:value:forge.light.intensity").enabled,
+              !test::ui_targets.at("animation:value:forge.light.intensity").enabled &&
+              !test::ui_targets.at("animation:property:forge.audio_source.gain").enabled &&
+              !test::ui_targets.at("animation:value:forge.audio_source.pitch").enabled,
           "Property editing stayed enabled during Play");
     locked = false;
     editor.request_save();

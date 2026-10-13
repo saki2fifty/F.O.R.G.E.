@@ -5483,6 +5483,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "99ff516c-0cd0-45b3-b3ca-e274d2dd3b6f",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/53-animated-audio.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "9b08fc1b-8be2-424d-ac56-0ec63b2e2bba",
       "metadata": {
         "forge.import": {
@@ -7165,6 +7175,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "d67c3a6b-a5b0-44f1-954a-4f724814498f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "61c667ef4ee2cdf9e47080a1614c40229b27757015622e395ee3f6b269da1287",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v4",
+          "key": "ba1ea3121d53c2a5023981cbfc3b6f1875cbc7720292ccea90d87e74b75f87bc",
+          "output_format": "forge.transform-clip",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "7f00d465948bf9d7a357ed3adb00f41dce789b6551eedee5d65a212a32922572",
+          "source_digest": "335cb7967ac4b962bd632f0736fb33c03716581bfbfeb1781196069076f0c2f0",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 1051,
+          "file": "animation.clip",
+          "sha256": "f443285f9dfc3c4cd1dd7332d36d7acaa1da0b7f59db2458ba50222a6a188d64",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimatedProperties/AudioPulse.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
     },
     {
       "dependencies": [],

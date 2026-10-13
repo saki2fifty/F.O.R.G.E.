@@ -10,7 +10,7 @@ void require(bool value, const char* why) {
         throw std::runtime_error(why);
 }
 constexpr const char* importer_id = "forge.animation.transform";
-constexpr const char* recipe = "forge.animation.transform.v3";
+constexpr const char* recipe = "forge.animation.transform.v4";
 struct Snapshot {
     TransformAnimationSource source;
     AssetBuildInput input;

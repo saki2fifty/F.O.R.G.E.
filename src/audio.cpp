@@ -1,6 +1,7 @@
 #include "audio_preview_access.hpp"
 #include "audio_selection.hpp"
 #include "audio_source_access.hpp"
+#include "audio_values.hpp"
 #include "builtins.hpp"
 #include <algorithm>
 #include <array>
@@ -40,13 +41,6 @@ bool usable_pose(flecs::entity entity) {
         if (!std::isfinite(coordinate) || std::abs(coordinate) > 1e9)
             return false;
     return true;
-}
-void validate(flecs::entity entity, const AudioSource& s) {
-    detail::validate_reflected_value(entity, s);
-    if (s.maximum_distance < s.minimum_distance)
-        throw std::runtime_error("Audio maximum distance must be at least minimum distance");
-    if (s.outer_angle < s.inner_angle)
-        throw std::runtime_error("Audio outer opening must be at least inner opening");
 }
 bool same_failed_config(const AudioSource& a, const AudioSource& b) {
     if (a == b)
@@ -369,7 +363,7 @@ struct AudioRuntime::Impl {
                 continue;
             try {
                 ++configuration_checks;
-                validate(e, config_value);
+                detail::validate_audio_source(e, config_value);
                 auto found = voices.find(e.id());
                 if (found != voices.end() && found->second->authored.clip != config_value.clip) {
                     voices.erase(found);

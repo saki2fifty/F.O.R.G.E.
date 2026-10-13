@@ -1,5 +1,11 @@
 # 2026-10-13
 
+## Animated audio volume and pitch
+
+- Key Audio Source volume and pitch in the existing Timeline alongside camera/light properties; preserve current clocks, history, preview and publication.
+- Apply validated values to retained voices after fixed ticks, without restarting sound or playing it during Timeline preview.
+- Add editable Gallery53 with a sound/light pulse, using an existing original FORGE tone. Source-offline relocated export and offline PCM checks cover the sound consumer.
+
 ## Optional navigation avoidance
 
 - Add Navigation Avoidance to participating agents for predictive local steering around moving and parked agents; retain previous movement when absent or disabled.

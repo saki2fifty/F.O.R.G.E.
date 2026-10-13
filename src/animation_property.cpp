@@ -18,7 +18,11 @@ std::span<const AnimationPropertyBinding> animation_property_bindings() {
         AnimationPropertyBinding{AnimationProperty::LightGreen, "forge.light.color_g",
                                  "forge.light", "color_g", "Light green (linear)", 1},
         AnimationPropertyBinding{AnimationProperty::LightBlue, "forge.light.color_b", "forge.light",
-                                 "color_b", "Light blue (linear)", 1}};
+                                 "color_b", "Light blue (linear)", 1},
+        AnimationPropertyBinding{AnimationProperty::AudioGain, "forge.audio_source.gain",
+                                 "forge.audio_source", "gain", "Audio volume (linear)", 1},
+        AnimationPropertyBinding{AnimationProperty::AudioPitch, "forge.audio_source.pitch",
+                                 "forge.audio_source", "pitch", "Audio pitch / speed", 1}};
     return bindings;
 }
 const AnimationPropertyBinding& animation_property_binding(AnimationProperty property) {
@@ -39,6 +43,8 @@ void validate_animation_property(AnimationProperty property, double value) {
         (property == AnimationProperty::CameraFov        ? value > 0 && value < std::numbers::pi
          : property == AnimationProperty::CameraHeight   ? value > 0 && value <= 1e9
          : property == AnimationProperty::LightIntensity ? value >= 0 && value <= 1e9
+         : property == AnimationProperty::AudioGain      ? value >= 0 && value <= 4
+         : property == AnimationProperty::AudioPitch     ? value >= .25 && value <= 4
                                                          : value >= 0 && value <= 1);
     if (!admitted)
         throw std::runtime_error(std::string(animation_property_binding(property).label) +

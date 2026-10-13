@@ -464,3 +464,13 @@ Select the matching camera/light as Preview object. For light preview, disable
 Scene's Preview light; camera image zoom is visible in Game Play. Save & Publish
 applies edits to Play/export. Game export includes cooked clips and needs no source
 editor/compiler. See the [Timeline guide](../../../manual/editor/transform-animation.md).
+
+## Animated sound and light
+
+Open **Scenes/53-animated-audio.scene.json** and press Play. A FORGE-owned tone grows
+louder and higher pitched as the light brightens, then returns over six seconds.
+Open **Assets/AnimatedProperties/AudioPulse.animation.json** in Timeline and choose
+the named audio/light object as Preview object. Volume, pitch and light intensity
+share three editable keys. Preview displays values; sound starts in Play. Save &
+Publish applies edits to Play/export. Export includes the cooked clip and tone;
+no source editor or compiler is needed. Channel/master volume still applies.

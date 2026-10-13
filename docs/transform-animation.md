@@ -157,23 +157,28 @@ channel omitted from the clip preserves the object's current local value.
 
 ## Evaluation and preview
 
-### Typed camera and light properties
+### Typed camera, light and audio properties
 
 Source version3 optionally binds `properties` to unique qualified names:
 `forge.camera.vertical_fov`, `forge.camera.orthographic_height`,
 `forge.light.intensity`, `forge.light.color_r`, `forge.light.color_g` and
-`forge.light.color_b`. Every key has a `values` object containing exactly those
+`forge.light.color_b`, `forge.audio_source.gain` and `forge.audio_source.pitch`.
+Audio gain is linear0–4; pitch is a playback speed/pitch multiplier0.25–4.
+Every key has a `values` object containing exactly those
 names and finite numeric values. FOV is strictly0–pi radians; orthographic height
 is positive through1e9; intensity is0–1e9; colors are linear0–1. A clip may omit all
 transform channels when at least one property is bound. Missing components reject;
 animation does not create Cameras/Lights. Unsupported bindings, duplicate/missing
 or undeclared values, and property syntax in versions1/2 reject explicitly.
 
-These typed built-in bindings use current native Camera/Light members and complete
-render validators. They are not a general custom-component/material/UI binding
+These typed built-in bindings use current native Camera/Light/AudioSource members
+and existing scalar/domain validators. They are not a general custom-component/material/UI binding
 registry. No native component layout, installed SDK input or callback changes.
 Source/cooked version3 is explicit; selected old artifacts remain readable. New
-publication uses recipev3 and cooked3 even for a legacy transform-only source.
+publication uses recipev4 and cooked3 even for a legacy transform-only source.
+Selected previous cooks remain readable; expanding the qualified-name binding set
+does not change the cooked3 structure or renumber the original six bindings. Older
+engines reject unsupported audio names rather than partially executing such clips.
 
 Properties share existing key times/UUIDs and outgoing held/linear timing; vector
 cubic slopes do not affect them. Adding a property initializes every key from the
@@ -184,7 +189,7 @@ values and key extensions. Removing the last property from a property-only clip
 rejects. Numeric fields are temporary until Add / Update commits one source Undo.
 FOV displays degrees while serialized/native values stay radians. Colors stay linear.
 
-Fixed application builds typed Camera/Light candidates alongside any transform
+Fixed application builds typed Camera/Light/AudioSource candidates alongside any transform
 candidate, validates all players before writes and updates only bound members.
 Property-only application avoids building a transform map or claiming movement.
 Existing AnimationRuntime clock/revision/resource/recovery ownership is unchanged.
@@ -200,6 +205,16 @@ report an error. Scene View retains its editor camera: camera FOV preview change
 the copied camera/frustum, while Game Play displays the animated camera image.
 For Light preview, disable Scene's Preview light to use authored scene lighting.
 Gallery49 and relocated source-free export exercise camera zoom and colored light.
+
+Audio candidates copy and validate the complete current source before changing
+gain/pitch. These scalars share the existing admitted profile and do not alter clip,
+playback, looping, spatial or channel configuration. The post-tick AudioRuntime
+synchronization updates its retained voice; it does not restart sound when these
+values change. Common channel/master volume still multiplies source gain. Timeline
+preview only substitutes copied values; sound runs in Play and never from render
+presentation. Automation follows the existing fixed animation clock and audio pause
+policy, with no sample-accurate or pitch-preserving time-stretch claim. Gallery53
+exercises gain/pitch with a matching light pulse and a FORGE-owned tone.
 
 Position/scale use linear or original cubic Hermite interpolation. Slopes are
 scaled by the segment's duration in seconds; zero slopes ease into and out of a

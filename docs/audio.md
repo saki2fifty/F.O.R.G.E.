@@ -271,6 +271,19 @@ adds `audio_operation(scene,entity,uint32_t)` for all four constants. Separate
 names preserve existing boolean and integer-to-boolean calls without introducing
 ambiguous overloads. Both paths use the checked host callback.
 
+## Animated source volume and pitch
+
+The existing Transform Animator/Timeline can bind AudioSource gain and pitch using
+the same authored keys and fixed animation clock. The existing post-tick audio
+synchronization applies these values to the retained voice, preserving playback
+position. Clip, looping, spatialization and mix channel remain unbound configuration.
+Shared AudioSource scalar/domain validation serves both audio and animation; missing
+or invalid targets reject before animation commits any player's candidate.
+Master/channel volume still multiplies the sampled source gain. Timeline preview
+does not play sound or advance audio. See [typed property animation](transform-animation.md)
+and Gallery53. This is fixed-tick automation, not sample-accurate scheduling or
+pitch-preserving time stretch; ephemeral recovery retains the existing restart policy.
+
 ## Validation and deferred work
 
 Audio tests use offline PCM and explicit null-device callback teardown. Process tests cover schema-only mode, pause/step/resume, private recovery reconstruction and rejected candidate preservation; shared SDK fixture checks typed components, Play/Stop and missing capability. Existing physics/runtime/render tests remain required. These tests cannot establish subjective spatial quality or physical-device playback.

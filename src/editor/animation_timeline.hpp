@@ -712,7 +712,7 @@ class AnimationTimelineEditor {
         if (!expanded)
             return;
         ImGui::BeginDisabled(bool(drag_key_) || curve_drag_ || box_ || pan_);
-        ImGui::TextWrapped("Camera zoom and light brightness/color use the same keys. Adding a "
+        ImGui::TextWrapped("Camera, light and audio values use the same keys. Adding a "
                            "property captures its current authored value into every key. "
                            "Key fields below set different values over time.");
         const auto entity = target_.entity && target_.scene == scene.asset_id()
@@ -723,9 +723,7 @@ class AnimationTimelineEditor {
             const bool selected =
                 (clip_->properties & animation_property_bit(binding.property)) != 0;
             bool enabled = selected;
-            const bool available = entity && (std::string_view(binding.component) == "forge.camera"
-                                                  ? entity.has<Camera>()
-                                                  : entity.has<Light>());
+            const bool available = AnimationPropertyState::available(entity, binding.property);
             ImGui::BeginDisabled(!selected && !available);
             if (ImGui::Checkbox(binding.label, &enabled)) {
                 if (enabled)
@@ -742,7 +740,8 @@ class AnimationTimelineEditor {
             ImGui::EndDisabled();
         }
         if (!entity)
-            ImGui::TextDisabled("Choose a preview object to add its camera or light properties.");
+            ImGui::TextDisabled(
+                "Choose a preview object to add its camera, light or audio properties.");
         ImGui::EndDisabled();
     }
     void cancel_ruler_capture() {

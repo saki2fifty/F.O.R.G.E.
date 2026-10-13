@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v4",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "335cb7967ac4b962bd632f0736fb33c03716581bfbfeb1781196069076f0c2f0",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "d67c3a6b-a5b0-44f1-954a-4f724814498f",
+    "source": "Assets/AnimatedProperties/AudioPulse.animation.json",
+    "source_digest": "335cb7967ac4b962bd632f0736fb33c03716581bfbfeb1781196069076f0c2f0",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -81,6 +81,23 @@ the camera alternates between 40 and 80 degrees while sunlight changes brightnes
 and shifts between cool and warm colors. Its sources are in
 **Assets / AnimatedProperties**. They are included as compiled clips when exporting.
 
+## Animate sound volume and pitch
+
+Select an object with an **Audio Source**, open its animation in **Timeline**, and
+expand **Animated properties**. Enable **Audio volume (linear)** and **Audio pitch / speed**.
+Give its keys different values, then **Save & Publish** and attach the animation.
+Volume ranges from 0 (silent) to 4; 1 is normal. Pitch/speed ranges from 0.25 to 4;
+1 plays normally, 2 plays twice as fast and higher pitched. It does not preserve pitch.
+
+Preview lets you inspect the values without starting sound. Press **Play** to hear
+the changes. Assign a clip and enable **Play on start** on the Audio Source. Mix
+channel/master volume still applies. Edit the animation keys to change the values
+that the animation controls; saved Inspector values stay unchanged when Play stops.
+
+Try **FeatureGallery / Scenes / 53-animated-audio.scene.json**. The sound grows louder
+and higher pitched as the light brightens, then returns over a six-second loop.
+Its editable animation lives in **Assets / AnimatedProperties / AudioPulse.animation.json**.
+
 ## Navigate and select keys
 
 Choose **Zoom in** or **Zoom out** to inspect a smaller or larger time range.

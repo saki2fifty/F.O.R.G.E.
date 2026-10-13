@@ -1,0 +1,93 @@
+{
+  "asset_id": "d67c3a6b-a5b0-44f1-954a-4f724814498f",
+  "channels": [],
+  "duration_us": 6000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "id": "25f5d92d-0b6f-4726-a0b6-10f0b7a9380b",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.audio_source.gain": 0.1,
+        "forge.audio_source.pitch": 0.5,
+        "forge.light.intensity": 0.25
+      }
+    },
+    {
+      "id": "020a6096-68e2-4ae3-b3ee-ac89beb7b3e6",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 3000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.audio_source.gain": 0.8,
+        "forge.audio_source.pitch": 1.5,
+        "forge.light.intensity": 3.5
+      }
+    },
+    {
+      "id": "56c99658-0562-45f0-8852-cc3935743818",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 6000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.audio_source.gain": 0.1,
+        "forge.audio_source.pitch": 0.5,
+        "forge.light.intensity": 0.25
+      }
+    }
+  ],
+  "properties": [
+    "forge.audio_source.gain",
+    "forge.audio_source.pitch",
+    "forge.light.intensity"
+  ],
+  "timebase": 1000000,
+  "version": 3
+}

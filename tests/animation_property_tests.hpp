@@ -45,6 +45,8 @@ void animation_property_tests(const std::filesystem::path& scratch) {
             "Duplicated key lost scalar values");
     auto removed = source;
     for (const auto& binding : animation_property_bindings()) {
+        if (!(removed.clip().properties & animation_property_bit(binding.property)))
+            continue;
         if (binding.property == AnimationProperty::LightBlue) {
             const auto before = removed.document;
             rejects([&] { removed.erase_property(binding.property); });

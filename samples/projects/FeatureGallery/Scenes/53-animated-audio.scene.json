@@ -1,0 +1,234 @@
+{
+  "asset_id": "99ff516c-0cd0-45b3-b3ca-e274d2dd3b6f",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 10.0,
+          "y": 1.0,
+          "z": 10.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "68178d81-bcbf-4948-b0a0-cc6a5dbcc224",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "d8cba4f5-76d9-4be8-af4c-5aee1e6c6b26",
+      "name": "Floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 1.5,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": -1.4,
+          "y": 0.8,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "958b2b9d-ac81-4e46-bf29-b872a76ba75c",
+      "name": "Cube lit by the animated sound source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 1.5,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 1.4,
+          "y": 0.8,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "2b700f5d-0582-4f76-ae46-841798020b38",
+      "name": "Sphere lit by the animated sound source",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 1,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "doppler": 0.0,
+          "gain": 1.0,
+          "inner_angle": 60.0,
+          "loop": true,
+          "maximum_distance": 100.0,
+          "minimum_distance": 1.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pitch": 1.0,
+          "play_on_start": true,
+          "rolloff": 1.0,
+          "spatialized": false
+        },
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": 4.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.transform_animator": {
+          "clip": "d67c3a6b-a5b0-44f1-954a-4f724814498f",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0
+        }
+      },
+      "id": "4380c5c4-b249-41ee-98a8-1a42b5cd2eac",
+      "name": "Animated audio volume, pitch and light - open Timeline",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9848077297210693,
+          "x": 0.1736481785774231,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.0,
+          "z": 9.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b6f9b188-9a6c-4ad9-978b-8c02ae9a0e33",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}
