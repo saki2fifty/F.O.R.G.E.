@@ -1,0 +1,454 @@
+{
+  "asset_id": "87dc7fe1-03a7-4bf9-ad9c-9370730bf68e",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 20.0,
+          "y": 1.0,
+          "z": 20.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "68178d81-bcbf-4948-b0a0-cc6a5dbcc224",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.navigation_surface": {
+          "enabled": true
+        }
+      },
+      "id": "c52f6e1c-a9da-412b-a154-88672371f267",
+      "name": "Baked navigation floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.0,
+          "y": 0.1,
+          "z": -3.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 6.0,
+          "destination_y": 0.1,
+          "destination_z": -3.0,
+          "enabled": true,
+          "has_destination": true,
+          "navmesh": "ab097382-3203-4200-aa38-05857ebd94ed",
+          "speed": 2.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.navigation_avoidance": {
+          "enabled": true,
+          "horizon": 2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e9feb4ad-c8a3-43de-b155-38158303440f",
+      "name": "Passing cube - select Live gameplay",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "eee5f65e-e1de-40e4-8b06-4f3ecf5a4e8f",
+      "name": "Visible cube",
+      "parent": "e9feb4ad-c8a3-43de-b155-38158303440f",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 6.0,
+          "y": 0.1,
+          "z": -3.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": -6.0,
+          "destination_y": 0.1,
+          "destination_z": -3.0,
+          "enabled": true,
+          "has_destination": true,
+          "navmesh": "ab097382-3203-4200-aa38-05857ebd94ed",
+          "speed": 2.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.navigation_avoidance": {
+          "enabled": true,
+          "horizon": 2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "6d5d171c-ae04-4590-ae6c-32c92de65900",
+      "name": "Passing sphere - select Live gameplay",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "421fa9dd-bb22-4b34-b282-94f1ed978d15",
+      "name": "Visible sphere",
+      "parent": "6d5d171c-ae04-4590-ae6c-32c92de65900",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -6.0,
+          "y": 0.1,
+          "z": 3.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 6.0,
+          "destination_y": 0.1,
+          "destination_z": 3.0,
+          "enabled": true,
+          "has_destination": true,
+          "navmesh": "ab097382-3203-4200-aa38-05857ebd94ed",
+          "speed": 2.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.navigation_avoidance": {
+          "enabled": true,
+          "horizon": 2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f75066a8-cf6d-489a-934c-47ea83a9b2ff",
+      "name": "Moving cube around parked agent",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "9c5509a2-0062-40bb-b5f9-5f0215caa754",
+      "name": "Visible cube",
+      "parent": "f75066a8-cf6d-489a-934c-47ea83a9b2ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.1,
+          "z": 3.0
+        },
+        "forge.navigation_agent": {
+          "destination_x": 0.0,
+          "destination_y": 0.1,
+          "destination_z": 3.0,
+          "enabled": true,
+          "has_destination": false,
+          "navmesh": "ab097382-3203-4200-aa38-05857ebd94ed",
+          "speed": 0.0,
+          "stopping_distance": 0.10000000149011612
+        },
+        "forge.navigation_avoidance": {
+          "enabled": true,
+          "horizon": 2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "621efb7a-5a0e-446d-b765-89f96abb7cfd",
+      "name": "Parked sphere - idle participant",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.4,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "1c32b0ce-a595-49dc-910b-79f2d696f726",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "4eb3302e-52db-45ac-8b7e-eaba54ba6df4",
+      "name": "Visible sphere",
+      "parent": "621efb7a-5a0e-446d-b765-89f96abb7cfd",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.2217304706573486,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 14.0,
+          "z": 14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "d199b9a5-a181-43d7-bdd2-924cf27382a8",
+      "name": "Camera - overview of both lanes",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -5.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f8068c9b-2a36-4d87-881e-4daec6fe6c23",
+      "name": "Sunlight",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

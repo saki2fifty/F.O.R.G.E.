@@ -149,7 +149,8 @@ std::unique_ptr<SdkPlayRuntime> build(Fixture& f) {
 // Activate a real authored scene so the test module's start callback
 // fires and f.capture.service becomes non-null. Mirrors the manager's
 // activate path: replace + candidate_ack + pump.
-std::unique_ptr<SdkPlayRuntime> build_activated(Fixture& f, std::string& session_out) {
+std::unique_ptr<SdkPlayRuntime> build_activated(Fixture& f, std::string& session_out,
+                                                bool navigation_avoidance = false) {
     auto host = build(f);
     auto hello_response = hello(*host);
     session_out = hello_response.at("session").get<std::string>();
@@ -159,6 +160,14 @@ std::unique_ptr<SdkPlayRuntime> build_activated(Fixture& f, std::string& session
         {"version", 1},
         {"entities",
          Json::array({Json{{"id", "cube"}, {"name", "Cube"}, {"components", Json::object()}}})}};
+    if (navigation_avoidance) {
+        scene["entities"][0]["components"]["forge.navigation_agent"] = {
+            {"navmesh", nullptr}, {"enabled", false},        {"has_destination", false},
+            {"speed", 2},         {"stopping_distance", .1}, {"destination_x", 0},
+            {"destination_y", 0}, {"destination_z", 0}};
+        scene["entities"][0]["components"]["forge.navigation_avoidance"] = {{"enabled", true},
+                                                                            {"horizon", 2}};
+    }
     auto replace = host->handle({{"protocol", 2},
                                  {"session", session_out},
                                  {"id", 2u},
@@ -2170,6 +2179,41 @@ void latch_quit_then_exercise_mutations() {
           "post-quit replace mutated scene");
 }
 
+void property_tune_navigation_avoidance() {
+    Fixture f;
+    std::string session;
+    auto host = build_activated(f, session, true);
+    const auto baseline = send(*host, 4, "snapshot", {{"session", session}});
+    const auto generation = baseline.at("activation").at("generation").get<std::uint64_t>();
+    const auto source = baseline.at("scene");
+    auto target = Json{{"session", session},
+                       {"generation", generation},
+                       {"scene_asset", source.at("asset_id")},
+                       {"entity", source.at("entities")[0].at("id")},
+                       {"type", "forge.navigation_avoidance"},
+                       {"property", "horizon"},
+                       {"value", 1.25}};
+    const auto tuned = send(*host, 5, "property_tune", target);
+    check(tuned.value("ok", false) && tuned.at("property_tune").at("value") == 1.25,
+          "SDK Play owner failed live avoidance tuning");
+    const auto saved = send(*host, 6, "snapshot", {{"session", session}});
+    check(saved.at("scene")
+                      .at("entities")[0]
+                      .at("components")
+                      .at("forge.navigation_avoidance")
+                      .at("horizon") == 1.25 &&
+              saved.at("timing").at("tick") == baseline.at("timing").at("tick"),
+          "SDK live avoidance tune advanced time or lost its value");
+    target["value"] = 0;
+    check(!send(*host, 7, "property_tune", target).value("ok", true),
+          "SDK live avoidance admitted an invalid prediction horizon");
+    target["value"] = 2;
+    target["generation"] = generation + 1;
+    check(!send(*host, 8, "property_tune", target).value("ok", true),
+          "SDK live avoidance admitted a stale generation");
+    check(send(*host, 9, "snapshot", {{"session", session}}).at("scene") == saved.at("scene"),
+          "Rejected SDK avoidance tune changed active values");
+}
 void property_tune_rejects_wrong_world_or_unadmitted_type() {
     Fixture f;
     std::string session;
@@ -2234,6 +2278,7 @@ int run() {
         protocol_discriminator_rejects_float_and_string();
         schema_command_does_not_overwrite_real_schema();
         property_tune_rejects_wrong_world_or_unadmitted_type();
+        property_tune_navigation_avoidance();
         revoked_or_released_token_pruned_from_map();
         negative_cursor_ack_marks_unknown_keeps_physical();
         contradictory_ack_rejected_idempotent_accepted();

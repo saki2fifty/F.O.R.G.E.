@@ -1,5 +1,6 @@
 #pragma once
 #include "../animation_playback_access.hpp"
+#include "../runtime_property_tune.hpp"
 #include "component_choices.hpp"
 #include "document.hpp"
 #include "model_node_scope.hpp"
@@ -78,6 +79,7 @@ class ComponentInspector {
         if (!components.contains(key) || !components.at(key).is_object())
             return false;
         return AnimationPlaybackAccess::rig_type(key) ||
+               RuntimePropertyTune::navigation_type(key) ||
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }

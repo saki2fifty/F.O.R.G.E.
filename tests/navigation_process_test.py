@@ -37,7 +37,7 @@ try:
   for text in ('navigation SDK queries passed','navigation agent boundary passed','navigation agent PostPhysics sample passed'):
    assert any(text in d['text'] for d in stepped['diagnostics']),text
  if denied:assert any('navigation agent permission denial passed' in d['text'] for d in stepped['diagnostics'])
- checkpoint=stepped['recovery'];assert checkpoint['navigation']['version']==1 and len(checkpoint['navigation']['assets'])==1
+ checkpoint=stepped['recovery'];assert checkpoint['navigation']['version']==2 and len(checkpoint['navigation']['assets'])==1
  assert set(checkpoint['navigation'])=={'version','assets','agents'}
  a.request('resume');time.sleep(.06);paused=a.request('pause');assert paused['timing']['tick']>7
  rebuilt=restore(a,checkpoint);assert position(rebuilt)==position(stepped)

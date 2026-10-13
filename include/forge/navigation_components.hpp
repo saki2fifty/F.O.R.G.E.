@@ -15,4 +15,9 @@ struct NavigationAgent {
     double destination_x = 0, destination_y = 0, destination_z = 0;
     bool operator==(const NavigationAgent&) const = default;
 };
+struct NavigationAvoidance {
+    bool enabled = true;
+    float horizon = 2;
+    bool operator==(const NavigationAvoidance&) const = default;
+};
 } // namespace forge

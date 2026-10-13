@@ -9,6 +9,16 @@ namespace {
 int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     flecs::world w(h->world);
     w.component<forge::NavigationAgent>("forge.navigation_agent");
+    const auto avoidance = w.component<forge::NavigationAvoidance>("forge.navigation_avoidance");
+    const auto* info = ecs_get_type_info(w.c_ptr(), avoidance.id());
+    if (!info || info->size != sizeof(forge::NavigationAvoidance))
+        return 0;
+    auto probe = w.entity().add(flecs::Prefab).set<forge::NavigationAvoidance>({false, .75f});
+    const auto matched =
+        probe.get<forge::NavigationAvoidance>() == forge::NavigationAvoidance{false, .75f};
+    probe.destruct();
+    if (!matched)
+        return 0;
     return 1;
 }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {

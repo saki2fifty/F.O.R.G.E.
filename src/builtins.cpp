@@ -50,6 +50,8 @@ template <class T> Json encode(const T& p) {
                 {"layer", p.layer}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
+    else if constexpr (std::is_same_v<T, NavigationAvoidance>)
+        return {{"enabled", p.enabled}, {"horizon", p.horizon}};
     else if constexpr (std::is_same_v<T, NavigationAgent>)
         return {{"navmesh", p.navmesh.id ? Json(p.navmesh.id) : Json()},
                 {"enabled", p.enabled},
@@ -229,6 +231,8 @@ template <class T> Value decode(const Json& p) {
         return v;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
+    else if constexpr (std::is_same_v<T, NavigationAvoidance>)
+        return T{p.at("enabled"), p.at("horizon")};
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         NavigationAgent a;
         if (!p.at("navmesh").is_null())
@@ -555,6 +559,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("layer");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
+    else if constexpr (std::is_same_v<T, NavigationAvoidance>)
+        c.template member<bool>("enabled").template member<float>("horizon");
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
         register_asset_ref<NavMeshAsset>(w, "forge.navmesh_ref");
         c.template member<AssetRef<NavMeshAsset>>("navmesh")
@@ -879,6 +885,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<NavigationAgent>(w, "forge.navigation_agent"); }),
+        descriptor<NavigationAvoidance>(
+            "forge.navigation_avoidance",
+            "Predictive local steering between opted-in navigation agents", "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<NavigationAvoidance>(w, "forge.navigation_avoidance");
+            }),
         descriptor<UiDocument>(
             "forge.ui_document", "Runtime UI document displayed during Play", "unitless", {}, {},
             [](flecs::world& w) { return register_type<UiDocument>(w, "forge.ui_document"); }),
@@ -1408,6 +1420,17 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = field == "enabled" ? "Load this document during Play"
                                                       : "Show this document during Play";
     }
+    if (name == "forge.navigation_avoidance") {
+        if (field == "horizon") {
+            value["minimum"] = .25;
+            value["maximum"] = 5;
+            value["unit"] = "seconds";
+            value["description"] = "Predict nearby participating agents over this time; footprint "
+                                   "uses the baked profile";
+        } else
+            value["description"] =
+                "Join local avoidance; idle and paused participants remain obstacles";
+    }
     if (name == "forge.navigation_agent") {
         if (field == "navmesh") {
             value["asset_type"] = NavMeshAsset::type;
@@ -1434,7 +1457,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = "Destination in world coordinates, +Y up";
         }
         if (field == "enabled")
-            value["description"] = "Enable nonphysics movement during Play; no crowd avoidance";
+            value["description"] = "Enable nonphysics movement during Play; add Navigation "
+                                   "Avoidance for local steering";
         if (field == "has_destination")
             value["description"] =
                 "Request a route to the destination; partial or invalid paths do not move";

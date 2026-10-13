@@ -17,11 +17,14 @@ struct NavigationFailure : std::runtime_error {
     NavigationFailure(NavStatus s, std::string why)
         : std::runtime_error(std::move(why)), status(s) {}
 };
-const detail::Builtin& agent_descriptor() {
+const detail::Builtin& navigation_descriptor(std::string_view name) {
     for (const auto& type : detail::builtins())
-        if (std::string_view(type.name) == "forge.navigation_agent")
+        if (std::string_view(type.name) == name)
             return type;
     throw std::logic_error("Navigation schema is missing");
+}
+const detail::Builtin& agent_descriptor() {
+    return navigation_descriptor("forge.navigation_agent");
 }
 struct Cached {
     Admitted data;
@@ -179,6 +182,21 @@ struct NavigationRuntime::Impl {
                     "NavigationAgent cannot follow a moving physics ancestor: " +
                         std::to_string(current));
             current = nodes.at(current).parent;
+        }
+    }
+    void valid_avoidance(flecs::entity e, const std::map<std::uint64_t, TransformNode>& nodes) {
+        detail::validate_reflected_value(e, e.get<NavigationAvoidance>());
+        auto parent = nodes.at(e.id()).parent;
+        while (parent) {
+            auto ancestor = context.world().entity(parent);
+            if (ancestor.has<NavigationAgent>()) {
+                const auto& a = ancestor.get<NavigationAgent>();
+                if (a.enabled && a.has_destination && a.speed > 0)
+                    throw NavigationFailure(
+                        NavStatus::Invalid,
+                        "Navigation avoidance requires a stationary spatial parent");
+            }
+            parent = nodes.at(parent).parent;
         }
     }
 };
@@ -356,6 +374,39 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
     };
     std::stable_sort(entities.begin(), entities.end(),
                      [&](auto a, auto b) { return depth(a) < depth(b); });
+    struct Participant {
+        AssetId asset;
+        Query::Neighbour neighbour;
+        float height;
+    };
+    std::map<flecs::entity_t, Participant> participants;
+    for (auto id : entities) {
+        auto e = s.context.world().entity(id);
+        const auto& a = e.get<NavigationAgent>();
+        if (!a.enabled || !e.has<NavigationAvoidance>() || !e.get<NavigationAvoidance>().enabled)
+            continue;
+        try {
+            s.valid_agent(e, a, nodes);
+            s.valid_avoidance(e, nodes);
+            auto& asset = s.get(a.navmesh);
+            const auto position = e.get<WorldTransform>().affine.point({0, 0, 0});
+            if (asset.query->project(position).status != NavStatus::Success)
+                continue;
+            Double3 velocity{};
+            if (const auto previous = s.agents.find(id);
+                a.has_destination && a.speed > 0 && previous != s.agents.end() &&
+                previous->second.observation.sampled &&
+                distance(previous->second.last, position) < .001)
+                velocity = previous->second.observation.velocity;
+            participants.emplace(
+                id, Participant{a.navmesh.id,
+                                {position, velocity},
+                                asset.data.metadata.at("settings").at("height").get<float>()});
+        } catch (const std::exception&) {
+            // Invalid or unavailable agents are not predictive obstacles. Active
+            // movement below supplies the existing diagnostic/observation policy.
+        }
+    }
     for (auto id : entities) {
         auto e = s.context.world().entity(id);
         auto a = e.get<NavigationAgent>();
@@ -367,13 +418,21 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         try {
             s.context.evaluate_world_transforms();
             s.valid_agent(e, a, nodes);
+            const bool avoiding =
+                e.has<NavigationAvoidance>() && e.get<NavigationAvoidance>().enabled;
+            if (avoiding)
+                s.valid_avoidance(e, nodes);
             auto& asset = s.get(a.navmesh);
             auto position = e.get<WorldTransform>().affine.point({0, 0, 0});
             Double3 destination{a.destination_x, a.destination_y, a.destination_z};
             auto& state = s.agents[id];
-            if (state.config != a || state.path.empty() || distance(state.last, position) > .001) {
+            if (avoiding || state.config != a || state.path.empty() ||
+                distance(state.last, position) > .001) {
                 auto route = asset.query->path(position, destination);
+                const auto previous = state.observation;
                 state = {a, std::move(route.points), 1, position, {}};
+                if (avoiding)
+                    state.observation = previous;
                 if (route.status != NavStatus::Success)
                     throw NavigationFailure(route.status, route.diagnostic);
             }
@@ -381,6 +440,72 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 continue;
             double remaining = double(a.speed) * dt;
             const auto original = position;
+            if (avoiding && remaining > 0 &&
+                route_distance(position, state) > a.stopping_distance + arrival_tolerance) {
+                auto avoidance_profile =
+                    s.context.services().profile("navigation", "NavAvoidance", tick);
+                while (state.next < state.path.size() &&
+                       distance(position, state.path[state.next]) < .001)
+                    ++state.next;
+                if (state.next < state.path.size()) {
+                    const auto waypoint = state.path[state.next];
+                    const auto length = distance(position, waypoint);
+                    const auto speed =
+                        std::min(double(a.speed), std::min(length, route_distance(position, state) -
+                                                                       a.stopping_distance) /
+                                                      dt);
+                    Double3 desired{};
+                    for (unsigned j = 0; j < 3; ++j)
+                        desired[j] = (waypoint[j] - position[j]) * speed / length;
+                    std::vector<Query::Neighbour> neighbours;
+                    const auto settings =
+                        asset.data.metadata.at("settings").get<NavigationSettings>();
+                    for (const auto& [other, participant] : participants)
+                        if (other != id && participant.asset == a.navmesh.id &&
+                            std::abs(participant.neighbour.position[1] - position[1]) <
+                                std::max(settings.height, participant.height))
+                            neighbours.push_back(participant.neighbour);
+                    const auto previous = participants.contains(id)
+                                              ? participants.at(id).neighbour.velocity
+                                              : Double3{};
+                    auto steering = asset.query->avoid_velocity(
+                        position, desired, previous, float(speed), settings.radius,
+                        e.get<NavigationAvoidance>().horizon, neighbours);
+                    if (steering.status != NavStatus::Success)
+                        throw NavigationFailure(steering.status,
+                                                "Navigation avoidance: " + steering.diagnostic);
+                    NavResult moved;
+                    double fraction = 1;
+                    const auto budget = speed * dt;
+                    bool bounded = false;
+                    for (unsigned attempt = 0; attempt != 8; ++attempt) {
+                        Double3 target = position;
+                        for (unsigned j = 0; j < 3; ++j)
+                            target[j] += steering.points.front()[j] * dt * fraction;
+                        moved = asset.query->move(position, target);
+                        if (moved.status != NavStatus::Success)
+                            throw NavigationFailure(moved.status, moved.diagnostic);
+                        const auto length = distance(position, moved.points.front());
+                        if (length <= budget + .000001) {
+                            bounded = true;
+                            break;
+                        }
+                        // The sampler works in XZ; surface height must also fit the
+                        // existing world-distance speed budget on slopes/steps.
+                        fraction *= .999 * budget / length;
+                    }
+                    if (!bounded)
+                        throw NavigationFailure(
+                            NavStatus::Invalid,
+                            "Avoidance start/surface height cannot fit the fixed-tick speed "
+                            "budget; align the agent with navigation");
+                    position = moved.points.front();
+                    if (distance(position, waypoint) < .001)
+                        ++state.next;
+                }
+            }
+            if (avoiding)
+                remaining = 0;
             while (remaining > 0 && state.next < state.path.size()) {
                 const auto distance_left = route_distance(position, state);
                 if (distance_left <= a.stopping_distance + arrival_tolerance)
@@ -503,6 +628,33 @@ Json NavigationRuntime::debug(flecs::entity_t entity) const {
             {"projected_destination", out->projected_destination},
             {"remaining_distance", out->remaining_distance}};
 }
+Json NavigationRuntime::tune_avoidance(EntityRef ref, const std::string& property,
+                                       const Json& value) {
+    if (!impl_ || impl_->context.role() != WorldRole::Runtime ||
+        !impl_->context.on_owner_thread() || impl_->context.world().is_readonly())
+        throw std::runtime_error("Live avoidance tuning requires the runtime navigation owner");
+    impl_->check();
+    const auto resolved = impl_->context.resolve(ref);
+    if (resolved.state != WorldContext::ResolveState::Available ||
+        ref.scene != impl_->scene->asset_id())
+        throw std::runtime_error("Live avoidance target is unavailable");
+    auto e = impl_->context.world().entity(resolved.entity);
+    if (impl_->scene->entity(ref.entity.str()) != e)
+        throw std::runtime_error("Live avoidance target belongs to another Scene instance");
+    if (e.has(flecs::Prefab) || !e.has<NavigationAgent>() || !e.has<NavigationAvoidance>())
+        throw std::runtime_error(
+            "Live avoidance tuning requires an existing navigation participant");
+    const auto& codec = navigation_descriptor("forge.navigation_avoidance");
+    auto candidate = codec.read(e, true);
+    if (!candidate.contains(property))
+        throw std::runtime_error("Live avoidance property is unavailable");
+    candidate[property] = value;
+    detail::validate_components({{"forge.navigation_avoidance", candidate}});
+    const auto typed = std::get<NavigationAvoidance>(codec.decode(candidate));
+    detail::validate_reflected_value(e, typed);
+    e.set<NavigationAvoidance>(typed);
+    return codec.read(e, true).at(property);
+}
 Json NavigationRuntime::checkpoint() {
     Json revisions = Json::array(), agents = Json::array();
     if (impl_) {
@@ -519,6 +671,12 @@ Json NavigationRuntime::checkpoint() {
                 throw std::runtime_error("Navigation checkpoint exceeds 64 agents");
             auto config = agent_descriptor().read(e, true);
             detail::validate_components({{"forge.navigation_agent", config}});
+            Json avoidance = nullptr;
+            if (e.has<NavigationAvoidance>()) {
+                auto value = navigation_descriptor("forge.navigation_avoidance").read(e, true);
+                detail::validate_components({{"forge.navigation_avoidance", value}});
+                avoidance = {{"config", value}, {"owned", e.owns<NavigationAvoidance>()}};
+            }
             Json translation = nullptr;
             try {
                 impl_->valid_agent(e, e.get<NavigationAgent>(), nodes);
@@ -531,23 +689,25 @@ Json NavigationRuntime::checkpoint() {
                 {{"entity", *ref},
                  {"config", config},
                  {"owned", e.owns<NavigationAgent>()},
+                 {"avoidance", avoidance},
                  {"translation", translation},
                  {"translation_owned", !translation.is_null() && e.owns<LocalTranslation>()}});
         });
     }
-    return {{"version", 1}, {"assets", revisions}, {"agents", agents}};
+    return {{"version", 2}, {"assets", revisions}, {"agents", agents}};
 }
 void NavigationRuntime::restore(const Json& data) {
-    if (!impl_ || data.at("version") != 1 || !data.at("assets").is_array() ||
-        data.at("assets").size() > 8 || !data.at("agents").is_array() ||
-        data.at("agents").size() > 64)
+    if (!impl_ || (data.at("version") != 1 && data.at("version") != 2) ||
+        !data.at("assets").is_array() || data.at("assets").size() > 8 ||
+        !data.at("agents").is_array() || data.at("agents").size() > 64)
         throw std::runtime_error("Invalid navigation recovery metadata");
     impl_->check();
     struct Pending {
         flecs::entity entity;
         NavigationAgent agent;
+        std::optional<NavigationAvoidance> avoidance;
         std::optional<LocalTranslation> translation;
-        bool owned, translation_owned;
+        bool owned, translation_owned, avoidance_owned;
     };
     std::vector<Pending> pending;
     std::set<flecs::entity_t> expected, seen_entities;
@@ -563,6 +723,24 @@ void NavigationRuntime::restore(const Json& data) {
         auto e = impl_->context.world().entity(found.entity);
         detail::validate_components({{"forge.navigation_agent", entry.at("config")}});
         auto config = std::get<NavigationAgent>(agent_descriptor().decode(entry.at("config")));
+        std::optional<NavigationAvoidance> avoidance;
+        bool avoidance_owned = false;
+        if (data.at("version") == 1) {
+            if (e.has<NavigationAvoidance>())
+                throw std::runtime_error(
+                    "Legacy navigation recovery cannot restore avoidance state");
+        } else if (!entry.at("avoidance").is_null()) {
+            const auto& value = entry.at("avoidance");
+            detail::validate_components({{"forge.navigation_avoidance", value.at("config")}});
+            avoidance = std::get<NavigationAvoidance>(
+                navigation_descriptor("forge.navigation_avoidance").decode(value.at("config")));
+            avoidance_owned = value.at("owned").get<bool>();
+            if (!e.has<NavigationAvoidance>() || avoidance_owned != e.owns<NavigationAvoidance>() ||
+                (!avoidance_owned && *avoidance != e.get<NavigationAvoidance>()))
+                throw std::runtime_error(
+                    "Navigation recovery avoidance ownership/inheritance differs");
+        } else if (e.has<NavigationAvoidance>())
+            throw std::runtime_error("Navigation recovery avoidance component set differs");
         bool owned = entry.at("owned").get<bool>(),
              translation_owned = entry.at("translation_owned").get<bool>();
         std::optional<LocalTranslation> translation;
@@ -583,7 +761,8 @@ void NavigationRuntime::restore(const Json& data) {
             impl_->context.evaluate_world_transforms();
             impl_->valid_agent(e, config, impl_->context.transform_nodes());
         }
-        pending.push_back({e, config, translation, owned, translation_owned});
+        pending.push_back(
+            {e, config, avoidance, translation, owned, translation_owned, avoidance_owned});
     }
     if (expected != seen_entities)
         throw std::runtime_error("Navigation recovery agent set differs");
@@ -592,6 +771,8 @@ void NavigationRuntime::restore(const Json& data) {
     for (const auto& p : pending) {
         if (p.owned)
             p.entity.set<NavigationAgent>(p.agent);
+        if (p.avoidance_owned)
+            p.entity.set<NavigationAvoidance>(*p.avoidance);
         if (p.translation_owned)
             p.entity.set<LocalTranslation>(*p.translation);
     }

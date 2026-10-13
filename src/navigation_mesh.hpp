@@ -21,11 +21,17 @@ class Mesh {
 };
 class Query {
   public:
+    struct Neighbour {
+        Double3 position, velocity;
+    };
     explicit Query(std::shared_ptr<const Mesh> mesh);
     ~Query();
     NavResult project(Double3 point);
     NavResult path(Double3 start, Double3 end);
     NavResult move(Double3 start, Double3 target);
+    // Owned velocity in points[0]; private engine steering, not a public route API.
+    NavResult avoid_velocity(Double3 position, Double3 desired, Double3 previous, float speed,
+                             float radius, float horizon, std::span<const Neighbour>);
 
   private:
     struct Impl;

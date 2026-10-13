@@ -1,6 +1,7 @@
 #include "navigation_mesh.hpp"
 #include <DetourNavMesh.h>
 #include <DetourNavMeshQuery.h>
+#include <DetourObstacleAvoidance.h>
 #include <algorithm>
 #include <bit>
 #include <cmath>
@@ -209,6 +210,8 @@ struct Query::Impl {
     std::unique_ptr<dtNavMeshQuery, decltype(&dtFreeNavMeshQuery)> query{dtAllocNavMeshQuery(),
                                                                          dtFreeNavMeshQuery};
     dtQueryFilter filter;
+    std::unique_ptr<dtObstacleAvoidanceQuery, decltype(&dtFreeObstacleAvoidanceQuery)> avoidance{
+        nullptr, dtFreeObstacleAvoidanceQuery};
     explicit Impl(std::shared_ptr<const Mesh> value) : owner(std::move(value)) {
         require(owner && query && dtStatusSucceed(query->init(owner->impl_->mesh.get(), 2048)),
                 "Cannot allocate nav query");
@@ -290,6 +293,81 @@ NavResult Query::move(Double3 a, Double3 b) {
     if (!point(p))
         return result(NavStatus::Invalid);
     return {NavStatus::Success, {p}, {}};
+}
+NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previous, float speed,
+                                float radius, float horizon,
+                                std::span<const Neighbour> neighbours) {
+    if (!point(position) || !std::isfinite(speed) || speed < 0 || speed > 20 ||
+        !std::isfinite(radius) || radius < .05f || radius > 5 || !std::isfinite(horizon) ||
+        horizon < .25f || horizon > 5)
+        return result(NavStatus::Invalid);
+    if (neighbours.size() > 63)
+        return result(NavStatus::Limit);
+    auto velocity_valid = [](Double3 v) {
+        return std::ranges::all_of(
+            v, [](double x) { return std::isfinite(x) && std::abs(x) <= 20.01; });
+    };
+    if (!velocity_valid(desired) || !velocity_valid(previous))
+        return result(NavStatus::Invalid);
+    for (const auto& neighbour : neighbours)
+        if (!point(neighbour.position) || !velocity_valid(neighbour.velocity))
+            return result(NavStatus::Invalid);
+    if (speed == 0)
+        return {NavStatus::Success, {Double3{}}, {}};
+    float center[3];
+    auto start = impl_->nearest(position, center);
+    if (!start)
+        return result(NavStatus::StartOutside);
+    constexpr int max_nearby = 32, max_walls = max_nearby * DT_VERTS_PER_POLYGON;
+    if (!impl_->avoidance) {
+        decltype(impl_->avoidance) candidate{dtAllocObstacleAvoidanceQuery(),
+                                             dtFreeObstacleAvoidanceQuery};
+        if (!candidate || !candidate->init(63, max_walls))
+            return result(NavStatus::Limit);
+        impl_->avoidance = std::move(candidate);
+    }
+    auto& solver = *impl_->avoidance;
+    solver.reset();
+    for (const auto& neighbour : neighbours) {
+        float p[3]{float(neighbour.position[0]), float(neighbour.position[1]),
+                   float(neighbour.position[2])};
+        float v[3]{float(neighbour.velocity[0]), 0, float(neighbour.velocity[2])};
+        solver.addCircle(p, radius, v, v);
+    }
+    dtPolyRef nearby[max_nearby]{};
+    int count = 0;
+    auto status =
+        impl_->query->findLocalNeighbourhood(start, center, speed * horizon + 2 * radius,
+                                             &impl_->filter, nearby, nullptr, &count, max_nearby);
+    if (status & (DT_BUFFER_TOO_SMALL | DT_OUT_OF_NODES))
+        return result(NavStatus::Limit);
+    if (dtStatusFailed(status))
+        return result(NavStatus::Invalid);
+    for (int i = 0; i < count; ++i) {
+        float walls[DT_VERTS_PER_POLYGON * 6]{};
+        int wall_count = 0;
+        status = impl_->query->getPolyWallSegments(nearby[i], &impl_->filter, walls, nullptr,
+                                                   &wall_count, DT_VERTS_PER_POLYGON);
+        if (status & DT_BUFFER_TOO_SMALL)
+            return result(NavStatus::Limit);
+        if (dtStatusFailed(status))
+            return result(NavStatus::Invalid);
+        for (int wall = 0; wall < wall_count; ++wall)
+            solver.addSegment(walls + wall * 6, walls + wall * 6 + 3);
+    }
+    const dtObstacleAvoidanceParams parameters{.45f, 3.f, .8f, 1.f, 4.f, horizon, 0, 7, 3, 3};
+    float wanted[3]{float(desired[0]), 0, float(desired[2])};
+    float old[3]{float(previous[0]), 0, float(previous[2])}, output[3]{};
+    if (solver.sampleVelocityAdaptive(center, radius, speed, old, wanted, output, &parameters) <= 0)
+        return result(NavStatus::Invalid);
+    Double3 velocity{output[0], 0, output[2]};
+    if (!velocity_valid(velocity))
+        return result(NavStatus::Invalid);
+    const auto length = std::hypot(velocity[0], velocity[2]);
+    if (length > speed)
+        for (auto& v : velocity)
+            v *= speed / length;
+    return {NavStatus::Success, {velocity}, {}};
 }
 } // namespace navigation_detail
 } // namespace forge

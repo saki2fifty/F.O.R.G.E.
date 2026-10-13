@@ -14,7 +14,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 | libwebp | 1.6.0 / `4fa21912338357f89e4fd51cf2368325b59e9bd9` | Private still-image decode and native demux | [Source](https://chromium.googlesource.com/webm/libwebp/+/4fa21912338357f89e4fd51cf2368325b59e9bd9/) |
 | RmlUi | 6.3 / `ba95ffe8bfb6370efb2cdcca927eaad4710c5413` | Screen-space game documents, bindings and input; private Diligent adapter | [Official release](https://github.com/mikke89/RmlUi/releases/tag/6.3) |
 | FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
-| Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static single-tile generation and private Detour queries | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
+| Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static single-tile generation, private Detour queries and local velocity sampling | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
 | Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, distance/hinge/point/fixed constraints, body loads, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
@@ -97,7 +97,7 @@ format limits, ownership, conversion settings, compatibility and upgrade gates.
 
 ## Navigation adoption (Phase 6E)
 
-Recast and Detour use the zlib license. FORGE compiles their source libraries privately; Crowd, TileCache, DebugUtils and the SDL2/OpenGL demo are disabled. Runtime links Detour; Recast is authoring worker code. See [Navigation](navigation.md) for formats, ownership, bounds, source provenance and deferred features.
+Recast and Detour use the zlib license. FORGE compiles their source libraries privately; the full Crowd manager, TileCache, DebugUtils and the SDL2/OpenGL demo are disabled. The unchanged DetourObstacleAvoidance source is compiled privately for opt-in local steering. Runtime links Detour and that sampler; Recast is authoring worker code. See [Navigation](navigation.md) for formats, ownership, bounds, source provenance and deferred features.
 
 ## Runtime UI adoption (Phase 6F)
 
@@ -364,3 +364,17 @@ Native linear casting requires positive inner radius. Signed ScaledShape trees
 can return negative radius, so FORGE rejects those new CCD candidates before
 mutating realization instead of changing authored scale or patching Jolt.
 Existing discrete admission remains intact. No pin, options or license change.
+
+
+### Local navigation avoidance verification — 2026-10-13
+
+The official latest stable release remains Recast1.6.0. Selected commit remains
+6dc1667f580357e8a2154c28b7867bea7e8ad3a7. The additional private source is
+DetourCrowd/Source/DetourObstacleAvoidance.cpp, with its matching header and existing
+Detour support, unchanged and covered by the existing zlib notice. FORGE supplies
+configuration, bounds, route/transform policy, lifecycle and recovery; it does not
+claim authorship of the sampler or integrate the full Crowd path/agent manager.
+The private archive links into the existing host runtime; the installed value-only
+SDK exposes no Detour headers or solver ownership. Existing Runtime and NativeSdk
+install components retain the Recast zlib notice.
+See [Navigation](navigation.md) for limits and SDK/recovery compatibility.

@@ -1,5 +1,12 @@
 # 2026-10-13
 
+## Optional navigation avoidance
+
+- Add Navigation Avoidance to participating agents for predictive local steering around moving and parked agents; retain previous movement when absent or disabled.
+- Use the baked footprint, copied tick-start neighbours and existing route/transform owners. Bound queries and full world displacement on slopes; retain stale-asset and physics restrictions.
+- Tune enabled/horizon in Live gameplay through ordinary and SDK Play with generation and owner checks; preserve optional semantic values through versioned recovery and the matching C++ SDK.
+- Add ready-baked Gallery scene 52 with passing agents, a parked participant, camera and light. Existing packaging includes it; relocated source-offline content is exercised locally.
+
 ## Responsive navigation status
 
 - Check editor navigation status from native marked sources and the existing project asset snapshot; avoid copying unrelated scene content and reopening the catalog on each advisory check.

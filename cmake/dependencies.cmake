@@ -84,8 +84,8 @@ foreach(config DEBUG RELEASE MINSIZEREL RELWITHDEBINFO)
  set_target_properties(gltf2ozz PROPERTIES RUNTIME_OUTPUT_DIRECTORY_${config} "${CMAKE_BINARY_DIR}/tools")
 endforeach()
 
-# Recast's documented source integration: only generation and runtime queries.
-# Do not bring Crowd, TileCache, DebugUtils, SDL2 or the demo into FORGE.
+# Recast's documented source integration: generation, queries and velocity sampling.
+# Keep the full Crowd manager, TileCache, DebugUtils, SDL2 and demo out of FORGE.
 FetchContent_Declare(recast GIT_REPOSITORY https://github.com/recastnavigation/recastnavigation.git
  GIT_TAG 6dc1667f580357e8a2154c28b7867bea7e8ad3a7 SOURCE_SUBDIR forge-unused) # v1.6.0
 FetchContent_MakeAvailable(recast)
@@ -93,5 +93,8 @@ file(GLOB FORGE_RECAST_SOURCES CONFIGURE_DEPENDS "${recast_SOURCE_DIR}/Recast/So
 file(GLOB FORGE_DETOUR_SOURCES CONFIGURE_DEPENDS "${recast_SOURCE_DIR}/Detour/Source/*.cpp")
 add_library(forge_recast STATIC ${FORGE_RECAST_SOURCES})
 add_library(forge_detour STATIC ${FORGE_DETOUR_SOURCES})
+add_library(forge_detour_avoidance STATIC "${recast_SOURCE_DIR}/DetourCrowd/Source/DetourObstacleAvoidance.cpp")
+target_include_directories(forge_detour_avoidance PUBLIC "${recast_SOURCE_DIR}/DetourCrowd/Include")
+target_link_libraries(forge_detour_avoidance PUBLIC forge_detour)
 target_include_directories(forge_recast PUBLIC "${recast_SOURCE_DIR}/Recast/Include")
 target_include_directories(forge_detour PUBLIC "${recast_SOURCE_DIR}/Detour/Include")

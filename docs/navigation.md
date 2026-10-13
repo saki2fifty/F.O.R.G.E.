@@ -6,7 +6,7 @@ Phase 6E adds static navmesh generation and bounded headless path queries. Recas
 
 RecastNavigation **v1.6.0**, exact commit `6dc1667f580357e8a2154c28b7867bea7e8ad3a7`, is the latest official stable release reviewed on 2026-09-18. License: zlib. The [official release](https://github.com/recastnavigation/recastnavigation/releases/tag/v1.6.0), [documentation](https://recastnav.com/) and [pinned sources](https://github.com/recastnavigation/recastnavigation/tree/6dc1667f580357e8a2154c28b7867bea7e8ad3a7) govern integration. Current main was also reviewed; it does not supersede this tested stable pin.
 
-Only Recast and Detour are compiled. The upstream integration guide permits directly compiling their source directories; FORGE uses private CMake targets to avoid the demo's SDL2/OpenGL dependencies and old root-CMake policy requirements. DetourCrowd supplies steering/avoidance, DetourTileCache supports obstacle-driven tile updates, and tiled meshes support larger worlds. Those libraries and sample frameworks are not integrated here. The sample's native `MSET` serialization is not FORGE's asset format.
+Recast, Detour and its obstacle-velocity sampling source are compiled. The upstream integration guide permits directly compiling their source directories; FORGE uses private CMake targets to avoid the demo's SDL2/OpenGL dependencies and old root-CMake policy requirements. DetourCrowd supplies steering/avoidance, DetourTileCache supports obstacle-driven tile updates, and tiled meshes support larger worlds. The full Crowd manager, TileCache and sample frameworks are not integrated here. The sample's native `MSET` serialization is not FORGE's asset format.
 
 ## Authored configuration
 
@@ -76,7 +76,7 @@ Exceeding these bounds returns a diagnostic rather than silently truncating a pa
 
 ## Deferred work
 
-Crowd avoidance, TileCache, dynamic obstacles, multiple agent profiles, navigation volumes/cost editing, off-mesh links, moving platforms, world streaming, character controllers, generic cooking and save-game formats are deferred. Phase 6F runtime UI is not part of this phase.
+Full crowd management, TileCache, dynamic obstacles, multiple agent profiles, navigation volumes/cost editing, off-mesh links, moving platforms, world streaming, character controllers, generic cooking and save-game formats are deferred. Phase 6F runtime UI is not part of this phase.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
@@ -171,3 +171,55 @@ result. Missing or foreign-project snapshots wait for the existing asset owner.
 preparation and publication still use full frozen scene/catalog validation. The
 status shortcut never publishes, cooks or decodes Mesh inputs and does not certify
 that a pending build will publish successfully.
+
+
+## Opt-in local avoidance
+
+`NavigationAvoidance { enabled, horizon }` joins an existing NavigationAgent to
+predictive local steering. It is optional and absent/disabled retains legacy path
+following. Horizon is 0.25–5 seconds (default 2). Radius and height come from the
+selected baked navigation profile; this does not add a competing runtime footprint.
+The existing NavigationRuntime owns identity, paths, observations and lifecycle.
+Flecs owns semantic configuration, and the existing transform owner applies local
+translation. No full DetourCrowd agent/corridor manager or second ownership database
+is introduced. Only the unchanged, attributed DetourObstacleAvoidance.cpp from the
+same Recast1.6.0 pin supplies velocity sampling.
+
+All enabled participants use one copied tick-start pose/previous-velocity set.
+Only participants on the same NavMesh selection with overlapping vertical height
+influence each other. Idle, paused and arrived participants remain neighbours;
+disabled, deleted, invalid and unavailable participants are excluded. An agent
+without NavigationAvoidance does not become a predictive obstacle. Geometry/stale
+asset, physics and spatial restrictions remain in force. Avoidance additionally
+requires stationary spatial ancestry; World binding ends this traversal. Moving
+navigation parents cannot add another movement authority to a participating child.
+
+Steering is planar; existing Detour movement follows surface height. A bounded
+adjustment of up to 8 surface queries keeps full world displacement within the
+fixed-tick speed budget on slopes/steps. An initial height offset that cannot fit
+that budget is rejected: align the agent's movement anchor with the navmesh.
+Routes are recomputed from displaced positions by the existing bounded path query.
+The world remains bounded to 64 agents, with up to 63 copied neighbours, 32 nearby
+polygons and 192 wall segments per steering query. Overflow returns Limit; upstream
+silent circle/segment truncation is never accepted. Scratch is allocated lazily per
+cached query and retired with that query/world. NavAvoidance exposes the steering
+CPU scope through existing profiling; it does not advance during presentation reads.
+
+This is predictive local avoidance, not physical collision response or a guarantee
+against overlap/jams in dense or blocked configurations. Dynamic obstacle carving,
+multiple footprint profiles and physics character integration remain deferred.
+
+The Live gameplay Inspector tunes enabled/horizon through the existing private
+property_tune transport, with owner-thread, scene/entity and world-generation checks.
+It never advances simulation time or writes authored history. Invalid edits retain
+the current value. Both ordinary and SDK Play use this boundary; C++ gameplay can
+read/set the same reflected value through the matching installed SDK header.
+
+Navigation recovery metadata 2 copies optional avoidance values and ownership, also
+covering gameplay changes hidden by an authored prefab property mask. Recovery 1 is
+accepted only for worlds without avoidance components. No solver pointers, raw Flecs
+IDs or velocity-sampling scratch persist. This is ephemeral exact-runtime recovery,
+not a save-game format. The installed navigation_components.hpp changes the SDK
+fingerprint; rebuild native modules with the matching SDK. Existing NavigationAgent
+layout and the experimental 1 C table remain unchanged. Scene/prefab versions remain
+unchanged; older engines retain this unknown component but do not execute avoidance.

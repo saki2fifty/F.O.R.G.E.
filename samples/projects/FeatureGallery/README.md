@@ -1,5 +1,9 @@
 # FORGE Feature Gallery
 
+## Navigation avoidance
+
+Open **52-navigation-avoidance** and press Play. The passing cube and sphere steer around each other; the other moving cube goes around the parked sphere. Select an agent to see navigation progress and tune **Navigation Avoidance → Enabled / Horizon** in Live gameplay. Stop restores saved settings. The scene includes a baked NavMesh, camera and light and exports without C++ project setup. This is predictive local steering; dense or blocked configurations can still jam.
+
 ## Navigation on a static Mesh
 
 Open **51-static-mesh-navigation**. Press Play and select **Agent - inspect progress during Play** to see the route around the obstacle and its progress in Live gameplay. The floor uses the original editable **NavigationFloor.mesh.json** asset, rather than a built-in Plane. Its cooked Mesh and built NavMesh are saved with the Gallery.

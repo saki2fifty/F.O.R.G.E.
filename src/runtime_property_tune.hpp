@@ -2,12 +2,16 @@
 #include <forge/identity.hpp>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
+#include <string_view>
 namespace forge {
 // Shared shape/identity checks for the existing private editor command. World
 // generations come from each host's existing successful-replacement owner.
 struct RuntimePropertyTune {
     EntityRef target;
     std::string type, property;
+    static bool navigation_type(std::string_view type) {
+        return type == "forge.navigation_avoidance";
+    }
     static RuntimePropertyTune parse(const nlohmann::json& request, std::uint64_t generation,
                                      AssetId scene) {
         if (!generation || !request.contains("generation") ||

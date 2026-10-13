@@ -1,6 +1,7 @@
 #pragma once
 #include "../animation_playback_access.hpp"
 #include "../audio_mix.hpp"
+#include "../runtime_property_tune.hpp"
 #include "event_time.hpp"
 #include "play_transport_worker.hpp"
 #include <SDL3/SDL.h>
@@ -165,9 +166,10 @@ class PlaySession {
     bool submit_property_tune(const std::string& entity, const std::string& type,
                               const std::string& property, Json value) {
         const auto generation = sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;
-        if ((!sdk_game_ && !AnimationPlaybackAccess::rig_type(type)) || !ready() ||
-            !property_tune_command_.is_null() || generation == 0 || !snapshot_.is_object() ||
-            !snapshot_.contains("asset_id"))
+        if ((!sdk_game_ && !AnimationPlaybackAccess::rig_type(type) &&
+             !RuntimePropertyTune::navigation_type(type)) ||
+            !ready() || !property_tune_command_.is_null() || generation == 0 ||
+            !snapshot_.is_object() || !snapshot_.contains("asset_id"))
             return false;
         property_tune_command_ = {{"command", "property_tune"},
                                   {"generation", generation},

@@ -12,6 +12,8 @@ class NavigationRuntime final : public NavigationService {
     NavResult project_point(AssetRef<NavMeshAsset>, Double3) override;
     NavResult find_path(AssetRef<NavMeshAsset>, Double3, Double3) override;
     std::optional<NavigationAgentObservation> agent_state(EntityRef) const override;
+    // Private editor Play transport; no movement or authored history is advanced.
+    Json tune_avoidance(EntityRef, const std::string& property, const Json& value);
     Json debug(flecs::entity_t) const;
     Json checkpoint();
     // Restore only into an unpublished candidate world; discard that world on failure.
