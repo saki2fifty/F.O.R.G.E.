@@ -26,7 +26,7 @@ frame clocks: UpdateAndEditorUI, SceneSubmission, UISubmission and PresentCall.
 The existing Performance comparison/redraw controls and half-second averages remain
 available. FPS in the profiler is the existing Editor loop measurement, not game
 simulation FPS or GPU execution time. Present/driver waits can affect CPU sections.
-Runtime scopes include FixedSimulationTick, Animation, Navigation, physics
+Runtime scopes include FixedSimulationTick, Animation, Navigation, NavSourceCapture, physics
 synchronization/step/adoption, audio synchronization and PresentationExtraction;
 existing transform/prefab/native-module measurements remain their own scopes.
 

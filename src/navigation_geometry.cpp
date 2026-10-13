@@ -219,8 +219,9 @@ Geometry triangles(const Sources& source,
     return g;
 }
 } // namespace
-Geometry geometry(const nlohmann::json& doc) {
-    auto g = triangles(capture(doc), {});
+Geometry geometry(const nlohmann::json& doc) { return geometry(capture(doc)); }
+Geometry geometry(const Sources& source) {
+    auto g = triangles(source, {});
     Json canonical = {
         {"bridge", 1}, {"scene", g.scene}, {"sources", g.sources}, {"vertices", g.vertices}};
     auto text = canonical.dump();

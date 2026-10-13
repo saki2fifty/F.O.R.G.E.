@@ -25,6 +25,9 @@ class Scene {
     std::string canonical_id(const std::string& id) const { return resolve_legacy_id(opaque_, id); }
     EntityRef reference(const std::string& id) const;
     Json effective_document() const;
+    // Narrow copied intent for removed prefab members that still own an enabled
+    // NavigationSurface. Native-only capture must not silently omit these errors.
+    Json unresolved_navigation_sources() const;
     // Detached command/gesture projection; never a mutable live representation.
     Json preview_document(const Json& intended) const;
     static void validate_document(const Json& document);

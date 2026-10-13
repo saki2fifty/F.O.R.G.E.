@@ -4,6 +4,8 @@ Navigation lets an object find a route across a floor and around static obstacle
 
 This is basic path following. Agents do not avoid each other or react to moving obstacles, and cannot have a Physics Body.
 
+Navigation checks marked surfaces during Play without copying unrelated scene content. In **Window → CPU Profiler → Play runtime**, **NavSourceCapture** shows the CPU time used by that check. Changing marked geometry still requires rebuilding navigation; the performance improvement does not change authoring or export steps.
+
 ## Build a floor and obstacles
 
 1. Create a Plane. Set its scale to **20, 1, 20** and position to **0, 0, 0**.

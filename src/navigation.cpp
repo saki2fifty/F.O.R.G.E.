@@ -1,6 +1,6 @@
 #include "builtins.hpp"
 #include "navigation_asset.hpp"
-#include "navigation_geometry.hpp"
+#include "navigation_sources.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/assets.hpp>
@@ -71,8 +71,14 @@ struct NavigationRuntime::Impl {
     std::weak_ptr<RuntimeResourceService> mesh_owner;
     std::map<AssetId, std::uint64_t> mesh_tokens;
     flecs::query<const NavigationSurface> surfaces;
+    flecs::query<const PersistentEntityId> source_entities;
     Impl(WorldContext& c, std::filesystem::path p)
-        : context(c), project(std::move(p)), surfaces(c.world().query<const NavigationSurface>()) {}
+        : context(c), project(std::move(p)), surfaces(c.world().query<const NavigationSurface>()),
+          source_entities(c.world()
+                              .query_builder<const PersistentEntityId>()
+                              .cache_kind(flecs::QueryCacheNone)
+                              .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
+                              .build()) {}
     void release_meshes() noexcept {
         if (auto resources = mesh_owner.lock())
             for (const auto& [id, token] : mesh_tokens)
@@ -197,10 +203,14 @@ void NavigationRuntime::synchronize() {
     if (s.context.world().is_readonly())
         throw std::logic_error("Navigation synchronization requires a writable boundary");
     // The native query follows effective inherited values and excludes templates.
-    // With no enabled surface there is no geometry to serialize or hash. In
+    // With no enabled surface there is no geometry to capture or hash. In
     // particular unrelated large opaque scene data must not be copied each tick.
     bool has_surface = false;
-    s.surfaces.each([&](const NavigationSurface& surface) { has_surface |= surface.enabled; });
+    auto capture_profile = s.context.services().profile("navigation", "NavSourceCapture", s.tick);
+    s.surfaces.each([&](flecs::entity e, const NavigationSurface& surface) {
+        if (surface.enabled && e.owns<PersistentEntityId>())
+            has_surface |= s.scene->entity(e.get<PersistentEntityId>().value.str()) == e;
+    });
     if (!has_surface) {
         s.release_meshes();
         s.geometry_digest.clear();
@@ -217,8 +227,7 @@ void NavigationRuntime::synchronize() {
     s.geometry_loading = false;
     s.geometry_status = NavStatus::Stale;
     try {
-        const auto doc = s.scene->effective_document();
-        const auto source = capture(doc);
+        const auto source = capture_native(s.context, *s.scene, s.source_entities);
         std::shared_ptr<RuntimeResourceService> resources;
         if (!source.meshes.empty()) {
             if (!s.context.services().available(Capability::Resources)) {
@@ -267,7 +276,7 @@ void NavigationRuntime::synchronize() {
         if (source.meshes.empty())
             s.geometry_digest = !previous_legacy.empty() && previous_sources == s.geometry_v2
                                     ? previous_legacy
-                                    : navigation_geometry_digest(doc);
+                                    : geometry(source).digest;
         if (!ready) {
             s.geometry_loading = true;
             s.geometry_status = NavStatus::Unavailable;

@@ -851,6 +851,37 @@ void Scene::restore_child_order(const Json& document) {
                             static_cast<int32_t>(children.size()));
     }
 }
+Json Scene::unresolved_navigation_sources() const {
+    Json result = Json::array();
+    for (const auto& item : opaque_.at("entities")) {
+        if (!item.contains("prefab_member"))
+            continue;
+        const auto& components = item.at("components");
+        if (!components.contains("forge.navigation_surface") ||
+            !components.at("forge.navigation_surface").at("enabled").get<bool>() ||
+            entity(item.at("id")))
+            continue;
+        Json row = {{"id", item.at("id")},
+                    {"prefab", item.value("prefab", false)},
+                    {"components", {{"forge.navigation_surface", {{"enabled", true}}}}}};
+        auto& out = row["components"];
+        if (components.contains("forge.primitive"))
+            out["forge.primitive"] = {{"kind", components.at("forge.primitive").at("kind")}};
+        if (components.contains("forge.mesh_renderer")) {
+            const auto& mesh = components.at("forge.mesh_renderer");
+            out["forge.mesh_renderer"] = {{"mesh", mesh.at("mesh")},
+                                          {"enabled", mesh.value("enabled", true)}};
+        }
+        if (components.contains("forge.physics_body"))
+            out["forge.physics_body"] = {
+                {"motion", components.at("forge.physics_body").at("motion")}};
+        // There is no native entity/matrix. The shared geometry validator retains
+        // its existing group/static/unresolved diagnostic, without copying opaque
+        // extensions, unrelated components or an entire effective Scene.
+        result.push_back(std::move(row));
+    }
+    return result;
+}
 Json Scene::serialize(bool effective) const {
     if (effective)
         context_.evaluate_world_transforms();

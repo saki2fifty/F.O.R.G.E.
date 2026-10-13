@@ -1,5 +1,12 @@
 # 2026-10-13
 
+## Navigation capture performance
+
+- Capture marked surfaces and required ancestors from native values, without serializing unrelated scene data every navigation update.
+- Preserve canonical bake hashes, static checks, scene-instance isolation, prefab inheritance and invalidation for removed members with owned surface intent.
+- Add NavSourceCapture to the existing CPU profiler. Keep read-only gameplay queries on the last writable capture; bake/export formats and the SDK fingerprint are unchanged.
+- Validate the same CPU workload before/after plus normal and sanitizer runtime checks. Windows/physical acceptance remains pending.
+
 ## Static Mesh navigation
 
 - Bake marked editable and imported static triangle Mesh leaf entities through existing cooked selection/resource ownership; reject unsupported deformation and oversized input with diagnostics.

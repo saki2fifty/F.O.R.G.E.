@@ -128,12 +128,31 @@ the private SDK fingerprint; rebuild native modules with the matching SDK.
 
 Navigation captures source geometry at the writable start of a fixed tick and refreshes it after gameplay before moving agents. A query inside a read-only Flecs system uses that captured validation state and never writes derived transforms. Deferred gameplay edits become visible when Flecs merges them; subsequent agent movement validates the updated geometry. Inherited NavigationAgent components are collected through a normal Flecs query, not an ownership-only component iterator.
 
-## Empty navigation geometry
+## Runtime source capture
 
-Runtime synchronization uses a retained native Flecs query for effective enabled
-NavigationSurface components before copying the scene for geometry extraction.
-With no enabled surfaces, it clears the previous digest and reports unavailable
-source geometry without serializing unrelated scene data. Re-enabling a surface
-returns through the existing complete geometry/hierarchy validation; a cached
-NavMesh cannot be reused against a removed or disabled source. This optimization
-does not skip validation when any enabled surface exists.
+Runtime synchronization copies marked surfaces and the spatial ancestors needed by
+the existing geometry validator directly from native Flecs values. Scene's identity
+lookup restricts those values to the bound instance, including when another instance
+has the same Scene AssetId. Partial prefab masks remain effective native values.
+The transform owner evaluates its existing dirty epoch; navigation never authors
+matrices or replaces hierarchy ownership. No full effective Scene, unrelated opaque
+extensions, custom components or unmarked geometry are serialized for this capture.
+
+The retained persistent-ID query includes disabled entities and implicit prefab
+children so capture matches the existing source-document validator. Scene supplies
+only the relevant owned intent for removed prefab members: an unresolved enabled
+NavigationSurface still fails the same group/static/transform checks. This narrow
+projection copies no unrelated member extensions. These temporary descriptors use
+the same validator and canonical v1/v2 digest paths as baking. Existing selected
+Mesh leases/revisions, resource readiness and stale-generation policy are unchanged.
+
+A normal native NavigationSurface query first checks for an active surface in the
+bound Scene. With none, synchronization clears the previous digest without capturing
+unrelated data. Re-enabling one returns through complete source validation; a cached
+NavMesh cannot be reused against a removed or disabled source.
+
+`NavSourceCapture` records inclusive CPU synchronization cost through the existing
+Profiling service. Disabled profiling collects no samples. A stable transform epoch
+avoids reevaluation; when transforms change, their owner's existing scene-wide
+evaluation is still required. Capture benchmarks do not establish game FPS, GPU
+cost or Windows acceptance.
