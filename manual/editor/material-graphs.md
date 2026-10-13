@@ -33,6 +33,19 @@ move it. Ctrl-click selects several nodes. Delete removes selected nodes; Ctrl+C
 copies/pastes them. A copied parameter becomes a separate parameter. Middle mouse
 pans; the wheel zooms around the pointer; **Frame graph** fits the nodes.
 
+## Thresholds and rounding
+
+Search **Add node** for these Math nodes, then choose their **Value type**:
+
+- **Step** makes a hard cutoff: 0 below Threshold, 1 at or above it.
+- **Smoothstep** makes a smooth transition between Low and High. Reversing those values reverses the transition; equal endpoints make a hard cutoff.
+- **Ceiling** rounds upward: 1.2 becomes 2, and -1.2 becomes -1.
+- **Round** selects the nearest integer. Halfway values go to the even integer: 1.5 becomes 2, 2.5 becomes 2, and -0.5 becomes 0.
+
+For vectors and colors, each channel changes independently. Connect matching
+types or use **Convert**. The nodes also work inside extracted functions.
+These additions are locally tested; their Windows/GPU acceptance is pending.
+
 ## Parameters and material variations
 
 Use Parameter nodes for values that individual materials should change. **Label**

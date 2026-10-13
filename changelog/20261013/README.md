@@ -1,5 +1,14 @@
 # 2026-10-13
 
+## Material thresholds and rounding
+
+- Step, Smoothstep, Ceiling and Round support scalar, vector and color graph
+  values, existing functions, source history and editor type controls.
+- Smoothstep handles reversed and equal endpoints safely. Round uses halfway
+  ties to even; Ceiling rounds toward positive infinity.
+- Local source, sanitizer, scaled editor and actual shader compilation checks
+  pass. Windows/FXC5.1 and physical GPU acceptance remain pending.
+
 ## Model duplication and grid placement
 
 - Duplicate selected face groups into detached geometry with a Mesh-local offset.

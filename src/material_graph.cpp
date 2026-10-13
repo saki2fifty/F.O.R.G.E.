@@ -277,13 +277,34 @@ class Compiler {
         } else if (key == "lerp") {
             const auto a = arg(0), b = arg(1), factor = arg(2, "0.5");
             expression = "lerp(" + a + "," + b + "," + factor + ")";
+        } else if (key == "step") {
+            expression = "step(" + arg(0) + "," + arg(1) + ")";
+        } else if (key == "smoothstep") {
+            const auto low = arg(0), high = arg(1, "((" + hlsl_type(t) + ")1.0)"), value = arg(2);
+            expression = hlsl_type(t) + "(";
+            for (unsigned lane = 0; lane < material_parameter_width(t); ++lane) {
+                if (lane)
+                    expression += ",";
+                const auto suffix = material_parameter_width(t) == 1
+                                        ? std::string{}
+                                        : "." + std::string(1, "xyzw"[lane]);
+                const auto a = low + suffix, b = high + suffix, x = value + suffix;
+                const auto delta = "(" + b + "-" + a + ")", equal = "(" + delta + "==0)";
+                // Normalize either endpoint order. Equal endpoints select Step,
+                // with a safe divisor even if the shader evaluates both arms.
+                expression += "(" + equal + "?step(" + a + "," + x + "):smoothstep(0.0,1.0,(" + x +
+                              "-" + a + ")/(" + equal + "?1.0:" + delta + ")))";
+            }
+            expression += ")";
         } else if (key == "saturate" || key == "sine" || key == "cosine" || key == "absolute" ||
-                   key == "fraction" || key == "floor") {
+                   key == "fraction" || key == "floor" || key == "ceiling" || key == "round") {
             const auto function = key == "sine"       ? "sin"
                                   : key == "cosine"   ? "cos"
                                   : key == "absolute" ? "abs"
                                   : key == "fraction" ? "frac"
                                   : key == "floor"    ? "floor"
+                                  : key == "ceiling"  ? "ceil"
+                                  : key == "round"    ? "round"
                                                       : "saturate";
             expression = std::string(function) + "(" + arg(0) + ")";
         } else if (key == "one_minus")
@@ -445,6 +466,11 @@ const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas() {
         {"absolute", "Absolute", "Math", "Component-wise absolute value."},
         {"fraction", "Fraction", "Math", "Fractional part of each lane."},
         {"floor", "Floor", "Math", "Round each lane down to an integer."},
+        {"ceiling", "Ceiling", "Math", "Round each lane toward positive infinity."},
+        {"round", "Round", "Math", "Nearest integer per lane; halfway ties round to even."},
+        {"step", "Step", "Math", "Return zero below the threshold and one at or above it."},
+        {"smoothstep", "Smoothstep", "Math",
+         "Smooth transition between endpoints; reversed ranges invert, equal endpoints use Step."},
         {"normal_map", "Normal Map", "Textures",
          "Decode a sampled tangent-space normal into the renderer's world-space surface frame."},
         {"uv", "UV Coordinates", "Geometry", "A logical mesh UV set, mapped by the renderer."},
@@ -627,8 +653,12 @@ std::vector<MaterialGraphPort> material_graph_inputs(const Json& node) {
         return {port("a", type(node)), port("b", type(node))};
     if (k == "lerp")
         return {port("a", type(node)), port("b", type(node)), port("factor", Type::Scalar)};
+    if (k == "step")
+        return {port("threshold", type(node)), port("value", type(node))};
+    if (k == "smoothstep")
+        return {port("low", type(node)), port("high", type(node)), port("value", type(node))};
     if (k == "saturate" || k == "sine" || k == "one_minus" || k == "cosine" || k == "absolute" ||
-        k == "fraction" || k == "floor")
+        k == "fraction" || k == "floor" || k == "ceiling" || k == "round")
         return {port("value", type(node))};
     if (k == "convert" || k == "component") {
         const auto key = node.at("data").value("from", std::string("vector4"));

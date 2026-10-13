@@ -559,7 +559,8 @@ class MaterialGraphCanvas {
         if (kind == "constant" || kind == "parameter" || kind == "add" || kind == "subtract" ||
             kind == "multiply" || kind == "combine" || kind == "minimum" || kind == "maximum" ||
             kind == "divide" || kind == "cosine" || kind == "absolute" || kind == "fraction" ||
-            kind == "floor" || kind == "lerp" || kind == "saturate" || kind == "one_minus" ||
+            kind == "floor" || kind == "ceiling" || kind == "round" || kind == "step" ||
+            kind == "smoothstep" || kind == "lerp" || kind == "saturate" || kind == "one_minus" ||
             kind == "sine" || kind == "convert") {
             auto current = data.value("type", std::string("scalar"));
             int index = 0;

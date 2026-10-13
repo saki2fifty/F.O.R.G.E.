@@ -1,5 +1,6 @@
 #pragma once
 #include "material_graph_compile_fixture.hpp"
+#include "material_graph_threshold_tests.hpp"
 #include "mesh_draw_shader.hpp"
 #include <forge/material_graph.hpp>
 #include <limits>
@@ -28,6 +29,7 @@ inline Json edge(const Json& from, std::string out, const Json& to, std::string 
             {"to", {{"node", to.at("id")}, {"port", in}}}};
 }
 inline void run() {
+    threshold_tests();
     (void)compile_material_graph(all_node_graph());
     auto graph = create_material_graph();
     validate_material_graph_document(graph);

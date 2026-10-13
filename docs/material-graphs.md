@@ -37,8 +37,22 @@ variations use existing sparse base/override inheritance and independent Revert.
 The UI-independent schema/projection layer provides constants, parameters, texture
 sampling (2D, 2D array, cube, cube array and3D), UVs, camera-relative positions,
 normals, vertex colors, normal maps, typed conversions, channel composition/extraction,
-arithmetic, mix, clamp-to-unit, trigonometry, absolute/fraction/floor, dot/cross and
+arithmetic, mix, clamp-to-unit, trigonometry, absolute/fraction/floor/ceiling/round,
+thresholds, smooth thresholds, dot/cross and
 safe normalization. Divide selects zero for a zero denominator per lane, rather than multiplying a possibly overflowed result by zero.
+
+Step, Smoothstep, Ceiling and Round accept all six existing scalar/vector/color
+types, with exact semantic types on each port. Step returns0 below its threshold
+and1 at or above it. Smoothstep defaults to low0, high1, value0: an ordered range
+smoothly rises from0 to1, a reversed range falls from1 to0, and equal endpoints
+act as Step. Each lane selects a nonzero normalization divisor before calling the
+standard HLSL smoothstep intrinsic on0–1, including eagerly evaluated branches.
+Ceiling rounds toward positive infinity; Round chooses the nearest integer with
+halfway ties to even. Unconnected Step ports default to0; its result is therefore1.
+Ceiling and Round default to0. These are floating values, not integer port types.
+They work through existing copy/paste, function expansion and source history.
+Local DXC probes validate generated numeric results and color/depth compilation;
+new-node FXC5.1/Windows and physical GPU acceptance remain pending.
 
 Exactly one Surface Output defines base color/alpha, metallic, roughness, normal,
 emission and occlusion. Graph values feed the existing metallic/roughness PBR
