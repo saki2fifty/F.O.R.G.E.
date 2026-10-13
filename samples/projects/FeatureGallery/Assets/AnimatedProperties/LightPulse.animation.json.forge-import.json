@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v3",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "6952e7b48479c5f4acc65d8aa4ef611afa3289b9f578576e9ea0b2bee8247cc9",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "525f81e1-f82e-468e-965e-e9ed974b6d3b",
+    "source": "Assets/AnimatedProperties/LightPulse.animation.json",
+    "source_digest": "6952e7b48479c5f4acc65d8aa4ef611afa3289b9f578576e9ea0b2bee8247cc9",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

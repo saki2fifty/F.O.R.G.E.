@@ -73,10 +73,15 @@ class AnimationTimelineEditor {
     bool preview_active() const { return document_ && preview_ && target_.entity && clip_; }
     void stop_preview() { preview_ = playing_ = false; }
     Json preview(Json source) {
-        if (preview_active() &&
-            !apply_transform_animation_preview(source, target_, *clip_, time_)) {
+        try {
+            if (preview_active() &&
+                !apply_transform_animation_preview(source, target_, *clip_, time_)) {
+                stop_preview();
+                error_ = "Preview target is no longer in this scene. Choose an object again.";
+            }
+        } catch (const std::exception& e) {
             stop_preview();
-            error_ = "Preview target is no longer in this scene. Choose an object again.";
+            report("preview", e.what());
         }
         return source;
     }
@@ -242,6 +247,7 @@ class AnimationTimelineEditor {
             FORGE_UI_PROBE("animation:retime");
             ImGui::EndDisabled();
             channels_controls();
+            property_controls(scene);
             double seconds = time_ / animation_timebase;
             if (ImGui::SliderScalar("Playhead (seconds)", ImGuiDataType_Double, &seconds, &zero_,
                                     &duration, "%.3f")) {
@@ -250,7 +256,7 @@ class AnimationTimelineEditor {
                     time_ = seconds * animation_timebase;
                     key_ = {};
                     selected_keys_.clear();
-                    fields(clip_->sample(time_));
+                    sample_fields(time_);
                     preview_ = bool(target_.entity);
                     playing_ = false;
                 }
@@ -346,8 +352,14 @@ class AnimationTimelineEditor {
         const auto entity = scene.entity(id);
         if (!entity || entity.has(flecs::Prefab))
             throw std::runtime_error("Choose a scene object for animation preview");
+        const auto before = target_;
         target_ = {scene.asset_id(), EntityId::parse(id)};
-        capture(scene);
+        try {
+            capture(scene);
+        } catch (...) {
+            target_ = before;
+            throw;
+        }
     }
 
   private:
@@ -386,6 +398,7 @@ class AnimationTimelineEditor {
     double time_ = 0, zero_ = 0;
     float preview_speed_ = 1;
     double position_[3]{};
+    AnimationPropertyValues property_fields_{};
     float rotation_[3]{}, scale_[3]{1, 1, 1};
     bool held_ = false, curve_dirty_ = false;
     TransformAnimationCurves curves_;
@@ -472,7 +485,7 @@ class AnimationTimelineEditor {
                 held_ = at->held;
                 curves_ = at->curves;
                 curve_dirty_ = false;
-                fields(at->pose);
+                fields(at->pose, at->properties);
             }
         }
         std::set<AssetId> surviving;
@@ -509,7 +522,8 @@ class AnimationTimelineEditor {
             return false;
         }
     }
-    void fields(const LocalTransform& pose) {
+    void fields(const LocalTransform& pose, const AnimationPropertyValues& properties = {}) {
+        property_fields_ = properties;
         position_[0] = pose.translation.x;
         position_[1] = pose.translation.y;
         position_[2] = pose.translation.z;
@@ -596,7 +610,7 @@ class AnimationTimelineEditor {
                 held_ = key.held;
                 curves_ = key.curves;
                 curve_dirty_ = false;
-                fields(key.pose);
+                fields(key.pose, key.properties);
                 return;
             }
     }
@@ -604,10 +618,19 @@ class AnimationTimelineEditor {
         const auto entity = scene.entity(target_.entity.str());
         if (!entity || scene.asset_id() != target_.scene)
             throw std::runtime_error("Animation preview object is unavailable");
+        const auto properties = AnimationPropertyState::from(entity, clip_->properties);
+        AnimationPropertyValues captured{};
+        for (const auto& binding : animation_property_bindings())
+            if (clip_->properties & animation_property_bit(binding.property)) {
+                const auto value = properties.value(binding.property);
+                validate_animation_property(binding.property, value);
+                captured[unsigned(binding.property)] = value;
+            }
         fields(
             {entity.has<LocalTranslation>() ? entity.get<LocalTranslation>() : LocalTranslation{},
              entity.has<LocalRotation>() ? entity.get<LocalRotation>() : LocalRotation{},
-             entity.has<LocalScale>() ? entity.get<LocalScale>() : LocalScale{}});
+             entity.has<LocalScale>() ? entity.get<LocalScale>() : LocalScale{}},
+            captured);
     }
     void target_controls(Scene& scene) {
         std::string label = "Choose object";
@@ -638,6 +661,8 @@ class AnimationTimelineEditor {
                        "Add Transform Animator with this published clip as one Scene Undo step.")) {
             try {
                 const auto id = target_.entity.str();
+                auto properties = AnimationPropertyState::from(scene.entity(id), clip_->properties);
+                properties.sample(clip_->properties, clip_->sample_properties(0));
                 auto commands = Json::array();
                 if (!scene.entity(id).has<TransformAnimator>())
                     commands.push_back(
@@ -675,9 +700,50 @@ class AnimationTimelineEditor {
                     source.document["channels"] = std::move(list);
                 });
             }
+            FORGE_UI_PROBE(std::string("animation:channel:") + item.first);
             ImGui::SameLine();
         }
         ImGui::NewLine();
+    }
+    void sample_fields(double time) { fields(clip_->sample(time), clip_->sample_properties(time)); }
+    void property_controls(Scene& scene) {
+        const bool expanded = ImGui::CollapsingHeader("Animated properties");
+        FORGE_UI_PROBE("animation:properties");
+        if (!expanded)
+            return;
+        ImGui::BeginDisabled(bool(drag_key_) || curve_drag_ || box_ || pan_);
+        ImGui::TextWrapped("Camera zoom and light brightness/color use the same keys. Adding a "
+                           "property captures its current authored value into every key. "
+                           "Key fields below set different values over time.");
+        const auto entity = target_.entity && target_.scene == scene.asset_id()
+                                ? scene.entity(target_.entity.str())
+                                : flecs::entity{};
+        for (const auto& binding : animation_property_bindings()) {
+            ui::IdScope id(binding.name);
+            const bool selected =
+                (clip_->properties & animation_property_bit(binding.property)) != 0;
+            bool enabled = selected;
+            const bool available = entity && (std::string_view(binding.component) == "forge.camera"
+                                                  ? entity.has<Camera>()
+                                                  : entity.has<Light>());
+            ImGui::BeginDisabled(!selected && !available);
+            if (ImGui::Checkbox(binding.label, &enabled)) {
+                if (enabled)
+                    mutate("Add animated property", [&](auto& source) {
+                        const auto values = AnimationPropertyState::from(
+                            entity, animation_property_bit(binding.property));
+                        source.add_property(binding.property, values.value(binding.property));
+                    });
+                else
+                    mutate("Remove animated property",
+                           [&](auto& source) { source.erase_property(binding.property); });
+            }
+            FORGE_UI_PROBE(std::string("animation:property:") + binding.name);
+            ImGui::EndDisabled();
+        }
+        if (!entity)
+            ImGui::TextDisabled("Choose a preview object to add its camera or light properties.");
+        ImGui::EndDisabled();
     }
     void cancel_ruler_capture() {
         if (box_) {
@@ -721,7 +787,17 @@ class AnimationTimelineEditor {
     }
     void ruler() {
         const auto start = ImGui::GetCursorScreenPos();
-        const float width = std::max(140.f, ImGui::GetContentRegionAvail().x), height = 100;
+        std::vector<unsigned> rows;
+        for (unsigned i = 0; i < 3; ++i)
+            if (clip_->channels & (1u << i))
+                rows.push_back(i);
+        for (unsigned i = 0; i < animation_property_count; ++i)
+            if (clip_->properties & (1u << i))
+                rows.push_back(i + 3);
+        const float row_height =
+            clip_->properties ? std::max(22.f, ImGui::GetTextLineHeightWithSpacing()) : 22.f;
+        const float width = std::max(140.f, ImGui::GetContentRegionAvail().x),
+                    height = std::max(100.f, 36.f + float(rows.size()) * row_height);
         ImGui::InvisibleButton("Animation ruler", {width, height},
                                ImGuiButtonFlags_MouseButtonLeft |
                                    ImGuiButtonFlags_MouseButtonMiddle);
@@ -825,7 +901,7 @@ class AnimationTimelineEditor {
                     key_ = {};
                     selected_keys_.clear();
                     time_ = view_.time(double(mouse.x - start.x) / width);
-                    fields(clip_->sample(time_));
+                    sample_fields(time_);
                 }
                 preview_ = bool(target_.entity);
                 playing_ = false;
@@ -846,10 +922,10 @@ class AnimationTimelineEditor {
                         continue;
                     const auto at = x(double(key.time));
                     bool hit = false;
-                    for (unsigned row = 0; row < 3; ++row) {
-                        const float y = start.y + 36 + row * 22;
-                        hit |= (clip_->channels & (1u << row)) && at + 5 >= box_low.x &&
-                               at - 5 <= box_high.x && y + 5 >= box_low.y && y - 5 <= box_high.y;
+                    for (unsigned row = 0; row < rows.size(); ++row) {
+                        const float y = start.y + 36 + row * row_height;
+                        hit |= at + 5 >= box_low.x && at - 5 <= box_high.x && y + 5 >= box_low.y &&
+                               y - 5 <= box_high.y;
                     }
                     if (hit) {
                         if (box_mode_ < 0)
@@ -891,6 +967,15 @@ class AnimationTimelineEditor {
                           view_.time(double(i) / ticks) / animation_timebase);
             draw->AddText({at + 2, start.y + 2}, IM_COL32(180, 190, 200, 255), text);
         }
+        for (unsigned row = 0; row < rows.size(); ++row) {
+            const auto index = rows[row];
+            if (index < 3)
+                continue;
+            const char* label = animation_property_binding(AnimationProperty(index - 3)).label;
+            draw->AddText(
+                {start.x + 3, start.y + 36 + row * row_height - ImGui::GetTextLineHeight() / 2},
+                IM_COL32(165, 177, 188, 155), label);
+        }
         for (const auto& key : clip_->keys) {
             const auto shown_time =
                 double(key.time) +
@@ -898,14 +983,12 @@ class AnimationTimelineEditor {
             if (!view_.visible(shown_time))
                 continue;
             const float at = x(shown_time);
-            for (unsigned row = 0; row < 3; ++row)
-                if (clip_->channels & (1u << row)) {
-                    const float y = start.y + 36 + row * 22;
-                    const auto color = selected_keys_.contains(key.id)
-                                           ? IM_COL32(255, 203, 78, 255)
-                                           : IM_COL32(90, 177, 229, 255);
-                    draw->AddQuadFilled({at, y - 5}, {at + 5, y}, {at, y + 5}, {at - 5, y}, color);
-                }
+            for (unsigned row = 0; row < rows.size(); ++row) {
+                const float y = start.y + 36 + row * row_height;
+                const auto color = selected_keys_.contains(key.id) ? IM_COL32(255, 203, 78, 255)
+                                                                   : IM_COL32(90, 177, 229, 255);
+                draw->AddQuadFilled({at, y - 5}, {at + 5, y}, {at, y + 5}, {at - 5, y}, color);
+            }
         }
         if (view_.visible(time_))
             draw->AddLine({x(time_), start.y}, {x(time_), start.y + height},
@@ -928,7 +1011,7 @@ class AnimationTimelineEditor {
             if (key_)
                 activate_key(key_);
             else
-                fields(clip_->sample(time_));
+                sample_fields(time_);
             preview_ = bool(target_.entity);
             playing_ = false;
         }
@@ -1074,10 +1157,20 @@ class AnimationTimelineEditor {
         FORGE_UI_PROBE("animation:position");
         ImGui::InputFloat3("Rotation (degrees)", rotation_);
         ImGui::InputFloat3("Scale", scale_);
+        for (const auto& binding : animation_property_bindings()) {
+            if (!(clip_->properties & animation_property_bit(binding.property)))
+                continue;
+            ui::IdScope id(binding.name);
+            ImGui::TextWrapped("%s", binding.label);
+            auto value = property_fields_[unsigned(binding.property)] * binding.display_multiplier;
+            if (ImGui::InputDouble("##value", &value, 0, 0, "%.6f"))
+                property_fields_[unsigned(binding.property)] = value / binding.display_multiplier;
+            FORGE_UI_PROBE(std::string("animation:value:") + binding.name);
+        }
         ImGui::Checkbox("Hold until next key", &held_);
         ImGui::BeginDisabled(!target_.entity);
-        if (ui::button("Capture authored pose",
-                       "Copy the chosen object's authored local transform into the key fields.")) {
+        if (ui::button("Capture authored pose", "Copy the chosen object's authored transform and "
+                                                "selected properties into the key fields.")) {
             try {
                 capture(scene);
             } catch (const std::exception& e) {
@@ -1098,7 +1191,8 @@ class AnimationTimelineEditor {
                     checked_local_scale({scale_[0], scale_[1], scale_[2]})};
                 added = source.set_key(
                     std::llround(time_), pose, held_, {},
-                    curve_dirty_ ? std::optional<TransformAnimationCurves>(curves_) : std::nullopt);
+                    curve_dirty_ ? std::optional<TransformAnimationCurves>(curves_) : std::nullopt,
+                    property_fields_);
             });
             if (document_->revision() != revision)
                 select_key(added);

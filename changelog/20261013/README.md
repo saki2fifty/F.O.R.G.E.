@@ -1,5 +1,12 @@
 # 2026-10-13
 
+## Animated camera and light properties
+
+- Extend the current animation clip and Timeline with camera field of view/orthographic height and light intensity/linear RGB keys, including property-only clips.
+- Reuse current document history, publication, fixed playback/recovery and copied preview; between-tick presentation updates camera/light fields without live ECS writes.
+- Publish explicit cooked version3 while selected older clips remain readable. Keep the native component layouts and installed C++ SDK interface unchanged.
+- Add Gallery49 with original camera zoom and colored sunlight clips, plus runtime/render/export and actual Timeline interaction checks. Windows/physical acceptance remains separate.
+
 ## Spatial HDR bloom
 
 - Add an original color-only bloom pass before tone mapping in Scene and Game views, with explicit camera rectangles and alpha preservation.

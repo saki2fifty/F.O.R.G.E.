@@ -7,6 +7,7 @@
 #include <forge/physics_components.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
+#include <numbers>
 #include <thread>
 using namespace forge;
 using namespace std::chrono_literals;
@@ -68,6 +69,7 @@ struct Fixture {
     }
 };
 } // namespace
+#include "animation_property_tests.hpp"
 #include "transform_animation_key_batch_tests.hpp"
 #include "transform_animation_timing_tests.hpp"
 #include "transform_animation_value_tests.hpp"
@@ -81,6 +83,7 @@ int main(int argc, char** argv) {
         animation_timing_tests();
         animation_value_tests();
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
+        animation_property_tests(root / "property-tests");
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
         auto document = TransformAnimationDocument::create(lease, "Assets/Motion.animation.json");

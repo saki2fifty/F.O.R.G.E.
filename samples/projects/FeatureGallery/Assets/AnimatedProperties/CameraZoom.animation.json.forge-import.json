@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v3",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "1975906b597c82132c45ce209b76c34493b325d57d65a7eb06ff42b9912571a9",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "b2cebb12-65b9-4bc0-9181-02413b98fe0a",
+    "source": "Assets/AnimatedProperties/CameraZoom.animation.json",
+    "source_digest": "1975906b597c82132c45ce209b76c34493b325d57d65a7eb06ff42b9912571a9",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

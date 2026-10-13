@@ -6,10 +6,10 @@ owned by `AnimationRuntime`; this feature adds no dependency or service manager.
 
 ## Source, publication and identity
 
-`TransformAnimationSource` reads `forge.transform-animation` versions 1 and 2 in a bounded
+`TransformAnimationSource` reads `forge.transform-animation` versions 1, 2 and 3 in a bounded
 2 MiB `.animation.json` document. It stores its AssetId, a 1,000,000-unit-per-second
 integer timebase, positive duration up to one hour, 1–4096 sorted keys at unique
-times within duration, and at least one qualified channel:
+times within duration, and, for versions1/2, at least one qualified channel:
 `forge.local_translation`, `forge.local_rotation`, or `forge.local_scale`.
 Each key has a stable UUID, integer `time_us`, full local pose and `linear` or
 `held` interpolation. Quaternion rotations must be finite and normalized;
@@ -136,16 +136,16 @@ ruler and cancel itself; Save & Publish supplies
 Play and export through the existing owners. Gallery47 compares original motion,
 changed position and changed scale using selected Windows-target CPU cooks.
 
-The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v2`
+The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v3`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
-It publishes `forge.transform-clip` version 2, validated by the same bounded
-parser/evaluator. Previously selected version-1 artifacts remain readable without
+It publishes `forge.transform-clip` version 3, validated by the same bounded
+parser/evaluator. Previously selected version-1/2 artifacts remain readable without
 rewriting their catalog or DDC records. Runtime and export require the cooked root
 version to match the selected output version. Source and cooked readers allow
 500,000 parser events, depth 12 and 2 MiB, including the 4096-key curve profile.
 Source bytes, stable key IDs, selected recipe, file hashes and
 size are covered by the normal sidecar/catalog/DDC publication. Target recipes
-are Windows/D3D12/desktop and Linux/none/cpu. There are no runtime dependencies.
+are Windows/D3D12/desktop and Linux/none/cpu. There are no runtime asset dependencies.
 Asset move/copy uses the existing authored-document adapter; copies mint the
 new asset identity and retain key IDs scoped to that new clip.
 
@@ -156,6 +156,50 @@ has independent transient playback state. Channels overwrite local values; a
 channel omitted from the clip preserves the object's current local value.
 
 ## Evaluation and preview
+
+### Typed camera and light properties
+
+Source version3 optionally binds `properties` to unique qualified names:
+`forge.camera.vertical_fov`, `forge.camera.orthographic_height`,
+`forge.light.intensity`, `forge.light.color_r`, `forge.light.color_g` and
+`forge.light.color_b`. Every key has a `values` object containing exactly those
+names and finite numeric values. FOV is strictly0–pi radians; orthographic height
+is positive through1e9; intensity is0–1e9; colors are linear0–1. A clip may omit all
+transform channels when at least one property is bound. Missing components reject;
+animation does not create Cameras/Lights. Unsupported bindings, duplicate/missing
+or undeclared values, and property syntax in versions1/2 reject explicitly.
+
+These typed built-in bindings use current native Camera/Light members and complete
+render validators. They are not a general custom-component/material/UI binding
+registry. No native component layout, installed SDK input or callback changes.
+Source/cooked version3 is explicit; selected old artifacts remain readable. New
+publication uses recipev3 and cooked3 even for a legacy transform-only source.
+
+Properties share existing key times/UUIDs and outgoing held/linear timing; vector
+cubic slopes do not affect them. Adding a property initializes every key from the
+chosen object's authored value. Key insertion defaults to the sampled property
+values unless values are supplied; replacement without values preserves them.
+Retiming/moving/duplicating keys and transform-value/slope edits retain property
+values and key extensions. Removing the last property from a property-only clip
+rejects. Numeric fields are temporary until Add / Update commits one source Undo.
+FOV displays degrees while serialized/native values stay radians. Colors stay linear.
+
+Fixed application builds typed Camera/Light candidates alongside any transform
+candidate, validates all players before writes and updates only bound members.
+Property-only application avoids building a transform map or claiming movement.
+Existing AnimationRuntime clock/revision/resource/recovery ownership is unchanged.
+Copied presentation patches sample between previous/current semantic tick times,
+including continuous loop wrapping; held/nonseamless/replacement boundaries snap.
+Reset/recovery collapses presentation endpoints. Extraction never writes live ECS.
+Runtime scene snapshots contain animated values as expected for recovery; saved
+Scene/clip files and authoring history are unaffected by playback.
+
+Timeline uses current source-document owner, property checkboxes/fields and dynamic
+ruler rows. Missing preview components preserve the input copy, stop preview and
+report an error. Scene View retains its editor camera: camera FOV preview changes
+the copied camera/frustum, while Game Play displays the animated camera image.
+For Light preview, disable Scene's Preview light to use authored scene lighting.
+Gallery49 and relocated source-free export exercise camera zoom and colored light.
 
 Position/scale use linear or original cubic Hermite interpolation. Slopes are
 scaled by the segment's duration in seconds; zero slopes ease into and out of a
@@ -237,7 +281,8 @@ for its first successful pose application before recovery can be saved.
 Application builds a complete candidate transform map and invokes the existing
 physics validator before writing any enabled channel. Dynamic Physics Bodies,
 Character Controllers, active navigation agents, skeletal Animators and animated
-model-node bindings cannot share a target with a Transform Animator. A rejected
+model-node bindings cannot share a target with enabled transform channels. Property-only attachments
+do not claim movement ownership and can coexist with those controllers. A rejected
 pose reports `animation.transform` and retains the previous world pose.
 
 The existing private animation checkpoint v1 gains optional `transform_entries`:

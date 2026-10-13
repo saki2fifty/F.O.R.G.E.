@@ -10,7 +10,7 @@ void require(bool value, const char* why) {
         throw std::runtime_error(why);
 }
 constexpr const char* importer_id = "forge.animation.transform";
-constexpr const char* recipe = "forge.animation.transform.v2";
+constexpr const char* recipe = "forge.animation.transform.v3";
 struct Snapshot {
     TransformAnimationSource source;
     AssetBuildInput input;
@@ -27,7 +27,7 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     input.importer = importer_id;
     input.importer_revision = recipe;
     input.output_format = "forge.transform-clip";
-    input.output_version = 2;
+    input.output_version = 3;
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
@@ -55,7 +55,7 @@ class TransformAnimationImporter final : public AssetImporter {
                   d.source_kinds = {"forge.transform-animation"};
                   d.output_types = {TransformAnimationAsset::type};
                   d.output_format = "forge.transform-clip";
-                  d.output_version = 2;
+                  d.output_version = 3;
                   d.targets = {{"windows", "d3d12", "desktop"}, {"linux", "none", "cpu"}};
                   d.execution = ImportExecution::TrustedCpuTask;
                   d.limits.output_files = 1;

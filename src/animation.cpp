@@ -2149,6 +2149,7 @@ void AnimationRuntime::reset_presentation() {
         return;
     impl_->synchronize();
     impl_->discontinuities.clear();
+    impl_->transforms.reset_presentation();
     for (auto& [id, p] : impl_->states) {
         (void)id;
         p.previous = p.time;
@@ -2161,6 +2162,9 @@ void AnimationRuntime::reset_presentation() {
         if (p.blend_sampler)
             p.blend_sampler->reset();
     }
+}
+Json AnimationRuntime::presentation_properties(flecs::entity_t id, double alpha) const {
+    return impl_ ? impl_->transforms.presentation_properties(id, alpha) : Json(nullptr);
 }
 Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)

@@ -1,4 +1,5 @@
 #pragma once
+#include "animation_property_state.hpp"
 #include <forge/transform_animation.hpp>
 namespace forge {
 using Json = nlohmann::json;
@@ -10,7 +11,15 @@ inline bool apply_transform_animation_preview(Json& document, EntityRef target,
     for (auto& entity : document.at("entities")) {
         if (entity.at("id") != target.entity.str())
             continue;
-        auto& c = entity.at("components");
+        auto c = entity.at("components");
+        if (clip.properties) {
+            auto properties = AnimationPropertyState::from(c, clip.properties);
+            properties.sample(clip.properties, clip.sample_properties(time));
+            const auto patch = properties.patch(clip.properties);
+            for (const auto& [component, fields] : patch.items())
+                for (const auto& [field, value] : fields.items())
+                    c[component][field] = value;
+        }
         const auto pose = clip.sample(time);
         if (clip.channels & 1)
             c["forge.local_translation"] = {
@@ -23,6 +32,7 @@ inline bool apply_transform_animation_preview(Json& document, EntityRef target,
         if (clip.channels & 4)
             c["forge.local_scale"] = {
                 {"x", pose.scale.x}, {"y", pose.scale.y}, {"z", pose.scale.z}};
+        entity["components"] = std::move(c);
         return true;
     }
     return false;

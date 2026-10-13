@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/animation_components.hpp>
+#include <forge/animation_property.hpp>
 #include <forge/transform.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -23,13 +24,16 @@ struct TransformAnimationKey {
     LocalTransform pose;
     bool held = false;
     TransformAnimationCurves curves;
+    AnimationPropertyValues properties{};
 };
 struct TransformAnimationClip {
     AssetId asset;
     std::int64_t duration = 0;
     unsigned channels = 7;
     std::vector<TransformAnimationKey> keys;
+    unsigned properties = 0;
     LocalTransform sample(double microseconds) const;
+    AnimationPropertyValues sample_properties(double microseconds) const;
     std::size_t resident_bytes() const;
 };
 struct TransformAnimationSource {
@@ -41,7 +45,10 @@ struct TransformAnimationSource {
     TransformAnimationClip clip() const;
     std::vector<std::byte> cook() const;
     AssetId set_key(std::int64_t time, const LocalTransform&, bool held = false, AssetId key = {},
-                    std::optional<TransformAnimationCurves> curves = {});
+                    std::optional<TransformAnimationCurves> curves = {},
+                    std::optional<AnimationPropertyValues> properties = {});
+    void add_property(AnimationProperty, double initial_value);
+    void erase_property(AnimationProperty);
     void erase_key(AssetId);
     void move_key(AssetId, std::int64_t time);
     // Atomic final-state edits; complete key metadata and stable IDs are retained.

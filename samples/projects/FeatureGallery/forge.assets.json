@@ -2782,6 +2782,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "525f81e1-f82e-468e-965e-e9ed974b6d3b",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7eea3c275c2f869103d3ed0df71dd47c2c3da53cba701ab8948eed730a703234",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v3",
+          "key": "47c24433edf1173314ac5d5d7f10dff26f5a9c62cfcea5ebea6dc53157cbad2a",
+          "output_format": "forge.transform-clip",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "1301cce098379466cd133854acc8a30ec3b689487e725adcf154230b6eed179b",
+          "source_digest": "6952e7b48479c5f4acc65d8aa4ef611afa3289b9f578576e9ea0b2bee8247cc9",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 1113,
+          "file": "animation.clip",
+          "sha256": "e879b325672bbf895ffe0c6c81cd3d43eb803abee66626d13c1531b4b773bfe5",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimatedProperties/LightPulse.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "5515a646-7b78-4ff4-adfe-2796db4384c3",
       "metadata": {
         "forge.import": {
@@ -5651,6 +5686,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "a8747912-0cfd-4cbd-b98c-097c97c4ce25",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/49-animated-camera-and-light.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "a8a3cc82-6045-456a-a65c-c4662edb6f56",
       "metadata": {
         "forge.import": {
@@ -5873,6 +5918,41 @@
       "source": "Assets/SculptMirrored.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "b2cebb12-65b9-4bc0-9181-02413b98fe0a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b4d951610dcd88c1de4b5a30173ec31ea0a618575e250decb0474c7e1e3314a0",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v3",
+          "key": "4aa60e93f0a1251bee67ecd7e77b70dad9c1d945acfbd9066468bf93ec0d3403",
+          "output_format": "forge.transform-clip",
+          "output_version": 3,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "fe9bce94e583b6e1f6a9ea0281d0b83c421aed65fdf2266b390bbda2f85bd3f6",
+          "source_digest": "1975906b597c82132c45ce209b76c34493b325d57d65a7eb06ff42b9912571a9",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 874,
+          "file": "animation.clip",
+          "sha256": "1967d897dddf58460a63e7c36babe2c7645d696b80020263eb1b83ce31c271ba",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimatedProperties/CameraZoom.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
     },
     {
       "dependencies": [],

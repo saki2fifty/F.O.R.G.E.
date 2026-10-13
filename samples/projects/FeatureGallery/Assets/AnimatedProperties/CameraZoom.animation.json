@@ -1,0 +1,85 @@
+{
+  "asset_id": "b2cebb12-65b9-4bc0-9181-02413b98fe0a",
+  "channels": [],
+  "duration_us": 4000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "id": "c53e1ff3-894c-4395-8505-50e15a05de7e",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.camera.vertical_fov": 0.6981317007977318
+      }
+    },
+    {
+      "id": "013dac56-42a5-42cc-a9e4-bc1ef5454069",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 2000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.camera.vertical_fov": 1.3962634015954636
+      }
+    },
+    {
+      "id": "1843c25d-34c1-48b8-a184-d96479dc68e0",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 4000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.camera.vertical_fov": 0.6981317007977318
+      }
+    }
+  ],
+  "properties": [
+    "forge.camera.vertical_fov"
+  ],
+  "timebase": 1000000,
+  "version": 3
+}

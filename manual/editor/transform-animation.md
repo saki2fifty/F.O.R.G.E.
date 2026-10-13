@@ -56,6 +56,31 @@ changing projects or deleting the preview object ends preview.
 the fields. It does not capture the temporary preview. Timeline **Undo / Redo**
 affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
+## Animate camera zoom or light color
+
+Choose an object with a **Camera** or **Light** in **Preview object**, then expand
+**Animated properties**. Check camera field of view/orthographic height, or light
+intensity/red/green/blue. Adding a property copies its current authored value into
+every existing key. Change the property fields and choose **Add / Update key at
+playhead** to give different keys different values. Field of view uses degrees;
+light colors use linear values from 0 to 1. **Capture authored pose** also captures
+the selected properties. Hold, key selection, timing, Save & Publish and Undo work
+as they do for transforms.
+
+You can turn off Position, Rotation and Scale for a clip that changes only camera
+or light properties. Keep at least one property or transform channel. The target
+must already have the needed component. Play locks authored Timeline controls.
+
+Scene preview leaves saved values unchanged. For Light preview, uncheck Scene's
+**Preview light** so the view uses scene lighting. Camera preview updates its
+frustum; the Scene view keeps your editor camera. Use **Play → Game** to see the
+camera image zoom. **Stop preview** restores the authored view.
+
+Try **FeatureGallery / Scenes / 49-animated-camera-and-light.scene.json**. In Play,
+the camera alternates between 40 and 80 degrees while sunlight changes brightness
+and shifts between cool and warm colors. Its sources are in
+**Assets / AnimatedProperties**. They are included as compiled clips when exporting.
+
 ## Navigate and select keys
 
 Choose **Zoom in** or **Zoom out** to inspect a smaller or larger time range.

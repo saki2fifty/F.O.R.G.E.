@@ -1,5 +1,7 @@
 # FORGE Feature Gallery
 
+
+
 ## Bright-surface glow
 
 Open **48-hdr-bloom** and press Play. Two original warm/cool emissive cubes glow
@@ -428,3 +430,14 @@ Curve slopes follow the value multipliers. Timing and rotation remain. Save & Pu
 updates Play and the normal standalone export. The supplied selected cooks target
 Windows/D3D12; native Windows/GPU and physical acceptance remain pending. No C++
 module or compiler is needed.
+
+## Animated camera and light
+
+Open **Scenes/49-animated-camera-and-light.scene.json** and press Play. The camera
+zooms between 40 and 80 degrees while the sunlight pulses and shifts between cool
+and warm colors on ordinary cubes. Open **Assets/AnimatedProperties/CameraZoom.animation.json**
+or **LightPulse.animation.json** in the Timeline to inspect the property-only keys.
+Select the matching camera/light as Preview object. For light preview, disable
+Scene's Preview light; camera image zoom is visible in Game Play. Save & Publish
+applies edits to Play/export. Game export includes cooked clips and needs no source
+editor/compiler. See the [Timeline guide](../../../manual/editor/transform-animation.md).

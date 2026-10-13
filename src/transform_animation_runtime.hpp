@@ -16,6 +16,8 @@ class TransformAnimationPlayback {
     void synchronize();
     bool initial_pose();
     void tick(double seconds);
+    void reset_presentation();
+    Json presentation_properties(flecs::entity_t, double alpha) const;
     bool ready() const;
     bool checkpoint_ready() const;
     bool pending() const { return pending_; }
@@ -34,6 +36,7 @@ class TransformAnimationPlayback {
         ResourceTicket ticket;
         ResourceLease<TransformAnimationAsset> clip;
         double time = 0;
+        double previous = 0, advance = 0;
         bool playing = false, discontinuous = true;
     };
     WorldContext& context_;

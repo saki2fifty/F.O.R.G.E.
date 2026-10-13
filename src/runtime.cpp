@@ -371,6 +371,11 @@ Json RuntimeSimulation::presentation(double alpha) const {
         }
         if (animation_) {
             const auto node = context_.world().entity(entity);
+            const auto animated = animation_->presentation_properties(entity, alpha);
+            if (!animated.is_null())
+                for (const auto& [component, fields] : animated.items())
+                    for (const auto& [field, value] : fields.items())
+                        item["components"][component][field] = value;
             if (node.has<Animator>())
                 if (const auto reference = context_.reference(entity))
                     if (const auto status = animation_->playback(*reference))

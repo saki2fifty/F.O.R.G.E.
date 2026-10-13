@@ -94,9 +94,11 @@ int main(int argc, char** argv) {
                     "Wrong selected value recipe/target");
             const auto artifact = root / ".forge/cache/derived" /
                                   selected.at("key").get<std::string>() / "animation.clip";
-            require(asset_detail::read_bytes(artifact, transform_animation_byte_limit) ==
-                        authored[i].cook(),
-                    "Published value clip bytes differ from authored cook");
+            auto expected = authored[i].document;
+            expected["format"] = "forge.transform-clip";
+            expected["version"] = selected.at("output_version");
+            require(read(artifact) == expected,
+                    "Selected legacy value clip differs from complete authored payload");
             for (const auto& row : source.at("entities"))
                 if (row.at("components").contains("forge.transform_animator") &&
                     row.at("components").at("forge.transform_animator").at("clip").get<AssetId>() ==

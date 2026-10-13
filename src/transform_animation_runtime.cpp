@@ -1,4 +1,5 @@
 #include "transform_animation_runtime.hpp"
+#include "animation_property_state.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include <algorithm>
@@ -31,7 +32,8 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
     const auto revision = selected.at("key").get<std::string>();
     const auto generation = selected.at("generation");
     if (selected.at("version") != 1 || selected.at("output_format") != "forge.transform-clip" ||
-        (selected.at("output_version") != 1 && selected.at("output_version") != 2) ||
+        (selected.at("output_version") != 1 && selected.at("output_version") != 2 &&
+         selected.at("output_version") != 3) ||
         !generation.is_number_unsigned() || generation == 0)
         throw std::runtime_error("Unsupported transform animation selection");
     return pool_.request(
@@ -121,8 +123,11 @@ void TransformAnimationPlayback::synchronize() {
                 state.playing = config.play_on_start;
             }
             if (changed || !state.clip ||
-                state.clip.identity().revision != clip.identity().revision)
+                state.clip.identity().revision != clip.identity().revision) {
                 state.discontinuous = true;
+                state.previous = state.time;
+                state.advance = 0;
+            }
             state.time = std::min(state.time, double(clip->duration));
             state.config = config;
             state.entity = *reference;
@@ -152,10 +157,22 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
                                        bool commit) {
     if (times.empty())
         return;
-    auto candidate = context_.transform_nodes();
+    const bool transforms = std::any_of(times.begin(), times.end(), [&](const auto& entry) {
+        return states_.at(entry.first).clip->channels != 0;
+    });
+    auto candidate =
+        transforms ? context_.transform_nodes() : decltype(context_.transform_nodes()){};
+    std::map<flecs::entity_t, AnimationPropertyState> properties;
     for (const auto& [id, time] : times) {
         const auto& state = states_.at(id);
         auto entity = context_.world().entity(id);
+        if (state.clip->properties) {
+            auto values = AnimationPropertyState::from(entity, state.clip->properties);
+            values.sample(state.clip->properties, state.clip->sample_properties(time));
+            properties.emplace(id, std::move(values));
+        }
+        if (!state.clip->channels)
+            continue;
         if ((entity.has<PhysicsBody>() && entity.get<PhysicsBody>().enabled &&
              entity.get<PhysicsBody>().motion == 2) ||
             (entity.has<CharacterController>() && entity.get<CharacterController>().enabled) ||
@@ -184,7 +201,7 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         if (state.clip->channels & 4)
             at->second.local.scale = pose.scale;
     }
-    if (validator_)
+    if (transforms && validator_)
         validator_(candidate);
     if (!commit)
         return;
@@ -196,8 +213,10 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
     for (const auto& [id, time] : times) {
         (void)time;
         const auto& state = states_.at(id);
-        const auto& pose = candidate.at(id).local;
         auto entity = context_.world().entity(id);
+        if (properties.contains(id))
+            properties.at(id).commit(entity);
+        const auto pose = state.clip->channels ? candidate.at(id).local : LocalTransform{};
         if (state.clip->channels & 1)
             entity.set<LocalTranslation>(pose.translation);
         if (state.clip->channels & 2)
@@ -205,8 +224,12 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         if (state.clip->channels & 4)
             entity.set<LocalScale>(pose.scale);
         auto& playback = states_.at(id);
-        if (playback.discontinuous)
-            discontinuities_.insert(id);
+        if (playback.discontinuous) {
+            if (state.clip->channels)
+                discontinuities_.insert(id);
+            playback.previous = playback.time;
+            playback.advance = 0;
+        }
         playback.discontinuous = false;
     }
 }
@@ -235,9 +258,12 @@ void TransformAnimationPlayback::tick(double seconds) {
     for (auto& [id, state] : states_) {
         if (!state.clip)
             continue;
+        state.previous = state.time;
+        state.advance = 0;
         if (state.playing) {
             const double before = state.time;
             state.time += seconds * animation_timebase * state.config.playback_speed;
+            state.advance = state.time - before;
             const auto held_crossed = [&](double from, double to) {
                 const auto& keys = state.clip->keys;
                 auto next = std::upper_bound(keys.begin(), keys.end(), from,
@@ -261,10 +287,15 @@ void TransformAnimationPlayback::tick(double seconds) {
                     ((state.clip->channels & 2) && std::abs(dot) < 1 - 1e-6) ||
                     held_crossed(0, std::fmod(state.time, double(state.clip->duration))))
                     state.discontinuous = true;
+                if (state.clip->properties &&
+                    state.clip->sample_properties(0) !=
+                        state.clip->sample_properties(state.clip->duration))
+                    state.discontinuous = true;
             }
             if (state.config.loop)
                 state.time = std::fmod(state.time, double(state.clip->duration));
             else if (state.time >= state.clip->duration) {
+                state.advance = double(state.clip->duration) - before;
                 state.time = state.clip->duration;
                 state.playing = false;
             }
@@ -279,6 +310,28 @@ void TransformAnimationPlayback::tick(double seconds) {
             error(id, e.what());
         }
     }
+}
+void TransformAnimationPlayback::reset_presentation() {
+    for (auto& [id, state] : states_) {
+        (void)id;
+        state.previous = state.time;
+        state.advance = 0;
+    }
+}
+Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, double alpha) const {
+    if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)
+        throw std::runtime_error("Invalid property animation presentation alpha");
+    const auto at = states_.find(id);
+    if (at == states_.end() || !at->second.clip || !at->second.clip->properties ||
+        errors_.contains(id))
+        return nullptr;
+    const auto& state = at->second;
+    auto time = state.previous + state.advance * alpha;
+    if (state.config.loop)
+        time = std::fmod(time, double(state.clip->duration));
+    auto values = AnimationPropertyState::from(context_.world().entity(id), state.clip->properties);
+    values.sample(state.clip->properties, state.clip->sample_properties(time));
+    return values.patch(state.clip->properties);
 }
 std::vector<std::uint64_t> TransformAnimationPlayback::take_discontinuities() {
     std::vector<std::uint64_t> result(discontinuities_.begin(), discontinuities_.end());
@@ -332,6 +385,8 @@ void TransformAnimationPlayback::restore(const Json& values) {
     for (auto& [id, state] : states_) {
         state.time = times.at(id);
         state.playing = playing.at(id);
+        state.previous = state.time;
+        state.advance = 0;
     }
 }
 } // namespace forge

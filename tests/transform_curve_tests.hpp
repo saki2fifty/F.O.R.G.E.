@@ -126,7 +126,7 @@ void transform_curve_tests(const std::filesystem::path& root,
             "Curve publication failed");
     const auto catalog = AssetCatalog::open_project(root);
     require(catalog.records().at(curves.asset()).metadata.at("forge.import").at("output_version") ==
-                2,
+                3,
             "Curve publication retained old recipe version");
     EngineContext author;
     Scene scene(author.world());

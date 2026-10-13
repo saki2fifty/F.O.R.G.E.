@@ -167,6 +167,25 @@ LocalTransform animation_pose(const nlohmann::json& value) {
 std::size_t TransformAnimationClip::resident_bytes() const {
     return sizeof(*this) + keys.capacity() * sizeof(TransformAnimationKey);
 }
+AnimationPropertyValues TransformAnimationClip::sample_properties(double time) const {
+    require(std::isfinite(time) && !keys.empty(), "Invalid property animation sample time/keys");
+    if (!properties)
+        return {};
+    const auto right =
+        std::upper_bound(keys.begin(), keys.end(), time,
+                         [](double value, const auto& key) { return value < key.time; });
+    if (right == keys.begin())
+        return right->properties;
+    const auto& left = *(right - 1);
+    if (right == keys.end() || left.held)
+        return left.properties;
+    const double t = std::clamp((time - left.time) / double(right->time - left.time), 0., 1.);
+    AnimationPropertyValues result{};
+    for (unsigned i = 0; i < animation_property_count; ++i)
+        if (properties & (1u << i))
+            result[i] = std::lerp(left.properties[i], right->properties[i], t);
+    return result;
+}
 LocalTransform TransformAnimationClip::sample(double time) const {
     require(std::isfinite(time) && !keys.empty(), "Invalid animation sample time/keys");
     const auto right =
@@ -244,7 +263,8 @@ AssetId TransformAnimationSource::asset() const { return document.at("asset_id")
 TransformAnimationClip TransformAnimationSource::clip() const {
     require(document.at("format") == "forge.transform-animation" &&
                 document.at("version").is_number_integer() &&
-                (document.at("version") == 1 || document.at("version") == 2) &&
+                (document.at("version") == 1 || document.at("version") == 2 ||
+                 document.at("version") == 3) &&
                 document.at("timebase") == animation_timebase,
             "Unsupported transform animation schema/timebase");
     TransformAnimationClip result;
@@ -253,8 +273,7 @@ TransformAnimationClip TransformAnimationSource::clip() const {
     result.duration = time_value(document.at("duration_us"));
     require(result.duration > 0, "Animation duration must be positive");
     const auto& channels = document.at("channels");
-    require(channels.is_array() && !channels.empty() && channels.size() <= 3,
-            "Invalid animation channels");
+    require(channels.is_array() && channels.size() <= 3, "Invalid animation channels");
     result.channels = 0;
     for (const auto& channel : channels) {
         const unsigned bit = channel == "forge.local_translation" ? 1
@@ -264,6 +283,21 @@ TransformAnimationClip TransformAnimationSource::clip() const {
         require(bit && !(result.channels & bit), "Unknown or duplicate animation channel binding");
         result.channels |= bit;
     }
+    if (document.contains("properties")) {
+        require(document.at("version") == 3, "Animated properties require source version3");
+        const auto& properties = document.at("properties");
+        require(properties.is_array() && properties.size() <= animation_property_count,
+                "Invalid animated property bindings");
+        for (const auto& name : properties) {
+            require(name.is_string(), "Animated property name must be a string");
+            const auto property = animation_property_named(name.get_ref<const std::string&>());
+            const auto bit = animation_property_bit(property);
+            require(!(result.properties & bit), "Duplicate animated property binding");
+            result.properties |= bit;
+        }
+    }
+    require(result.channels || result.properties,
+            "Animation needs a transform channel or property");
     const auto& keys = document.at("keys");
     require(keys.is_array() && !keys.empty() && keys.size() <= 4096,
             "Animation requires 1–4096 keys");
@@ -278,9 +312,27 @@ TransformAnimationClip TransformAnimationSource::clip() const {
                 "Animation key times must be unique, sorted and within duration");
         require(mode == "linear" || mode == "held", "Unsupported animation interpolation");
         const auto pose = animation_pose(key);
-        require(document.at("version") == 2 || !key.contains("curves"),
+        require(document.at("version") != 1 || !key.contains("curves"),
                 "Vector curves require transform animation version2");
-        result.keys.push_back({id, time, pose, mode == "held", curves(key)});
+        AnimationPropertyValues values{};
+        if (result.properties || key.contains("values")) {
+            require(document.at("version") == 3 && key.contains("values") &&
+                        key.at("values").is_object(),
+                    "Animated keys require version3 property values");
+            const auto& fields = key.at("values");
+            std::size_t expected = 0;
+            for (const auto& binding : animation_property_bindings())
+                if (result.properties & animation_property_bit(binding.property)) {
+                    require(fields.contains(binding.name) && fields.at(binding.name).is_number(),
+                            "Animated key is missing a numeric property value");
+                    const auto value = fields.at(binding.name).get<double>();
+                    validate_animation_property(binding.property, value);
+                    values[unsigned(binding.property)] = value;
+                    ++expected;
+                }
+            require(fields.size() == expected, "Animated key contains an undeclared property");
+        }
+        result.keys.push_back({id, time, pose, mode == "held", curves(key), values});
         previous = time;
     }
     validate_curve_segments(result);
@@ -295,14 +347,15 @@ std::vector<std::byte> TransformAnimationSource::cook() const {
     validate();
     auto compiled = document;
     compiled["format"] = "forge.transform-clip";
-    compiled["version"] = 2;
+    compiled["version"] = 3;
     const auto text = compiled.dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
 }
 AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransform& pose, bool held,
-                                          AssetId id,
-                                          std::optional<TransformAnimationCurves> curve) {
+                                          AssetId id, std::optional<TransformAnimationCurves> curve,
+                                          std::optional<AnimationPropertyValues> property_values) {
+    const auto admitted = clip();
     auto candidate = *this;
     auto& keys = candidate.document.at("keys");
     if (!id)
@@ -320,9 +373,16 @@ AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransfor
     const auto encoded_pose = animation_pose_json(pose);
     for (const auto& [field, value] : encoded_pose.items())
         key[field] = value;
+    if (admitted.properties && (property_values || !key.contains("values"))) {
+        const auto values = property_values.value_or(admitted.sample_properties(double(time)));
+        auto& fields = key["values"];
+        for (const auto& binding : animation_property_bindings())
+            if (admitted.properties & animation_property_bit(binding.property))
+                fields[binding.name] = values[unsigned(binding.property)];
+    }
     if (curve) {
         merge_curve_settings(key, *curve);
-        candidate.document["version"] = 2;
+        candidate.document["version"] = std::max(2, candidate.document.at("version").get<int>());
     }
     key["id"] = id;
     key["time_us"] = time;
@@ -335,6 +395,35 @@ AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransfor
     candidate.validate();
     document.swap(candidate.document);
     return id;
+}
+void TransformAnimationSource::add_property(AnimationProperty property, double initial_value) {
+    const auto admitted = clip();
+    validate_animation_property(property, initial_value);
+    if (admitted.properties & animation_property_bit(property))
+        return;
+    auto candidate = *this;
+    candidate.document["version"] = 3;
+    const auto& binding = animation_property_binding(property);
+    auto& list = candidate.document["properties"];
+    if (list.is_null())
+        list = Json::array();
+    list.push_back(binding.name);
+    for (auto& key : candidate.document.at("keys"))
+        key["values"][binding.name] = initial_value;
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::erase_property(AnimationProperty property) {
+    const auto admitted = clip();
+    const auto& binding = animation_property_binding(property);
+    if (!(admitted.properties & animation_property_bit(property)))
+        return;
+    auto candidate = *this;
+    std::erase(candidate.document.at("properties").get_ref<Json::array_t&>(), Json(binding.name));
+    for (auto& key : candidate.document.at("keys"))
+        key.at("values").erase(binding.name);
+    candidate.validate();
+    document.swap(candidate.document);
 }
 void TransformAnimationSource::erase_key(AssetId id) {
     auto candidate = *this;
@@ -513,7 +602,7 @@ void TransformAnimationSource::set_tangent_preset(std::span<const AssetId> keys,
     const auto selected = selected_animation_keys(*this, keys);
     const auto& original = document.at("keys");
     auto candidate = *this;
-    candidate.document["version"] = 2;
+    candidate.document["version"] = std::max(2, candidate.document.at("version").get<int>());
     for (std::size_t i = 0; i < original.size(); ++i) {
         if (!selected.contains(original[i].at("id").get<AssetId>()))
             continue;
