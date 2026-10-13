@@ -4614,8 +4614,8 @@ int main(int argc, char** argv) {
             }
             const bool live_inspector_ready =
                 play.active() && play.ready() && editor.selection.entities().size() == 1 &&
-                forge::ComponentInspector::has_runtime_fields(play.effective_snapshot(),
-                                                              play.runtime_schema(), selected);
+                forge::ComponentInspector::has_runtime_inspection(play.effective_snapshot(),
+                                                                  play.runtime_schema(), selected);
             const auto live_sound =
                 workspace.inspector && play.ready() && editor.selection.entities().size() == 1
                     ? forge::AudioSourceEditor::selected(play.effective_snapshot(), selected)

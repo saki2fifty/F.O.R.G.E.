@@ -1,5 +1,13 @@
 # 2026-10-13
 
+## Observable navigation agents
+
+- Report Moving, Arrived, Paused, Blocked and Failed separately from route-query success; show readonly progress in Live gameplay Inspector.
+- Let C++ systems inspect copied agent observations and respond to arrival. Gameplay reads the last completed navigation tick; PostPhysics reads this tick.
+- Stop according to remaining waypoint-route distance, so a close goal across an obstacle does not cause premature stopping.
+- Add an original exportable navigation Gallery50 with a static obstacle, moving agent and ready-built NavMesh. Keep prior Gallery identities/artifacts.
+- Exact SDK fingerprint changes; rebuild C++ modules with the matching SDK. Windows/physical acceptance remains pending.
+
 ## Animated camera and light properties
 
 - Extend the current animation clip and Timeline with camera field of view/orthographic height and light intensity/linear RGB keys, including property-only clips.

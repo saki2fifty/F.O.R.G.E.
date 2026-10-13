@@ -70,6 +70,50 @@ Crowd avoidance, TileCache, dynamic obstacles, multiple agent profiles, navigati
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
+## Copied agent observation
+
+NavigationRuntime remains the owner of agent paths/movement. `agent_state(EntityRef)`
+returns an optional owning value without asset IO, synchronization or world writes.
+No observation is returned for a foreign owner thread, retired/unregistered reference,
+missing NavigationAgent, unbound Scene or stopped service. Effective prefab values
+are observed without creating component overrides.
+
+| Phase | Meaning |
+| --- | --- |
+| Disabled | Enabled is false. No sampled metrics. |
+| Idle | No destination. No sampled metrics. |
+| Pending | No completed navigation tick for the current configuration. |
+| Moving | A valid route advanced on the sampled tick. |
+| Paused | Speed is zero on a valid route that has not arrived. This is separate from pausing the whole game. |
+| Arrived | Remaining waypoint-route distance is within stopping_distance plus1mm tolerance. |
+| Blocked | A valid route made no advance on this tick despite positive speed. Not a latched stall timer or crowd collision result. |
+| Failed | Query/admission/ownership failed; independent NavStatus identifies the cause. |
+
+`sampled && has_path` gates position, net world velocity(m/s), projected destination
+and remaining waypoint-polyline distance(m). Tick identifies the completed navigation
+update; failures also carry that attempted tick but no valid pose/path metrics.
+Disabled/Idle/Pending have tick0. Configuration changes immediately invalidate the
+prior observation. Unchanged observations describe the last completed tick, rather
+than promising that gameplay has not subsequently moved the entity.
+
+Stopping uses the remaining route around obstacles, rather than Euclidean distance
+through them. It may stop before the final corner for a large stopping distance.
+Arrival is relative to Detour's projected endpoint, not the unprojected requested
+point. Velocity is endpoint displacement divided by fixed delta, not instantaneous
+corner speed. Limits, static geometry and movement ownership remain unchanged.
+With over64 authored agents, enabled agents with a destination fail with Limit
+and no stored per-agent sample. Deleted states prune
+at the next tick. Recovery discards samples and reconstructs routes from semantic
+configuration/translations/revisions, so the candidate starts Pending.
+
+The existing detached presentation carries these fields under `navigation_debug`;
+Live gameplay Inspector reads them without authored history changes. The exact C++
+SDK adds `navigation_agent_state`/`Client::navigation_agent`, with fixed owner-thread,
+Navigation permission, UUID references and copied exact-size outputs. Gameplay
+runs before movement and sees the previous completed tick; PostPhysics sees this
+tick. No between-tick presentation read is a new simulation sample. This changes
+the private SDK fingerprint; rebuild native modules with the matching SDK.
+
 ### Query timing inside gameplay systems
 
 Navigation captures source geometry at the writable start of a fixed tick and refreshes it after gameplay before moving agents. A query inside a read-only Flecs system uses that captured validation state and never writes derived transforms. Deferred gameplay edits become visible when Flecs merges them; subsequent agent movement validates the updated geometry. Inherited NavigationAgent components are collected through a normal Flecs query, not an ownership-only component iterator.

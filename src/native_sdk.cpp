@@ -780,6 +780,47 @@ struct Bridge {
                 return 1;
             }
         };
+        host.navigation_agent_state = [](void* p, const char* scene, const char* entity,
+                                         ForgeSdkNavigationAgentV1* out) -> int32_t {
+            static_assert(unsigned(NavigationAgentPhase::Failed) == FORGE_SDK_NAV_AGENT_FAILED &&
+                          unsigned(NavigationAgentPhase::Arrived) == FORGE_SDK_NAV_AGENT_ARRIVED &&
+                          unsigned(NavigationAgentPhase::Paused) == FORGE_SDK_NAV_AGENT_PAUSED &&
+                          unsigned(NavigationAgentPhase::Pending) == FORGE_SDK_NAV_AGENT_PENDING);
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            out->version = 1;
+            out->phase = FORGE_SDK_NAV_AGENT_PENDING;
+            out->status = uint32_t(NavStatus::Unavailable);
+            try {
+                if (!scene || !entity)
+                    return -1;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                auto& b = Bridge::get(p);
+                if (!b.runtime_active() || !b.context.input ||
+                    !b.context.services.available(Capability::Navigation))
+                    return 0;
+                const auto value = b.context.services.navigation()->agent_state(ref);
+                if (!value)
+                    return 0;
+                out->phase = uint32_t(value->phase);
+                out->status = uint32_t(value->status);
+                out->tick = value->tick;
+                out->sampled = value->sampled;
+                out->has_path = value->has_path;
+                out->remaining_distance = value->remaining_distance;
+                for (unsigned j = 0; j < 3; ++j) {
+                    out->position[j] = value->position[j];
+                    out->velocity[j] = value->velocity[j];
+                    out->projected_destination[j] = value->projected_destination[j];
+                }
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
         host.audio_source = [](void* p, const char* scene, const char* entity,
                                uint32_t operation) -> int32_t {
             try {

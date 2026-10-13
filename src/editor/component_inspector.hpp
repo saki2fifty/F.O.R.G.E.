@@ -7,6 +7,7 @@
 #include "property_drawer.hpp"
 #include "rig_target_gesture.hpp"
 #include <algorithm>
+#include <cmath>
 #include <forge/authoring.hpp>
 #include <set>
 namespace forge {
@@ -40,6 +41,32 @@ class ComponentInspector {
         if (!status.value("blend_clip", Json()).is_null())
             ImGui::Text("Clip mix: %.1f%%", status.value("blend_weight", 0.) * 100);
     }
+    void draw_navigation_state(const Json& status) {
+        if (!status.is_object())
+            return;
+        ui::heading("Navigation progress", "Read-only state from the last navigation tick. "
+                                           "Stopping distance follows the route.");
+        const auto phase = status.value("phase", std::string("Pending"));
+        ImGui::TextWrapped("Agent: %s", phase.c_str());
+        FORGE_UI_PROBE("navigation_agent:phase");
+        if (phase == "Failed") {
+            ImGui::TextWrapped("Reason: %s", status.value("status", std::string()).c_str());
+            FORGE_UI_PROBE("navigation_agent:failure");
+        }
+        if (status.value("sampled", false) && status.value("has_path", false)) {
+            ImGui::TextWrapped("Route remaining: %.3f m", status.value("remaining_distance", 0.));
+            FORGE_UI_PROBE("navigation_agent:remaining");
+            const auto velocity = status.at("velocity").get<Double3>();
+            ImGui::TextWrapped("Measured speed: %.3f m/s",
+                               std::hypot(velocity[0], velocity[1], velocity[2]));
+            FORGE_UI_PROBE("navigation_agent:speed");
+        }
+        ImGui::TextWrapped("Navigation tick: %llu",
+                           static_cast<unsigned long long>(status.value("tick", uint64_t{})));
+        FORGE_UI_PROBE("navigation_agent:tick");
+        if (phase == "Blocked")
+            ui::help("The agent made no progress on this tick. This is not crowd avoidance.");
+    }
     // Domain-specific logical mesh slots reuse the same property command/history.
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     std::function<void(const std::string&)> open_cpp_definition;
@@ -70,6 +97,18 @@ class ComponentInspector {
                             return true;
                 }
         }
+        return false;
+    }
+    static bool has_runtime_inspection(const Json& effective, const Json& schema,
+                                       const std::string& selected) {
+        if (has_runtime_fields(effective, schema, selected))
+            return true;
+        if (!effective.is_object() || !effective.contains("entities") ||
+            !effective.at("entities").is_array())
+            return false;
+        for (const auto& row : effective.at("entities"))
+            if (row.is_object() && row.value("id", "") == selected)
+                return row.contains("navigation_debug") && row.at("navigation_debug").is_object();
         return false;
     }
     void edit_property(Scene& scene, const std::string& entity, const std::string& component,
@@ -118,7 +157,8 @@ class ComponentInspector {
             }
         if (!entity || !entity->contains("components") ||
             (!has_runtime_fields(effective, schema, selected) &&
-             !(show_playback && entity->contains("animation_playback"))))
+             !(show_playback && entity->contains("animation_playback")) &&
+             !entity->contains("navigation_debug")))
             return;
         // Live fields coexist with the read-only authored Inspector below. Keep their
         // ImGui IDs distinct so activating one cannot collide with its authored peer.
@@ -132,6 +172,8 @@ class ComponentInspector {
         ImGui::TextColored({0.61f, 0.93f, 0.89f, 1.0f}, "PLAY — temporary values");
         if (show_playback && entity->contains("animation_playback"))
             draw_animation_playback(entity->at("animation_playback"));
+        if (entity->contains("navigation_debug"))
+            draw_navigation_state(entity->at("navigation_debug"));
         for (const auto& type : schema.at("components")) {
             const auto& components = entity->at("components");
             if (!runtime_type_available(type, components))

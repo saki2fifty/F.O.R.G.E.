@@ -1425,7 +1425,7 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["minimum"] = .01;
             value["maximum"] = 5;
             value["unit"] = "meters";
-            value["description"] = "Stop within this distance of the projected destination";
+            value["description"] = "Stop when the remaining waypoint route reaches this distance";
         }
         if (field.starts_with("destination_")) {
             value["minimum"] = -4090;

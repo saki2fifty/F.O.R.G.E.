@@ -33,10 +33,27 @@ struct AgentState {
     std::vector<Double3> path;
     std::size_t next = 1;
     Double3 last{};
-    NavStatus status = NavStatus::Unavailable;
+    NavigationAgentObservation observation;
 };
 double distance(Double3 a, Double3 b) { return std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
+double route_distance(Double3 position, const AgentState& state) {
+    if (state.path.empty())
+        return 0;
+    if (state.next >= state.path.size())
+        return distance(position, state.path.back());
+    auto value = distance(position, state.path[state.next]);
+    for (auto i = state.next + 1; i < state.path.size(); ++i)
+        value += distance(state.path[i - 1], state.path[i]);
+    return value;
+}
+constexpr double arrival_tolerance = .001;
 } // namespace
+const char* navigation_agent_phase_name(NavigationAgentPhase phase) {
+    constexpr const char* names[]{"Disabled", "Idle",    "Pending", "Moving",
+                                  "Paused",   "Arrived", "Blocked", "Failed"};
+    const auto i = unsigned(phase);
+    return i < std::size(names) ? names[i] : "Invalid";
+}
 struct NavigationRuntime::Impl {
     WorldContext& context;
     std::filesystem::path project;
@@ -46,6 +63,7 @@ struct NavigationRuntime::Impl {
     std::map<flecs::entity_t, AgentState> agents;
     std::map<flecs::entity_t, std::string> errors;
     std::uint64_t tick = 0;
+    bool agent_limit = false;
     std::string geometry_digest, geometry_error;
     flecs::query<const NavigationSurface> surfaces;
     Impl(WorldContext& c, std::filesystem::path p)
@@ -147,6 +165,7 @@ void NavigationRuntime::bind(Scene* scene) {
         impl_->scene = scene;
         impl_->agents.clear();
         impl_->errors.clear();
+        impl_->agent_limit = false;
     }
 }
 void NavigationRuntime::synchronize() {
@@ -227,8 +246,10 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
     if (entities.size() > 64) {
         s.diagnostic(0, {}, "Navigation exceeds 64 authored agents; no agents moved");
         s.agents.clear();
+        s.agent_limit = true;
         return;
     }
+    s.agent_limit = false;
     auto depth = [&](std::uint64_t id) {
         unsigned n = 0;
         std::set<std::uint64_t> seen;
@@ -257,26 +278,26 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             auto& state = s.agents[id];
             if (state.config != a || state.path.empty() || distance(state.last, position) > .001) {
                 auto route = asset.query->path(position, destination);
-                state = {a, std::move(route.points), 1, position, route.status};
+                state = {a, std::move(route.points), 1, position, {}};
                 if (route.status != NavStatus::Success)
                     throw NavigationFailure(route.status, route.diagnostic);
             }
             if (state.path.empty())
                 continue;
-            auto target = state.path.back();
             double remaining = double(a.speed) * dt;
             const auto original = position;
-            while (remaining > 0 && state.next < state.path.size() &&
-                   distance(position, target) > a.stopping_distance) {
+            while (remaining > 0 && state.next < state.path.size()) {
+                const auto distance_left = route_distance(position, state);
+                if (distance_left <= a.stopping_distance + arrival_tolerance)
+                    break;
                 auto waypoint = state.path[state.next];
                 double d = distance(position, waypoint);
                 if (d < 1e-6) {
                     ++state.next;
                     continue;
                 }
-                double advance = std::min(remaining, d);
-                if (state.next + 1 == state.path.size())
-                    advance = std::min(advance, std::max(0., d - a.stopping_distance));
+                const auto advance =
+                    std::min({remaining, d, std::max(0., distance_left - a.stopping_distance)});
                 if (advance < 1e-8)
                     break;
                 Double3 desired;
@@ -306,19 +327,82 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
                 e.set<LocalTranslation>({local[0], local[1], local[2]});
             }
             state.last = position;
-            state.status = NavStatus::Success;
+            auto& out = state.observation;
+            out = {};
+            out.tick = tick;
+            out.sampled = true;
+            out.has_path = true;
+            out.status = NavStatus::Success;
+            out.position = position;
+            out.projected_destination = state.path.back();
+            out.remaining_distance = route_distance(position, state);
+            for (unsigned j = 0; j < 3; ++j)
+                out.velocity[j] = (position[j] - original[j]) / dt;
+            out.phase = out.remaining_distance <= a.stopping_distance + arrival_tolerance
+                            ? NavigationAgentPhase::Arrived
+                        : a.speed == 0                        ? NavigationAgentPhase::Paused
+                        : distance(position, original) > 1e-8 ? NavigationAgentPhase::Moving
+                                                              : NavigationAgentPhase::Blocked;
             s.errors.erase(id);
         } catch (const std::exception& error) {
-            s.agents.erase(id);
+            auto& state = s.agents[id];
+            state = {};
+            state.config = a;
+            const auto* failure = dynamic_cast<const NavigationFailure*>(&error);
+            state.observation.phase = NavigationAgentPhase::Failed;
+            state.observation.status = failure ? failure->status : NavStatus::Invalid;
+            state.observation.tick = tick;
+            // A failed movement tick has no valid path/pose/velocity sample.
             s.diagnostic(id, a.navmesh.id, error.what());
         }
     }
 }
+std::optional<NavigationAgentObservation> NavigationRuntime::agent_state(EntityRef ref) const {
+    if (!impl_ || !impl_->scene || !ref.scene || !ref.entity ||
+        impl_->owner != std::this_thread::get_id())
+        return {};
+    auto& s = *impl_;
+    const auto resolved = s.context.resolve(ref);
+    if (resolved.state != WorldContext::ResolveState::Available)
+        return {};
+    const auto entity = s.context.world().entity(resolved.entity);
+    if (!entity.has<NavigationAgent>() || !entity.owns<PersistentEntityId>())
+        return {};
+    const auto& config = entity.get<NavigationAgent>();
+    NavigationAgentObservation out;
+    if (!config.enabled)
+        out.phase = NavigationAgentPhase::Disabled;
+    else if (!config.has_destination)
+        out.phase = NavigationAgentPhase::Idle;
+    else if (s.agent_limit) {
+        out.phase = NavigationAgentPhase::Failed;
+        out.status = NavStatus::Limit;
+        out.tick = s.tick;
+    } else if (const auto found = s.agents.find(entity.id());
+               found != s.agents.end() && found->second.config == config)
+        return found->second.observation;
+    return out;
+}
 Json NavigationRuntime::debug(flecs::entity_t entity) const {
-    if (!impl_ || !impl_->agents.contains(entity))
+    if (!entity || !impl_ || impl_->owner != std::this_thread::get_id())
         return nullptr;
-    const auto& a = impl_->agents.at(entity);
-    return {{"path", a.path}, {"status", nav_status_name(a.status)}, {"position", a.last}};
+    const auto reference = impl_->context.reference(entity);
+    const auto out = reference ? agent_state(*reference) : std::nullopt;
+    if (!out)
+        return nullptr;
+    Json path = Json::array();
+    if (out->has_path)
+        path = impl_->agents.at(entity).path;
+    return {{"path", path},
+            {"status", nav_status_name(out->status)},
+            {"phase", navigation_agent_phase_name(out->phase)},
+            {"tick", out->tick},
+            {"sampled", out->sampled},
+            {"has_path", out->has_path},
+            {"position", out->position},
+            {"velocity", out->velocity},
+            {"projected_destination", out->projected_destination},
+            {"remaining_distance", out->remaining_distance}};
 }
 Json NavigationRuntime::checkpoint() {
     Json revisions = Json::array(), agents = Json::array();
@@ -421,6 +505,8 @@ void NavigationRuntime::restore(const Json& data) {
             throw std::runtime_error("Navigation recovery revision differs; start clean Play");
     }
     impl_->agents.clear();
+    impl_->agent_limit = false;
+    impl_->errors.clear();
 }
 EngineModule navigation_module(std::filesystem::path project) {
     auto m = navigation_schema_module();

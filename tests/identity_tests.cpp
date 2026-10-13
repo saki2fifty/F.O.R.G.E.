@@ -92,6 +92,7 @@ int main() {
         require(Json(instance).get<EntityRef>() == instance, "Typed reference round trip");
         require(world.resolve(instance).entity == scene.entity("instance").id(), "World resolver");
         require(world.reference(scene.entity("instance").id()) == instance, "Reverse resolver");
+        require(!world.reference(0), "Null handle reverse resolution must be absent");
         require(scene.entity("instance").owns<PersistentEntityId>() &&
                     scene.reference("prototype") != instance,
                 "Instance copied prefab identity");

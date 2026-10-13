@@ -11,6 +11,7 @@ class NavigationRuntime final : public NavigationService {
     void tick(float dt, std::uint64_t tick);
     NavResult project_point(AssetRef<NavMeshAsset>, Double3) override;
     NavResult find_path(AssetRef<NavMeshAsset>, Double3, Double3) override;
+    std::optional<NavigationAgentObservation> agent_state(EntityRef) const override;
     Json debug(flecs::entity_t) const;
     Json checkpoint();
     // Restore only into an unpublished candidate world; discard that world on failure.

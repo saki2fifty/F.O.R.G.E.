@@ -131,6 +131,16 @@ class Client {
         return callable(Capability::Navigation) &&
                host_->navigation_query(host_->context, asset, operation, start, end, &out) == 1;
     }
+    int32_t navigation_agent(const char* scene, const char* entity,
+                             ForgeSdkNavigationAgentV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        out.version = 1;
+        out.status = FORGE_SDK_NAV_UNAVAILABLE;
+        return callable(Capability::Navigation) && host_->navigation_agent_state
+                   ? host_->navigation_agent_state(host_->context, scene, entity, &out)
+                   : 0;
+    }
     bool audio(const char* scene, const char* entity, bool play) const {
         return audio_operation(scene, entity,
                                play ? FORGE_SDK_AUDIO_RESTART : FORGE_SDK_AUDIO_STOP);

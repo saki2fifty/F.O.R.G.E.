@@ -262,3 +262,27 @@ needs dependency `forge.animation`. Register marker consumers on
 returns bounded copied, current-tick broadcast observations; it does not consume
 an occurrence. See [Animation markers](animation-markers.md) for bounds, offsets,
 removed-target behavior, lifetime and recovery rules.
+
+## Navigation agent progress in C++
+
+Use `Client::entity_reference` during the fixed callback to obtain the registered
+scene/entity UUIDs, then `Client::navigation_agent` with `ForgeSdkNavigationAgentV1`.
+The call returns1 for a copied observation,0 for unavailable/absent, and-1 for
+invalid arguments/context. A valid-size failed output is cleared. Navigation must
+be permitted and available; startup, controls and foreign-thread calls cannot read
+fixed samples. The C boundary uses the same rules and requires exact output size.
+
+`phase` uses `FORGE_SDK_NAV_AGENT_*`; `status` is the independent route/admission
+status. Test `sampled && has_path` before reading position, net world velocity,
+remaining waypoint-route distance or projected endpoint. Pending/Idle/Disabled
+have no invented metrics. Failed carries the attempted tick and reason status.
+Changed agent settings immediately invalidate a prior arrival. Paused denotes
+zero configured speed; game pause simply freezes the last completed observation.
+
+Gameplay reads the previous completed navigation tick. PostPhysics reads this tick
+because navigation movement runs earlier. `navigation_probe.cpp` demonstrates an
+original C++ return journey: when the prior tick reports Arrived, ordinary Flecs
+NavigationAgent destination fields change, then navigation replans/moves on the
+next boundary. Observation does not queue movement or introduce an AI controller.
+The callback changes the exact private SDK fingerprint: rebuild modules with the
+matching SDK. Existing authored NavigationAgent layout and NavMesh format are unchanged.

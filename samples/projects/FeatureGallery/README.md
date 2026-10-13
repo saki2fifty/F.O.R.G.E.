@@ -1,5 +1,18 @@
 # FORGE Feature Gallery
 
+## Navigation progress
+
+Open **50-navigation-progress**. Select **Agent - inspect progress during Play**
+and press Play. The cube follows the floor around a static obstacle and
+stops at the destination. Inspector's **Live gameplay → Navigation progress** shows
+state, remaining route distance, measured speed and navigation tick. Pause freezes
+these values; Step updates once; Stop restores authored state. The states and
+metrics are read-only. Agents do not avoid each other or moving obstacles.
+
+The saved scene includes its built NavMesh and exports through the normal workflow
+without a C++ module/compiler or runtime navigation build worker. Moving marked
+floor/obstacle geometry requires stopping Play and rebuilding navigation.
+
 
 
 ## Bright-surface glow

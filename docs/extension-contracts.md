@@ -79,3 +79,13 @@ A universal persistent `AssetHandle<T>` remains deferred. Phase7 uses typed proc
 ## Flecs integration configuration
 
 The exact pin remains 4.1.6 (`fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`). Script Math is enabled and fingerprinted. Global member-entity creation remains off; built-in authored types opt in explicitly. Native ranges are metadata, not host transaction rollback. Native root membership/ordered children and fixed Timer system admission are host semantics; modules must not replace them. `on_validate` and native Meta maps remain unavailable. See the source checkout's `docs/dependency-policy.md` and `docs/flecs-integration.md`; a richer live document is not permission to change the SDK pin or feature macros.
+
+### Navigation agent observation
+
+NavigationService exposes copied typed agent progress through its existing runtime
+owner. The exact SDK appends an owner/fixed/Navigation-permitted UUID query, with
+header-only Client convenience and no public NavigationRuntime/Scene declarations.
+Movement phases are distinct from NavStatus; sampled/path flags gate metrics.
+Gameplay observes the previous completed movement tick and PostPhysics the current
+one. Observations neither mutate the world nor perform asset IO. Private fingerprint
+changes require a matching module rebuild; no stable third-party ABI promise is added.

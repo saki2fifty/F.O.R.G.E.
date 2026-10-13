@@ -390,7 +390,7 @@ WorldContext::Resolution WorldContext::resolve(EntityRef ref, flecs::entity_t me
     return result;
 }
 std::optional<EntityRef> WorldContext::reference(flecs::entity_t handle) const {
-    if (!world_.is_alive(handle))
+    if (!handle || !world_.is_alive(handle))
         return {};
     auto e = world_.entity(handle);
     if (!e.owns<PersistentEntityId>())

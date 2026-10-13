@@ -42,7 +42,20 @@ A build is a separate asset operation. Scene Undo does not undo a navmesh build.
 7. Click **Pause**. It stops. **Step** moves it one simulation tick; **Resume** continues.
 8. Click **Stop**. The authored cube returns to its original position.
 
-Destinations use world coordinates: X and Z run across the floor, and Y points upward. **Stopping distance** controls how close the agent gets to the projected destination. Movement changes position; this initial agent does not turn to face its route. Its transform origin follows the navigation surface. For a larger visual model, use a child object with an upward local offset.
+Destinations use world coordinates: X and Z run across the floor, and Y points upward. **Stopping distance** is the remaining distance along the route to the projected destination. Movement changes position; the agent does not turn to face its route. Its transform origin follows the navigation surface. For a larger visual model, use a child object with an upward local offset.
+
+## See movement progress
+
+Open **50-navigation-progress** in the Feature Gallery. Select **Agent - inspect progress during Play**, then press Play. The cube travels around the obstacle and stops. In Inspector's **Live gameplay → Navigation progress**, watch the state, route distance, measured speed and navigation tick. These are read-only runtime observations; Stop restores the saved scene.
+
+- **Moving** means the agent advanced on its last navigation tick.
+- **Arrived** means it reached its stopping distance along the route.
+- **Paused** means its configured speed is zero. Pausing the game itself freezes the last displayed observation; Step updates it once.
+- **Pending** means the current settings have not run through a navigation tick yet.
+- **Failed** shows the cause, such as a stale navmesh, an outside destination or an unsupported Physics Body.
+- **Blocked** means no progress on one tick. Agents still do not avoid each other or moving obstacles.
+
+Distance and speed appear only for a valid sampled route. An exported Gallery50 scene uses the included built NavMesh; it does not need an editor, compiler or navigation build worker to run.
 
 ## Save, reopen and rebuild
 

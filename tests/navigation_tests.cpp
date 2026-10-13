@@ -8,6 +8,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <thread>
 using namespace forge;
 void check(bool v, const char* why) {
     if (!v)
@@ -133,6 +134,10 @@ int main(int argc, char** argv) {
                   "Relocated game navigation requires original project");
             game.tick();
             check(game.position()[0] != -8, "Packaged navigation did not move the game agent");
+            const auto packaged_ref =
+                game.engine.world().reference(game.scene.entity("agent").id()).value();
+            check(game.navigation->agent_state(packaged_ref)->phase == NavigationAgentPhase::Moving,
+                  "Relocated game agent progress requires original source");
             const auto cooked =
                 std::filesystem::path(relocated) / packaged.records().at(record.id).source;
             const auto bytes = read(cooked);
@@ -146,6 +151,19 @@ int main(int argc, char** argv) {
         Fixture f(root);
         f.scene.restore_snapshot(snapshot);
         f.simulation.reset_presentation();
+        const auto agent_ref = f.engine.world().reference(f.scene.entity("agent").id()).value();
+        check(!f.engine.world().reference(0), "Null native handle became a persistent reference");
+        auto observe = [&] { return f.navigation->agent_state(agent_ref).value(); };
+        check(observe().phase == NavigationAgentPhase::Pending && !observe().sampled,
+              "Unprocessed agent claimed a sample");
+        check(!f.navigation->agent_state({}), "Null persistent reference resolved");
+        check(!f.navigation->agent_state({AssetId::generate(), agent_ref.entity}),
+              "Wrong scene reference resolved");
+        bool foreign_available = true;
+        std::thread outsider(
+            [&] { foreign_available = f.navigation->agent_state(agent_ref).has_value(); });
+        outsider.join();
+        check(!foreign_available, "Navigation observation crossed owner thread");
         check(f.navigation->project_point({record.id}, {-8, .1, 0}).status == NavStatus::Success,
               "Headless projection failed");
         check(f.navigation->find_path({record.id}, {-8, .1, 0}, {8, .1, 0}).points.size() > 2,
@@ -153,6 +171,36 @@ int main(int argc, char** argv) {
         auto start = f.position();
         f.tick();
         auto next = f.position();
+        auto observed = observe();
+        check(observed.phase == NavigationAgentPhase::Moving &&
+                  observed.status == NavStatus::Success && observed.sampled && observed.has_path &&
+                  observed.tick == 1 && observed.remaining_distance > 16 &&
+                  observed.velocity[0] > 0,
+              "Moving observation did not identify the completed route tick");
+        const auto readonly_scene = f.scene.snapshot();
+        const auto readonly_checkpoint = f.navigation->checkpoint();
+        for (unsigned n = 0; n < 12; ++n)
+            check(observe().tick == observed.tick, "Observation advanced navigation");
+        check(f.scene.snapshot() == readonly_scene &&
+                  f.navigation->checkpoint() == readonly_checkpoint,
+              "Observation changed Scene or navigation recovery");
+        {
+            Fixture close(root);
+            close.scene.restore_snapshot(snapshot);
+            auto agent = close.scene.entity("agent");
+            agent.set<LocalTranslation>({-2, .1, 0});
+            auto config = agent.get<NavigationAgent>();
+            config.destination_x = 2;
+            config.stopping_distance = 4.1f;
+            agent.set<NavigationAgent>(config);
+            const auto ref = close.engine.world().reference(agent.id()).value();
+            const auto before = close.position();
+            close.tick();
+            const auto out = close.navigation->agent_state(ref).value();
+            check(out.phase == NavigationAgentPhase::Moving && out.remaining_distance > 4.1 &&
+                      close.position() != before,
+                  "Straight-line proximity stopped an agent across an obstacle");
+        }
         check(std::hypot(next[0] - start[0], next[2] - start[2]) > .02 &&
                   std::hypot(next[0] - start[0], next[2] - start[2]) < .04,
               "Fixed step speed wrong");
@@ -173,6 +221,8 @@ int main(int argc, char** argv) {
         Fixture recovered(root);
         recovered.scene.restore_snapshot(mid);
         recovered.navigation->restore(checkpoint);
+        check(recovered.navigation->agent_state(agent_ref)->phase == NavigationAgentPhase::Pending,
+              "Recovery replayed an old arrival/sample");
         recovered.tick();
         f.tick();
         check(std::hypot(f.position()[0] - recovered.position()[0],
@@ -193,16 +243,66 @@ int main(int argc, char** argv) {
         for (int i = 0; i < 10; ++i)
             f.tick();
         check(f.position() == stop, "Agent did not stop");
+        check(observe().phase == NavigationAgentPhase::Arrived && observe().has_path &&
+                  observe().remaining_distance <= .101 && observe().velocity == Double3{},
+              "Stopped agent did not report arrival/zero velocity");
         auto a = f.scene.entity("agent").get<NavigationAgent>();
-        a.destination_x = -8;
+        a.destination_y = 1;
         f.scene.entity("agent").set<NavigationAgent>(a);
         f.tick();
+        check(observe().phase == NavigationAgentPhase::Arrived &&
+                  std::abs(observe().projected_destination[1] - a.destination_y) > .5,
+              "Arrival used requested altitude instead of projected navmesh endpoint");
+        a.destination_x = -8;
+        f.scene.entity("agent").set<NavigationAgent>(a);
+        check(observe().phase == NavigationAgentPhase::Pending && !observe().has_path,
+              "Changed goal reused old arrival");
+        f.tick();
         check(f.position() != stop, "Destination change not followed");
+        a.speed = 0;
+        f.scene.entity("agent").set<NavigationAgent>(a);
+        stop = f.position();
+        f.tick();
+        check(f.position() == stop && observe().phase == NavigationAgentPhase::Paused &&
+                  observe().has_path && observe().velocity == Double3{},
+              "Zero-speed route did not pause");
+        a.speed = 1e-9f;
+        f.scene.entity("agent").set<NavigationAgent>(a);
+        f.tick();
+        check(observe().phase == NavigationAgentPhase::Blocked && observe().has_path &&
+                  observe().velocity == Double3{},
+              "Unmeasurable positive-speed advance did not report blocked");
+        const auto mesh_ref = a.navmesh;
+        a.navmesh = {};
+        f.scene.entity("agent").set<NavigationAgent>(a);
+        f.tick();
+        check(observe().phase == NavigationAgentPhase::Failed &&
+                  observe().status == NavStatus::Missing && !observe().sampled &&
+                  !observe().has_path,
+              "Missing navmesh failure was lost");
+        a.navmesh = mesh_ref;
+        a.speed = 2;
+        a.enabled = false;
+        f.scene.entity("agent").set<NavigationAgent>(a);
+        check(observe().phase == NavigationAgentPhase::Disabled && !observe().sampled,
+              "Disabled agent retained a live sample");
+        f.tick();
+        a.enabled = true;
+        a.has_destination = false;
+        f.scene.entity("agent").set<NavigationAgent>(a);
+        check(observe().phase == NavigationAgentPhase::Idle && !observe().has_path,
+              "Unassigned agent retained a route");
+        a.has_destination = true;
+        f.scene.entity("agent").set<NavigationAgent>(a);
         auto body = PhysicsBody{};
         f.scene.entity("agent").set<PhysicsBody>(body);
         stop = f.position();
         f.tick();
         check(f.position() == stop, "Navigation drove physics body");
+        check(observe().phase == NavigationAgentPhase::Failed &&
+                  observe().status == NavStatus::Invalid && !observe().has_path &&
+                  !observe().sampled,
+              "Physics conflict did not keep copied navigation failure");
         f.scene.entity("agent").remove<PhysicsBody>();
         f.scene.entity("floor").set<LocalTranslation>({0, 1, 0});
         check(f.navigation->project_point({record.id}, {-8, .1, 0}).status == NavStatus::Stale,
@@ -210,6 +310,9 @@ int main(int argc, char** argv) {
         stop = f.position();
         f.tick();
         check(f.position() == stop, "Stale navmesh moved agent");
+        check(observe().phase == NavigationAgentPhase::Failed &&
+                  observe().status == NavStatus::Stale,
+              "Stale navigation failure was lost");
 
         f.scene.entity("floor").set<LocalTranslation>({0, 0, 0});
         const auto floor_surface = f.scene.entity("floor").get<NavigationSurface>();
@@ -247,6 +350,9 @@ int main(int argc, char** argv) {
         stop = f.position();
         f.tick();
         check(f.position() == stop, "No-path agent moved");
+        check(observe().phase == NavigationAgentPhase::Failed &&
+                  observe().status == NavStatus::EndOutside,
+              "Outside goal failure was lost");
         check(!agent.owns<LocalRotation>() && !agent.owns<LocalScale>(),
               "Movement materialized unrelated TRS channels");
         auto saved = scene.snapshot();
@@ -300,6 +406,14 @@ int main(int argc, char** argv) {
         check(realized.owns<LocalTranslation>() && !realized.owns<LocalRotation>() &&
                   !realized.owns<LocalScale>(),
               "Prefab navigation did not preserve per-channel inheritance");
+        const auto prefab_ref = prefab_runtime.engine.world().reference(realized.id()).value();
+        const auto owned_before_observation = realized.owns<NavigationAgent>();
+        const auto config_before_observation = realized.get<NavigationAgent>();
+        check(prefab_runtime.navigation->agent_state(prefab_ref)->phase ==
+                      NavigationAgentPhase::Moving &&
+                  realized.owns<NavigationAgent>() == owned_before_observation &&
+                  realized.get<NavigationAgent>() == config_before_observation,
+              "Copied prefab observation lost effective values or materialized config");
         auto runtime_config = realized.get<NavigationAgent>();
         runtime_config.destination_z = 5;
         realized.set<NavigationAgent>(runtime_config);
@@ -319,10 +433,28 @@ int main(int argc, char** argv) {
         f.scene.entity("agent").destruct();
         f.tick();
         check(f.navigation->debug(0).is_null(), "Deleted agent survived");
+        check(!f.navigation->agent_state(agent_ref), "Deleted reference retained observation");
+        {
+            Fixture crowded(root);
+            crowded.scene.restore_snapshot(snapshot);
+            for (int i = 0; i < 64; ++i) {
+                auto id =
+                    authoring_command(crowded.scene, "entity.create", {{"name", "Budget agent"}})
+                        .at("selected")
+                        .get<std::string>();
+                crowded.scene.entity(id).set<NavigationAgent>(a);
+            }
+            crowded.navigation->tick(1.f / 60, 19);
+            const auto limited = crowded.navigation->agent_state(agent_ref).value();
+            check(limited.phase == NavigationAgentPhase::Failed &&
+                      limited.status == NavStatus::Limit && limited.tick == 19 && !limited.has_path,
+                  "Over-budget agents did not report a bounded failure");
+        }
         auto retained = f.navigation;
         retained->shutdown();
         check(retained->find_path({record.id}, {}, {1, 0, 0}).status == NavStatus::Unavailable,
               "Stopped navigation service remained live");
+        check(!retained->agent_state(agent_ref), "Stopped navigation retained observation");
         std::filesystem::remove_all(root);
         std::cout << "Navigation publication, identity, fixed-tick movement, obstacle route, "
                      "recovery and physics ownership passed\n";

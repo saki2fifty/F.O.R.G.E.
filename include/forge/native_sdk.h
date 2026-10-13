@@ -152,6 +152,22 @@ typedef struct ForgeSdkNavResultV1 {
     uint32_t size, status, count, capacity;
     double* xyz; /* Caller-owned capacity*3 doubles; capacity 1..64. */
 } ForgeSdkNavResultV1;
+/* Agent phases:0 disabled,1 idle(no destination),2 pending,3 moving,
+   4 paused(zero speed),5 arrived,6 blocked(no advance this tick),7 failed.
+   Navigation status is the independent query/admission status above. */
+#define FORGE_SDK_NAV_AGENT_DISABLED 0u
+#define FORGE_SDK_NAV_AGENT_IDLE 1u
+#define FORGE_SDK_NAV_AGENT_PENDING 2u
+#define FORGE_SDK_NAV_AGENT_MOVING 3u
+#define FORGE_SDK_NAV_AGENT_PAUSED 4u
+#define FORGE_SDK_NAV_AGENT_ARRIVED 5u
+#define FORGE_SDK_NAV_AGENT_BLOCKED 6u
+#define FORGE_SDK_NAV_AGENT_FAILED 7u
+typedef struct ForgeSdkNavigationAgentV1 {
+    uint32_t size, version, phase, status, sampled, has_path;
+    uint64_t tick;
+    double position[3], velocity[3], projected_destination[3], remaining_distance;
+} ForgeSdkNavigationAgentV1;
 /* CPU admission states use the engine resource state names. A retained revision
    can remain usable while a replacement is pending/failed. No GPU readiness claim. */
 #define FORGE_SDK_RESOURCE_MESH 1u
@@ -354,6 +370,15 @@ typedef struct ForgeSdkWorldV1 {
        Retains pause/fade; skipped time emits no markers or root displacement. */
     int32_t(FORGE_SDK_CALL* animation_seek)(void*, const char* scene, const char* entity,
                                             double seconds);
+    /* Fixed owner thread/Navigation permission. Copied latest completed navigation
+       tick; Gameplay precedes movement, PostPhysics follows it. Config changes
+       report Pending. sampled/has_path gate metrics; no asset IO or world mutation.
+       Exact size;1 observation,0 absent/unavailable,-1 bad arguments/context.
+       Valid-size outputs clear on failure. Net world velocity m/s; remaining
+       waypoint-route distance meters, goal is the projected navmesh endpoint. */
+    int32_t(FORGE_SDK_CALL* navigation_agent_state)(void*, const char* scene_uuid,
+                                                    const char* entity_uuid,
+                                                    ForgeSdkNavigationAgentV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;
