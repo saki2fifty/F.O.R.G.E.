@@ -14,6 +14,9 @@ struct AnimationStatesAsset {
 struct AnimationMaskAsset {
     static constexpr const char* type = "animation_mask";
 };
+struct AnimationBlendSpaceAsset {
+    static constexpr const char* type = "animation_blend_space";
+};
 struct TransformAnimationAsset {
     static constexpr const char* type = "transform_animation";
 };
@@ -44,6 +47,9 @@ struct Animator {
     std::uint32_t blend_mode = 0;
     // Optional reusable influence multiplied by the selected blend subtree.
     AssetRef<AnimationMaskAsset> blend_mask{};
+    // A numeric axis selects neighboring clips with one shared cycle phase.
+    AssetRef<AnimationBlendSpaceAsset> blend_space{};
+    float blend_position = 0;
     bool operator==(const Animator&) const = default;
 };
 // Opt-in constraints on an imported model holder. Values are in skeleton model

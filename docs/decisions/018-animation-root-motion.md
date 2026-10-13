@@ -37,6 +37,14 @@ replacement locomotion source. Blend mode and state fades retain the existing
 weighted interval rule. Both modes neutralize root translation/rotation only after
 raw per-layer capture, and preserve the existing complete pose/physics transaction.
 
+A one-dimensional Blend Space admits its neighboring pair before each fixed
+interval. Both clips sample the same normalized cycle phase, with interval times
+scaled by their individual durations. The selected numeric position supplies a
+constant pair weight for that interval; a parameter edit does not blend a previous
+pair's weight into a different pair's displacement. Pair changes preserve cycle
+phase, and paused edits commit only the pose, never a motion interval. The existing
+per-layer delta blend, rest conjugation and complete transaction remain authoritative.
+
 Apply composes the exact actor local affine with this rigid delta, uses the
 existing signed TRS decomposition with its continuity hint, and requires the
 actor's scale to remain unchanged. Unrepresentable shear or scale changes reject

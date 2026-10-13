@@ -112,6 +112,8 @@ struct EditorFixture {
             return stage >= 280 ? "Game" : "###Scene";
         if (root_motion && stage >= 282 && stage <= 285)
             return stage == 285 ? "Game" : "Animation Mask###Animation Mask";
+        if (root_motion && stage >= 286 && stage <= 289)
+            return stage == 289 ? "Game" : "Animation Blend Space###Animation Blend Space";
         if (audio_preview && stage >= 235 && stage <= 240)
             return "Audio clip###Audio clip";
         if (audio_mixer && stage >= 229 && stage <= 231)
@@ -679,7 +681,11 @@ struct EditorFixture {
                                "animation-bone-mask",
                                "animation-bone-mask-150",
                                "animation-bone-mask-200",
-                               "weighted-mask-game"};
+                               "weighted-mask-game",
+                               "animation-blend-space",
+                               "animation-blend-space-150",
+                               "animation-blend-space-200",
+                               "blend-space-game"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

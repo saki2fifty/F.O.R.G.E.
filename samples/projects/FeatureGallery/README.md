@@ -338,13 +338,24 @@ states and exits. Both scenes use FORGE's original **OverlayColumn.gltf**, with
 editable source and cooked animation/mesh data included. No optional C++ code is
 needed to run them.
 
-## Reach and aim
+## Bone masks
 
 **42-animation-bone-masks** compares a whole-skeleton blend, an upper subtree and
 a reusable fractional mask. Open **Assets / Weighted.mask.json** to edit per-bone
 influence and descendant scope. Save / Publish, Play and export use the same mask.
 The root has influence.25, Upper.5, Tip.75 and the animated mesh.25; Side keeps the
 base motion. **CodeExamples / SetBoneMask.hpp** shows ordinary typed C++ control.
+
+## Numeric animation blending
+
+**43-animation-blend-spaces** compares Rest-to-Base at.5, Base-to-Overlay at1.5
+and the Overlay endpoint at2. The clips share a two-second cycle despite different
+source durations. Open **Assets / Motion.blendspace.json** for sample positions,
+clip selection and cycle duration. Select a holder to change Animator's **Blend
+position**, preview, Play or export. **CodeExamples / SetBlendPosition.hpp** shows
+ordinary C++ edits without restarting the cycle.
+
+## Reach and aim
 
 **40-two-bone-ik** and **41-joint-aim** show three copies of the original column
 with weights0, .5 and1. Select the model holder and adjust its Two Bone IK or Aim IK

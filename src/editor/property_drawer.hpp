@@ -209,7 +209,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                                       asset_picker_scope_matches(it->second, owner) &&
                                       (!allowed || allowed->contains(id));
                     if (!compatible)
-                        ImGui::SetTooltip(owner ? "Choose a current bone from this model"
+                        ImGui::SetTooltip(owner ? "Choose a current asset from this model"
                                                 : "This field requires a current %s asset",
                                           type.c_str());
                     if (compatible && payload->IsDelivery()) {

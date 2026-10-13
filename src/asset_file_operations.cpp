@@ -3,6 +3,7 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "gltf_container.hpp"
+#include <forge/animation_blend_space.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/asset_publication.hpp>
@@ -201,12 +202,16 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&
         record.type != "shader" && record.type != "collision" &&
         record.type != "transform_animation" && record.type != "animation_states" &&
-        record.type != "animation_mask")
+        record.type != "animation_mask" && record.type != "animation_blend_space")
         throw std::runtime_error("No authored-document copy adapter for this source format");
     if (record.type == "animation_states" && !path_utf8(destination).ends_with(".states.json"))
         throw std::runtime_error("Animation States files must retain the .states.json suffix");
     if (record.type == "animation_mask" && !path_utf8(destination).ends_with(".mask.json"))
         throw std::runtime_error("Animation Mask files must retain the .mask.json suffix");
+    if (record.type == "animation_blend_space" &&
+        !path_utf8(destination).ends_with(".blendspace.json"))
+        throw std::runtime_error(
+            "Animation Blend Space files must retain the .blendspace.json suffix");
     if (record.type == "transform_animation" &&
         !path_utf8(destination).ends_with(".animation.json"))
         throw std::runtime_error(
@@ -240,6 +245,8 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             AnimationStatesSource{value}.validate();
         else if (record.type == "animation_mask")
             AnimationMaskSource{value}.validate();
+        else if (record.type == "animation_blend_space")
+            AnimationBlendSpaceSource{value}.validate();
         else if (record.type == "transform_animation")
             TransformAnimationSource{value}.validate();
         else

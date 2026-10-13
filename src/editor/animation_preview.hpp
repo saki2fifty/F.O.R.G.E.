@@ -3,6 +3,7 @@
 #include "../animation_states_resource.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
+#include <forge/animation_blend_space.hpp>
 #include <forge/authoring.hpp>
 #include <imgui.h>
 namespace forge {
@@ -73,6 +74,8 @@ class AnimationPreviewEditor {
                 preview_.configure(weight_, seconds_, loop_, speed_);
                 if (states_asset_)
                     preview_.select_state(state_);
+                if (space_asset_)
+                    preview_.select_blend_position(position_);
                 if (playing_ && dt > 0)
                     preview_.tick(std::min(dt, .25f));
                 auto pose = preview_.pose();
@@ -162,6 +165,21 @@ class AnimationPreviewEditor {
                 ImGui::TextUnformatted(
                     "Named states own clip, loop, speed and fade. Changes here are temporary.");
             }
+            bool changed = false;
+            if (space_asset_) {
+                ImGui::TextUnformatted("Blend Space: neighboring clips share one cycle phase. "
+                                       "Changes here are temporary.");
+                changed |= ImGui::SliderFloat("Blend position", &position_, minimum_position_,
+                                              maximum_position_, "%.3f");
+                FORGE_UI_PROBE("animation_preview:position");
+                if (changed && preview_active()) {
+                    try {
+                        preview_.select_blend_position(position_);
+                    } catch (const std::exception& e) {
+                        fail(e);
+                    }
+                }
+            }
             const bool can_blend =
                 target_.entity && scene.entity(target_.entity.str()).has<Animator>() &&
                 bool(scene.entity(target_.entity.str()).get<Animator>().blend_clip.id);
@@ -171,7 +189,7 @@ class AnimationPreviewEditor {
                         ? "Additive overlay: adds offsets to the base clip."
                         : "Blend: mixes the two clip poses.");
             ImGui::BeginDisabled(!can_blend);
-            bool changed = ImGui::SliderFloat("Blend target", &weight_, 0, 1, "%.3f");
+            changed |= ImGui::SliderFloat("Blend target", &weight_, 0, 1, "%.3f");
             FORGE_UI_PROBE("animation_preview:weight");
             changed |= ImGui::SliderFloat("Transition (seconds)", &seconds_, 0, 10, "%.3f");
             FORGE_UI_PROBE("animation_preview:seconds");
@@ -197,6 +215,10 @@ class AnimationPreviewEditor {
                                   {"playback_speed", speed_}};
                     if (states_asset_)
                         settings = {{"state", state_}, {"playback_speed", speed_}};
+                    if (space_asset_)
+                        settings = {{"blend_position", position_},
+                                    {"loop", loop_},
+                                    {"playback_speed", speed_}};
                     for (const auto& [field, value] : settings.items())
                         commands.push_back({{"operation", "property.set"},
                                             {"arguments",
@@ -231,6 +253,8 @@ class AnimationPreviewEditor {
         target_ = scene.reference(id);
         const auto config = actor.get<Animator>();
         states_asset_ = config.states.id;
+        space_asset_ = config.blend_space.id;
+        position_ = config.blend_position;
         state_ = config.state;
         named_states_ = {};
         if (states_asset_) {
@@ -256,6 +280,30 @@ class AnimationPreviewEditor {
                 error_ = e.what();
             }
         }
+        if (space_asset_) {
+            try {
+                const auto catalog = AssetCatalog::open_project(project_);
+                const auto resolved = catalog.resolve(config.blend_space);
+                if (resolved.state != AssetState::Available)
+                    throw std::runtime_error(resolved.diagnostic);
+                DerivedDataCache cache(project_,
+                                       {animation_blend_space_cooked_byte_limit,
+                                        animation_blend_space_cooked_byte_limit + 65536, 1});
+                cache.load_selected(
+                    resolved.record->metadata.at("forge.import").at("key").get<std::string>(),
+                    [&](const auto& artifact) {
+                        if (artifact.files.size() != 1 ||
+                            artifact.files.front().name != "blendspace.json")
+                            throw std::runtime_error("Invalid Blend Space preview artifact");
+                        const auto space = decode_animation_blend_space(
+                            artifact.files.front().bytes, space_asset_);
+                        minimum_position_ = float(space.samples.front().position);
+                        maximum_position_ = float(space.samples.back().position);
+                    });
+            } catch (const std::exception& e) {
+                error_ = e.what();
+            }
+        }
         weight_ = config.blend_weight;
         seconds_ = config.transition_seconds;
         speed_ = config.playback_speed;
@@ -263,7 +311,7 @@ class AnimationPreviewEditor {
         revision_ = scene.revision();
         time_ = duration_ = 0;
         name_ = actor.name().c_str();
-        if (!states_asset_)
+        if (!states_asset_ && !space_asset_)
             error_.clear();
     }
 
@@ -271,6 +319,8 @@ class AnimationPreviewEditor {
     SkeletalAnimationPreview preview_;
     AnimationStates named_states_;
     AssetId states_asset_;
+    AssetId space_asset_;
+    float position_ = 0, minimum_position_ = 0, maximum_position_ = 1;
     std::uint32_t state_ = 0;
     std::string state_name() const {
         try {

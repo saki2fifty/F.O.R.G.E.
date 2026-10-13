@@ -14,6 +14,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
 #include "actions.hpp"
+#include "animation_blend_space_editor.hpp"
 #include "animation_debug.hpp"
 #include "animation_mask_editor.hpp"
 #include "animation_playback.hpp"
@@ -932,6 +933,7 @@ int main(int argc, char** argv) {
         forge::AnimationTimelineEditor animation_timeline;
         forge::AnimationStatesEditor animation_states;
         forge::AnimationMaskEditor animation_mask;
+        forge::AnimationBlendSpaceEditor animation_blend_space;
         forge::AnimationPreviewEditor animation_preview;
         forge::MaterialGraphEditor graph_editor(
             std::filesystem::path(base) / "forge_shader_build.exe", [] {
@@ -1049,6 +1051,12 @@ int main(int argc, char** argv) {
                 refresh_import(audio_imports);
                 refresh_import(model_imports);
                 refresh_import(shader_imports);
+                if (animation_blend_space.document() &&
+                    animation_blend_space.document()->source().asset() == id) {
+                    animation_blend_space.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        animation_blend_space.open(files.document, plan.request.destination);
+                }
                 if (animation_mask.document() &&
                     animation_mask.document()->source().asset() == id) {
                     animation_mask.request_close();
@@ -1127,6 +1135,11 @@ int main(int argc, char** argv) {
                               [](auto& c, const auto& p, const auto&) {
                                   forge::prepare_animation_states_publication(c, p);
                               }});
+            routes.push_back({"forge.animation.blend-space", forge::desktop_texture_target(),
+                              forge::animation_blend_space_import_registry(),
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_animation_blend_space_publication(c, p);
+                              }});
             routes.push_back({"forge.animation.mask", forge::desktop_texture_target(),
                               forge::animation_mask_import_registry(),
                               [](auto& c, const auto& p, const auto&) {
@@ -1151,6 +1164,9 @@ int main(int argc, char** argv) {
         };
         content_imports.blocked = [&](forge::AssetId id) {
             return files.busy() ||
+                   (animation_blend_space.document() &&
+                    animation_blend_space.document()->source().asset() == id &&
+                    animation_blend_space.dirty()) ||
                    (animation_mask.document() &&
                     animation_mask.document()->source().asset() == id && animation_mask.dirty()) ||
                    (animation_states.document() &&
@@ -1221,6 +1237,9 @@ int main(int argc, char** argv) {
             } else if (kind == "collision") {
                 if (open)
                     collision_editor.open(files.document, path);
+            } else if (kind == "animation_blend_space") {
+                if (open)
+                    animation_blend_space.open(files.document, path);
             } else if (kind == "animation_mask") {
                 if (open)
                     animation_mask.open(files.document, path);
@@ -1495,6 +1514,30 @@ int main(int argc, char** argv) {
             {"animation_clip", "Open Animation Preview", [&](const forge::AssetRecord& asset) {
                  animation_preview.open(files.document, scene, asset.id);
              }});
+        documents.add(
+            {"animation_blend_space",
+             "Animation Blend Space",
+             "Animation Blend Space###Animation Blend Space",
+             true,
+             [&] { return animation_blend_space.is_open(); },
+             [&] { return animation_blend_space.dirty(); },
+             [&] {
+                 animation_blend_space.draw(files.document, scene,
+                                            asset_document_locked || play.active(),
+                                            [&] { animation_preview.open(files.document, scene); });
+             },
+             [&] { animation_blend_space.request_save(); },
+             [&] { animation_blend_space.undo(); },
+             [&] { animation_blend_space.redo(); },
+             [&] { animation_blend_space.request_close(); },
+             [&] { return animation_blend_space.can_undo(); },
+             [&] { return animation_blend_space.can_redo(); },
+             {},
+             [&] { return std::exchange(animation_blend_space.close_cancelled, false); }});
+        asset_editors.add({"animation_blend_space", "Open animation blend space",
+                           [&](const forge::AssetRecord& asset) {
+                               animation_blend_space.open(files.document, asset.source);
+                           }});
         documents.add({"animation_mask",
                        "Animation Mask",
                        "Animation Mask###Animation Mask",
@@ -3823,6 +3866,7 @@ int main(int argc, char** argv) {
                 case 275:
                 case 278:
                 case 283:
+                case 287:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3847,6 +3891,7 @@ int main(int argc, char** argv) {
                 case 276:
                 case 279:
                 case 284:
+                case 288:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -4073,6 +4118,28 @@ int main(int argc, char** argv) {
                         ready = animation_mask.document() != nullptr;
                     }
                     break;
+                case 286:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        actions.invoke("stop");
+                        files.document.open_scene("Scenes/43-animation-blend-spaces.scene.json");
+                        animation_blend_space.open(files.document, "Assets/Motion.blendspace.json");
+                        workspace.inspector = false;
+                        ready = animation_blend_space.document() != nullptr;
+                    }
+                    break;
+                case 289:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        animation_blend_space.request_close();
+                        ready = actions.invoke("play");
+                        workspace.game = true;
+                        if (auto* w = ImGui::FindWindowByName("Game"))
+                            ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos("Game", {30, 55});
+                        ImGui::SetWindowSize("Game", {1860, 990});
+                    }
+                    break;
                 case 285:
                     if (fixture.root_motion) {
                         forge::ui::style(1);
@@ -4295,6 +4362,15 @@ int main(int argc, char** argv) {
                                        ImGui::GetIO().DeltaTime);
                 animation_states.poll(files.document, message);
                 if (auto catalog = animation_states.take_catalog()) {
+                    animation_preview.stop_preview();
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
+                animation_blend_space.poll(files.document, message);
+                if (auto catalog = animation_blend_space.take_catalog()) {
                     animation_preview.stop_preview();
                     content_imports.catalog_changed(catalog);
                     if (mesh_resources)
@@ -5318,6 +5394,7 @@ int main(int argc, char** argv) {
                         editable_mesh_editor.content(files.document, edit_locked);
                         animation_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
+                        animation_blend_space.content(files.document, edit_locked);
                         animation_timeline.content(files.document, scene, edit_locked);
                         animation_preview.content(files.document, scene, edit_locked);
                         graph_editor.content(files.document, edit_locked);
@@ -6718,6 +6795,29 @@ int main(int argc, char** argv) {
                 }
                 if (fixture.root_motion && fixture.stage == 285)
                     captured_document_visible &= play.control_ready();
+                if (fixture.root_motion && fixture.stage >= 286 && fixture.stage <= 288) {
+                    auto* w =
+                        ImGui::FindWindowByName("Animation Blend Space###Animation Blend Space");
+                    captured_document_visible &= w && animation_blend_space.document();
+                    if (w) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        ImGui::SetScrollY(w, 0);
+                    }
+                    for (const char* id :
+                         {"animation_blend_space:cycle", "animation_blend_space:position"}) {
+                        const auto field = forge::test::ui_targets.find(id);
+                        captured_document_visible &= field != forge::test::ui_targets.end();
+                        if (field != forge::test::ui_targets.end())
+                            captured_document_visible &=
+                                field->second.enabled &&
+                                field->second.minimum.y >= field->second.clip_minimum.y &&
+                                field->second.maximum.y <= field->second.clip_maximum.y;
+                    }
+                }
+                if (fixture.root_motion && fixture.stage == 289)
+                    captured_document_visible &= play.control_ready();
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -6805,7 +6905,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 286)) {
+                        (fixture.root_motion && fixture.stage == 290)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
                             !fixture.audio_preview && !fixture.root_motion)

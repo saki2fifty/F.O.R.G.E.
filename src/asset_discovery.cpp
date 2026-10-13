@@ -72,6 +72,7 @@ std::string source_kind(const std::filesystem::path& path) {
              {".animation.json", "transform_animation"},
              {".states.json", "animation_states"},
              {".mask.json", "animation_mask"},
+             {".blendspace.json", "animation_blend_space"},
              {".collision.json", "collision"},
              {".shader.json", "shader_program"},
              {".gltf", "model"},

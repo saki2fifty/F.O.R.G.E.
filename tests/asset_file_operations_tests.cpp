@@ -4,6 +4,7 @@
 #include "asset_storage.hpp"
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
+#include <forge/animation_blend_space.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/asset_publication.hpp>
@@ -398,6 +399,52 @@ int main(int argc, char** argv) {
         check(!inspect_asset_references(reference_scene.schema(), opaque_masks, {rig})
                    .uninspected.empty(),
               "Mask extensions falsely claimed complete reference coverage");
+        auto space = AnimationBlendSpaceSource::create(AssetId::generate());
+        space.document["skeleton"] = rig;
+        const auto sample = AssetId::generate();
+        space.document["samples"] =
+            Json::array({{{"id", sample}, {"clip", state_clip}, {"position", 0}}});
+        write(project / "Assets/Motion.blendspace.json", space.document);
+        catalog = AssetCatalog::open_project(project);
+        catalog.add({space.asset(),
+                     AnimationBlendSpaceAsset::type,
+                     "Assets/Motion.blendspace.json",
+                     1,
+                     {}});
+        catalog.save(AssetCatalog::project_index(project));
+        rejects([&] {
+            prepare_asset_file_operation(
+                project, {AssetFileAction::Duplicate, space.asset(), "Moved/wrong.json"}, rewrite);
+        });
+        const auto space_copy = prepare_asset_file_operation(
+            project, {AssetFileAction::Duplicate, space.asset(), "Moved/Copy.blendspace.json"},
+            rewrite);
+        transaction.commit(space_copy.changes, false);
+        const AnimationBlendSpaceSource copied_space{read(project / "Moved/Copy.blendspace.json")};
+        copied_space.validate();
+        check(copied_space.asset() == space_copy.result && copied_space.asset() != space.asset() &&
+                  copied_space.document.at("samples") == space.document.at("samples") &&
+                  copied_space.document.at("skeleton") == Json(rig),
+              "Blend Space duplicate changed clip or stable sample identities");
+        const auto space_move = prepare_asset_file_operation(
+            project, {AssetFileAction::Move, space_copy.result, "Assets/Copy.blendspace.json"},
+            rewrite);
+        transaction.commit(space_move.changes, false);
+        check(read(project / "Assets/Copy.blendspace.json") == copied_space.document,
+              "Blend Space move changed source identity or samples");
+        const std::array space_documents{
+            AssetReferenceDocument{"Assets/Motion.blendspace.json", space.document}};
+        const auto space_impact =
+            inspect_asset_references(reference_scene.schema(), space_documents, {rig, state_clip});
+        check(space_impact.references.size() == 2 && space_impact.uninspected.empty(),
+              "Blend Space skeleton/clip impact lost typed coverage");
+        auto opaque_space = space.document;
+        opaque_space["samples"][0]["future"] = rig;
+        const std::array opaque_spaces{
+            AssetReferenceDocument{"Assets/Motion.blendspace.json", opaque_space}};
+        check(!inspect_asset_references(reference_scene.schema(), opaque_spaces, {rig})
+                   .uninspected.empty(),
+              "Blend Space extensions falsely claimed complete reference coverage");
         test_asset_file_service(project / "service");
         std::cout << "Asset file scene/family/move/delete/duplicate/publication tests passed\n";
         return 0;

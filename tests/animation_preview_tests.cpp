@@ -16,6 +16,8 @@ int main(int argc, char** argv) {
     try {
         require(argc == 3 || argc == 4, "Need prepared project and UI scratch root");
         const bool states_mode = argc == 4 && std::string_view(argv[3]) == "--states";
+        const bool space_mode = argc == 4 && std::string_view(argv[3]) == "--space";
+        require(argc == 3 || states_mode || space_mode, "Unknown preview fixture mode");
         for (float scale : {.65f, 1.f, 1.5f, 2.f}) {
             const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
             std::filesystem::create_directories(root);
@@ -24,7 +26,8 @@ int main(int argc, char** argv) {
             Scene scene(engine.world());
             SceneDocument project(scene);
             project.open_project(root, true);
-            std::ifstream input(root / "main.scene.json");
+            std::ifstream input(root / (space_mode ? "Scenes/43-animation-blend-spaces.scene.json"
+                                                   : "main.scene.json"));
             Json source;
             input >> source;
             scene.restore_snapshot(source);
@@ -157,11 +160,13 @@ int main(int argc, char** argv) {
                 click_target("animation_preview:state_combo");
                 click_target("animation_preview:state:2");
                 frame();
-            } else {
+            } else if (!space_mode) {
                 number("animation_preview:seconds", "0");
                 number("animation_preview:weight", "0.5");
             }
             number("animation_preview:playhead", states_mode ? "0.5" : "1");
+            if (space_mode)
+                number("animation_preview:position", "0.75");
             auto sampled = editor.snapshot(scene.effective_document());
             Json pose;
             for (const auto& item : sampled.at("entities"))
@@ -169,7 +174,12 @@ int main(int argc, char** argv) {
                     pose = item.at("animation_pose");
             if (states_mode)
                 require(pose.at("state") == 2, "UI state selector did not apply");
-            else
+            else if (space_mode) {
+                require(std::abs(pose.at("blend_position").get<double>() - .75) < .001 &&
+                            std::abs(pose.at("blend_weight").get<double>() - .75) < .001 &&
+                            std::abs(pose.at("duration").get<double>() - 2) < .001,
+                        "UI position did not select phase-aligned neighboring samples");
+            } else
                 require(std::abs(pose.at("blend_weight").get<double>() - .5) < .001,
                         "UI blend target did not apply at scale " + std::to_string(scale) + ": " +
                             pose.at("blend_weight").dump());
@@ -179,8 +189,9 @@ int main(int argc, char** argv) {
                     "Preview changed authoring/history");
             click("Apply preview settings to Animator");
             require(!editor.preview_active(), "Applying settings left stale preview active");
-            require(states_mode ? scene.entity(actor).get<Animator>().state == 2
-                                : scene.entity(actor).get<Animator>().blend_weight == .5f,
+            require(states_mode  ? scene.entity(actor).get<Animator>().state == 2
+                    : space_mode ? scene.entity(actor).get<Animator>().blend_position == .75f
+                                 : scene.entity(actor).get<Animator>().blend_weight == .5f,
                     "Preview settings not saved to Animator");
             require(scene.undo() && scene.document() == before,
                     "Settings were not one atomic Undo step");
@@ -305,11 +316,17 @@ int main(int argc, char** argv) {
                                    {"component", "forge.animator"},
                                    {"field", "blend_mask"},
                                    {"value", AssetId::generate()}});
+                authoring_command(scene, "property.set",
+                                  {{"entity", actor},
+                                   {"component", "forge.animator"},
+                                   {"field", "blend_space"},
+                                   {"value", AssetId::generate()}});
                 const auto before_attach = scene.document();
                 click("Attach to selected Animator");
                 require(scene.entity(actor).get<Animator>().state == 0 &&
-                            !scene.entity(actor).get<Animator>().blend_mask.id,
-                        "UI state attachment did not select entry and clear the direct mask");
+                            !scene.entity(actor).get<Animator>().blend_mask.id &&
+                            !scene.entity(actor).get<Animator>().blend_space.id,
+                        "UI state attachment did not select entry and clear mask/space modes");
                 require(scene.undo() && scene.document() == before_attach,
                         "State attachment was not one Scene Undo step");
                 number("animation_states:fade", "0.5");

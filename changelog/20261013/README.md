@@ -1,5 +1,17 @@
 # 2026-10-13
 
+## One-dimensional animation blend spaces
+
+- Content adds reusable clip samples on a numeric axis, with model-scoped clip
+  selection, cycle duration, source history, publication and atomic Scene attachment.
+- Animator selects neighboring clips with Blend position at a shared cycle phase;
+  positions clamp at endpoints. Existing morph, root-motion, IK and physics consumers
+  retain their complete-pose ownership. Preview changes remain temporary until applied.
+- Exact recovery and source-free export include cooked space/model dependencies.
+  Gallery43 compares three positions and includes an ordinary C++ control example.
+- Matching SDK modules need rebuilding after the public Animator layout change.
+  ABI1 remains; native Windows and physical acceptance remain pending.
+
 ## Reusable animation bone masks
 
 - Content adds an Animation Mask document with skeleton-scoped bone selection,

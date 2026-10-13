@@ -1,4 +1,5 @@
 #include "animation_asset.hpp"
+#include "animation_blend_space_resource.hpp"
 #include "animation_mask_resource.hpp"
 #include "animation_morph_blend.hpp"
 #include "animation_playback_access.hpp"
@@ -40,7 +41,9 @@ struct Playback {
     Animator config, requested;
     ResourceLease<AnimationStatesAsset> definition;
     ResourceLease<AnimationMaskAsset> mask;
-    std::map<AssetId, Pair> state_clips;
+    ResourceLease<AnimationBlendSpaceAsset> space;
+    AnimationBlendPair space_pair;
+    std::map<AssetId, Pair> clips;
     std::unique_ptr<Sampler> outgoing_sampler;
     Pair outgoing_assets;
     Animator outgoing_config;
@@ -76,6 +79,9 @@ struct Playback {
     };
     std::map<const Clip*, RootSamples> root_samples;
 };
+double playback_duration(const Playback& p) {
+    return p.space ? p.space->space.cycle_seconds : p.assets.clip->info().duration;
+}
 // Detached recovery preparation; these slots are adopted only after every
 // candidate clock/pose succeeds. No persistent binding cache is serialized.
 struct PreparedRig {
@@ -190,7 +196,8 @@ std::vector<float> morph_subtree_mask(const Playback& p, std::span<const float> 
 MorphPose sample_morphs(const Playback& p, double time, double blend, double outgoing_time) {
     if (!p.assets.model || p.morph_defaults.empty())
         return {};
-    const auto incoming = p.assets.model.clip->morphs->sample(time);
+    const auto incoming = p.assets.model.clip->morphs->sample(
+        time * p.assets.clip->info().duration / playback_duration(p));
     if (p.definition) {
         MorphPose outgoing;
         if (!p.frozen.empty())
@@ -203,7 +210,7 @@ MorphPose sample_morphs(const Playback& p, double time, double blend, double out
     MorphPose second;
     if (p.blend_assets.model)
         second = p.blend_assets.model.clip->morphs->sample(
-            time * p.blend_assets.clip->info().duration / p.assets.clip->info().duration);
+            time * p.blend_assets.clip->info().duration / playback_duration(p));
     return blend_morph_samples(p.morph_defaults, incoming, second, p.blend_sampler ? blend : 0,
                                p.config.blend_mode == 1, p.morph_mask);
 }
@@ -226,7 +233,7 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
     sampler->root_motion_joint(joint);
     if (blend_sampler)
         blend_sampler->root_motion_joint(joint);
-    const auto ratio = float(std::clamp(time / p.assets.clip->info().duration, 0., 1.));
+    const auto ratio = float(std::clamp(time / playback_duration(p), 0., 1.));
     std::vector<Matrix> model;
     std::optional<LocalPose> outgoing_root;
     if (p.definition && blend < 1 && (!p.frozen.empty() || p.outgoing_sampler)) {
@@ -292,8 +299,10 @@ RootRigid layer_motion(Playback& p, const Pair& assets, std::size_t joint, doubl
     return delta;
 }
 RootRigid root_motion_delta(Playback& p, const SampledPose& pose, std::size_t joint) {
-    auto incoming = layer_motion(p, p.assets, joint, p.tick_begin, p.tick_advance, p.config.loop,
-                                 p.time, pose.incoming);
+    const double incoming_ratio = p.assets.clip->info().duration / playback_duration(p);
+    auto incoming = layer_motion(p, p.assets, joint, p.tick_begin * incoming_ratio,
+                                 p.tick_advance * incoming_ratio, p.config.loop,
+                                 p.time * incoming_ratio, pose.incoming);
     const double weight = (p.previous_blend + p.blend) * .5;
     if (p.definition && p.previous_blend < 1) {
         RootRigid outgoing;
@@ -303,7 +312,7 @@ RootRigid root_motion_delta(Playback& p, const SampledPose& pose, std::size_t jo
                              p.outgoing_config.loop, p.outgoing_time, pose.outgoing);
         incoming = root_blend(outgoing, incoming, weight);
     } else if (p.blend_sampler) {
-        const double ratio = p.blend_assets.clip->info().duration / p.assets.clip->info().duration;
+        const double ratio = p.blend_assets.clip->info().duration / playback_duration(p);
         const auto second =
             layer_motion(p, p.blend_assets, joint, p.tick_begin * ratio, p.tick_advance * ratio,
                          p.config.loop, p.time * ratio, pose.second);
@@ -405,6 +414,8 @@ struct AnimationRuntime::Impl {
     std::map<AssetId, ResourceTicket> state_requests;
     ResourcePool<AnimationMaskAsset> mask_pool{{1, 64, 64, 4 * 1024 * 1024}};
     std::map<AssetId, ResourceTicket> mask_requests;
+    ResourcePool<AnimationBlendSpaceAsset> space_pool{{1, 64, 64, 4 * 1024 * 1024}};
+    std::map<AssetId, ResourceTicket> space_requests;
     std::map<flecs::entity_t, Playback> states;
     std::map<flecs::entity_t, AnimationRootMotion> root_motions;
     std::set<flecs::entity_t> pending;
@@ -976,6 +987,7 @@ struct AnimationRuntime::Impl {
         model_catalog = std::move(selected);
         state_requests.clear();
         mask_requests.clear();
+        space_requests.clear();
         reload_pending.swap(changed);
         reload_errors.clear();
         failed_configurations.clear();
@@ -1024,8 +1036,9 @@ struct AnimationRuntime::Impl {
             return;
         try {
             detail::validate_reflected_value(e, requested);
-            if (requested.blend_clip.id || requested.blend_weight != 0 || requested.blend_root.id ||
-                requested.blend_mask.id || requested.blend_mode != 0)
+            if (requested.blend_space.id || requested.blend_clip.id ||
+                requested.blend_weight != 0 || requested.blend_root.id || requested.blend_mask.id ||
+                requested.blend_mode != 0)
                 throw ArchiveError(
                     "Named animation states cannot also use manual two-clip blending");
             if (!model_catalog) {
@@ -1144,7 +1157,7 @@ struct AnimationRuntime::Impl {
             next.config = config;
             next.requested = requested;
             next.definition = std::move(definition);
-            next.state_clips = std::move(clips);
+            next.clips = std::move(clips);
             next.assets = selected;
             next.transform_channels = std::move(channels);
             next.morph_defaults = std::move(morph_defaults);
@@ -1229,11 +1242,230 @@ struct AnimationRuntime::Impl {
             reload_pending.erase(e.id());
         }
     }
+    template <class Retain>
+    void space_player(flecs::entity e, const Animator& requested, float fixed_dt, Retain retain) {
+        auto old = states.find(e.id());
+        const bool reload = reload_pending.contains(e.id());
+        if (old != states.end() && old->second.space && old->second.requested == requested &&
+            !reload) {
+            errors.erase(e.id());
+            failed_configurations.erase(e.id());
+            return;
+        }
+        if (!reload && failed_configurations.contains(e.id()) &&
+            failed_configurations.at(e.id()) == requested)
+            return;
+        try {
+            detail::validate_reflected_value(e, requested);
+            if (requested.states.id || requested.blend_clip.id || requested.blend_mask.id ||
+                requested.blend_root.id || requested.blend_mode != 0 || requested.blend_weight != 0)
+                throw ArchiveError(
+                    "Animation Blend Space cannot also use named states or manual blending");
+            const bool cached = !reload && old != states.end() && old->second.space &&
+                                old->second.requested.blend_space == requested.blend_space;
+            if (cached) {
+                auto unchanged = requested;
+                unchanged.blend_position = old->second.requested.blend_position;
+                const auto pair = old->second.space->space.select(requested.blend_position);
+                if (unchanged == old->second.requested &&
+                    pair.first == old->second.space_pair.first &&
+                    pair.second == old->second.space_pair.second) {
+                    // Movement commonly changes only the weight within an admitted
+                    // pair. Keep its leases, channels, samplers and cycle clock.
+                    auto& p = old->second;
+                    const auto previous_request = p.requested;
+                    const auto previous_config = p.config;
+                    const auto previous_pair = p.space_pair;
+                    const auto previous_blend = p.blend, previous_previous_blend = p.previous_blend;
+                    const auto previous_from = p.blend_from;
+                    const auto previous_discontinuous = p.discontinuous;
+                    p.requested = requested;
+                    p.config.blend_position = requested.blend_position;
+                    p.space_pair = pair;
+                    p.config.blend_weight = float(pair.weight);
+                    p.blend = p.previous_blend = p.blend_from = p.config.blend_weight;
+                    p.discontinuous = true;
+                    try {
+                        apply_model_poses(fixed_dt == 0, {{e.id(), p.time}}, e.id(), {}, {},
+                                          nullptr, nullptr, true);
+                    } catch (...) {
+                        p.requested = previous_request;
+                        p.config = previous_config;
+                        p.space_pair = previous_pair;
+                        p.blend = previous_blend;
+                        p.previous_blend = previous_previous_blend;
+                        p.blend_from = previous_from;
+                        p.discontinuous = previous_discontinuous;
+                        throw;
+                    }
+                    errors.erase(e.id());
+                    failed_configurations.erase(e.id());
+                    return;
+                }
+            }
+            if (!model_catalog) {
+                if (!catalog_error.empty())
+                    throw ArchiveError(catalog_error);
+                if (old == states.end())
+                    pending.insert(e.id());
+                return;
+            }
+            const auto resolved = model_catalog->resolve(requested.blend_space);
+            if (resolved.state != AssetState::Available)
+                throw ArchiveError("Animation Blend Space unavailable: " + resolved.diagnostic);
+            auto space = cached ? old->second.space : ResourceLease<AnimationBlendSpaceAsset>{};
+            if (!cached) {
+                auto ticket = space_requests.find(requested.blend_space.id);
+                if (ticket == space_requests.end())
+                    ticket = space_requests
+                                 .emplace(requested.blend_space.id,
+                                          request_animation_blend_space(space_pool, project,
+                                                                        *resolved.record))
+                                 .first;
+                const auto status = ticket->second.inspect();
+                if (status.state == ResourceState::Failed ||
+                    status.state == ResourceState::DependencyFailed)
+                    throw ArchiveError(status.diagnostic);
+                space = space_pool.acquire(ticket->second);
+            }
+            if (!space) {
+                if (old == states.end())
+                    pending.insert(e.id());
+                return;
+            }
+            if (requested.skeleton.id && requested.skeleton.id != space->space.skeleton)
+                throw ArchiveError("Animation Blend Space does not match the Animator skeleton");
+            const auto selection = space->space.select(requested.blend_position);
+            Playback next;
+            next.requested = requested;
+            next.config = requested;
+            next.config.skeleton.id = space->space.skeleton;
+            next.config.clip = space->space.samples[selection.first].clip;
+            next.config.blend_clip = selection.first == selection.second
+                                         ? AssetRef<AnimationClipAsset>{}
+                                         : space->space.samples[selection.second].clip;
+            next.config.blend_weight = float(selection.weight);
+            next.config.transition_seconds = 0;
+            next.space = std::move(space);
+            next.space_pair = selection;
+            if (cached) {
+                next.clips = old->second.clips;
+                next.transform_channels = old->second.transform_channels;
+                next.morph_defaults = old->second.morph_defaults;
+            }
+            std::optional<Pair> primary;
+            for (const auto& sample : next.space->space.samples) {
+                auto c = next.config;
+                c.clip = sample.clip;
+                c.blend_clip = {};
+                c.blend_weight = 0;
+                retain(c);
+                if (next.clips.contains(sample.clip.id))
+                    continue;
+                auto pair = load(c);
+                if (!pair) {
+                    if (old == states.end())
+                        pending.insert(e.id());
+                    return;
+                }
+                if (!pair->model || pair->skeleton_revision != next.space->skeleton_revision)
+                    throw ArchiveError(
+                        "Blend Space clip and skeleton selections use different model revisions");
+                if (!primary)
+                    primary = *pair;
+                if (pair->skeleton != primary->skeleton ||
+                    pair->model_generation != primary->model_generation)
+                    throw ArchiveError(
+                        "All Blend Space clips must share one exact skeleton/model revision");
+                next.transform_channels =
+                    channel_union(next.transform_channels, pair->model.clip->transform_channels);
+                next.morph_defaults =
+                    merge_morph_defaults(next.morph_defaults, pair->model.clip->morph_defaults);
+                next.clips.emplace(sample.clip.id, std::move(*pair));
+            }
+            next.assets = next.clips.at(next.config.clip.id);
+            if (next.config.blend_clip.id) {
+                next.blend_assets = next.clips.at(next.config.blend_clip.id);
+                next.blend_sampler =
+                    std::make_unique<Sampler>(next.assets.skeleton, next.blend_assets.clip);
+            }
+            if (reload && old != states.end() && old->second.space &&
+                old->second.requested == requested &&
+                old->second.space.identity() == next.space.identity() &&
+                next.clips.size() == old->second.clips.size() &&
+                std::all_of(next.clips.begin(), next.clips.end(), [&](const auto& entry) {
+                    const auto found = old->second.clips.find(entry.first);
+                    return found != old->second.clips.end() &&
+                           found->second.skeleton == entry.second.skeleton &&
+                           found->second.clip == entry.second.clip &&
+                           found->second.model_generation == entry.second.model_generation;
+                })) {
+                errors.erase(e.id());
+                failed_configurations.erase(e.id());
+                reload_pending.erase(e.id());
+                return;
+            }
+            // Published assets adopt at a fixed boundary. Explicit position edits
+            // may commit a complete paused pose without consuming a motion interval.
+            if (reload && old != states.end() && old->second.requested == requested &&
+                fixed_dt == 0)
+                return;
+            next.reference = *context.reference(e.id());
+            next.sampler = std::make_unique<Sampler>(next.assets.skeleton, next.assets.clip);
+            next.blend = next.previous_blend = next.blend_from = next.config.blend_weight;
+            next.playing = requested.play_on_start;
+            if (old != states.end()) {
+                next.rig_channels = former_rig_channels(old->second, next);
+                if (old->second.assets.skeleton_revision == next.assets.skeleton_revision &&
+                    old->second.assets.model_generation == next.assets.model_generation) {
+                    next.time =
+                        old->second.time / playback_duration(old->second) * playback_duration(next);
+                    next.previous = next.time;
+                    next.playing = old->second.playing;
+                }
+            }
+            std::size_t joints = evaluated_joints(next);
+            for (const auto& [other, p] : states)
+                if (other != e.id())
+                    joints += evaluated_joints(p);
+            if (joints > 8192 || (old == states.end() && states.size() >= 256))
+                throw ArchiveError("Animation Blend Space exceeds player/joint budget");
+            (void)sample_pose(next, next.time, next.blend);
+            if (old != states.end()) {
+                const auto target_time = next.time;
+                std::swap(old->second, next);
+                try {
+                    apply_model_poses(fixed_dt == 0, {{e.id(), target_time}}, e.id(), {}, {},
+                                      nullptr, nullptr, true);
+                } catch (...) {
+                    std::swap(old->second, next);
+                    throw;
+                }
+            } else
+                states.emplace(e.id(), std::move(next));
+            errors.erase(e.id());
+            failed_configurations.erase(e.id());
+            reload_pending.erase(e.id());
+            reload_errors.erase(e.id());
+        } catch (const std::exception& ex) {
+            if (errors[e.id()] != ex.what()) {
+                Diagnostic d{Severity::Error, "animation.blend_space", ex.what(), {}};
+                d.context.entity = context.reference(e.id())->entity;
+                d.context.module = "forge.animation";
+                d.context.asset = requested.blend_space.id;
+                context.services().emit(std::move(d));
+                errors[e.id()] = ex.what();
+            }
+            failed_configurations[e.id()] = requested;
+            reload_pending.erase(e.id());
+        }
+    }
     void synchronize(float fixed_dt = 0, bool preview_command = false) {
         bool needs_catalog = transforms.has_players();
         if (!model_catalog && !initial_catalog_requested)
             context.world().each([&](const Animator& c) {
-                needs_catalog |= bool(c.states.id) || bool(c.blend_mask.id);
+                needs_catalog |=
+                    bool(c.states.id) || bool(c.blend_mask.id) || bool(c.blend_space.id);
             });
         if (!model_catalog && needs_catalog && !initial_catalog_requested) {
             initial_catalog_requested = true;
@@ -1242,15 +1474,18 @@ struct AnimationRuntime::Impl {
         poll_catalog();
         state_pool.pump();
         mask_pool.pump();
+        space_pool.pump();
         if (model_resources)
             model_resources->pump();
         pending.clear();
         std::set<flecs::entity_t> alive;
         std::set<std::pair<AssetId, AssetId>> used;
-        std::set<AssetId> used_skeletons, used_clips, used_states, used_masks;
+        std::set<AssetId> used_skeletons, used_clips, used_states, used_masks, used_spaces;
         auto retain = [&](const Animator& config) {
             if (config.blend_mask.id)
                 used_masks.insert(config.blend_mask.id);
+            if (config.blend_space.id)
+                used_spaces.insert(config.blend_space.id);
             used.insert({config.skeleton.id, config.clip.id});
             used_skeletons.insert(config.skeleton.id);
             used_clips.insert(config.clip.id);
@@ -1263,6 +1498,25 @@ struct AnimationRuntime::Impl {
             if (e.has(flecs::Prefab) || !context.reference(e.id()))
                 return;
             alive.insert(e.id());
+            if (auto old = states.find(e.id()); old != states.end()) {
+                retain(old->second.config);
+                for (const auto& [clip, pair] : old->second.clips) {
+                    auto c = old->second.config;
+                    c.clip.id = clip;
+                    retain(c);
+                }
+            }
+            if (config.blend_space.id) {
+                used_spaces.insert(config.blend_space.id);
+                space_player(e, config, fixed_dt, retain);
+                if (auto current = states.find(e.id()); current != states.end())
+                    for (const auto& [clip, pair] : current->second.clips) {
+                        auto c = current->second.config;
+                        c.clip.id = clip;
+                        retain(c);
+                    }
+                return;
+            }
             if (config.states.id)
                 used_states.insert(config.states.id);
             if (auto previous = states.find(e.id());
@@ -1272,7 +1526,7 @@ struct AnimationRuntime::Impl {
                 auto old = states.find(e.id());
                 if (old != states.end()) {
                     retain(old->second.config);
-                    for (const auto& [clip, pair] : old->second.state_clips) {
+                    for (const auto& [clip, pair] : old->second.clips) {
                         auto c = old->second.config;
                         c.clip.id = clip;
                         retain(c);
@@ -1281,7 +1535,7 @@ struct AnimationRuntime::Impl {
                 state_player(e, config, fixed_dt, preview_command, retain);
                 auto current = states.find(e.id());
                 if (current != states.end())
-                    for (const auto& [clip, pair] : current->second.state_clips) {
+                    for (const auto& [clip, pair] : current->second.clips) {
                         auto c = current->second.config;
                         c.clip.id = clip;
                         retain(c);
@@ -1295,6 +1549,7 @@ struct AnimationRuntime::Impl {
             const bool reload = old != states.end() && old->second.config == config &&
                                 reload_pending.contains(e.id());
             const bool replace_mask = old != states.end() && !old->second.definition &&
+                                      !old->second.space &&
                                       old->second.config.skeleton == config.skeleton &&
                                       old->second.config.clip == config.clip &&
                                       old->second.config.blend_clip == config.blend_clip &&
@@ -1391,7 +1646,7 @@ struct AnimationRuntime::Impl {
                 } else if (old != states.end() && old->second.config.skeleton == config.skeleton &&
                            old->second.config.clip == config.clip &&
                            old->second.config.blend_clip == config.blend_clip &&
-                           !old->second.definition) {
+                           !old->second.definition && !old->second.space) {
                     if (old->second.config.enabled != config.enabled ||
                         old->second.config.root_motion != config.root_motion ||
                         old->second.config.root_joint != config.root_joint ||
@@ -1498,6 +1753,14 @@ struct AnimationRuntime::Impl {
             mask_pool.unload(AssetRef<AnimationMaskAsset>{it->first});
             it = mask_requests.erase(it);
         }
+        for (auto it = space_requests.begin(); it != space_requests.end();) {
+            if (used_spaces.contains(it->first)) {
+                ++it;
+                continue;
+            }
+            space_pool.unload(AssetRef<AnimationBlendSpaceAsset>{it->first});
+            it = space_requests.erase(it);
+        }
         std::erase_if(states, [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(errors, [&](const auto& entry) { return !alive.contains(entry.first); });
         std::erase_if(binding_errors,
@@ -1598,7 +1861,7 @@ void AnimationRuntime::tick(float dt, std::uint64_t tick) {
             p.frozen.clear();
             p.frozen_morphs.clear();
         }
-        auto duration = p.assets.clip->info().duration;
+        auto duration = playback_duration(p);
         p.advance = double(dt) * p.config.playback_speed;
         p.time = p.previous + p.advance;
         if (p.config.loop)
@@ -1679,7 +1942,7 @@ std::optional<AnimationPlayback> AnimationRuntime::playback(EntityRef reference)
     result.clip = p.config.clip.id;
     result.blend_clip = p.config.blend_clip.id;
     result.time = p.time;
-    result.duration = p.assets.clip->info().duration;
+    result.duration = playback_duration(p);
     result.progress = std::clamp(result.time / result.duration, 0., 1.);
     result.speed = p.config.playback_speed;
     result.enabled = p.config.enabled;
@@ -1726,7 +1989,7 @@ bool AnimationRuntime::control(EntityRef reference, AnimationControl command,
         return true;
     }
     if (command == AnimationControl::Play) {
-        if (!p.config.loop && p.time >= p.assets.clip->info().duration &&
+        if (!p.config.loop && p.time >= playback_duration(p) &&
             !(p.definition && p.blend < p.config.blend_weight))
             return false;
         p.playing = true;
@@ -1909,7 +2172,7 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     auto& p = impl_->states.at(id);
     if (!p.config.enabled)
         return nullptr;
-    const auto duration = p.assets.clip->info().duration;
+    const auto duration = playback_duration(p);
     auto time = p.previous + p.advance * alpha;
     if (p.config.loop)
         time = std::fmod(time, duration);
@@ -1960,6 +2223,13 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
         result["state_name"] = p.definition->state(p.config.state).name;
         result["states"] = p.requested.states.id;
     }
+    if (p.space) {
+        const auto pair = p.space_pair;
+        result["blend_space"] = p.requested.blend_space.id;
+        result["blend_position"] = p.requested.blend_position;
+        result["first_sample"] = p.space->space.samples[pair.first].id;
+        result["second_sample"] = p.space->space.samples[pair.second].id;
+    }
     if (p.assets.model) {
         result["model_asset"] = p.assets.model.skeleton->model;
         result["model_revision"] = p.assets.skeleton_revision;
@@ -2005,7 +2275,8 @@ bool AnimationRuntime::checkpoint_ready() const {
         return false;
     for (const auto& [id, p] : impl_->states) {
         auto e = impl_->context.world().entity(id);
-        if (!e.has<Animator>() || e.get<Animator>() != (p.definition ? p.requested : p.config))
+        if (!e.has<Animator>() ||
+            e.get<Animator>() != ((p.definition || p.space) ? p.requested : p.config))
             return false;
     }
     return true;
@@ -2027,7 +2298,7 @@ Json AnimationRuntime::checkpoint() const {
                     "Cannot checkpoint an Animator with invalid asset configuration");
             auto actor = impl_->context.world().entity(id);
             if (!actor.has<Animator>() ||
-                actor.get<Animator>() != (p.definition ? p.requested : p.config))
+                actor.get<Animator>() != ((p.definition || p.space) ? p.requested : p.config))
                 return nullptr;
             entries.push_back(
                 {{"entity", p.reference},
@@ -2047,6 +2318,16 @@ Json AnimationRuntime::checkpoint() const {
                    {"elapsed", p.blend_elapsed},
                    {"target", p.config.blend_weight},
                    {"seconds", p.config.transition_seconds}}}});
+            if (p.space) {
+                const auto pair = p.space_pair;
+                entries.back()["blend_space"] = {
+                    {"asset", p.requested.blend_space.id},
+                    {"revision", p.space.identity().revision},
+                    {"position", p.requested.blend_position},
+                    {"cycle_seconds", playback_duration(p)},
+                    {"first_sample", p.space->space.samples[pair.first].id},
+                    {"second_sample", p.space->space.samples[pair.second].id}};
+            }
             if (p.definition) {
                 auto frozen = Json::array();
                 auto frozen_morphs = Json::array();
@@ -2082,6 +2363,14 @@ void AnimationRuntime::restore(const Json& data) {
         // deadline across all model dependencies, not a timeout per entity.
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
         while (!impl_->pending.empty() && std::chrono::steady_clock::now() < deadline) {
+            for (const auto& [asset, request] : impl_->space_requests) {
+                (void)asset;
+                const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    deadline - std::chrono::steady_clock::now());
+                if (!impl_->space_pool.wait(request, remaining))
+                    throw ArchiveError(
+                        "Animation Blend Space recovery resources failed or timed out");
+            }
             for (const auto& [asset, request] : impl_->mask_requests) {
                 (void)asset;
                 const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -2161,12 +2450,24 @@ void AnimationRuntime::restore(const Json& data) {
             }
         }
         auto& p = *selected;
+        if (p.space) {
+            const auto& space = entry.at("blend_space");
+            const auto pair = p.space_pair;
+            if (space.at("asset") != Json(p.requested.blend_space.id) ||
+                space.at("revision") != p.space.identity().revision ||
+                space.at("position") != p.requested.blend_position ||
+                space.at("cycle_seconds") != playback_duration(p) ||
+                space.at("first_sample") != Json(p.space->space.samples[pair.first].id) ||
+                space.at("second_sample") != Json(p.space->space.samples[pair.second].id))
+                throw ArchiveError("Animation Blend Space recovery selection/revision differs");
+        } else if (entry.contains("blend_space"))
+            throw ArchiveError("Unexpected Animation Blend Space recovery data");
         double time = entry.at("time");
         if (entry.at("skeleton") != Json(p.config.skeleton.id) ||
             entry.at("clip") != Json(p.config.clip.id) ||
             entry.at("skeleton_revision") != p.assets.skeleton_revision ||
             entry.at("clip_revision") != p.assets.clip_revision || !std::isfinite(time) ||
-            time < 0 || time > p.assets.clip->info().duration || !entry.at("playing").is_boolean())
+            time < 0 || time > playback_duration(p) || !entry.at("playing").is_boolean())
             throw ArchiveError("Animation recovery asset revision or playback state differs");
         double blend = 0, from = 0, elapsed = 0;
         if (entry.contains("blend")) {
@@ -2241,7 +2542,7 @@ void AnimationRuntime::restore(const Json& data) {
             }
             if (outgoing_id) {
                 const auto& outgoing = p.definition->state(outgoing_id);
-                value.outgoing_assets = p.state_clips.at(outgoing.clip.id);
+                value.outgoing_assets = p.clips.at(outgoing.clip.id);
                 if (!value.frozen.empty() ||
                     value.outgoing_time > value.outgoing_assets.clip->info().duration)
                     throw ArchiveError("Animation state recovery source is inconsistent");

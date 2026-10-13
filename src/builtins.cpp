@@ -105,7 +105,9 @@ template <class T> Json encode(const T& p) {
                 {"root_joint", p.root_joint.id ? Json(p.root_joint.id) : Json()},
                 {"blend_root", p.blend_root.id ? Json(p.blend_root.id) : Json()},
                 {"blend_mode", p.blend_mode},
-                {"blend_mask", p.blend_mask.id ? Json(p.blend_mask.id) : Json()}};
+                {"blend_mask", p.blend_mask.id ? Json(p.blend_mask.id) : Json()},
+                {"blend_space", p.blend_space.id ? Json(p.blend_space.id) : Json()},
+                {"blend_position", p.blend_position}};
     else if constexpr (std::is_same_v<T, AudioSource>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"play_on_start", p.play_on_start},
@@ -305,6 +307,9 @@ template <class T> Value decode(const Json& p) {
         v.blend_mode = p.value("blend_mode", std::uint32_t(0));
         if (p.contains("blend_mask") && !p.at("blend_mask").is_null())
             v.blend_mask.id = p.at("blend_mask").get<AssetId>();
+        if (p.contains("blend_space") && !p.at("blend_space").is_null())
+            v.blend_space.id = p.at("blend_space").get<AssetId>();
+        v.blend_position = p.value("blend_position", 0.f);
         if (!v.blend_clip.id && v.blend_weight != 0)
             throw std::runtime_error("Animator blend target needs a second clip");
         if (v.blend_root.id && !v.blend_clip.id)
@@ -601,6 +606,7 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         register_asset_ref<AnimationClipAsset>(w, "forge.animation_clip_ref");
         register_asset_ref<AnimationStatesAsset>(w, "forge.animation_states_ref");
         register_asset_ref<AnimationMaskAsset>(w, "forge.animation_mask_ref");
+        register_asset_ref<AnimationBlendSpaceAsset>(w, "forge.animation_blend_space_ref");
         register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
         c.template member<AssetRef<SkeletonAsset>>("skeleton")
             .template member<AssetRef<AnimationClipAsset>>("clip")
@@ -617,7 +623,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<AssetRef<ModelNodeAsset>>("root_joint")
             .template member<AssetRef<ModelNodeAsset>>("blend_root")
             .template member<std::uint32_t>("blend_mode")
-            .template member<AssetRef<AnimationMaskAsset>>("blend_mask");
+            .template member<AssetRef<AnimationMaskAsset>>("blend_mask")
+            .template member<AssetRef<AnimationBlendSpaceAsset>>("blend_space")
+            .template member<float>("blend_position");
     } else if constexpr (std::is_same_v<T, AudioSource>) {
         w.component<AssetRef<AudioClipAsset>>("forge.audio_clip_ref")
             .opaque(flecs::String)
@@ -1334,6 +1342,18 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["asset_type"] = AnimationStatesAsset::type;
             value["nullable"] = true;
             value["description"] = "Optional named clip set; C++ selects its stable state ID";
+        } else if (field == "blend_space") {
+            value["display_name"] = "Blend space";
+            value["asset_type"] = AnimationBlendSpaceAsset::type;
+            value["nullable"] = true;
+            value["description"] =
+                "One numeric axis blends neighboring clips at a shared cycle phase";
+        } else if (field == "blend_position") {
+            value["display_name"] = "Blend position";
+            value["minimum"] = -1000000;
+            value["maximum"] = 1000000;
+            value["description"] =
+                "Position along the selected animation blend space; endpoints clamp";
         } else if (field == "blend_mask") {
             value["display_name"] = "Bone mask";
             value["asset_type"] = AnimationMaskAsset::type;
@@ -1682,6 +1702,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<AnimationClipAsset>();
         add_reference.template operator()<AnimationStatesAsset>();
         add_reference.template operator()<AnimationMaskAsset>();
+        add_reference.template operator()<AnimationBlendSpaceAsset>();
         add_reference.template operator()<TransformAnimationAsset>();
         add_reference.template operator()<NavMeshAsset>();
         add_reference.template operator()<UiDocumentAsset>();
@@ -1785,9 +1806,9 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         !current.contains("material_variant"))
         current["material_variant"] = nullptr;
     if (std::string_view(type.name) == "forge.animator")
-        for (const auto* field :
-             {"blend_clip", "blend_weight", "transition_seconds", "states", "state", "root_motion",
-              "root_joint", "blend_root", "blend_mode", "blend_mask"})
+        for (const auto* field : {"blend_clip", "blend_weight", "transition_seconds", "states",
+                                  "state", "root_motion", "root_joint", "blend_root", "blend_mode",
+                                  "blend_mask", "blend_space", "blend_position"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")

@@ -114,3 +114,24 @@ Loop off, playback holds its final phase and mix when the primary clip finishes.
 Save the Scene and export normally. Both referenced clips are included as cooked
 data, and the standalone game plays the same bone and morph blend without the
 source glTF, editor or compiler.
+
+## Blend clips along a numeric axis
+
+Open **FeatureGallery / Scenes / 43-animation-blend-spaces.scene.json** to compare
+three numeric positions. Its original column has Rest, Base and Overlay clips.
+Select a model holder and change **Animator / Blend position**, or open
+**Assets / Motion.blendspace.json** to edit the samples on its axis.
+
+For your own imported model:
+
+1. In **Content / Create / Register**, choose **New animation blend space**.
+2. Choose the imported **Skeleton**, then **Add sample** for each clip. Give each sample a unique position, such as Idle at0, Walk at1 and Run at2. Clips must belong to the same imported model and skeleton.
+3. Set **Cycle (seconds)** and **Save / Publish**. All clips share this cycle even when their original durations differ.
+4. Select the model's Animator and click **Attach to selected Animator**. This changes the scene in one Undo step and replaces any named states or manual blend settings.
+5. Click **Open Animation Preview**. Change its temporary **Blend position**, scrub or play, then use **Apply preview settings to Animator** when ready to save that position.
+
+Between samples, Forge mixes the two neighboring clips. Beyond either end it uses
+the nearest endpoint. Changing position preserves cycle phase, including while
+paused. **CodeExamples / SetBlendPosition.hpp** shows ordinary C++ control. Save
+and export normally; the game receives the compiled code and cooked animation
+assets, and needs no editor or compiler to run.

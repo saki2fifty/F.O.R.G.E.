@@ -95,6 +95,21 @@ void SkeletalAnimationPreview::seek(double time) {
     world_->animation->restore(state);
     (void)world_->animation->prepare_initial_pose();
 }
+void SkeletalAnimationPreview::select_blend_position(float position) {
+    if (!prepare())
+        return;
+    auto actor = world_->actor();
+    auto config = actor.get<Animator>();
+    if (!config.blend_space.id || !std::isfinite(position) || std::abs(position) > 1000000)
+        throw std::runtime_error("Preview Animator needs a Blend Space and a finite axis position");
+    if (config.blend_position == position)
+        return;
+    config.blend_position = position;
+    actor.set(config);
+    world_->animation->synchronize();
+    if (!world_->animation->checkpoint_ready())
+        throw std::runtime_error("Preview Blend Space position could not be admitted");
+}
 void SkeletalAnimationPreview::tick(float seconds) {
     if (prepare())
         world_->animation->tick(seconds);

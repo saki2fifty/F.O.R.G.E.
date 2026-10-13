@@ -4,6 +4,9 @@ The existing `forge.animator` component optionally blends two clips. AnimationRu
 continues to own clocks, CPU resources, model-node application and recovery. No new
 manager, graph asset, dependency or gameplay language is introduced.
 
+For an asset that selects neighboring clips along a numeric axis, see
+[one-dimensional blend spaces](animation-blend-spaces.md).
+
 ## Authored configuration and C++ control
 
 Animator keeps its existing skeleton, primary `clip`, enabled/play-on-start/loop

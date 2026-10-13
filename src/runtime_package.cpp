@@ -1,4 +1,5 @@
 #include "runtime_package.hpp"
+#include "animation_blend_space_resource.hpp"
 #include "animation_mask_binding.hpp"
 #include "animation_mask_resource.hpp"
 #include "asset_bytes.hpp"
@@ -174,7 +175,7 @@ AssetRecord runtime_record(AssetRecord record) {
     for (const auto* name :
          {"forge.import", "forge.model", "forge.mesh", "forge.material", "forge.shader",
           "forge.audio", "forge.ui_source", "forge.collision", "forge.transform_animation",
-          "forge.animation_states", "forge.animation_mask"})
+          "forge.animation_states", "forge.animation_mask", "forge.animation_blend_space"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -208,7 +209,23 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     const auto format = root.metadata.at("forge.import").at("output_format");
     if (root.type == ModelAsset::type && format == "forge.model-bundle")
         (void)validate_model_bundle(artifact.files);
-    else if (root.type == AnimationMaskAsset::type && format == "forge.animation-mask") {
+    else if (root.type == AnimationBlendSpaceAsset::type &&
+             format == "forge.animation-blend-space") {
+        require(
+            root.metadata.at("forge.import").at("importer") == "forge.animation.blend-space" &&
+                root.metadata.at("forge.import").at("importer_revision") ==
+                    "forge.animation.blend-space.v1" &&
+                root.metadata.at("forge.import").at("output_version") == 1 &&
+                root.metadata.at("forge.animation_blend_space").at("version") == 1 &&
+                root.metadata.at("forge.animation_blend_space").at("file") == "blendspace.json" &&
+                artifact.files.size() == 1 && artifact.files.front().name == "blendspace.json" &&
+                root.metadata.at("forge.animation_blend_space").at("sha256") ==
+                    content_digest(artifact.files.front().bytes) &&
+                root.metadata.at("forge.animation_blend_space").at("bytes") ==
+                    artifact.files.front().bytes.size(),
+            "Animation Blend Space selection differs from its cooked data");
+        (void)decode_animation_blend_space(artifact.files.front().bytes, root.id);
+    } else if (root.type == AnimationMaskAsset::type && format == "forge.animation-mask") {
         require(root.metadata.at("forge.import").at("importer") == "forge.animation.mask" &&
                     root.metadata.at("forge.import").at("importer_revision") ==
                         "forge.animation.mask.v1" &&
@@ -312,6 +329,31 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
                 request_collision(pool, root, std::make_shared<const AssetCatalog>(catalog), {id});
             require(pool.wait(ticket, std::chrono::seconds(60)) && bool(pool.acquire(ticket)),
                     "Collision package native admission failed: " + ticket.inspect().diagnostic);
+        } else if (record.type == AnimationBlendSpaceAsset::type) {
+            ResourcePool<AnimationBlendSpaceAsset> pool;
+            const auto ticket = request_animation_blend_space(pool, root, record);
+            require(pool.wait(ticket, std::chrono::seconds(30)), ticket.inspect().diagnostic);
+            const auto space = pool.acquire(ticket);
+            require(bool(space), "Animation Blend Space package native admission failed");
+            const auto skeleton = catalog.resolve(space->space.skeleton, SkeletonAsset::type);
+            require(skeleton.state == AssetState::Available && skeleton.record->subasset,
+                    "Animation Blend Space package skeleton is unavailable");
+            const auto selected =
+                load_model_selection(root, catalog, skeleton.record->subasset->owner, stop);
+            require(selected.revision == space->skeleton_revision &&
+                        selected.member(space->space.skeleton).identity.type == SkeletonAsset::type,
+                    "Animation Blend Space package mixes model revisions");
+            for (const auto& sample : space->space.samples) {
+                const auto clip = catalog.resolve(sample.clip);
+                require(
+                    clip.state == AssetState::Available && clip.record->subasset &&
+                        clip.record->subasset->owner == selected.owner &&
+                        clip.record->metadata.at("forge.import").at("key") == selected.revision &&
+                        clip.record->metadata.at("forge.import").at("generation") ==
+                            selected.generation &&
+                        selected.member(sample.clip.id).identity.type == AnimationClipAsset::type,
+                    "Animation Blend Space package clip differs from the admitted model selection");
+            }
         } else if (record.type == AnimationMaskAsset::type) {
             ResourcePool<AnimationMaskAsset> pool;
             const auto ticket = request_animation_mask(pool, root, record);

@@ -2,6 +2,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
+#include <forge/animation_blend_space.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/material_source.hpp>
@@ -161,6 +162,29 @@ struct Inspect {
                 if (key != "format" && key != "version" && key != "asset_id" && key != "entities" &&
                     key != "members" && key != "revision" && key != "root" && key != "legacy_ids" &&
                     key != "rendering" && !(prefab && key == "dependencies"))
+                    unknown(key);
+            }
+        } else if (doc.value("format", std::string{}) == "forge.animation-blend-space") {
+            AnimationBlendSpaceSource{doc}.validate();
+            if (!doc.at("skeleton").is_null())
+                reference(doc.at("skeleton"), "skeleton", "Blend Space skeleton",
+                          SkeletonAsset::type);
+            std::size_t index = 0;
+            for (const auto& sample : doc.at("samples")) {
+                const auto scope = "samples." + std::to_string(index++);
+                if (!sample.at("clip").is_null())
+                    reference(sample.at("clip"), scope + ".clip", "Blend Space clip",
+                              AnimationClipAsset::type);
+                for (const auto& [key, unused] : sample.items()) {
+                    (void)unused;
+                    if (key != "id" && key != "position" && key != "clip")
+                        unknown(scope + "." + key);
+                }
+            }
+            for (const auto& [key, unused] : doc.items()) {
+                (void)unused;
+                if (key != "format" && key != "version" && key != "asset_id" && key != "skeleton" &&
+                    key != "cycle_seconds" && key != "samples")
                     unknown(key);
             }
         } else if (doc.value("format", std::string{}) == "forge.animation-mask") {
