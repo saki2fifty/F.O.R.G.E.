@@ -90,11 +90,44 @@ covers `[0,duration)`; nonloop playback holds duration and ends. Time accumulati
 uses double microseconds while authored key times remain integer microseconds.
 Speed is 0–4; there are no reverse, event, blending, bone-editing or IK tracks.
 
-Timeline's **Vector curves** section applies the selected key's vector mode/slopes
-as one source Undo step. Pending numeric fields do not replace the authored curve
-until Apply. The selected-axis view samples the same evaluator 193 times across the
-selected key and neighboring segments; gold tangent guides use pending slopes and
-clip the true slope at view boundaries. Rotation has no cubic tangent controls.
+### Vector curve authoring
+
+Timeline's **Vector curves** section edits position/scale slopes on the active key.
+The selected-axis view samples the same evaluator 193 times across that key and its
+neighbors. Blue is the applied curve; gold guides use pending slope fields and
+intersect the true slope with the view boundary. **Fit curve** fits the applied
+values; **Fit curve and handles** also includes finite tangent endpoints. These
+controls only change the view. Rotation has no cubic tangent controls.
+
+Drag a visible gold handle vertically to edit one incoming/outgoing slope on the
+chosen channel and axis. Its guide uses one third of the neighboring time interval;
+key time/value and other slope components stay fixed. Capture records stable key
+identity, source revision, channel/axis, original pending fields and view mapping.
+Held frames change temporary fields only; release samples the final pointer and
+commits one source Undo step after complete curve validation. Preview evaluates
+the applied clip until release. Escape, Undo, focus loss, Play, close, publication,
+document/revision changes or a changed view cancel capture and restore prior fields.
+Incoming handles require a cubic, non-held preceding segment; outgoing handles
+require the active key's cubic, non-held segment and a following key.
+
+Pending numeric curve fields participate in dirty/Save/close handling. **Apply
+curve settings**, **Save & Publish**, another source edit or changing key selection
+commits them through the existing document/history owner. Invalid fields retain
+the prior source and remain editable. Undo first cancels pending fields. Preset
+buttons deliberately replace pending slopes. Pose/curve edits preserve opaque key,
+curve-root and tangent-side extensions.
+
+**Flat tangents**, **Linear tangents** and **Smooth tangents** atomically edit all
+distinct selected keys using the original neighboring poses/times. Selected keys
+gain cubic vector settings; key identities, times, poses, rotation and Hold remain.
+Flat sets zero slopes. Linear uses each side's neighboring secant. Missing endpoint
+sides copy the available secant; a lone key uses zero. Smooth uses a common slope
+on both sides, `(left_secant * right_interval + right_secant * left_interval) /
+(left_interval + right_interval)`, bounded to three times the smaller secant's
+magnitude. Opposite signs or a zero secant give zero at an extremum or plateau.
+Endpoints use their one available secant. The complete candidate must satisfy the
+existing slope/interior-value limits before source replacement. Source/cooked
+versions, import recipe and runtime evaluator remain unchanged.
 
 Timeline preview substitutes local components in a copied scene and
 recomputes its render transforms through `Scene::preview_document`. It never

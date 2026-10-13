@@ -70,10 +70,26 @@ an upward arc between equal heights. A longer segment produces a larger arc for
 the same slopes. **Hold until next key** overrides the outgoing curve.
 
 Choose **Curve value** and **Axis** to inspect position or scale. The blue curve
-shows the applied values; gold guides show the slope fields. Entering slopes leaves
-them pending. Choose **Apply curve settings** to commit one Undo step, then scrub
-or play the preview. Invalid or excessive curves are rejected without replacing
-the clip. **Save & Publish** updates Play and exported games.
+shows the applied values; gold guides show the slope fields. Drag a gold handle
+up or down to change that slope. The key's time and value stay fixed. Release
+commits one Undo step and updates preview; Escape or losing focus cancels the drag.
+Incoming handles appear for a cubic segment from the previous key, and outgoing
+handles for a cubic segment toward the next key. Held segments have no handles.
+**Fit curve and handles** brings distant handles into view; **Fit curve** fits just
+the motion. Fitting does not edit the clip.
+
+Select one or several keys, then choose **Flat tangents** for eased ends,
+**Linear tangents** to match each neighboring segment's slope, or **Smooth
+tangents** for a shared slope that flattens peaks and valleys. Presets affect
+position and scale on the selected keys, leave Hold unchanged and use one Undo
+step. Applying Linear to both ends of a segment gives constant motion.
+
+Entering numeric slopes leaves them pending. **Apply curve settings**, **Save &
+Publish**, another clip edit or changing key selection commits them. Undo first
+cancels pending fields. A preset replaces pending slopes. Invalid or excessive
+curves retain the previous clip and show an error so you can correct the fields.
+Closing asks you to save, discard or keep editing pending changes. **Save &
+Publish** updates Play and exported games.
 
 Try **FeatureGallery / Scenes / 13-transform-curves.scene.json**. Three platforms
 compare linear motion, smooth easing and an arc. Open **EasedPlatform.animation.json**
@@ -104,8 +120,9 @@ Try **FeatureGallery / Scenes / 08-transform-animation.scene.json**. The blue
 platform travels between two markers, turns and changes height over four seconds.
 Open `Platform.animation.json` in Content to inspect and change its keys.
 
-This timeline currently edits object transforms. Bone editing, IK, blending,
-reverse playback, event tracks and animation graphs remain future work.
+This timeline edits object transforms. Skeletal animation has its own state,
+blend-space and rig tools; they do not add bone tracks to this timeline. Object
+transform clips currently have no reverse playback, event or blending tracks.
 
 Try **FeatureGallery / Scenes / 18-animation-key-batches.scene.json**. Three lanes
 compare original eased travel, the same two keys moved one second later, and

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <forge/transform_animation.hpp>
 #include <set>
+#include <string_view>
 namespace forge {
 using Json = nlohmann::json;
 namespace {
@@ -77,6 +78,19 @@ Json curves_json(const TransformAnimationCurves& value) {
     return {{"interpolation", value.cubic ? "cubic" : "linear"},
             {"incoming", tangent_json(value.incoming)},
             {"outgoing", tangent_json(value.outgoing)}};
+}
+void merge_curve_settings(Json& key, const TransformAnimationCurves& value) {
+    const auto encoded = curves_json(value);
+    if (!key.contains("curves"))
+        key["curves"] = Json::object();
+    auto& target = key["curves"];
+    target["interpolation"] = encoded.at("interpolation");
+    for (const char* side : {"incoming", "outgoing"}) {
+        if (!target.contains(side))
+            target[side] = Json::object();
+        for (const char* field : {"translation", "scale"})
+            target[side][field] = encoded.at(side).at(field);
+    }
 }
 TransformAnimationCurves curves(const Json& key) {
     if (!key.contains("curves"))
@@ -297,14 +311,18 @@ AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransfor
                 id = key.at("id").get<AssetId>();
     if (!id)
         id = AssetId::generate();
-    auto key = animation_pose_json(pose);
+    auto key = Json::object();
+    for (const auto& prior : keys)
+        if (prior.at("id") == Json(id)) {
+            key = prior;
+            break;
+        }
+    const auto encoded_pose = animation_pose_json(pose);
+    for (const auto& [field, value] : encoded_pose.items())
+        key[field] = value;
     if (curve) {
-        key["curves"] = curves_json(*curve);
+        merge_curve_settings(key, *curve);
         candidate.document["version"] = 2;
-    } else {
-        for (const auto& prior : keys)
-            if (prior.at("id") == Json(id) && prior.contains("curves"))
-                key["curves"] = prior.at("curves");
     }
     key["id"] = id;
     key["time_us"] = time;
@@ -405,6 +423,70 @@ void TransformAnimationSource::erase_keys(std::span<const AssetId> keys) {
     auto candidate = *this;
     std::erase_if(candidate.document.at("keys").get_ref<Json::array_t&>(),
                   [&](const Json& key) { return selected.contains(key.at("id").get<AssetId>()); });
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::set_tangent_preset(std::span<const AssetId> keys,
+                                                  TransformAnimationTangentPreset preset) {
+    require(preset == TransformAnimationTangentPreset::Flat ||
+                preset == TransformAnimationTangentPreset::Linear ||
+                preset == TransformAnimationTangentPreset::Smooth,
+            "Unknown vector tangent preset");
+    const auto selected = selected_animation_keys(*this, keys);
+    const auto& original = document.at("keys");
+    auto candidate = *this;
+    candidate.document["version"] = 2;
+    for (std::size_t i = 0; i < original.size(); ++i) {
+        if (!selected.contains(original[i].at("id").get<AssetId>()))
+            continue;
+        const double before = i ? double(original[i].at("time_us").get<std::int64_t>() -
+                                         original[i - 1].at("time_us").get<std::int64_t>()) /
+                                      animation_timebase
+                                : 0;
+        const double after = i + 1 < original.size()
+                                 ? double(original[i + 1].at("time_us").get<std::int64_t>() -
+                                          original[i].at("time_us").get<std::int64_t>()) /
+                                       animation_timebase
+                                 : 0;
+        TransformAnimationCurves settings{true};
+        for (const char* field : {"translation", "scale"})
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                const auto value = original[i].at(field)[axis].get<double>();
+                double left =
+                    before ? (value - original[i - 1].at(field)[axis].get<double>()) / before : 0;
+                double right =
+                    after ? (original[i + 1].at(field)[axis].get<double>() - value) / after : 0;
+                if (!before)
+                    left = right;
+                if (!after)
+                    right = left;
+                if (preset == TransformAnimationTangentPreset::Flat)
+                    left = right = 0;
+                else if (preset == TransformAnimationTangentPreset::Smooth) {
+                    double slope = before && after
+                                       ? (left * after + right * before) / (before + after)
+                                   : before ? left
+                                            : right;
+                    if (left == 0 || right == 0 || std::signbit(left) != std::signbit(right))
+                        slope = 0;
+                    else
+                        slope =
+                            std::copysign(std::min(std::abs(slope),
+                                                   3 * std::min(std::abs(left), std::abs(right))),
+                                          left);
+                    left = right = slope;
+                }
+                auto& incoming = std::string_view(field) == "translation"
+                                     ? settings.incoming.translation
+                                     : settings.incoming.scale;
+                auto& outgoing = std::string_view(field) == "translation"
+                                     ? settings.outgoing.translation
+                                     : settings.outgoing.scale;
+                incoming[axis] = left;
+                outgoing[axis] = right;
+            }
+        merge_curve_settings(candidate.document["keys"][i], settings);
+    }
     candidate.validate();
     document.swap(candidate.document);
 }

@@ -63,10 +63,12 @@ struct Fixture {
 } // namespace
 #include "transform_animation_key_batch_tests.hpp"
 #include "transform_curve_tests.hpp"
+#include "transform_tangent_preset_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need animation scratch root");
         animation_key_batch_tests();
+        animation_tangent_preset_tests();
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
@@ -328,6 +330,7 @@ int main(int argc, char** argv) {
         require(failed && AssetCatalog::open_project(root).document() == prior,
                 "Failed import displaced last good clip");
         transform_curve_tests(root, lease);
+        animation_tangent_preset_pipeline_tests(root, lease);
         std::cout << "transform animation source, history, preview, runtime, recovery and "
                      "source-free export passed\n";
     } catch (const std::exception& e) {

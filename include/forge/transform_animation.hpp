@@ -16,6 +16,7 @@ struct TransformAnimationCurves {
     bool cubic = false;
     TransformAnimationTangents incoming, outgoing;
 };
+enum class TransformAnimationTangentPreset { Flat, Linear, Smooth };
 struct TransformAnimationKey {
     AssetId id;
     std::int64_t time = 0;
@@ -47,6 +48,8 @@ struct TransformAnimationSource {
     void move_keys(std::span<const AssetId>, std::int64_t offset_us);
     std::vector<AssetId> duplicate_keys(std::span<const AssetId>, std::int64_t offset_us);
     void erase_keys(std::span<const AssetId>);
+    // Atomic selected-key slopes from the original neighboring poses/times.
+    void set_tangent_preset(std::span<const AssetId>, TransformAnimationTangentPreset);
 };
 TransformAnimationClip decode_transform_animation(std::span<const std::byte>, AssetId);
 nlohmann::json animation_pose_json(const LocalTransform&);

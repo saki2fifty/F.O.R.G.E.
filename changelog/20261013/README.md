@@ -1,5 +1,17 @@
 # 2026-10-13
 
+## Interactive transform curves
+
+- Transform Animation Timeline adds draggable position/scale tangent handles,
+  selected-key Flat/Linear/Smooth presets and fitting with visible handles.
+- A released drag creates one source Undo step. Canceled gestures restore prior
+  fields; numeric curve drafts participate in Save, Undo and dirty-close handling.
+  Pose/curve updates preserve unknown key and tangent extensions.
+- Preview, published playback and relocated source-free export use the same
+  existing evaluator. Source/cooked formats and native SDK layout remain unchanged.
+- Focused source, publication/export and actual ImGui checks at three scales pass
+  locally, including sanitizer execution. Windows/physical acceptance remains pending.
+
 ## Animation state graph authoring
 
 - Animation States shows connected cards for existing named clips and timed exits.
