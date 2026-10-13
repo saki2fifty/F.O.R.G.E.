@@ -83,3 +83,14 @@ gameplay code still supplies movement keys and camera behavior.
 - [Asset inspection tools](editor/asset-tools.md): scan sources and query registered dependencies without project writes.
 
 - [Live automation](editor/live-automation.md): let a trusted local script inspect or edit the open scene.
+
+## CPU Profiler
+
+Open **Window > CPU Profiler**, or use **Details > Open CPU Profiler** in the status bar.
+
+- The **Editor** tab shows editor work; **Play runtime** shows the separate game worker after Play has an active world.
+- Click **Start collection**, use the editor or run the game, then **Stop collection** to keep the recent samples on screen.
+- **Clear samples** starts a fresh observation window. The filter searches category and scope names. Closing the panel keeps collection running until stopped.
+- Compare **Average ms**, **Max ms** and **Latest ms**, with their sample count and fixed tick. Only the most recent512 completed measurements are retained.
+- CPU measurements include elapsed waits, and nested rows can overlap. They are not GPU timings. The displayed FPS measures the editor loop.
+- The existing **Performance** panel keeps its redraw comparison controls and frame averages. Exported games do not contain the editor profiler.

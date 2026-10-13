@@ -75,11 +75,13 @@ inline void load_startup_layout(const StartupLayout& layout, const char* path) {
 struct Workspace {
     bool hierarchy = true, inspector = true, scene = true, content = true, console = true,
          build = true, game = true, problems = true;
+    bool cpu_profiler = false;
     bool reset = false;
     bool bottom_folded = false;
     void toggle_bottom() { bottom_folded = !bottom_folded; }
     void load(const Json& settings) {
         const auto p = settings.value("panels", Json::object());
+        cpu_profiler = p.value("cpu_profiler", false);
         game = p.value("game", true);
         problems = p.value("problems", true);
         hierarchy = p.value("hierarchy", true);
@@ -91,14 +93,22 @@ struct Workspace {
         bottom_folded = p.value("bottom_folded", false);
     }
     Json settings() const {
-        return {
-            {"hierarchy", hierarchy}, {"inspector", inspector}, {"scene", scene},
-            {"content", content},     {"console", console},     {"build", build},
-            {"game", game},           {"problems", problems},   {"bottom_folded", bottom_folded}};
+        return {{"hierarchy", hierarchy},
+                {"inspector", inspector},
+                {"scene", scene},
+                {"content", content},
+                {"console", console},
+                {"build", build},
+                {"game", game},
+                {"problems", problems},
+                {"bottom_folded", bottom_folded},
+                {"cpu_profiler", cpu_profiler}};
     }
     bool menu() {
         bool changed = false;
-        if (ImGui::BeginMenu("Window")) {
+        const bool menu_open = ImGui::BeginMenu("Window");
+        FORGE_UI_PROBE("workspace:window-menu");
+        if (menu_open) {
             if (ImGui::MenuItem(bottom_folded ? "Expand bottom workspace" : "Fold bottom workspace",
                                 "Ctrl+Space")) {
                 toggle_bottom();
@@ -118,7 +128,8 @@ struct Workspace {
                            {"Problems", &problems},
                            {"Content", &content},
                            {"Console", &console},
-                           {"Build", &build}}) {
+                           {"Build", &build},
+                           {"CPU Profiler", &cpu_profiler}}) {
                 const bool bottom = p.value == &content || p.value == &problems ||
                                     p.value == &console || p.value == &build;
                 bool visible = *p.value && !(bottom && bottom_folded);
@@ -128,6 +139,7 @@ struct Workspace {
                     if (visible && bottom)
                         bottom_folded = false;
                 }
+                FORGE_UI_PROBE(std::string("workspace:panel:") + p.name);
                 help(
                     "Show or hide this panel. Dock arrangements are saved when the editor closes.");
             }

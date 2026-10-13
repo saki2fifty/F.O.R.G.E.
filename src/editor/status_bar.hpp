@@ -8,8 +8,8 @@ namespace forge::ui {
 inline void status_bar(const Telemetry& stats, bool playing, std::size_t entities,
                        const std::string& runtime_state = {}, std::size_t problems = 0,
                        bool selected = false, bool building = false,
-                       const std::function<void()>& toggle_bottom = {},
-                       bool bottom_folded = false) {
+                       const std::function<void()>& toggle_bottom = {}, bool bottom_folded = false,
+                       const std::function<void()>& open_profiler = {}) {
     struct Field {
         std::string text;
         const char* help;
@@ -93,6 +93,8 @@ inline void status_bar(const Telemetry& stats, bool playing, std::size_t entitie
                 ImGui::TextUnformatted(f.text.c_str());
                 help(f.help);
             }
+            if (open_profiler && ImGui::Button("Open CPU Profiler"))
+                open_profiler();
             ImGui::EndPopup();
         }
     }

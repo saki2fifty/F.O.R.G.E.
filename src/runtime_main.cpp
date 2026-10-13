@@ -2,6 +2,7 @@
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "authored_inspection.hpp"
+#include "cpu_profile_control.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "sdk_play_runtime.hpp"
@@ -169,6 +170,7 @@ int main(int argc, char** argv) {
         forge::ui_protocol::CommandGate ui_commands;
         ui_commands.reset(session, ui_generation);
         bool initialized = false, quit = false, tick_failed = false;
+        bool profiling_enabled = false;
         std::string activation = "none";
         std::uint64_t activation_generation = 0, activation_tick = 0;
         auto quit_deadline = forge::RuntimeClock::Time::max();
@@ -268,6 +270,7 @@ int main(int argc, char** argv) {
                     if (tick_failed && command != "replace" && command != "quit")
                         throw std::runtime_error("Runtime fixed tick failed; restore a valid "
                                                  "checkpoint or start clean Play");
+                    (void)forge::cpu_profile_watch(request);
                     if (request.contains("seconds"))
                         throw std::runtime_error(
                             "Caller delta is unsupported; Step advances one fixed tick");
@@ -281,7 +284,10 @@ int main(int argc, char** argv) {
                         runtime->simulation.input().submit(
                             request.at("input_events").get<std::vector<forge::InputEvent>>());
                     }
-                    if (command == "replace") {
+                    if (command == "profiling") {
+                        profiling_enabled = forge::control_cpu_profile(
+                            request, runtime->engine.services(), ui_generation);
+                    } else if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
                         auto candidate = std::make_unique<Runtime>(
@@ -329,8 +335,9 @@ int main(int argc, char** argv) {
                         candidate->simulation.restore_input_tick(recovered_tick);
                         candidate->simulation.reset_presentation();
                         candidate->simulation.sync_audio();
-                        runtime.swap(
-                            candidate); // Publish only a complete validated reconstruction.
+                        // Publish only a complete validated reconstruction.
+                        runtime.swap(candidate);
+                        runtime->engine.services().profiling(profiling_enabled);
                         clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
                         ui_commands.reset(session, ++ui_generation);
                     } else if (command == "refresh_model_assets") {
@@ -495,6 +502,9 @@ int main(int argc, char** argv) {
                                              ->snapshot(runtime->scene, session, ui_generation,
                                                         clock.tick(), clock.paused());
                     response["diagnostics"] = runtime->engine.services().diagnostics();
+                    if (forge::cpu_profile_watch(request) || command == "profiling")
+                        response["cpu_profile"] =
+                            forge::observed_cpu_profile(runtime->engine.services(), ui_generation);
                 } catch (const std::exception& error) {
                     response["ok"] = false;
                     response["error"] = error.what();

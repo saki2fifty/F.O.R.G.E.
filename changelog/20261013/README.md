@@ -1,5 +1,13 @@
 # 2026-10-13
 
+## CPU profiler
+
+- Inspect separate Editor and Play CPU scopes with start/stop/clear, filtering and recent count/average/max/latest timings.
+- Reuse existing editor frame measurements; keep collection off by default and compile-out supported.
+- Invalidate unfinished measurements across collection changes, and protect runtime controls with live world generations.
+- Reconcile runtime timing documentation with current exact-SDK phases and project frequency.
+- Installed C++ SDK values and ABI1 remain unchanged. Windows/GPU and physical acceptance remain pending.
+
 ## Animation key value transforms
 
 - Multiply and offset selected local positions and multiply selected scales as one Undo step, with matching slope changes.

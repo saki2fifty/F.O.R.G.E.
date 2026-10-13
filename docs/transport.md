@@ -257,3 +257,7 @@ snapshot. A failed physical release remains retryable once its observation is
 confirmed. The SDK runtime defers fresh capture offers while a root release
 obligation remains outstanding, then offers them at the confirmed epoch. Existing
 focus, stale-effect and cancellation checks still apply.
+
+## Optional CPU profiling observations
+
+The [CPU profiling contract](cpu-profiling.md) adds generation-checked collection controls and optional bounded profile_watch replies. PlaySession retains only the latest copied observation; the existing byte worker, correlation, response limits and fixed clock remain authoritative. Profiling rejection is recoverable panel feedback.

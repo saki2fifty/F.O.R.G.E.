@@ -4,9 +4,9 @@
 
 The headless runtime owns a `std::chrono::steady_clock` driver. The editor controls it through protocol 2; editor frame deltas and message arrival intervals are never simulation deltas. The runtime main thread owns Flecs mutation, control handling, sampling and extraction. There is no simulation thread added for transport, SDL runtime dependency, window or GPU requirement.
 
-`RuntimeClock` accumulates monotonic elapsed time. Each completed tick calls `RuntimeSimulation`, which runs an explicit Flecs pipeline selecting `FixedSimulation` systems and ordering their Phase/DependsOn relationships. Current stages are **Input → Gameplay → Animation → Navigation → PrePhysics → Physics → PhysicsAdoption → PostPhysics → Transforms**. Animation applies explicit model-node channels; physics synchronizes, simulates and adopts before final world evaluation. RuntimeInput latches an immutable snapshot immediately before this pipeline. These immediate systems operate on the owning world; no Flecs worker threads are enabled. Effective local-pose capture follows completion. Presentation is an explicitly separate extraction stage on snapshot requests, not another gameplay tick. Flecs `progress(fixed_dt)` updates its frame/time metadata using the same explicit delta passed to the native callback.
+`RuntimeClock` accumulates monotonic elapsed time. Each completed tick calls `RuntimeSimulation`, which runs an explicit Flecs pipeline selecting `FixedSimulation` systems and ordering their Phase/DependsOn relationships. Current stages are **Input → Gameplay → Animation → PostAnimation → Navigation → PrePhysics → Physics → PhysicsAdoption → PostPhysics → Transforms**. Animation applies explicit model-node channels; physics synchronizes, simulates and adopts before final world evaluation. RuntimeInput latches an immutable snapshot immediately before this pipeline. These immediate systems operate on the owning world; no Flecs worker threads are enabled. Effective local-pose capture follows completion. Presentation is an explicitly separate extraction stage on snapshot requests, not another gameplay tick. Flecs `progress(fixed_dt)` updates its frame/time metadata using the same explicit delta passed to the native callback.
 
-The pipeline is intentionally restricted to tagged simulation systems. General native system registration, timer/rate-filter integration and a public gameplay SDK are not exposed by ABI v1. Presentation never runs simulation systems. Fixed timestep guarantees a stable interval and ordered execution, not cross-platform or lockstep determinism.
+The pipeline selects tagged simulation systems. Exact-SDK C++ modules receive the current fixed tag and phase IDs and register directly in the shared Flecs world; opt-in authoring remains separately admitted. The retired movement-only ABI is not the current gameplay contract. General timer/rate-filter execution is not included in this explicit fixed pipeline. Presentation never runs simulation systems. Fixed timestep guarantees a stable interval and ordered execution, not cross-platform or lockstep determinism.
 
 ## Clock policy
 
@@ -20,7 +20,7 @@ The pipeline is intentionally restricted to tagged simulation systems. General n
 | Simulation tick | uint64, incremented once after each successfully completed tick |
 | Time scale | Not implemented |
 
-`forge_runtime --simulation-hz N` supports finite 1..240 Hz. This is centralized runtime configuration, not a scene property. The editor currently uses 60 Hz. A future project setting belongs in project/runtime configuration, not every scene; there is no scene-format migration for timing. Probe and live editor processes use the same default configuration. Python tooling also uses 60 Hz.
+`forge_runtime --simulation-hz N` supports finite 1..240 Hz. This is centralized runtime configuration, not a scene property. The editor supplies the saved project simulation frequency; exact-SDK Play uses that configuration. Default is60Hz when no override exists. This belongs to project/runtime settings, not every Scene. Tests that require a different frequency supply it explicitly.
 
 Startup is paused for scene/module setup. Play/Resume rebases the monotonic reference and clears the accumulator. Pause discards debt. Repeated Resume while running does not reset the clock. Step requires Pause, executes exactly one fixed tick and stays paused. Stop terminates the process; no runtime edits merge into authoring. A restarted process starts tick zero with a new transient session. Reload/recovery never treats paused elapsed time as debt.
 
@@ -34,7 +34,7 @@ While running, alpha = accumulator / fixed_dt. Translation and scale use linear 
 
 Snapshot `effective_scene.world_affine` carries this derived render output. The other reflected fields describe the current completed simulation state; this is not an independently editable pose document. Interpolation never writes LocalTranslation/LocalRotation/LocalScale or simulation WorldTransform. Authoring gizmos remain immediate.
 
-Initial samples are identical. Newly sampled entities start previous=current. A changed resolved parent/availability resets that entity's local history. Explicit discontinuities (teleport/snap, scene replacement, recovery and resumed presentation) use `reset_presentation()` to collapse the current graph's history; `PresentationPoses::snap` can collapse an individual sampled local channel set. ABI v1 exposes continuous translation only, not a teleport API. Large distance alone is not used to guess a teleport. Deleted samples are retired; recycled Flecs generations are fresh samples. While paused, alpha=1 and Step immediately presents its completed state. Resume collapses samples to prevent rewinding from the paused pose.
+Initial samples are identical. Newly sampled entities start previous=current. A changed resolved parent/availability resets that entity's local history. Explicit discontinuities (teleport/snap, scene replacement, recovery and resumed presentation) use `reset_presentation()` to collapse the current graph's history; `PresentationPoses::snap` can collapse an individual sampled local channel set. The exact SDK provides explicit physics teleport/kinematic commands; physics teleport and animation discontinuities snap supported presentation samples after the fixed tick. Large distance alone is not used to guess a teleport. Deleted samples are retired; recycled Flecs generations are fresh samples. While paused, alpha=1 and Step immediately presents its completed state. Resume collapses samples to prevent rewinding from the paused pose.
 
 Snapshots are sampled when requested. JSON transport remains temporary and can add visual latency; the editor does not extrapolate old snapshots. Sampling and JSON serialization still consume runtime CPU time. This is not a production high-density renderer or frame-sharing transport.
 
@@ -52,11 +52,11 @@ Frames are capped at 16 MiB; oversize input terminates the worker and oversize o
 
 ## Transactional native activation
 
-See [native modules](native-modules.md). Build/probe does not mark a live candidate active. Probe uses representative current checkpoint data and one real fixed tick. The live runtime acknowledges a safe pause boundary and an uninterpolated checkpoint before load. Activation state becomes LoadedPendingFirstTick. Only a completed live fixed tick changes it to Active; loading/ABI checks alone do not.
+Current project C++ iteration is Stop → Save → Build → Play, with matching exact-SDK admission. It does not preserve arbitrary C++ static state or hot-reload a running module. The internal non-SDK-Play process path retains the following activation/recovery mechanism for its existing consumers and tests; it is not the editor C++ build workflow. See [native modules](native-modules.md). Build/probe does not mark a live candidate active. Probe uses representative current checkpoint data and one real fixed tick. The live runtime acknowledges a safe pause boundary and an uninterpolated checkpoint before load. Activation state becomes LoadedPendingFirstTick. Only a completed live fixed tick changes it to Active; loading/ABI checks alone do not.
 
 Running sessions resume automatically after load. Paused sessions wait for Step or Resume, with controls available. First-tick/load failure restarts the previous known-good artifact and boundary checkpoint, restores the pre-reload run/pause policy, resets samples/debt and creates a new session. The old DLL need not remain loaded. Stop cancels pending activation without a tick. A newer pending candidate supersedes the old transaction by restarting from the original known-good checkpoint; pending transactions never stack. Later gameplay crashes use explicit user recovery from the last acknowledged checkpoint.
 
-Recovery covers the existing supported host-owned scene state only. Generated-child private runtime edits, arbitrary native static state, external effects and resources are not general rollback/save-game guarantees. No generalized reload or callback-bearing SDK is introduced.
+Recovery covers the existing supported host-owned scene state only. Generated-child private runtime edits, arbitrary native static state, external effects and resources are not general rollback/save-game guarantees. This recovery path is not generalized native-state rollback. Current exact-SDK services and callbacks are defined by the native module contract, not by this historical process recovery boundary.
 
 ## Gameplay input boundary
 
@@ -96,3 +96,7 @@ and report that loading must finish if the checkpoint is unavailable. A crash be
 a complete checkpoint requires fresh Play; it is not reported as recovered playback.
 Recovery of a complete checkpoint reconstructs resources in an unpublished world,
 with a bounded wait shared across its animation dependencies.
+
+## CPU observations
+
+[CPU profiling](cpu-profiling.md) exposes bounded, optional owner-thread scope records separately from clock status. Watch/control requests never supply simulation dt, change Pause/Step policy or edit authored Scene state. Collection begins off.

@@ -278,6 +278,25 @@ class PlaySession {
     const std::string& log() const { return log_; }
     const std::string& timed_log() const { return timed_log_.text(); }
     const Json& diagnostics() const { return diagnostics_; }
+    const Json& cpu_profile() const { return cpu_profile_; }
+    const std::string& cpu_profile_error() const { return cpu_profile_error_; }
+    void watch_cpu_profile(bool value) { cpu_profile_watch_ = value; }
+    bool cpu_profile_pending() const {
+        return (!live_command_.is_null() && live_command_.value("command", "") == "profiling") ||
+               (waiting_ && sent_command_ == "profiling");
+    }
+    bool submit_cpu_profile(bool enabled, bool clear) {
+        const auto generation = sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;
+        if (!control_ready() || !live_command_.is_null() || !generation)
+            return false;
+        live_command_ = {{"command", "profiling"},
+                         {"generation", generation},
+                         {"enabled", enabled},
+                         {"clear", clear}};
+        cpu_profile_error_.clear();
+        return true;
+    }
+
     // ---------------------------------------------------------------------
     // SDK Play opt-in profile accessors. All return transport layer
     // observations from the most recent wire response, never a fabricated
@@ -804,8 +823,10 @@ class PlaySession {
                 if (!response.value("ok", false)) {
                     const auto error = response.value("error", "Runtime rejected request");
                     if (sent_command_ == "audio_mix" || sent_command_ == "audio_source" ||
-                        sent_command_ == "animation_playback") {
-                        if (sent_command_ == "audio_mix")
+                        sent_command_ == "animation_playback" || sent_command_ == "profiling") {
+                        if (sent_command_ == "profiling")
+                            cpu_profile_error_ = error;
+                        else if (sent_command_ == "audio_mix")
                             audio_mix_error_ = error;
                         else if (sent_command_ == "animation_playback") {
                             if (sent_animation_ == animation_watch_)
@@ -904,6 +925,12 @@ class PlaySession {
                 runtime_schema_ = response.value("schema", Json());
                 runtime_world_generation_ = response.value("world_generation", std::uint64_t{});
                 timing_ = response.at("timing");
+                if (response.contains("cpu_profile"))
+                    cpu_profile_ = response.at("cpu_profile");
+                else if (cpu_profile_.value("world_generation", std::uint64_t{}) !=
+                         runtime_world_generation_)
+                    cpu_profile_ = Json::object();
+
                 audio_status_ = response.value("audio", Json::object());
                 if (response.contains("audio_source") &&
                     response.at("audio_source").value("source", Json()) == audio_source_watch_)
@@ -1185,7 +1212,8 @@ class PlaySession {
                             ui_command_ = nullptr;
                             send({{"command", "ui"}, {"ui_command", std::move(command)}});
                         }
-                    } else if ((!probe_ || audio_source_watch_dirty_ || animation_watch_dirty_) &&
+                    } else if ((!probe_ || audio_source_watch_dirty_ || animation_watch_dirty_ ||
+                                cpu_profile_watch_) &&
                                SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 }
@@ -1262,6 +1290,8 @@ class PlaySession {
         audio_status_ = Json::object();
         live_command_ = nullptr;
         audio_mix_error_.clear();
+        cpu_profile_ = Json::object();
+        cpu_profile_error_.clear();
         animation_watch_ = animation_status_ = sent_animation_ = nullptr;
         animation_error_.clear();
         animation_watch_dirty_ = false;
@@ -1401,6 +1431,8 @@ class PlaySession {
     }
     void send(Json request) {
         sent_command_ = request.at("command").get<std::string>();
+        if (cpu_profile_watch_ && sent_command_ == "snapshot")
+            request["profile_watch"] = true;
         if (!audio_source_watch_.is_null() &&
             (sent_command_ == "snapshot" || sent_command_ == "audio_source" ||
              sent_command_ == "audio_mix"))
@@ -1511,6 +1543,9 @@ class PlaySession {
     std::string audio_source_error_;
     bool audio_source_watch_dirty_ = false;
     Json diagnostics_ = Json::array();
+    Json cpu_profile_ = Json::object();
+    std::string cpu_profile_error_;
+    bool cpu_profile_watch_ = false;
     std::string audio_project_;
     bool probe_ = false, recoverable_ = false;
     // Explicit offline audio opt-in (set only by the CI SDK play fixture).

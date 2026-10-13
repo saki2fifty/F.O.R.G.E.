@@ -2,6 +2,7 @@
 #include "widgets.hpp"
 #include <array>
 #include <chrono>
+#include <forge/services.hpp>
 namespace forge::ui {
 // CPU wall-clock sections, deliberately not presented as GPU execution timings.
 struct Performance {
@@ -18,11 +19,21 @@ struct Performance {
         start = Clock::now();
         scene_ms = 0;
     }
-    void finish(Clock::time_point submit, Clock::time_point present) {
+    void finish(Clock::time_point submit, Clock::time_point present, ServiceAccess profiling = {}) {
         const auto end = Clock::now();
         const std::array<double, 4> current{std::max(0.0, milliseconds(start, submit) - scene_ms),
                                             scene_ms, milliseconds(submit, present),
                                             milliseconds(present, end)};
+        if (profiling.available(Capability::Profiling) && profiling.profiling_enabled()) {
+            const char* scopes[] = {"UpdateAndEditorUI", "SceneSubmission", "UISubmission",
+                                    "PresentCall"};
+            try {
+                for (unsigned i = 0; i < 4; ++i)
+                    profiling.record_profile("editor", scopes[i], current[i] / 1000);
+            } catch (...) {
+                // Timing collection must not change editor control flow.
+            }
+        }
         for (unsigned i = 0; i < 4; ++i)
             sum[i] += current[i];
         ++samples;

@@ -40,6 +40,7 @@
 #include "content_imports.hpp"
 #include "content_thumbnails.hpp"
 #include "cpp_source_editor.hpp"
+#include "cpu_profiler.hpp"
 #include "creation_menu.hpp"
 #include "document_workspace.hpp"
 #include "ecs_tools.hpp"
@@ -1291,6 +1292,7 @@ int main(int argc, char** argv) {
                        {},
                        [&](const std::string& locator) { content.inspect_code(locator); }});
         forge::Telemetry telemetry;
+        forge::ui::CpuProfiler cpu_profiler;
         forge::ui::Performance performance;
         auto& selected = editor.selection.entity_slot();
         std::string name_entity, authored_name;
@@ -2197,7 +2199,11 @@ int main(int argc, char** argv) {
                     workspace.toggle_bottom();
                     perform(save_preferences);
                 },
-                workspace.bottom_folded);
+                workspace.bottom_folded,
+                [&] {
+                    workspace.cpu_profiler = true;
+                    perform(save_preferences);
+                });
             const auto dock = ImGui::DockSpaceOverViewport();
             const bool rebuilt_workspace = initialize_layout || workspace.reset;
             if (rebuilt_workspace) {
@@ -4356,6 +4362,14 @@ int main(int argc, char** argv) {
             forge::ui::scene_lighting(scene_lighting_open, scene, lighting_catalog.get(),
                                       edit_locked);
             ecs_workspace.draw(scene, editor.problems);
+            const bool profiler_was_open = workspace.cpu_profiler;
+            play.watch_cpu_profile(cpu_profiler.draw(
+                workspace.cpu_profiler, scene_engine.services(), telemetry, play.cpu_profile(),
+                play.ready(), play.cpu_profile_pending(), play.cpu_profile_error(),
+                [&](bool enabled, bool clear) { return play.submit_cpu_profile(enabled, clear); }));
+            if (profiler_was_open != workspace.cpu_profiler)
+                perform(save_preferences);
+
             commands.draw(scene, selected, message, scene_tools.snap_step, camera.target,
                           blockout.at_view_target, edit_locked);
             files.draw_dialogs();
@@ -6982,7 +6996,7 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
             fixture.graphics_context(window.get(), 2);
 #endif
-            performance.finish(ui_submit, present);
+            performance.finish(ui_submit, present, scene_engine.services());
             // Reuse existing Performance bucket values (no owner change) to
             // emit SLOW for update_excl_scene, scene_ms, UI submission,
             // Present call, and frame_all (steady_clock start..now). Each is

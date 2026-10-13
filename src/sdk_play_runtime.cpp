@@ -2,6 +2,7 @@
 #include "animation_playback_access.hpp"
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
+#include "cpu_profile_control.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
@@ -117,6 +118,8 @@ struct SdkPlayRuntime::State {
     bool tick_failed = false;
     std::uint64_t last_id = 0;
     std::uint64_t active_generation = 0;
+    std::uint64_t profile_world_generation = 0;
+    bool profiling_enabled = false;
     std::uint64_t initial_ticket = 0;
     std::uint64_t last_loading_ticket = 0;
     std::uint64_t effect_sequence = 0;
@@ -943,6 +946,10 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& b
     const auto state = status_value.value("state", std::string{});
     if (state == "empty" || state == "faulted")
         return;
+    if (s.profile_world_generation != s.active_generation) {
+        s.game->active().engine.services().profiling(s.profiling_enabled);
+        s.profile_world_generation = s.active_generation;
+    }
     try {
         if (state == "running")
             s.game->advance(now, between_ticks);
@@ -997,6 +1004,16 @@ Json SdkPlayRuntime::handle(const Json& request, RuntimeClock::Time now) {
                 {"source", watched}, {"available", false}, {"error", error.what()}};
         }
     }
+    if (response.value("ok", false) &&
+        (cpu_profile_watch(request) || request.value("command", "") == "profiling")) {
+        try {
+            response["cpu_profile"] = observed_cpu_profile(state_->game->active().engine.services(),
+                                                           state_->active_generation);
+        } catch (const std::exception&) {
+            response["cpu_profile"] = {{"available", false},
+                                       {"world_generation", state_->active_generation}};
+        }
+    }
     return state_->enforce_response_size(std::move(response));
 }
 Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
@@ -1018,6 +1035,12 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
     if (!request.contains("command") || !request.at("command").is_string())
         return s.build_error(id, "Request command must be a string");
     const auto command = request.at("command").get<std::string>();
+    try {
+        (void)cpu_profile_watch(request);
+    } catch (const std::exception& error) {
+        return s.build_error(id, error.what());
+    }
+
     if (command == "hello") {
         if (s.initialized)
             return s.build_error(id, "Session already initialized");
@@ -1243,6 +1266,11 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             } catch (const std::exception& e) {
                 return s.build_error(id, std::string("replace failed: ") + e.what());
             }
+        }
+        if (command == "profiling") {
+            s.profiling_enabled = control_cpu_profile(request, s.game->active().engine.services(),
+                                                      s.active_generation);
+            return s.snapshot_response(id);
         }
         if (command == "play" || command == "resume") {
             if (s.game->status().value("state", "") == "paused")

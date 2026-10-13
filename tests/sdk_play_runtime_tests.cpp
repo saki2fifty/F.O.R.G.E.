@@ -192,6 +192,94 @@ std::unique_ptr<SdkPlayRuntime> build_activated(Fixture& f, std::string& session
     return host;
 }
 
+void live_cpu_profile_controls() {
+    Fixture f;
+    std::string session;
+    auto host = build_activated(f, session);
+    std::uint64_t id = 30;
+    auto request = [&](const char* command, Json fields = Json::object()) {
+        fields["protocol"] = 2;
+        fields["id"] = ++id;
+        fields["session"] = session;
+        fields["command"] = command;
+        return host->handle(fields);
+    };
+    check(request("snapshot",
+                  {{"editor_epoch",
+                    {{"epoch", 1u}, {"captured", false}, {"input_device", "EditorHost"}}}})
+              .value("ok", false),
+          "Initial editor release observation failed");
+    const auto before = request("snapshot");
+    check(!before.contains("cpu_profile"), "Unwatched SDK replies copied CPU records");
+    const auto generation = before.at("activation").at("generation");
+    auto watched = request("snapshot", {{"profile_watch", true}});
+    check(watched.at("cpu_profile").at("available") == true &&
+              watched.at("cpu_profile").at("enabled") == false,
+          "Default runtime profiling enabled");
+    for (const auto& invalid :
+         {Json{{"enabled", true}},
+          Json{{"enabled", true}, {"generation", generation.get<std::uint64_t>() + 1}},
+          Json{{"enabled", 1}, {"generation", generation}},
+          Json{{"enabled", true}, {"generation", generation}, {"clear", 1}}}) {
+        check(!request("profiling", invalid).value("ok", false), "SDK invalid control accepted");
+        const auto after = request("snapshot", {{"profile_watch", true}});
+        check(after.at("scene") == before.at("scene") &&
+                  after.at("timing").at("tick") == before.at("timing").at("tick") &&
+                  after.at("cpu_profile").at("enabled") == false,
+              "Invalid control changed live world");
+    }
+    check(!request("resume", {{"profile_watch", 1}}).value("ok", false) &&
+              host->status().at("state") == "paused",
+          "Malformed watch advanced clock policy");
+    auto enabled =
+        request("profiling", {{"generation", generation}, {"enabled", true}, {"clear", true}});
+    check(enabled.value("ok", false) && enabled.at("scene") == before.at("scene") &&
+              enabled.at("timing").at("tick") == before.at("timing").at("tick"),
+          "Collection changed paused scene/clock");
+    auto stepped = request("step", {{"profile_watch", true}});
+    check(stepped.value("ok", false) && stepped.at("timing").at("tick") == 1 &&
+              stepped.at("timing").at("paused") == true,
+          ("Profiling changed Step behavior: " + stepped.dump()).c_str());
+#ifndef FORGE_DISABLE_PROFILING
+    bool found_tick = false;
+    for (const auto& sample : stepped.at("cpu_profile").at("samples"))
+        if (sample.at("name") == "FixedSimulationTick" && sample.at("tick") == 1)
+            found_tick = true;
+    check(found_tick, "SDK actual fixed tick was not observed");
+#endif
+    auto stopped = request("profiling", {{"generation", generation}, {"enabled", false}});
+    check(stopped.value("ok", false) && stopped.at("cpu_profile").at("enabled") == false,
+          "SDK collection stop failed");
+    auto after_step = request("step", {{"profile_watch", true}});
+    check(after_step.at("cpu_profile").at("samples") == stopped.at("cpu_profile").at("samples"),
+          "Stopped collection recorded new runtime scopes");
+    auto cleared =
+        request("profiling", {{"generation", generation}, {"enabled", false}, {"clear", true}});
+    check(cleared.at("cpu_profile").at("samples").empty(), "SDK Clear retained completed records");
+    request("profiling", {{"generation", generation}, {"enabled", true}});
+    request("step");
+    check(request("replace", {{"scene", before.at("scene")}}).value("ok", false),
+          "Profiled replace failed");
+    host->pump(RuntimeClock::Clock::now());
+    const auto candidate = host->pending_candidate();
+    check(candidate.has_value(), "Replacement candidate missing");
+    request("snapshot", {{"candidate_ack",
+                          {{"session", session},
+                           {"ticket", candidate->at("ticket")},
+                           {"accepted", true},
+                           {"diagnostic", ""}}}});
+    host->pump(RuntimeClock::Clock::now());
+    const auto replaced = request("snapshot", {{"profile_watch", true}});
+    check(replaced.at("cpu_profile").at("world_generation") != generation,
+          "Replacement retained old profiling generation");
+    for (const auto& sample : replaced.at("cpu_profile").at("samples"))
+        check(sample.at("name") != "FixedSimulationTick",
+              "Old world's tick samples leaked into replacement");
+    check(
+        !request("profiling", {{"generation", generation}, {"enabled", false}}).value("ok", false),
+        "Old-world command changed replacement profiling");
+}
+
 void live_audio_mix_controls() {
     Fixture f;
     f.audio_enabled = true;
@@ -2137,6 +2225,7 @@ int run() {
         platform_acks_rejects_unknown_token();
         platform_settings_rejects_display_changes_via_game_request();
         platform_settings_applies_audio_and_input();
+        live_cpu_profile_controls();
         live_audio_mix_controls();
         game_control_queue_pending_query_consults_active_endpoint();
         initial_candidate_failure_keeps_old_world_active();

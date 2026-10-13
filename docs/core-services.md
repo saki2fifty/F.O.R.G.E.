@@ -31,7 +31,7 @@ Malformed content, missing assets and unsupported user configuration are recover
 
 ## Instrumentation
 
-Optional ProfileScope records category/name, duration, count and tick in a512-record ring. Runtime fixed ticks and presentation extraction, derived transform evaluation and prefab reconciliation have scopes. Enable through the context's Profiling capability; the default is off. `FORGE_DISABLE_PROFILING=ON` compiles collection out. Disabled scopes do not invoke the clock; tests inject a clock rather than sleeping. Scope destruction never propagates instrumentation failures. This is owner-thread CPU wall time, not GPU timing, flame graphs, allocation tracking or a production profiler. Existing editor frame averages remain separate and unchanged.
+Optional ProfileScope records category/name, duration, count and tick in a512-record ring. Runtime fixed ticks and presentation extraction, derived transform evaluation and prefab reconciliation have scopes. Enable through the context's Profiling capability; the default is off. `FORGE_DISABLE_PROFILING=ON` compiles collection out. Disabled scopes do not invoke the clock; tests inject a clock rather than sleeping. Scope destruction never propagates instrumentation failures. This is owner-thread CPU wall time, not GPU timing, flame graphs, allocation tracking or a production profiler. The existing editor frame sections also feed this same ring when enabled. Window > CPU Profiler exposes separate Editor and copied Play observations; the existing frame averages remain unchanged. See [CPU profiling](cpu-profiling.md) for collection lifecycle, inclusive timing and optional protocol controls.
 
 ## Document schema convention
 

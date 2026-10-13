@@ -14,6 +14,18 @@ struct ServiceState {
     EngineServices::Now now;
     std::deque<Json> diagnostics, profiles;
     std::uint64_t diagnostic_sequence = 0;
+    std::uint64_t profile_generation = 0, profile_sequence = 0;
+    void append_profile(const std::string& category, const std::string& name, double seconds,
+                        std::uint64_t tick) {
+        if (profiles.size() == 512)
+            profiles.pop_front();
+        profiles.push_back({{"category", category},
+                            {"name", name},
+                            {"seconds", seconds},
+                            {"count", 1},
+                            {"tick", tick},
+                            {"sequence", ++profile_sequence}});
+    }
     void check() const {
         if (owner != std::this_thread::get_id() || !alive)
             throw std::runtime_error("Engine service access requires its live owner thread");
@@ -192,9 +204,41 @@ std::vector<Json> ServiceAccess::profiles() const {
     const auto s = state_.lock();
     return {s->profiles.begin(), s->profiles.end()};
 }
+Json ServiceAccess::profile_status() const {
+    require(Capability::Profiling);
+    const auto state = state_.lock();
+#ifdef FORGE_DISABLE_PROFILING
+    constexpr bool compiled = false;
+#else
+    constexpr bool compiled = true;
+#endif
+    return {{"compiled", compiled},
+            {"enabled", compiled && state->profiling},
+            {"capacity", 512},
+            {"sequence", state->profile_sequence},
+            {"samples", state->profiles}};
+}
+bool ServiceAccess::profiling_enabled() const {
+    require(Capability::Profiling);
+#ifdef FORGE_DISABLE_PROFILING
+    return false;
+#else
+    return state_.lock()->profiling;
+#endif
+}
+void ServiceAccess::clear_profiles() const {
+    require(Capability::Profiling);
+    const auto state = state_.lock();
+    state->profiles.clear();
+    ++state->profile_generation;
+}
 void ServiceAccess::profiling(bool enabled) const {
     require(Capability::Profiling);
-    state_.lock()->profiling = enabled;
+    const auto state = state_.lock();
+    if (state->profiling != enabled) {
+        state->profiling = enabled;
+        ++state->profile_generation;
+    }
 }
 void ServiceAccess::record_profile(const std::string& category, const std::string& name,
                                    double seconds, std::uint64_t tick) const {
@@ -206,13 +250,7 @@ void ServiceAccess::record_profile(const std::string& category, const std::strin
     auto state = state_.lock();
     if (!state->profiling)
         return;
-    if (state->profiles.size() == 512)
-        state->profiles.pop_front();
-    state->profiles.push_back({{"category", category},
-                               {"name", name},
-                               {"seconds", seconds},
-                               {"count", 1},
-                               {"tick", tick}});
+    state->append_profile(category, name, seconds, tick);
 #endif
 }
 ProfileScope ServiceAccess::profile(const char* category, const char* name,
@@ -225,11 +263,22 @@ ProfileScope ServiceAccess::profile(const char* category, const char* name,
     state->check();
     if (!state->profiling)
         return scope;
-    scope.state_ = state;
-    scope.name_ = name;
-    scope.category_ = category;
-    scope.tick_ = tick;
-    scope.start_ = state->now();
+    if (!category || !name || !*category || !*name ||
+        std::char_traits<char>::length(category) > 128 ||
+        std::char_traits<char>::length(name) > 128)
+        return scope;
+    try {
+        scope.start_ = state->now();
+        if (!std::isfinite(scope.start_))
+            return scope;
+        scope.name_ = name;
+        scope.category_ = category;
+        scope.tick_ = tick;
+        scope.generation_ = state->profile_generation;
+        scope.state_ = state;
+    } catch (...) {
+        // A diagnostic clock or instrumentation allocation must not change engine behavior.
+    }
 #else
     (void)category;
     (void)name;
@@ -239,22 +288,19 @@ ProfileScope ServiceAccess::profile(const char* category, const char* name,
 }
 ProfileScope::ProfileScope(ProfileScope&& o) noexcept
     : state_(std::move(o.state_)), name_(std::move(o.name_)), category_(std::move(o.category_)),
-      tick_(o.tick_), start_(o.start_) {
+      tick_(o.tick_), generation_(o.generation_), start_(o.start_) {
     o.state_.reset();
 }
 ProfileScope::~ProfileScope() {
     const auto state = state_.lock();
-    if (!state || !state->alive || !state->profiling || state->owner != std::this_thread::get_id())
+    if (!state || !state->alive || !state->profiling ||
+        state->owner != std::this_thread::get_id() || state->profile_generation != generation_)
         return;
     try {
-        const double duration = std::max(0.0, state->now() - start_);
-        if (state->profiles.size() == 512)
-            state->profiles.pop_front();
-        state->profiles.push_back({{"category", category_},
-                                   {"name", name_},
-                                   {"seconds", duration},
-                                   {"count", 1},
-                                   {"tick", tick_}});
+        const double duration = state->now() - start_;
+        if (!std::isfinite(duration) || duration < 0 || duration > 3600)
+            return;
+        state->append_profile(category_, name_, duration, tick_);
     } catch (...) { /* Instrumentation must not alter engine control flow. */
     }
 }

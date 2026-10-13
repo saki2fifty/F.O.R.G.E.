@@ -173,7 +173,11 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
                             .immediate()
                             .run([this](flecs::iter& it) {
                                 if (animation_)
-                                    stage([&] { animation_->tick(it.delta_time(), input_tick_); });
+                                    stage([&] {
+                                        auto profile = context_.services().profile(
+                                            "runtime", "Animation", input_tick_);
+                                        animation_->tick(it.delta_time(), input_tick_);
+                                    });
                             });
     animation_system_.add<FixedSimulation>();
     post_animation_phase_ =
@@ -181,14 +185,17 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
     navigation_phase_ = world.entity("forge.runtime.Navigation")
                             .add(flecs::Phase)
                             .depends_on(post_animation_phase_);
-    navigation_system_ =
-        world.system("forge.runtime.NavigationUpdate")
-            .kind(navigation_phase_)
-            .immediate()
-            .run([this](flecs::iter& it) {
-                if (navigation_)
-                    stage([&] { navigation_->tick(it.delta_time(), input_tick_); });
-            });
+    navigation_system_ = world.system("forge.runtime.NavigationUpdate")
+                             .kind(navigation_phase_)
+                             .immediate()
+                             .run([this](flecs::iter& it) {
+                                 if (navigation_)
+                                     stage([&] {
+                                         auto profile = context_.services().profile(
+                                             "runtime", "Navigation", input_tick_);
+                                         navigation_->tick(it.delta_time(), input_tick_);
+                                     });
+                             });
     navigation_system_.add<FixedSimulation>();
     pre_phase_ =
         world.entity("forge.runtime.PrePhysics").add(flecs::Phase).depends_on(navigation_phase_);
@@ -204,21 +211,33 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
                        .immediate()
                        .run([this](flecs::iter& it) {
                            if (physics_)
-                               stage([&] { physics_->synchronize(it.delta_time()); });
+                               stage([&] {
+                                   auto profile = context_.services().profile(
+                                       "runtime", "PhysicsSynchronization", input_tick_);
+                                   physics_->synchronize(it.delta_time());
+                               });
                        });
     physics_step_ = world.system("forge.runtime.PhysicsStep")
                         .kind(physics_phase_)
                         .immediate()
                         .run([this](flecs::iter& it) {
                             if (physics_)
-                                stage([&] { physics_->step(it.delta_time()); });
+                                stage([&] {
+                                    auto profile = context_.services().profile(
+                                        "runtime", "PhysicsStep", input_tick_);
+                                    physics_->step(it.delta_time());
+                                });
                         });
     physics_adopt_ = world.system("forge.runtime.PhysicsAdoptionSystem")
                          .kind(adoption_phase_)
                          .immediate()
                          .run([this](flecs::iter&) {
                              if (physics_)
-                                 stage([&] { physics_->adopt(); });
+                                 stage([&] {
+                                     auto profile = context_.services().profile(
+                                         "runtime", "PhysicsAdoption", input_tick_);
+                                     physics_->adopt();
+                                 });
                          });
     pre_physics_.add<FixedSimulation>();
     physics_step_.add<FixedSimulation>();
@@ -299,8 +318,10 @@ void RuntimeSimulation::tick(float dt) {
     }
     for (auto id : discontinuities)
         poses_.snap(id);
-    if (audio_)
+    if (audio_) {
+        auto profile = context_.services().profile("runtime", "AudioSynchronization", input_tick_);
         audio_->synchronize(input_tick_, dt, discontinuities);
+    }
 }
 void RuntimeSimulation::audio_paused(bool value) {
     if (audio_)

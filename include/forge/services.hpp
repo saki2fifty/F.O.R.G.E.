@@ -71,6 +71,7 @@ class ProfileScope {
     std::weak_ptr<detail::ServiceState> state_;
     std::string name_, category_;
     std::uint64_t tick_ = 0;
+    std::uint64_t generation_ = 0;
     double start_ = 0;
 };
 class ServiceAccess {
@@ -96,6 +97,9 @@ class ServiceAccess {
     void emit(Diagnostic diagnostic) const;
     std::vector<nlohmann::json> diagnostics() const;
     std::vector<nlohmann::json> profiles() const;
+    nlohmann::json profile_status() const;
+    bool profiling_enabled() const;
+    void clear_profiles() const;
     ProfileScope profile(const char* category, const char* name, std::uint64_t tick = 0) const;
     void profiling(bool enabled) const;
     void record_profile(const std::string& category, const std::string& name, double seconds,
