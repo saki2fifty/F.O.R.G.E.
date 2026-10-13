@@ -51,6 +51,9 @@ struct TransformAnimationSource {
     // Whole-clip retiming rescales known slopes; selected frame snapping keeps them.
     void retime_duration(std::int64_t duration_us);
     void snap_keys_to_frames(std::span<const AssetId>, unsigned frames_per_second);
+    // Affine local position values and multiplicative sizes; rescale known slopes.
+    void transform_key_values(std::span<const AssetId>, Double3 position_multiplier,
+                              Double3 position_offset, Double3 scale_multiplier);
     // Atomic selected-key slopes from the original neighboring poses/times.
     void set_tangent_preset(std::span<const AssetId>, TransformAnimationTangentPreset);
 };

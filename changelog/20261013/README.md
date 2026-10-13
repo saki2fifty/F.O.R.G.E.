@@ -1,5 +1,13 @@
 # 2026-10-13
 
+## Animation key value transforms
+
+- Multiply and offset selected local positions and multiply selected scales as one Undo step, with matching slope changes.
+- Keep key times, rotations, IDs, held modes and channel masks; reject invalid candidates atomically.
+- Gallery47 compares original, repositioned and resized motion through the existing Play/export path.
+- Keep the preview status row stable so the first timeline key drag does not cancel itself when preview starts.
+- Windows/GPU and physical acceptance remain pending.
+
 ## Model topology refinement
 
 - Split selected faces around new center points, or subdivide the whole Mesh into smaller triangles with shared midpoints.

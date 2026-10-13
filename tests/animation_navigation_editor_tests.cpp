@@ -124,9 +124,9 @@ int main(int argc, char** argv) {
                 }
                 ImGui::Render();
                 if (count == 4096) {
-                    bool split = false;
                     const auto* data = ImGui::GetDrawData();
-                    for (const auto* list : data->CmdLists)
+                    for (const auto* list : data->CmdLists) {
+                        bool split = false;
                         for (const auto& command : list->CmdBuffer) {
                             split |= command.VtxOffset != 0;
                             const auto offset = std::size_t(command.IdxOffset);
@@ -140,8 +140,9 @@ int main(int argc, char** argv) {
                                           std::size_t(list->VtxBuffer.Size),
                                       "Dense draw vertex offset exceeds buffer");
                         }
-                    check(data->TotalVtxCount <= 65535 || split,
-                          "Dense draw did not split large vertex data");
+                        check(list->VtxBuffer.Size <= 65535 || split,
+                              "Dense draw list did not split large vertex data");
+                    }
                 }
             };
             auto target = [&](const std::string& name) {

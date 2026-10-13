@@ -47,7 +47,8 @@ last key, the nearest pose is held.
 
 Scrub the ruler or **Playhead**, then use **Play preview**, **Pause preview**,
 **Stop preview**, **Loop preview**, and **Preview speed**. The colored PREVIEW
-message identifies the temporary Scene view. Preview leaves the saved scene,
+message identifies the temporary Scene view; the same status row shows when preview
+is stopped. Preview leaves the saved scene,
 scene Undo history and physics unchanged. Stop, entering Play, closing the timeline,
 changing projects or deleting the preview object ends preview.
 
@@ -90,6 +91,28 @@ Try **FeatureGallery / Scenes / 45-animation-timing.scene.json**. The blue lane
 uses the original four-second clip, the middle lane stretches it to eight seconds,
 and the last lane rounds its keys to a two-FPS grid. Open the sources under
 **Assets/AnimationTiming** to inspect or adjust them.
+
+## Adjust selected values together
+
+Select keys, then find **Selected key values**. **Position multiplier** changes how
+far each X/Y/Z value lies from zero; **Position offset** adds a local displacement.
+**Scale multiplier** multiplies each saved X/Y/Z size. Enter the three lanes in X,
+Y, Z order. Choose **Apply selected key values** to commit one Undo step.
+
+For example, X position multiplier `0.5` halves a motion's X extent; X offset `2`
+then moves it two local units. Scale multipliers `2, 1, 1` double its X size.
+Negative multipliers reflect values, and zero makes that lane constant. Positions
+are relative to the object's parent and use local zero, so this is not a gizmo pivot.
+Rotation and key times stay the same. Matching curve slopes adjust with the values.
+
+**Reset value adjustments** returns the temporary fields to multipliers `1` and
+offsets `0`; it leaves your keys unchanged. Changing only some keys also changes
+the transitions to their neighbors. Invalid results keep the previous clip and show
+an error. Use **Save & Publish** for Play and export.
+
+Try **FeatureGallery / Scenes / 47-animation-key-values.scene.json** and open the
+clips under **Assets/AnimationValues**. The first lane uses original motion, the
+second reverses and offsets the position values, and the third changes size values.
 
 ## Shape motion with curves
 

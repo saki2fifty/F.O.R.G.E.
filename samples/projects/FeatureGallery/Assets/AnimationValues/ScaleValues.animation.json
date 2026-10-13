@@ -1,0 +1,158 @@
+{
+  "asset_id": "f31d2dab-e9f8-4de1-8bb0-78152dc7f8b4",
+  "channels": [
+    "forge.local_translation",
+    "forge.local_rotation",
+    "forge.local_scale"
+  ],
+  "duration_us": 4000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "id": "cbde2351-e3a6-43e6-83d6-fbb85aea3e1e",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        4.0,
+        0.20000000298023224,
+        1.5
+      ],
+      "time_us": 0,
+      "translation": [
+        -3.0,
+        1.5,
+        0.0
+      ]
+    },
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "id": "f033e003-f6f6-4b19-9aa8-5d207476298f",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        2.0,
+        0.6000000238418579,
+        2.25
+      ],
+      "time_us": 2000000,
+      "translation": [
+        3.0,
+        2.5,
+        0.0
+      ]
+    },
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "id": "5a35c972-7af8-461d-9765-1d24abf59b5b",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        4.0,
+        0.20000000298023224,
+        1.5
+      ],
+      "time_us": 4000000,
+      "translation": [
+        -3.0,
+        1.5,
+        0.0
+      ]
+    }
+  ],
+  "timebase": 1000000,
+  "version": 2
+}

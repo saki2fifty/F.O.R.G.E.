@@ -402,3 +402,17 @@ updates the placed cube; save the scene and export it through the normal workflo
 These operations add geometry while retaining the silhouette. The original sources
 and selected Windows-target cooks are included; native Windows/GPU acceptance is
 pending. No C++ module or compiler is needed.
+
+## Animation key values
+
+Open **47-animation-key-values** and press Play. **OriginalValues** uses the original
+four-second loop, **PositionValues** reflects and offsets its motion, and
+**ScaleValues** changes its X/Y/Z size. Open the clips under **Assets/AnimationValues**
+in Content. Select keys and adjust **Position multiplier**, **Position offset**, or
+**Scale multiplier**, then choose **Apply selected key values**. Undo restores the
+previous clip; Reset returns only the temporary adjustment fields to their defaults.
+
+Curve slopes follow the value multipliers. Timing and rotation remain. Save & Publish
+updates Play and the normal standalone export. The supplied selected cooks target
+Windows/D3D12; native Windows/GPU and physical acceptance remain pending. No C++
+module or compiler is needed.

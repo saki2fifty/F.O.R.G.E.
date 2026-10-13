@@ -70,6 +70,7 @@ struct Fixture {
 } // namespace
 #include "transform_animation_key_batch_tests.hpp"
 #include "transform_animation_timing_tests.hpp"
+#include "transform_animation_value_tests.hpp"
 #include "transform_curve_tests.hpp"
 #include "transform_tangent_preset_tests.hpp"
 int main(int argc, char** argv) {
@@ -78,6 +79,7 @@ int main(int argc, char** argv) {
         animation_key_batch_tests();
         animation_tangent_preset_tests();
         animation_timing_tests();
+        animation_value_tests();
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);

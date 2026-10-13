@@ -108,6 +108,34 @@ Save & Publish uses the existing CPU cooker, runtime sampler and export selectio
 No new source/cook version, runtime owner or native SDK interface is introduced;
 the authoring API header is outside the exported SDK header set.
 
+## Selected key value transforms
+
+`transform_key_values` validates 1–4096 distinct existing key UUIDs, then transforms
+selected local translation as `value * XYZ multiplier + XYZ offset` and selected
+local scale as `value * XYZ multiplier`. Existing incoming/outgoing translation and
+scale slopes multiply by their corresponding lane multipliers. This preserves the
+affine vector curve shape when every key is transformed; a partial selection changes
+neighboring transitions. The origin is the local channel origin, with no hidden pivot
+or world-space offset. Signed multipliers reflect values; zero makes a channel constant.
+
+Key time, quaternion rotation, held mode, curve interpolation, channel masks, IDs and
+unknown fields remain unchanged. Omitted curves remain omitted; stored disabled
+channels transform but keep their playback masks. Controls must be finite within
+±1e9. A full candidate must still satisfy position, signed/zero float-scale, slope,
+interior curve and byte bounds. Overflow or nonzero scale underflow rejects the entire
+operation before source/history replacement. Identity inputs validate selection and
+are a no-op. Source/cooked versions and installed native SDK interfaces are unchanged.
+
+Timeline **Selected key values** fields are temporary until **Apply selected key
+values** commits one existing document Undo step. **Reset value adjustments** resets
+only those fields to multipliers1/offsets0. Empty selection disables Apply; Play,
+publication and captured key/curve/box/pan gestures disable the controls. Active key
+fields and isolated preview refresh from the admitted clip. The preview status row
+keeps its height when preview starts/stops, so the first key drag does not move the
+ruler and cancel itself; Save & Publish supplies
+Play and export through the existing owners. Gallery47 compares original motion,
+changed position and changed scale using selected Windows-target CPU cooks.
+
 The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v2`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
 It publishes `forge.transform-clip` version 2, validated by the same bounded

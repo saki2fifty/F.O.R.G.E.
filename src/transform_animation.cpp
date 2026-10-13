@@ -394,6 +394,45 @@ void TransformAnimationSource::move_keys(std::span<const AssetId> keys, std::int
     candidate.validate();
     document.swap(candidate.document);
 }
+void TransformAnimationSource::transform_key_values(std::span<const AssetId> keys,
+                                                    Double3 position_multiplier,
+                                                    Double3 position_offset,
+                                                    Double3 scale_multiplier) {
+    const auto selected = selected_animation_keys(*this, keys);
+    bool identity = true;
+    for (unsigned axis = 0; axis < 3; ++axis) {
+        for (const auto value :
+             {position_multiplier[axis], position_offset[axis], scale_multiplier[axis]})
+            require(std::isfinite(value) && std::abs(value) <= 1e9,
+                    "Animation value transform is nonfinite or out of range");
+        identity &= position_multiplier[axis] == 1 && position_offset[axis] == 0 &&
+                    scale_multiplier[axis] == 1;
+    }
+    if (identity)
+        return;
+    auto candidate = *this;
+    for (auto& key : candidate.document.at("keys")) {
+        if (!selected.contains(key.at("id").get<AssetId>()))
+            continue;
+        for (unsigned axis = 0; axis < 3; ++axis) {
+            key["translation"][axis] =
+                key["translation"][axis].get<double>() * position_multiplier[axis] +
+                position_offset[axis];
+            key["scale"][axis] = key["scale"][axis].get<double>() * scale_multiplier[axis];
+            if (key.contains("curves"))
+                for (const char* side : {"incoming", "outgoing"}) {
+                    auto& slopes = key["curves"][side];
+                    slopes["translation"][axis] =
+                        slopes["translation"][axis].get<double>() * position_multiplier[axis];
+                    slopes["scale"][axis] =
+                        slopes["scale"][axis].get<double>() * scale_multiplier[axis];
+                }
+        }
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
+
 void TransformAnimationSource::retime_duration(std::int64_t new_duration) {
     validate();
     time_value(Json(new_duration));

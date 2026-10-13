@@ -273,9 +273,9 @@ class AnimationTimelineEditor {
             ImGui::SameLine();
             ImGui::Checkbox("Loop preview", &preview_loop_);
             ImGui::SliderFloat("Preview speed", &preview_speed_, 0, 4, "%.2fx");
-            if (preview_)
-                ImGui::TextColored({.4f, .85f, 1, 1},
-                                   "PREVIEW — temporary view; Scene source is unchanged");
+            ImGui::TextColored(preview_ ? ImVec4{.4f, .85f, 1, 1} : ImVec4{.6f, .65f, .7f, 1},
+                               preview_ ? "PREVIEW — temporary view; Scene source is unchanged"
+                                        : "Preview stopped — authored Scene view");
             view_controls();
             ruler();
             key_controls(scene);
@@ -365,6 +365,8 @@ class AnimationTimelineEditor {
     float drag_pointer_x_ = 0;
     bool drag_moved_ = false;
     double key_offset_seconds_ = 0;
+    double value_position_multiplier_[3]{1, 1, 1}, value_position_offset_[3]{},
+        value_scale_multiplier_[3]{1, 1, 1};
     double retimed_seconds_ = 2;
     int frame_grid_fps_ = 30;
     AnimationTimelineView view_, pan_before_;
@@ -1011,6 +1013,49 @@ class AnimationTimelineEditor {
         ImGui::EndDisabled();
         ui::help("Ctrl-click keys to add or remove them. Drag a selected timeline key to move the "
                  "group; Escape cancels. Pose and curve fields edit the active key.");
+        ImGui::SeparatorText("Selected key values");
+        ImGui::BeginDisabled(bool(drag_key_) || curve_drag_ || box_ || pan_);
+        ImGui::InputScalarN("Position multiplier", ImGuiDataType_Double, value_position_multiplier_,
+                            3, nullptr, nullptr, "%.3f");
+        FORGE_UI_PROBE("animation:value_position_multiplier");
+        ImGui::InputScalarN("Position offset", ImGuiDataType_Double, value_position_offset_, 3,
+                            nullptr, nullptr, "%.3f");
+        FORGE_UI_PROBE("animation:value_position_offset");
+        ImGui::InputScalarN("Scale multiplier", ImGuiDataType_Double, value_scale_multiplier_, 3,
+                            nullptr, nullptr, "%.3f");
+        FORGE_UI_PROBE("animation:value_scale_multiplier");
+        ImGui::BeginDisabled(selected_keys_.empty());
+        if (ui::button("Apply selected key values",
+                       "Multiply local positions then add the offset; multiply local scales. "
+                       "Rescale matching slopes, keep times/rotation and use one Undo step.")) {
+            const std::vector<AssetId> keys(selected_keys_.begin(), selected_keys_.end());
+            if (mutate("Transform animation key values",
+                       [&](auto& source) {
+                           source.transform_key_values(
+                               keys,
+                               {value_position_multiplier_[0], value_position_multiplier_[1],
+                                value_position_multiplier_[2]},
+                               {value_position_offset_[0], value_position_offset_[1],
+                                value_position_offset_[2]},
+                               {value_scale_multiplier_[0], value_scale_multiplier_[1],
+                                value_scale_multiplier_[2]});
+                       }) &&
+                key_)
+                activate_key(key_);
+        }
+        FORGE_UI_PROBE("animation:transform_values");
+        ImGui::EndDisabled();
+        if (ui::button("Reset value adjustments",
+                       "Reset these temporary fields; keep authored keys."))
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                value_position_multiplier_[axis] = value_scale_multiplier_[axis] = 1;
+                value_position_offset_[axis] = 0;
+            }
+        FORGE_UI_PROBE("animation:reset_values");
+        ImGui::EndDisabled();
+        ui::help("XYZ values use the local channel origin. Negative multipliers reflect a "
+                 "channel; zero makes it constant. Selected-only changes affect neighboring "
+                 "transitions. Channel playback masks remain; invalid curves reject atomically.");
     }
     void key_controls(Scene& scene) {
         double seconds = time_ / animation_timebase;
