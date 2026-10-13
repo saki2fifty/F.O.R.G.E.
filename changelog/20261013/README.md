@@ -1,5 +1,12 @@
 # 2026-10-13
 
+## Material vector geometry
+
+- Length and Distance support typed scalar/vector/color inputs and scalar outputs.
+- Reflect and Refract calculate Vector3 ray directions; Refract uses a scalar index ratio and returns zero for total internal reflection.
+- Existing graph history, copy, functions and editor controls handle the new nodes.
+- Native Windows/FXC5.1 and physical GPU acceptance remain pending.
+
 ## Animation timeline navigation
 
 - Zoom, pan, fit the whole clip or fit selected keys without changing source timing.

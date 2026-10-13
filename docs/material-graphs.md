@@ -54,6 +54,22 @@ They work through existing copy/paste, function expansion and source history.
 Local DXC probes validate generated numeric results and color/depth compilation;
 new-node FXC5.1/Windows and physical GPU acceptance remain pending.
 
+Length and Distance accept any of the six scalar/vector/color input types and
+always output Scalar. Length returns Euclidean magnitude (absolute value for a
+scalar); Distance returns the magnitude of A minus B. Color inputs use every
+channel, including alpha for Color4; these nodes do not calculate luminance.
+Factory inputs default to Vector3, and unconnected inputs default to zero.
+
+Reflect and Refract use fixed Vector3 Incident and Normal ports. Refract also takes
+a Scalar Ratio: the incident medium's refractive index divided by the transmitted
+medium's index. Defaults are Incident(0,0,-1), Normal(0,0,1) and Ratio1. Their HLSL
+intrinsics do not normalize inputs: use unit directions and normals for physical
+ray calculations. Refract returns zero under total internal reflection. They
+calculate directions for graph composition; they do not add a transparency pass.
+All four nodes use the existing typed links, source history, copy and function
+expansion. Local source/editor and actual DXC probes cover their output; native
+Windows/FXC5.1 and physical GPU acceptance remain pending.
+
 Exactly one Surface Output defines base color/alpha, metallic, roughness, normal,
 emission and occlusion. Graph values feed the existing metallic/roughness PBR
 geometry/lighting helpers; this is not a copied BRDF or custom vertex deformation.

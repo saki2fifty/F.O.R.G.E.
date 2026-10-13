@@ -61,6 +61,22 @@ For vectors and colors, each channel changes independently. Connect matching
 types or use **Convert**. The nodes also work inside extracted functions.
 These additions are locally tested; their Windows/GPU acceptance is pending.
 
+## Magnitudes and ray directions
+
+Search **Add node** for these Math nodes:
+
+- **Length** measures a value's magnitude. A Vector2 of (3,4) gives 5; a scalar of -3 gives 3.
+- **Distance** measures the gap between A and B. Both inputs must use the same type.
+- **Reflect** calculates a Vector3 direction reflected around a surface normal.
+- **Refract** calculates a Vector3 direction crossing between media. Ratio is the first medium's refractive index divided by the second's; total internal reflection gives a zero vector.
+
+Length and Distance let you choose **Value type** and return a scalar. For colors,
+they measure all channels, including alpha for Color4. Unconnected inputs are zero.
+Reflect and Refract use Vector3 directions: provide unit Incident and Normal
+vectors, using **Normalize** when needed. Refract's Ratio defaults to 1.
+These nodes provide calculations you can connect elsewhere in your graph.
+Their Windows/GPU acceptance remains pending.
+
 ## Parameters and material variations
 
 Use Parameter nodes for values that individual materials should change. **Label**

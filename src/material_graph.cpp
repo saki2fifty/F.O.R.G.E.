@@ -247,6 +247,12 @@ class Compiler {
             expression = (key == "dot3" ? "dot(" : "cross(") + arg(0) + "," + arg(1) + ")";
         } else if (key == "normalize3")
             expression = "ForgeUnit(" + arg(0) + ")";
+        else if (key == "length" || key == "distance")
+            expression = key + "(" + arg(0) + (key == "distance" ? "," + arg(1) : "") + ")";
+        else if (key == "reflect3" || key == "refract3")
+            expression = std::string(key == "reflect3" ? "reflect(" : "refract(") +
+                         arg(0, "float3(0,0,-1)") + "," + arg(1, "float3(0,0,1)") +
+                         (key == "refract3" ? "," + arg(2, "1.0") : "") + ")";
         else if (key == "add" || key == "subtract" || key == "multiply" || key == "minimum" ||
                  key == "maximum" || key == "divide") {
             const std::string a = arg(0),
@@ -459,6 +465,12 @@ const std::vector<MaterialGraphNodeSchema>& material_graph_node_schemas() {
         {"dot3", "Dot Product", "Math", "Dot product of two Vector3 inputs."},
         {"cross3", "Cross Product", "Math", "Cross product of two Vector3 inputs."},
         {"normalize3", "Normalize", "Math", "Safe Vector3 normalization; zero remains zero."},
+        {"length", "Length", "Math", "Euclidean magnitude of a typed value; returns a scalar."},
+        {"distance", "Distance", "Math", "Euclidean distance between matching typed values."},
+        {"reflect3", "Reflect", "Math", "Reflect a Vector3 incident ray about a surface normal."},
+        {"refract3", "Refract", "Math",
+         "Refract a Vector3 ray with a scalar index ratio; total internal reflection returns "
+         "zero."},
         {"minimum", "Minimum", "Math", "Component-wise minimum of matching inputs."},
         {"maximum", "Maximum", "Math", "Component-wise maximum of matching inputs."},
         {"divide", "Divide", "Math", "Component-wise division; a zero denominator returns zero."},
@@ -536,6 +548,8 @@ Json create_material_graph_node(std::string_view schema, std::array<double, 2> p
     }
     if (schema == "combine")
         d["type"] = "color4";
+    if (schema == "length" || schema == "distance" || schema == "reflect3" || schema == "refract3")
+        d["type"] = "vector3";
     if (schema == "convert") {
         d["from"] = "vector4";
         d["type"] = "color4";
@@ -645,6 +659,15 @@ std::vector<MaterialGraphPort> material_graph_inputs(const Json& node) {
         return {port("a", Type::Vector3), port("b", Type::Vector3)};
     if (k == "normalize3")
         return {port("value", Type::Vector3)};
+    if (k == "length")
+        return {port("value", type(node))};
+    if (k == "distance")
+        return {port("a", type(node)), port("b", type(node))};
+    if (k == "reflect3")
+        return {port("incident", Type::Vector3), port("normal", Type::Vector3)};
+    if (k == "refract3")
+        return {port("incident", Type::Vector3), port("normal", Type::Vector3),
+                port("ratio", Type::Scalar)};
     if (k == "normal_map")
         return {port("sample", Type::Vector4), port("uv", Type::Vector2),
                 port("strength", Type::Scalar)};
@@ -677,10 +700,10 @@ std::vector<MaterialGraphPort> material_graph_outputs(const Json& node) {
                                 : Type::Vector4)};
     if (k == "uv")
         return {port("out", Type::Vector2)};
-    if (k == "component" || k == "dot3")
+    if (k == "component" || k == "dot3" || k == "length" || k == "distance")
         return {port("out", Type::Scalar)};
-    if (k == "cross3" || k == "normalize3" || k == "normal_map" || k == "world_normal" ||
-        k == "world_position")
+    if (k == "cross3" || k == "normalize3" || k == "reflect3" || k == "refract3" ||
+        k == "normal_map" || k == "world_normal" || k == "world_position")
         return {port("out", Type::Vector3)};
     if (k == "vertex_color")
         return {port("out", Type::LinearColor4)};

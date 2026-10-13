@@ -693,7 +693,7 @@ class MaterialGraphCanvas {
             kind == "divide" || kind == "cosine" || kind == "absolute" || kind == "fraction" ||
             kind == "floor" || kind == "ceiling" || kind == "round" || kind == "step" ||
             kind == "smoothstep" || kind == "lerp" || kind == "saturate" || kind == "one_minus" ||
-            kind == "sine" || kind == "convert") {
+            kind == "sine" || kind == "length" || kind == "distance" || kind == "convert") {
             auto current = data.value("type", std::string("scalar"));
             int index = 0;
             for (int i = 0; i < 6; ++i)
