@@ -33,6 +33,12 @@ int main() {
                                  {"forge.local_translation", {{"x", 0}, {"y", 0}, {"z", 0}}},
                                  {"project.unadmitted", {{"speed", 1}}}}}}})}};
                     const auto before = effective;
+                    require(ComponentInspector::has_runtime_fields(effective, schema, actor),
+                            "Live rig fields were not admitted to the Inspector");
+                    auto unrelated = effective;
+                    unrelated["entities"][0]["components"].erase(type);
+                    require(!ComponentInspector::has_runtime_fields(unrelated, schema, actor),
+                            "Unrelated normal entity advertised an empty Live Inspector");
                     ImGui::CreateContext();
                     auto& io = ImGui::GetIO();
                     io.IniFilename = nullptr;

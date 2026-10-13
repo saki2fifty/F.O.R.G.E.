@@ -5,6 +5,7 @@
 #include "model_node_scope.hpp"
 #include "model_variant_controls.hpp"
 #include "property_drawer.hpp"
+#include "rig_target_gesture.hpp"
 #include <algorithm>
 #include <forge/authoring.hpp>
 #include <set>
@@ -42,6 +43,35 @@ class ComponentInspector {
     // Domain-specific logical mesh slots reuse the same property command/history.
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     std::function<void(const std::string&)> open_cpp_definition;
+    std::function<void(const std::string&)> edit_rig_target;
+    static bool runtime_type_available(const Json& type, const Json& components) {
+        if (!type.is_object() || !type.contains("fields") || !type.contains("id"))
+            return false;
+        const auto key = type.at("id").get<std::string>();
+        if (!components.contains(key) || !components.at(key).is_object())
+            return false;
+        return AnimationPlaybackAccess::rig_type(key) ||
+               (type.value("custom", false) && type.contains("admission") &&
+                components.at(key).value("$forge", Json()) == type.at("admission"));
+    }
+    static bool has_runtime_fields(const Json& effective, const Json& schema,
+                                   const std::string& selected) {
+        if (!effective.is_object() || !schema.is_object() || !effective.contains("entities") ||
+            !schema.contains("components"))
+            return false;
+        for (const auto& row : effective.at("entities")) {
+            if (row.value("id", "") != selected || !row.contains("components"))
+                continue;
+            for (const auto& type : schema.at("components"))
+                if (runtime_type_available(type, row.at("components"))) {
+                    const auto& value = row.at("components").at(type.at("id").get<std::string>());
+                    for (const auto& field : type.at("fields"))
+                        if (value.contains(field.at("id").get<std::string>()))
+                            return true;
+                }
+        }
+        return false;
+    }
     void edit_property(Scene& scene, const std::string& entity, const std::string& component,
                        const std::string& field, const Json& value) {
         apply(scene, entity, component, field, "property.set", value);
@@ -86,7 +116,9 @@ class ComponentInspector {
                 entity = &item;
                 break;
             }
-        if (!entity || !entity->contains("components"))
+        if (!entity || !entity->contains("components") ||
+            (!has_runtime_fields(effective, schema, selected) &&
+             !(show_playback && entity->contains("animation_playback"))))
             return;
         // Live fields coexist with the read-only authored Inspector below. Keep their
         // ImGui IDs distinct so activating one cannot collide with its authored peer.
@@ -101,16 +133,10 @@ class ComponentInspector {
         if (show_playback && entity->contains("animation_playback"))
             draw_animation_playback(entity->at("animation_playback"));
         for (const auto& type : schema.at("components")) {
-            if (!type.is_object() || !type.contains("fields"))
+            const auto& components = entity->at("components");
+            if (!runtime_type_available(type, components))
                 continue;
             const auto key = type.at("id").get<std::string>();
-            const bool rig = AnimationPlaybackAccess::rig_type(key);
-            if (!rig && (!type.value("custom", false) || !type.contains("admission")))
-                continue;
-            const auto& components = entity->at("components");
-            if (!components.contains(key) || !components.at(key).is_object() ||
-                (!rig && components.at(key).value("$forge", Json()) != type.at("admission")))
-                continue;
             ui::IdScope component_scope(key.c_str());
             if (!ImGui::CollapsingHeader(type.value("display_name", key).c_str(),
                                          ImGuiTreeNodeFlags_DefaultOpen))
@@ -285,6 +311,15 @@ class ComponentInspector {
                              : "Owned component");
             ui::help("Ownership and explicit intent determine overrides, including values equal to "
                      "the prefab source.");
+            if (AnimationPlaybackAccess::rig_type(key) && edit_rig_target) {
+                ImGui::BeginDisabled(!rig_target_view(effective, entity, key));
+                if (ui::button("Edit target in Scene",
+                               "Drag target axes in the Scene viewport. "
+                               "Targets and snapping use model space. One Undo step on release."))
+                    edit_rig_target(key);
+                FORGE_UI_PROBE("rig-target-tool:" + key);
+                ImGui::EndDisabled();
+            }
             for (const auto& field : type.at("fields")) {
                 const std::string name = field.at("id");
                 if (key == "forge.physics_joint") {

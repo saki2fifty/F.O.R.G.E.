@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
     project = Path(scratch)/'Gallery'
     shutil.copytree(gallery, project)
     result = subprocess.run([fixture, evidence, '--root-motion', project],
-                            capture_output=True, text=True, encoding='utf-8', timeout=100)
+                            capture_output=True, text=True, encoding='utf-8', timeout=150)
     (evidence/'capture.log').write_text(result.stdout+result.stderr, encoding='utf-8')
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
@@ -22,7 +22,10 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
                   'two-bone-ik', 'two-bone-ik-150', 'two-bone-ik-200',
                   'joint-aim', 'joint-aim-150', 'joint-aim-200',
                   'live-two-bone-ik', 'live-two-bone-ik-150', 'live-two-bone-ik-200',
-                  'live-joint-aim', 'live-joint-aim-150', 'live-joint-aim-200'):
+                  'live-joint-aim', 'live-joint-aim-150', 'live-joint-aim-200',
+                  'reach-target', 'reach-target-150', 'reach-target-200',
+                  'aim-target', 'aim-target-150', 'aim-target-200',
+                  'live-reach-target', 'live-aim-target'):
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
-print('Native root motion, Live playback, subtree, additive, reach and aim controls captured at100/150/200%')
+print('Native animation controls and reach/aim target guides captured at100/150/200%; live target markers at100%')

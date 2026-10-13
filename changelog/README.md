@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-10-13](20261013/README.md) — Scene reach/aim target controls and Live guides; Windows delivery pending.
+
 - [2026-10-12](20261012/README.md) — Joint drives, collision policy, swing/twist limits and distance springs, with editable Gallery 25–29; Windows delivery pending.
 
 - [2026-10-11](20261011/README.md) — Animation timeline, blending, named states and C++ markers validated locally; Windows delivery pending.
@@ -13,6 +15,7 @@ Browse FORGE changes by **UTC day**, newest first. Each day has one continuously
 
 | Day | Changes |
 | --- | --- |
+| [2026-10-13](20261013/README.md) | Model-space reach/aim target dragging, cancellation and Undo; editor-only Live guides. |
 | [2026-10-12](20261012/README.md) | Joint drives, collision policy, swing/twist limits and source-free Gallery25–28 gates. |
 | [2026-10-11](20261011/README.md) | Animation runtime/UI/Gallery and C++ timing-marker checks passed locally. |
 | [2026-10-10](20261010/README.md) | Reusable transform clips, timeline editing/preview and standalone playback. |

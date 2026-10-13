@@ -16,6 +16,22 @@ An existing missing or mismatched selection stays visible so you can correct it.
 Disable the constraint before replacing its chain, then enable it again once the
 chain is valid.
 
+## Move a target in the Scene
+
+1. Select the model holder and expand **Two Bone IK** or **Aim IK**.
+2. Click **Edit target in Scene**. A labeled circle shows the target, with colored X/Y/Z handles. The Scene **View** menu and command palette offer the same tools.
+3. Drag a colored axis. Its direction follows the model's placement, including parents and mirroring. Only the target changes; the model itself stays in place.
+4. Release to apply. One Undo restores the whole drag. Escape cancels it.
+
+Snap and Ctrl use the model's coordinate spacing. A collapsed or camera-facing
+axis may be unavailable; orbit the camera or enter the target in Inspector.
+Changing selection, moving/resizing the viewport or starting camera navigation
+cancels an unfinished drag. Q/W return to Select/Move; R/S rotate/scale the object.
+The circle previews your drag and animation preview stops. Reopen Animator preview
+after applying the target to see the adjusted pose.
+During Play the marker says **Live** and the handles are inactive. Adjust it with
+the tinted Live Inspector instead. These guides are only in Forge.
+
 Weight0 leaves the animation pose; Weight1 applies the whole correction. Intermediate
 weights blend the correction. A target beyond a limb's reach cannot stretch its
 bones. The bend axis is local to Middle; the pole is a direction, not a position.

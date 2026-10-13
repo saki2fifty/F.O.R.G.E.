@@ -54,6 +54,36 @@ scene. A runtime C++ system can overwrite these values on its next fixed tick.
 Disable a constraint while replacing its chain, then enable it after choosing a
 valid chain; active incomplete chains reject before applying the change.
 
+## Scene target controls
+
+The selected holder's constraint Inspector offers **Edit target in Scene**. The
+Scene View menu and command palette expose the same Reach/Aim target actions.
+They select a mode of the existing SceneTools owner, mutually exclusive with
+object transform and modal tools. Q/W/R/S retain their object-tool behavior.
+No persistent control entities or second transform owner are created.
+
+A labeled marker projects `holder.world_affine * target`; the three handles
+follow the holder's model axes through its complete parented affine, including
+mirrors, nonuniform placement and shear. Dragging one handle changes only that
+model-space target coordinate. Snap/temporary Ctrl uses model-space multiples
+of the existing snap spacing. A zero/ill-conditioned axis or unavailable ray
+plane disables only that manipulation; no inverse or identity is substituted.
+This placement support does not relax the solver's joint-basis restrictions.
+
+Mouse movement previews an existing Scene property transaction without changing
+authored ECS, saved files or history. Release commits one Undo entry; Escape,
+selection/revision/mode/focus changes, a moved/resized viewport and camera
+navigation cancel it. Inherited targets create ordinary property overrides and
+Undo restores their prior inheritance intent. Previewing a drag moves its target
+guide and stops animation preview. Reopen Animator preview after committing to
+see the constrained pose with the new target.
+
+During Play these handles are disabled. Markers observe the runtime projection
+in Forge's Scene and Game views and are labeled Live; use the tinted Inspector
+to tune runtime targets. The normal Live panel appears only when the selected
+entity has admitted tunable fields or playback status. These guides and tools
+belong to Forge, and are absent from standalone games.
+
 ## Evaluation and failure
 
 No active solve for disabled components or weight0. Nonzero constraints bind exact

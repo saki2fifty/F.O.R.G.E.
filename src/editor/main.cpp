@@ -574,6 +574,14 @@ int main(int argc, char** argv) {
         auto sdk_build = std::make_unique<forge::SdkBuild>(files.document.project());
         forge::ui::CppSourceEditor cpp_sources;
         cpp_sources.project_changed(files.document.project());
+        component_inspector.edit_rig_target = [&](const std::string& type) {
+            modal.cancel();
+            blockout.cancel();
+            scene_tools.target_tool(type);
+            workspace.scene = true;
+            editor.task.owner = forge::ui::DocumentTask::Scene;
+            ImGui::SetWindowFocus("###Scene");
+        };
         component_inspector.open_cpp_definition = [&](const std::string& key) {
             try {
                 const auto source =
@@ -1681,7 +1689,7 @@ int main(int argc, char** argv) {
             if (game_export.busy() || runtime_dependencies.busy() || play.active() ||
                 sdk_build->busy() || files.busy() || files.changed || cache_tools.busy() ||
                 source_import.busy() || content_files.busy() || scene_asset_drop.busy() ||
-                scene_tools.move.active() || modal.active() || blockout.active())
+                scene_tools.active() || modal.active() || blockout.active())
                 context.blocked =
                     "Stop Play and finish the current gesture, file, import, or cache operation.";
             context.openable = context.target && asset_editors.find(context.target->type);
@@ -1844,7 +1852,7 @@ int main(int argc, char** argv) {
                 play.stop();
                 editor.selection.clear();
                 camera = {};
-                scene_tools.move.cancel();
+                scene_tools.cancel();
                 modal.cancel();
                 blockout.cancel();
                 try {
@@ -2055,7 +2063,7 @@ int main(int argc, char** argv) {
                 play.active()                     ? "Stop play before editing"
                 : sdk_build->busy()               ? "Wait for the native build"
                 : (files.busy() || files.changed) ? "Finish the file operation"
-                : (scene_tools.move.active() || modal.active() || blockout.active() ||
+                : (scene_tools.active() || modal.active() || blockout.active() ||
                    ImGui::IsAnyItemActive() ||
                    ImGui::IsPopupOpen(nullptr,
                                       ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
@@ -2067,6 +2075,7 @@ int main(int argc, char** argv) {
                 play.sdk_diag_slow("automation.pump", SDL_GetTicks() - _t0);
             }
 #ifdef FORGE_UI_FIXTURE
+            fixture.rig_scene_marker_visible = fixture.rig_game_marker_visible = false;
             // SDK Play: skip the legacy EditorInputWorkflow and the
             // staged-capture ImGui path entirely. The editor renders
             // the same frame the SDK acceptance is reading.
@@ -2120,14 +2129,13 @@ int main(int argc, char** argv) {
             runtime_dependencies.poll([&] { content.refresh(files); });
             const bool edit_locked = game_export.busy() || runtime_dependencies.busy() ||
                                      play.active() || sdk_build->busy() || files.busy() ||
-                                     scene_tools.move.active() || modal.active() ||
-                                     blockout.active();
+                                     scene_tools.active() || modal.active() || blockout.active();
             cpp_sources.build_enabled = sdk_build->managed() && !edit_locked &&
                                         !content_files.busy() && !authored_components.busy();
             document_locked = edit_locked;
-            asset_document_locked =
-                game_export.busy() || runtime_dependencies.busy() || sdk_build->busy() ||
-                files.busy() || scene_tools.move.active() || modal.active() || blockout.active();
+            asset_document_locked = game_export.busy() || runtime_dependencies.busy() ||
+                                    sdk_build->busy() || files.busy() || scene_tools.active() ||
+                                    modal.active() || blockout.active();
             editor.selection.reconcile(scene.document());
             if (editor.task.owner == forge::ui::DocumentTask::Extension &&
                 !documents.available(editor.task.id()))
@@ -2296,7 +2304,7 @@ int main(int argc, char** argv) {
                 content_imports.ready_for_play() &&
                     (!sdk_build->managed() || files.document.settings().requires_native_sdk()) &&
                     !play.active() && !sdk_build->busy() && !files.busy() && !modal.active() &&
-                    !blockout.active() && !scene_tools.move.active(),
+                    !blockout.active() && !scene_tools.active(),
                 [&] {
                     if (!sdk_build->managed() && !files.document.settings().requires_native_sdk() &&
                         std::filesystem::exists(files.document.project() / "Native/gameplay.cpp"))
@@ -2456,6 +2464,7 @@ int main(int argc, char** argv) {
                                workspace.scene = true;
                                editor.task.owner = forge::ui::DocumentTask::Scene;
                                ImGui::SetWindowFocus("###Scene");
+                               scene_tools.target_tool({});
                                if (tool == "tool.rotate" || tool == "tool.scale")
                                    modal.request(tool == "tool.scale");
                                else {
@@ -2463,6 +2472,17 @@ int main(int argc, char** argv) {
                                    perform(save_preferences);
                                }
                            });
+            }
+            for (const std::string type : {"forge.two_bone_ik", "forge.aim_ik"}) {
+                add_action(
+                    type == "forge.two_bone_ik" ? "tool.rig.reach" : "tool.rig.aim",
+                    type == "forge.two_bone_ik" ? "Scene / Reach target" : "Scene / Aim target", "",
+                    "Manipulate the selected rig target in model space. Release commits; Escape "
+                    "cancels.",
+                    !edit_locked && editor.selection.entities().size() == 1 &&
+                        bool(forge::rig_target_view(authoring_snapshot.effective(scene), selected,
+                                                    type)),
+                    [&, type] { component_inspector.edit_rig_target(type); });
             }
             auto create_menu = [&] {
                 if (forge::ui::creation_menu(actions, blockout.at_view_target))
@@ -3760,6 +3780,8 @@ int main(int argc, char** argv) {
                 case 266:
                 case 269:
                 case 272:
+                case 275:
+                case 278:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3781,6 +3803,8 @@ int main(int argc, char** argv) {
                 case 267:
                 case 270:
                 case 273:
+                case 276:
+                case 279:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -3955,6 +3979,46 @@ int main(int argc, char** argv) {
                         workspace.inspector = true;
                         if (fixture.stage >= 268)
                             ready = actions.invoke("play");
+                    }
+                    break;
+                case 274:
+                case 277:
+                case 280:
+                case 281:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        actions.invoke("stop");
+                        const bool aim = fixture.stage == 277 || fixture.stage == 281;
+                        files.document.open_scene(aim ? "Scenes/41-joint-aim.scene.json"
+                                                      : "Scenes/40-two-bone-ik.scene.json");
+                        const std::string key = aim ? "forge.aim_ik" : "forge.two_bone_ik";
+                        const auto authored = scene.snapshot();
+                        for (const auto& row : authored.at("entities"))
+                            if (row.at("components").contains(key) &&
+                                row.at("components").at(key).at("weight") == 1) {
+                                editor.selection.select_entity(row.at("id").get<std::string>());
+                                break;
+                            }
+                        component_inspector.edit_rig_target(key);
+                        workspace.inspector = false;
+                        const auto target =
+                            forge::rig_target_view(scene.effective_document(), selected, key);
+                        if (!target)
+                            throw std::runtime_error("Rig target capture lacks a placed holder");
+                        const auto point = target->world();
+                        camera.target = {float(point[0]), float(point[1]), float(point[2])};
+                        camera.yaw = .6f;
+                        camera.pitch = -.25f;
+                        camera.distance = 6;
+                        if (fixture.stage >= 280) {
+                            ready = actions.invoke("play");
+                            workspace.game = true;
+                        }
+                        const char* window_name = fixture.stage >= 280 ? "Game" : "###Scene";
+                        if (auto* w = ImGui::FindWindowByName(window_name))
+                            ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(window_name, {30, 55});
+                        ImGui::SetWindowSize(window_name, {1860, 990});
                     }
                     break;
                 case 232:
@@ -4136,7 +4200,7 @@ int main(int argc, char** argv) {
                 !ImGui::IsPopupOpen(nullptr,
                                     ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel)) {
                 if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Space, false) &&
-                    !game_input.captured() && !modal.active() && !scene_tools.move.active()) {
+                    !game_input.captured() && !modal.active() && !scene_tools.active()) {
                     workspace.toggle_bottom();
                     perform(save_preferences);
                 }
@@ -4279,12 +4343,12 @@ int main(int argc, char** argv) {
                 SDL_SetWindowTitle(window.get(), title.c_str());
                 current_title = title;
             }
-            if (scene_tools.move.active() &&
-                (!scene_tools.move.valid_for(scene) ||
-                 !scene_tools.move.selection_matches(editor.selection.entities()) ||
+            if (scene_tools.active() &&
+                (!scene_tools.valid_for(scene) ||
+                 !scene_tools.selection_matches(editor.selection.entities()) ||
                  !(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) || play.active() ||
                  files.busy()))
-                scene_tools.move.cancel();
+                scene_tools.cancel();
             if (modal.active() && (!modal.gesture.valid(scene, selected) ||
                                    !modal.gesture.selection_matches(editor.selection.entities()) ||
                                    !(SDL_GetWindowFlags(window.get()) & SDL_WINDOW_INPUT_FOCUS) ||
@@ -4374,7 +4438,9 @@ int main(int argc, char** argv) {
                 ImGui::End();
             }
             const bool live_inspector_ready =
-                play.active() && play.ready() && editor.selection.entities().size() == 1;
+                play.active() && play.ready() && editor.selection.entities().size() == 1 &&
+                forge::ComponentInspector::has_runtime_fields(play.effective_snapshot(),
+                                                              play.runtime_schema(), selected);
             const auto live_sound =
                 workspace.inspector && play.ready() && editor.selection.entities().size() == 1
                     ? forge::AudioSourceEditor::selected(play.effective_snapshot(), selected)
@@ -4428,7 +4494,7 @@ int main(int argc, char** argv) {
                         ImGui::TextDisabled("Authored Scene (read only during Play)");
                     }
                     ImGui::BeginDisabled(play.active() || sdk_build->busy() || files.busy() ||
-                                         scene_tools.move.active() || modal.active());
+                                         scene_tools.active() || modal.active());
                     if (editor.selection.kind() != forge::ui::SelectionKind::DocumentItem)
                         editor.task.focus(editor.selection.kind() ==
                                                       forge::ui::SelectionKind::PrefabMember &&
@@ -4660,7 +4726,9 @@ int main(int argc, char** argv) {
                                     ? (modal.gesture.mode() == forge::TransformGesture::Mode::Scale
                                            ? 3
                                            : 2)
-                                    : (scene_tools.move_tool ? 1 : 0);
+                                    : (!scene_tools.rig_component.empty()
+                                           ? 4
+                                           : (scene_tools.move_tool ? 1 : 0));
                             for (auto [id, icon, tool] :
                                  {std::tuple{"tool.select", Icon::Select, 0},
                                   {"tool.move", Icon::Move, 1},
@@ -4689,6 +4757,9 @@ int main(int argc, char** argv) {
                                 ImGui::TextWrapped("Move / Rotate: World | Scale: Local");
                                 forge::ui::help("Manipulator orientation, independent of the "
                                                 "object's spatial parent binding.");
+                                actions.item("tool.rig.reach");
+                                actions.item("tool.rig.aim");
+                                ImGui::Separator();
                                 frame_selected = ImGui::MenuItem("Frame selected", "F");
                                 FORGE_UI_PROBE("scene:frame");
                                 forge::ui::help(
@@ -4828,7 +4899,7 @@ int main(int argc, char** argv) {
                         ImGui::End();
                         continue;
                     }
-                    if (modal.active() || scene_tools.move.active() || blockout.active()) {
+                    if (modal.active() || scene_tools.active() || blockout.active()) {
                         animation_timeline.stop_preview();
                         animation_preview.stop_preview();
                     }
@@ -4841,7 +4912,7 @@ int main(int argc, char** argv) {
                     auto read_preview = [&]() -> const forge::Json& {
                         return view_cache.get(
                             game_view ? play.snapshot_version() : scene.revision(), game_view,
-                            blockout.active() || scene_tools.move.active() || modal.active() ||
+                            blockout.active() || scene_tools.active() || modal.active() ||
                                 animation_timeline.preview_active() ||
                                 animation_preview.preview_active(),
                             [&] {
@@ -4855,11 +4926,11 @@ int main(int argc, char** argv) {
                                     source = animation_timeline.preview(std::move(source));
                                 if (blockout.active())
                                     source = blockout.preview(source);
-                                if (scene_tools.move.active())
-                                    source = scene_tools.move.preview(source);
+                                if (scene_tools.active())
+                                    source = scene_tools.preview(source);
                                 if (modal.active())
                                     source = modal.preview(source);
-                                return (blockout.active() || scene_tools.move.active() ||
+                                return (blockout.active() || scene_tools.active() ||
                                         modal.active() || animation_timeline.preview_active())
                                            ? scene.preview_document(source)
                                            : authoring_snapshot.effective(scene);
@@ -4890,11 +4961,10 @@ int main(int argc, char** argv) {
                         if (game_view)
                             game_input.viewport(image_origin, size);
                         const bool gizmo =
-                            !game_view &&
-                            orientation.input(view_camera, image_origin, size,
-                                              focused && !game_input.captured() &&
-                                                  !modal.active() && !scene_tools.move.active() &&
-                                                  !popup);
+                            !game_view && orientation.input(view_camera, image_origin, size,
+                                                            focused && !game_input.captured() &&
+                                                                !modal.active() &&
+                                                                !scene_tools.active() && !popup);
                         ImGui::SetCursorScreenPos(image_origin);
                         forge::ui::ViewportInput input;
                         const bool was_modal = modal.active();
@@ -4915,7 +4985,7 @@ int main(int argc, char** argv) {
                                                              ImGuiPopupFlags_AnyPopupLevel);
                         scene_asset_drop.target(
                             scene, files, content, view_camera, image_origin, size,
-                            can_edit && !modal.active() && !scene_tools.move.active() && !gizmo);
+                            can_edit && !modal.active() && !scene_tools.active() && !gizmo);
                         const auto mouse = ImGui::GetIO().MousePos;
                         const bool over_image =
                             ImGui::IsWindowHovered() && mouse.x >= image_origin.x &&
@@ -4923,9 +4993,10 @@ int main(int argc, char** argv) {
                             mouse.y < image_origin.y + size.y;
                         if (!game_view)
                             modal.input(scene, selected, view_camera, image_origin, size,
-                                        over_image && !gizmo,
-                                        can_edit && !scene_tools.move.active(), message,
-                                        editor.selection.entities());
+                                        over_image && !gizmo, can_edit && !scene_tools.active(),
+                                        message, editor.selection.entities());
+                        if (!was_modal && modal.active())
+                            scene_tools.target_tool({});
                         unsigned guide_width = unsigned(std::max(1.f, size.x)),
                                  guide_height = unsigned(std::max(1.f, size.y));
                         if (auto* output = game_viewport->output()) {
@@ -5015,12 +5086,27 @@ int main(int argc, char** argv) {
                                                                  render_height};
                                 forge::draw_animation_debug(animation_debug, debug, image_origin,
                                                             size);
+                                const bool marker = scene_tools.draw_rig(rendered, debug, selected,
+                                                                         image_origin, size, true);
+#ifdef FORGE_UI_FIXTURE
+                                fixture.rig_game_marker_visible |= marker;
+#else
+                                (void)marker;
+#endif
                                 navigation_tools.draw(rendered, debug, image_origin, size);
                                 ImGui::GetWindowDrawList()->PopClipRect();
                             }
                         } else {
                             forge::draw_animation_debug(animation_debug, view_camera, image_origin,
                                                         size);
+                            const bool marker = scene_tools.draw_rig(
+                                play.active() ? play.effective_snapshot() : rendered, view_camera,
+                                selected, image_origin, size, play.active());
+#ifdef FORGE_UI_FIXTURE
+                            fixture.rig_scene_marker_visible |= marker;
+#else
+                            (void)marker;
+#endif
                             navigation_tools.draw(rendered, view_camera, image_origin, size);
                         }
                         if (!game_view)
@@ -5042,11 +5128,11 @@ int main(int argc, char** argv) {
                                 .c_str());
 
                     } else if (!game_view) {
-                        scene_tools.move.cancel();
+                        scene_tools.cancel();
                         modal.cancel();
                     }
                 } else if (!game_view) {
-                    scene_tools.move.cancel();
+                    scene_tools.cancel();
                     modal.cancel();
                 }
                 ImGui::End();
@@ -5119,7 +5205,7 @@ int main(int argc, char** argv) {
                 play.stop();
             }
             if (!workspace.scene) {
-                scene_tools.move.cancel();
+                scene_tools.cancel();
                 modal.cancel();
             }
             // Hidden-tab revocation: a visible→hidden transition must revoke
@@ -5150,8 +5236,7 @@ int main(int argc, char** argv) {
                     content_thumbnails->begin(mesh_resources ? mesh_resources->catalog() : nullptr);
             }
             if (workspace.content && !workspace.bottom_folded) {
-                ImGui::BeginDisabled(modal.active() || scene_tools.move.active() ||
-                                     blockout.active());
+                ImGui::BeginDisabled(modal.active() || scene_tools.active() || blockout.active());
                 content.draw(
                     files, &workspace.content,
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
@@ -5184,7 +5269,7 @@ int main(int argc, char** argv) {
                 perform(save_preferences);
             }
             cache_tools.draw(
-                files.busy() || files.changed || scene_tools.move.active() || modal.active() ||
+                files.busy() || files.changed || scene_tools.active() || modal.active() ||
                 blockout.active() || play.active() || sdk_build->busy() ||
                 documents.source_drafts_dirty() || texture_imports.pending() ||
                 audio_imports.pending() || model_imports.pending() || shader_imports.pending() ||
@@ -5415,7 +5500,7 @@ int main(int argc, char** argv) {
                         authored_components.draw(scene, files.document, prefab_editor,
                                                  sdk_root / "bin/forge_runtime.exe",
                                                  play.active() || sdk_build->busy() ||
-                                                     modal.active() || scene_tools.move.active() ||
+                                                     modal.active() || scene_tools.active() ||
                                                      blockout.active() || content_files.busy());
                     } else {
                         ImGui::TextWrapped("Set up C++ code above to begin.");
@@ -6532,6 +6617,11 @@ int main(int argc, char** argv) {
                             field->second.minimum.y >= field->second.clip_minimum.y &&
                             field->second.maximum.y <= field->second.clip_maximum.y;
                 }
+                if (fixture.root_motion && fixture.stage >= 274 && fixture.stage <= 281)
+                    captured_document_visible &=
+                        fixture.stage < 280
+                            ? fixture.rig_scene_marker_visible
+                            : fixture.rig_game_marker_visible && play.control_ready();
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -6619,7 +6709,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 274)) {
+                        (fixture.root_motion && fixture.stage == 282)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
                             !fixture.audio_preview && !fixture.root_motion)

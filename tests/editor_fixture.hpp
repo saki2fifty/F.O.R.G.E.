@@ -31,6 +31,7 @@ struct EditorFixture {
     bool scene_create = false, hierarchy_create = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
+    bool rig_scene_marker_visible = false, rig_game_marker_visible = false;
     AssetId prefab;
     // SDK reference fixture paths. The constructor populates these
     // when --sdk-play is supplied. project points at an ordinary
@@ -107,6 +108,8 @@ struct EditorFixture {
     const char* focused_document() const {
         if (root_motion && stage >= 250 && stage <= 273)
             return "Inspector";
+        if (root_motion && stage >= 274 && stage <= 281)
+            return stage >= 280 ? "Game" : "###Scene";
         if (audio_preview && stage >= 235 && stage <= 240)
             return "Audio clip###Audio clip";
         if (audio_mixer && stage >= 229 && stage <= 231)
@@ -662,7 +665,15 @@ struct EditorFixture {
                                "live-two-bone-ik-200",
                                "live-joint-aim",
                                "live-joint-aim-150",
-                               "live-joint-aim-200"};
+                               "live-joint-aim-200",
+                               "reach-target",
+                               "reach-target-150",
+                               "reach-target-200",
+                               "aim-target",
+                               "aim-target-150",
+                               "aim-target-200",
+                               "live-reach-target",
+                               "live-aim-target"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;
