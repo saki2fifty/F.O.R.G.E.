@@ -1,5 +1,16 @@
 # 2026-10-13
 
+## UV selection and arrangement
+
+- UV box selection supports corners, full faces and connected islands, with
+  replace/add/remove previews and cancellation. Select all, Clear and Invert
+  change the temporary selection without dirtying the Mesh or adding Undo steps.
+- U/V alignment to minimum, bounds center or maximum and even coordinate spacing
+  use the existing Mesh source history. Coincident selected points remain together
+  during spacing; partial corner edits can deliberately change seams or distortion.
+- Applied UVs use the existing Save & Publish, Scene, Play and export path.
+  Source/cooked formats, import recipe and installed SDK layout remain unchanged.
+
 ## UV island packing
 
 - Editable Mesh UV adds selected/all-island packing previews, normalized padding,

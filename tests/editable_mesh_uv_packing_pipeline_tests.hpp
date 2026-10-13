@@ -13,9 +13,21 @@ void packing_pipeline(const std::filesystem::path& root,
         mesh.pack_uv_islands(faces, .02, true);
         draft = std::move(mesh.document);
     });
+    document->edit(document->revision(), "Arrange packed UV corners", [](Json& draft) {
+        EditableMeshSource mesh{draft};
+        std::vector<MeshUvCorner> corners;
+        for (const auto& face : draft.at("faces"))
+            for (std::size_t i = 0; i < face.at("corners").size(); ++i)
+                corners.push_back({face.at("id").get<std::uint32_t>(), i});
+        mesh.align_uv(std::array{corners[0], corners[1]}, 1, MeshUvAlignment::Center);
+        mesh.distribute_uv(corners, 0);
+        draft = std::move(mesh.document);
+    });
     const auto applied = document->source().document;
     document->undo();
+    document->undo();
     require(document->source().document == original, "Packing pipeline Undo changed topology");
+    document->redo();
     document->redo();
     require(document->source().document == applied, "Packing pipeline Redo differs");
     document->save();

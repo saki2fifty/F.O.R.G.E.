@@ -65,6 +65,39 @@ MeshData/import recipe, native SDK and resource/package owners. Gallery 44 conta
 original six-patch panels comparing overlapping, packed and quarter-turn layouts.
 Focused resource and relocated source-offline export checks compare every stream.
 
+### UV selection and arrangement
+
+The UV workspace keeps one transient corner selection. Select all, Clear and
+Invert operate on authored face corners, independent of the pick mode. Box select
+captures revision, source points/group membership, canvas mapping, original
+selection and Corner/Face/Island mode once. Contained corner centers are inclusive;
+Face mode expands hits to complete faces and Island mode expands through exact UV
+edge adjacency. Plain replaces, Ctrl unions and Shift subtracts (Shift takes
+precedence). Release includes its final pointer; the rectangle clamps to the
+canvas. Clicks below the drag threshold leave the selection unchanged.
+
+Held frames display a candidate selection without replacing the applied selection
+or copying source JSON. Escape, focus loss, source/history changes, Model tab,
+close, Save, Play/publication, mode/view/canvas changes or wheel/middle navigation
+cancel it. Numeric, packing and move gestures are exclusive. Read-only states
+retain ordinary click selection and navigation. No selection is serialized,
+published or exported, and selection-only operations create no source Undo.
+
+`align_uv(corners, axis, target)` assigns the selected U or V coordinate to its
+minimum, bounding-box center or maximum. The other coordinate remains exact.
+`distribute_uv(corners, axis)` groups exact original coordinate levels and spaces
+those levels evenly between the original endpoints. Coincident selected levels
+stay coincident; one or two levels are a no-op. Invalid axis/target, duplicate,
+empty or missing corners reject atomically; unrepresentable distinct spacing also
+rejects. Both use complete candidate validation and preserve geometry, color,
+IDs, next_id and opaque fields.
+
+These are deliberate corner edits, not rigid island operations or unwrap. Partial
+selections can change seams and distortion. Alignment can intentionally collapse
+UVs onto a line, which remains valid source but cannot be island-packed until it
+has extent on both axes. Arrange controls use the existing source mutation/history
+owner; ordinary UV streams use the unchanged cook/resource/export consumers.
+
 ## Local brush symmetry
 
 `MeshBrushSymmetry` combines X/Y/Z local-origin reflection planes. Old sculpt and

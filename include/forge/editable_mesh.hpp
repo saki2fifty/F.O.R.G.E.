@@ -27,6 +27,7 @@ struct MeshUvCorner {
     std::size_t corner = 0;
     auto operator<=>(const MeshUvCorner&) const = default;
 };
+enum class MeshUvAlignment : std::uint8_t { Minimum, Center, Maximum };
 struct EditableMeshSource {
     nlohmann::json document;
     AssetId asset() const;
@@ -65,6 +66,10 @@ struct EditableMeshSource {
     void transform_uv(std::span<const MeshUvCorner> corners, std::array<double, 2> translation,
                       double angle_radians, std::array<double, 2> scale);
     void fit_uv(std::span<const MeshUvCorner> corners, double padding = .02);
+    // Edit selected corners only; axis 0 is U, 1 is V. Center uses the bounds.
+    void align_uv(std::span<const MeshUvCorner> corners, unsigned axis, MeshUvAlignment alignment);
+    // Space distinct coordinate levels evenly; coincident levels stay coincident.
+    void distribute_uv(std::span<const MeshUvCorner> corners, unsigned axis);
     // Expand touched islands; pack their rectangles at one common scale into [0,1].
     // Unselected islands retain their UVs and are not packing obstacles.
     void pack_uv_islands(std::span<const std::uint32_t> seed_faces, double padding = .01,

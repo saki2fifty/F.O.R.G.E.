@@ -44,6 +44,28 @@ Enter **Move UV**, **Rotate UV (deg)** and two **Scale UV** values to transform 
 
 **Planar project face** still projects just the active face along its dominant normal axis. Face corners remain independent, so editing one side of a seam does not weld it to the other side. Stop Play before editing; navigation remains available when the Mesh is read-only.
 
+### Select and arrange UV corners
+
+Use **Select all UVs**, **Clear UV selection** and **Invert UV selection** to choose
+face corners quickly. Turn on **Box select UVs**, then drag a rectangle in the UV
+canvas. Plain replaces the selection, Ctrl adds, and Shift removes. In **Face**
+or **Island** pick mode, a corner inside the rectangle selects its whole face or
+connected island. A held rectangle shows a preview; release accepts the selection.
+Escape cancels it. Changing focus, source, view or Play state also cancels it.
+Turn box mode off to move selected corners with ordinary dragging again.
+
+Under **Arrange selected corners**, choose **Arrange axis → U** (horizontal) or
+**V** (vertical). **Align UV corners** puts that coordinate at the selection's
+minimum, center or maximum. Center means halfway between its bounds. **Distribute
+UV corners** spaces distinct coordinate levels evenly between the endpoints;
+coincident points stay together. Each applied edit is one source Undo step.
+
+These actions edit individual corners. They can flatten a region, change a seam
+or stretch its texture; they do not move whole islands as rigid shapes. Use packing
+when you want to arrange whole islands while keeping their proportions. Selecting
+corners changes no Mesh data; applying alignment or spacing needs **Save & Publish**
+to update Scene, Play and export. Try these controls on Gallery 14 or 44 Meshes.
+
 ### Pack several islands together
 
 In **UV → Island packing**, choose **Packing padding** to leave space at the tile

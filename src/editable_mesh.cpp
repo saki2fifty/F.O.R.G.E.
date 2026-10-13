@@ -954,6 +954,59 @@ void EditableMeshSource::fit_uv(std::span<const MeshUvCorner> corners, double pa
     candidate.validate();
     document.swap(candidate.document);
 }
+void EditableMeshSource::align_uv(std::span<const MeshUvCorner> corners, unsigned axis,
+                                  MeshUvAlignment alignment) {
+    validate();
+    require(axis < 2, "Mesh UV axis must be U or V");
+    require(alignment == MeshUvAlignment::Minimum || alignment == MeshUvAlignment::Center ||
+                alignment == MeshUvAlignment::Maximum,
+            "Mesh UV alignment target is invalid");
+    auto candidate = *this;
+    const auto selected = uv_selection(candidate.document, corners);
+    double minimum = 100000, maximum = -100000;
+    for (const auto* corner : selected) {
+        const auto value = corner->at("uv")[axis].get<double>();
+        minimum = std::min(minimum, value);
+        maximum = std::max(maximum, value);
+    }
+    const auto value = alignment == MeshUvAlignment::Minimum   ? minimum
+                       : alignment == MeshUvAlignment::Maximum ? maximum
+                                                               : (minimum + maximum) * .5;
+    for (auto* corner : selected)
+        (*corner)["uv"][axis] = value;
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void EditableMeshSource::distribute_uv(std::span<const MeshUvCorner> corners, unsigned axis) {
+    validate();
+    require(axis < 2, "Mesh UV axis must be U or V");
+    auto candidate = *this;
+    const auto selected = uv_selection(candidate.document, corners);
+    std::map<double, double> levels;
+    for (const auto* corner : selected) {
+        const auto value = corner->at("uv")[axis].get<double>();
+        levels.emplace(value, value);
+    }
+    if (levels.size() < 3)
+        return;
+    const auto minimum = levels.begin()->first, maximum = levels.rbegin()->first;
+    std::size_t index = 0;
+    double prior = minimum;
+    for (auto& [original, value] : levels) {
+        (void)original;
+        value = index == 0 ? minimum
+                : index == levels.size() - 1
+                    ? maximum
+                    : minimum + (maximum - minimum) * (double(index) / double(levels.size() - 1));
+        require(index == 0 || value > prior, "Mesh UV spacing cannot preserve distinct levels");
+        prior = value;
+        ++index;
+    }
+    for (auto* corner : selected)
+        (*corner)["uv"][axis] = levels.at(corner->at("uv")[axis].get<double>());
+    candidate.validate();
+    document.swap(candidate.document);
+}
 void EditableMeshSource::pack_uv_islands(std::span<const std::uint32_t> seed_faces, double padding,
                                          bool rotate_tall_islands) {
     validate();

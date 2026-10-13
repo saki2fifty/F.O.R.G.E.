@@ -28,9 +28,13 @@ class EditableMeshEditor {
     bool can_undo() const { return document_ && !job_ && document_->can_undo(); }
     bool can_redo() const { return document_ && !job_ && document_->can_redo(); }
     const EditableMeshDocument* document() const { return document_.get(); }
+#ifdef FORGE_UI_FIXTURE
+    const std::set<MeshUvCorner>& observed_uv_selection() const { return uv_selection_; }
+#endif
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() {
         cancel_vertex_box();
+        cancel_uv_box();
         cancel_uv_pack();
         save_ = true;
     }
@@ -38,12 +42,14 @@ class EditableMeshEditor {
         cancel_stroke();
         cancel_uv_drag();
         cancel_uv_pack();
+        cancel_uv_box();
         cancel_vertex_box();
         close_ = true;
         if (!dirty())
             finish_close();
     }
     void undo() {
+        cancel_uv_box();
         cancel_uv_pack();
         if (can_undo()) {
             cancel_stroke();
@@ -55,6 +61,7 @@ class EditableMeshEditor {
         }
     }
     void redo() {
+        cancel_uv_box();
         cancel_uv_pack();
         if (can_redo()) {
             cancel_stroke();
@@ -165,6 +172,10 @@ class EditableMeshEditor {
         if (preview_uv_pack_ &&
             (!expanded || locked || pending() || uv_pack_revision_ != document_->revision()))
             cancel_uv_pack();
+        if (uv_box_.active && (!expanded || locked || pending() || ImGui::GetIO().AppFocusLost ||
+                               uv_box_.revision != document_->revision() ||
+                               !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows)))
+            cancel_uv_box();
         if (vertex_box_.active &&
             (!expanded || locked || pending() || ImGui::GetIO().AppFocusLost ||
              vertex_box_.revision != document_->revision() ||
@@ -200,6 +211,7 @@ class EditableMeshEditor {
                 if (model_tab) {
                     cancel_uv_drag();
                     cancel_uv_pack();
+                    cancel_uv_box();
                     model_workspace(locked);
                     ImGui::EndTabItem();
                 }
@@ -317,6 +329,21 @@ class EditableMeshEditor {
     bool preview_uv_pack_ = false, uv_pack_rotate_ = false, uv_pack_all_ = false;
     std::uint64_t uv_pack_revision_ = 0;
     std::vector<std::uint32_t> uv_pack_faces_;
+    bool box_select_uv_ = false;
+    int uv_arrange_axis_ = 0, uv_alignment_ = 1;
+    struct UvBoxGesture {
+        bool active = false, moved = false;
+        std::uint64_t revision = 0;
+        int mode = 0, operation = 0; // Replace, add, remove.
+        ImVec2 start{}, finish{}, origin{}, size{};
+        std::array<double, 2> center{};
+        double zoom = 1;
+        std::set<MeshUvCorner> original, preview;
+        std::vector<std::pair<MeshUvCorner, std::array<double, 2>>> points;
+        std::vector<std::vector<MeshUvCorner>> groups;
+        std::map<MeshUvCorner, std::size_t> group_index;
+    } uv_box_;
+    void cancel_uv_box() { uv_box_ = {}; }
     float translation_[3]{}, rotation_[3]{}, scale_[3]{1, 1, 1};
     float extrusion_ = 0.5f, inset_ = 0.1f;
     float uv_translation_[2]{}, uv_angle_ = 0, uv_scale_[2]{1, 1};
@@ -412,6 +439,7 @@ class EditableMeshEditor {
         if (!document_ || pending())
             return;
         cancel_vertex_box();
+        cancel_uv_box();
         try {
             const auto previous = document_->revision();
             document_->edit(previous, std::move(label), [&](Json& draft) {
@@ -867,6 +895,7 @@ class EditableMeshEditor {
         uv_preview_error_.clear();
     }
     void begin_uv_pack(bool all) {
+        cancel_uv_box();
         cancel_uv_drag();
         preview_uv_ = false;
         uv_pack_all_ = all;
@@ -882,7 +911,7 @@ class EditableMeshEditor {
     }
     void packing_controls(bool locked) {
         ImGui::SeparatorText("Island packing");
-        ImGui::BeginDisabled(locked || pending() || uv_drag_ || preview_uv_);
+        ImGui::BeginDisabled(locked || pending() || uv_drag_ || preview_uv_ || uv_box_.active);
         ImGui::SliderFloat("Packing padding", &uv_pack_padding_, .001f, .1f, "%.4f");
         FORGE_UI_PROBE("mesh:uv_pack_padding");
         ImGui::Checkbox("Rotate tall islands", &uv_pack_rotate_);
@@ -921,6 +950,7 @@ class EditableMeshEditor {
             cancel_uv_pack();
     }
     void reset_uv_scope() {
+        cancel_uv_box();
         cancel_uv_drag();
         cancel_uv_pack();
         uv_selection_.clear();
@@ -946,6 +976,7 @@ class EditableMeshEditor {
         return {uv_selection_.begin(), uv_selection_.end()};
     }
     void select_uv_face(std::uint32_t wanted, bool add = false, bool island = false) {
+        cancel_uv_box();
         cancel_uv_drag();
         if (!add)
             uv_selection_.clear();
@@ -961,6 +992,7 @@ class EditableMeshEditor {
         face_ = wanted;
     }
     void frame_uv(bool tile) {
+        cancel_uv_box();
         if (tile) {
             uv_center_ = {.5, .5};
             uv_zoom_ = 1;
@@ -996,6 +1028,36 @@ class EditableMeshEditor {
         ImGui::Text("Face %u | %zu selected UV corners", face_, uv_selection_.size());
         ImGui::Combo("Pick UV", &uv_mode_, "Corner\0Face\0Island\0");
         FORGE_UI_PROBE("mesh:uv_mode");
+        ImGui::BeginDisabled(locked || pending() || uv_drag_ || preview_uv_ || preview_uv_pack_);
+        ImGui::Checkbox("Box select UVs", &box_select_uv_);
+        FORGE_UI_PROBE("mesh:uv_box_mode");
+        ImGui::EndDisabled();
+        ImGui::TextDisabled(
+            "Box: replace | Ctrl: add | Shift: remove. Face/island mode expands hits.");
+        ImGui::BeginDisabled(uv_box_.active);
+        auto replace_selection = [&](bool all, bool invert) {
+            cancel_uv_drag();
+            cancel_uv_pack();
+            std::set<MeshUvCorner> selection;
+            if (all)
+                for (const auto& face : source.document.at("faces"))
+                    for (std::size_t i = 0; i < face.at("corners").size(); ++i) {
+                        const MeshUvCorner corner{face.at("id").get<std::uint32_t>(), i};
+                        if (!invert || !uv_selection_.contains(corner))
+                            selection.insert(corner);
+                    }
+            uv_selection_ = std::move(selection);
+            uv_initialized_ = true;
+        };
+        if (ui::button("Select all UVs", "Select all authored face corners."))
+            replace_selection(true, false);
+        ImGui::SameLine();
+        if (ui::button("Clear UV selection", "Clear the temporary UV selection."))
+            replace_selection(false, false);
+        ImGui::SameLine();
+        if (ui::button("Invert UV selection", "Select previously unselected face corners."))
+            replace_selection(true, true);
+        ImGui::EndDisabled();
         if (ui::button("Select face", "Select every UV corner of the active Model face."))
             select_uv_face(face_);
         ImGui::SameLine();
@@ -1023,6 +1085,7 @@ class EditableMeshEditor {
                         FORGE_UI_PROBE("mesh:uv_corner:" + std::to_string(face_) + ":" +
                                        std::to_string(i));
                         if (clicked) {
+                            cancel_uv_box();
                             cancel_uv_drag();
                             if (!ImGui::GetIO().KeyCtrl)
                                 uv_selection_.clear();
@@ -1091,10 +1154,12 @@ class EditableMeshEditor {
             ImGui::TextUnformatted("NUMERIC PREVIEW — Apply or Cancel before dragging.");
         else if (uv_drag_)
             ImGui::TextUnformatted("DRAG PREVIEW — release to accept; Escape restores the source.");
+        else if (uv_box_.active)
+            ImGui::TextUnformatted("SELECTION PREVIEW — release to select; Escape cancels.");
         else
             ImGui::TextDisabled("Drag selected corners to move; Ctrl-click changes selection.");
         ImGui::BeginDisabled(locked || pending() || uv_drag_ || preview_uv_pack_ ||
-                             uv_selection_.empty());
+                             uv_box_.active || uv_selection_.empty());
         ImGui::InputFloat2("Move UV", uv_translation_);
         FORGE_UI_PROBE("mesh:uv_move");
         ImGui::InputFloat("Rotate UV (deg)", &uv_angle_);
@@ -1144,6 +1209,30 @@ class EditableMeshEditor {
             cancel_uv_pack();
         }
         packing_controls(locked);
+        ImGui::SeparatorText("Arrange selected corners");
+        ImGui::BeginDisabled(locked || pending() || uv_drag_ || uv_box_.active || preview_uv_ ||
+                             preview_uv_pack_ || uv_selection_.empty());
+        ImGui::Combo("Arrange axis", &uv_arrange_axis_, "U\0V\0");
+        FORGE_UI_PROBE("mesh:uv_arrange_axis");
+        ImGui::Combo("Alignment target", &uv_alignment_, "Minimum\0Center\0Maximum\0");
+        FORGE_UI_PROBE("mesh:uv_alignment");
+        if (ui::button("Align UV corners",
+                       "Set the selected coordinate to its min, center or max.")) {
+            const auto corners = selected_uv_corners();
+            mutate("Align UV corners", [&](auto& mesh) {
+                mesh.align_uv(corners, unsigned(uv_arrange_axis_), MeshUvAlignment(uv_alignment_));
+            });
+        }
+        if (ui::button("Distribute UV corners",
+                       "Space distinct coordinates evenly between endpoints.")) {
+            const auto corners = selected_uv_corners();
+            mutate("Distribute UV corners",
+                   [&](auto& mesh) { mesh.distribute_uv(corners, unsigned(uv_arrange_axis_)); });
+        }
+        ImGui::TextWrapped("These tools edit selected corners, not rigid islands. Center uses the "
+                           "selection bounds. Distribution keeps coincident levels together. "
+                           "Partial selections can change seams and texture distortion.");
+        ImGui::EndDisabled();
     }
     void draw_model_wireframe(const EditableMeshSource& source, bool locked) {
         const auto available = ImGui::GetContentRegionAvail();
@@ -1450,6 +1539,16 @@ class EditableMeshEditor {
                                ImGuiButtonFlags_MouseButtonLeft |
                                    ImGuiButtonFlags_MouseButtonMiddle);
         FORGE_UI_PROBE("mesh:uv_canvas");
+        if (uv_box_.active &&
+            (ImGui::GetIO().MouseWheel != 0 || ImGui::IsMouseClicked(ImGuiMouseButton_Middle)))
+            cancel_uv_box();
+        if (uv_box_.active &&
+            (!box_select_uv_ || uv_mode_ != uv_box_.mode || locked || pending() || preview_uv_ ||
+             preview_uv_pack_ || uv_box_.revision != document_->revision() ||
+             uv_center_ != uv_box_.center || uv_zoom_ != uv_box_.zoom ||
+             origin.x != uv_box_.origin.x || origin.y != uv_box_.origin.y ||
+             size.x != uv_box_.size.x || size.y != uv_box_.size.y))
+            cancel_uv_box();
         if (uv_drag_ && (origin.x != uv_drag_origin_.x || origin.y != uv_drag_origin_.y ||
                          size.x != uv_drag_size_.x || size.y != uv_drag_size_.y))
             cancel_uv_drag();
@@ -1463,7 +1562,7 @@ class EditableMeshEditor {
             return std::array<double, 2>{uv_center_[0] + (point.x - middle[0]) / (base * uv_zoom_),
                                          uv_center_[1] + (point.y - middle[1]) / (base * uv_zoom_)};
         };
-        if (hovered && !uv_drag_) {
+        if (hovered && !uv_drag_ && !uv_box_.active) {
             if (ImGui::GetIO().MouseWheel != 0) {
                 const auto anchor = to_uv(mouse);
                 uv_zoom_ =
@@ -1482,6 +1581,91 @@ class EditableMeshEditor {
             return std::array<double, 2>{middle[0] + (uv[0] - uv_center_[0]) * base * uv_zoom_,
                                          middle[1] + (uv[1] - uv_center_[1]) * base * uv_zoom_};
         };
+        const bool box_mode =
+            box_select_uv_ && !locked && !pending() && !preview_uv_ && !preview_uv_pack_;
+        if (box_mode) {
+            if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+                cancel_uv_drag();
+                uv_box_ = {};
+                uv_box_.active = true;
+                uv_box_.revision = document_->revision();
+                uv_box_.mode = uv_mode_;
+                uv_box_.operation = ImGui::GetIO().KeyShift ? 2 : ImGui::GetIO().KeyCtrl ? 1 : 0;
+                uv_box_.origin = origin;
+                uv_box_.size = size;
+                uv_box_.center = uv_center_;
+                uv_box_.zoom = uv_zoom_;
+                uv_box_.start = uv_box_.finish = mouse;
+                uv_box_.original = uv_box_.preview = uv_selection_;
+                for (const auto& face : source.document.at("faces")) {
+                    std::vector<MeshUvCorner> group;
+                    const auto id = face.at("id").get<std::uint32_t>();
+                    for (std::size_t i = 0; i < face.at("corners").size(); ++i) {
+                        const MeshUvCorner corner{id, i};
+                        uv_box_.points.push_back(
+                            {corner,
+                             screen(face.at("corners")[i].at("uv").get<std::array<double, 2>>())});
+                        group.push_back(corner);
+                    }
+                    if (uv_mode_ == 1)
+                        uv_box_.groups.push_back(std::move(group));
+                }
+                if (uv_mode_ == 2)
+                    uv_box_.groups = source.uv_islands();
+                for (std::size_t i = 0; i < uv_box_.groups.size(); ++i)
+                    for (const auto corner : uv_box_.groups[i])
+                        uv_box_.group_index.emplace(corner, i);
+            }
+            if (uv_box_.active) {
+                if (ImGui::IsKeyPressed(ImGuiKey_Escape) || !ImGui::IsMousePosValid(&mouse))
+                    cancel_uv_box();
+                else {
+                    const ImVec2 finish{std::clamp(mouse.x, origin.x, origin.x + size.x),
+                                        std::clamp(mouse.y, origin.y, origin.y + size.y)};
+                    if (finish.x != uv_box_.finish.x || finish.y != uv_box_.finish.y) {
+                        uv_box_.finish = finish;
+                        uv_box_.moved |=
+                            std::abs(finish.x - uv_box_.start.x) >= 2 * ui::interface_scale ||
+                            std::abs(finish.y - uv_box_.start.y) >= 2 * ui::interface_scale;
+                        if (uv_box_.moved) {
+                            const auto lo = ImVec2{std::min(uv_box_.start.x, finish.x),
+                                                   std::min(uv_box_.start.y, finish.y)};
+                            const auto hi = ImVec2{std::max(uv_box_.start.x, finish.x),
+                                                   std::max(uv_box_.start.y, finish.y)};
+                            std::set<MeshUvCorner> hits;
+                            std::set<std::size_t> groups;
+                            for (const auto& [corner, point] : uv_box_.points)
+                                if (point[0] >= lo.x && point[0] <= hi.x && point[1] >= lo.y &&
+                                    point[1] <= hi.y) {
+                                    if (uv_box_.mode == 0)
+                                        hits.insert(corner);
+                                    else
+                                        groups.insert(uv_box_.group_index.at(corner));
+                                }
+                            for (const auto group : groups)
+                                hits.insert(uv_box_.groups[group].begin(),
+                                            uv_box_.groups[group].end());
+                            uv_box_.preview =
+                                uv_box_.operation ? uv_box_.original : std::set<MeshUvCorner>{};
+                            if (uv_box_.operation == 2)
+                                for (const auto corner : hits)
+                                    uv_box_.preview.erase(corner);
+                            else
+                                uv_box_.preview.insert(hits.begin(), hits.end());
+                        }
+                    }
+                    if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                        if (uv_box_.moved) {
+                            uv_selection_ = std::move(uv_box_.preview);
+                            uv_initialized_ = true;
+                            if (!uv_selection_.empty())
+                                face_ = uv_selection_.begin()->face;
+                        }
+                        cancel_uv_box();
+                    }
+                }
+            }
+        }
         auto* draw = ImGui::GetWindowDrawList();
         draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
                             IM_COL32(20, 30, 41, 255));
@@ -1549,7 +1733,8 @@ class EditableMeshEditor {
             for (std::size_t i = 0; i < points.size(); ++i) {
                 const auto a = points[i], b = points[(i + 1) % points.size()];
                 const MeshUvCorner ref{id, i};
-                const bool selected = uv_selection_.contains(ref);
+                const bool selected =
+                    (uv_box_.active ? uv_box_.preview : uv_selection_).contains(ref);
                 line(a, b, selected ? IM_COL32(255, 195, 79, 255) : IM_COL32(87, 126, 149, 180),
                      selected ? 2.f : 1.f);
                 if (a[0] >= origin.x && a[0] <= origin.x + size.x && a[1] >= origin.y &&
@@ -1565,10 +1750,18 @@ class EditableMeshEditor {
                 }
             }
         }
+        if (uv_box_.active && uv_box_.moved) {
+            const ImVec2 lo{std::min(uv_box_.start.x, uv_box_.finish.x),
+                            std::min(uv_box_.start.y, uv_box_.finish.y)};
+            const ImVec2 hi{std::max(uv_box_.start.x, uv_box_.finish.x),
+                            std::max(uv_box_.start.y, uv_box_.finish.y)};
+            draw->AddRectFilled(lo, hi, IM_COL32(90, 177, 229, 35));
+            draw->AddRect(lo, hi, IM_COL32(90, 177, 229, 230));
+        }
         draw->PopClipRect();
         draw->AddText({origin.x + 8, origin.y + 8}, IM_COL32(181, 216, 224, 255),
                       "UV tile (0,0 at top left) | gold = selected");
-        if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        if (!box_mode && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             const bool add = ImGui::GetIO().KeyCtrl;
             if (uv_mode_ == 0 && hit) {
                 if (add) {

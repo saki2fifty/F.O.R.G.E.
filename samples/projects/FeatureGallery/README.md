@@ -356,6 +356,11 @@ islands, adjust padding/rotation, Apply and Save & Publish. Source Undo restores
 the mapping; ordinary Play/export use the published UVs. See the
 [walkthrough](../../../manual/editor/editable-meshes.md#pack-several-islands-together).
 
+The same UV workspace also supports corner/face/island box selection, all/clear/
+invert controls and U/V alignment and coordinate spacing. Selection stays temporary;
+applied edits use source Undo and Save & Publish. Corner arrangement can change
+texture distortion or seams; packing keeps each island's proportions.
+
 ## Numeric animation blending
 
 **43-animation-blend-spaces** compares Rest-to-Base at.5, Base-to-Overlay at1.5
