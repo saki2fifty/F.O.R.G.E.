@@ -15,6 +15,8 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size) {
     project.open_scene("Scenes/51-static-mesh-navigation.scene.json");
     const auto saved = scene.document();
     const auto catalog = AssetCatalog::open_project(root).document();
+    std::shared_ptr<const AssetCatalog> selection =
+        std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     ImGui::CreateContext();
     auto& io = ImGui::GetIO();
     io.IniFilename = nullptr;
@@ -27,7 +29,7 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size) {
     ui::EditorUiContext context;
     ui::ContextScope scope(context);
     test::observe_ui = true;
-    NavigationTools tools(root / "unused-worker");
+    NavigationTools tools(engine.world(), root / "unused-worker");
     std::string message;
     auto frame = [&](bool locked) {
         test::ui_targets.clear();
@@ -36,7 +38,7 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size) {
         ImGui::SetNextWindowSize(size, ImGuiCond_Always);
         ImGui::Begin("Static Mesh navigation");
         ImGui::SetNextItemOpen(true, ImGuiCond_Always);
-        tools.content(scene, project, locked, message);
+        tools.content(scene, project, locked, message, selection);
         tools.poll(scene, project, locked, message);
         ImGui::End();
         ImGui::Render();
@@ -44,6 +46,7 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size) {
     };
     frame(false);
     frame(false);
+    check(engine.services().profiles().empty(), "Disabled status profiling collected samples");
     check(test::ui_targets.contains("navigation:status:NavMesh ready"),
           "New Mesh navmesh not recognized as ready by actual UI");
     check(test::ui_targets.contains("button:Build NavMesh") &&
@@ -55,17 +58,65 @@ void exercise(const std::filesystem::path& root, float scale, ImVec2 size) {
     check(scene.document() == saved && AssetCatalog::open_project(root).document() == catalog &&
               !scene.can_undo(),
           "Readonly navigation controls changed authored state or catalog");
+    auto radius = [&](const char* text) {
+        const auto box = test::ui_targets.at("navigation:setting:Agent radius");
+        const auto x = box.minimum.x + 40;
+        const auto y = (box.minimum.y + box.maximum.y) * .5f;
+        io.AddMousePosEvent(x, y);
+        frame(false);
+        io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+        frame(false);
+        io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+        frame(false);
+        io.AddKeyEvent(ImGuiMod_Ctrl, true);
+        io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
+        io.AddKeyEvent(ImGuiKey_A, true);
+        frame(false);
+        io.AddKeyEvent(ImGuiKey_A, false);
+        io.AddKeyEvent(ImGuiMod_Ctrl, false);
+        io.AddKeyEvent(ImGuiKey_LeftCtrl, false);
+        frame(false);
+        io.AddInputCharactersUTF8(text);
+        frame(false);
+        io.AddKeyEvent(ImGuiKey_Enter, true);
+        frame(false);
+        io.AddKeyEvent(ImGuiKey_Enter, false);
+        frame(false);
+    };
+    radius("0.6");
+    check(test::ui_targets.contains("navigation:status:Navigation is stale — rebuild before Play"),
+          "Actual setting edit failed to invalidate navigation");
+    selection = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    frame(false);
+    check(test::ui_targets.contains("navigation:status:Navigation is stale — rebuild before Play"),
+          "Catalog snapshot replacement erased authored navigation settings draft");
+    radius("0.4");
+    check(test::ui_targets.contains("navigation:status:NavMesh ready"),
+          "Actual setting revert failed to restore readiness");
     std::string floor;
     for (const auto& row : saved.at("entities"))
         if (row.at("name") == "Editable Mesh floor - rebuild navigation after editing")
             floor = row.at("id");
     check(!floor.empty(), "Gallery51 floor missing");
+    engine.services().profiling(true);
     authoring_command(scene, "property.set",
                       {{"entity", floor},
                        {"component", "forge.local_translation"},
                        {"field", "x"},
                        {"value", 1}});
     frame(false);
+#ifndef FORGE_DISABLE_PROFILING
+    unsigned status_samples = 0;
+    for (const auto& sample : engine.services().profiles())
+        if (sample.at("name") == "NavigationStatus") {
+            ++status_samples;
+            check(sample.at("category") == "editor" && sample.at("tick") == 0 &&
+                      sample.at("seconds").get<double>() >= 0,
+                  "Invalid actual navigation status profile");
+        }
+    check(status_samples == 1, "Editor status did not record its validation scope");
+#endif
+    engine.services().profiling(false);
     check(test::ui_targets.contains("navigation:status:Navigation is stale — rebuild before Play"),
           "Scene revision did not refresh cached UI staleness immediately");
     scene.undo();

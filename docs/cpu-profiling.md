@@ -29,6 +29,8 @@ simulation FPS or GPU execution time. Present/driver waits can affect CPU sectio
 Runtime scopes include FixedSimulationTick, Animation, Navigation, NavSourceCapture, physics
 synchronization/step/adoption, audio synchronization and PresentationExtraction;
 existing transform/prefab/native-module measurements remain their own scopes.
+The Navigation controls record NavigationStatus in the editor category when their
+advisory check runs; they consume native source inputs and the existing asset snapshot.
 
 ## Service and lifecycle
 

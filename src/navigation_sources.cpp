@@ -51,6 +51,8 @@ Json row(flecs::entity e, EntityId id) {
 } // namespace
 Sources capture_native(WorldContext& context, const Scene& scene,
                        const flecs::query<const PersistentEntityId>& candidates) {
+    if (context.world().c_ptr() != scene.world().c_ptr())
+        throw std::logic_error("Navigation capture requires the Scene's owning world");
     context.evaluate_world_transforms();
     std::map<EntityId, Json> rows;
     auto add = [&](flecs::entity e, EntityId id) {

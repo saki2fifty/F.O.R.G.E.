@@ -527,8 +527,8 @@ int main(int argc, char** argv) {
                 ? std::filesystem::u8path(documents_folder) / "FORGE" / "Projects"
                 : config / "Projects";
         forge::EditorFiles files(scene, window.get(), recent_projects, project_parent);
-        forge::NavigationTools navigation_tools(std::filesystem::path(base) /
-                                                "forge_nav_build.exe");
+        forge::NavigationTools navigation_tools(scene_engine.world(), std::filesystem::path(base) /
+                                                                          "forge_nav_build.exe");
         forge::AnimationTools animation_tools(std::filesystem::path(base) / "tools/gltf2ozz.exe");
         std::string message = "Ready. Use Add Entity in Scene or Hierarchy.";
         auto perform = [&](auto&& action) {
@@ -5434,7 +5434,9 @@ int main(int argc, char** argv) {
                         animation_tools.content(files.document, edit_locked, message);
                         runtime_ui_tools.content(files.document, edit_locked, message,
                                                  runtime_ui.asset_snapshot());
-                        navigation_tools.content(scene, files.document, edit_locked, message);
+                        navigation_tools.content(scene, files.document, edit_locked, message,
+                                                 mesh_resources ? mesh_resources->catalog()
+                                                                : nullptr);
                     },
                     edit_locked);
                 ImGui::EndDisabled();

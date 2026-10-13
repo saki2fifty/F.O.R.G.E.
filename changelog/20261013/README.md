@@ -1,5 +1,11 @@
 # 2026-10-13
 
+## Responsive navigation status
+
+- Check editor navigation status from native marked sources and the existing project asset snapshot; avoid copying unrelated scene content and reopening the catalog on each advisory check.
+- Revalidate immediately when scene, settings or asset selection change. Keep navigation settings drafts across asset refresh, plus existing Undo, scene switching and Play locking.
+- Report NavigationStatus through the editor CPU profiler. Explicit bake/publication checks and the SDK contract remain unchanged.
+
 ## Navigation capture performance
 
 - Capture marked surfaces and required ancestors from native values, without serializing unrelated scene data every navigation update.

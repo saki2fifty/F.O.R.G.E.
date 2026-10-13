@@ -2,7 +2,7 @@
 #include "asset_worker.hpp"
 #include "model_render_resource.hpp"
 #include "navigation_asset.hpp"
-#include "navigation_geometry.hpp"
+#include "navigation_sources.hpp"
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
 #include <fstream>
@@ -179,16 +179,34 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     c.published = true;
     return c.record;
 }
-std::string navigation_geometry_digest(const std::filesystem::path& project, const Json& doc,
-                                       const Json& meta) {
+namespace {
+bool mesh_provenance(const Json& meta) {
     if (meta.at("version") == 1)
-        return navigation_geometry_digest(doc);
+        return false;
     if (meta.at("version") != 2 || meta.at("geometry_version") != 2)
         throw std::runtime_error("Unsupported navigation geometry provenance version");
-    auto source = capture(doc);
+    return true;
+}
+} // namespace
+std::string navigation_detail::selected_geometry_digest(const std::filesystem::path& project,
+                                                        const Sources& source, const Json& meta) {
+    if (!mesh_provenance(meta))
+        return geometry(source).digest;
     auto catalog = AssetCatalog::open_project(project);
+    return selected_geometry_digest(catalog, source, meta);
+}
+std::string navigation_detail::selected_geometry_digest(const AssetCatalog& catalog,
+                                                        const Sources& source, const Json& meta) {
+    if (!mesh_provenance(meta))
+        return geometry(source).digest;
     auto inputs = mesh_inputs(
         source, [&](AssetId id) { return asset_detail::selected_mesh_revision(catalog, {id}); });
     return source_digest(source, inputs);
+}
+std::string navigation_geometry_digest(const std::filesystem::path& project, const Json& doc,
+                                       const Json& meta) {
+    if (!mesh_provenance(meta))
+        return navigation_geometry_digest(doc);
+    return selected_geometry_digest(project, capture(doc), meta);
 }
 } // namespace forge

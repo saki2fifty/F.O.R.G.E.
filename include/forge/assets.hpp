@@ -40,6 +40,7 @@ struct AssetResolution {
 class AssetCatalog {
   public:
     explicit AssetCatalog(std::filesystem::path project);
+    const std::filesystem::path& project_root() const { return project_; }
     void add(AssetRecord record);
     void replace(AssetRecord record);
     // Validate a complete candidate once, then swap records and both graph indexes.

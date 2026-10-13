@@ -247,6 +247,24 @@ void runtime_tests(const std::filesystem::path& root, const std::filesystem::pat
     scene.restore_snapshot(input());
     auto prepared = prepare_navigation(root, scene.effective_document(), {}, worker);
     const auto record = prepared.publish(scene.effective_document());
+    auto candidates = query(engine.world());
+    const auto native = navigation_detail::capture_native(engine.world(), scene, candidates);
+    check(navigation_detail::selected_geometry_digest(root, native, record.metadata) ==
+                  record.metadata.at("geometry_sha256") &&
+              navigation_detail::selected_geometry_digest(root, native, record.metadata) ==
+                  navigation_geometry_digest(root, scene.effective_document(), record.metadata),
+          "Native selected provenance differs from baked/document source");
+    check(navigation_detail::selected_geometry_digest(root, native, Json{{"version", 1}}) ==
+              navigation_geometry_digest(scene.effective_document()),
+          "Native status did not preserve legacy provenance");
+    EngineContext foreign;
+    bool rejected = false;
+    try {
+        navigation_detail::capture_native(foreign.world(), scene, candidates);
+    } catch (const std::logic_error&) {
+        rejected = true;
+    }
+    check(rejected, "Foreign context evaluated a Scene's navigation sources");
     RuntimeSimulation simulation(engine.world(), scene);
     auto nav = std::static_pointer_cast<NavigationRuntime>(engine.services().navigation());
     check(nav->project_point({record.id}, {0, .1, 0}).status == NavStatus::Success,

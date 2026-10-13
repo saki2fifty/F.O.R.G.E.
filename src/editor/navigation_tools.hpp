@@ -1,6 +1,7 @@
 #pragma once
 #include "authoring.hpp"
 #include "document.hpp"
+#include "navigation_sources.hpp"
 #include "property_drawer.hpp"
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
@@ -15,7 +16,14 @@ class NavigationTools {
         ui::help("Show or hide navigation triangles and paths in the viewport; this does not "
                  "rebuild navigation.");
     }
-    explicit NavigationTools(std::filesystem::path worker) : worker_(std::move(worker)) {}
+    NavigationTools(WorldContext& context, std::filesystem::path worker)
+        : context_(context),
+          source_entities_(context.world()
+                               .query_builder<const PersistentEntityId>()
+                               .cache_kind(flecs::QueryCacheNone)
+                               .query_flags(EcsQueryMatchPrefab | EcsQueryMatchDisabled)
+                               .build()),
+          worker_(std::move(worker)) {}
     ~NavigationTools() { cancel_.request_stop(); }
     void poll(Scene& scene, SceneDocument& project, bool playing, std::string& message) {
         if (!job_.valid())
@@ -42,33 +50,54 @@ class NavigationTools {
             ui::report_error("navigation_tools.hpp", message);
         }
     }
-    void content(Scene& scene, SceneDocument& project, bool locked, std::string& message) {
+    void content(Scene& scene, SceneDocument& project, bool locked, std::string& message,
+                 std::shared_ptr<const AssetCatalog> catalog) {
         if (!ImGui::CollapsingHeader("Navigation")) {
             ui::help("Build and inspect a static navmesh from marked shapes or Mesh entities.");
             return;
         }
         ui::help("Asset publication is separate from scene Undo. Failed or stale builds retain the "
                  "previous navmesh.");
+        if (!catalog || catalog->project_root() != project.project()) {
+            ImGui::TextWrapped("Loading project assets for navigation...");
+            return;
+        }
+        const bool catalog_changed = observed_catalog_.lock() != catalog;
+        if (catalog_changed) {
+            observed_catalog_ = catalog;
+            validation_at_ = {};
+        }
         try {
-            if (loaded_project_ != project.project() || loaded_scene_ != scene.asset_id()) {
+            const bool scene_changed =
+                loaded_project_ != project.project() || loaded_scene_ != scene.asset_id();
+            if (scene_changed || catalog_changed) {
+                const auto old_selected = selected_;
+                const auto old_metadata = metadata_;
+                const bool settings_followed_saved =
+                    settings_ == (metadata_.is_object() && metadata_.contains("settings")
+                                      ? metadata_.at("settings").get<NavigationSettings>()
+                                      : NavigationSettings{});
                 loaded_project_ = project.project();
                 loaded_scene_ = scene.asset_id();
-                settings_ = {};
+                if (scene_changed)
+                    settings_ = {};
                 metadata_ = nullptr;
                 validation_at_ = {};
                 selected_ = {};
-                triangles_.clear();
-                auto catalog = AssetCatalog::open_project(project.project());
-                for (const auto& [id, record] : catalog.records())
+                for (const auto& [id, record] : catalog->records())
                     if (record.type == NavMeshAsset::type &&
                         record.metadata.value("source_scene", std::string{}) ==
                             loaded_scene_.str()) {
                         selected_ = id;
                         metadata_ = record.metadata;
-                        settings_ = metadata_.at("settings").get<NavigationSettings>();
-                        triangles_ = navigation_triangles(project.project(), {id});
+                        if (scene_changed || settings_followed_saved)
+                            settings_ = metadata_.at("settings").get<NavigationSettings>();
+                        if (scene_changed || selected_ != old_selected || old_metadata != metadata_)
+                            triangles_ = navigation_triangles(project.project(), {id});
                         break;
                     }
+                if (!selected_)
+                    triangles_.clear();
             }
         } catch (const std::exception& e) {
             message = e.what();
@@ -77,6 +106,7 @@ class NavigationTools {
         ImGui::BeginDisabled(locked || job_.valid());
         auto field = [](const char* label, float& value, const char* help) {
             ImGui::InputFloat(label, &value, 0, 0, "%.3f");
+            FORGE_UI_PROBE("navigation:setting:" + std::string(label));
             ui::help(help);
         };
         field("Agent radius", settings_.radius,
@@ -121,15 +151,17 @@ class NavigationTools {
         if (validation_at_ == std::chrono::steady_clock::time_point{} ||
             std::chrono::steady_clock::now() - validation_at_ >= std::chrono::milliseconds(250) ||
             validated_scene_revision_ != scene.revision() || validated_settings_ != settings_) {
+            auto profile = context_.services().profile("editor", "NavigationStatus");
             validation_at_ = std::chrono::steady_clock::now();
             validated_scene_revision_ = scene.revision();
             validated_settings_ = settings_;
             validation_state_ = selected_ ? "NavMesh ready" : "No NavMesh built for this scene";
             if (selected_)
                 try {
-                    if (navigation_geometry_digest(project.project(), scene.effective_document(),
-                                                   metadata_) !=
-                            metadata_.at("geometry_sha256").get<std::string>() ||
+                    if (navigation_detail::selected_geometry_digest(
+                            *catalog,
+                            navigation_detail::capture_native(context_, scene, source_entities_),
+                            metadata_) != metadata_.at("geometry_sha256").get<std::string>() ||
                         Json(settings_) != metadata_.at("settings"))
                         validation_state_ = "Navigation is stale — rebuild before Play";
                 } catch (const std::exception&) {
@@ -147,7 +179,8 @@ class NavigationTools {
     }
     template <class View>
     void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size) const {
-        if (!show_)
+        if (!show_ || !doc.contains("asset_id") ||
+            doc.at("asset_id").get<AssetId>() != loaded_scene_)
             return;
         auto* draw = ImGui::GetWindowDrawList();
         draw->PushClipRect(origin, {origin.x + size.x, origin.y + size.y}, true);
@@ -189,6 +222,9 @@ class NavigationTools {
     }
 
   private:
+    WorldContext& context_;
+    flecs::query<const PersistentEntityId> source_entities_;
+    std::weak_ptr<const AssetCatalog> observed_catalog_;
     std::filesystem::path worker_, job_project_, loaded_project_;
     AssetId job_scene_, loaded_scene_, selected_;
     NavigationSettings settings_;

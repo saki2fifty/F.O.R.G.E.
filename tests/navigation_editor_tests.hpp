@@ -24,7 +24,9 @@ inline void test_navigation_editor() {
         unsigned char* pixels;
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-        forge::NavigationTools tools(root / "missing-worker");
+        forge::NavigationTools tools(engine.world(), root / "missing-worker");
+        const auto catalog =
+            std::make_shared<const forge::AssetCatalog>(forge::AssetCatalog::open_project(root));
         std::string message;
         ImGui::NewFrame();
         ImGui::SetNextWindowSize({1200, 900});
@@ -34,7 +36,7 @@ inline void test_navigation_editor() {
         inspector.draw(scene, project, id);
         require(message.empty(), "Navigation reflected fields failed");
         ImGui::SetNextItemOpen(true);
-        tools.content(scene, project, false, message);
+        tools.content(scene, project, false, message, catalog);
         tools.poll(scene, project, false, message);
         require(message.empty(), "Navigation content controls failed");
         auto* draw = ImGui::GetWindowDrawList();

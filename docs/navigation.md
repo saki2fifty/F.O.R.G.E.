@@ -156,3 +156,18 @@ Profiling service. Disabled profiling collects no samples. A stable transform ep
 avoids reevaluation; when transforms change, their owner's existing scene-wide
 evaluation is still required. Capture benchmarks do not establish game FPS, GPU
 cost or Windows acceptance.
+
+### Editor status
+
+The Navigation controls use the same native source capture and selected-revision
+hashing for their advisory status. The editor passes its existing immutable project
+asset catalog snapshot; no second catalog owner or per-status disk/index validation
+is created. A snapshot replacement immediately rescans selection and revalidates,
+while preserving settings drafts that differ from the previous baked settings.
+Scene/settings changes and the existing250ms cadence also invalidate the advisory
+result. Missing or foreign-project snapshots wait for the existing asset owner.
+
+`NavigationStatus` exposes this CPU work through the editor profiler. Explicit bake
+preparation and publication still use full frozen scene/catalog validation. The
+status shortcut never publishes, cooks or decodes Mesh inputs and does not certify
+that a pending build will publish successfully.
