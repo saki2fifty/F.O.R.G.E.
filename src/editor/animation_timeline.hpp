@@ -206,6 +206,24 @@ class AnimationTimelineEditor {
                 mutate("Change animation duration", [&](auto& source) {
                     source.document["duration_us"] = microseconds(duration);
                 });
+            ImGui::BeginDisabled(bool(drag_key_) || curve_drag_);
+            ImGui::InputDouble("Retimed duration (seconds)", &retimed_seconds_, .1, 1, "%.6f");
+            FORGE_UI_PROBE("animation:retimed_duration");
+            ui::help(
+                "Scale the entire clip to this duration, including key times and curve slopes. "
+                "The Duration field above changes the end time without moving keys.");
+            if (ui::button("Scale whole clip timing",
+                           "Stretch or compress all keys as one Undo. "
+                           "Reject colliding times or invalid curves.")) {
+                if (mutate("Retime animation duration",
+                           [&](auto& source) {
+                               source.retime_duration(microseconds(retimed_seconds_));
+                           }) &&
+                    key_)
+                    activate_key(key_);
+            }
+            FORGE_UI_PROBE("animation:retime");
+            ImGui::EndDisabled();
             channels_controls();
             double seconds = time_ / animation_timebase;
             if (ImGui::SliderScalar("Playhead (seconds)", ImGuiDataType_Double, &seconds, &zero_,
@@ -329,6 +347,8 @@ class AnimationTimelineEditor {
     float drag_pointer_x_ = 0;
     bool drag_moved_ = false;
     double key_offset_seconds_ = 0;
+    double retimed_seconds_ = 2;
+    int frame_grid_fps_ = 30;
     AssetJobId job_ = 0;
     bool needs_publish_ = false, save_ = false, close_ = false, preview_ = false, playing_ = false,
          preview_loop_ = true;
@@ -398,6 +418,7 @@ class AnimationTimelineEditor {
         changed();
         needs_publish_ = needs;
         time_ = 0;
+        retimed_seconds_ = double(clip_->duration) / animation_timebase;
         select_key(clip_->keys.front().id);
         error_.clear();
     }
@@ -755,6 +776,21 @@ class AnimationTimelineEditor {
         ImGui::InputDouble("Key offset (seconds)", &key_offset_seconds_, .1, 1, "%.3f");
         FORGE_UI_PROBE("animation:key_offset");
         ImGui::BeginDisabled(selected_keys_.empty());
+        ImGui::InputInt("Frame grid (FPS)", &frame_grid_fps_);
+        FORGE_UI_PROBE("animation:frame_grid");
+        ui::help("Whole 1–240 frames per second, independent of playback speed. Snapping changes "
+                 "selected key times, keeps slopes and rejects collisions or out-of-range keys.");
+        if (ui::button("Snap selected keys to frames", "Place selected keys on the nearest frame "
+                                                       "boundaries as one Undo step.")) {
+            const std::vector<AssetId> keys(selected_keys_.begin(), selected_keys_.end());
+            if (mutate("Snap animation keys to frames",
+                       [&](auto& source) {
+                           source.snap_keys_to_frames(keys, unsigned(frame_grid_fps_));
+                       }) &&
+                key_)
+                activate_key(key_);
+        }
+        FORGE_UI_PROBE("animation:snap_frames");
         if (ui::button("Move selected keys",
                        "Translate the selected keys together as one Undo step.")) {
             const std::vector<AssetId> keys(selected_keys_.begin(), selected_keys_.end());

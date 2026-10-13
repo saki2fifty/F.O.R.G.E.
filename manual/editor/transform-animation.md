@@ -55,6 +55,29 @@ changing projects or deleting the preview object ends preview.
 the fields. It does not capture the temporary preview. Timeline **Undo / Redo**
 affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
+## Adjust timing
+
+To make an entire clip slower or faster, enter **Retimed duration (seconds)**,
+then choose **Scale whole clip timing**. For example, changing a four-second clip
+to eight seconds spreads its keys out and adjusts curve slopes for slower motion.
+The original **Duration (seconds)** field changes only the clip's end time.
+
+To place selected keys on frame boundaries, set **Frame grid (FPS)** in **Key
+selection**, then choose **Snap selected keys to frames**. The grid accepts whole
+values from 1 to 240. At 30 FPS, keys land on the nearest thirtieth of a second.
+This is a key-placement tool; it does not change the game's frame rate.
+
+Both actions use one Undo step. Keys keep their poses and identities. Frame snapping
+keeps curve slopes unchanged, so it can change the motion between keys. If an action
+would put two keys at the same time, move a key past the end, or create invalid
+curves, Forge keeps the previous clip and shows an error. Save & Publish applies
+the result to Play and exported games.
+
+Try **FeatureGallery / Scenes / 45-animation-timing.scene.json**. The blue lane
+uses the original four-second clip, the middle lane stretches it to eight seconds,
+and the last lane rounds its keys to a two-FPS grid. Open the sources under
+**Assets/AnimationTiming** to inspect or adjust them.
+
 ## Shape motion with curves
 
 Select a key in **Keys**, then expand **Vector curves**. Choose **Cubic** in

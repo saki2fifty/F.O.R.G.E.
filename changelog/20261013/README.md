@@ -1,5 +1,13 @@
 # 2026-10-13
 
+## Transform animation timing
+
+- Scale whole-clip duration and key times together while adjusting curve slopes.
+- Snap selected keys to a whole1–240 FPS grid; preserve poses, identities and slopes.
+- Existing source history and publication feed preview, Play and source-free export.
+- Gallery45 compares original, slower retimed and frame-snapped object motion.
+- Windows delivery and physical acceptance remain pending.
+
 ## Material graph selection and layout
 
 - Graph rectangle selection, All/Clear/Invert, rectangle alignment, even center

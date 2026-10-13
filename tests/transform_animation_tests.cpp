@@ -34,7 +34,14 @@ AssetImportOutcome publish(AssetImportService& service, const std::filesystem::p
         service.prepare(source, {}, id),
         [](auto& c, const auto& p, const auto&) { prepare_transform_animation_publication(c, p); },
         [](const auto&, const auto&) {});
-    require(service.wait_idle(10s), "Animation publication stalled");
+    if (!service.wait_idle(10s)) {
+        std::string detail = "Animation publication stalled: " + source.generic_string();
+        for (const auto& job : service.jobs())
+            detail += " | job=" + std::to_string(job.id) +
+                      " state=" + std::to_string(unsigned(job.state)) + " stage=" + job.stage +
+                      " diagnostic=" + job.diagnostic;
+        throw std::runtime_error(detail);
+    }
     auto result = service.poll();
     require(result.size() == 1, "Animation publication receipt missing");
     return std::move(result.front());
@@ -62,6 +69,7 @@ struct Fixture {
 };
 } // namespace
 #include "transform_animation_key_batch_tests.hpp"
+#include "transform_animation_timing_tests.hpp"
 #include "transform_curve_tests.hpp"
 #include "transform_tangent_preset_tests.hpp"
 int main(int argc, char** argv) {
@@ -69,6 +77,7 @@ int main(int argc, char** argv) {
         require(argc == 2, "Need animation scratch root");
         animation_key_batch_tests();
         animation_tangent_preset_tests();
+        animation_timing_tests();
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
@@ -331,6 +340,7 @@ int main(int argc, char** argv) {
                 "Failed import displaced last good clip");
         transform_curve_tests(root, lease);
         animation_tangent_preset_pipeline_tests(root, lease);
+        animation_timing_pipeline_tests(root, lease);
         std::cout << "transform animation source, history, preview, runtime, recovery and "
                      "source-free export passed\n";
     } catch (const std::exception& e) {

@@ -48,6 +48,9 @@ struct TransformAnimationSource {
     void move_keys(std::span<const AssetId>, std::int64_t offset_us);
     std::vector<AssetId> duplicate_keys(std::span<const AssetId>, std::int64_t offset_us);
     void erase_keys(std::span<const AssetId>);
+    // Whole-clip retiming rescales known slopes; selected frame snapping keeps them.
+    void retime_duration(std::int64_t duration_us);
+    void snap_keys_to_frames(std::span<const AssetId>, unsigned frames_per_second);
     // Atomic selected-key slopes from the original neighboring poses/times.
     void set_tangent_preset(std::span<const AssetId>, TransformAnimationTangentPreset);
 };

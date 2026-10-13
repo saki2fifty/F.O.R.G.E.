@@ -394,6 +394,45 @@ void TransformAnimationSource::move_keys(std::span<const AssetId> keys, std::int
     candidate.validate();
     document.swap(candidate.document);
 }
+void TransformAnimationSource::retime_duration(std::int64_t new_duration) {
+    validate();
+    time_value(Json(new_duration));
+    require(new_duration > 0, "Retimed animation duration must be positive");
+    const auto old_duration = time_value(document.at("duration_us"));
+    if (new_duration == old_duration)
+        return;
+    auto candidate = *this;
+    candidate.document["duration_us"] = new_duration;
+    const double slope_scale = double(old_duration) / double(new_duration);
+    for (auto& key : candidate.document.at("keys")) {
+        // Admitted times/durations <=3.6e9; even the rounded product fits uint64.
+        const auto product =
+            std::uint64_t(time_value(key.at("time_us"))) * std::uint64_t(new_duration);
+        key["time_us"] =
+            std::int64_t((product + std::uint64_t(old_duration) / 2) / std::uint64_t(old_duration));
+        if (key.contains("curves"))
+            for (const char* side : {"incoming", "outgoing"})
+                for (const char* channel : {"translation", "scale"})
+                    for (auto& slope : key["curves"][side][channel])
+                        slope = slope.get<double>() * slope_scale;
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::snap_keys_to_frames(std::span<const AssetId> keys, unsigned fps) {
+    const auto selected = selected_animation_keys(*this, keys);
+    require(fps >= 1 && fps <= 240, "Animation frame rate must be a whole number from 1 to 240");
+    auto candidate = *this;
+    for (auto& key : candidate.document.at("keys"))
+        if (selected.contains(key.at("id").get<AssetId>())) {
+            const auto time = std::uint64_t(time_value(key.at("time_us")));
+            const auto frame = (time * fps + animation_timebase / 2) / animation_timebase;
+            key["time_us"] = std::int64_t((frame * animation_timebase + fps / 2) / fps);
+        }
+    sort_animation_keys(candidate.document.at("keys"));
+    candidate.validate();
+    document.swap(candidate.document);
+}
 std::vector<AssetId> TransformAnimationSource::duplicate_keys(std::span<const AssetId> keys,
                                                               std::int64_t offset) {
     const auto selected = selected_animation_keys(*this, keys);

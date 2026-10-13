@@ -54,8 +54,35 @@ millisecond times. The final release position is sampled even without an interve
 held frame. Offset clamping preserves spacing inside the duration. Escape, Play,
 pending publication, focus loss, close, project or revision changes cancel capture.
 Scene preview motion evaluates the applied clip until release. Numeric offsets are
-bounded to ±3600seconds, then checked against every selected time. No timeline time
-scaling, ripple edit, box selection or motion-preview retiming claim is made.
+bounded to ±3600seconds, then checked against every selected time. No ripple edit,
+box selection or motion-preview retiming claim is made.
+
+### Whole-clip retiming and frame placement
+
+`retime_duration` scales every key time and the clip duration together. The Timeline's
+**Retimed duration (seconds)** field is pending until **Scale whole clip timing**;
+the existing **Duration (seconds)** field continues to change only the end time.
+Known position/scale incoming/outgoing slopes multiply by old/new duration, retaining
+the normalized Hermite motion when key times scale exactly. Key identities, poses,
+held mode, channels and opaque fields remain. Exact unsigned rational arithmetic
+rounds key times to the nearest microsecond, with positive half ties upward; rounding
+can slightly alter segment spacing. Duration remains positive and at most one hour.
+Coincident keys, excessive slopes or invalid interior curve bounds reject the edit.
+
+`snap_keys_to_frames` places 1–4096 distinct selected keys on a whole1–240 FPS grid
+starting at time zero. **Frame grid (FPS)** and **Snap selected keys to frames** use
+the existing key selection. The nearest frame index is rounded first, then its time
+to integer microseconds, with positive half ties upward at both steps. Only selected
+key times change: slopes retain their units/second, so curved motion can change.
+Final admission rejects collisions, times beyond duration or invalid curve bounds
+without clamping or merging. Aligned keys are a no-op. The grid is transient editor
+state; it does not set playback speed, runtime frame rate or a saved source field.
+
+Each operation uses one existing document Undo step after complete candidate admission,
+including pending curve fields. Play, publication and active drag guards still apply.
+Save & Publish uses the existing CPU cooker, runtime sampler and export selection.
+No new source/cook version, runtime owner or native SDK interface is introduced;
+the authoring API header is outside the exported SDK header set.
 
 The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v2`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
@@ -191,3 +218,9 @@ and complete copies offset by three seconds in a six-second loop. The three orig
 Windows-target sources use the normal publication owner and selected cooked roots.
 The gallery test independently computes cubic vector and linear shortest-arc
 rotation values through runtime ticks and relocated source-free export.
+
+Gallery `45-animation-timing` uses three original eased clips: four-second timing,
+an eight-second whole-clip retime, and key placement on a two-FPS grid. The timing
+test independently evaluates every segment and loop through runtime ticks and a
+relocated source-free package. Organizational lanes explicitly render no primitive;
+the scene keeps three animated platforms, six markers, a floor, camera and light.
