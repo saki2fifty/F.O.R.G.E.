@@ -346,6 +346,16 @@ influence and descendant scope. Save / Publish, Play and export use the same mas
 The root has influence.25, Upper.5, Tip.75 and the animated mesh.25; Side keeps the
 base motion. **CodeExamples / SetBoneMask.hpp** shows ordinary typed C++ control.
 
+## UV island packing
+
+**44-uv-island-packing** compares three original six-patch checker panels: overlapping
+UV regions, padded rectangle packing and packing with quarter-turn rotation for
+tall islands. Open **Assets / UvPackingOriginal.mesh.json**, **UvPackingPacked.mesh.json**
+or **UvPackingRotated.mesh.json** in Content, then choose UV. Preview selected/all
+islands, adjust padding/rotation, Apply and Save & Publish. Source Undo restores
+the mapping; ordinary Play/export use the published UVs. See the
+[walkthrough](../../../manual/editor/editable-meshes.md#pack-several-islands-together).
+
 ## Numeric animation blending
 
 **43-animation-blend-spaces** compares Rest-to-Base at.5, Base-to-Overlay at1.5

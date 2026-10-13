@@ -22,6 +22,7 @@ template <class F> void rejects(F fn) {
 #include "editable_mesh_facing_tests.hpp"
 #include "editable_mesh_shading_tests.hpp"
 #include "editable_mesh_triangulation_tests.hpp"
+#include "editable_mesh_uv_packing_tests.hpp"
 #include "editable_mesh_uv_tests.hpp"
 #include "mesh_inset_tests.hpp"
 int main() {
@@ -29,6 +30,7 @@ int main() {
         mesh_inset_tests();
         const auto identity = AssetId::generate();
         mesh_uv_tests();
+        uv_packing_tests();
         brush_symmetry_tests();
         mesh_triangulation_tests();
         mesh_shading_tests();

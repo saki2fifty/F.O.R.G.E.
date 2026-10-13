@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.mesh.editable",
+    "importer_revision": "forge.mesh.editable.v1",
+    "key_version": 1,
+    "output_format": "forge.mesh-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "c0afe4d076921c740b0511cac7fe6cf739fe2b91e61b4beb64ca72f6329a16c4",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.editable-mesh.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "08624696-379b-4879-aa05-599455fab5b5",
+    "source": "Assets/UvPackingPacked.mesh.json",
+    "source_digest": "c0afe4d076921c740b0511cac7fe6cf739fe2b91e61b4beb64ca72f6329a16c4",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.mesh.editable",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

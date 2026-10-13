@@ -31,17 +31,20 @@ class EditableMeshEditor {
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() {
         cancel_vertex_box();
+        cancel_uv_pack();
         save_ = true;
     }
     void request_close() {
         cancel_stroke();
         cancel_uv_drag();
+        cancel_uv_pack();
         cancel_vertex_box();
         close_ = true;
         if (!dirty())
             finish_close();
     }
     void undo() {
+        cancel_uv_pack();
         if (can_undo()) {
             cancel_stroke();
             cancel_uv_drag();
@@ -52,6 +55,7 @@ class EditableMeshEditor {
         }
     }
     void redo() {
+        cancel_uv_pack();
         if (can_redo()) {
             cancel_stroke();
             cancel_uv_drag();
@@ -158,6 +162,9 @@ class EditableMeshEditor {
         }
         if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             ui::editor_context->task.focus_document("editable_mesh", "Editable Mesh");
+        if (preview_uv_pack_ &&
+            (!expanded || locked || pending() || uv_pack_revision_ != document_->revision()))
+            cancel_uv_pack();
         if (vertex_box_.active &&
             (!expanded || locked || pending() || ImGui::GetIO().AppFocusLost ||
              vertex_box_.revision != document_->revision() ||
@@ -192,6 +199,7 @@ class EditableMeshEditor {
                 FORGE_UI_PROBE("mesh:model_tab");
                 if (model_tab) {
                     cancel_uv_drag();
+                    cancel_uv_pack();
                     model_workspace(locked);
                     ImGui::EndTabItem();
                 }
@@ -299,11 +307,16 @@ class EditableMeshEditor {
     std::vector<UvDragPoint> uv_drag_points_;
     std::array<double, 2> uv_drag_center_{};
     bool uv_drag_valid_ = false;
+    ImVec2 uv_drag_origin_{}, uv_drag_size_{};
 
     std::array<double, 2> uv_center_{.5, .5}, uv_drag_start_{}, uv_drag_delta_{};
     double uv_zoom_ = 1;
     int uv_mode_ = 0; // Corner, face, connected island.
     float uv_padding_ = .02f;
+    float uv_pack_padding_ = .01f;
+    bool preview_uv_pack_ = false, uv_pack_rotate_ = false, uv_pack_all_ = false;
+    std::uint64_t uv_pack_revision_ = 0;
+    std::vector<std::uint32_t> uv_pack_faces_;
     float translation_[3]{}, rotation_[3]{}, scale_[3]{1, 1, 1};
     float extrusion_ = 0.5f, inset_ = 0.1f;
     float uv_translation_[2]{}, uv_angle_ = 0, uv_scale_[2]{1, 1};
@@ -837,8 +850,79 @@ class EditableMeshEditor {
             }
         }
     }
+    std::vector<std::uint32_t> selected_uv_faces() const {
+        std::set<std::uint32_t> faces;
+        for (const auto corner : uv_selection_)
+            faces.insert(corner.face);
+        return {faces.begin(), faces.end()};
+    }
+    void cancel_uv_pack() {
+        if (!preview_uv_pack_)
+            return;
+        preview_uv_pack_ = false;
+        uv_pack_faces_.clear();
+        uv_pack_revision_ = 0;
+        uv_preview_.reset();
+        uv_preview_key_.clear();
+        uv_preview_error_.clear();
+    }
+    void begin_uv_pack(bool all) {
+        cancel_uv_drag();
+        preview_uv_ = false;
+        uv_pack_all_ = all;
+        uv_pack_faces_ = selected_uv_faces();
+        if (all) {
+            uv_pack_faces_.clear();
+            for (const auto& face : document_->source().document.at("faces"))
+                uv_pack_faces_.push_back(face.at("id").get<std::uint32_t>());
+        }
+        uv_pack_revision_ = document_->revision();
+        preview_uv_pack_ = true;
+        uv_preview_key_.clear();
+    }
+    void packing_controls(bool locked) {
+        ImGui::SeparatorText("Island packing");
+        ImGui::BeginDisabled(locked || pending() || uv_drag_ || preview_uv_);
+        ImGui::SliderFloat("Packing padding", &uv_pack_padding_, .001f, .1f, "%.4f");
+        FORGE_UI_PROBE("mesh:uv_pack_padding");
+        ImGui::Checkbox("Rotate tall islands", &uv_pack_rotate_);
+        FORGE_UI_PROBE("mesh:uv_pack_rotate");
+        ui::help("Allow a quarter turn for tall rectangles; no mirroring. Padding is a fraction of "
+                 "the tile.");
+        ImGui::BeginDisabled(uv_selection_.empty());
+        if (ui::button("Preview selected UV islands",
+                       "Expand selected corners to whole islands and pack them."))
+            begin_uv_pack(false);
+        ImGui::EndDisabled();
+        if (ui::button("Preview all UV islands",
+                       "Arrange all islands in one tile with shared scale and padding."))
+            begin_uv_pack(true);
+        if (preview_uv_pack_) {
+            ImGui::BeginDisabled(!uv_preview_ || !uv_preview_error_.empty());
+            if (ui::button("Apply UV packing",
+                           "Commit the preview as one Mesh source Undo step.")) {
+                const auto faces = uv_pack_faces_;
+                mutate("Pack UV islands", [&](auto& mesh) {
+                    mesh.pack_uv_islands(faces, uv_pack_padding_, uv_pack_rotate_);
+                });
+                if (error_.empty())
+                    cancel_uv_pack();
+            }
+            ImGui::EndDisabled();
+            if (ui::button("Cancel UV packing",
+                           "Restore the authored UVs without changing the source."))
+                cancel_uv_pack();
+        }
+        ImGui::TextWrapped("Packing uses island rectangles and one uniform scale. Selected packing "
+                           "leaves other islands in place; they may overlap the packed selection.");
+        ImGui::EndDisabled();
+        if (preview_uv_pack_ && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) &&
+            ImGui::IsKeyPressed(ImGuiKey_Escape))
+            cancel_uv_pack();
+    }
     void reset_uv_scope() {
         cancel_uv_drag();
+        cancel_uv_pack();
         uv_selection_.clear();
         uv_initialized_ = false;
     }
@@ -903,7 +987,10 @@ class EditableMeshEditor {
         sync_uv_selection();
         if (!uv_initialized_)
             select_uv_face(face_);
-        if (locked || pending() || (uv_drag_ && uv_drag_revision_ != document_->revision()))
+        if (locked || pending() ||
+            (uv_drag_ &&
+             (uv_drag_revision_ != document_->revision() || ImGui::GetIO().AppFocusLost ||
+              !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))))
             cancel_uv_drag();
         const auto& source = document_->source();
         ImGui::Text("Face %u | %zu selected UV corners", face_, uv_selection_.size());
@@ -945,7 +1032,24 @@ class EditableMeshEditor {
                         }
                     }
         ImGui::EndChild();
-        if (preview_uv_ && !uv_drag_) {
+        if (preview_uv_pack_ && !uv_pack_all_ && uv_pack_faces_ != selected_uv_faces())
+            cancel_uv_pack();
+        if (preview_uv_pack_) {
+            const auto key = Json::array({"packing", document_->revision(), uv_pack_faces_,
+                                          uv_pack_padding_, uv_pack_rotate_})
+                                 .dump();
+            if (key != uv_preview_key_) {
+                uv_preview_key_ = key;
+                uv_preview_ = source;
+                uv_preview_error_.clear();
+                try {
+                    uv_preview_->pack_uv_islands(uv_pack_faces_, uv_pack_padding_, uv_pack_rotate_);
+                } catch (const std::exception& e) {
+                    uv_preview_error_ = e.what();
+                    uv_preview_.reset();
+                }
+            }
+        } else if (preview_uv_ && !uv_drag_) {
             const auto ids = selected_uv_corners();
             auto selection = Json::array();
             for (const auto id : ids)
@@ -981,11 +1085,16 @@ class EditableMeshEditor {
         if (locked || pending())
             ImGui::TextUnformatted(
                 "READ ONLY — UV edits are unavailable during Play or publication.");
+        else if (preview_uv_pack_)
+            ImGui::TextUnformatted("PACKING PREVIEW — Apply packing to save; Cancel restores UVs.");
         else if (preview_uv_)
             ImGui::TextUnformatted("NUMERIC PREVIEW — Apply or Cancel before dragging.");
         else if (uv_drag_)
             ImGui::TextUnformatted("DRAG PREVIEW — release to accept; Escape restores the source.");
-        ImGui::BeginDisabled(locked || pending() || uv_drag_ || uv_selection_.empty());
+        else
+            ImGui::TextDisabled("Drag selected corners to move; Ctrl-click changes selection.");
+        ImGui::BeginDisabled(locked || pending() || uv_drag_ || preview_uv_pack_ ||
+                             uv_selection_.empty());
         ImGui::InputFloat2("Move UV", uv_translation_);
         FORGE_UI_PROBE("mesh:uv_move");
         ImGui::InputFloat("Rotate UV (deg)", &uv_angle_);
@@ -1032,7 +1141,9 @@ class EditableMeshEditor {
             uv_translation_[0] = uv_translation_[1] = uv_angle_ = 0;
             uv_scale_[0] = uv_scale_[1] = 1;
             preview_uv_ = false;
+            cancel_uv_pack();
         }
+        packing_controls(locked);
     }
     void draw_model_wireframe(const EditableMeshSource& source, bool locked) {
         const auto available = ImGui::GetContentRegionAvail();
@@ -1339,6 +1450,9 @@ class EditableMeshEditor {
                                ImGuiButtonFlags_MouseButtonLeft |
                                    ImGuiButtonFlags_MouseButtonMiddle);
         FORGE_UI_PROBE("mesh:uv_canvas");
+        if (uv_drag_ && (origin.x != uv_drag_origin_.x || origin.y != uv_drag_origin_.y ||
+                         size.x != uv_drag_size_.x || size.y != uv_drag_size_.y))
+            cancel_uv_drag();
         const bool hovered = ImGui::IsItemHovered();
         ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
         const auto mouse = ImGui::GetMousePos();
@@ -1473,12 +1587,14 @@ class EditableMeshEditor {
                 uv_selection_.clear();
                 uv_initialized_ = true;
             }
-            if (!locked && !preview_uv_ && !add && !uv_selection_.empty() &&
+            if (!locked && !preview_uv_ && !preview_uv_pack_ && !add && !uv_selection_.empty() &&
                 (hit || (uv_mode_ != 0 && face_hit))) {
                 uv_drag_ = true;
                 uv_drag_start_ = to_uv(mouse);
                 uv_drag_delta_ = {};
                 uv_drag_revision_ = document_->revision();
+                uv_drag_origin_ = origin;
+                uv_drag_size_ = size;
                 uv_drag_selection_ = selected_uv_corners();
                 prepare_uv_drag();
             }

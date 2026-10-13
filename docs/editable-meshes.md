@@ -28,7 +28,42 @@ The UV workspace holds one transient multi-face selection and a revision/topolog
 
 A drag keeps a fixed source revision and selection, captures canonical selected UV doubles/shared mean once, and evaluates bounded transient pairs for display. Held movement does not copy or validate the entire JSON source. Release still calls the full existing source transform and commits one validated source-document edit. Transient coordinates are not an authoritative UV database or persisted mesh representation. Final release coordinates are included even if no held frame observed the movement. Returning to the start refreshes the candidate instead of retaining an old displacement. Focused Escape, close/project/tab switch, changed revision/topology, Play lock or pending publication cancels it. Numeric preview has explicit Apply/Cancel and disables direct dragging. No source history, resource adoption, renderer ABI or format version is added.
 
-Gallery14 uses original connected/split/mirrored-fitted meshes, the existing checker Material, selected Windows/D3D12 cooks and ordinary Mesh Renderer/export closure. Source-free relocated package checks compare the exact cooked UV, normal, color and topology streams. Automatic unwrap, welding, atlas packing and texture-pixel editing remain outside this slice.
+Gallery14 uses original connected/split/mirrored-fitted meshes, the existing checker Material, selected Windows/D3D12 cooks and ordinary Mesh Renderer/export closure. Source-free relocated package checks compare the exact cooked UV, normal, color and topology streams. Automatic unwrap, welding and texture-pixel editing remain outside this slice.
+
+### Pack existing UV islands
+
+`uv_islands()` derives all islands in canonical face/corner order from the same
+exact edge/UV adjacency as `uv_island`. `pack_uv_islands(seed_faces, padding,
+rotate_tall_islands)` accepts distinct existing face IDs and expands every touched
+island. It changes their UVs only. Untouched islands retain their coordinates and
+are not obstacles; selected-only packing can overlap those untouched islands.
+
+Packing uses an original bounded next-fit shelf layout of island rectangles,
+sorted by decreasing normalized height, width and stable seed face ID. Optional
+rotation turns tall rectangles 90 degrees without flipping. A 40-step search retains
+an admitted common uniform scale; translations place rectangles within [0,1].
+Subtraction/division by the global longest extent handles tiny UV spans without an
+overflowing multiplier. Padding is tile distance in [1e-6, .25], applied at borders
+and between rectangles; zero padding rejects to keep islands separated. The UI
+slider offers .001–.1. Empty/duplicate/missing seeds, zero-width/height rectangles,
+impossible padding or a relative scale that collapses an output rectangle reject
+the complete candidate. Geometry, colors, corner extensions, allocator high-water,
+relative UV area/aspect and shared endpoint equality remain unchanged.
+
+The UV workspace offers selected/all previews, cached by source revision, seed
+faces, padding and rotation. A stationary frame does not copy/repack the source.
+Preview shares the existing UV derived view and prevents competing numeric/drag
+edits. Apply creates one source Undo; Cancel/Escape, close, Model tab, source/history
+change, Play/publication or Save discard an unaccepted packing preview. Save still
+publishes the applied source. Direct UV drags now reserve a constant-height status
+row and cancel on changed canvas geometry, avoiding layout-induced remapping.
+
+This is conservative rectangle packing of existing islands, not a minimum-area
+polygon solver, seam creation, unwrap, geometric texel-density normalization,
+multiple UV sets, lightmaps or UDIMs. Ordinary source1 UVs cook through the unchanged
+MeshData/import recipe, native SDK and resource/package owners. Gallery 44 contains
+original six-patch panels comparing overlapping, packed and quarter-turn layouts.
+Focused resource and relocated source-offline export checks compare every stream.
 
 ## Local brush symmetry
 

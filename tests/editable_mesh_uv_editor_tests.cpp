@@ -272,7 +272,15 @@ int main(int argc, char** argv) {
                                     sparse["faces"][f]["corners"][c]["uv"][0].get<double>() -
                                     sparse_before["faces"][f]["corners"][c]["uv"][0].get<double>() -
                                     shift_u) < 1e-5,
-                                "Ctrl-selected corner moved incorrectly");
+                                "Ctrl-selected corner moved incorrectly at scale " +
+                                    std::to_string(scale) + " corner " + std::to_string(c) +
+                                    " actual U " +
+                                    std::to_string(
+                                        sparse["faces"][f]["corners"][c]["uv"][0].get<double>()) +
+                                    " prior U " +
+                                    std::to_string(sparse_before["faces"][f]["corners"][c]["uv"][0]
+                                                       .get<double>()) +
+                                    " expected shift " + std::to_string(shift_u));
                     else
                         require(sparse["faces"][f]["corners"][c] ==
                                     sparse_before["faces"][f]["corners"][c],

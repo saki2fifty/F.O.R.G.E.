@@ -44,6 +44,33 @@ Enter **Move UV**, **Rotate UV (deg)** and two **Scale UV** values to transform 
 
 **Planar project face** still projects just the active face along its dominant normal axis. Face corners remain independent, so editing one side of a seam does not weld it to the other side. Stop Play before editing; navigation remains available when the Mesh is read-only.
 
+### Pack several islands together
+
+In **UV → Island packing**, choose **Packing padding** to leave space at the tile
+edges and between islands. **Rotate tall islands** allows quarter turns without
+mirroring. **Preview all UV islands** arranges every island in the 0–1 tile. To
+work with a subset, select corners, faces or islands first, then use **Preview
+selected UV islands**; each touched island moves as a whole.
+
+The wireframe shows the preview while the source stays unchanged. **Apply UV
+packing** commits one Mesh Undo step. **Cancel UV packing** or Escape restores
+the applied mapping. Save publishes applied edits; apply the preview first if you
+want to keep it. Changing source/history, entering Play, closing or returning to
+Model cancels an unaccepted packing preview.
+
+Packing keeps island proportions and relative sizes, and arranges their bounding
+rectangles. It does not unwrap faces or repair distortion inside an island. A
+selected-only pack leaves other islands in place, so they may overlap the packed
+selection. Use the all-islands preview when you need the whole Mesh separated.
+Excessive padding or an island collapsed to a line/point reports an error and
+preserves the current mapping.
+
+Open **44-uv-island-packing** in the Feature Gallery. Three checker-textured panels
+compare overlapping regions, separated rectangles and packing with quarter turns.
+Open **UvPackingOriginal.mesh.json**, **UvPackingPacked.mesh.json** or
+**UvPackingRotated.mesh.json**, choose UV and inspect the layouts. Save & Publish
+updates the normal Scene, Play and export workflow.
+
 Choose **Save & Publish** after shape or UV edits. An accepted publication updates the shared Mesh resource used by scene entities; an invalid cook keeps the previous published revision. The scene's position, scale and material assignments are separate from Mesh source history. Stop Play before editing. Exported games contain the selected cooked Mesh and UVs, without `.mesh.json` or modeling tools.
 
 Element IDs stay reserved after Undo, so restoring the original shape can still leave the source needing a save. New edits never reuse those discarded IDs.

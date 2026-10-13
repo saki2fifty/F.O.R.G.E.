@@ -823,9 +823,7 @@ std::vector<Json*> uv_selection(Json& document, std::span<const MeshUvCorner> co
         selected.push_back(&faces.at(corner.face)->at("corners")[corner.corner]);
     return selected;
 }
-} // namespace
-std::vector<MeshUvCorner> EditableMeshSource::uv_island(std::uint32_t wanted) const {
-    validate();
+std::vector<std::vector<MeshUvCorner>> discover_uv_islands(const Json& document) {
     struct EdgeUse {
         std::uint32_t face;
         std::array<std::array<double, 2>, 2> endpoints;
@@ -845,7 +843,6 @@ std::vector<MeshUvCorner> EditableMeshSource::uv_island(std::uint32_t wanted) co
                 {key, va < vb ? std::array{ua, ub} : std::array{ub, ua}});
         }
     }
-    require(faces.contains(wanted), "Selected Mesh face is missing");
     std::map<std::uint32_t, std::set<std::uint32_t>> adjacent;
     for (const auto& [edge, uses] : edges) {
         (void)edge;
@@ -854,17 +851,38 @@ std::vector<MeshUvCorner> EditableMeshSource::uv_island(std::uint32_t wanted) co
             adjacent[uses[1].face].insert(uses[0].face);
         }
     }
-    std::set<std::uint32_t> selected{wanted};
-    std::vector<std::uint32_t> pending{wanted};
-    for (std::size_t i = 0; i < pending.size(); ++i)
-        for (const auto next : adjacent[pending[i]])
-            if (selected.insert(next).second)
-                pending.push_back(next);
-    std::vector<MeshUvCorner> result;
-    for (const auto face : selected)
-        for (std::size_t corner = 0; corner < faces.at(face)->at("corners").size(); ++corner)
-            result.push_back({face, corner});
+    std::set<std::uint32_t> visited;
+    std::vector<std::vector<MeshUvCorner>> result;
+    for (const auto& [seed, row] : faces) {
+        (void)row;
+        if (!visited.insert(seed).second)
+            continue;
+        std::set<std::uint32_t> selected{seed};
+        std::vector<std::uint32_t> pending{seed};
+        for (std::size_t i = 0; i < pending.size(); ++i)
+            for (const auto next : adjacent[pending[i]])
+                if (visited.insert(next).second) {
+                    selected.insert(next);
+                    pending.push_back(next);
+                }
+        auto& island = result.emplace_back();
+        for (const auto face : selected)
+            for (std::size_t corner = 0; corner < faces.at(face)->at("corners").size(); ++corner)
+                island.push_back({face, corner});
+    }
     return result;
+}
+} // namespace
+std::vector<std::vector<MeshUvCorner>> EditableMeshSource::uv_islands() const {
+    validate();
+    return discover_uv_islands(document);
+}
+std::vector<MeshUvCorner> EditableMeshSource::uv_island(std::uint32_t wanted) const {
+    for (auto& island : uv_islands())
+        if (std::any_of(island.begin(), island.end(),
+                        [&](const auto corner) { return corner.face == wanted; }))
+            return std::move(island);
+    throw std::runtime_error("Selected Mesh face is missing");
 }
 void EditableMeshSource::transform_uv(std::uint32_t wanted, std::span<const std::size_t> corners,
                                       std::array<double, 2> translation, double angle,
@@ -932,6 +950,121 @@ void EditableMeshSource::fit_uv(std::span<const MeshUvCorner> corners, double pa
         const auto uv = vector<2>(corner->at("uv"));
         (*corner)["uv"] = {offset[0] + (uv[0] - minimum[0]) / extent * width,
                            offset[1] + (uv[1] - minimum[1]) / extent * width};
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void EditableMeshSource::pack_uv_islands(std::span<const std::uint32_t> seed_faces, double padding,
+                                         bool rotate_tall_islands) {
+    validate();
+    require(!seed_faces.empty() && seed_faces.size() <= face_limit, "Select Mesh UV islands");
+    require(std::isfinite(padding) && padding >= 1e-6 && padding <= .25,
+            "Mesh packing padding must be within [0.000001,0.25]");
+    std::map<std::uint32_t, const Json*> faces;
+    for (const auto& face : document.at("faces"))
+        faces.emplace(id(face.at("id")), &face);
+    std::set<std::uint32_t> selected;
+    for (const auto seed : seed_faces)
+        require(faces.contains(seed) && selected.insert(seed).second,
+                "Selected Mesh UV island face is invalid");
+    struct Rectangle {
+        std::vector<MeshUvCorner> corners;
+        std::array<double, 2> minimum{}, extent{}, position{};
+        bool rotated = false;
+    };
+    std::vector<Rectangle> rectangles;
+    double normalizer = 0;
+    for (auto& island : discover_uv_islands(document)) {
+        if (!std::any_of(island.begin(), island.end(),
+                         [&](const auto corner) { return selected.contains(corner.face); }))
+            continue;
+        Rectangle rectangle;
+        rectangle.minimum = {100000, 100000};
+        std::array<double, 2> maximum{-100000, -100000};
+        for (const auto corner : island) {
+            const auto uv = vector<2>(faces.at(corner.face)->at("corners")[corner.corner].at("uv"));
+            for (unsigned axis = 0; axis < 2; ++axis) {
+                rectangle.minimum[axis] = std::min(rectangle.minimum[axis], uv[axis]);
+                maximum[axis] = std::max(maximum[axis], uv[axis]);
+            }
+        }
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            rectangle.extent[axis] = maximum[axis] - rectangle.minimum[axis];
+            require(rectangle.extent[axis] > 0, "Mesh UV island has a degenerate rectangle");
+            normalizer = std::max(normalizer, rectangle.extent[axis]);
+        }
+        rectangle.rotated = rotate_tall_islands && rectangle.extent[1] > rectangle.extent[0];
+        rectangle.corners = std::move(island);
+        rectangles.push_back(std::move(rectangle));
+    }
+    auto dimensions = [&](const Rectangle& rectangle) {
+        auto value = rectangle.extent;
+        if (rectangle.rotated)
+            std::swap(value[0], value[1]);
+        return std::array{value[0] / normalizer, value[1] / normalizer};
+    };
+    std::sort(rectangles.begin(), rectangles.end(), [&](const auto& a, const auto& b) {
+        const auto x = dimensions(a), y = dimensions(b);
+        if (x[1] != y[1])
+            return x[1] > y[1];
+        if (x[0] != y[0])
+            return x[0] > y[0];
+        return a.corners.front().face < b.corners.front().face;
+    });
+    // Original bounded next-fit shelves. Every accepted layout is verified while
+    // searching; no polygon nesting or globally optimal utilization is implied.
+    auto layout = [&](double scale, bool store) {
+        double x = padding, y = padding, shelf = 0;
+        for (auto& rectangle : rectangles) {
+            const auto size = dimensions(rectangle);
+            const auto width = size[0] * scale, height = size[1] * scale;
+            if (x + width > 1 - padding) {
+                x = padding;
+                y += shelf + padding;
+                shelf = 0;
+            }
+            if (x + width > 1 - padding || y + height > 1 - padding)
+                return false;
+            if (store)
+                rectangle.position = {x, y};
+            x += width + padding;
+            shelf = std::max(shelf, height);
+        }
+        return true;
+    };
+    require(layout(0, false), "Mesh UV islands cannot fit with this packing padding");
+    double scale = 0, upper = 1 - 2 * padding;
+    for (unsigned step = 0; step < 40; ++step) {
+        const auto next = (scale + upper) / 2;
+        if (layout(next, false))
+            scale = next;
+        else
+            upper = next;
+    }
+    require(scale > 0 && layout(scale, true), "Mesh UV islands have no space at this padding");
+    auto candidate = *this;
+    std::map<std::uint32_t, Json*> targets;
+    for (auto& face : candidate.document.at("faces"))
+        targets.emplace(id(face.at("id")), &face);
+    for (const auto& rectangle : rectangles) {
+        std::array<double, 2> packed_min{1, 1}, packed_max{};
+        for (const auto corner : rectangle.corners) {
+            auto& row = targets.at(corner.face)->at("corners")[corner.corner];
+            const auto uv = vector<2>(row.at("uv"));
+            std::array<double, 2> delta{(uv[0] - rectangle.minimum[0]) / normalizer,
+                                        (uv[1] - rectangle.minimum[1]) / normalizer};
+            if (rectangle.rotated)
+                delta = {rectangle.extent[1] / normalizer - delta[1], delta[0]};
+            const std::array value{rectangle.position[0] + delta[0] * scale,
+                                   rectangle.position[1] + delta[1] * scale};
+            for (unsigned axis = 0; axis < 2; ++axis) {
+                packed_min[axis] = std::min(packed_min[axis], value[axis]);
+                packed_max[axis] = std::max(packed_max[axis], value[axis]);
+            }
+            row["uv"] = value;
+        }
+        require(packed_max[0] > packed_min[0] && packed_max[1] > packed_min[1],
+                "Mesh UV island is too small relative to the other islands to pack");
     }
     candidate.validate();
     document.swap(candidate.document);

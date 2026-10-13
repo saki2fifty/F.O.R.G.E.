@@ -61,9 +61,14 @@ struct EditableMeshSource {
                       std::array<double, 2> translation, double angle_radians, double scale);
     // Shared geometric edges connect only when both endpoint UVs match exactly.
     std::vector<MeshUvCorner> uv_island(std::uint32_t face) const;
+    std::vector<std::vector<MeshUvCorner>> uv_islands() const;
     void transform_uv(std::span<const MeshUvCorner> corners, std::array<double, 2> translation,
                       double angle_radians, std::array<double, 2> scale);
     void fit_uv(std::span<const MeshUvCorner> corners, double padding = .02);
+    // Expand touched islands; pack their rectangles at one common scale into [0,1].
+    // Unselected islands retain their UVs and are not packing obstacles.
+    void pack_uv_islands(std::span<const std::uint32_t> seed_faces, double padding = .01,
+                         bool rotate_tall_islands = false);
     void project_face_uv(std::uint32_t face);
 };
 } // namespace forge

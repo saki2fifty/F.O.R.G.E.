@@ -28,12 +28,14 @@ AssetImportOutcome publish(AssetImportService& service, const std::filesystem::p
     return std::move(results.front());
 }
 } // namespace
+#include "editable_mesh_uv_packing_pipeline_tests.hpp"
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Need editable Mesh scratch directory");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
+        packing_pipeline(root, lease);
         const auto source = std::filesystem::path("Assets/Shape.mesh.json");
         {
             auto history = EditableMeshDocument::create(lease, "Assets/Branches.mesh.json");

@@ -1,5 +1,19 @@
 # 2026-10-13
 
+## UV island packing
+
+- Editable Mesh UV adds selected/all-island packing previews, normalized padding,
+  optional quarter turns and one-step Apply/Undo. Existing shapes, colors, seams
+  and identities stay with the Mesh source.
+- Packing previews reuse the UV view and cancel safely through its document
+  lifecycle. Direct UV drags cancel when the canvas moves or resizes; a fixed
+  status-row height prevents scrollbar changes from shifting a held drag.
+- Gallery 44 compares three original checker panels. Published Mesh resources and
+  relocated source-free export retain the packed UV streams. Source/cooked formats,
+  importer recipe and native SDK layout remain unchanged.
+- Source, maximum-profile and actual UI checks pass locally with sanitizers;
+  Windows/physical acceptance remains pending.
+
 ## Interactive transform curves
 
 - Transform Animation Timeline adds draggable position/scale tangent handles,
