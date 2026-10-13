@@ -1,3 +1,4 @@
+#include "animation_states_layout.hpp"
 #include "bounded_json.hpp"
 #include <algorithm>
 #include <cmath>
@@ -150,6 +151,7 @@ void AnimationStatesSource::validate() const {
         }
     }
     require(states.empty() ? entry == 0 : ids.contains(entry), "Animation entry state is missing");
+    asset_detail::validate_state_graph_layout(d);
     if (d.at("version") == 2)
         for (const auto& state : states)
             if (state.contains("exit") && !state.at("exit").is_null()) {
@@ -192,8 +194,11 @@ std::vector<std::byte> AnimationStatesSource::cook() const {
     (void)compiled();
     const auto source = document.dump();
     (void)parse(std::as_bytes(std::span(source)));
+    auto runtime = document;
+    if (asset_detail::has_state_graph_layout(runtime))
+        runtime.erase("editor_layout");
     const auto text =
-        nlohmann::json{{"format", "forge.animation-states"}, {"version", 2}, {"document", document}}
+        nlohmann::json{{"format", "forge.animation-states"}, {"version", 2}, {"document", runtime}}
             .dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};

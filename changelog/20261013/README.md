@@ -1,5 +1,17 @@
 # 2026-10-13
 
+## Animation state graph authoring
+
+- Animation States shows connected cards for existing named clips and timed exits.
+  Select, connect, rewire, remove exits and choose entry through the existing source
+  inspector and history. Clip choices stay scoped to the imported skeleton's model.
+- Card positions survive Save/Publish and reopen, with one Undo step per drag or
+  arrangement. Pan, zoom and framing change the view; dirty-close guards preserve drafts.
+- Layout stays in editor source. Cooked poses, fades, marker events, recovery and
+  source-free export retain the existing runtime semantics. No public SDK layout changes.
+- Local source and actual ImGui interaction checks are recorded separately from
+  Windows execution and physical acceptance, which remain pending.
+
 ## One-dimensional animation blend spaces
 
 - Content adds reusable clip samples on a numeric axis, with model-scoped clip

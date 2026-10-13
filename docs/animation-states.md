@@ -26,8 +26,8 @@ and a valid entry. Animator state zero selects that entry.
 The central document uses `AssetSourceDocument`, its source writer ownership,
 revision guards and history. Existing `AssetImportService` publishes one bounded
 `states.json` artifact and catalog metadata `forge.animation_states` through
-`forge.animation.states.v4`. Cooked version 2 wraps the original source
-document as `document`; source version and cooked version are independent.
+`forge.animation.states.v5`. Cooked version 2 wraps the original source
+document as `document`, omitting recognized editor layout; source version and cooked version are independent.
 Legacy raw cooked version 1 remains readable. Source remains bounded to 256 KiB;
 the cooked envelope permits 128 additional bytes. Skeleton and every state clip are typed Runtime
 dependencies with selected recipe revisions. They must belong to one imported
@@ -37,9 +37,46 @@ source extensions stay opaque and are marked uninspected during reference review
 The runtime resource pool validates the selected recipe, artifact hash, size, version
 and asset identity before adoption. It retires unused set requests.
 
-This exercises F37's stable identity/document/evaluator boundary with a list
-selector. It does not claim the broader graph editor. Existing exact joint,
-model and transform contracts remain authoritative.
+The central editor shows states as connected cards, using the same stable IDs,
+source document, selected-state fields and timed exits. This exercises F37's
+identity/document/evaluator boundary; it adds no condition language, separate
+graph asset or evaluator. Existing joint, model and transform contracts remain authoritative.
+
+## Authoring graph and layout
+
+Cards use state IDs as their only identity. Selecting a card or a connection
+selects the outgoing state's existing inspector. Click its Out port then another
+card's In port to create or rewire `exit.state`; the existing phase and opaque
+exit extensions remain intact. A new connection defaults to phase1. Entry and
+incoming fade use the same existing fields. Self edges reject; positive-time
+cycles remain valid. Remove selected exit clears that state's timed transition.
+Clip pickers list only members of the selected skeleton's imported model owner.
+
+Dragging a card keeps a temporary position and commits one source history entry
+on release. Save and close flush that intent through the revision guard. Escape,
+Undo during a drag, focus loss, locking or a changed document revision cancels it. Connection
+intent also cancels on source revision changes. Arrange states is one source Undo
+step; wheel zoom, middle-mouse pan and Frame states change the editor view only.
+Save/Publish and the dirty-close dialog retain the existing source lifecycle.
+
+Optional `editor_layout` uses `format: "forge.animation-state-layout"`, version1
+and `positions: [{"state": 2, "x": 300, "y": 150}]`. At most32 positions bind
+unique existing state IDs. Coordinates must be finite within±1000000. Absent
+rows use a deterministic grid without rewriting the source. Rename, reorder,
+copy and relocation retain these bindings; removing a state removes its position
+in the same transaction. Unknown nested extensions remain opaque in source and
+uninspected in reference review. An unrecognized layout root remains opaque and
+cannot be overwritten by positioning controls; rename it explicitly first.
+
+Cooking removes recognized layout, including its source-only extensions. Identical
+state semantics therefore produce identical cooked bytes before/after a layout edit.
+The complete source digest still participates in cache selection and publication;
+layout publication gets a new recipe revision under the ordinary reload contract.
+No second layout database, IDs, playback clock or ownership system is introduced.
+Source1/2 and cooked2 remain. Importer v5 separates the layout-stripping recipe
+from prior immutable v4 artifacts; previously selected artifacts remain readable
+without rewriting their catalog/cache records. Legacy opaque source1 exits are never
+interpreted by layout edits. Explicit connection uses the existing guarded conversion.
 
 ## Selection and evaluation
 

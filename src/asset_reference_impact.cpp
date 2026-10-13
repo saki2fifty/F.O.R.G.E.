@@ -1,4 +1,5 @@
 #include "asset_reference_impact.hpp"
+#include "animation_states_layout.hpp"
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
@@ -243,8 +244,24 @@ struct Inspect {
                 (void)unused;
                 if (key != "format" && key != "version" && key != "asset_id" && key != "skeleton" &&
                     key != "entry" && key != "next_id" && key != "next_marker_id" &&
-                    key != "states")
+                    key != "states" &&
+                    !(key == "editor_layout" && asset_detail::has_state_graph_layout(doc)))
                     unknown(key);
+            }
+            if (asset_detail::has_state_graph_layout(doc)) {
+                for (const auto& [key, unused] : doc.at("editor_layout").items()) {
+                    (void)unused;
+                    if (key != "format" && key != "version" && key != "positions")
+                        unknown("editor_layout." + key);
+                }
+                for (const auto& row : doc.at("editor_layout").at("positions"))
+                    for (const auto& [key, unused] : row.items()) {
+                        (void)unused;
+                        if (key != "state" && key != "x" && key != "y")
+                            unknown("editor_layout.positions." +
+                                    std::to_string(row.at("state").get<std::uint32_t>()) + "." +
+                                    key);
+                    }
             }
         } else if (doc.contains("kind") && doc.at("kind").is_string() &&
                    doc.at("kind").get<std::string>() == "forge.material") {

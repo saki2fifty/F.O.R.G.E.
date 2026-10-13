@@ -1,6 +1,7 @@
 #pragma once
 #include "../animation_states_authoring.hpp"
 #include "../texture_authoring.hpp"
+#include "animation_state_graph.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
 #include "property_drawer.hpp"
@@ -12,18 +13,31 @@ class AnimationStatesEditor {
     bool close_cancelled = false;
     bool is_open() const { return bool(document_) || open_error_; }
     bool pending() const { return job_ != 0; }
-    bool dirty() const { return document_ && (document_->dirty() || needs_publish_ || pending()); }
-    bool can_undo() const { return document_ && !pending() && document_->can_undo(); }
-    bool can_redo() const { return document_ && !pending() && document_->can_redo(); }
+    bool dirty() const {
+        return document_ &&
+               (document_->dirty() || graph_.draft_dirty() || needs_publish_ || pending());
+    }
+    bool can_undo() const {
+        return document_ && !pending() && (graph_.draft_dirty() || document_->can_undo());
+    }
+    bool can_redo() const {
+        return document_ && !pending() && !graph_.draft_dirty() && document_->can_redo();
+    }
     const AnimationStatesDocument* document() const { return document_.get(); }
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() { save_ = true; }
     void request_close() {
+        if (document_)
+            graph_.flush(graph_edit());
         close_ = true;
         if (!dirty())
             finish_close();
     }
     void undo() {
+        if (graph_.draft_dirty()) {
+            graph_.cancel();
+            return;
+        }
         if (can_undo()) {
             document_->undo();
             changed();
@@ -91,6 +105,8 @@ class AnimationStatesEditor {
                 job_ = 0;
                 if (result.published) {
                     published_ = std::make_shared<const AssetCatalog>(result.publication->catalog);
+                    catalog_ = published_;
+                    refresh_owner();
                     needs_publish_ = false;
                     error_.clear();
                     message = "Animation states saved and published.";
@@ -122,13 +138,15 @@ class AnimationStatesEditor {
         }
         if (save_ && !locked && !pending()) {
             save_ = false;
-            publish();
+            if (graph_.flush(graph_edit()))
+                publish();
         }
         bool opened = true;
         const bool expanded = ImGui::Begin("Animation States###Animation States", &opened);
         if (!opened)
             request_close();
-        if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+        if (document_ && ui::editor_context &&
+            ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
             ui::editor_context->task.focus_document("animation_states",
                                                     path_utf8(document_->locator()));
         if (expanded && document_) {
@@ -147,6 +165,11 @@ class AnimationStatesEditor {
             if (ui::button("Redo", "Redo state source changes.") && can_redo())
                 redo();
             auto draft = document_->source().document;
+            ImGui::EndDisabled();
+            graph_.draw(draft, document_->revision(), selected_, locked || pending(), graph_edit(),
+                        [&](std::uint32_t id) { select(id); });
+            ImGui::BeginDisabled(locked || pending());
+            draft = document_->source().document;
             Json skeleton = draft.at("skeleton");
             if (asset_ref_picker(*catalog_, skeleton, SkeletonAsset::type, "Skeleton", false))
                 mutate("Choose skeleton", [&](Json& d) { d["skeleton"] = skeleton; });
@@ -160,7 +183,7 @@ class AnimationStatesEditor {
                 FORGE_UI_PROBE("animation_states:state:" + std::to_string(id));
             }
             if (asset_ref_picker(*catalog_, new_clip_, AnimationClipAsset::type, "New state clip",
-                                 false)) {
+                                 false, owner_)) {
             }
             ImGui::BeginDisabled(new_clip_.is_null() || draft.at("states").size() >= 32 ||
                                  draft.at("next_id").get<std::uint64_t>() > UINT32_MAX);
@@ -193,7 +216,8 @@ class AnimationStatesEditor {
                 if (ImGui::IsItemDeactivatedAfterEdit())
                     mutate_state("Rename state", "name", std::string(name_));
                 auto clip = state.at("clip");
-                if (asset_ref_picker(*catalog_, clip, AnimationClipAsset::type, "Clip", false) &&
+                if (asset_ref_picker(*catalog_, clip, AnimationClipAsset::type, "Clip", false,
+                                     owner_) &&
                     !clip.is_null())
                     mutate_state("Choose clip", "clip", clip);
                 bool loop = state.at("loop");
@@ -225,6 +249,7 @@ class AnimationStatesEditor {
                     if (mutate("Remove state", [&](Json& d) {
                             auto& states = d["states"];
                             states.erase(states.begin() + i);
+                            asset_detail::remove_state_graph_position(d, selected_);
                             if (d.at("entry") == selected_)
                                 d["entry"] = states.empty() ? Json(0) : states.front().at("id");
                         }))
@@ -284,6 +309,8 @@ class AnimationStatesEditor {
     std::unique_ptr<AnimationStatesDocument> document_;
     std::unique_ptr<AssetImportService> service_;
     std::shared_ptr<const AssetCatalog> catalog_, published_;
+    AnimationStateGraph graph_;
+    std::optional<AssetId> owner_;
     std::optional<std::filesystem::path> next_source_;
     AssetJobId job_ = 0;
     bool needs_publish_ = false, save_ = false, close_ = false, open_error_ = false;
@@ -293,9 +320,11 @@ class AnimationStatesEditor {
     char path_[256] = "Assets/Character.states.json", name_[65]{};
     std::string error_;
     void finish_close() {
+        graph_.reset();
         document_.reset();
         service_.reset();
         catalog_.reset();
+        owner_ = AssetId{};
         new_clip_ = nullptr;
         job_ = 0;
         selected_ = marker_selected_ = 0;
@@ -319,14 +348,43 @@ class AnimationStatesEditor {
         service_ = std::move(service);
         catalog_ = std::move(catalog);
         needs_publish_ = needs;
+        refresh_owner();
         if (!document_->source().document.at("states").empty())
             select(document_->source().document.at("states").front().at("id"));
         error_.clear();
     }
     void changed() {
         needs_publish_ = true;
+        refresh_owner();
         if (selected_)
             select(selected_);
+    }
+    void refresh_owner() {
+        owner_ = AssetId{};
+        if (!document_ || !catalog_)
+            return;
+        const auto& skeleton = document_->source().document.at("skeleton");
+        if (skeleton.is_null())
+            return;
+        const auto resolved = catalog_->resolve(skeleton.get<AssetId>(), SkeletonAsset::type);
+        if (resolved.state == AssetState::Available && resolved.record->subasset)
+            owner_ = resolved.record->subasset->owner;
+    }
+    AnimationStateGraph::Edit graph_edit() {
+        return [this](std::uint64_t revision, std::string label,
+                      const std::function<void(Json&)>& mutation) {
+            try {
+                if (!document_ || pending())
+                    return false;
+                document_->edit(revision, std::move(label), mutation);
+                changed();
+                error_.clear();
+                return true;
+            } catch (const std::exception& e) {
+                error_ = e.what();
+                return false;
+            }
+        };
     }
     void select(std::uint32_t id) {
         if (selected_ != id)

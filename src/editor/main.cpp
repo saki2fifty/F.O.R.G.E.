@@ -3867,6 +3867,7 @@ int main(int argc, char** argv) {
                 case 278:
                 case 283:
                 case 287:
+                case 291:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -3892,6 +3893,7 @@ int main(int argc, char** argv) {
                 case 279:
                 case 284:
                 case 288:
+                case 292:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -4138,6 +4140,16 @@ int main(int argc, char** argv) {
                             ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                         ImGui::SetWindowPos("Game", {30, 55});
                         ImGui::SetWindowSize("Game", {1860, 990});
+                    }
+                    break;
+                case 290:
+                    if (fixture.root_motion) {
+                        forge::ui::style(1);
+                        actions.invoke("stop");
+                        files.document.open_scene("Scenes/30-animation-exits.scene.json");
+                        animation_states.open(files.document, "Assets/TimedLocomotion.states.json");
+                        workspace.inspector = false;
+                        ready = animation_states.document() != nullptr;
                     }
                     break;
                 case 285:
@@ -6818,6 +6830,30 @@ int main(int argc, char** argv) {
                 }
                 if (fixture.root_motion && fixture.stage == 289)
                     captured_document_visible &= play.control_ready();
+                if (fixture.root_motion && fixture.stage >= 290 && fixture.stage <= 292) {
+                    auto* w = ImGui::FindWindowByName("Animation States###Animation States");
+                    captured_document_visible &= w && animation_states.document();
+                    if (w) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        ImGui::SetScrollY(w, 0);
+                    }
+                    for (const char* id : {"animation_graph:node:1", "animation_graph:node:2",
+                                           "animation_graph:node:3", "animation_graph:edge:1",
+                                           "animation_graph:edge:2", "animation_graph:edge:3"}) {
+                        const auto field = forge::test::ui_targets.find(id);
+                        captured_document_visible &= field != forge::test::ui_targets.end();
+                        if (field != forge::test::ui_targets.end()) {
+                            const auto& box = field->second;
+                            captured_document_visible &= box.enabled &&
+                                                         box.minimum.x >= box.clip_minimum.x &&
+                                                         box.maximum.x <= box.clip_maximum.x &&
+                                                         box.minimum.y >= box.clip_minimum.y &&
+                                                         box.maximum.y <= box.clip_maximum.y;
+                        }
+                    }
+                }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -6905,7 +6941,7 @@ int main(int argc, char** argv) {
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 290)) {
+                        (fixture.root_motion && fixture.stage == 293)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
                             !fixture.audio_preview && !fixture.root_motion)

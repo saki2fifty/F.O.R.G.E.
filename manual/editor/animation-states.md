@@ -20,7 +20,7 @@ They come from Quaternius under CC0; the Gallery includes its license.
 1. Import a GLB or glTF character that contains its skeleton and animations.
 2. In **Content → Create / Register**, choose **New animation states...**. Create a file such as `Assets/Character.states.json`.
 3. In the central **Animation States** document, choose the imported **Skeleton**. Choose **New state clip** and press **Add state** for each animation.
-4. Select each row. Set its **Name**, **Clip**, **Loop**, **State speed** and **Fade in (seconds)**. A fade of `.25` blends into that state over a quarter of a second. Zero changes immediately. Use clips from this exact character import.
+4. Select a state card or its row. Set its **Name**, **Clip**, **Loop**, **State speed** and **Fade in (seconds)**. A fade of `.25` blends into that state over a quarter of a second. Zero changes immediately. Clip choices come from this character import.
 5. Choose **Make entry state** for the starting animation. Reordering or renaming keeps each row's **Stable ID**. Removing a row invalidates code or scenes that use that ID.
 6. Press **Save / Publish**. Select the character root with an Animator, then **Attach to selected Animator**. This assigns the set and its entry as one Scene Undo step. Save the scene.
 
@@ -75,3 +75,19 @@ Pause and zero speed hold the sequence. Changing State from C++ still works.
 Automatic changes update the live runtime selection; stopping Play restores the
 authored scene. Removing a state used as an exit target reports an error: change
 or disable that exit first. Older sets remain manual until you enable a timed exit.
+
+## Arrange the animation graph
+
+Open the Gallery's `Assets/TimedLocomotion.states.json`. The cards show Idle,
+Walk and Run connected in a cycle. Arrows show the direction of each change.
+
+1. Click a card to edit that state's settings below the graph. Click a connection's dot to select the state that owns it; hover the dot to see its exit time.
+2. Click a card's **Out** port, then another card's **In** port to connect them. This replaces the first card's existing outgoing connection. Set **Exit time** below; the destination's **Fade in (seconds)** controls the blend.
+3. Select a card and choose **Make entry state** to start there. **Remove selected exit** stops that state's automatic change.
+4. Drag cards to organize the graph. Release to commit one Undo step; Escape or losing focus cancels. **Arrange states** restores a grid as one Undo step.
+5. Use the mouse wheel to zoom, middle mouse to pan, and **Frame states** to fit the cards. These view controls do not change the source.
+6. **Save / Publish** keeps the card positions when you reopen the asset. Moving cards changes its organization; playback and exported animation stay the same.
+
+Closing an unsaved graph offers Save, Discard or Keep editing. Graph connections
+use the same timed exits described above. C++ still selects states normally;
+there are no visual gameplay scripts or automatic condition rules.
