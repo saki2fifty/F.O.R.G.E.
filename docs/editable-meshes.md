@@ -258,6 +258,40 @@ invalidation; highlight groups stay outside cached geometry. Source/cook formats
 installed native SDK headers, importer recipe and immutable resource/export owners
 remain unchanged. No batch inset/extrusion or region extrusion is claimed.
 
+## Model topology cleanup
+
+`delete_faces` accepts 1–4096 distinct existing face IDs and rejects deleting every
+face. It removes only the selected complete face records; surviving faces/corners,
+all vertex records (including unused ones), source extensions and `next_id` remain.
+`remove_unused_vertices` explicitly removes only vertices not referenced by any
+remaining corner. It preserves the used records and identity high-water mark;
+an already clean source is a no-op with no history entry. Cleanup does not update
+external deformation/rig authoring data; those assets retain their own owners.
+
+`join_triangles` accepts two distinct geometric edge vertex IDs. Exactly two
+incident triangles are required. Nonidentity face fields and complete shared-
+vertex corner records must agree exactly, including UVs and opaque fields. Thus
+a UV seam or unknown-data conflict rejects atomically rather than being dropped.
+The oriented boundary must form one planar strictly convex four-corner polygon.
+The lower face ID survives in its original source position; the other face is
+removed. All vertices, remaining face/corner fields and `next_id` are retained.
+The first shared-edge endpoint in the retained triangle's original corner order
+anchors the quad, preserving the original shared edge as its cooked fan diagonal.
+Smooth normals are recalculated from the new unit-face-weighted topology; global
+cooked normal equality is not promised. No general polygon dissolve or automatic
+triangle pairing is provided.
+
+Each changed candidate is admitted through the full existing source/cook
+validators before replacing source, including undefined averaged-normal checks.
+Rejected operations leave source, revision, history and selection unchanged.
+Model **Delete selected faces**, **Remove unused vertices** and Edge-mode **Join
+triangles** use the existing source/document history and publication pipeline.
+Deletion prunes selection using the Model face-group policy; joining switches to
+the retained quad in Face mode. Removed edge/corner scopes are reconciled, and
+each accepted action is one source Undo step. Play, publication and competing
+Model previews disable these actions. No source/cooked schema, importer recipe,
+runtime ownership or installed gameplay SDK layout changes.
+
 ## Derived Model view cache
 
 The private editor cache scopes projected points, original positions, depths and

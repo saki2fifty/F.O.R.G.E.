@@ -1,5 +1,14 @@
 # 2026-10-13
 
+## Model topology cleanup
+
+- Model face deletion keeps surviving records and unused vertices; explicit
+  cleanup removes only unreferenced vertices. At least one face must remain.
+- Join two adjacent triangles into a planar convex quad from their selected edge.
+  Keep the lower face ID and diagonal; reject UV seams and conflicting metadata.
+- Source Undo/Redo, selection reconciliation, publication and source-free export
+  use the existing Mesh owners. No source/cooked format or gameplay SDK change.
+
 ## Model face groups
 
 - Model Face mode supports Ctrl selection across the list and wireframe, with

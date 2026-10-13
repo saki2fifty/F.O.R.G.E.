@@ -46,6 +46,12 @@ struct EditableMeshSource {
     std::uint32_t inset_face(std::uint32_t face, double distance);
     // Author the existing ordered face fan; first triangle keeps its face ID.
     void triangulate_faces(std::span<const std::uint32_t> faces);
+    // Keep unused vertices until explicit cleanup; at least one face must remain.
+    void delete_faces(std::span<const std::uint32_t> faces);
+    std::size_t remove_unused_vertices();
+    // Join exactly two triangles at this edge. Reject UV/opaque data conflicts.
+    // Lower face ID survives; the shared edge remains the cooked fan diagonal.
+    std::uint32_t join_triangles(std::array<std::uint32_t, 2> edge);
     // Geometric edge connectivity; touching at a vertex does not join surfaces.
     std::vector<std::uint32_t> connected_faces(std::uint32_t seed) const;
     // Reverse complete corner records around their existing first fan anchor.

@@ -633,6 +633,8 @@ class EditableMeshEditor {
                         "Edge " + std::to_string(key.first) + "–" + std::to_string(key.second);
                     if (ImGui::Selectable(label.c_str(), edge_ == key))
                         edge_ = key;
+                    FORGE_UI_PROBE("mesh:edge:" + std::to_string(key.first) + ":" +
+                                   std::to_string(key.second));
                 }
             } else
                 for (const auto& candidate : document_->source().document.at("faces")) {
@@ -862,6 +864,52 @@ class EditableMeshEditor {
         ImGui::EndDisabled();
         ui::help("Keeps positions, colors and corner UVs. Smooth normals are recalculated from the "
                  "new topology.");
+        ImGui::SeparatorText("Topology cleanup");
+        ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
+                             preview_extrude_);
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || faces_.empty() ||
+                             faces_.size() == document_->source().document.at("faces").size());
+        if (ui::button("Delete selected faces",
+                       "Remove selected faces in one Undo step. At least one face must remain; "
+                       "unused vertices are kept until explicit cleanup.")) {
+            const auto revision = document_->revision();
+            const std::vector<std::uint32_t> selected{faces_.begin(), faces_.end()};
+            mutate("Delete selected faces", [&](auto& source) { source.delete_faces(selected); });
+            if (document_->revision() != revision) {
+                reset_uv_scope();
+                reconcile_selection();
+            }
+        }
+        ImGui::EndDisabled();
+        if (ui::button("Remove unused vertices",
+                       "Remove only vertices unreferenced by any face. Keep used vertex data and "
+                       "the identity high-water mark.")) {
+            const auto revision = document_->revision();
+            mutate("Remove unused vertices", [](auto& source) { source.remove_unused_vertices(); });
+            if (document_->revision() != revision)
+                reconcile_selection();
+        }
+        ImGui::BeginDisabled(mode_ != SelectionMode::Edge || !edge_.first || !edge_.second);
+        if (ui::button("Join triangles",
+                       "Join two adjacent triangles into a planar convex quad. Reject UV seams "
+                       "and conflicting face or corner data.")) {
+            const auto revision = document_->revision();
+            std::uint32_t kept = 0;
+            mutate("Join triangles", [&](auto& source) {
+                kept = source.join_triangles({edge_.first, edge_.second});
+            });
+            if (document_->revision() != revision) {
+                face_ = kept;
+                faces_ = {kept};
+                mode_ = SelectionMode::Face;
+                reset_uv_scope();
+                reconcile_selection();
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        ui::help("Cleanup preserves surviving element IDs. Joining keeps the lower face ID and "
+                 "the shared diagonal; smooth normals are recalculated.");
         ImGui::SeparatorText("Transform selection");
         ImGui::InputFloat3("Move", translation_);
         FORGE_UI_PROBE("mesh:model_move");

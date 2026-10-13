@@ -674,6 +674,113 @@ void EditableMeshSource::triangulate_faces(std::span<const std::uint32_t> faces)
     *this = std::move(candidate);
 }
 
+void EditableMeshSource::delete_faces(std::span<const std::uint32_t> faces) {
+    require(!faces.empty() && faces.size() <= face_limit,
+            "Mesh deletion selection is empty or too large");
+    validate();
+    const std::set<std::uint32_t> selected(faces.begin(), faces.end());
+    require(selected.size() == faces.size(), "Mesh deletion selection contains duplicate faces");
+    auto candidate = *this;
+    auto& remaining = candidate.document.at("faces").get_ref<Json::array_t&>();
+    const auto removed = std::erase_if(
+        remaining, [&](const Json& face) { return selected.contains(id(face.at("id"))); });
+    require(removed == selected.size(), "Selected Mesh face is missing");
+    require(!remaining.empty(), "Mesh deletion must leave at least one face");
+    (void)candidate.cook();
+    *this = std::move(candidate);
+}
+
+std::size_t EditableMeshSource::remove_unused_vertices() {
+    validate();
+    std::set<std::uint32_t> used;
+    for (const auto& face : document.at("faces"))
+        for (const auto& corner : face.at("corners"))
+            used.insert(id(corner.at("vertex")));
+    auto candidate = *this;
+    auto& vertices = candidate.document.at("vertices").get_ref<Json::array_t&>();
+    const auto removed = std::erase_if(
+        vertices, [&](const Json& vertex) { return !used.contains(id(vertex.at("id"))); });
+    if (!removed)
+        return 0;
+    (void)candidate.cook();
+    *this = std::move(candidate);
+    return removed;
+}
+
+std::uint32_t EditableMeshSource::join_triangles(std::array<std::uint32_t, 2> edge) {
+    require(edge[0] && edge[1] && edge[0] != edge[1], "Mesh join needs two distinct edge vertices");
+    validate();
+    const auto key = std::minmax(edge[0], edge[1]);
+    std::vector<const Json*> incident;
+    for (const auto& face : document.at("faces")) {
+        const auto& corners = face.at("corners");
+        for (std::size_t i = 0; i < corners.size(); ++i) {
+            const auto a = id(corners[i].at("vertex"));
+            const auto b = id(corners[(i + 1) % corners.size()].at("vertex"));
+            if (std::minmax(a, b) == key)
+                incident.push_back(&face);
+        }
+    }
+    require(incident.size() == 2, "Mesh join needs an edge shared by exactly two triangles");
+    if (id(incident[0]->at("id")) > id(incident[1]->at("id")))
+        std::swap(incident[0], incident[1]);
+    require(incident[0]->at("corners").size() == 3 && incident[1]->at("corners").size() == 3,
+            "Mesh join requires two triangular faces");
+    auto metadata = [](Json face) {
+        face.erase("id");
+        face.erase("corners");
+        return face;
+    };
+    require(metadata(*incident[0]) == metadata(*incident[1]),
+            "Mesh join would discard conflicting face data");
+    std::map<std::uint32_t, Json> corner_data;
+    std::map<std::uint32_t, std::uint32_t> boundary;
+    for (const auto* face : incident) {
+        const auto& corners = face->at("corners");
+        for (std::size_t i = 0; i < corners.size(); ++i) {
+            const auto a = id(corners[i].at("vertex"));
+            const auto b = id(corners[(i + 1) % corners.size()].at("vertex"));
+            const auto [entry, inserted] = corner_data.emplace(a, corners[i]);
+            require(inserted || entry->second == corners[i],
+                    "Mesh join would discard a UV seam or conflicting corner data");
+            if (std::minmax(a, b) != key)
+                require(boundary.emplace(a, b).second, "Mesh join boundary is ambiguous");
+        }
+    }
+    require(boundary.size() == 4 && corner_data.size() == 4,
+            "Mesh join must produce four distinct boundary vertices");
+    std::uint32_t anchor = 0;
+    for (const auto& corner : incident[0]->at("corners")) {
+        const auto vertex = id(corner.at("vertex"));
+        if (vertex == edge[0] || vertex == edge[1]) {
+            anchor = vertex;
+            break;
+        }
+    }
+    auto joined = *incident[0];
+    auto corners = Json::array();
+    std::set<std::uint32_t> visited;
+    auto vertex = anchor;
+    for (unsigned i = 0; i < 4; ++i) {
+        require(visited.insert(vertex).second && boundary.contains(vertex),
+                "Mesh join boundary is not a four-corner loop");
+        corners.push_back(corner_data.at(vertex));
+        vertex = boundary.at(vertex);
+    }
+    require(vertex == anchor, "Mesh join boundary does not close");
+    joined["corners"] = std::move(corners);
+    const auto kept = id(joined.at("id")), removed = id(incident[1]->at("id"));
+    auto candidate = *this;
+    auto& faces = candidate.document.at("faces").get_ref<Json::array_t&>();
+    for (auto& face : faces)
+        if (id(face.at("id")) == kept)
+            face = joined;
+    std::erase_if(faces, [&](const Json& face) { return id(face.at("id")) == removed; });
+    (void)candidate.cook();
+    *this = std::move(candidate);
+    return kept;
+}
+
 std::vector<std::uint32_t> EditableMeshSource::connected_faces(std::uint32_t seed) const {
     validate();
     std::map<std::pair<std::uint32_t, std::uint32_t>, std::vector<std::uint32_t>> edges;

@@ -44,6 +44,27 @@ change removes every selected face, the editor selects the available active face
 Closing/reopening returns to one active face. **Save & Publish** updates Scene,
 Play and export through the same shared Mesh resource.
 
+### Delete and clean up topology
+
+In **Face** mode, select the faces to remove and choose **Delete selected faces**.
+At least one face must remain. The editor selects a surviving face when the whole
+selection disappears. Deletion keeps unused vertices; choose **Remove unused
+vertices** to remove those explicitly. This leaves used vertex data and IDs intact.
+An already clean Mesh creates no extra Undo step.
+
+To restore a quad after triangulating it, switch to **Edge**, select its diagonal
+in the list or wireframe, then choose **Join triangles**. The triangles must form
+a planar convex quad with matching UVs and other face/corner data. A seam or
+conflict reports an error and leaves the Mesh unchanged. The resulting quad stays
+selected in Face mode. Its lower face ID and shared diagonal are retained; smooth
+shading can change because normals are recalculated from the joined faces.
+
+Each action is one source Undo step. Finish previews and stop Play before editing;
+**Save & Publish** updates Scene, Play and export. Try joining a diagonal on Gallery
+**16-authored-triangulation**, or deleting faces on editable Meshes in Gallery 12/19.
+Unused-vertex cleanup affects this Mesh source; it does not rewrite a separate rig
+or deformation asset that refers to those vertices.
+
 ## Sculpt and paint
 
 Create a **Sculpt sphere** for a small smooth Mesh, or open any editable Mesh. In **Model → Tool**, choose **Sculpt**, adjust **Brush radius** and **Brush strength**, then drag across the preview. Positive strength raises vertices along their surface normals; negative strength pushes inward. Release the mouse to apply one Undo step. Press Esc during a drag to cancel. The preview updates after release.
