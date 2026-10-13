@@ -387,3 +387,18 @@ component while stopped, then use Animator preview or Play. Targets are measured
 in the model's own space. The same saved scenes export with cooked model data and
 compiled engine constraints; no optional C++ code is needed. **SetRigTarget.hpp**
 shows how your own C++ can move the target. See the [walkthrough](../../../manual/editor/animation-rigging.md).
+
+## Model topology refinement
+
+Open **46-model-refinement** to compare three cubes with the same shape:
+**OriginalCube**, **CenterSplitCube**, and **SubdividedCube**. In Content, open their
+Mesh sources under **Assets/ModelRefinement**, use the **Model** tab and inspect the
+wireframe: the original has six quads, the center split has24 triangles, and the
+midpoint-refined cube has48 triangles with shared vertices.
+
+Select faces and try **Split selected faces at centers**, or choose **Subdivide Mesh**
+to refine every triangle. Undo restores the previous geometry. **Save & Publish**
+updates the placed cube; save the scene and export it through the normal workflow.
+These operations add geometry while retaining the silhouette. The original sources
+and selected Windows-target cooks are included; native Windows/GPU acceptance is
+pending. No C++ module or compiler is needed.

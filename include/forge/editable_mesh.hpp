@@ -46,6 +46,10 @@ struct EditableMeshSource {
     std::uint32_t inset_face(std::uint32_t face, double distance);
     // Author the existing ordered face fan; first triangle keeps its face ID.
     void triangulate_faces(std::span<const std::uint32_t> faces);
+    // One center per selected face; retain perimeter and first child face ID.
+    std::vector<std::uint32_t> split_faces_at_centers(std::span<const std::uint32_t> faces);
+    // Four triangles per existing cooked fan triangle; shared geometric midpoints.
+    std::vector<std::uint32_t> subdivide();
     // Keep unused vertices until explicit cleanup; at least one face must remain.
     void delete_faces(std::span<const std::uint32_t> faces);
     std::size_t remove_unused_vertices();

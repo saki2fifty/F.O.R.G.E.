@@ -21,6 +21,7 @@ template <class F> void rejects(F fn) {
 #include "editable_mesh_brush_symmetry_tests.hpp"
 #include "editable_mesh_duplication_grid_tests.hpp"
 #include "editable_mesh_facing_tests.hpp"
+#include "editable_mesh_refinement_tests.hpp"
 #include "editable_mesh_shading_tests.hpp"
 #include "editable_mesh_topology_cleanup_tests.hpp"
 #include "editable_mesh_triangulation_tests.hpp"
@@ -30,6 +31,7 @@ template <class F> void rejects(F fn) {
 #include "mesh_inset_tests.hpp"
 int main() {
     try {
+        refinement_tests();
         mesh_inset_tests();
         const auto identity = AssetId::generate();
         mesh_uv_tests();

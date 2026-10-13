@@ -8,7 +8,7 @@ Validation admits at most 4,096 vertices, 4,096 faces and 16,384 face corners; e
 
 The `forge.mesh.editable` trusted CPU importer triangulates face fans into the existing immutable `MeshData` format, with POSITION, NORMAL and independent TEXCOORD_0 streams. A smooth-shading flag averages vertex normals; optional vertex colors cook to COLOR_0. The Model preview offers a bounded smooth sphere preset, sculpt displacement along averaged normals, and vertex-color painting. Each stroke is a single candidate edit and Undo step after mouse release. A rejected stroke leaves the source unchanged. It publishes `mesh.bin` through the existing candidate/cache/catalog selection pipeline as a root Mesh asset. A failed candidate leaves the last good selected revision. The existing Mesh resource pool and Mesh Renderer load that root Mesh; scene instance transforms and material bindings retain their existing owners. Runtime packaging validates the selected cooked artifact and strips the authored `.mesh.json` source. Desktop Windows D3D12 and Linux CPU cook targets share the source schema; no new runtime ABI or editor code is shipped with a standalone game.
 
-Texture UV origin is top left. Planar projection is deterministic and uses the dominant face-normal axis; it does not claim island packing, distortion control or automatic unwrap. Source edits and preview are bounded to the supported small-mesh profile. This is a low-poly sculpt and vertex-color paint slice. It does not paint texture pixels, dynamically subdivide the Mesh or provide high-resolution sculpting. Those workflows need separate bulk storage and evaluation design.
+Texture UV origin is top left. Planar projection is deterministic and uses the dominant face-normal axis; it does not claim island packing, distortion control or automatic unwrap. Source edits and preview are bounded to the supported small-mesh profile. This is a low-poly sculpt and vertex-color paint slice. Explicit bounded topology refinement is described below. Texture-pixel painting and high-resolution sculpting need separate bulk storage and evaluation design.
 
 ## Face inset and signed extrusion
 
@@ -324,6 +324,40 @@ reserved duplicate IDs survive Undo and a new branch. Failures preserve source,
 history and selection. Play, publication, strokes and Model previews disable these
 tools. Settings remain transient editor inputs. Save/reopen, ordinary publication,
 typed resources and source-free exports retain existing owners and formats.
+
+## Topology refinement
+
+`split_faces_at_centers` replaces each selected convex face with a center fan.
+It adds one vertex at the mean position/color and one center UV per face; missing
+colors contribute the existing white default. Original vertices and perimeter
+edges remain, so partial selections do not cut their neighbors. The first child
+retains its old face ID. Remaining children allocate in source face/corner order,
+independently of selection order. Center fans can change the interior interpolation
+of non-affine polygon UVs/colors while retaining every original corner value.
+
+`subdivide` refines the entire Mesh: each existing ordered fan triangle becomes
+four triangles. A single geometric midpoint is allocated per shared edge, including
+fan diagonals, in sorted endpoint-ID order. Positions/colors interpolate halfway;
+UVs interpolate within each original triangle's corners, retaining seams and its
+linear interpolation. First children keep their original face IDs; new child IDs
+allocate in source face/fan order. Existing vertices remain exact. Whole-Mesh scope
+keeps adjacent triangles connected without T-junctions. Both tools preserve the
+silhouette and recalculate smooth normals using the established unit-face weighting.
+
+Faces copy opaque metadata intact. Generated vertex/corner records inherit opaque
+fields only when all contributing payloads agree after removing owned ID/position/
+color or vertex/UV fields. Conflicts reject instead of guessing an interpolation
+or dropping data. Selection, size, allocator, strict convex/planar geometry,
+serialized and cooked-normal validation admit the full candidate before replacement.
+Too-small child triangles reject; limits and identity reservation remain unchanged.
+
+Model **Split selected faces at centers** and **Subdivide Mesh** use one SourceDoc
+Undo step, select their children and clear old UV corner selections. Locks,
+publication, active strokes and unfinished Model previews disable refinement.
+Save & Publish uses the existing Mesh pipeline for Scene, Play and source-free
+export. Gallery46 compares the original, center-split and midpoint-refined cube.
+These are bounded linear authoring operations, not a smoothing-subdivision modifier
+or automatic high-resolution sculpt system. Native Windows/GPU acceptance pending.
 
 ## Derived Model view cache
 

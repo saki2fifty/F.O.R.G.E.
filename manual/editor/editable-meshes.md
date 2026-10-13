@@ -88,6 +88,23 @@ tools, then **Save & Publish** to update Scene, Play and export. Try them on edi
 Meshes in Gallery 12/16/19. These tools duplicate geometry within one Mesh;
 they do not create Scene entities or transfer a separate rig/deformation asset.
 
+## Add more editable geometry
+
+In the **Model** tab, find **Refine topology**:
+
+- **Split selected faces at centers** adds one center point to each selected face and connects it to the face's corners. The perimeter stays in place.
+- **Subdivide Mesh** splits every existing triangle into four, adding shared edge midpoints across the whole Mesh.
+
+Both actions keep the shape and select the resulting triangles. Each is one Undo
+step. They interpolate colors and UVs; center splitting can change how values blend
+inside a polygon. Smooth shading recalculates from the new topology.
+An error leaves the Mesh unchanged, including when it reaches its geometry limits
+or contains unknown attributes that cannot be safely interpolated.
+
+Choose **Save & Publish** to update placed objects and exported games. To compare
+examples, open Gallery scene **46-model-refinement**, then open its three Meshes
+in Content to inspect their wireframes. Windows testing remains pending.
+
 ## Sculpt and paint
 
 Create a **Sculpt sphere** for a small smooth Mesh, or open any editable Mesh. In **Model → Tool**, choose **Sculpt**, adjust **Brush radius** and **Brush strength**, then drag across the preview. Positive strength raises vertices along their surface normals; negative strength pushes inward. Release the mouse to apply one Undo step. Press Esc during a drag to cancel. The preview updates after release.

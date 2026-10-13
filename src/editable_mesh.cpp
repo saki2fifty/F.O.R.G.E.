@@ -146,6 +146,59 @@ Json* find_face(Json& document, std::uint32_t wanted) {
             return &candidate;
     return nullptr;
 }
+Json common_payload(std::span<const Json* const> elements,
+                    std::initializer_list<const char*> owned) {
+    require(!elements.empty(), "Mesh interpolation needs contributors");
+    auto payload = *elements.front();
+    for (const auto key : owned)
+        payload.erase(key);
+    for (const auto* element : elements) {
+        auto other = *element;
+        for (const auto key : owned)
+            other.erase(key);
+        require(other == payload, "Mesh refinement cannot interpolate conflicting opaque data");
+    }
+    return payload;
+}
+Json interpolate_vertex(std::span<const Json* const> vertices, std::uint32_t identity) {
+    auto result = common_payload(vertices, {"id", "position", "color"});
+    Vec3 position{};
+    std::array<double, 4> color{};
+    bool colored = false;
+    for (const auto* vertex : vertices) {
+        const auto point = vector<3>(vertex->at("position"));
+        const auto paint = vertex->contains("color") ? vertex_color(vertex->at("color"))
+                                                     : std::array<double, 4>{1, 1, 1, 1};
+        colored |= vertex->contains("color");
+        for (unsigned lane = 0; lane < 3; ++lane)
+            position[lane] += point[lane];
+        for (unsigned lane = 0; lane < 4; ++lane)
+            color[lane] += paint[lane];
+    }
+    for (auto& lane : position)
+        lane /= double(vertices.size());
+    for (auto& lane : color)
+        lane /= double(vertices.size());
+    result["id"] = identity;
+    result["position"] = position;
+    if (colored)
+        result["color"] = color;
+    return result;
+}
+Json interpolate_corner(std::span<const Json* const> corners, std::uint32_t identity) {
+    auto result = common_payload(corners, {"vertex", "uv"});
+    std::array<double, 2> uv{};
+    for (const auto* corner : corners) {
+        const auto value = vector<2>(corner->at("uv"));
+        for (unsigned lane = 0; lane < 2; ++lane)
+            uv[lane] += value[lane];
+    }
+    for (auto& lane : uv)
+        lane /= double(corners.size());
+    result["vertex"] = identity;
+    result["uv"] = uv;
+    return result;
+}
 } // namespace
 
 AssetId EditableMeshSource::asset() const { return document.at("asset_id").get<AssetId>(); }
@@ -672,6 +725,135 @@ void EditableMeshSource::triangulate_faces(std::span<const std::uint32_t> faces)
     candidate.document["next_id"] = next;
     candidate.validate();
     *this = std::move(candidate);
+}
+
+std::vector<std::uint32_t>
+EditableMeshSource::split_faces_at_centers(std::span<const std::uint32_t> faces) {
+    require(!faces.empty() && faces.size() <= face_limit,
+            "Mesh center split selection is empty or too large");
+    validate();
+    const std::set<std::uint32_t> selected(faces.begin(), faces.end());
+    require(selected.size() == faces.size(), "Mesh center split contains duplicate faces");
+    std::size_t found = 0, added_faces = 0, corners_total = 0;
+    for (const auto& face : document.at("faces")) {
+        const auto count = face.at("corners").size();
+        const bool split = selected.contains(id(face.at("id")));
+        if (split) {
+            ++found;
+            added_faces += count - 1;
+        }
+        corners_total += split ? count * 3 : count;
+    }
+    require(found == selected.size(), "Selected Mesh face is missing");
+    require(document.at("vertices").size() + found <= vertex_limit &&
+                document.at("faces").size() + added_faces <= face_limit &&
+                corners_total <= corner_limit,
+            "Mesh center split exceeds element limits");
+    auto next = id(document.at("next_id"));
+    require(std::uint64_t(next) + found + added_faces <= std::numeric_limits<std::uint32_t>::max(),
+            "Mesh element identities exhausted");
+    std::map<std::uint32_t, const Json*> vertices;
+    for (const auto& vertex : document.at("vertices"))
+        vertices.emplace(id(vertex.at("id")), &vertex);
+    auto candidate = *this;
+    auto refined = Json::array();
+    std::vector<std::uint32_t> children;
+    for (const auto& face : document.at("faces")) {
+        if (!selected.contains(id(face.at("id")))) {
+            refined.push_back(face);
+            continue;
+        }
+        std::vector<const Json*> points, corners;
+        for (const auto& corner : face.at("corners")) {
+            corners.push_back(&corner);
+            points.push_back(vertices.at(id(corner.at("vertex"))));
+        }
+        const auto center_id = next++;
+        candidate.document["vertices"].push_back(interpolate_vertex(points, center_id));
+        const auto center = interpolate_corner(corners, center_id);
+        for (std::size_t i = 0; i < corners.size(); ++i) {
+            auto child = face;
+            child["id"] = i == 0 ? id(face.at("id")) : next++;
+            child["corners"] =
+                Json::array({*corners[i], *corners[(i + 1) % corners.size()], center});
+            children.push_back(id(child.at("id")));
+            refined.push_back(std::move(child));
+        }
+    }
+    candidate.document["faces"] = std::move(refined);
+    candidate.document["next_id"] = next;
+    (void)candidate.cook();
+    *this = std::move(candidate);
+    return children;
+}
+
+std::vector<std::uint32_t> EditableMeshSource::subdivide() {
+    validate();
+    using Edge = std::pair<std::uint32_t, std::uint32_t>;
+    const auto edge_key = [](std::uint32_t a, std::uint32_t b) -> Edge {
+        return std::minmax(a, b);
+    };
+    std::map<Edge, std::uint32_t> midpoints;
+    std::size_t triangle_count = 0;
+    for (const auto& face : document.at("faces")) {
+        const auto& corners = face.at("corners");
+        for (std::size_t i = 1; i + 1 < corners.size(); ++i) {
+            const std::array ids{id(corners[0].at("vertex")), id(corners[i].at("vertex")),
+                                 id(corners[i + 1].at("vertex"))};
+            for (unsigned edge = 0; edge < 3; ++edge)
+                midpoints.emplace(edge_key(ids[edge], ids[(edge + 1) % 3]), 0);
+            ++triangle_count;
+        }
+    }
+    const auto new_faces = triangle_count * 4;
+    require(document.at("vertices").size() + midpoints.size() <= vertex_limit &&
+                new_faces <= face_limit && new_faces * 3 <= corner_limit,
+            "Mesh subdivision exceeds element limits");
+    auto next = id(document.at("next_id"));
+    require(std::uint64_t(next) + midpoints.size() + new_faces - document.at("faces").size() <=
+                std::numeric_limits<std::uint32_t>::max(),
+            "Mesh element identities exhausted");
+    std::map<std::uint32_t, const Json*> vertices;
+    for (const auto& vertex : document.at("vertices"))
+        vertices.emplace(id(vertex.at("id")), &vertex);
+    auto candidate = *this;
+    for (auto& [edge, midpoint] : midpoints) {
+        midpoint = next++;
+        candidate.document["vertices"].push_back(interpolate_vertex(
+            std::array{vertices.at(edge.first), vertices.at(edge.second)}, midpoint));
+    }
+    auto refined = Json::array();
+    std::vector<std::uint32_t> children;
+    for (const auto& face : document.at("faces")) {
+        const auto& corners = face.at("corners");
+        for (std::size_t i = 1; i + 1 < corners.size(); ++i) {
+            const std::array<const Json*, 3> points{&corners[0], &corners[i], &corners[i + 1]};
+            std::array<Json, 3> middle;
+            for (unsigned edge = 0; edge < 3; ++edge) {
+                const auto* a = points[edge];
+                const auto* b = points[(edge + 1) % 3];
+                middle[edge] = interpolate_corner(
+                    std::array{a, b},
+                    midpoints.at(edge_key(id(a->at("vertex")), id(b->at("vertex")))));
+            }
+            const std::array<Json, 4> triangles{Json::array({*points[0], middle[0], middle[2]}),
+                                                Json::array({middle[0], *points[1], middle[1]}),
+                                                Json::array({middle[2], middle[1], *points[2]}),
+                                                Json::array({middle[0], middle[1], middle[2]})};
+            for (unsigned j = 0; j < triangles.size(); ++j) {
+                auto child = face;
+                child["id"] = i == 1 && j == 0 ? id(face.at("id")) : next++;
+                child["corners"] = triangles[j];
+                children.push_back(id(child.at("id")));
+                refined.push_back(std::move(child));
+            }
+        }
+    }
+    candidate.document["faces"] = std::move(refined);
+    candidate.document["next_id"] = next;
+    (void)candidate.cook();
+    *this = std::move(candidate);
+    return children;
 }
 
 void EditableMeshSource::delete_faces(std::span<const std::uint32_t> faces) {

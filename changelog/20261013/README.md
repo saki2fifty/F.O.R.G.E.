@@ -1,5 +1,12 @@
 # 2026-10-13
 
+## Model topology refinement
+
+- Split selected faces around new center points, or subdivide the whole Mesh into smaller triangles with shared midpoints.
+- Preserve the shape, interpolate UV/color data and use one SourceDoc Undo step; invalid candidates leave the source unchanged.
+- Gallery46 provides original, center-split and subdivided cubes through the existing publication/export pipeline.
+- Windows/GPU and physical acceptance remain pending.
+
 ## Material vector geometry
 
 - Length and Distance support typed scalar/vector/color inputs and scalar outputs.

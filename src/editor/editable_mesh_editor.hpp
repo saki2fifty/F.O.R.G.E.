@@ -873,6 +873,44 @@ class EditableMeshEditor {
         ImGui::EndDisabled();
         ui::help("Keeps positions, colors and corner UVs. Smooth normals are recalculated from the "
                  "new topology.");
+        ImGui::SeparatorText("Refine topology");
+        ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
+                             preview_extrude_);
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || faces_.empty());
+        if (ui::button("Split selected faces at centers",
+                       "Add one center per face and connect its corners as triangles. Keep "
+                       "the perimeter; interpolate UVs/colors and select the new triangles.")) {
+            const auto revision = document_->revision();
+            const std::vector<std::uint32_t> selected{faces_.begin(), faces_.end()};
+            std::vector<std::uint32_t> children;
+            mutate("Split faces at centers",
+                   [&](auto& source) { children = source.split_faces_at_centers(selected); });
+            if (document_->revision() != revision) {
+                faces_ = std::set<std::uint32_t>(children.begin(), children.end());
+                face_ = children.front();
+                reset_uv_scope();
+                reconcile_selection();
+            }
+        }
+        ImGui::EndDisabled();
+        if (ui::button("Subdivide Mesh",
+                       "Split every ordered fan triangle into four with shared edge midpoints. "
+                       "Keep the silhouette and UV seams; select the resulting triangles.")) {
+            const auto revision = document_->revision();
+            std::vector<std::uint32_t> children;
+            mutate("Subdivide Mesh", [&](auto& source) { children = source.subdivide(); });
+            if (document_->revision() != revision) {
+                faces_ = std::set<std::uint32_t>(children.begin(), children.end());
+                face_ = children.front();
+                mode_ = SelectionMode::Face;
+                reset_uv_scope();
+                reconcile_selection();
+            }
+        }
+        ImGui::EndDisabled();
+        ui::help("Refinement adds editable geometry without rounding the shape. Opaque data "
+                 "must agree to interpolate; conflicts and Mesh limits reject the whole edit. "
+                 "Smooth normals recalculate; Save & Publish updates Scene, Play and export.");
         ImGui::SeparatorText("Topology cleanup");
         ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
                              preview_extrude_);

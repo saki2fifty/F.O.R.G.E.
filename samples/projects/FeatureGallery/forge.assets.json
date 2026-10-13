@@ -1063,6 +1063,41 @@
       "type": "model_node"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "17bd4b4e-10db-4553-84ae-4ae961952c45",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "fc5580686852ece0b1941133a417d281d7bcbe558892f1b81d6fd8acf689ff5b",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "31811bc85e44fc40e7bcc7a8d3b21bbb9e9c2895eff121d970a66c98bc6c62f1",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "faec605ad8797fa0e254aa3933d43a6c8e3eb584ec576c2c25908a77e8ae6d57",
+          "source_digest": "2835099094b38e2776e88d5b3d26936ed3ac0d67857c9a06357ecf0091e59c31",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 4204,
+          "file": "mesh.bin",
+          "sha256": "cb12a661d87fd30d25406cefc89d8c7c97ba938bcbe2ce91ca2fb6338c72bbd3",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/ModelRefinement/CenterSplitCube.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
       "dependencies": [
         "43130b86-b8b0-4fb7-b078-0d02ef689644",
         "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
@@ -1385,6 +1420,41 @@
       "source": "Assets/Checker.material.json",
       "source_dependencies": [],
       "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "236a2772-1f94-458c-9ec4-7ede3e79b821",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "cc5c68296e2067f3114883c71d2a3d0c5675d30fe4ba7a7c04e10a20b52a7651",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "8afbb0554ce6ef7095efd157230bf3f9555fd6f2695a62e973ee1fe201cad787",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "d29f7fe849d6e8d5e84c3dbafd7a3d71734f361a00f2b72def0b637e4141e34c",
+          "source_digest": "4bea56bab73253bc48a3315dffe06bd965141c54f2e18b493cf10fcef0a5a45e",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 7806,
+          "file": "mesh.bin",
+          "sha256": "f2591add6fd540f5f3745a8a96ebe02d97e058bffb62b106e76edca8f402b787",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/ModelRefinement/SubdividedCube.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [
@@ -1905,6 +1975,41 @@
       },
       "schema_version": 1,
       "source": "Assets/UvConnected.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "328860f1-4dbe-47fc-9f22-b532760c8ee6",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "afc22cfb44b7de9efcd14a7e27079edb595034e90e70025d37ecce1857367a75",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "4e67e37d027f38afa0abdbc2985684063863cceb30c8866bf5aeaf039232deba",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "ee7517c196eb6bec871251eefae9dc1ec180d329c809b900d976c5d95c07116d",
+          "source_digest": "9f32b481fae9840e263d28deaba35060749841c2c4ffd80d994180935bbe3c47",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1821,
+          "file": "mesh.bin",
+          "sha256": "8ef9769c8f7707c61181f58bba8b1cef0579c69535e6e6891bb3b294c7578b04",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/ModelRefinement/OriginalCube.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
     },
@@ -4496,6 +4601,16 @@
       "source": "Assets/QuaterniusLocomotion.glb",
       "source_dependencies": [],
       "type": "model"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "7e96df5f-8524-4811-baa2-103f4951b6e4",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/46-model-refinement.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
