@@ -32,6 +32,7 @@ class NavigationTools {
             auto record = candidate.publish(scene.effective_document());
             selected_ = record.id;
             metadata_ = record.metadata;
+            validation_at_ = {};
             triangles_ = navigation_triangles(project.project(), {record.id});
             show_ = true;
             message = "Navigation built. Add a Navigation Agent, choose this navmesh and enter its "
@@ -43,7 +44,7 @@ class NavigationTools {
     }
     void content(Scene& scene, SceneDocument& project, bool locked, std::string& message) {
         if (!ImGui::CollapsingHeader("Navigation")) {
-            ui::help("Build and inspect a static navmesh from marked scene primitives.");
+            ui::help("Build and inspect a static navmesh from marked shapes or Mesh entities.");
             return;
         }
         ui::help("Asset publication is separate from scene Undo. Failed or stale builds retain the "
@@ -54,6 +55,7 @@ class NavigationTools {
                 loaded_scene_ = scene.asset_id();
                 settings_ = {};
                 metadata_ = nullptr;
+                validation_at_ = {};
                 selected_ = {};
                 triangles_.clear();
                 auto catalog = AssetCatalog::open_project(project.project());
@@ -116,19 +118,32 @@ class NavigationTools {
         ImGui::TextWrapped(
             "Show the navigation overlay through Scene > View > Navigation overlay.");
         ui::help("Presentation controls live beside the viewport; this section builds the asset.");
-        std::string state = selected_ ? "NavMesh ready" : "No NavMesh built for this scene";
-        if (selected_)
-            try {
-                if (navigation_geometry_digest(scene.effective_document()) !=
-                        metadata_.at("geometry_sha256").get<std::string>() ||
-                    Json(settings_) != metadata_.at("settings"))
-                    state = "Navigation is stale — rebuild before Play";
-            } catch (const std::exception&) {
-                state = "Navigation is stale — check included geometry";
-            }
-        ImGui::TextWrapped("%s", state.c_str());
+        if (validation_at_ == std::chrono::steady_clock::time_point{} ||
+            std::chrono::steady_clock::now() - validation_at_ >= std::chrono::milliseconds(250) ||
+            validated_scene_revision_ != scene.revision() || validated_settings_ != settings_) {
+            validation_at_ = std::chrono::steady_clock::now();
+            validated_scene_revision_ = scene.revision();
+            validated_settings_ = settings_;
+            validation_state_ = selected_ ? "NavMesh ready" : "No NavMesh built for this scene";
+            if (selected_)
+                try {
+                    if (navigation_geometry_digest(project.project(), scene.effective_document(),
+                                                   metadata_) !=
+                            metadata_.at("geometry_sha256").get<std::string>() ||
+                        Json(settings_) != metadata_.at("settings"))
+                        validation_state_ = "Navigation is stale — rebuild before Play";
+                } catch (const std::exception&) {
+                    validation_state_ = "Navigation is stale — check included geometry";
+                }
+        }
+        // Advisory UI status is bounded to four catalog checks/second. Publication
+        // and fixed runtime validation always recheck their exact captured inputs.
+        ImGui::TextWrapped("%s", validation_state_.c_str());
+        FORGE_UI_PROBE("navigation:status:" + validation_state_);
         ui::help("Changes to included geometry or these settings require an explicit rebuild. "
-                 "Dynamic obstacles and crowd avoidance are not supported.");
+                 "Include built-in shapes or static editable/imported Mesh leaf entities. "
+                 "Skinned and morphing geometry, dynamic obstacles and crowd avoidance are not "
+                 "supported.");
     }
     template <class View>
     void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size) const {
@@ -182,5 +197,9 @@ class NavigationTools {
     bool show_ = false;
     std::stop_source cancel_;
     std::future<NavigationCandidate> job_;
+    std::chrono::steady_clock::time_point validation_at_{};
+    std::uint64_t validated_scene_revision_ = 0;
+    NavigationSettings validated_settings_;
+    std::string validation_state_;
 };
 } // namespace forge

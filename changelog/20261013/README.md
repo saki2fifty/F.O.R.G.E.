@@ -1,5 +1,13 @@
 # 2026-10-13
 
+## Static Mesh navigation
+
+- Bake marked editable and imported static triangle Mesh leaf entities through existing cooked selection/resource ownership; reject unsupported deformation and oversized input with diagnostics.
+- Record explicit Nav2 source/mesh revision provenance and typed Build dependencies. Retain selected Nav1 assets and primitive-only headless compositions.
+- Hold navigation Pending while selected CPU data loads; stale or failed replacement stops movement even when last-good bytes remain available. Reuse Mesh leases without per-frame cooked-file decoding.
+- Add original Gallery51 with an editable floor, baked route, obstacle and agent; verify editable/imported runtime routes and relocated source-offline exports.
+- C table/component layouts stay unchanged; the existing SDK fingerprint changes and matching modules require rebuild. Windows/physical acceptance remains pending.
+
 ## Observable navigation agents
 
 - Report Moving, Arrived, Paused, Blocked and Failed separately from route-query success; show readonly progress in Live gameplay Inspector.

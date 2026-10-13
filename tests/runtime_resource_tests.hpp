@@ -6,6 +6,7 @@
 #include "runtime_resource_fixtures.hpp"
 #include <forge/engine_assets.hpp>
 #include <forge/material_source.hpp>
+#include <forge/mesh_resource.hpp>
 #include <forge/runtime_resources.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
@@ -61,6 +62,7 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
     published.save(AssetCatalog::project_index(root));
     const auto saved = published.document();
     std::shared_ptr<RuntimeResourceService> expired;
+    ResourceLease<MeshAsset> expired_mesh;
     ServiceAccess stale;
     {
         EngineContext engine(WorldRole::Runtime, false, {runtime_resources_module(root)});
@@ -86,12 +88,40 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
             }
         };
         const auto mesh = service->request(RuntimeResourceKind::Mesh, engine_primitive(0).id);
+        check(!service->mesh(mesh), "Unadopted request exposed CPU mesh");
         const auto material = service->request(RuntimeResourceKind::Material, asset);
         const auto material2 = service->request(RuntimeResourceKind::Material, asset);
         auto ready = [](const auto& s) {
             return s.state == "ready" && !s.retained_revision.empty();
         };
         wait(mesh, ready);
+        expired_mesh = service->mesh(mesh);
+        const auto mesh2 = service->request(RuntimeResourceKind::Mesh, engine_primitive(0).id);
+        wait(mesh2, ready);
+        check(expired_mesh && &expired_mesh.get() == &service->mesh(mesh2).get(),
+              "Coalesced mesh consumers duplicated physical CPU data");
+        const auto mesh_status = service->inspect(mesh);
+        ecs_readonly_begin(engine.world().world().c_ptr(), false);
+        check(&service->mesh(mesh).get() == &expired_mesh.get() &&
+                  service->inspect(mesh).retained_revision == mesh_status.retained_revision,
+              "Read-only mesh acquisition changed selection");
+        ecs_readonly_end(engine.world().world().c_ptr());
+        check(!service->mesh(material), "Material subscription exposed a mesh lease");
+        service->release(mesh2);
+        reject([&] { service->mesh(mesh2); });
+        check(expired_mesh && !expired_mesh->mesh.lods.empty(),
+              "Releasing one subscription revoked a pinned mesh");
+        check(std::async(std::launch::async,
+                         [&] {
+                             try {
+                                 service->mesh(mesh);
+                             } catch (...) {
+                                 return true;
+                             }
+                             return false;
+                         })
+                  .get(),
+              "Off-thread mesh acquisition accepted");
         const auto first = wait(material, ready);
         const auto shader = service->request(RuntimeResourceKind::Shader, shader_asset);
         wait(shader, ready);
@@ -197,6 +227,9 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
         service->refresh();
     }
     check(!stale.available(Capability::Resources), "Dead world still advertises resources");
+    check(!expired_mesh, "Strong CPU mesh lease survived owner shutdown");
+    reject([&] { expired_mesh.get(); });
+    reject([&] { expired->mesh(1); });
     reject([&] { expired->synchronize(); });
     reject([&] { expired->request(RuntimeResourceKind::Mesh, engine_primitive(0).id); });
     expired.reset();

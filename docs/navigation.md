@@ -10,7 +10,7 @@ Only Recast and Detour are compiled. The upstream integration guide permits dire
 
 ## Authored configuration
 
-`NavigationSurface { enabled }` marks static primitives for inclusion. `NavigationAgent` stores an optional typed NavMesh AssetRef, enabled/destination flags, speed, stopping distance and a world-space destination. Flecs owns both components, their reflection and component/property prefab inheritance. Scene version and persistent identity formats are unchanged. Routes, polygon references and query scratch are never scene or prefab state.
+`NavigationSurface { enabled }` marks static shapes and Mesh leaf entities for inclusion. `NavigationAgent` stores an optional typed NavMesh AssetRef, enabled/destination flags, speed, stopping distance and a world-space destination. Flecs owns both components, their reflection and component/property prefab inheritance. Scene version and persistent identity formats are unchanged. Routes, polygon references and query scratch are never scene or prefab state.
 
 Six settings belong to a scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Successful publication preserves its AssetId and records the settings. There is one navigation asset/profile per scene in this foundation. Multiple profiles later require explicit selection; they do not require replacing AssetId.
 
@@ -18,7 +18,13 @@ Six settings belong to a scene's generated navigation asset: radius, height, cli
 
 The geometry bridge uses actual FORGE CPU primitive triangles and evaluated Phase 3 WorldTransform values. Coordinates are world-anchored, +Y up, in metres; slope uses degrees. Source triangle winding is normalized using primitive normals in a navigation-only copy. Zero-area sphere-pole triangles are omitted. Renderer meshes are unchanged.
 
-No imported mesh pipeline, moving navmesh or runtime regeneration is added. Included geometry must be static and have supported resolved spatial transforms. Geometry changes make the navmesh stale and require an explicit rebuild. Unrelated names, colors and agent positions do not form part of the geometry digest.
+Static editable Mesh assets and imported model Mesh leaf entities are accepted through the existing cooked Mesh resource path. The root Model/group is not itself triangle geometry. Moving navmeshes and runtime regeneration remain unsupported. Included geometry must be static and have supported resolved spatial transforms. Geometry changes make the navmesh stale and require an explicit rebuild. Unrelated names, colors and agent positions do not form part of the geometry digest.
+
+### Static Mesh profile
+
+Bake uses LOD0, all its triangle parts, float3 POSITION and indexed or sequential vertices. Imported winding is preserved; a negative world-transform parity reverses triangle winding in a navigation-only copy. Collapsed/zero-area triangles are skipped. Built-in normal-based winding correction and old v1 hashing are unchanged. Entire Mesh admission observes the bounded profile before geometry extraction; decoded candidates share a64MiB job pool. Model-family/cook admission reuses existing immutable selection validation. An independent build job may use that same bounded ResourcePool loader; live-world runtime data belongs solely to RuntimeResources.
+
+Points/lines, joint/weight streams, prepared joint palettes, morph targets/names and Mesh model-node skin/morph bindings are rejected. This profile conservatively rejects a Mesh with deforming node bindings even if another instance currently appears static. Mark an undeformed static Mesh instead. No source JSON/glTF/FBX parser runs in NavigationRuntime. Scene/ancestor static-physics and spatial-resolution rules apply to every accepted source. An admitted selection has one30-second preparation deadline before the existing30-second native build-worker limit; cancellation is checked between resource waits.
 
 ## Asset publication and admission
 
@@ -31,13 +37,15 @@ No imported mesh pipeline, moving navmesh or runtime regeneration is added. Incl
 
 Errors, cancellation or stale candidates preserve the previous catalog and artifact. The project writer lease applies to editor publication. Asset builds have their own ownership boundary: scene Undo does not undo navmesh builds. Old immutable revisions remain available; this phase does not introduce asset garbage collection.
 
-The FORGENAV v1 envelope records logical asset/source-scene identity, included EntityIds, geometry digest, settings, exact Recast revision, binary-layout/subset marker, bounds and tile digest. The catalog also verifies the entire artifact digest. Checksums establish consistency; they do not replace structural admission.
+The retained FORGENAV v1 envelope records logical asset/source-scene identity, included EntityIds, geometry digest, settings, exact Recast revision, binary-layout/subset marker, bounds and tile digest. New builds use explicit FORGENAV envelope/catalog schema2 and geometry bridge2. They record up to32 unique external Mesh AssetIds and exact immutable pool selection keys, with typed Build dependencies on the source Scene and selected Meshes. Geometry SHA256 hashes ordered source identities, evaluated affines, shape kinds/Mesh IDs and selected revisions. Source names, materials and runtime agent positions are excluded. Mesh bytes are admitted only during bake; runtime compares small descriptors and selection stamps. Selected v1 assets retain their original triangle-based digest and bytes; envelope/catalog versions must agree. Known Mesh provenance cannot be downgraded into v1, and future versions are rejected.
+
+The catalog also verifies the entire artifact digest. Checksums establish consistency; they do not replace structural admission.
 
 Detour's native loader trusts section counts and offsets. FORGE checks sizes, full consumption, finite bounds, counts, vertex/detail indices, convex clockwise polygons, reciprocal neighbors, detail ranges and boundary edges before initializing Detour. Only little-endian, 32-bit polygon references, one static tile, one walkable flag/area, no BV tree, no off-mesh data and fresh zeroed link storage are supported. Arbitrary Detour/sample binaries are rejected. The admitted bytes are copied into Detour-owned memory; assets shared by agents remain immutable.
 
 ## Runtime ownership
 
-`forge.navigation` uses EngineModule lifecycle. Authoring/validation compositions receive schemas; runtime compositions provide a world-scoped Navigation service. No ImGui, renderer or audio device is required. Owner-thread queries return owned FORGE waypoint arrays with explicit success, missing/stale, outside, no-path, partial, invalid, unavailable and limit statuses. Partial paths are diagnosed and not followed. Query scratch is private to the runtime world; immutable meshes are shared within its cache.
+`forge.navigation` uses EngineModule lifecycle. Authoring/validation compositions receive schemas; runtime compositions provide a world-scoped Navigation service. No ImGui, renderer or audio device is required. Primitive-only compositions remain usable without a Resources provider. External Mesh geometry lazily requests builtin CPU Resources after bootstrap and holds world-scoped subscriptions; it never creates a competing runtime mesh pool. A selected Mesh load holds the agent Pending (no sample/tick0); missing providers or failed/stale selection prevents movement. Retaining last-good bytes does not authorize following a NavMesh built against a different selected revision. Provider shutdown revokes CPU leases. Synchronization reads retained data/revisions, without re-decoding cooked Mesh files on each tick. Owner-thread queries return owned FORGE waypoint arrays with explicit success, missing/stale, outside, no-path, partial, invalid, unavailable and limit statuses. Partial paths are diagnosed and not followed. Query scratch is private to the runtime world; immutable meshes are shared within its cache.
 
 The fixed pipeline runs gameplay → navigation → physics synchronization/step/adoption → final transforms. Nonphysics agents move incrementally over the admitted surface. They change LocalTranslation only; inherited rotation and scale remain inherited. PhysicsBody agents are rejected, as are effective spatial chains through moving physics bodies. Structural parenting alone does not determine spatial ancestry; World binding ends traversal. Kinematic targets, Dynamic motion, collision response and character controllers are deferred.
 
@@ -48,6 +56,8 @@ Pause performs no movement; Step advances one fixed tick. Presentation reads do 
 | Resource | Initial bound |
 | --- | --- |
 | Included entities / triangles | 512 / 16,384 |
+| External Mesh inputs / retained CPU data | 32 / 64 MiB |
+| Per-Mesh bake profile | 32 MiB scalars, 65,536 vertices, 49,152 indices, 512 parts, 16 LODs |
 | Geometry coordinate magnitude | 4,090 metres; generated bounds within 4,096 |
 | Horizontal grid | 512 × 512 cells |
 | Vertical voxel span | Less than 8,191 cells |

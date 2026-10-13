@@ -6,7 +6,7 @@
 namespace forge::asset_detail {
 // Prepared from one fully admitted immutable family, with no source parser or
 // graphics device. Physical material ordinals never escape as persistent keys.
-MeshResourceData model_mesh_resource(const ModelSelection&, AssetRef<MeshAsset>);
+MeshResourceData model_mesh_resource(const ModelSelection&, AssetRef<MeshAsset>, MeshLimits = {});
 MaterialResourceData model_material_resource(const ModelSelection&, AssetRef<MaterialAsset>,
                                              const MaterialLayout&);
 MaterialResourceData model_pbr_material_resource(const ModelSelection&, AssetRef<MaterialAsset>);
@@ -21,7 +21,10 @@ ResourceTicket request_texture(ResourcePool<TextureAsset>&, std::filesystem::pat
 // Request metadata comes from a copied catalog selection; worker preparation
 // verifies that exact family before the existing pool's owner-thread adoption.
 ResourceTicket request_model_mesh(ResourcePool<MeshAsset>&, std::filesystem::path project,
-                                  std::shared_ptr<const AssetCatalog>, AssetRef<MeshAsset>);
+                                  std::shared_ptr<const AssetCatalog>, AssetRef<MeshAsset>,
+                                  MeshLimits = {});
+// Exact immutable pool selection key, with the same catalog admission as a request.
+std::string selected_mesh_revision(const AssetCatalog&, AssetRef<MeshAsset>);
 ResourceTicket request_model_material(ResourcePool<MaterialAsset>&, std::filesystem::path project,
                                       std::shared_ptr<const AssetCatalog>, AssetRef<MaterialAsset>,
                                       MaterialLayout);

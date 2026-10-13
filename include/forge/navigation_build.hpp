@@ -14,6 +14,10 @@ void from_json(const nlohmann::json&, NavigationSettings&);
 void validate_navigation_settings(const NavigationSettings&);
 // Evaluated scene snapshot only. Authored components remain the source of truth.
 std::string navigation_geometry_digest(const nlohmann::json& effective_scene);
+// Version-aware provenance check; v2 reads selection metadata only, never mesh bytes.
+std::string navigation_geometry_digest(const std::filesystem::path& project,
+                                       const nlohmann::json& effective_scene,
+                                       const nlohmann::json& baked_metadata);
 class NavigationCandidate {
   public:
     NavigationCandidate(NavigationCandidate&&) noexcept;

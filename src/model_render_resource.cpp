@@ -45,11 +45,12 @@ ModelSelection load_selected(const std::filesystem::path& project, const AssetCa
     return result;
 }
 } // namespace
-MeshResourceData model_mesh_resource(const ModelSelection& selected, AssetRef<MeshAsset> mesh) {
+MeshResourceData model_mesh_resource(const ModelSelection& selected, AssetRef<MeshAsset> mesh,
+                                     MeshLimits limits) {
     const auto& member = selected.member(mesh.id);
     require(member.identity.type == MeshAsset::type, "Selected resource is not a mesh");
     MeshResourceData result;
-    result.mesh = decode_mesh(selected.bytes(member));
+    result.mesh = decode_mesh(selected.bytes(member), limits);
     if (selected.index.version >= 3) {
         MeshModelBindings bindings{selected.owner, selected.revision, {}, {}};
         std::map<std::size_t, AssetId> node_assets;
@@ -253,14 +254,11 @@ ResourceTicket request_texture(ResourcePool<TextureAsset>& pool, std::filesystem
         },
         {}, 0, variant);
 }
-ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem::path project,
-                                  std::shared_ptr<const AssetCatalog> catalog,
-                                  AssetRef<MeshAsset> mesh) {
+std::string selected_mesh_revision(const AssetCatalog& catalog, AssetRef<MeshAsset> mesh) {
     if (engine_asset(mesh.id))
-        return request_engine_mesh(pool, mesh);
-    require(bool(catalog), "Model mesh requires a selected catalog");
-    const auto found = catalog->records().find(mesh.id);
-    if (found != catalog->records().end() && found->second.type == MeshAsset::type &&
+        return engine_asset_revision(mesh.id);
+    const auto found = catalog.records().find(mesh.id);
+    if (found != catalog.records().end() && found->second.type == MeshAsset::type &&
         !found->second.subasset) {
         const auto& record = found->second;
         require(record.metadata.contains("forge.mesh"),
@@ -272,12 +270,30 @@ ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem
                     imported.at("output_version") == 1 && authored.at("version") == 1 &&
                     authored.at("file") == "mesh.bin",
                 "Editable Mesh publication version is incompatible");
-        const auto key = imported.at("key").get<std::string>();
+        require(imported.at("generation").is_number_unsigned() &&
+                    imported.at("generation").get<std::uint64_t>() > 0,
+                "Invalid editable Mesh publication generation");
+        return imported.at("key").get<std::string>();
+    }
+    return selected_member(catalog, mesh.id, MeshAsset::type).revision;
+}
+ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem::path project,
+                                  std::shared_ptr<const AssetCatalog> catalog,
+                                  AssetRef<MeshAsset> mesh, MeshLimits limits) {
+    if (engine_asset(mesh.id))
+        return request_engine_mesh(pool, mesh);
+    require(bool(catalog), "Model mesh requires a selected catalog");
+    const auto found = catalog->records().find(mesh.id);
+    if (found != catalog->records().end() && found->second.type == MeshAsset::type &&
+        !found->second.subasset) {
+        const auto& record = found->second;
+        const auto key = selected_mesh_revision(*catalog, mesh);
+        const auto& imported = record.metadata.at("forge.import");
         const auto generation = imported.at("generation").get<std::uint64_t>();
         return pool.request(
             mesh, key, generation,
-            [project = std::move(project), catalog = std::move(catalog), mesh,
-             key](std::stop_token stop) {
+            [project = std::move(project), catalog = std::move(catalog), mesh, key,
+             limits](std::stop_token stop) {
                 require(!stop.stop_requested(), "Editable Mesh load cancelled");
                 const auto& selected = catalog->records().at(mesh.id);
                 const auto& imported = selected.metadata.at("forge.import");
@@ -292,11 +308,11 @@ ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem
                                 candidate.manifest.at("inputs").at("source") ==
                                     imported.at("source_digest"),
                             "Editable Mesh artifact/catalog revision mismatch");
-                    (void)decode_mesh(candidate.files[0].bytes);
+                    (void)decode_mesh(candidate.files[0].bytes, limits);
                 });
                 require(!stop.stop_requested(), "Editable Mesh load cancelled");
                 auto value = std::make_unique<MeshResourceData>();
-                value->mesh = decode_mesh(artifact.files[0].bytes);
+                value->mesh = decode_mesh(artifact.files[0].bytes, limits);
                 value->materials.push_back({0, "default", {}});
                 validate_mesh_material_bindings(*value);
                 const auto bytes = value->resident_bytes();
@@ -305,11 +321,11 @@ ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem
     }
     const auto selected = selected_member(*catalog, mesh.id, MeshAsset::type);
     return pool.request(mesh, selected.revision, selected.generation,
-                        [project = std::move(project), catalog = std::move(catalog), selected,
-                         mesh](std::stop_token stop) {
+                        [project = std::move(project), catalog = std::move(catalog), selected, mesh,
+                         limits](std::stop_token stop) {
                             const auto family = load_selected(project, *catalog, selected, stop);
                             auto data = std::make_unique<MeshResourceData>(
-                                model_mesh_resource(family, mesh));
+                                model_mesh_resource(family, mesh, limits));
                             require(!stop.stop_requested(), "Model mesh preparation cancelled");
                             const auto bytes = data->resident_bytes();
                             return ResourceCandidate<MeshAsset>{std::move(data), {bytes}};

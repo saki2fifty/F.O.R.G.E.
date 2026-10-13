@@ -2,8 +2,10 @@
 #include <forge/navigation.hpp>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
+#include <forge/runtime_resources.hpp>
 #include <fstream>
 #include <iostream>
+#include <thread>
 using namespace forge;
 namespace {
 void check(bool ok, const char* why) {
@@ -16,8 +18,11 @@ Json read(const std::filesystem::path& path) {
     return value;
 }
 void exercise(const std::filesystem::path& root, const Json& source,
-              const std::filesystem::path& saved_path) {
-    EngineContext engine(WorldRole::Runtime, false, {navigation_module(root)});
+              const std::filesystem::path& saved_path, bool cooked) {
+    auto modules = std::vector<EngineModule>{navigation_module(root)};
+    if (cooked)
+        modules.push_back(runtime_resources_module(root));
+    EngineContext engine(WorldRole::Runtime, false, std::move(modules));
     Scene scene(engine.world());
     scene.restore_snapshot(source);
     RuntimeSimulation simulation(engine.world(), scene);
@@ -31,6 +36,20 @@ void exercise(const std::filesystem::path& root, const Json& source,
     const auto saved = read(root / saved_path);
     check(navigation->agent_state(reference)->phase == NavigationAgentPhase::Pending,
           "Gallery50 started with an old sample");
+    if (cooked) {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        for (;;) {
+            engine.services().resources()->synchronize();
+            const auto path = navigation->find_path(agent.get<NavigationAgent>().navmesh,
+                                                    {-8, .1, 0}, {8, .1, 0});
+            if (path.status == NavStatus::Success)
+                break;
+            check(path.status == NavStatus::Unavailable,
+                  "Cooked Gallery navigation failed admission");
+            check(std::chrono::steady_clock::now() < deadline, "Gallery Mesh load timed out");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
     bool around = false;
     for (unsigned tick = 1; tick <= 660; ++tick) {
         simulation.tick(1.f / 60);
@@ -69,13 +88,17 @@ void exercise(const std::filesystem::path& root, const Json& source,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need Gallery project and scratch root");
+        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--static-mesh"),
+              "Need Gallery project and scratch root");
+        const bool cooked = argc == 4;
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        const auto scene_path = std::filesystem::path("Scenes/50-navigation-progress.scene.json");
+        const auto scene_path =
+            std::filesystem::path(cooked ? "Scenes/51-static-mesh-navigation.scene.json"
+                                         : "Scenes/50-navigation-progress.scene.json");
         const auto source = read(root / scene_path);
-        exercise(root, source, scene_path);
+        exercise(root, source, scene_path, cooked);
         const auto game = root.string() + "-game";
         const auto moved = game + "-relocated";
         const std::array roots{source.at("asset_id").get<AssetId>()};
@@ -84,10 +107,10 @@ int main(int argc, char** argv) {
         const auto hidden = root.string() + "-source-offline";
         std::filesystem::rename(root, hidden);
         const auto catalog = open_runtime_content(moved, {"windows", "d3d12"});
-        check(catalog.records().size() == 2,
+        check(catalog.records().size() == (cooked ? 3u : 2u),
               "Gallery50 export retained unrelated content or lost navmesh");
         const auto shipped_path = catalog.records().at(roots[0]).source;
-        exercise(moved, read(std::filesystem::path(moved) / shipped_path), shipped_path);
+        exercise(moved, read(std::filesystem::path(moved) / shipped_path), shipped_path, cooked);
         std::filesystem::remove_all(hidden);
         std::filesystem::remove_all(moved);
         std::cout << "Gallery50 actual navigation observations, obstacle/arrival, render and "

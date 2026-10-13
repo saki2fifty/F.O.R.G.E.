@@ -37,8 +37,10 @@ Json scene(bool obstacle = true) {
         add(0, {0, 2, 0}, {2, 4, 4});
     return doc;
 }
+#include "navigation_static_mesh_tests.hpp"
 int main() {
     try {
+        static_mesh_geometry_tests();
         for (const auto scale : {LocalScale{-20, 1, 20}, LocalScale{20, 0, 20}}) {
             auto signed_floor = scene(false);
             signed_floor["entities"][0]["world_affine"] = affine_transform({{}, {}, scale}).m;

@@ -32,7 +32,9 @@ bool digest(const std::string& s) {
 std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> tile) {
     validate_tile(tile);
     meta["bounds"] = tile_properties(tile);
-    meta["version"] = 1;
+    const unsigned version = meta.value("version", 1u);
+    require(version == 1 || version == 2, "Unsupported navigation envelope version");
+    meta["version"] = version;
     meta["recast_revision"] = recast_revision;
     meta["layout"] = "le-polyref32-detour7-static-single-v1";
     meta["tile_sha256"] = asset_detail::content_digest(tile);
@@ -41,7 +43,7 @@ std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> 
     std::vector<std::byte> out;
     for (char c : magic)
         out.push_back(std::byte(c));
-    u32(out, 1);
+    u32(out, version);
     u32(out, unsigned(text.size()));
     u32(out, unsigned(tile.size()));
     auto b = std::as_bytes(std::span(text));
@@ -54,7 +56,7 @@ Admitted admit(std::span<const std::byte> bytes) {
             "Invalid navigation envelope size");
     require(std::equal(magic.begin(), magic.end(), bytes.begin(),
                        [](char a, std::byte b) { return a == std::to_integer<char>(b); }) &&
-                u32(bytes, 8) == 1,
+                (u32(bytes, 8) == 1 || u32(bytes, 8) == 2),
             "Unsupported navigation envelope");
     const auto n = u32(bytes, 12), t = u32(bytes, 16);
     require(n > 0 && n <= 65536 && t > 0 && t <= max_nav_bytes &&
@@ -67,7 +69,7 @@ Admitted admit(std::span<const std::byte> bytes) {
                                       throw std::runtime_error("Navigation metadata nesting limit");
                                   return true;
                               });
-    require(meta.is_object() && meta.at("version") == 1 &&
+    require(meta.is_object() && meta.at("version") == u32(bytes, 8) &&
                 meta.at("recast_revision") == recast_revision &&
                 meta.at("layout") == "le-polyref32-detour7-static-single-v1",
             "Incompatible navigation build provenance");
@@ -82,6 +84,21 @@ Admitted admit(std::span<const std::byte> bytes) {
     std::set<EntityId> unique;
     for (const auto& id : ids)
         require(unique.insert(id.get<EntityId>()).second, "Repeated navigation source identity");
+    if (meta.at("version") == 1) {
+        require(!meta.contains("geometry_version") && !meta.contains("mesh_inputs"),
+                "Mesh provenance cannot be downgraded to navigation v1");
+    } else {
+        require(meta.at("geometry_version") == 2, "Unsupported navigation geometry version");
+        const auto& inputs = meta.at("mesh_inputs");
+        require(inputs.is_array() && inputs.size() <= 32, "Navigation Mesh input limit");
+        std::set<AssetId> meshes;
+        for (const auto& input : inputs) {
+            require(input.is_object() && input.size() == 2 &&
+                        meshes.insert(input.at("asset_id").get<AssetId>()).second &&
+                        digest(input.at("revision").get<std::string>()),
+                    "Invalid or repeated navigation Mesh provenance");
+        }
+    }
     auto tile = bytes.subspan(20 + n, t);
     require(meta.at("tile_sha256").get<std::string>() == asset_detail::content_digest(tile),
             "Navigation tile digest mismatch");
@@ -98,13 +115,16 @@ Admitted admit(std::span<const std::byte> bytes) {
     return {std::move(meta), std::move(mesh)};
 }
 Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
-    require(record.type == NavMeshAsset::type && record.schema_version == 1,
+    require(record.type == NavMeshAsset::type &&
+                (record.schema_version == 1 || record.schema_version == 2),
             "Wrong navigation asset type/version");
     auto bytes =
         asset_detail::read_bytes(ProjectPaths(root).resolve(record.source), max_nav_bytes + 65556);
     require(record.metadata.at("sha256").get<std::string>() == asset_detail::content_digest(bytes),
             "Navigation asset digest mismatch");
     auto loaded = admit(bytes);
+    require(record.schema_version == loaded.metadata.at("version"),
+            "Navigation schema/envelope version mismatch");
     require(loaded.metadata.at("asset_id").get<AssetId>() == record.id,
             "Navigation asset identity mismatch");
     auto expected = record.metadata;

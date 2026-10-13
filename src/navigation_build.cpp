@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "asset_worker.hpp"
+#include "model_render_resource.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_geometry.hpp"
 #include <forge/assets.hpp>
@@ -52,8 +53,31 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                                        const std::filesystem::path& worker,
                                        std::stop_token cancel) {
     validate_navigation_settings(settings);
-    auto g = geometry(doc);
     auto c = std::make_unique<NavigationCandidate::Impl>(project);
+    const auto source = capture(doc);
+    const auto catalog = std::make_shared<const AssetCatalog>(c->catalog);
+    const auto inputs = mesh_inputs(
+        source, [&](AssetId id) { return asset_detail::selected_mesh_revision(*catalog, {id}); });
+    ResourcePool<MeshAsset> meshes({1, max_mesh_inputs, max_mesh_inputs, mesh_bytes});
+    std::map<AssetId, ResourceLease<MeshAsset>> selected;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    for (auto id : source.meshes) {
+        auto ticket = asset_detail::request_model_mesh(meshes, c->root, catalog, {id}, mesh_limits);
+        while (!cancel.stop_requested() && std::chrono::steady_clock::now() < deadline) {
+            if (meshes.wait(ticket, std::chrono::milliseconds(10)))
+                break;
+            if (ticket.inspect().state == ResourceState::Failed)
+                throw std::runtime_error(ticket.inspect().diagnostic);
+        }
+        if (cancel.stop_requested())
+            throw std::runtime_error("Navigation build cancelled");
+        auto lease = meshes.acquire(ticket);
+        if (!lease)
+            throw std::runtime_error("Navigation Mesh admission timed out");
+        selected.emplace(id, std::move(lease));
+    }
+    auto g = geometry(source, inputs,
+                      [&](AssetId id) -> const MeshResourceData& { return selected.at(id).get(); });
     c->geometry_digest = g.digest;
     auto id = AssetId::generate();
     bool found = false;
@@ -67,6 +91,9 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
             found = true;
         }
     Json meta = {{"asset_id", id},
+                 {"version", 2},
+                 {"geometry_version", 2},
+                 {"mesh_inputs", inputs},
                  {"source_scene", g.scene},
                  {"sources", g.sources},
                  {"geometry_sha256", g.digest},
@@ -104,12 +131,18 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                  NavMeshAsset::type,
                  std::filesystem::path("Assets/Navigation/Generated") / id.str() /
                      (AssetId::generate().str() + ".fnav"),
-                 1,
+                 2,
                  {g.scene},
                  admitted.metadata};
     c->record.metadata["sha256"] = content_digest(data);
     c->record.dependency_edges = {
         {g.scene, "scene", AssetDependencyKind::Build, "navigation.scene", g.digest}};
+    for (const auto& input : inputs) {
+        const auto mesh = input.at("asset_id").get<AssetId>();
+        c->record.dependencies.push_back(mesh);
+        c->record.dependency_edges.push_back({mesh, MeshAsset::type, AssetDependencyKind::Build,
+                                              "navigation.mesh", input.at("revision")});
+    }
     if (cancel.stop_requested())
         throw std::runtime_error("Navigation build cancelled");
     return NavigationCandidate(std::move(c));
@@ -120,7 +153,7 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     auto& c = *impl_;
     auto index = AssetCatalog::project_index(c.root);
     if (index_digest(index) != c.baseline ||
-        navigation_geometry_digest(current) != c.geometry_digest)
+        navigation_geometry_digest(c.root, current, c.record.metadata) != c.geometry_digest)
         throw std::runtime_error("Navigation source/catalog changed; candidate discarded");
     auto data = read_bytes(c.staging / "navigation.fnav", max_nav_bytes + 65556);
     if (content_digest(data) != c.record.metadata.at("sha256").get<std::string>())
@@ -145,5 +178,17 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     }
     c.published = true;
     return c.record;
+}
+std::string navigation_geometry_digest(const std::filesystem::path& project, const Json& doc,
+                                       const Json& meta) {
+    if (meta.at("version") == 1)
+        return navigation_geometry_digest(doc);
+    if (meta.at("version") != 2 || meta.at("geometry_version") != 2)
+        throw std::runtime_error("Unsupported navigation geometry provenance version");
+    auto source = capture(doc);
+    auto catalog = AssetCatalog::open_project(project);
+    auto inputs = mesh_inputs(
+        source, [&](AssetId id) { return asset_detail::selected_mesh_revision(catalog, {id}); });
+    return source_digest(source, inputs);
 }
 } // namespace forge

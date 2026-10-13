@@ -65,9 +65,25 @@ struct NavigationRuntime::Impl {
     std::uint64_t tick = 0;
     bool agent_limit = false;
     std::string geometry_digest, geometry_error;
+    std::string geometry_v2;
+    NavStatus geometry_status = NavStatus::Stale;
+    bool geometry_loading = false;
+    std::weak_ptr<RuntimeResourceService> mesh_owner;
+    std::map<AssetId, std::uint64_t> mesh_tokens;
     flecs::query<const NavigationSurface> surfaces;
     Impl(WorldContext& c, std::filesystem::path p)
         : context(c), project(std::move(p)), surfaces(c.world().query<const NavigationSurface>()) {}
+    void release_meshes() noexcept {
+        if (auto resources = mesh_owner.lock())
+            for (const auto& [id, token] : mesh_tokens)
+                try {
+                    resources->release(token);
+                } catch (...) { /* provider may already be retired */
+                }
+        mesh_tokens.clear();
+        mesh_owner.reset();
+    }
+    ~Impl() { release_meshes(); }
     void check() const {
         if (owner != std::this_thread::get_id() || !scene)
             throw NavigationFailure(NavStatus::Unavailable,
@@ -115,11 +131,15 @@ struct NavigationRuntime::Impl {
         if (value.data.metadata.at("source_scene").get<AssetId>() != scene->asset_id())
             throw NavigationFailure(NavStatus::Invalid,
                                     "NavMesh was built for another scene asset");
-        if (!geometry_error.empty())
-            throw NavigationFailure(NavStatus::Stale, geometry_error);
-        if (geometry_digest != value.data.metadata.at("geometry_sha256").get<std::string>())
+        const auto& digest = value.data.metadata.at("version") == 1 ? geometry_digest : geometry_v2;
+        if (!digest.empty() &&
+            digest != value.data.metadata.at("geometry_sha256").get<std::string>())
             throw NavigationFailure(
                 NavStatus::Stale, "Navigation geometry changed; stop Play and rebuild navigation");
+        if (!geometry_error.empty())
+            throw NavigationFailure(geometry_status, geometry_error);
+        if (digest.empty())
+            throw NavigationFailure(NavStatus::Stale, "Navigation geometry provenance unavailable");
         return value;
     }
     void valid_agent(flecs::entity e, const NavigationAgent& a,
@@ -166,6 +186,7 @@ void NavigationRuntime::bind(Scene* scene) {
         impl_->agents.clear();
         impl_->errors.clear();
         impl_->agent_limit = false;
+        impl_->release_meshes();
     }
 }
 void NavigationRuntime::synchronize() {
@@ -181,12 +202,77 @@ void NavigationRuntime::synchronize() {
     bool has_surface = false;
     s.surfaces.each([&](const NavigationSurface& surface) { has_surface |= surface.enabled; });
     if (!has_surface) {
+        s.release_meshes();
         s.geometry_digest.clear();
+        s.geometry_v2.clear();
+        s.geometry_status = NavStatus::Stale;
+        s.geometry_loading = false;
         s.geometry_error = "No enabled NavigationSurface geometry";
         return;
     }
+    const auto previous_legacy = std::move(s.geometry_digest);
+    const auto previous_sources = std::move(s.geometry_v2);
+    s.geometry_digest.clear();
+    s.geometry_v2.clear();
+    s.geometry_loading = false;
+    s.geometry_status = NavStatus::Stale;
     try {
-        s.geometry_digest = navigation_geometry_digest(s.scene->effective_document());
+        const auto doc = s.scene->effective_document();
+        const auto source = capture(doc);
+        std::shared_ptr<RuntimeResourceService> resources;
+        if (!source.meshes.empty()) {
+            if (!s.context.services().available(Capability::Resources)) {
+                s.release_meshes();
+                s.geometry_status = NavStatus::Unavailable;
+                throw std::runtime_error("Static Mesh navigation requires runtime CPU Resources");
+            }
+            resources = s.context.services().resources();
+            if (s.mesh_owner.lock() != resources) {
+                s.release_meshes();
+                s.mesh_owner = resources;
+            }
+        }
+        for (auto it = s.mesh_tokens.begin(); it != s.mesh_tokens.end();) {
+            if (!source.meshes.contains(it->first)) {
+                if (auto owner = s.mesh_owner.lock())
+                    owner->release(it->second);
+                it = s.mesh_tokens.erase(it);
+            } else
+                ++it;
+        }
+        for (auto id : source.meshes)
+            if (!s.mesh_tokens.contains(id))
+                s.mesh_tokens.emplace(id, resources->request(RuntimeResourceKind::Mesh, id));
+        bool ready = true;
+        std::uint64_t retained_bytes = 0;
+        const auto inputs = mesh_inputs(source, [&](AssetId id) {
+            const auto token = s.mesh_tokens.at(id);
+            const auto status = resources->inspect(token);
+            if (status.requested_revision.empty())
+                throw std::runtime_error(status.diagnostic);
+            const auto lease = resources->mesh(token);
+            if (status.state == "failed")
+                throw std::runtime_error("Navigation Mesh admission failed: " + status.diagnostic);
+            ready &= status.state == "ready" && lease &&
+                     status.retained_revision == status.requested_revision;
+            if (lease)
+                retained_bytes += lease->resident_bytes();
+            return status.requested_revision;
+        });
+        if (retained_bytes > mesh_bytes) {
+            s.geometry_status = NavStatus::Limit;
+            throw std::runtime_error("Navigation Mesh inputs exceed 64 MiB retained CPU data");
+        }
+        s.geometry_v2 = source_digest(source, inputs);
+        if (source.meshes.empty())
+            s.geometry_digest = !previous_legacy.empty() && previous_sources == s.geometry_v2
+                                    ? previous_legacy
+                                    : navigation_geometry_digest(doc);
+        if (!ready) {
+            s.geometry_loading = true;
+            s.geometry_status = NavStatus::Unavailable;
+            throw std::runtime_error("Waiting for selected navigation Mesh resources");
+        }
         s.geometry_error.clear();
     } catch (const std::exception& e) {
         s.geometry_digest.clear();
@@ -349,11 +435,15 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
             state = {};
             state.config = a;
             const auto* failure = dynamic_cast<const NavigationFailure*>(&error);
-            state.observation.phase = NavigationAgentPhase::Failed;
+            const bool pending =
+                s.geometry_loading && failure && failure->status == NavStatus::Unavailable;
+            state.observation.phase =
+                pending ? NavigationAgentPhase::Pending : NavigationAgentPhase::Failed;
             state.observation.status = failure ? failure->status : NavStatus::Invalid;
-            state.observation.tick = tick;
+            state.observation.tick = pending ? 0 : tick;
             // A failed movement tick has no valid path/pose/velocity sample.
-            s.diagnostic(id, a.navmesh.id, error.what());
+            if (!pending)
+                s.diagnostic(id, a.navmesh.id, error.what());
         }
     }
 }
@@ -512,7 +602,7 @@ EngineModule navigation_module(std::filesystem::path project) {
     auto m = navigation_schema_module();
     m.runtime_roles = role_mask(WorldRole::Runtime);
     m.allowed_services = capability(Capability::Diagnostics) | capability(Capability::Profiling) |
-                         capability(Capability::Navigation);
+                         capability(Capability::Navigation) | capability(Capability::Resources);
     m.provided_services = capability(Capability::Navigation);
     m.start = [project = std::move(project)](ModuleContext& c) {
         auto runtime = std::make_shared<NavigationRuntime>(*c.owner, project);

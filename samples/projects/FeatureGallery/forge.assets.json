@@ -1238,6 +1238,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "1f75e68f-4b9b-448a-a95d-d6f53dace02d",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/51-static-mesh-navigation.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
       "metadata": {
         "forge.import": {
@@ -5125,6 +5135,78 @@
       "type": "animation_clip"
     },
     {
+      "dependencies": [
+        "1f75e68f-4b9b-448a-a95d-d6f53dace02d",
+        "ec619df3-56ca-414a-9b5b-6b0405b8e740"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "0467ec1f74bb663e3c00d6f1c9cdcbb81f2fba4291ac37a6fe2e189343fd655e",
+          "role": "navigation.scene",
+          "target": "1f75e68f-4b9b-448a-a95d-d6f53dace02d",
+          "type": "scene"
+        },
+        {
+          "kind": "build",
+          "revision": "e95a4b736b0c5658a87db3c77f4122b3670c1394e69a9b33cc74361edccbd021",
+          "role": "navigation.mesh",
+          "target": "ec619df3-56ca-414a-9b5b-6b0405b8e740",
+          "type": "mesh"
+        }
+      ],
+      "id": "882016a8-72e2-4df2-b9b8-7753c417a5aa",
+      "metadata": {
+        "asset_id": "882016a8-72e2-4df2-b9b8-7753c417a5aa",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            10.0,
+            8.100000381469727,
+            10.0
+          ],
+          "minimum": [
+            -10.0,
+            -0.6000000238418579,
+            -10.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "0467ec1f74bb663e3c00d6f1c9cdcbb81f2fba4291ac37a6fe2e189343fd655e",
+        "geometry_version": 2,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [
+          {
+            "asset_id": "ec619df3-56ca-414a-9b5b-6b0405b8e740",
+            "revision": "e95a4b736b0c5658a87db3c77f4122b3670c1394e69a9b33cc74361edccbd021"
+          }
+        ],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "6b283ea6081d330b083daf64fd9c77fe4da51dce5f68d5a8e3f5d4faed41aa61",
+        "source_scene": "1f75e68f-4b9b-448a-a95d-d6f53dace02d",
+        "sources": [
+          "0397fd7d-c241-471d-a321-2e60c44ea799",
+          "237a496d-2b71-44eb-acaf-d1bfa9b5c9a4"
+        ],
+        "tile_sha256": "757db4631fc1b7cdcf44c8a0836a9551b179f37091ba0fc5bcf91defcf3d1ddd",
+        "version": 2
+      },
+      "schema_version": 2,
+      "source": "Assets/Navigation/Generated/882016a8-72e2-4df2-b9b8-7753c417a5aa/7212f167-b3c0-45d1-a727-0e8f1492c016.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "8bf8bbf3-6c13-42c4-b376-48ddc8eccbed",
@@ -7394,6 +7476,41 @@
       "source": "Assets/AnimationTiming/RetimedTiming.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "ec619df3-56ca-414a-9b5b-6b0405b8e740",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "e656127ecee522a87fa02b88c956fae246adcae8a44a59f1cec8a44368487b7a",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.mesh.editable",
+          "importer_revision": "forge.mesh.editable.v1",
+          "key": "e95a4b736b0c5658a87db3c77f4122b3670c1394e69a9b33cc74361edccbd021",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "87982555003dfa44f0075c94fc8192f5ebbedb9cde5aeae89bc8b2c8cff4c0cc",
+          "source_digest": "3e12da082274b9a97c5f495f863063f066e3e0040074cca41a6ed713b39c9693",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 1361,
+          "file": "mesh.bin",
+          "sha256": "325766735bfef900779aecff1df762a2d09048258ac68d2fd326b28154e9238c",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/NavigationFloor.mesh.json",
+      "source_dependencies": [],
+      "type": "mesh"
     },
     {
       "dependencies": [

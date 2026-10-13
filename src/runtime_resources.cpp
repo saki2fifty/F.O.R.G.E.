@@ -203,6 +203,16 @@ class RuntimeResources final : public RuntimeResourceService {
         }
         return result;
     }
+    ResourceLease<MeshAsset> mesh(std::uint64_t token) const override {
+        check();
+        const auto found = subscriptions_.find(token);
+        if (found == subscriptions_.end())
+            throw std::runtime_error("Unknown or released runtime resource subscription");
+        if (found->second.kind != RuntimeResourceKind::Mesh)
+            return {};
+        const auto* lease = std::get_if<ResourceLease<MeshAsset>>(&found->second.retained);
+        return lease && *lease ? *lease : ResourceLease<MeshAsset>{};
+    }
     bool release(std::uint64_t token) override {
         check();
         // Release only this observer. Shared preparation/other leases remain valid.

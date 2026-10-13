@@ -12,7 +12,11 @@ This is basic path following. Agents do not avoid each other or react to moving 
 4. You can add a second obstacle elsewhere on the floor. Mark every shape that should affect the route.
 5. Save the scene.
 
-Only marked built-in shapes contribute, including their Mesh Renderer representation and legacy Primitive scenes. Imported arbitrary mesh geometry is not accepted by this navigation profile. Unmarked objects are invisible to the navigation build. Keep included geometry static.
+Marked built-in shapes, editable Mesh assets, and static imported Mesh entities contribute. For an imported Model, select its child entity that has a **Mesh Renderer**, then add **Navigation Surface**. Marking only its group/root does not include its children automatically. Unmarked objects are invisible to the build. Keep marked geometry static.
+
+Skinned characters, morphing meshes, points and lines cannot be baked. The build uses the Mesh's first level of detail and all its triangle parts. The small-scene profile supports up to32 external Mesh assets and16,384 included triangles; an oversized/unsupported Mesh gives a diagnostic and preserves the previous NavMesh. After editing or reimporting a marked Mesh, rebuild that Mesh through its normal Content workflow, then rebuild navigation. Saving its source alone does not change the selected cooked revision.
+
+Open **51-static-mesh-navigation** in Feature Gallery for a saved editable Mesh floor, static obstacle and ready-built route. Play, select the agent, and inspect **Live gameplay → Navigation progress**. You can export this scene without sending its editable Mesh source or a navigation build worker. Scene50 continues to demonstrate built-in shapes and retained older navigation assets.
 
 ## Build the NavMesh
 

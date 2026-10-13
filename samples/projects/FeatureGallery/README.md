@@ -1,5 +1,11 @@
 # FORGE Feature Gallery
 
+## Navigation on a static Mesh
+
+Open **51-static-mesh-navigation**. Press Play and select **Agent - inspect progress during Play** to see the route around the obstacle and its progress in Live gameplay. The floor uses the original editable **NavigationFloor.mesh.json** asset, rather than a built-in Plane. Its cooked Mesh and built NavMesh are saved with the Gallery.
+
+Stop Play before editing the floor. Rebuild the Mesh through Content, then rebuild its NavMesh through the Navigation controls. A changed selected Mesh makes the previous route stale. Static imported Model Mesh children use the same workflow; skinned/morphing characters, dynamic obstacles and crowd avoidance are unsupported. Export carries selected cooked data; it does not need the editable source or a runtime navigation build worker.
+
 ## Navigation progress
 
 Open **50-navigation-progress**. Select **Agent - inspect progress during Play**

@@ -79,7 +79,8 @@ std::string revision(const AssetRecord& record) {
                 "Invalid authored runtime document revision");
         return key;
     }
-    if (record.type == NavMeshAsset::type && record.schema_version == 1 && !record.subasset) {
+    if (record.type == NavMeshAsset::type &&
+        (record.schema_version == 1 || record.schema_version == 2) && !record.subasset) {
         const auto key = record.metadata.at("sha256").get<std::string>();
         require(valid_content_digest(key), "Invalid navigation artifact revision");
         return key;

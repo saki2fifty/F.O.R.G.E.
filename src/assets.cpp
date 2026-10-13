@@ -358,7 +358,8 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
                 doc.asset() != id)
                 return {AssetState::Incompatible, record,
                         "Prefab identity/schema does not match metadata"};
-        } else if (record.schema_version != 1) {
+        } else if (record.schema_version != 1 &&
+                   !(record.type == NavMeshAsset::type && record.schema_version == 2)) {
             return {AssetState::Incompatible, record, "Unsupported asset metadata schema"};
         }
         return {AssetState::Available, record, {}};

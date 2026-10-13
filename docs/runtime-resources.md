@@ -249,3 +249,7 @@ separately. Inspecting never loads, evicts, edits or acquires a payload lease.
 CPU/GPU requested bytes exclude allocator/driver overhead, frame targets and
 independent preview/process owners. Diligent shader/PSO cache hit/miss counts are
 reported separately because the portable API does not expose allocation byte sizes.
+
+## Builtin CPU Mesh lease consumers
+
+RuntimeResourceService::mesh(token) returns a copied retained ResourceLease<MeshAsset> for builtin engine consumers. It performs no IO, adoption, refresh or world writes, and works at readonly owner-thread boundaries. Pending/unadopted or wrong-kind subscriptions return an empty lease; unknown/released or off-thread/dead-owner access is rejected. Shared subscriptions pin the same physical immutable data. Releasing one token does not revoke independent strong leases, but provider shutdown does. A failed replacement may return last-good data: consumers must compare inspect(token)'s requested/retained revision and readiness before claiming the new selection. Static navigation follows that rule. This engine-only interface is not installed in the C++ SDK; native modules retain copied observations and the existing exact C table. RuntimeResources is an existing SDK fingerprint input, so matching modules must rebuild after this implementation change.
