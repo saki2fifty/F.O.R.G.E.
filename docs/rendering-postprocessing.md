@@ -1,5 +1,14 @@
 # Post-processing integration boundary
 
+## Original spatial bloom checkpoint — 2026-10-13
+
+FORGE supplies its own bounded [spatial HDR bloom](hdr-bloom.md) in the Scene/Game
+renderer, using color only with explicit view isolation and resource limits. It
+does not integrate or copy the upstream effect. The temporal-input audit below
+still governs DiligentFX effects and future history; motion/depth history, temporal
+AA, SSAO and reflections remain separate work. Windows acceptance is separate from
+local Vulkan pixel checks.
+
 Verified2026-09-22 against pinned DiligentFX
 `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`. This is an integration audit,
 not a claim that every linked upstream effect is available in FORGE.

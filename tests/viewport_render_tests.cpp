@@ -178,6 +178,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "display_resolve_tests.hpp"
 #include "frame_renderer_tests.hpp"
 #include "gpu_residency_tests.hpp"
+#include "hdr_bloom_gpu_tests.hpp"
 #include "mesh_draw_tests.hpp"
 #include "mesh_gpu_tests.hpp"
 #include "mesh_vertex_fetch_tests.hpp"
@@ -250,6 +251,8 @@ int main(int argc, char** argv) {
             else if (selected == "frame")
                 check_frame_renderer(isolated, context, images);
             else if (selected == "optics") {
+                forge::HdrBloom bloom(isolated);
+                forge::test_bloom::exercise(device, context, bloom);
                 check_texture_preview(isolated, context, images);
                 check_display_resolve(isolated, context, images);
                 check_transmission_background(isolated, context);
@@ -302,6 +305,8 @@ int main(int argc, char** argv) {
         check_surface_draw(presentation, context, images);
         check_morph_render(presentation, context, images);
         check_display_resolve(presentation, context, images);
+        forge::HdrBloom bloom(presentation);
+        forge::test_bloom::exercise(device, context, bloom);
         check_transmission_background(presentation, context);
         check_transmission_render(presentation, context, images);
         check_frame_renderer(presentation, context, images);

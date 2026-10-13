@@ -1,6 +1,12 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_bloom(const SceneBloom& value) {
+    if (!std::isfinite(value.threshold) || value.threshold < 0 || value.threshold > 65504 ||
+        !std::isfinite(value.intensity) || value.intensity < 0 || value.intensity > 4 ||
+        !std::isfinite(value.radius) || value.radius < .5f || value.radius > 16)
+        throw std::runtime_error("Bloom requires threshold0–65504, intensity0–4 and radius0.5–16");
+}
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     SceneRenderSettings result;
     if (!scene.contains("rendering"))
@@ -22,6 +28,25 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("bloom")) {
+        const auto& bloom = settings.at("bloom");
+        if (!bloom.is_object())
+            throw std::runtime_error("Scene bloom must be an object");
+        if (bloom.contains("enabled")) {
+            if (!bloom.at("enabled").is_boolean())
+                throw std::runtime_error("Bloom enabled must be boolean");
+            result.bloom.enabled = bloom.at("enabled").get<bool>();
+        }
+        const auto threshold = number(bloom, "threshold", 1);
+        const auto intensity = number(bloom, "intensity", .25);
+        const auto radius = number(bloom, "radius", 2);
+        if (threshold < 0 || threshold > 65504 || intensity < 0 || intensity > 4 || radius < .5 ||
+            radius > 16)
+            throw std::runtime_error("Bloom settings exceed the admitted spatial profile");
+        result.bloom.threshold = float(threshold);
+        result.bloom.intensity = float(intensity);
+        result.bloom.radius = float(radius);
+    }
     if (settings.contains("environment")) {
         const auto& env = settings.at("environment");
         if (!env.is_object())

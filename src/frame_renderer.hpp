@@ -1,6 +1,7 @@
 #pragma once
 #include "display_resolve.hpp"
 #include "environment_sky.hpp"
+#include "hdr_bloom.hpp"
 #include "mesh_render_host.hpp"
 namespace forge {
 // Shared visual frame composition. No ImGui, editor camera, ECS ownership or
@@ -34,6 +35,7 @@ class FrameRenderer {
     const std::thread::id thread_ = std::this_thread::get_id();
     DiligentPresentation& presentation_;
     DisplayResolve display_;
+    HdrBloom bloom_;
     EnvironmentSky sky_;
     std::unique_ptr<MeshSceneRenderer> meshes_;
     Diligent::RefCntAutoPtr<Diligent::ITexture> color_, depth_;

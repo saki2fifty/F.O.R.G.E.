@@ -3,7 +3,7 @@
 namespace forge {
 using namespace Diligent;
 FrameRenderer::FrameRenderer(DiligentPresentation& presentation)
-    : presentation_(presentation), display_(presentation),
+    : presentation_(presentation), display_(presentation), bloom_(presentation),
       sky_(presentation, TEX_FORMAT_RGBA16_FLOAT) {
     ShaderCreateInfo ci;
     ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
@@ -160,6 +160,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
             sky_.draw(context, camera.view, scene.settings.environment);
         if (meshes_)
             meshes_->draw(scene, camera.view, camera.settings.layers, color_, dsv);
+        bloom_.apply(context, color_, area, scene.settings.bloom);
     }
     if (meshes_) {
         for (const auto& error : meshes_->diagnostics())

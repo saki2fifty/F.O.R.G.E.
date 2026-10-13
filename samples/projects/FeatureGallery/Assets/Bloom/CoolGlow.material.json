@@ -1,0 +1,44 @@
+{
+  "kind": "forge.material",
+  "version": 1,
+  "asset_id": "d8ea87e4-48a7-4712-92da-280590efd7c0",
+  "overrides": {
+    "parameters": {
+      "baseColorFactor": {
+        "type": 5,
+        "value": [
+          0.08,
+          0.08,
+          0.08,
+          1
+        ]
+      },
+      "metallicFactor": {
+        "type": 0,
+        "value": [
+          0
+        ]
+      },
+      "roughnessFactor": {
+        "type": 0,
+        "value": [
+          0.6
+        ]
+      },
+      "emissiveFactor": {
+        "type": 4,
+        "value": [
+          0.02,
+          0.3,
+          0.6
+        ]
+      },
+      "emissiveStrength": {
+        "type": 0,
+        "value": [
+          12
+        ]
+      }
+    }
+  }
+}

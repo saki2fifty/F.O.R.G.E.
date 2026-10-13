@@ -34,3 +34,14 @@ add_test(NAME vulkan_material_binding COMMAND ${Python3_EXECUTABLE}
  "${PROJECT_SOURCE_DIR}/tests/vulkan_binding_probe.py" $<TARGET_FILE:forge_vulkan_binding_probe>
  "${FORGE_VULKAN_PROBE_DXC}" "${CMAKE_BINARY_DIR}/vulkan-binding-probe")
 set_tests_properties(vulkan_material_binding PROPERTIES TIMEOUT 90)
+add_executable(forge_hdr_bloom_vulkan_probe tests/hdr_bloom_vulkan_probe.cpp
+ src/hdr_bloom.cpp src/render_backend.cpp)
+target_include_directories(forge_hdr_bloom_vulkan_probe PRIVATE src
+ "${diligent_SOURCE_DIR}/DiligentCore" "${diligent_SOURCE_DIR}/DiligentFX/PBR/interface")
+target_link_libraries(forge_hdr_bloom_vulkan_probe PRIVATE forge_core
+ Diligent-GraphicsEngineVk-static Diligent-BuildSettings ${CMAKE_DL_LIBS})
+add_dependencies(forge_hdr_bloom_vulkan_probe forge_vulkan_renderer_compile)
+add_test(NAME hdr_bloom_vulkan COMMAND ${Python3_EXECUTABLE}
+ "${PROJECT_SOURCE_DIR}/tests/hdr_bloom_vulkan_probe.py" $<TARGET_FILE:forge_hdr_bloom_vulkan_probe>
+ "${FORGE_VULKAN_PROBE_DXC}" "${CMAKE_BINARY_DIR}/hdr-bloom-vulkan")
+set_tests_properties(hdr_bloom_vulkan PROPERTIES TIMEOUT 90)

@@ -1,5 +1,13 @@
 # 2026-10-13
 
+## Spatial HDR bloom
+
+- Add an original color-only bloom pass before tone mapping in Scene and Game views, with explicit camera rectangles and alpha preservation.
+- Reuse bounded texture sets across camera sizes; bypass GPU work when disabled or at zero intensity.
+- Author threshold, intensity and spread in Scene lighting through existing Save/Undo and export ownership.
+- Gallery48 supplies original warm/cool emissive materials and a reference cube; temporal effects remain separate work.
+- Local shader/Vulkan, CPU/UI and content checks do not claim Windows/GPU or physical acceptance.
+
 ## CPU profiler
 
 - Inspect separate Editor and Play CPU scopes with start/stop/clear, filtering and recent count/average/max/latest timings.

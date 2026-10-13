@@ -11,6 +11,8 @@ project = json.loads((project_root / 'forge.project.json').read_text(encoding="u
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
+                       ('Assets/Bloom/WarmGlow.material.json', 'material.values'),
+                       ('Assets/Bloom/CoolGlow.material.json', 'material.values'),
                        ('Assets/ModelRefinement/OriginalCube.mesh.json', 'mesh.bin'),
                        ('Assets/ModelRefinement/CenterSplitCube.mesh.json', 'mesh.bin'),
                        ('Assets/ModelRefinement/SubdividedCube.mesh.json', 'mesh.bin'),
@@ -68,6 +70,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '45-animation-timing.scene.json',
         '46-model-refinement.scene.json',
         '47-animation-key-values.scene.json',
+        '48-hdr-bloom.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
         '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json', '37-animation-subtree-blending.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1

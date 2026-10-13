@@ -4,6 +4,37 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_bloom_controls(const SceneBloom& settings, bool locked,
+                                 const std::function<void(const Json&)>& commit) {
+    IdScope scope("bloom");
+    heading("Bloom", "Glow around bright surfaces. Runs before display exposure and tone mapping.");
+    struct Disabled {
+        explicit Disabled(bool value) { ImGui::BeginDisabled(value); }
+        ~Disabled() { ImGui::EndDisabled(); }
+    } disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable bloom", &enabled))
+        commit({{"bloom", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("bloom:enabled");
+    auto field = [&](const char* label, const char* key, float value, const char* tip) {
+        IdScope id(key);
+        property_label_row(label, tip);
+        if (ImGui::InputFloat("##value", &value, 0, 0, "%.3f",
+                              ImGuiInputTextFlags_EnterReturnsTrue))
+            commit({{"bloom", {{key, value}}}});
+        FORGE_UI_PROBE(std::string("bloom:") + key);
+        help(tip);
+    };
+    field("Brightness threshold", "threshold", settings.threshold,
+          "Linear brightness from 0 to 65504. Only brighter light contributes to the glow.");
+    field("Intensity", "intensity", settings.intensity,
+          "Glow multiplier from 0 to 4. Zero skips the effect; Enter commits one undo step.");
+    field("Spread", "radius", settings.radius,
+          "Filter spacing from 0.5 to 16 pixels in the half-resolution glow image. Larger "
+          "values spread glow farther.");
+    ImGui::TextWrapped("Each camera keeps its glow inside its own view. Scene Save and Undo "
+                       "include these settings. Bloom uses additional GPU memory and draw work.");
+}
 inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog, bool locked) {
     if (!open)
         return;
@@ -63,6 +94,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                 commit({{"exposure", exposure}});
             help("Game-camera exposure from -20 to +20 stops. +1 doubles linear light before tone "
                  "mapping. Enter commits.");
+            scene_bloom_controls(settings.bloom, locked, commit);
             heading("Shadows", "Scene-wide shadow quality. Individual lights and mesh renderers "
                                "control casting and receiving in the Inspector.");
             bool enabled = settings.shadows.enabled;

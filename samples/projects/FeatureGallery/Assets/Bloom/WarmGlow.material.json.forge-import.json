@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.material.builtin",
+    "importer_revision": "3f9ddec3dc939305ea0d67a265dd7c2fc5ec56335d731b5ce377edbfb928cd98",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "53422a66a65d41c9df510b18f8b59016cc1d69399362bc2f3fd786e63feafb43",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "77189ce5-4e0f-4537-af5d-eebe8e28df76",
+    "source": "Assets/Bloom/WarmGlow.material.json",
+    "source_digest": "53422a66a65d41c9df510b18f8b59016cc1d69399362bc2f3fd786e63feafb43",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

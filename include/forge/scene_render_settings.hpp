@@ -22,9 +22,16 @@ struct SceneShadows {
     double distance = 100; // Metres; directional camera range / unbounded punctual range.
     bool operator==(const SceneShadows&) const = default;
 };
+struct SceneBloom {
+    bool enabled = false;
+    float threshold = 1, intensity = .25f, radius = 2;
+    bool operator==(const SceneBloom&) const = default;
+};
+void validate_scene_bloom(const SceneBloom&);
 struct SceneRenderSettings {
     SceneEnvironment environment;
     SceneShadows shadows;
+    SceneBloom bloom;
     float exposure = 0; // Authored game exposure in stops; Scene preview has its own override.
     bool operator==(const SceneRenderSettings&) const = default;
 };

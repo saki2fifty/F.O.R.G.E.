@@ -39,8 +39,9 @@ change authored transform semantics. Static batching excludes morphing, skinning
 blended and transmissive color draws; shadow casters submit separately. Conventional
 transparent part sorting cannot resolve all intersecting surfaces or cyclic overlaps.
 
-The current forward pipeline has no motion-vector/previous-depth history. Advanced
-Bloom/TAA/SSAO/SSR/DoF remain explicitly dispositioned in the
+The current forward pipeline has no motion-vector/previous-depth history.
+Original [spatial HDR bloom](hdr-bloom.md) uses a bounded color-only pass in Scene/Game.
+Upstream Bloom and temporal TAA/SSAO/SSR/DoF remain explicitly dispositioned in the
 [exact-pin post-processing audit](rendering-postprocessing.md), rather than exposed
 as controls that cannot work. Material/shader graph editing, path tracing, Gaussian
 splatting, terrain and VFX authoring are separate domains, not implied by this table.

@@ -31,7 +31,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [C++ physics velocity example](samples/physics-velocity.md): launch bodies and stop movement or rotation independently.
 - [Entities and hierarchy](editor/entities-hierarchy.md): add, rename, parent, duplicate, and delete entities.
 - [Model import tools](editor/models.md): prepare static glTF asset families and resolve identity conflicts.
-- [Scene lighting](editor/lighting.md): environment maps, sky, intensity, rotation and exposure.
+- [Scene lighting](editor/lighting.md): environment maps, sky, exposure and HDR bloom.
 - [Textures](editor/textures.md): import images, choose usages and reimport safely.
 - [Material Graph](editor/material-graphs.md): connect surface values, reuse functions and make material variations.
 - [Materials](editor/materials.md): edit reusable surfaces, preview them and assign mesh slots.

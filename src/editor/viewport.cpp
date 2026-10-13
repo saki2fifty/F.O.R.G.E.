@@ -95,7 +95,7 @@ bool Viewport::frame_selection(const Json& source, const std::vector<std::string
 Viewport::Viewport(DiligentPresentation& presentation, bool hdr)
     : color_format_(hdr ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM),
       display_(hdr ? std::make_unique<DisplayResolve>(presentation) : nullptr),
-      sky_(presentation, color_format_), device_(presentation.device()) {
+      bloom_(presentation), sky_(presentation, color_format_), device_(presentation.device()) {
     const char* vs = R"(
 cbuffer ObjectData { float4 centerAspect; float4 eyeNear; float4 rightFocal; float4 upFar; float4 forwardPad; float4 axisX; float4 axisY; float4 axisZ; float4 tint; float4 normalX; float4 normalY; float4 normalZ; };
 struct Out { float4 position : SV_POSITION; float3 color : COLOR0; };
@@ -412,6 +412,8 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                       depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL));
     }
     if (display_) {
+        if (mesh_scene_)
+            bloom_.apply(context, color_, {0, 0, width, height}, mesh_scene_->settings.bloom);
         display_->resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure_);
         auto* display_target = display_->target();
         context->SetRenderTargets(1, &display_target, dsv,

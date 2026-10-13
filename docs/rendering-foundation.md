@@ -441,6 +441,10 @@ settings. It persists with the existing personal editor preferences and invalida
 the retained frame. Useful UI range is[-20,+20]EV; the backend separately validates
 finite representability. Automatic eye adaptation is not enabled.
 
+Optional [spatial HDR bloom](hdr-bloom.md) runs before display resolve in the same
+Scene/Game owners. Its view-local original filter, bounded cache and ordered overlap
+behavior are explicit; default remains disabled. No temporal effect inputs are added.
+
 Exact mapper evidence: DiligentFX `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da`,
 `Shaders/PostProcess/ToneMapping/public/{ToneMapping,ToneMappingStructures}.fxh`
 and `Shaders/Common/public/SRGBUtilities.fxh`, verified2026-09-21. Local16-stage

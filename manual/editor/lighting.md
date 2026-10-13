@@ -39,6 +39,22 @@ its lighting maps every frame. If a replacement cannot load, **Problems** explai
 failure and the previous usable environment remains visible. Clear the field explicitly
 to remove that previous environment.
 
+## Add glow to bright surfaces
+
+In **Tools > Scene lighting...**, scroll to **Bloom** and select **Enable bloom**.
+Try **48-hdr-bloom** in the Feature Gallery to compare warm/cool emissive cubes with
+an ordinary cube. Save the scene and export it through the usual Export Game window.
+
+- **Brightness threshold** selects how bright a surface must be before it glows. Start at **1**; lower values include dimmer surfaces.
+- **Intensity** controls the added glow from **0** to **4**. **0** bypasses bloom.
+- **Spread** controls how far glow extends from **0.5** to **16**. Start at **2**.
+
+Press **Enter** to commit a numeric value. **Undo / Redo** reverses each change.
+These saved settings affect Scene preview, Play and exported games. Bloom costs
+extra GPU memory and draw work; leave it disabled when you do not need it. Separate
+camera views keep glow inside their rectangles. Overlapping cameras can apply glow
+to retained earlier camera color again.
+
 ## Adjust display brightness
 
 **Exposure (stops)** affects the Game preview and is saved with the scene. Enter a

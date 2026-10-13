@@ -1,5 +1,17 @@
 # FORGE Feature Gallery
 
+## Bright-surface glow
+
+Open **48-hdr-bloom** and press Play. Two original warm/cool emissive cubes glow
+beside an ordinary reference cube. In **Tools > Scene lighting... > Bloom**, toggle
+**Enable bloom** and adjust **Brightness threshold**, **Intensity**, or **Spread**.
+Press Enter for numeric changes. Scene Save and Undo retain the normal history.
+
+Export the saved scene normally. The two Material sources and selected Windows/
+D3D12 cooks are included; the exported game uses cooked values without source files
+or a C++ compiler. Local native Vulkan pixel and CPU/UI checks are separate from
+pending Windows/GPU and physical review.
+
 This is an editable FORGE project. Each saved scene demonstrates one focused
 engine feature using normal authored entities. The first four scenes use built-in geometry. The remaining scenes include published
 editable Mesh sources, cooked Meshes and a checker Material. The eighth scene includes a published transform-animation clip; the ninth has an original two-clip skinned model. No

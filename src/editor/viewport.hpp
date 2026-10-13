@@ -5,6 +5,7 @@
 #include "Graphics/GraphicsEngine/interface/RenderDevice.h"
 #include "display_resolve.hpp"
 #include "environment_sky.hpp"
+#include "hdr_bloom.hpp"
 #include "mesh_render_host.hpp"
 #include "presentation_diligent.hpp"
 #include "scene_cache.hpp"
@@ -47,6 +48,7 @@ class Viewport {
   private:
     Diligent::TEXTURE_FORMAT color_format_;
     std::unique_ptr<DisplayResolve> display_;
+    HdrBloom bloom_;
     float exposure_ = 0;
     bool preview_lighting_ = false;
     EnvironmentSky sky_;

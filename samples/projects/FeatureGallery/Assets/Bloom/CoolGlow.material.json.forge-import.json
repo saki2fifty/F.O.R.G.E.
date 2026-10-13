@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.material.builtin",
+    "importer_revision": "3f9ddec3dc939305ea0d67a265dd7c2fc5ec56335d731b5ce377edbfb928cd98",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "398fc7601fbe06e400d0f522ece1756058ac21600be5528766aa7044826b935a",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "d8ea87e4-48a7-4712-92da-280590efd7c0",
+    "source": "Assets/Bloom/CoolGlow.material.json",
+    "source_digest": "398fc7601fbe06e400d0f522ece1756058ac21600be5528766aa7044826b935a",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

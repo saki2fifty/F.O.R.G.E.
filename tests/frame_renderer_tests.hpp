@@ -48,6 +48,15 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
                 split[16 * 64 + 48][2] > 180 && split[16 * 64 + 48][0] < 100,
             "Camera rectangle clear erased another camera or ignored composition order");
     require(renderer.diagnostics().empty(), "Valid game cameras emitted a diagnostic");
+    document["rendering"] = {
+        {"version", 1u},
+        {"bloom", {{"enabled", true}, {"threshold", .25}, {"intensity", 1}, {"radius", 2}}}};
+    const auto glowing = render();
+    require(glowing[16 * 64 + 16][0] > split[16 * 64 + 16][0] &&
+                glowing[16 * 64 + 48][2] > split[16 * 64 + 48][2] &&
+                glowing[16 * 64 + 16][2] == split[16 * 64 + 16][2],
+            "Shared Game frame ignored bloom or mixed camera rectangles");
+    document.erase("rendering");
     overlay.clear_color = false;
     overlay.clear_depth = true;
     stage = "depth-only clear";
@@ -163,6 +172,13 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         authoring_view.preview_lighting(false);
         require(settle_scene() == dark, "Preview light toggle did not restore authored lighting");
         require(render() == cube, "Scene preview lighting changed the Game renderer");
+        authoring_view.preview_lighting(true);
+        authored["rendering"] = {
+            {"version", 1u},
+            {"bloom", {{"enabled", true}, {"threshold", 0}, {"intensity", 2}, {"radius", 2}}}};
+        const auto glowing_preview = settle_scene();
+        require(glowing_preview != lit && authoring_view.render_scene()->settings.bloom.enabled,
+                "Scene preview ignored authored bloom or reused stale retained pixels");
         save(dark, 128, 96, images / "scene-authored-lighting.ppm");
         save(lit, 128, 96, images / "scene-preview-lighting.ppm");
     }

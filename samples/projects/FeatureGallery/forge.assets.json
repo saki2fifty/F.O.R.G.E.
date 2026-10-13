@@ -3896,6 +3896,40 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "77189ce5-4e0f-4537-af5d-eebe8e28df76",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "2146880556c68787b013a43446fd4c10d112e04506e9b4ab7998052cda0ee65b",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.material.builtin",
+          "importer_revision": "3f9ddec3dc939305ea0d67a265dd7c2fc5ec56335d731b5ce377edbfb928cd98",
+          "key": "5c82cbd2a17778ba29481c52fef0e1c097f25c67811afd96d420de106f70edab",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "4639ca9232a5295ac5b5346679e1f688cb57b9f451926f443c095c64be14c9c4",
+          "source_digest": "53422a66a65d41c9df510b18f8b59016cc1d69399362bc2f3fd786e63feafb43",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {},
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Bloom/WarmGlow.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "775f0fd6-d6bf-494a-abbd-23ddcefd9c55",
       "metadata": {
         "forge.import": {
@@ -6877,6 +6911,40 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "d8ea87e4-48a7-4712-92da-280590efd7c0",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "4e2b3c448abab131451baa83075aff18c43a7ef60de057509f2559878166cc56",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.material.builtin",
+          "importer_revision": "3f9ddec3dc939305ea0d67a265dd7c2fc5ec56335d731b5ce377edbfb928cd98",
+          "key": "6c2f79290f973b31f513113b98e4c4c0eec29ad4368a6cf9459e5e12b0c84064",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "cba1c816077097a251742425d1b83e4aabc6a8a632cd625601206ee2360b107d",
+          "source_digest": "398fc7601fbe06e400d0f522ece1756058ac21600be5528766aa7044826b935a",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {},
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Bloom/CoolGlow.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "db5e6c73-94df-4051-b66f-4b2627c5f249",
       "metadata": {
         "forge.import": {
@@ -7353,6 +7421,16 @@
         "removed": false
       },
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f4dbe091-f66b-4f9f-bdff-5dd772b33600",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/48-hdr-bloom.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
