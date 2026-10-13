@@ -104,6 +104,13 @@ preserves the active scene, and records the error. Cancellation and supersession
 retire the candidate. Adapters remain owned through active-world lifetime and
 publish only prebuilt ownership through nonthrowing `activate`.
 
+Audio clip admission now starts asynchronously at the candidate's initial audio
+boundary. Required audio remains pending until owner-thread preparation polls
+adopt it; failure is reported in poll/activate and leaves the active world intact.
+This also applies to structural sessions without a graphics/UI adapter. The
+active host's control-frame boundary services pending audio while paused without
+advancing simulation or changing the last fixed Doppler velocity at unchanged poses.
+
 Without a factory, status explicitly reports `scope: structural`. The graphical
 host installs the renderer/UI adapter described in [standalone host](standalone-host.md).
 This does not imply full export closure or a loading-screen authoring workflow.

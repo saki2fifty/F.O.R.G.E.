@@ -336,6 +336,19 @@ int main(int argc, char** argv) {
                             project.settings().document() == untouched_settings,
                         "Unavailable/live source controls changed authoring or submitted per-frame "
                         "traffic");
+                // Loading is a valid source observation. Stop/Restart can queue
+                // intent; unavailable sources and busy transport remain disabled.
+                live = true;
+                sound_status["pending"] = true;
+                frame();
+                require(test::ui_targets.at("live-audio-source:play").enabled &&
+                            test::ui_targets.at("live-audio-source:stop").enabled &&
+                            !test::ui_targets.at("live-audio-source:pause").enabled,
+                        "Loading sound controls confused pending and unavailable states");
+                click("stop");
+                require(live_requests == 5 && live_operation == AudioSourceOperation::Stop,
+                        "Loading source could not queue Stop");
+                sound_status["pending"] = false;
                 live = false;
                 mixing = true;
                 settings.open();

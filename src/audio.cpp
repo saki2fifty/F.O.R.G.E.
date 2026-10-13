@@ -1,5 +1,5 @@
 #include "audio_preview_access.hpp"
-#include "audio_selection.hpp"
+#include "audio_resource.hpp"
 #include "audio_source_access.hpp"
 #include "audio_values.hpp"
 #include "builtins.hpp"
@@ -62,9 +62,13 @@ bool same_failed_config(const AudioSource& a, const AudioSource& b) {
 }
 struct AudioMotion {
     Double3 position{};
+    Double3 last_velocity{};
     std::uint64_t tick = 0;
     bool valid = false;
-    Double3 observe(Double3 next, std::uint64_t next_tick, float fixed_delta) {
+    Double3 observe(Double3 next, std::uint64_t next_tick, float fixed_delta,
+                    bool loading_only = false) {
+        if (loading_only && valid && next_tick == tick && next == position)
+            return last_velocity;
         Double3 velocity{};
         if (valid && next_tick > tick && next_tick - tick == 1 && fixed_delta > 0) {
             for (unsigned i = 0; i < 3; ++i)
@@ -78,6 +82,7 @@ struct AudioMotion {
         position = next;
         tick = next_tick;
         valid = true;
+        last_velocity = velocity;
         return velocity;
     }
 };
@@ -94,11 +99,13 @@ struct AudioRuntime::Impl {
     std::atomic<std::uint64_t> mixed_frames{0};
     static_assert(std::atomic<std::uint64_t>::is_always_lock_free);
     std::thread::id owner = std::this_thread::get_id();
-    using Clip = asset_detail::AudioClipData;
+    ResourcePool<AudioClipAsset> clips{{2, max_voices, 4096, max_cache}};
+    std::map<AssetId, ResourceTicket> requests;
+    std::map<std::uint64_t, AssetId> pending_sources;
     struct Voice {
         AudioSource authored;
         EntityRef ref;
-        std::shared_ptr<Clip> clip;
+        ResourceLease<AudioClipAsset> clip;
         ma_audio_buffer_ref buffer{};
         ma_sound sound{};
         bool ready = false, buffer_ready = false;
@@ -112,17 +119,16 @@ struct AudioRuntime::Impl {
                 ma_audio_buffer_ref_uninit(&buffer);
         }
     };
-    std::map<AssetId, std::shared_ptr<Clip>> clips;
     std::map<std::uint64_t, std::unique_ptr<Voice>> voices;
     std::map<std::uint64_t, std::string> failures;
     std::map<std::uint64_t, AudioSource> failed_config;
     struct Command {
         EntityRef ref;
         std::uint64_t generation;
+        AssetId clip;
         AudioSourceOperation operation;
     };
     std::vector<Command> commands;
-    std::size_t cache_bytes = 0;
     std::uint64_t configuration_checks = 0;
     std::string listener_error;
     AudioMotion listener_motion;
@@ -203,7 +209,9 @@ struct AudioRuntime::Impl {
             (void)ma_engine_stop(&engine);
         voices.clear();
         commands.clear();
-        clips.clear();
+        pending_sources.clear();
+        requests.clear();
+        clips.close();
         if (group_ready) {
             ma_sound_group_uninit(&group);
             group_ready = false;
@@ -236,24 +244,25 @@ struct AudioRuntime::Impl {
         if (world.services().available(Capability::Diagnostics))
             world.services().emit(std::move(d));
     }
-    std::shared_ptr<Clip> load(AssetRef<AudioClipAsset> ref) {
+    ResourceLease<AudioClipAsset> load(AssetRef<AudioClipAsset> ref) {
         if (!ref.id)
             throw std::runtime_error("AudioSource has no AudioClip assigned");
-        if (clips.contains(ref.id))
-            return clips.at(ref.id);
+        if (auto lease = clips.current(ref))
+            return lease;
         auto scope = world.services().profile("audio", "AudioAssetResolve", tick);
         const auto record = catalog.records().find(ref.id);
         if (record == catalog.records().end())
             throw std::runtime_error("AudioClip is not registered");
-        auto clip =
-            std::make_shared<Clip>(asset_detail::load_audio_clip(config.project, record->second));
-        const auto n = clip->pcm.size();
-        if (n * sizeof(float) > max_cache - cache_bytes)
-            throw std::runtime_error(
-                "Audio decoded cache exceeds 256 MiB; restart Play with fewer clips");
-        cache_bytes += n * sizeof(float);
-        clips.emplace(ref.id, clip);
-        return clip;
+        auto found = requests.find(ref.id);
+        if (found == requests.end())
+            found =
+                requests.emplace(ref.id, request_audio_clip(clips, config.project, record->second))
+                    .first;
+        const auto info = found->second.inspect();
+        if (resource_detail::terminal(info.state) && info.state != ResourceState::Ready)
+            throw std::runtime_error(info.diagnostic.empty() ? "Audio clip load failed"
+                                                             : info.diagnostic);
+        return clips.acquire(found->second);
     }
     void queue(EntityRef ref, AudioSourceOperation operation) {
         check();
@@ -265,11 +274,15 @@ struct AudioRuntime::Impl {
             throw std::runtime_error("Audio command references missing, ambiguous or stale source");
         if (commands.size() >= max_commands)
             throw std::runtime_error("Audio command limit reached");
-        commands.push_back({ref, r.entity, operation});
+        commands.push_back(
+            {ref, r.entity, world.world().entity(r.entity).get<AudioSource>().clip.id, operation});
     }
     void sync(std::uint64_t next_tick, float fixed_delta,
-              std::span<const std::uint64_t> discontinuities) {
+              std::span<const std::uint64_t> discontinuities, bool loading_only = false) {
         check();
+        clips.pump();
+        pending_sources.clear();
+        std::set<std::uint64_t> created_voices;
         if (!std::isfinite(fixed_delta) || fixed_delta < 0)
             throw std::runtime_error("Audio motion requires a finite nonnegative fixed delta");
         if (!discontinuities.empty()) {
@@ -336,7 +349,7 @@ struct AudioRuntime::Impl {
             listener_entity = listeners.front().id();
             const auto& t = listeners.front().get<WorldTransform>();
             const auto p = t.affine.point({0, 0, 0});
-            listener_velocity = listener_motion.observe(p, next_tick, fixed_delta);
+            listener_velocity = listener_motion.observe(p, next_tick, fixed_delta, loading_only);
             const auto forward = unit(t.affine.vector({0, 0, -1}), {0, 0, -1});
             auto up = t.affine.vector({0, 1, 0});
             const double dot = up[0] * forward[0] + up[1] * forward[1] + up[2] * forward[2];
@@ -365,18 +378,25 @@ struct AudioRuntime::Impl {
                 ++configuration_checks;
                 detail::validate_audio_source(e, config_value);
                 auto found = voices.find(e.id());
-                if (found != voices.end() && found->second->authored.clip != config_value.clip) {
+                if (found != voices.end() && (found->second->authored.clip != config_value.clip ||
+                                              found->second->ref != ref)) {
                     voices.erase(found);
                     found = voices.end();
                 }
                 const bool created = found == voices.end();
                 if (created) {
-                    if (voices.size() >= max_voices)
+                    if (voices.size() + pending_sources.size() >= max_voices)
                         throw std::runtime_error("Audio voice limit is 256");
                     auto voice = std::make_unique<Voice>();
                     voice->ref = ref;
                     voice->authored = config_value;
                     voice->clip = load(config_value.clip);
+                    if (!voice->clip) {
+                        pending_sources.emplace(e.id(), config_value.clip.id);
+                        failures.erase(e.id());
+                        failed_config.erase(e.id());
+                        continue;
+                    }
                     checked(ma_audio_buffer_ref_init(ma_format_f32, voice->clip->channels,
                                                      voice->clip->pcm.data(), voice->clip->frames,
                                                      &voice->buffer),
@@ -390,6 +410,7 @@ struct AudioRuntime::Impl {
                     // Source sample rate is supplied before attaching the buffer to the engine.
                     ma_sound_set_pitch(&voice->sound, config_value.pitch);
                     found = voices.emplace(e.id(), std::move(voice)).first;
+                    created_voices.insert(e.id());
                 }
                 auto& v = *found->second;
                 v.authored = config_value;
@@ -442,7 +463,7 @@ struct AudioRuntime::Impl {
                     const auto p = e.get<WorldTransform>().affine.point({0, 0, 0});
                     ma_sound_set_position(&v.sound, float(p[0]), float(p[1]), float(p[2]));
                     if (spatial_valid && config_value.spatialized && config_value.doppler > 0) {
-                        source_velocity = v.motion.observe(p, next_tick, fixed_delta);
+                        source_velocity = v.motion.observe(p, next_tick, fixed_delta, loading_only);
                         const double speed = std::max(
                             std::hypot(source_velocity[0], source_velocity[1], source_velocity[2]),
                             std::hypot(listener_velocity[0], listener_velocity[1],
@@ -460,8 +481,6 @@ struct AudioRuntime::Impl {
                 ma_sound_set_velocity(&v.sound, float(source_velocity[0]),
                                       float(source_velocity[1]), float(source_velocity[2]));
                 ma_sound_set_doppler_factor(&v.sound, doppler);
-                if (created && config_value.play_on_start)
-                    checked(ma_sound_start(&v.sound), "Audio autoplay");
                 failures.erase(e.id());
                 failed_config.erase(e.id());
             } catch (const std::exception& error_value) {
@@ -478,20 +497,70 @@ struct AudioRuntime::Impl {
         std::erase_if(spatial_errors, [&](auto id) { return !present.contains(id); });
         std::erase_if(failed_config, [&](const auto& p) { return !present.contains(p.first); });
         std::erase_if(failures, [&](const auto& p) { return !present.contains(p.first); });
-        flush_commands();
+        // Cancel unused in-flight loads. Shared requests survive while a current
+        // source still needs them; admitted cache revisions retain existing policy.
+        for (auto it = requests.begin(); it != requests.end();) {
+            if (!resource_detail::terminal(it->second.inspect().state) &&
+                std::none_of(pending_sources.begin(), pending_sources.end(),
+                             [&](const auto& p) { return p.second == it->first; })) {
+                clips.unload(AssetRef<AudioClipAsset>{it->first});
+                it = requests.erase(it);
+            } else
+                ++it;
+        }
+        clips.collect();
+        flush_commands(created_voices);
     }
-    void flush_commands() {
+    void flush_commands(const std::set<std::uint64_t>& created = {}) {
         auto pending = std::move(commands);
         commands.clear();
+        std::map<std::uint64_t, std::pair<bool, bool>> initial;
+        for (auto id : created)
+            if (voices.contains(id))
+                initial.emplace(id, std::pair{voices.at(id)->authored.play_on_start, false});
         for (const auto& c : pending) {
             const auto r = world.resolve(c.ref);
             if (r.state != WorldContext::ResolveState::Available || r.entity != c.generation ||
-                !voices.contains(r.entity)) {
+                !world.world().entity(r.entity).has<AudioSource>() ||
+                world.world().entity(r.entity).get<AudioSource>().clip.id != c.clip) {
                 diagnostic("audio.stale_source", "Audio command source is stale or unavailable",
                            c.ref);
                 continue;
             }
+            if (!voices.contains(r.entity)) {
+                if (pending_sources.contains(r.entity))
+                    commands.push_back(c);
+                else
+                    diagnostic("audio.stale_source", "Audio command source is unavailable", c.ref);
+                continue;
+            }
             auto& voice = *voices.at(r.entity);
+            if (auto it = initial.find(r.entity); it != initial.end()) {
+                auto& [playing, paused] = it->second;
+                switch (c.operation) {
+                case AudioSourceOperation::Restart:
+                    playing = true;
+                    paused = false;
+                    break;
+                case AudioSourceOperation::Stop:
+                    playing = false;
+                    paused = false;
+                    break;
+                case AudioSourceOperation::Pause:
+                    if (playing) {
+                        playing = false;
+                        paused = true;
+                    }
+                    break;
+                case AudioSourceOperation::Resume:
+                    if (paused) {
+                        playing = true;
+                        paused = false;
+                    }
+                    break;
+                }
+                continue;
+            }
             auto& sound = voice.sound;
             switch (c.operation) {
             case AudioSourceOperation::Restart:
@@ -518,6 +587,12 @@ struct AudioRuntime::Impl {
                 }
                 break;
             }
+        }
+        for (const auto& [id, intent] : initial) {
+            auto& voice = *voices.at(id);
+            voice.source_paused = intent.second;
+            if (intent.first)
+                checked(ma_sound_start(&voice.sound), "Start prepared source");
         }
     }
 };
@@ -552,12 +627,22 @@ void AudioRuntime::resume_source(EntityRef ref) { impl_->queue(ref, AudioSourceO
 Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
     runtime.impl_->check();
     const auto resolved = runtime.impl_->world.resolve(ref);
+    if (resolved.state != WorldContext::ResolveState::Available)
+        throw std::runtime_error("AudioSource has no admitted voice in the current world");
     const auto found = runtime.impl_->voices.find(resolved.entity);
-    if (resolved.state != WorldContext::ResolveState::Available ||
-        found == runtime.impl_->voices.end() || !found->second->ready || found->second->ref != ref)
+    const auto entity = runtime.impl_->world.world().entity(resolved.entity);
+    if (entity.has<AudioSource>() && runtime.impl_->pending_sources.contains(resolved.entity) &&
+        entity.get<AudioSource>().clip.id == runtime.impl_->pending_sources.at(resolved.entity))
+        return {{"source", ref},    {"available", false},     {"pending", true},
+                {"playing", false}, {"source_paused", false}, {"paused", runtime.impl_->is_paused},
+                {"duration", 0}};
+    if (found == runtime.impl_->voices.end() || !found->second->ready ||
+        found->second->ref != ref || !entity.has<AudioSource>() ||
+        entity.get<AudioSource>().clip != found->second->authored.clip)
         throw std::runtime_error("AudioSource has no admitted voice in the current world");
     return {{"source", ref},
             {"available", true},
+            {"pending", false},
             {"playing", bool(ma_sound_is_playing(&found->second->sound))},
             {"source_paused", found->second->source_paused},
             {"paused", runtime.impl_->is_paused},
@@ -592,6 +677,7 @@ Json AudioRuntime::status() const {
         (void)id;
         playing += ma_sound_is_playing(&voice->sound);
     }
+    const auto resources = impl_->clips.statistics();
     return {{"mixed_frames", impl_->mixed_frames.load(std::memory_order_relaxed)},
             {"playing_sources", playing},
             {"configuration_checks", impl_->configuration_checks},
@@ -600,12 +686,40 @@ Json AudioRuntime::status() const {
                                                                              : "device"},
             {"paused", impl_->is_paused},
             {"voices", impl_->voices.size()},
-            {"clips", impl_->clips.size()},
-            {"decoded_bytes", impl_->cache_bytes},
+            {"clips", resources.selected},
+            {"decoded_bytes", resources.memory.cpu_asset},
+            {"pending_sources", impl_->pending_sources.size()},
+            {"pending_clips", resources.pending},
             {"failed_sources", impl_->failures.size()},
             {"master_volume", impl_->config.master_volume},
             {"channel_volumes", impl_->config.channel_volumes},
             {"tick", impl_->tick}};
+}
+bool AudioRuntime::wait_for_sources(std::chrono::milliseconds timeout) {
+    impl_->check();
+    if (timeout.count() < 0)
+        throw std::runtime_error("Audio preparation timeout must be nonnegative");
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    for (;;) {
+        synchronize(impl_->tick);
+        if (!impl_->failures.empty())
+            return false;
+        if (impl_->pending_sources.empty())
+            return true;
+        for (const auto& [id, ticket] : impl_->requests) {
+            (void)id;
+            const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(
+                deadline - std::chrono::steady_clock::now());
+            if (remaining.count() <= 0)
+                return false;
+            (void)impl_->clips.wait(ticket, remaining);
+        }
+    }
+}
+void AudioRuntime::poll_loading() {
+    impl_->check();
+    if (!impl_->pending_sources.empty() || impl_->clips.statistics().pending)
+        impl_->sync(impl_->tick, 0, {}, true);
 }
 void AudioRuntime::read_offline(std::span<float> out) {
     impl_->check();
@@ -623,7 +737,7 @@ const asset_detail::AudioClipData& AudioPreviewAccess::clip(AudioRuntime& runtim
         runtime.impl_->voices.size() != 1 || found->second->authored.spatialized ||
         found->second->authored.pitch != 1 || found->second->authored.bus != 0)
         throw std::runtime_error("Preview transport requires one live nonspatial unpitched source");
-    return *found->second->clip;
+    return found->second->clip.get();
 }
 double AudioPreviewAccess::elapsed(AudioRuntime& runtime, EntityRef ref) {
     (void)clip(runtime, ref);

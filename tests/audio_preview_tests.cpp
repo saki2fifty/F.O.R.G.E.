@@ -1,3 +1,4 @@
+#include "audio_loading_test.hpp"
 #include "audio_preview.hpp"
 #include <algorithm>
 #include <array>
@@ -72,12 +73,15 @@ void seek_checks(const std::filesystem::path& root, unsigned rate) {
     preview.configure(true, 1);
     reference.configure(true, 1);
     preview.load_waveform(project, record);
+    await_audio_preview(preview);
     require(!preview.active() && preview.waveform_matches(project, record) &&
                 preview.waveform()->peaks.front()[1] == .25f &&
                 preview.waveform()->peaks.back()[0] == -.5f,
             "Loading waveform opened playback or changed PCM extrema");
     preview.start(project, record, AudioOutput::Offline);
+    await_audio_preview(preview);
     reference.start(project, record, AudioOutput::Offline);
+    await_audio_preview(reference);
     std::array<float, 2048> a{}, b{};
     preview.read_offline(a);
     reference.read_offline(b);
@@ -155,8 +159,19 @@ int main(int argc, char** argv) {
         seek_checks(root, 48000);
         seek_checks(root, 24000);
         AudioClipPreview preview;
+        {
+            AudioClipPreview cancelled;
+            cancelled.start(root, record, AudioOutput::Offline);
+            require(cancelled.pending() && cancelled.waveform_pending(),
+                    "Fresh audition did not expose its pending clip/envelope");
+            cancelled.stop();
+            require(!cancelled.active() && !cancelled.pending() && !cancelled.waveform_pending() &&
+                        !cancelled.waveform(),
+                    "Stop retained a pending audition or envelope job");
+        }
         preview.configure(true, 1);
         preview.start(root, record, AudioOutput::Offline);
+        await_audio_preview(preview);
         require(preview.active() && preview.matches(root, record), "Preview did not own selection");
         const auto nominal = power(preview);
         require(nominal > 1e-5, "Preview produced no actual PCM");
@@ -177,6 +192,7 @@ int main(int argc, char** argv) {
         for (auto* p : {&preview, &reference}) {
             p->configure(true, .5f);
             p->start(root, record, AudioOutput::Offline);
+            await_audio_preview(*p);
         }
         for (unsigned i = 0; i < 12; ++i) {
             preview.configure(true, .5f);
@@ -200,13 +216,16 @@ int main(int argc, char** argv) {
         require(!preview.active(), "Natural clip completion retained device/cache");
         preview.configure(true, .5f);
         preview.start(root, record, AudioOutput::Offline);
+        await_audio_preview(preview);
         preview.read_offline(two_seconds);
         preview.poll();
         require(preview.active(), "Loop preview ended at clip duration");
         preview.start(root, record, AudioOutput::Offline);
+        await_audio_preview(preview);
         std::array<float, 512> restarted{};
         preview.read_offline(restarted);
         reference.start(root, record, AudioOutput::Offline);
+        await_audio_preview(reference);
         reference.read_offline(unused);
         require(restarted == unused, "Restart preview did not restart from frame zero");
         reference.stop();
@@ -218,15 +237,24 @@ int main(int argc, char** argv) {
         require(!preview.active(), "Failed replacement retained old audible preview");
         auto bad = record;
         bad.type = "texture";
-        reject([&] { preview.start(root, bad, AudioOutput::Offline); });
+        reject([&] {
+            preview.start(root, bad, AudioOutput::Offline);
+            await_audio_preview(preview);
+        });
         bad = record;
         bad.id = AssetId::generate();
-        reject([&] { preview.start(root, bad, AudioOutput::Offline); });
+        reject([&] {
+            preview.start(root, bad, AudioOutput::Offline);
+            await_audio_preview(preview);
+        });
         bad = record;
         bad.metadata["forge.import"]["artifact_digest"] = std::string(64, '0');
         catalog.replace(bad);
         catalog.save(index);
-        reject([&] { preview.start(root, bad, AudioOutput::Offline); });
+        reject([&] {
+            preview.start(root, bad, AudioOutput::Offline);
+            await_audio_preview(preview);
+        });
         require(!preview.active(), "Corrupt cooked revision created preview");
         {
             std::ofstream restore(index, std::ios::binary);
@@ -237,11 +265,13 @@ int main(int argc, char** argv) {
         const auto held = root / "held-tone.wav";
         std::filesystem::rename(wave, held);
         preview.start(root, record, AudioOutput::Offline);
+        await_audio_preview(preview);
         require(power(preview) > 1e-5, "Published cooked preview depended on source WAV");
         preview.stop();
         std::filesystem::rename(held, wave);
         for (unsigned i = 0; i < 3; ++i) {
             preview.start(root, record, AudioOutput::NullDeviceTest);
+            await_audio_preview(preview);
             for (unsigned seek = 0; seek < 12; ++seek) {
                 preview.paused(seek % 2);
                 preview.seek((seek % 3) * .2);

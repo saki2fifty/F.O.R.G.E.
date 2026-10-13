@@ -123,14 +123,25 @@ void workflow(const std::filesystem::path& worker, const std::filesystem::path& 
             editor.draw(document, false);
             ImGui::Render();
         };
+        auto settle_preview = [&] {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+            while (preview.pending() && std::chrono::steady_clock::now() < deadline) {
+                frame();
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            require(!preview.pending(), "Import preview preparation timed out");
+            frame();
+        };
         editor.open(document, "Assets/ProcessingOriginal.wav");
         frame();
         frame();
         const auto id = editor.selected_asset();
         click(frame, "audio-preview:waveform-load");
+        settle_preview();
         const auto original_band = test::ui_targets.at("audio-preview:waveform");
         const auto original_height = original_band.maximum.y - original_band.minimum.y;
         click(frame, "audio-preview:play");
+        settle_preview();
         require(preview.active(), "Original selected revision did not audition");
         click(frame, "import:settings");
         click(frame, "import-setting:forge.audio.wav:normalize_peak");
@@ -166,6 +177,7 @@ void workflow(const std::filesystem::path& worker, const std::filesystem::path& 
                     published.metadata.at("forge.audio").at("frames") == 48000,
                 "Reimport did not publish the shorter mono selection");
         click(frame, "audio-preview:waveform-load");
+        settle_preview();
         require(!preview.active() && test::ui_targets.contains("audio-preview:waveform"),
                 "Published processed clip could not show waveform");
         const auto processed_band = test::ui_targets.at("audio-preview:waveform");

@@ -15,6 +15,8 @@ class RuntimeWorld {
     // GameSession before this is invoked; this method does not tick, run
     // control callbacks, publish worlds, or touch GPU.
     bool prepare_scene_resources();
+    // Audio-only owner boundary, without elapsed time or animation resampling.
+    bool prepare_audio_sources();
     EngineContext engine;
     Scene scene;
     RuntimeSimulation simulation;

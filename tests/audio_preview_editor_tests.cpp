@@ -1,9 +1,11 @@
 #include "editor/audio_preview.hpp"
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <fstream>
 #include <imgui_internal.h>
 #include <iostream>
+#include <thread>
 using namespace forge;
 namespace {
 void require(bool value, const char* message) {
@@ -68,6 +70,19 @@ int main(int argc, char** argv) {
                     frame();
                     io.AddMouseButtonEvent(0, false);
                     frame();
+                    if (std::string(control) == "play" || std::string(control) == "waveform-load") {
+                        require(preview.pending(), "First-use preview hid its pending state");
+                        if (std::string(control) == "play")
+                            require(test::ui_targets.at("audio-preview:stop").enabled,
+                                    "Pending audition could not be stopped");
+                    }
+                    const auto deadline =
+                        std::chrono::steady_clock::now() + std::chrono::seconds(5);
+                    while (preview.pending() && std::chrono::steady_clock::now() < deadline) {
+                        frame();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    }
+                    require(!preview.pending(), "Preview UI preparation timed out");
                 };
                 frame();
                 frame();

@@ -103,6 +103,7 @@ int main(int argc, char** argv) {
             simulation.sync_audio();
             simulation.audio_paused(false);
             auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            require(audio->wait_for_sources(std::chrono::seconds(5)), "Audio preparation failed");
             unsigned speakers = 0, listeners = 0;
             for (const auto& row : shipped.at("entities")) {
                 auto entity = scene.entity(row.at("id"));
@@ -179,6 +180,7 @@ int main(int argc, char** argv) {
             listener.set<LocalRotation>({});
             simulation.tick(1.f / 60);
             auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            require(audio->wait_for_sources(std::chrono::seconds(5)), "Audio preparation failed");
             const double front = power(*audio);
             require(front > .001, "Relocated directional speaker did not play");
             scene.entity(parent).set<LocalRotation>({0, 1, 0, 0});
@@ -198,6 +200,7 @@ int main(int argc, char** argv) {
             simulation.sync_audio();
             simulation.audio_paused(false);
             auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            require(audio->wait_for_sources(std::chrono::seconds(5)), "Audio preparation failed");
             std::vector<EntityRef> sources;
             for (const auto& row : shipped.at("entities")) {
                 auto entity = scene.entity(row.at("id"));
@@ -265,6 +268,7 @@ int main(int argc, char** argv) {
             simulation.audio_paused(false);
             simulation.tick(1.f / 60);
             auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            require(audio->wait_for_sources(std::chrono::seconds(5)), "Audio preparation failed");
             require(power(*audio) > .001, "Source-free processed gallery did not play cooked PCM");
         }
         {
@@ -288,6 +292,7 @@ int main(int argc, char** argv) {
             simulation.sync_audio();
             simulation.audio_paused(false);
             auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            require(audio->wait_for_sources(std::chrono::seconds(5)), "Audio preparation failed");
             EntityRef doppler{}, reference{};
             for (const auto& row : shipped_motion.at("entities")) {
                 auto entity = scene.entity(row.at("id"));

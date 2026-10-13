@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <chrono>
 #include <forge/audio_components.hpp>
 #include <forge/audio_service.hpp>
 #include <forge/world.hpp>
@@ -30,6 +31,10 @@ class AudioRuntime : public AudioService {
     void pause_source(EntityRef) override;
     void resume_source(EntityRef) override;
     Json status() const;
+    // Explicit preparation/tooling wait; synchronization never waits for IO.
+    bool wait_for_sources(std::chrono::milliseconds timeout);
+    // Host service boundary, including paused Play; does not advance game time.
+    void poll_loading();
     // Explicit no-device test facility; never called by the simulation clock.
     void read_offline(std::span<float> stereo);
 

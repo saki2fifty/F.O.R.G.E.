@@ -223,6 +223,9 @@ int main(int argc, char** argv) {
         };
         while (!io.closed()) {
             clock.advance(forge::RuntimeClock::Clock::now(), tick);
+            if (runtime->engine.services().available(forge::Capability::Audio))
+                std::static_pointer_cast<forge::AudioRuntime>(runtime->engine.services().audio())
+                    ->poll_loading();
             io.flush_for(std::chrono::milliseconds(10));
             if (quit && (!io.pending() || forge::RuntimeClock::Clock::now() >= quit_deadline))
                 break;
@@ -336,6 +339,13 @@ int main(int argc, char** argv) {
                         candidate->simulation.restore_input_tick(recovered_tick);
                         candidate->simulation.reset_presentation();
                         candidate->simulation.sync_audio();
+                        if (candidate->engine.services().available(forge::Capability::Audio)) {
+                            auto audio = std::static_pointer_cast<forge::AudioRuntime>(
+                                candidate->engine.services().audio());
+                            if (!audio->wait_for_sources(std::chrono::seconds(30)))
+                                throw std::runtime_error(
+                                    "Scene preparation: audio failed or timed out");
+                        }
                         // Publish only a complete validated reconstruction.
                         runtime.swap(candidate);
                         runtime->engine.services().profiling(profiling_enabled);

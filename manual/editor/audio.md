@@ -7,6 +7,10 @@ In **Content**, double-click an AudioClip to open its **Audio clip** tab. Under
 **Stop preview** releases it. **Loop preview** repeats the sound, and
 **Preview volume** changes how loudly you hear it.
 
+The tab shows **Loading preview...** or **Loading waveform...** during the first
+load. You can stop a loading preview. Playback position and pause controls become
+available when the sound is ready. Loading errors appear in this tab.
+
 Click **Show waveform** to see the sound without playing it. Mono clips show one
 band; stereo clips show separate Left and Right bands. Playing also loads the
 waveform. The time display shows the current position and total duration.

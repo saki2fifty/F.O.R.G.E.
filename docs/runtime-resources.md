@@ -119,6 +119,18 @@ bindings and checks a supplied layout before adoption. A newer publication gener
 replaces bindings even when its cooked content digest is unchanged; held old leases
 keep their own binding selections.
 
+## Audio consumer
+
+AudioRuntime owns a typed AudioClip pool using the existing resource lifetime
+model. Two CPU workers admit copied catalog selections; the world owner pumps and
+creates miniaudio voices whose strong leases pin immutable PCM. The callback reads
+prepared native buffers without ECS, pool access or asset IO. Required scene loads
+remain pending until audio admission succeeds, and between-tick host servicing also
+works during paused Play. The pool bounds requests to256, selections to4096 and
+managed PCM to256MiB. Source/clip decoding retains the existing16/64MiB bounds;
+bounded worker temporaries are additional to managed residency. Teardown stops
+callbacks and removes voices before closing the pool. See [audio](audio.md).
+
 ## Model animation consumer
 
 The animation subsystem now uses typed Skeleton and AnimationClip pools for cooked

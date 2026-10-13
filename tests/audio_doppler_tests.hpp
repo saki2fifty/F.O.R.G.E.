@@ -52,6 +52,42 @@ void doppler_tests(const std::filesystem::path& root, AssetId clip) {
               "Motion replaced voice or decoded clip");
     }
     Fixture f(root);
+    // Servicing a different clip between fixed ticks must retain the moving
+    // voice's last fixed velocity, rather than introduce nominal-pitch gaps.
+    {
+        wav(root / "Assets/loading-doppler.wav");
+        const auto other = AssetCatalog::register_audio_clip(root, "Assets/loading-doppler.wav");
+        Fixture loading(root);
+        loading.load(document);
+        loading.simulation.audio_paused(false);
+        AudioSource silent;
+        silent.clip.id = other.id;
+        silent.gain = 0;
+        silent.spatialized = false;
+        const auto id = authoring_command(loading.scene, "entity.create", {{"name", "Loading"}})
+                            .at("selected")
+                            .get<std::string>();
+        loading.scene.entity(id).set(silent);
+        loading.scene.entity("speaker").set<LocalTranslation>({0, 0, 10 - 33 * dt});
+        loading.simulation.tick(dt);
+        check(loading.audio->status().at("pending_sources") == 1,
+              "Doppler loading fixture did not create an independent request");
+        const auto expected = 440 * sound_speed / (sound_speed - 33);
+        check(std::abs(audio_frequency(loading) - expected) < .5,
+              "Pending load changed the initial fixed velocity");
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (loading.audio->status().at("pending_sources") != 0) {
+            loading.audio->poll_loading();
+            check(std::chrono::steady_clock::now() < deadline, "Doppler clip admission stalled");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        check(loading.audio->status().at("tick") == 1 &&
+                  std::abs(audio_frequency(loading) - expected) < .5,
+              "Between-tick admission changed motion pitch or advanced time");
+        loading.simulation.sync_audio();
+        check(std::abs(audio_frequency(loading) - 440) < .5,
+              "Explicit repeated pose boundary did not clear motion");
+    }
     for (float delta : {1.f / 30, 1.f / 120}) {
         auto scaled = document;
         scaled["entities"][0]["components"]["forge.audio_source"]["doppler"] = 2;

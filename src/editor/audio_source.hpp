@@ -36,6 +36,7 @@ class AudioSourceEditor {
         ui::heading("Live sound", "Control this source in the current Play session.");
         ImGui::TextColored({.61f, .93f, .89f, 1}, "PLAY — runtime only");
         const bool available = status.is_object() && status.value("available", false);
+        const bool loading = status.is_object() && status.value("pending", false);
         const bool playing = available && status.value("playing", false);
         const bool source_paused = available && status.value("source_paused", false);
         if (available)
@@ -46,12 +47,14 @@ class AudioSourceEditor {
                                                        : "Playing",
                         status.value("duration", 0.),
                         status.value("loop", false) ? "Loop" : "Once");
+        else if (loading)
+            ImGui::TextUnformatted("Loading sound...");
         else
             ImGui::TextWrapped("%s",
                                status.is_object()
                                    ? status.value("error", "Waiting for source status...").c_str()
                                    : "Waiting for source status...");
-        ImGui::BeginDisabled(!ready || pending || !available);
+        ImGui::BeginDisabled(!ready || pending || (!available && !loading));
         auto button = [&](const char* label, const char* key, AudioSourceOperation operation) {
             if (ui::button(label,
                            operation == AudioSourceOperation::Restart

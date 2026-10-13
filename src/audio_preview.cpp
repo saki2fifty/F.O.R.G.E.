@@ -1,8 +1,11 @@
 #include "audio_preview.hpp"
 #include "audio_preview_access.hpp"
+#include "audio_resource.hpp"
 #include "audio_selection.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/asset_build.hpp>
+#include <forge/resource.hpp>
 #include <forge/scene.hpp>
 namespace forge {
 namespace asset_detail {
@@ -43,6 +46,29 @@ AssetRecord selected(const std::filesystem::path& project, const AssetRecord& ex
     return found->second;
 }
 } // namespace
+struct AudioWaveformAsset {
+    static constexpr const char* type = "forge.editor.audio_waveform";
+};
+template <> struct ResourceTraits<AudioWaveformAsset> {
+    using Data = asset_detail::AudioWaveform;
+};
+struct AudioClipPreview::WaveformJob {
+    ResourcePool<AudioWaveformAsset> pool{{1, 1, 1, 128 * 1024}};
+    ResourceTicket ticket;
+    WaveformJob(const std::filesystem::path& project, const AssetRecord& record)
+        : ticket(pool.request(
+              AssetRef<AudioWaveformAsset>{record.id}, audio_clip_revision(record), 1,
+              [project, record](std::stop_token stop) {
+                  if (stop.stop_requested())
+                      throw std::runtime_error("Waveform load cancelled");
+                  auto data = std::make_unique<asset_detail::AudioWaveform>(
+                      asset_detail::audio_waveform(asset_detail::load_audio_clip(project, record)));
+                  if (stop.stop_requested())
+                      throw std::runtime_error("Waveform load cancelled");
+                  const auto bytes = data->peaks.capacity() * sizeof(data->peaks[0]);
+                  return ResourceCandidate<AudioWaveformAsset>{std::move(data), {bytes}};
+              })) {}
+};
 struct AudioClipPreview::PreviewWorld {
     std::filesystem::path project;
     AssetRecord record;
@@ -50,7 +76,7 @@ struct AudioClipPreview::PreviewWorld {
     Scene scene;
     std::shared_ptr<AudioRuntime> audio;
     std::string actor = AssetId::generate().str();
-    bool paused = false;
+    bool paused = false, prepared = false;
     double seek_offset = 0;
     EntityRef ref() const { return scene.reference(actor); }
     PreviewWorld(const std::filesystem::path& root, const AssetRecord& expected, AudioOutput output,
@@ -75,13 +101,6 @@ struct AudioClipPreview::PreviewWorld {
                                             {"minimum_distance", 1.f},
                                             {"maximum_distance", 100.f}}}}}}})}});
         audio->synchronize(0);
-        if (audio->status().at("voices") != 1) {
-            const auto diagnostics = engine.services().diagnostics();
-            throw std::runtime_error(diagnostics.empty()
-                                         ? "Audio preview could not load this clip. Reimport it."
-                                         : diagnostics.back().at("text").get<std::string>());
-        }
-        audio->paused(false);
     }
 };
 AudioClipPreview::AudioClipPreview() = default;
@@ -91,20 +110,23 @@ void AudioClipPreview::start(const std::filesystem::path& project, const AssetRe
     stop();
     world_ = std::make_unique<PreviewWorld>(project, record, output, loop_, volume_);
     try {
-        if (!waveform_matches(project, record)) {
-            waveform_ = asset_detail::audio_waveform(
-                AudioPreviewAccess::clip(*world_->audio, world_->ref()));
-            waveform_project_ = project;
-            waveform_record_ = record;
-        }
+        if (!waveform_matches(project, record))
+            load_waveform(project, record);
     } catch (...) {
         stop();
         throw;
     }
 }
-void AudioClipPreview::stop() { world_.reset(); }
+void AudioClipPreview::stop() {
+    world_.reset();
+    if (waveform_job_) {
+        waveform_job_.reset();
+        waveform_record_.reset();
+    }
+}
 void AudioClipPreview::clear() {
     stop();
+    waveform_job_.reset();
     waveform_ = {};
     waveform_project_.clear();
     waveform_record_.reset();
@@ -114,13 +136,13 @@ void AudioClipPreview::load_waveform(const std::filesystem::path& project,
     const auto admitted = selected(project, record);
     if (waveform_matches(project, admitted))
         return;
-    auto envelope = asset_detail::audio_waveform(asset_detail::load_audio_clip(project, admitted));
-    waveform_ = std::move(envelope);
+    waveform_job_ = std::make_unique<WaveformJob>(project, admitted);
+    waveform_ = {};
     waveform_project_ = project;
     waveform_record_ = admitted;
 }
 const asset_detail::AudioWaveform* AudioClipPreview::waveform() const {
-    return waveform_record_ ? &waveform_ : nullptr;
+    return waveform_record_ && !waveform_.peaks.empty() ? &waveform_ : nullptr;
 }
 bool AudioClipPreview::waveform_matches(const std::filesystem::path& project,
                                         const AssetRecord& record) const {
@@ -130,7 +152,8 @@ bool AudioClipPreview::waveform_matches(const std::filesystem::path& project,
 void AudioClipPreview::paused(bool value) {
     if (!world_)
         throw std::runtime_error("Audio preview is stopped");
-    world_->audio->paused(value);
+    if (world_->prepared)
+        world_->audio->paused(value);
     world_->paused = value;
 }
 bool AudioClipPreview::paused() const { return world_ && world_->paused; }
@@ -147,7 +170,7 @@ void AudioClipPreview::seek(double seconds) {
     }
 }
 double AudioClipPreview::position() const {
-    if (!world_)
+    if (!world_ || !world_->prepared)
         return 0;
     const auto duration = waveform_.duration();
     const double seconds =
@@ -170,16 +193,50 @@ void AudioClipPreview::configure(bool loop, float volume) {
     volume_ = volume;
 }
 void AudioClipPreview::poll() {
-    if (world_ && world_->audio->status().at("playing_sources") == 0)
+    try {
+        if (waveform_job_) {
+            waveform_job_->pool.pump();
+            const auto info = waveform_job_->ticket.inspect();
+            if (info.state == ResourceState::Ready) {
+                waveform_ = waveform_job_->pool.acquire(waveform_job_->ticket).get();
+                waveform_job_.reset();
+            } else if (resource_detail::terminal(info.state)) {
+                const auto error = info.diagnostic;
+                waveform_job_.reset();
+                waveform_record_.reset();
+                throw std::runtime_error(error);
+            }
+        }
+        if (world_ && !world_->prepared) {
+            world_->audio->synchronize(0);
+            const auto status = world_->audio->status();
+            if (status.at("failed_sources") != 0) {
+                const auto diagnostics = world_->engine.services().diagnostics();
+                throw std::runtime_error(
+                    diagnostics.empty() ? "Audio preview could not load this clip. Reimport it."
+                                        : diagnostics.back().at("text").get<std::string>());
+            }
+            if (status.at("pending_sources") != 0 || waveform_job_)
+                return;
+            world_->prepared = true;
+            world_->audio->paused(world_->paused);
+        }
+        if (world_ && world_->audio->status().at("playing_sources") == 0)
+            stop();
+    } catch (...) {
         stop();
+        throw;
+    }
 }
+bool AudioClipPreview::pending() const { return world_ && !world_->prepared; }
+bool AudioClipPreview::waveform_pending() const { return bool(waveform_job_); }
 bool AudioClipPreview::matches(const std::filesystem::path& project,
                                const AssetRecord& record) const {
     return world_ && world_->project == project && same_revision(world_->record, record);
 }
 void AudioClipPreview::read_offline(std::span<float> output) {
-    if (!world_)
-        throw std::runtime_error("Audio preview is stopped");
+    if (!world_ || !world_->prepared)
+        throw std::runtime_error("Audio preview is stopped or loading");
     world_->audio->read_offline(output);
 }
 } // namespace forge

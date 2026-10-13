@@ -315,6 +315,7 @@ int main(int argc, char** argv) {
         RuntimeSimulation simulation(engine.world(), scene);
         simulation.tick(1.f / 60);
         auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+        check(audio->wait_for_sources(std::chrono::seconds(5)), "Audio preparation failed");
         audio->paused(false);
         std::vector<float> output(512);
         audio->read_offline(output);
@@ -423,6 +424,8 @@ int main(int argc, char** argv) {
         exported_simulation.audio_paused(false);
         auto exported_audio =
             std::static_pointer_cast<AudioRuntime>(exported_engine.services().audio());
+        check(exported_audio->wait_for_sources(std::chrono::seconds(5)),
+              "Audio preparation failed");
         exported_audio->read_offline(output);
         check(std::any_of(output.begin(), output.end(), [](float sample) { return sample > .1f; }),
               "Runtime did not play relocated processed PCM");

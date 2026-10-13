@@ -40,26 +40,9 @@ bool RuntimeWorld::prepare_scene_resources() {
     engine.world().evaluate_world_transforms();
     physics()->synchronize(0);
     simulation.reset_presentation();
-    simulation.sync_audio();
-    auto services = engine.services();
-    if (services.available(Capability::Audio)) {
-        auto audio = std::static_pointer_cast<AudioRuntime>(services.audio());
-        if (!audio || audio->status().at("failed_sources").get<std::size_t>())
-            throw std::runtime_error("Scene preparation: required audio sources failed");
-    } else {
-        // The Flecs iteration locks its table; throwing from inside the
-        // callback leaves the lock held and aborts table teardown under
-        // sanitizers. Observe first, then throw after the iteration returns.
-        bool missing_audio = false;
-        engine.world().world().each([&](flecs::entity e, const AudioSource&) {
-            if (missing_audio)
-                return;
-            if (!e.has(flecs::Prefab))
-                missing_audio = true;
-        });
-        if (missing_audio)
-            throw std::runtime_error("Scene preparation: audio output is unavailable");
-    }
+    if (!prepare_audio_sources())
+        return false;
+    const auto services = engine.services();
     // Probe each enabled navigation dependency using the existing loader
     // and geometry-revision validation. Being off the mesh is not a load
     // failure. The Flecs iteration locks its table; capture the first
@@ -81,6 +64,31 @@ bool RuntimeWorld::prepare_scene_resources() {
         });
         if (first_error)
             std::rethrow_exception(first_error);
+    }
+    return true;
+}
+bool RuntimeWorld::prepare_audio_sources() {
+    simulation.sync_audio();
+    auto services = engine.services();
+    if (services.available(Capability::Audio)) {
+        auto audio = std::static_pointer_cast<AudioRuntime>(services.audio());
+        if (!audio || audio->status().at("failed_sources").get<std::size_t>())
+            throw std::runtime_error("Scene preparation: required audio sources failed");
+        if (audio->status().at("pending_sources").get<std::size_t>())
+            return false;
+    } else {
+        // The Flecs iteration locks its table; throwing from inside the
+        // callback leaves the lock held and aborts table teardown under
+        // sanitizers. Observe first, then throw after the iteration returns.
+        bool missing_audio = false;
+        engine.world().world().each([&](flecs::entity e, const AudioSource&) {
+            if (missing_audio)
+                return;
+            if (!e.has(flecs::Prefab))
+                missing_audio = true;
+        });
+        if (missing_audio)
+            throw std::runtime_error("Scene preparation: audio output is unavailable");
     }
     return true;
 }

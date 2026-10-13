@@ -10,16 +10,25 @@ class AudioPreviewEditor {
     explicit AudioPreviewEditor(AudioOutput output = AudioOutput::Device) : output_(output) {}
     void stop() { preview_.clear(); }
     bool active() const { return preview_.active(); }
+    bool pending() const { return preview_.pending() || preview_.waveform_pending(); }
     bool paused() const { return preview_.paused(); }
     double position() const { return preview_.position(); }
     void poll(const std::filesystem::path& project, const AssetRecord* record, bool permitted) {
         if (error_project_ != project || !record || error_asset_ != record->id)
             error_.clear();
         if (!permitted || !record || (preview_.active() && !preview_.matches(project, *record)) ||
-            (preview_.waveform() && !preview_.waveform_matches(project, *record)))
+            ((preview_.waveform() || preview_.waveform_pending()) &&
+             !preview_.waveform_matches(project, *record)))
             stop();
-        else
-            preview_.poll();
+        else {
+            try {
+                preview_.poll();
+            } catch (const std::exception& e) {
+                error_ = e.what();
+                error_project_ = project;
+                error_asset_ = record ? record->id : AssetId{};
+            }
+        }
     }
     void draw(const std::filesystem::path& project, const AssetRecord* record, bool locked) {
         poll(project, record, !locked);
@@ -47,7 +56,7 @@ class AudioPreviewEditor {
         FORGE_UI_PROBE("audio-preview:stop");
         ImGui::EndDisabled();
         ui::next_text_button(preview_.paused() ? "Resume preview" : "Pause preview");
-        ImGui::BeginDisabled(!active());
+        ImGui::BeginDisabled(!active() || preview_.pending());
         if (ui::button(preview_.paused() ? "Resume preview" : "Pause preview",
                        "Pause or resume this preview without changing its playback position."))
             attempt(project, record, [&] { preview_.paused(!preview_.paused()); });
@@ -75,7 +84,8 @@ class AudioPreviewEditor {
             }
         }
         ImGui::EndDisabled();
-        ImGui::BeginDisabled(locked || !record || preview_.waveform());
+        ImGui::BeginDisabled(locked || !record || preview_.waveform() ||
+                             preview_.waveform_pending());
         if (ui::button("Show waveform",
                        "Load a bounded waveform envelope without opening a sound device."))
             attempt(project, record, [&] { preview_.load_waveform(project, *record); });
@@ -97,9 +107,12 @@ class AudioPreviewEditor {
             ImGui::EndDisabled();
             waveform(*envelope, preview_.position(), project, record);
         }
-        ImGui::TextUnformatted(!active()           ? "Preview stopped"
+        ImGui::TextUnformatted(preview_.pending()  ? "Loading preview..."
+                               : !active()         ? "Preview stopped"
                                : preview_.paused() ? "Preview paused"
                                                    : "Preview playing");
+        if (preview_.waveform_pending())
+            ImGui::TextUnformatted("Loading waveform...");
         if (locked)
             ImGui::TextWrapped("Stop game Play and finish saving import changes to preview.");
         if (!error_.empty())

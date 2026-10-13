@@ -1,5 +1,12 @@
 # 2026-10-13
 
+## Audio loading between ticks
+
+- Load selected audio clips on bounded CPU workers through the existing resource pool; retain immutable PCM leases in voices.
+- Keep scene candidates pending until required sound is ready; service pending loads during paused Play without advancing game time.
+- Preserve queued source controls during loading, reject stale completion/commands, and report loading separately from failure.
+- Load editor audition and waveform envelopes asynchronously with visible loading feedback and retained errors.
+
 ## Animated audio volume and pitch
 
 - Key Audio Source volume and pitch in the existing Timeline alongside camera/light properties; preserve current clocks, history, preview and publication.

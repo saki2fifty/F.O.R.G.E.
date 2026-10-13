@@ -82,6 +82,7 @@ struct Fixture {
         scene.restore_snapshot(doc);
         simulation.reset_presentation();
         simulation.sync_audio();
+        (void)audio->wait_for_sources(std::chrono::seconds(5));
     }
     double energy(unsigned frames = 1024) {
         std::vector<float> pcm(frames * 2);
@@ -96,7 +97,11 @@ struct Fixture {
     EntityRef ref(const char* id = "speaker") {
         return engine.world().reference(scene.entity(id).id()).value();
     }
-    void tick() { simulation.tick(1.f / 60); }
+    void tick() {
+        simulation.tick(1.f / 60);
+        if (audio->status().at("pending_sources") != 0)
+            (void)audio->wait_for_sources(std::chrono::seconds(5));
+    }
 };
 #include "audio_attenuation_tests.hpp"
 #include "audio_cone_tests.hpp"
@@ -545,8 +550,13 @@ int main(int argc, char** argv) {
                 world.scene.restore_snapshot(working_doc);
                 check(world.engine.services().available(Capability::Audio),
                       "Offline AudioOutput did not publish Audio capability");
-                check(world.prepare_scene_resources(),
-                      "Offline audio + working source did not satisfy scene prep");
+                const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+                bool ready = world.prepare_scene_resources();
+                while (!ready && std::chrono::steady_clock::now() < deadline) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    ready = world.prepare_scene_resources();
+                }
+                check(ready, "Offline audio + working source did not satisfy scene prep");
             }
 
             // (b) Offline audio + unresolvable clip → throws required-source failure.

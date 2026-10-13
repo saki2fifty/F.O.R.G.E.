@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/audio.hpp>
 #include <forge/game_session.hpp>
 #include <limits>
 namespace forge {
@@ -62,12 +63,22 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         auto preparation = config_.preparation ? config_.preparation(ticket) : nullptr;
         if (config_.preparation && !preparation)
             throw std::runtime_error("game.session: Host returned no preparation owner");
+        // Start loading above, but preserve preparation's structural boundary.
+        // Required-source failures are reported by poll/activate, alongside the
+        // existing host admission phase, before any candidate is published.
+        bool audio_ready = true;
+        if (physics_ready && next->engine.services().available(Capability::Audio)) {
+            const auto status =
+                std::static_pointer_cast<AudioRuntime>(next->engine.services().audio())->status();
+            audio_ready = status.at("pending_sources") == 0 && status.at("failed_sources") == 0;
+        }
         candidate_ = std::move(next);
         candidate_initialized_ = physics_ready;
         candidate_preparation_ = std::move(preparation);
         pending_ = ticket;
-        progress_ = {physics_ready && !candidate_preparation_,
+        progress_ = {physics_ready && audio_ready && !candidate_preparation_,
                      !physics_ready           ? "collision"
+                     : !audio_ready           ? "audio"
                      : candidate_preparation_ ? "resources"
                                               : "structural",
                      0, 0};
@@ -105,12 +116,15 @@ GamePreparationProgress GameSession::poll_candidate() {
             } else
                 progress_ = {false, "collision", 0, 1};
         }
-        if (candidate_initialized_ && candidate_preparation_) {
+        if (candidate_initialized_ && !candidate_->prepare_audio_sources())
+            progress_ = {false, "audio", 0, 1};
+        else if (candidate_initialized_ && candidate_preparation_) {
             auto next = candidate_preparation_->poll(*candidate_);
             if (next.completed > next.total || next.stage.empty() || next.stage.size() > 256)
                 throw std::runtime_error("game.session: Invalid preparation progress");
             progress_ = std::move(next);
-        }
+        } else if (candidate_initialized_)
+            progress_ = {true, "structural", 0, 0};
         loading_.state = progress_.ready ? "ready" : "loading";
         loading_.stage = progress_.stage;
         loading_.completed = progress_.completed;
@@ -259,6 +273,9 @@ void GameSession::control_frame() {
             throw std::runtime_error("Control-frame sequence exhausted");
         const auto& input = active_->simulation.input().latch_controls(++control_frame_);
         active_->engine.world().modules().control_frame(input);
+        if (active_->engine.services().available(Capability::Audio))
+            std::static_pointer_cast<AudioRuntime>(active_->engine.services().audio())
+                ->poll_loading();
     } catch (const std::exception& e) {
         faulted_ = true;
         error_ = std::string("Game control callback failed: ") + e.what();

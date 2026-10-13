@@ -85,6 +85,7 @@ struct Running {
         }
         simulation.reset_presentation();
         simulation.sync_audio();
+        check(audio->wait_for_sources(std::chrono::seconds(5)), "Animated audio load failed");
         simulation.audio_paused(false);
     }
     Signal signal(unsigned frames = 4096) {

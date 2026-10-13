@@ -4,7 +4,7 @@
 
 ## Build and ownership
 
-Windows output explicitly selects WASAPI; Linux selects PulseAudio/ALSA with upstream dynamic backend loading. Null backend is enabled only for explicit internal tests, never an automatic physical-device fallback. WAV decoding, engine mixing/spatialization and threading remain enabled; MP3, FLAC, encoding and waveform generation are disabled. No external codec framework is linked. The default engine resource manager remains private; FORGE's bounded AssetId cache shares immutable decoded PCM through miniaudio buffer references. A generic AssetHandle remains deferred.
+Windows output explicitly selects WASAPI; Linux selects PulseAudio/ALSA with upstream dynamic backend loading. Null backend is enabled only for explicit internal tests, never an automatic physical-device fallback. WAV decoding, engine mixing/spatialization and threading remain enabled; MP3, FLAC, encoding and waveform generation are disabled. No external codec framework is linked. The default engine resource manager remains private. AudioRuntime owns the existing typed ResourcePool<AudioClipAsset>; voices retain immutable PCM leases and supply miniaudio buffer references. No loaded handle enters saved components or the gameplay ABI.
 
 Each active Runtime WorldContext owns one AudioRuntime through EngineModule state. It owns stable-address context, engine, gameplay group, source voices and decoded clip data. Each voice maps a generation-bearing Flecs entity plus EntityRef to one miniaudio sound/buffer reference. Schema-only Authoring/Validation/default headless composition opens no device. `forge_audio` uses the private miniaudio engine and shared WAV decoder. The isolated asset worker links that decoder; authoring validates cooked PCM without opening a device. Core and authoring do not require an audio backend.
 
@@ -16,7 +16,35 @@ AudioSource holds `AssetRef<AudioClipAsset>`, autoplay/loop/spatialized flags, l
 
 AssetCatalog owns metadata in version1 `forge.assets.json`; ProjectPaths resolves contained project-relative locators. Registration is UI-independent and idempotent for a locator. UI calls require project writer ownership; a detected external index edit prevents publication. Metadata persistence is separate from scene Undo; no cross-document atomicity claim. The shared Phase7 importer/publication and source-watcher workflow below also supports AudioClip. Existing registered-only records remain readable without automatic migration.
 
-Sources are decoded once into bounded immutable PCM. Limits:256 voices,1024 queued commands,16MiB source,64MiB decoded clip,256MiB cache. Mono/stereo WAV only; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame; changing configuration or restarting Play allows retry. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
+Sources are decoded once into bounded immutable PCM. Limits:256 voices including pending sources,1024 queued commands,16MiB source,64MiB decoded clip,256MiB managed resident PCM,2 workers,256 pending requests and4096 selected asset slots. Worker decoding uses bounded temporary memory in addition to resident PCM. Mono/stereo WAV only; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame. Configuration corrections can recover a source; a failed immutable clip request requires restarting Play to retry file admission. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
+
+### Loading boundaries
+
+First use requests immutable selected data off-thread. Workers receive copied
+project paths and catalog records; they never receive worlds, Scene, voices or
+audio device pointers. Identical clip requests coalesce. The owner pumps completed
+data and creates voices at audio synchronization or the host's between-tick loading
+service. Fixed ticks never wait for clip IO/decoding. Loading remains serviceable
+while Play is paused without advancing animation, physics or game time.
+For unchanged poses at that same tick, loading service preserves the last fixed
+velocity used by existing Doppler voices. Explicit pose synchronization and
+teleport/seek boundaries retain their previous velocity-reset behavior.
+
+Runtime status distinguishes pending sources/clips from failed sources. A copied
+source observation has `pending:true, available:false` while its request is loading.
+Stop/Restart commands retain bounded intent and source/clip/native-generation
+identity. Initial autoplay and queued commands are folded before starting a new
+voice, so queued Stop cannot leak an initial burst. Pause/Resume preserve their
+existing semantics. Removed or switched sources cannot realize a late voice;
+unused in-flight requests are cancelled while shared requests remain coalesced.
+
+Scene candidates stay unpublished until required audio is ready. Preparation pumps
+without ticking; failure preserves the active world. The ordinary headless replace
+command and explicit tests can use the bounded `wait_for_sources` tooling facility;
+game synchronization and editor audition do not call that wait. Shutdown stops the
+device/callback, retires sounds/buffer references, then cancels/joins loaders and
+closes the pool. Cancellation joins bounded admission work; it does not promise
+interruptible operating-system file IO.
 
 ## Distance falloff
 
@@ -177,8 +205,10 @@ revision change, project change, import draft/job/lock and game Play release the
 voice, device and decoded cache. Failed initialization reports the actual audio
 error without a null-device fallback. Explicit offline/null outputs are test-only.
 Show waveform explicitly loads through the same bounded selected-clip admission,
-without an audio device. PCM is reduced once to at most4096 min/max buckets per
-channel, then released. Playing derives the envelope from the retained voice PCM.
+without an audio device. A bounded editor-only resource job admits the selected PCM
+and reduces it to at most4096 min/max buckets per channel off-thread, then releases
+PCM. The retained result is only an envelope. Playing uses the normal runtime clip
+pool; if an envelope is missing, an independent envelope job uses the same admission.
 No cook revision, catalog array or second PCM cache is introduced. A bucket spans
 `[floor(i*frames/N), floor((i+1)*frames/N))`, including the final partial range.
 Mono/stereo channel extrema remain separate; values above unit amplitude are
@@ -197,12 +227,14 @@ divided by engine sample rate, modulo duration when looping. It measures mixed
 playback position, not physical device latency or sample-accurate audible time.
 Nonfinite/out-of-range positions reject before changing the admitted preview.
 The private friend declaration is not an installed SDK header or ABI callback.
-Asynchronous first-use loading remains deferred.
+Audition and waveform requests report loading and adopt results in preview poll.
+Stop remains available during audition loading; transport position/pause controls
+require readiness. Errors from asynchronous admission are retained in the clip tab.
 Actual offline PCM and scaled widget tests do not prove physical sound quality.
 
 ## Clock and presentation
 
-RuntimeSimulation invokes audio synchronization only after a successful completed fixed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. It publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances. Directional gain and optional Doppler use the existing native spatializer. Occlusion and frequency-dependent cone filtering are deferred.
+RuntimeSimulation's fixed phase invokes audio synchronization after a successful completed tick and final transform evaluation; scene candidate realization can synchronize at the initial/recovered boundary. The host's separate loading service adopts completed clips between ticks, including while paused, without advancing the simulation; unchanged poses retain their last fixed velocity. Synchronization publishes current effective world positions and listener direction/up. Affine directions are normalized/orthogonalized without changing authored transforms or imposing physics shear restrictions. Source scale does not scale range/gain. Spatial positions must be finite and within ±1e9 meters before conversion to backend float; this is a safety bound, not a large-world precision claim. Distance falloff defaults to inverse with strength1 and clamped min/max distances. Directional gain and optional Doppler use the existing native spatializer. Occlusion and frequency-dependent cone filtering are deferred.
 
 ### Moving sources and listeners
 
@@ -288,7 +320,7 @@ pitch-preserving time stretch; ephemeral recovery retains the existing restart p
 
 Audio tests use offline PCM and explicit null-device callback teardown. Process tests cover schema-only mode, pause/step/resume, private recovery reconstruction and rejected candidate preservation; shared SDK fixture checks typed components, Play/Stop and missing capability. Existing physics/runtime/render tests remain required. These tests cannot establish subjective spatial quality or physical-device playback.
 
-Later work includes asynchronous runtime first-use loading, streaming music, one-shots/voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
+Later work includes streaming music, one-shots/voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
 ## Phase7 AudioClip import and selected revisions
@@ -351,9 +383,10 @@ logical references are graphics-backend-neutral.
 
 Runtime selects the catalog's DDC key, validates hashes and metadata, and loads
 cooked PCM without requiring the development WAV. Registered-only legacy records
-use the same bounded native WAV decoder. The existing runtime cache and voice
-ownership remain unchanged; first-use loading still occurs on the runtime owner
-thread. There is no claim of generic asynchronous AudioClip resource leases.
+use the same bounded native WAV decoder. AudioRuntime retains voice ownership and
+uses its typed CPU pool to perform admission off-thread. The catalog snapshot and
+selected cook remain authoritative; asynchronous loading changes no audio format,
+importer revision, persistent identity or installed gameplay callback table.
 
 Invalid, cancelled or stale imports keep the previous catalog, sidecar and
 selected clip. Reimport retains AssetId. Content moves retain identity and the

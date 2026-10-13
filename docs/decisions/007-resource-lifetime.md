@@ -13,6 +13,12 @@ validation is complete. Future implementation requires its own authorized scope.
 
 ## Decision
 
+Implementation checkpoint — 2026-10-13: AudioRuntime now owns a typed immutable
+PCM pool because its previous first-use file admission ran inside fixed audio
+synchronization. This concrete blocking consumer uses the existing pool/lease
+contract; no persistent loaded handle or parallel asset authority was introduced.
+See [audio loading](../audio.md#loading-boundaries) for bounds and lifecycle.
+
 Choose a combination: AssetRef<T> stays persistent; a future typed runtime resource
 lease identifies a validated artifact revision in a subsystem-owned resource pool.
 AssetId-only caches are insufficient once async loads, dependencies and GPU retirement

@@ -36,13 +36,17 @@ class AudioClipPreview {
     bool waveform_matches(const std::filesystem::path&, const AssetRecord&) const;
     void poll();
     bool active() const { return bool(world_); }
+    bool pending() const;
+    bool waveform_pending() const;
     bool matches(const std::filesystem::path&, const AssetRecord&) const;
     // Explicit internal offline-output consumer; never a device fallback.
     void read_offline(std::span<float>);
 
   private:
     struct PreviewWorld;
+    struct WaveformJob;
     std::unique_ptr<PreviewWorld> world_;
+    std::unique_ptr<WaveformJob> waveform_job_;
     bool loop_ = false;
     float volume_ = .5f;
     asset_detail::AudioWaveform waveform_;
