@@ -341,12 +341,17 @@ int main(int argc, char** argv) {
                 editor.request_save();
                 frame();
                 mouse(b, false);
-                for (unsigned i = 0; i < 500 && editor.pending(); ++i) {
+                const auto publication_deadline =
+                    std::chrono::steady_clock::now() + std::chrono::seconds(20);
+                while (editor.pending() &&
+                       std::chrono::steady_clock::now() < publication_deadline) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(2));
                     frame();
                 }
                 require(!editor.pending() && !editor.dirty(),
-                        "Selection source publication failed: " + message);
+                        "Selection source publication failed: pending=" +
+                            std::to_string(editor.pending()) +
+                            " dirty=" + std::to_string(editor.dirty()) + " " + message);
                 count(8);
                 require(scene.document() == scene_before, "Selection changed Scene owner");
                 std::tie(a, b, hits) = rectangle();

@@ -65,6 +65,29 @@ Each action is one source Undo step. Finish previews and stop Play before editin
 Unused-vertex cleanup affects this Mesh source; it does not rewrite a separate rig
 or deformation asset that refers to those vertices.
 
+### Duplicate faces and place them on a grid
+
+In **Face** mode, select one face or a group, enter a **Duplicate offset**, then
+choose **Duplicate selected faces**. The copies stay in this Mesh and become
+selected. Shared vertices inside the group are copied once; the copies are
+detached from the originals. Colors, UVs and other source data are retained.
+An offset of zero deliberately places the copies over the originals.
+
+Enter **Grid spacing**, enable **Snap X**, **Snap Y** and/or **Snap Z**, then choose
+**Snap selection to grid**. It works on a vertex group, one edge or a face group.
+Coordinates snap to the nearest multiple of that spacing around the Mesh's local
+origin; halfway values round away from zero. For example, spacing 1 moves 0.5 to
+1 and -0.5 to -1. Disabled axes and unselected vertices stay unchanged. Snapping
+does not weld vertices. A collapsed or invalid face reports an error and keeps
+the original Mesh; triangulate before attempting arbitrary corner deformation.
+
+Each changed action is one source Undo step. Repeated snapping on the same grid
+adds no history if everything is aligned. Undo reserves copied IDs, so a later
+duplication creates fresh ones. Finish previews and stop Play before using these
+tools, then **Save & Publish** to update Scene, Play and export. Try them on editable
+Meshes in Gallery 12/16/19. These tools duplicate geometry within one Mesh;
+they do not create Scene entities or transfer a separate rig/deformation asset.
+
 ## Sculpt and paint
 
 Create a **Sculpt sphere** for a small smooth Mesh, or open any editable Mesh. In **Model → Tool**, choose **Sculpt**, adjust **Brush radius** and **Brush strength**, then drag across the preview. Positive strength raises vertices along their surface normals; negative strength pushes inward. Release the mouse to apply one Undo step. Press Esc during a drag to cancel. The preview updates after release.

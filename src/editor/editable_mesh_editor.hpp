@@ -347,6 +347,8 @@ class EditableMeshEditor {
     } uv_box_;
     void cancel_uv_box() { uv_box_ = {}; }
     float translation_[3]{}, rotation_[3]{}, scale_[3]{1, 1, 1};
+    float duplicate_offset_[3]{1, 0, 0}, grid_spacing_ = .25f;
+    bool grid_axes_[3]{true, true, true};
     float extrusion_ = 0.5f, inset_ = 0.1f;
     float uv_translation_[2]{}, uv_angle_ = 0, uv_scale_[2]{1, 1};
     bool preview_transform_ = false, preview_extrude_ = false, preview_inset_ = false,
@@ -485,6 +487,13 @@ class EditableMeshEditor {
         if (had_face_selection && faces_.empty())
             faces_.insert(face_);
         sync_uv_selection();
+    }
+    bool has_model_selection() const {
+        if (mode_ == SelectionMode::Vertex)
+            return !vertices_.empty();
+        if (mode_ == SelectionMode::Edge)
+            return edge_.first && edge_.second;
+        return !faces_.empty();
     }
     std::vector<std::uint32_t> selected_vertices() const {
         if (mode_ == SelectionMode::Vertex)
@@ -910,13 +919,62 @@ class EditableMeshEditor {
         ImGui::EndDisabled();
         ui::help("Cleanup preserves surviving element IDs. Joining keeps the lower face ID and "
                  "the shared diagonal; smooth normals are recalculated.");
+        ImGui::SeparatorText("Duplicate and grid");
+        ImGui::BeginDisabled(stroke_active_ || preview_transform_ || preview_inset_ ||
+                             preview_extrude_);
+        ImGui::InputFloat3("Duplicate offset", duplicate_offset_);
+        FORGE_UI_PROBE("mesh:duplicate_offset");
+        ImGui::BeginDisabled(mode_ != SelectionMode::Face || faces_.empty());
+        if (ui::button("Duplicate selected faces",
+                       "Copy the face group into detached geometry in this Mesh, with the chosen "
+                       "local offset. Select the copies; keep originals unchanged.")) {
+            const auto revision = document_->revision();
+            const std::vector<std::uint32_t> selected{faces_.begin(), faces_.end()};
+            std::vector<std::uint32_t> copies;
+            mutate("Duplicate selected faces", [&](auto& source) {
+                copies = source.duplicate_faces(
+                    selected, {duplicate_offset_[0], duplicate_offset_[1], duplicate_offset_[2]});
+            });
+            if (document_->revision() != revision) {
+                faces_ = std::set<std::uint32_t>(copies.begin(), copies.end());
+                face_ = copies.front();
+                reset_uv_scope();
+                reconcile_selection();
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::InputFloat("Grid spacing", &grid_spacing_);
+        FORGE_UI_PROBE("mesh:grid_spacing");
+        ImGui::Checkbox("Snap X", &grid_axes_[0]);
+        FORGE_UI_PROBE("mesh:grid_x");
+        ImGui::SameLine();
+        ImGui::Checkbox("Snap Y", &grid_axes_[1]);
+        FORGE_UI_PROBE("mesh:grid_y");
+        ImGui::SameLine();
+        ImGui::Checkbox("Snap Z", &grid_axes_[2]);
+        FORGE_UI_PROBE("mesh:grid_z");
+        ImGui::BeginDisabled(!has_model_selection() ||
+                             !(grid_axes_[0] || grid_axes_[1] || grid_axes_[2]));
+        if (ui::button("Snap selection to grid",
+                       "Round selected vertices onto a Mesh-local origin grid. Half ties round "
+                       "away from zero; reject invalid or collapsed geometry.")) {
+            const auto ids = selected_vertices();
+            mutate("Snap selection to grid", [&](auto& source) {
+                source.snap_vertices(ids, grid_spacing_,
+                                     {grid_axes_[0], grid_axes_[1], grid_axes_[2]});
+            });
+        }
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        ui::help("Each applied edit is one source Undo step. Grid snapping changes coordinates, "
+                 "without welding vertices. Duplication does not copy a separate rig.");
         ImGui::SeparatorText("Transform selection");
         ImGui::InputFloat3("Move", translation_);
         FORGE_UI_PROBE("mesh:model_move");
         ImGui::InputFloat3("Rotate (deg)", rotation_);
         ImGui::InputFloat3("Scale", scale_);
         FORGE_UI_PROBE("mesh:model_scale");
-        ImGui::BeginDisabled(selected_vertices().empty());
+        ImGui::BeginDisabled(!has_model_selection());
         if (ImGui::Checkbox("Preview transform", &preview_transform_) && preview_transform_)
             preview_extrude_ = preview_inset_ = false;
         FORGE_UI_PROBE("mesh:preview_transform");

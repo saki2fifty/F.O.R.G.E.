@@ -52,6 +52,12 @@ struct EditableMeshSource {
     // Join exactly two triangles at this edge. Reject UV/opaque data conflicts.
     // Lower face ID survives; the shared edge remains the cooked fan diagonal.
     std::uint32_t join_triangles(std::array<std::uint32_t, 2> edge);
+    // Detached copies within this Mesh; shared selected vertices are copied once.
+    std::vector<std::uint32_t> duplicate_faces(std::span<const std::uint32_t> faces,
+                                               std::array<double, 3> translation);
+    // Mesh-local origin grid; nearest rounding with half ties away from zero.
+    void snap_vertices(std::span<const std::uint32_t> vertices, double spacing,
+                       std::array<bool, 3> axes = {true, true, true});
     // Geometric edge connectivity; touching at a vertex does not join surfaces.
     std::vector<std::uint32_t> connected_faces(std::uint32_t seed) const;
     // Reverse complete corner records around their existing first fan anchor.

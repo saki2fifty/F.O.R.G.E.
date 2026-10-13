@@ -63,7 +63,8 @@ faces in the Model list or wireframe, use all/clear/invert/connected selection, 
 transform, triangulate or reverse the selected surface. Inset and extrusion use
 the active face. For cleanup, delete selected faces and explicitly remove unused
 vertices; on scene 16, select a shared triangle diagonal in Edge mode and join it
-back into a quad. See the [face-group walkthrough](../../../manual/editor/editable-meshes.md#work-with-several-model-faces).
+back into a quad. Duplicate face groups with a local offset, then snap their
+vertices onto a local grid using the XYZ controls. See the [face-group walkthrough](../../../manual/editor/editable-meshes.md#work-with-several-model-faces).
 
 `27-connected-collisions` compares two original pairs of overlapping falling cubes.
 The blue pair's joint disables **Collide connected**, so their overlap is retained;

@@ -292,6 +292,39 @@ each accepted action is one source Undo step. Play, publication and competing
 Model previews disable these actions. No source/cooked schema, importer recipe,
 runtime ownership or installed gameplay SDK layout changes.
 
+## Detached duplication and grid placement
+
+`duplicate_faces` copies a bounded nonempty set of distinct existing faces and
+each referenced vertex once into the same Mesh. Copies are detached from original
+geometry; connectivity within the selected group is preserved. Complete vertex,
+face and corner records retain color, UV and opaque data, with only owned IDs,
+known corner vertex references and translated vertex positions changed. Original
+records and source metadata are untouched. Vertex IDs allocate in original source
+vertex order, then face IDs in original face order. Selection input order cannot
+change allocation. Limits and allocator overflow reject before commit; full source/
+cook admission checks coordinates, geometry, normal validity and serialized bounds.
+The returned new faces become the Model selection. This is geometry duplication,
+not a new Scene object or asset, and does not copy a separate rig/deformation asset.
+
+`snap_vertices` accepts distinct existing vertex IDs, finite spacing in
+[0.000001,100000] and at least one enabled axis. Each enabled Mesh-local coordinate
+becomes `round(coordinate / spacing) * spacing`; nearest half ties go away from
+zero. The grid starts at that Mesh's local origin. Disabled axes, unselected
+vertices, topology, IDs/high-water, colors, UVs and opaque fields remain unchanged.
+Full candidate/cook admission rejects collapsed, nonplanar/nonconvex or otherwise
+unsupported geometry and undefined smooth normals. An aligned selection is a
+source/history no-op. This changes positions without welding or connecting IDs;
+no drag, world-space, surface or vertex-to-vertex snapping is provided here.
+
+Model **Duplicate offset** and **Duplicate selected faces** select the copies after
+one accepted source edit. **Grid spacing**, **Snap X/Y/Z** and **Snap selection to
+grid** use the canonical referenced vertex union in Face mode, endpoints in Edge
+mode or the existing Vertex selection. Each changed operation is one source Undo;
+reserved duplicate IDs survive Undo and a new branch. Failures preserve source,
+history and selection. Play, publication, strokes and Model previews disable these
+tools. Settings remain transient editor inputs. Save/reopen, ordinary publication,
+typed resources and source-free exports retain existing owners and formats.
+
 ## Derived Model view cache
 
 The private editor cache scopes projected points, original positions, depths and

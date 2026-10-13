@@ -1,5 +1,14 @@
 # 2026-10-13
 
+## Model duplication and grid placement
+
+- Duplicate selected face groups into detached geometry with a Mesh-local offset.
+  Shared vertices copy once; UVs, colors and metadata remain, and copies are selected.
+- Snap Vertex, Edge or Face selections to a local-origin grid with enabled XYZ
+  axes. Invalid geometry rejects atomically; aligned selections add no history.
+- Existing source Undo reserves new IDs across branches. Publication and
+  source-free exports use the same Mesh pipeline; no format or gameplay SDK change.
+
 ## Model topology cleanup
 
 - Model face deletion keeps surviving records and unused vertices; explicit

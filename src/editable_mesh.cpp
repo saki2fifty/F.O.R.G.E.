@@ -781,6 +781,93 @@ std::uint32_t EditableMeshSource::join_triangles(std::array<std::uint32_t, 2> ed
     return kept;
 }
 
+std::vector<std::uint32_t> EditableMeshSource::duplicate_faces(std::span<const std::uint32_t> faces,
+                                                               std::array<double, 3> translation) {
+    require(!faces.empty() && faces.size() <= face_limit,
+            "Mesh duplication selection is empty or too large");
+    (void)vector<3>(Json(translation));
+    validate();
+    const std::set<std::uint32_t> selected(faces.begin(), faces.end());
+    require(selected.size() == faces.size(), "Mesh duplication selection contains duplicate faces");
+    std::set<std::uint32_t> referenced;
+    std::size_t found = 0, corners = 0, added_corners = 0;
+    for (const auto& face : document.at("faces")) {
+        corners += face.at("corners").size();
+        if (!selected.contains(id(face.at("id"))))
+            continue;
+        ++found;
+        added_corners += face.at("corners").size();
+        for (const auto& corner : face.at("corners"))
+            referenced.insert(id(corner.at("vertex")));
+    }
+    require(found == selected.size(), "Selected Mesh face is missing");
+    require(document.at("vertices").size() + referenced.size() <= vertex_limit &&
+                document.at("faces").size() + selected.size() <= face_limit &&
+                corners + added_corners <= corner_limit,
+            "Mesh duplication exceeds vertex, face or corner limits");
+    auto next = id(document.at("next_id"));
+    require(std::uint64_t(next) + referenced.size() + selected.size() <=
+                std::numeric_limits<std::uint32_t>::max(),
+            "Mesh element identities exhausted");
+    auto candidate = *this;
+    std::map<std::uint32_t, std::uint32_t> copies;
+    for (const auto& vertex : document.at("vertices")) {
+        const auto original = id(vertex.at("id"));
+        if (!referenced.contains(original))
+            continue;
+        auto copy = vertex;
+        copy["id"] = next;
+        copies.emplace(original, next++);
+        auto position = vector<3>(vertex.at("position"));
+        for (unsigned axis = 0; axis < 3; ++axis)
+            position[axis] += translation[axis];
+        copy["position"] = position;
+        candidate.document["vertices"].push_back(std::move(copy));
+    }
+    std::vector<std::uint32_t> result;
+    for (const auto& face : document.at("faces")) {
+        if (!selected.contains(id(face.at("id"))))
+            continue;
+        auto copy = face;
+        copy["id"] = next;
+        result.push_back(next++);
+        for (auto& corner : copy["corners"])
+            corner["vertex"] = copies.at(id(corner.at("vertex")));
+        candidate.document["faces"].push_back(std::move(copy));
+    }
+    candidate.document["next_id"] = next;
+    (void)candidate.cook();
+    *this = std::move(candidate);
+    return result;
+}
+
+void EditableMeshSource::snap_vertices(std::span<const std::uint32_t> vertices, double spacing,
+                                       std::array<bool, 3> axes) {
+    require(!vertices.empty() && vertices.size() <= vertex_limit,
+            "Mesh grid selection is empty or too large");
+    require(std::isfinite(spacing) && spacing >= 1e-6 && spacing <= 100000 &&
+                (axes[0] || axes[1] || axes[2]),
+            "Mesh grid needs finite spacing in [0.000001,100000] and an enabled axis");
+    validate();
+    const std::set<std::uint32_t> selected(vertices.begin(), vertices.end());
+    require(selected.size() == vertices.size(), "Mesh grid selection contains duplicate vertices");
+    auto candidate = *this;
+    std::size_t found = 0;
+    for (auto& vertex : candidate.document["vertices"]) {
+        if (!selected.contains(id(vertex.at("id"))))
+            continue;
+        ++found;
+        auto position = vector<3>(vertex.at("position"));
+        for (unsigned axis = 0; axis < 3; ++axis)
+            if (axes[axis])
+                position[axis] = std::round(position[axis] / spacing) * spacing;
+        vertex["position"] = position;
+    }
+    require(found == selected.size(), "Selected Mesh vertex is missing");
+    (void)candidate.cook();
+    *this = std::move(candidate);
+}
+
 std::vector<std::uint32_t> EditableMeshSource::connected_faces(std::uint32_t seed) const {
     validate();
     std::map<std::pair<std::uint32_t, std::uint32_t>, std::vector<std::uint32_t>> edges;
