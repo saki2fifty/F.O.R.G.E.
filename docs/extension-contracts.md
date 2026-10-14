@@ -30,6 +30,7 @@ These classifications describe supported ownership, not a promise of permanent C
 | AudioSource / AudioListener | A authored; B values | Typed clip and playback parameters. Source presence/autoplay differ deliberately from listener enabled. |
 | AudioService / AudioRuntime | C; B command subset | Play/Restart, independent OneShot, Stop and source Pause/Resume are bounded owner-thread commands. miniaudio device/voice/PCM handles are D. |
 | Animator / skeleton and clip refs | A authored; B values | Fixed authoritative playback, derived pose. No artificial animation service: actual consumer writes Animator. Ozz objects remain D. |
+| AnimationSequence / TransformAnimator | A authored; B values | Scene-owned controller references/start offsets reuse current clips, AnimationRuntime clocks/candidates and guarded status/control/seek. Native layout/fingerprint changed; C ABI1 tables unchanged. Bound tracks cannot own independent control clocks. |
 | NavigationSurface / NavigationAgent | A authored; B values | Typed navmesh, destination/speed/enabled. |
 | NavigationService / NavResult | C; B bounded query subset | Projection/path, explicit NavStatus, caller-owned output. Detour mesh/corridor/query objects D. |
 | UiDocument | A authored; B values | Document AssetId, enabled/visible/layer. DOM/focus/model queues are not authored state. |

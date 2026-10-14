@@ -125,6 +125,7 @@ inline bool asset_ref_picker(const AssetCatalog& catalog, Json& value, const std
                 searches.clear();
             auto& search = searches[ImGui::GetID("search")];
             ImGui::InputTextWithHint("##search", "Search assets...", search.data(), search.size());
+            FORGE_UI_PROBE("asset-search:" + type + ":" + title);
             ui::help(
                 "Search registered assets compatible with this field by project-relative path.");
             if (ImGui::Selectable("None / Clear", value.is_null())) {

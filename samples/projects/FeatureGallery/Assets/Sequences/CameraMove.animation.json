@@ -1,0 +1,97 @@
+{
+  "asset_id": "4180ebd2-92ed-419e-8854-78506b0a1c5f",
+  "channels": [
+    "forge.local_translation"
+  ],
+  "duration_us": 3500000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "property_curves": {
+          "forge.camera.vertical_fov": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          }
+        }
+      },
+      "id": "3d7e6ef5-e601-4964-b6eb-eb22a0762a3a",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        2.4000000953674316,
+        -10.0
+      ],
+      "values": {
+        "forge.camera.vertical_fov": 1.1344640137963142
+      }
+    },
+    {
+      "id": "e8647011-2365-4e72-bd32-3dda348ff2aa",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 3500000,
+      "translation": [
+        0.4000000059604645,
+        1.7999999523162842,
+        -8.0
+      ],
+      "values": {
+        "forge.camera.vertical_fov": 0.8726646259971648
+      }
+    }
+  ],
+  "properties": [
+    "forge.camera.vertical_fov"
+  ],
+  "timebase": 1000000,
+  "version": 4
+}

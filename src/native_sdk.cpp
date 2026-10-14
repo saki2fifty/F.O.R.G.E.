@@ -290,7 +290,8 @@ struct Bridge {
                 copy(copy_value.entity_uuid, reference.entity.str());
                 if (value->states)
                     copy(copy_value.states_uuid, value->states.str());
-                copy(copy_value.clip_uuid, value->clip.str());
+                if (value->clip)
+                    copy(copy_value.clip_uuid, value->clip.str());
                 if (value->blend_clip)
                     copy(copy_value.blend_clip_uuid, value->blend_clip.str());
                 copy(copy_value.state_name, value->state_name);

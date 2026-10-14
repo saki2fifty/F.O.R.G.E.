@@ -23,6 +23,9 @@ set_target_properties(combined_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORI
 add_library(time_scale_gameplay MODULE time_scale_probe.cpp)
 target_link_libraries(time_scale_gameplay PRIVATE ForgeNativeSdk::Client)
 set_target_properties(time_scale_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
+add_library(sequence_gameplay MODULE sequence_probe.cpp)
+target_link_libraries(sequence_gameplay PRIVATE ForgeNativeSdk::Client)
+set_target_properties(sequence_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
 
 if(WIN32)
  forge_install_gameplay_runtime(gameplay NAME project.sdk_probe)

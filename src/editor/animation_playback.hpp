@@ -14,7 +14,13 @@ class AnimationPlaybackEditor {
             return {};
         for (const auto& row : effective.at("entities"))
             if (row.value("id", "") == selected && row.contains("components") &&
-                row.at("components").contains("forge.animator"))
+                (row.at("components").contains("forge.animator") ||
+                 row.at("components").contains("forge.animation_sequence") ||
+                 (row.at("components").contains("forge.transform_animator") &&
+                  row.at("components")
+                      .at("forge.transform_animator")
+                      .value("sequence", nlohmann::json())
+                      .is_null())))
                 return EntityRef{effective.at("asset_id").get<AssetId>(),
                                  EntityId::parse(selected)};
         return {};
@@ -30,6 +36,7 @@ class AnimationPlaybackEditor {
         }
         const bool available = status.is_object() && status.value("available", false);
         const bool playing = available && status.value("playing", false);
+        const bool sequence = status.is_object() && status.value("sequence_controller", false);
         const double duration = available ? status.value("duration", 0.) : 0.;
         if (!dirty_)
             position_ = available ? status.value("time", 0.) : 0.;
@@ -38,7 +45,7 @@ class AnimationPlaybackEditor {
         ImGui::PushStyleColor(ImGuiCol_Border, ImVec4{.24f, .67f, .67f, 1});
         ImGui::BeginChild("##live-animation", {0, 0},
                           ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
-        ui::heading("Live animation",
+        ui::heading(sequence ? "Live sequence" : "Live animation",
                     "Adjust this entity's animation in the current Play session.");
         ImGui::TextColored({.61f, .93f, .89f, 1}, "PLAY — runtime only");
         if (available) {
@@ -46,6 +53,7 @@ class AnimationPlaybackEditor {
                                !status.value("enabled", true)    ? "Disabled"
                                : status.value("finished", false) ? "Finished"
                                : playing                         ? "Playing"
+                               : sequence                        ? "Sequence paused"
                                                                  : "Clip paused",
                                status.value("time", 0.), duration);
             const auto state = status.value("state_name", std::string());
@@ -70,17 +78,19 @@ class AnimationPlaybackEditor {
                 error_ = "Play is busy. Try again when the controls are ready.";
         };
         ImGui::BeginDisabled(!ready || pending || !available);
-        if (ui::button(playing ? "Pause clip" : "Resume clip",
-                       "Change this clip's playback intent. Game pause remains unchanged."))
+        if (ui::button(sequence ? (playing ? "Pause sequence" : "Resume sequence")
+                                : (playing ? "Pause clip" : "Resume clip"),
+                       "Change animation playback intent. Game pause remains unchanged."))
             send({{"operation", playing ? "pause" : "play"}});
         FORGE_UI_PROBE("live-animation:pause");
         const auto& style = ImGui::GetStyle();
-        if (ImGui::GetContentRegionAvail().x > ImGui::CalcTextSize("Restart clip").x +
+        const auto restart = sequence ? "Restart sequence" : "Restart clip";
+        if (ImGui::GetContentRegionAvail().x > ImGui::CalcTextSize(restart).x +
                                                    style.FramePadding.x * 2 +
                                                    ImGui::GetItemRectSize().x + style.ItemSpacing.x)
             ImGui::SameLine();
         if (ui::button(
-                "Restart clip",
+                restart,
                 "Reset this player and resume its clip without moving the actor across the jump."))
             send({{"operation", "restart"}});
         FORGE_UI_PROBE("live-animation:restart");

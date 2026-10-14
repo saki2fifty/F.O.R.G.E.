@@ -1927,6 +1927,8 @@ std::span<const AnimationEvent> AnimationRuntime::events() const {
 std::optional<AnimationPlayback> AnimationRuntime::playback(EntityRef reference) const {
     if (!impl_ || !impl_->context.on_owner_thread())
         return {};
+    if (const auto transform = impl_->transforms.playback(reference))
+        return transform;
     const auto resolved = impl_->context.resolve(reference);
     if (resolved.state != WorldContext::ResolveState::Available ||
         !impl_->context.world().entity(resolved.entity).has<Animator>() ||
@@ -1980,6 +1982,8 @@ bool AnimationRuntime::control(EntityRef reference, AnimationControl command,
     if (!impl_ || !impl_->context.on_owner_thread() ||
         (impl_->last_animation_tick && current_tick <= *impl_->last_animation_tick))
         return false;
+    if (impl_->transforms.playback(reference))
+        return impl_->transforms.control(reference, command);
     if (!playback(reference))
         return false;
     const auto entity = impl_->context.resolve(reference).entity;
@@ -2023,6 +2027,8 @@ bool AnimationRuntime::seek(EntityRef reference, double seconds, std::uint64_t c
     if (!impl_ || !impl_->context.on_owner_thread() ||
         (impl_->last_animation_tick && current_tick <= *impl_->last_animation_tick))
         return false;
+    if (impl_->transforms.playback(reference))
+        return impl_->transforms.seek(reference, seconds);
     const auto status = playback(reference);
     if (!status)
         return false;
@@ -2049,6 +2055,7 @@ Json AnimationPlaybackAccess::status(AnimationRuntime& runtime, EntityRef ref) {
     Json result{{"source", ref}, {"available", bool(value)}};
     if (value) {
         result.update({{"time", value->time},
+                       {"sequence_controller", !value->clip},
                        {"duration", value->duration},
                        {"progress", value->progress},
                        {"speed", value->speed},
@@ -2072,6 +2079,26 @@ void AnimationPlaybackAccess::control(AnimationRuntime& runtime, EntityRef ref,
     if (last == std::numeric_limits<std::uint64_t>::max())
         throw ArchiveError("Animation playback tick space is exhausted");
     const auto id = runtime.impl_->context.resolve(ref).entity;
+    if (runtime.impl_->transforms.playback(ref)) {
+        bool accepted = false;
+        if (operation == "seek") {
+            if (!command.at("position_seconds").is_number())
+                throw ArchiveError("Animation seek requires numeric seconds");
+            accepted = runtime.seek(ref, command.at("position_seconds").get<double>(), last + 1);
+        } else if (operation == "play" || operation == "pause" || operation == "restart") {
+            accepted = runtime.control(ref,
+                                       operation == "play"    ? AnimationControl::Play
+                                       : operation == "pause" ? AnimationControl::Pause
+                                                              : AnimationControl::Restart,
+                                       last + 1);
+        } else
+            throw ArchiveError("Unknown animation playback operation");
+        if (!accepted)
+            throw ArchiveError("Animation playback request is unavailable");
+        if (operation == "seek" || operation == "restart")
+            (void)runtime.impl_->transforms.initial_pose();
+        return;
+    }
     bool accepted = false;
     if (operation == "seek") {
         if (!command.at("position_seconds").is_number())
@@ -2354,8 +2381,9 @@ Json AnimationRuntime::checkpoint() const {
                     {"frozen_morphs", frozen_morphs}};
             }
         }
-    return {{"version", 2},
+    return {{"version", 3},
             {"entries", entries},
+            {"sequence_entries", impl_ ? impl_->transforms.sequence_checkpoint() : Json::array()},
             {"transform_entries", impl_ ? impl_->transforms.checkpoint() : Json::array()}};
 }
 void AnimationRuntime::restore(const Json& data) {
@@ -2403,8 +2431,9 @@ void AnimationRuntime::restore(const Json& data) {
         if (!impl_->pending.empty())
             throw ArchiveError("Animation recovery admission timed out");
     }
-    if ((data.at("version") != 1 && data.at("version") != 2) || !data.at("entries").is_array() ||
-        data.at("entries").size() != impl_->states.size() || !impl_->errors.empty())
+    if ((data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3) ||
+        !data.at("entries").is_array() || data.at("entries").size() != impl_->states.size() ||
+        !impl_->errors.empty())
         throw ArchiveError("Animation recovery configuration differs");
     std::set<flecs::entity_t> seen;
     struct RestoreValue {
@@ -2434,7 +2463,7 @@ void AnimationRuntime::restore(const Json& data) {
             !seen.insert(entity.entity).second || !impl_->states.contains(entity.entity))
             throw ArchiveError("Animation recovery entity is unresolved");
         auto* selected = &impl_->states.at(entity.entity);
-        if (data.at("version") == 2 && selected->definition) {
+        if (data.at("version") >= 2 && selected->definition) {
             const auto& raw = entry.at("states").at("requested_state");
             if (!(raw.is_number_unsigned() ||
                   (raw.is_number_integer() && raw.get<std::int64_t>() >= 0)) ||
@@ -2648,7 +2677,9 @@ void AnimationRuntime::restore(const Json& data) {
     }
     swap_players();
     swap_sources();
-    impl_->transforms.restore(data.value("transform_entries", Json::array()));
+    impl_->transforms.restore(data.value("transform_entries", Json::array()),
+                              data.at("version") >= 3 ? data.at("sequence_entries")
+                                                      : Json::array());
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

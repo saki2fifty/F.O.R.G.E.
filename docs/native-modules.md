@@ -104,6 +104,13 @@ entity-reference callback obtains the registered canonical UUID pair for ordinar
 entity Systems. See [controls and identity](animation-playback-controls.md),
 [status](animation-playback-status.md) and [markers](animation-markers.md).
 
+The same status/control/seek callbacks support a Scene-owned AnimationSequence
+controller and standalone TransformAnimator. A controller's status has an empty
+clip UUID; its bound tracks expose status but reject independent control/seek.
+See [sequences](transform-animation.md#coordinated-scene-sequences). The new native
+component layouts change the exact SDK fingerprint; rebuild matching modules.
+C ABI1 tables remain unchanged.
+
 Matching C++ code can also read copied rigid-body COM, linear/angular velocity,
 activation and velocity at an absolute world point through the existing Physics
 service during a fixed tick. PostPhysics observes that tick's completed native

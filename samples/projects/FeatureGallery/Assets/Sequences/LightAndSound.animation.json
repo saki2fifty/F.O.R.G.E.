@@ -1,0 +1,127 @@
+{
+  "asset_id": "eb839b86-741e-402c-a64c-ec6594045ea3",
+  "channels": [],
+  "duration_us": 2000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "cubic",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "property_curves": {
+          "forge.audio_source.gain": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.light.color_b": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.light.color_g": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.light.color_r": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.light.intensity": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          }
+        }
+      },
+      "id": "bd31525b-c420-4509-ba85-5b114b42b8c4",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        2.4000000953674316,
+        -10.0
+      ],
+      "values": {
+        "forge.audio_source.gain": 0.05,
+        "forge.light.color_b": 1.0,
+        "forge.light.color_g": 0.5,
+        "forge.light.color_r": 0.2,
+        "forge.light.intensity": 0.8
+      }
+    },
+    {
+      "id": "b88471e7-1b45-43de-8e72-3c937aa93339",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 2000000,
+      "translation": [
+        0.4000000059604645,
+        1.7999999523162842,
+        -8.0
+      ],
+      "values": {
+        "forge.audio_source.gain": 0.3,
+        "forge.light.color_b": 0.35,
+        "forge.light.color_g": 0.85,
+        "forge.light.color_r": 1.0,
+        "forge.light.intensity": 3.0
+      }
+    }
+  ],
+  "properties": [
+    "forge.light.intensity",
+    "forge.light.color_r",
+    "forge.light.color_g",
+    "forge.light.color_b",
+    "forge.audio_source.gain"
+  ],
+  "timebase": 1000000,
+  "version": 4
+}

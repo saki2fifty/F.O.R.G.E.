@@ -20,10 +20,19 @@ struct AnimationBlendSpaceAsset {
 struct TransformAnimationAsset {
     static constexpr const char* type = "transform_animation";
 };
+// Scene/Prefab-owned coordination of existing clips; AnimationRuntime owns time.
+struct AnimationSequence {
+    double duration = 4;
+    bool enabled = true, play_on_start = true, loop = false;
+    float playback_speed = 1;
+    bool operator==(const AnimationSequence&) const = default;
+};
 struct TransformAnimator {
     AssetRef<TransformAnimationAsset> clip{};
     bool enabled = true, play_on_start = true, loop = true;
     float playback_speed = 1;
+    EntityRef sequence{};
+    double sequence_start_seconds = 0;
     bool operator==(const TransformAnimator&) const = default;
 };
 struct Animator {

@@ -14,10 +14,21 @@
 #include <set>
 #include <thread>
 namespace forge {
+namespace {
+bool held_crossed(const std::vector<TransformAnimationKey>& keys, double from, double to) {
+    auto next = std::upper_bound(keys.begin(), keys.end(), from,
+                                 [](double t, const auto& k) { return t < k.time; });
+    for (; next != keys.end() && next->time <= to; ++next)
+        if (next != keys.begin() && (next - 1)->held)
+            return true;
+    return false;
+}
+} // namespace
 TransformAnimationPlayback::TransformAnimationPlayback(WorldContext& context,
                                                        std::filesystem::path project)
     : context_(context), project_(std::move(project)), pool_({1, 64, 64, 16 * 1024 * 1024}),
-      players_(context.world().query<const TransformAnimator>()) {}
+      players_(context.world().query<const TransformAnimator>()),
+      sequences_(context.world().query<const AnimationSequence>()) {}
 void TransformAnimationPlayback::catalog(std::shared_ptr<const AssetCatalog> catalog) {
     catalog_ = std::move(catalog);
 }
@@ -84,6 +95,7 @@ void TransformAnimationPlayback::error(flecs::entity_t id, const std::string& te
 }
 void TransformAnimationPlayback::synchronize() {
     pool_.pump();
+    synchronize_sequences();
     pending_ = false;
     std::set<flecs::entity_t> alive;
     std::set<AssetId> used;
@@ -92,7 +104,6 @@ void TransformAnimationPlayback::synchronize() {
         if (entity.has(flecs::Prefab) || !reference || !config.enabled || !config.clip.id)
             return;
         alive.insert(entity.id());
-        used.insert(config.clip.id);
         if (alive.size() > 256) {
             error(entity.id(), "Transform animation player limit (256) exceeded");
             return;
@@ -105,8 +116,36 @@ void TransformAnimationPlayback::synchronize() {
             if (!std::isfinite(config.playback_speed) || config.playback_speed < 0 ||
                 config.playback_speed > 4)
                 throw std::runtime_error("Transform animation speed must be within 0–4");
+            if (!std::isfinite(config.sequence_start_seconds) ||
+                config.sequence_start_seconds < 0 || config.sequence_start_seconds > 3600)
+                throw std::runtime_error("Sequence track start must be within 0–3600 seconds");
+            flecs::entity_t sequence = 0;
+            if (config.sequence.entity) {
+                flecs::entity_t membership = 0;
+                for (auto parent = entity; parent && !membership;
+                     parent = parent.target(flecs::ChildOf))
+                    membership = parent.target<SceneMember>().id();
+                const auto resolved = context_.resolve(config.sequence, membership);
+                if (resolved.state != WorldContext::ResolveState::Available ||
+                    !context_.world().entity(resolved.entity).has<AnimationSequence>())
+                    throw std::runtime_error("Sequence controller is unavailable in this scene");
+                if (!context_.world().entity(resolved.entity).get<AnimationSequence>().enabled) {
+                    alive.erase(entity.id());
+                    return;
+                }
+                if (!sequence_states_.contains(resolved.entity) ||
+                    sequence_errors_.contains(resolved.entity))
+                    throw std::runtime_error("Sequence controller configuration is invalid");
+                sequence = resolved.entity;
+                if (config.sequence_start_seconds > sequence_states_.at(sequence).config.duration)
+                    throw std::runtime_error("Track start exceeds the sequence duration");
+            }
+            used.insert(config.clip.id);
             auto& state = states_[entity.id()];
-            const bool changed = state.config.clip != config.clip || state.entity != *reference;
+            const bool changed =
+                state.config.clip != config.clip || state.entity != *reference ||
+                state.config.sequence != config.sequence ||
+                state.config.sequence_start_seconds != config.sequence_start_seconds;
             state.requested = config.clip;
             auto ticket = request(config.clip);
             state.ticket = ticket;
@@ -130,9 +169,12 @@ void TransformAnimationPlayback::synchronize() {
             }
             state.time = std::min(state.time, double(clip->duration));
             state.config = config;
+            state.sequence = sequence;
             state.entity = *reference;
             state.ticket = std::move(ticket);
             state.clip = std::move(clip);
+            if (sequence)
+                state.time = sequence_time(state, sequence_states_.at(sequence).time);
             if (load_errors_.erase(entity.id()))
                 errors_.erase(entity.id());
         } catch (const std::exception& e) {
@@ -150,7 +192,10 @@ void TransformAnimationPlayback::synchronize() {
             pool_.unload(state.requested);
     }
     std::erase_if(states_, [&](const auto& entry) { return !alive.contains(entry.first); });
-    std::erase_if(errors_, [&](const auto& entry) { return !alive.contains(entry.first); });
+    std::erase_if(errors_, [&](const auto& entry) {
+        return !alive.contains(entry.first) && !sequence_states_.contains(entry.first) &&
+               !sequence_errors_.contains(entry.first);
+    });
     std::erase_if(load_errors_, [&](auto id) { return !alive.contains(id); });
 }
 void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& times,
@@ -232,6 +277,10 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         }
         playback.discontinuous = false;
     }
+    for (auto& [id, sequence] : sequence_states_) {
+        (void)id;
+        sequence.discontinuous = false;
+    }
 }
 bool TransformAnimationPlayback::ready() const { return !pending_ && errors_.empty(); }
 bool TransformAnimationPlayback::checkpoint_ready() const {
@@ -254,26 +303,46 @@ bool TransformAnimationPlayback::initial_pose() {
 void TransformAnimationPlayback::tick(double seconds) {
     // Reuse the owner's synchronization; do not query/admit every player twice.
     discontinuities_.clear();
+    for (auto& [id, sequence] : sequence_states_) {
+        (void)id;
+        sequence.previous = sequence.time;
+        sequence.advance = 0;
+        if (!sequence.playing)
+            continue;
+        const auto duration = sequence.config.duration * animation_timebase;
+        sequence.advance = seconds * animation_timebase * sequence.config.playback_speed;
+        sequence.time += sequence.advance;
+        if (sequence.config.loop && sequence.time >= duration) {
+            sequence.time = std::fmod(sequence.time, duration);
+            sequence.discontinuous = true;
+        } else if (!sequence.config.loop && sequence.time >= duration) {
+            sequence.advance = duration - sequence.previous;
+            sequence.time = duration;
+            sequence.playing = false;
+        }
+    }
     std::map<flecs::entity_t, double> times;
     for (auto& [id, state] : states_) {
         if (!state.clip)
             continue;
         state.previous = state.time;
         state.advance = 0;
-        if (state.playing) {
+        if (state.sequence) {
+            const auto group = sequence_states_.find(state.sequence);
+            if (group == sequence_states_.end())
+                continue;
+            state.time = sequence_time(state, group->second.time);
+            state.advance = state.time - state.previous;
+            state.discontinuous |= group->second.discontinuous;
+            if (state.time >= state.previous &&
+                held_crossed(state.clip->keys, state.previous, state.time))
+                state.discontinuous = true;
+        } else if (state.playing) {
             const double before = state.time;
             state.time += seconds * animation_timebase * state.config.playback_speed;
             state.advance = state.time - before;
-            const auto held_crossed = [&](double from, double to) {
-                const auto& keys = state.clip->keys;
-                auto next = std::upper_bound(keys.begin(), keys.end(), from,
-                                             [](double t, const auto& k) { return t < k.time; });
-                for (; next != keys.end() && next->time <= to; ++next)
-                    if (next != keys.begin() && (next - 1)->held)
-                        return true;
-                return false;
-            };
-            if (held_crossed(before, std::min(state.time, double(state.clip->duration))))
+            if (held_crossed(state.clip->keys, before,
+                             std::min(state.time, double(state.clip->duration))))
                 state.discontinuous = true;
             if (state.config.loop && state.time >= state.clip->duration) {
                 const auto first = state.clip->sample(0),
@@ -285,7 +354,8 @@ void TransformAnimationPlayback::tick(double seconds) {
                 if (((state.clip->channels & 1) && first.translation != last.translation) ||
                     ((state.clip->channels & 4) && first.scale != last.scale) ||
                     ((state.clip->channels & 2) && std::abs(dot) < 1 - 1e-6) ||
-                    held_crossed(0, std::fmod(state.time, double(state.clip->duration))))
+                    held_crossed(state.clip->keys, 0,
+                                 std::fmod(state.time, double(state.clip->duration))))
                     state.discontinuous = true;
                 if (state.clip->properties &&
                     state.clip->sample_properties(0) !=
@@ -312,6 +382,11 @@ void TransformAnimationPlayback::tick(double seconds) {
     }
 }
 void TransformAnimationPlayback::reset_presentation() {
+    for (auto& [id, sequence] : sequence_states_) {
+        (void)id;
+        sequence.previous = sequence.time;
+        sequence.advance = 0;
+    }
     for (auto& [id, state] : states_) {
         (void)id;
         state.previous = state.time;
@@ -327,7 +402,12 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
         return nullptr;
     const auto& state = at->second;
     auto time = state.previous + state.advance * alpha;
-    if (state.config.loop)
+    if (state.sequence) {
+        const auto& sequence = sequence_states_.at(state.sequence);
+        time = state.advance == 0
+                   ? state.time
+                   : sequence_time(state, sequence.previous + sequence.advance * alpha);
+    } else if (state.config.loop)
         time = std::fmod(time, double(state.clip->duration));
     auto values = AnimationPropertyState::from(context_.world().entity(id), state.clip->properties);
     values.sample(state.clip->properties, state.clip->sample_properties(time));
@@ -345,15 +425,19 @@ Json TransformAnimationPlayback::checkpoint() const {
     for (const auto& [id, state] : states_) {
         (void)id;
         if (state.clip)
-            result.push_back({{"entity", state.entity},
-                              {"clip", state.config.clip.id},
-                              {"revision", state.clip.identity().revision},
-                              {"time_us", state.time},
-                              {"playing", state.playing}});
+            result.push_back(
+                {{"entity", state.entity},
+                 {"clip", state.config.clip.id},
+                 {"revision", state.clip.identity().revision},
+                 {"time_us", state.time},
+                 {"playing", state.playing},
+                 {"sequence", state.config.sequence.entity ? Json(state.config.sequence) : Json()},
+                 {"sequence_start_seconds", state.config.sequence_start_seconds}});
     }
     return result;
 }
-void TransformAnimationPlayback::restore(const Json& values) {
+void TransformAnimationPlayback::restore(const Json& values) { restore(values, Json::array()); }
+void TransformAnimationPlayback::restore(const Json& values, const Json& sequences) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     do {
         synchronize();
@@ -365,6 +449,29 @@ void TransformAnimationPlayback::restore(const Json& values) {
     } while (std::chrono::steady_clock::now() < deadline);
     if (!ready() || !values.is_array() || values.size() != states_.size())
         throw std::runtime_error("Transform animation recovery configuration differs");
+    if (!sequences.is_array() || sequences.size() != sequence_states_.size())
+        throw std::runtime_error("Animation sequence recovery configuration differs");
+    auto groups = sequence_states_;
+    std::set<flecs::entity_t> group_seen;
+    for (const auto& value : sequences) {
+        const auto resolved = context_.resolve(value.at("entity").get<EntityRef>());
+        if (resolved.state != WorldContext::ResolveState::Available ||
+            !groups.contains(resolved.entity) || !group_seen.insert(resolved.entity).second)
+            throw std::runtime_error("Unresolved or duplicate sequence recovery controller");
+        auto& state = groups.at(resolved.entity);
+        const double time = value.at("time_us");
+        if (value.at("duration") != state.config.duration ||
+            value.at("loop") != state.config.loop ||
+            value.at("speed") != state.config.playback_speed ||
+            value.at("play_on_start") != state.config.play_on_start || !std::isfinite(time) ||
+            time < 0 || time > state.config.duration * animation_timebase ||
+            !value.at("playing").is_boolean())
+            throw std::runtime_error("Sequence recovery configuration/time mismatch");
+        state.time = state.previous = time;
+        state.advance = 0;
+        state.playing = value.at("playing");
+        state.discontinuous = true;
+    }
     std::map<flecs::entity_t, double> times;
     std::map<flecs::entity_t, bool> playing;
     for (const auto& value : values) {
@@ -379,8 +486,16 @@ void TransformAnimationPlayback::restore(const Json& values) {
             time < 0 || time > state.clip->duration || !value.at("playing").is_boolean() ||
             !times.emplace(resolved.entity, time).second)
             throw std::runtime_error("Transform animation recovery revision/time mismatch");
+        const auto expected_sequence =
+            state.config.sequence.entity ? Json(state.config.sequence) : Json();
+        if (value.value("sequence", Json()) != expected_sequence ||
+            value.value("sequence_start_seconds", 0.) != state.config.sequence_start_seconds ||
+            (state.sequence && (time != sequence_time(state, groups.at(state.sequence).time))))
+            throw std::runtime_error("Sequence recovery track binding/time mismatch");
         playing.emplace(resolved.entity, value.at("playing").get<bool>());
     }
+    apply(times, false);
+    sequence_states_.swap(groups);
     apply(times, true);
     for (auto& [id, state] : states_) {
         state.time = times.at(id);

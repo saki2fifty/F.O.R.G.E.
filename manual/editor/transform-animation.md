@@ -3,6 +3,7 @@
 Animate an object's position, rotation and size without writing code. A reusable
 **transform animation** appears in Content as an `.animation.json` file. A
 **Transform Animator** component connects that clip to an object in the scene.
+Use an [Animation Sequence](animation-sequences.md) to coordinate several clips.
 
 ## Create a clip
 

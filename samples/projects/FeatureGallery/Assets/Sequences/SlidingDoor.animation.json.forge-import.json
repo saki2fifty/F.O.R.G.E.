@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v6",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 4,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "140bfc21a9fcbd24e53be8b03c5d5d50f83853c0e0af541558356d0681bc26b6",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "a5fa9266-52e5-48da-9771-86cb37294118",
+    "source": "Assets/Sequences/SlidingDoor.animation.json",
+    "source_digest": "140bfc21a9fcbd24e53be8b03c5d5d50f83853c0e0af541558356d0681bc26b6",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

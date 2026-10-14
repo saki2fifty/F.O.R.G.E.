@@ -1,5 +1,13 @@
 # 2026-10-14
 
+## Coordinated animation sequences
+
+- Coordinate existing transform/property clips with a Scene-owned Animation Sequence controller, per-object start times and the current AnimationRuntime clock and candidate validation.
+- Extend the central Timeline with sequence binding, shared asset selection, offset edits, Scene Save/Undo and isolated copied preview. Keep individual clip editing and publication in its current owner.
+- Preserve first/last poses outside each clip span, shared loop/speed/Pause/Step, controller C++ control/seek and private recovery. Bound tracks expose status without independent clocks.
+- Support Scene/subtree remapping and bindings on prefab instances. Reject Create Prefab capture of bound tracks; portable definition-member arrangements are not implemented. Native C++ values/fingerprint change and modules require a matching SDK rebuild; C ABI1 tables remain unchanged.
+- Add original Gallery62 coordinating a door, camera, light and sound with source-free export. Windows physical acceptance and a new Windows ZIP remain deferred.
+
 ## Smooth animated properties
 
 - Extend the existing Timeline curve graph, handles and tangent presets to the twelve Camera, Light, Audio Source and Particle Emitter properties. Preserve vector editing and display FOV slopes in degrees per second.

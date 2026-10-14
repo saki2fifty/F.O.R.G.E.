@@ -491,6 +491,57 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
                   "Native observation changed scene identity");
             context->WaitForIdle();
         }
+    if (!gallery.empty() &&
+        std::filesystem::exists(gallery / "Scenes/62-coordinated-animation.scene.json")) {
+        Json source;
+        std::ifstream(gallery / "Scenes/62-coordinated-animation.scene.json") >> source;
+        EngineContext engine(WorldRole::Runtime, false, {animation_module(gallery)});
+        Scene live(engine.world());
+        live.restore_snapshot(source);
+        RuntimeSimulation simulation(engine.world(), live);
+        const auto animation = animation_runtime(engine.world());
+        const auto catalog =
+            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(gallery));
+        animation->catalog(catalog);
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        while (!animation->prepare_initial_pose()) {
+            check(std::chrono::steady_clock::now() < deadline,
+                  "Native Gallery62 sequence admission timed out");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        simulation.reset_presentation();
+        auto gallery_host = std::make_shared<MeshResourceHost>(presentation, context, gallery);
+        gallery_host->catalog(catalog);
+        MeshSceneRenderer gallery_renderer(gallery_host);
+        active_host = gallery_host;
+        active_renderer = &gallery_renderer;
+        Target wide(device, 960, 540);
+        std::vector<std::array<std::uint8_t, 4>> first;
+        for (unsigned stage = 0; stage < 2; ++stage) {
+            if (stage)
+                for (unsigned tick = 0; tick < 10; ++tick)
+                    simulation.tick(.25f);
+            scene = extract_render_scene(simulation.presentation(1));
+            check(scene.diagnostics.empty() && scene.cameras.size() == 1 &&
+                      scene.meshes.size() == 5 && scene.lights.size() == 1,
+                  "Native sequence lost actual camera/light/mesh participants");
+            camera = scene.cameras.front().camera;
+            camera_world = scene.cameras.front().world;
+            const auto pixels = draw(wide);
+            check(visible(pixels) > 1000, "Native sequence produced an empty frame");
+            image(root / ("gallery62-phase" + std::to_string(stage) + ".ppm"), 960, 540, pixels);
+            if (!stage)
+                first = pixels;
+            else {
+                std::size_t changed = 0;
+                for (std::size_t i = 0; i < first.size(); ++i)
+                    changed += first[i] != pixels[i];
+                check(changed > 10000,
+                      "Shared native renderer did not consume coordinated sequence changes");
+            }
+        }
+        context->WaitForIdle();
+    }
     context->WaitForIdle();
     std::cout << "Shared MeshSceneRenderer particle Vulkan readback, color, instancing, "
                  "owner scope, visibility/layers, resize, selection guards, lifetime and emitter "

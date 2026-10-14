@@ -47,6 +47,11 @@ PrefabDocument create_prefab_source(const Scene& scene, const std::string& selec
                 "conversion are deferred. Use Duplicate asset for an independent prefab.");
         if (item.value("missing_member", false))
             throw std::runtime_error("Resolve missing prefab members before creating a source");
+        if (const auto actor = scene.entity(id);
+            actor.has<TransformAnimator>() && actor.get<TransformAnimator>().sequence.entity)
+            throw std::runtime_error(
+                "Sequence arrangements belong to the Scene. Create an unbound prefab, then "
+                "bind its scene instance to the Animation Sequence.");
         item["id"] = ids.at(id);
         for (const auto& type : detail::builtins())
             if (values.at(id)["components"].contains(type.name))

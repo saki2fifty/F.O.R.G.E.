@@ -4,6 +4,58 @@ The editor timeline authors reusable object-transform clips. Skeletal and model
 animation continue through the existing [Ozz integration](animation.md). Both are
 owned by `AnimationRuntime`; this feature adds no dependency or service manager.
 
+## Coordinated Scene sequences
+
+[ADR021](decisions/021-animation-sequencing.md) records the sequence ownership and
+Prefab boundary. `AnimationSequence` is a native controller with enabled/start
+intent, duration1µs–3600s, speed0–4 and loop. Up to64 enabled controllers reuse the
+existing transform provider's clocks. The existing256-player/resource limits stay
+in force; no sequence asset, loader, registry or additional clock service is added.
+`TransformAnimator.sequence` is an optional typed EntityRef and
+`sequence_start_seconds` is a finite start offset within the controller's duration.
+Absent fields backfill null/zero without rewriting old sources.
+
+Resolve the controller in the target's loaded Scene membership. Wrong type,
+missing/ambiguous references, invalid offsets and a controller that is also an
+active skeletal/transform player report errors. A disabled controller retires
+its tracks until re-enabled. Sequence configuration overrides each bound player's
+retained standalone loop/speed/start intent. Sample a track at
+`clamp(sequence_time - start, 0, clip_duration)`. The first/last poses hold outside
+that span; the sequence end may truncate it. A group wrap/restart/seek snaps copied
+presentation endpoints, and held transform crossings reuse the standalone policy.
+Scalar presentation samples shared group time across offset boundaries.
+
+The current complete transform/property candidate and writer-conflict checks run
+before any pose write. Existing AnimationService status/control/seek operations
+accept controllers and standalone TransformAnimators. Bound players expose status
+but reject independent control/seek. Controller status has no clip AssetId; the
+native ABI represents it with an empty `clip_uuid`. Existing fixed-thread, phase
+and current-tick guards remain. C ABI1 tables do not change; native component data
+and the exact installed SDK fingerprint do change, requiring module rebuilds.
+
+Private animation checkpoint3 includes exact sequence configuration, clocks and
+track bindings. Restore validates the complete candidate before adoption. Old
+versions1/2 remain readable for configurations without sequence controllers.
+Neither Scene/Prefab source versions nor animation clip/cook formats change.
+
+The central Timeline's sequence mode borrows Scene Save/history. Numeric start
+edits are pending until Apply; they use one Scene transaction and reject stale
+revisions. Pending fields block destructive track changes and have explicit close
+choices. Clip selection uses the existing typed asset picker. Refresh constructs
+a private animation-only world from the Scene snapshot, preserves relevant writer
+guards, admits published clips and reuses runtime seek. Preview merges supported
+native fields into a copied Scene view, preserving opaque data and original
+authoring/history. No gameplay module, audio output or physics simulation runs.
+Scene revisions stop the preview; project/Scene identity changes close it.
+
+Scene/subtree copies remap only declared EntityRefs, including bindings overridden
+on prefab instances. Unknown payloads remain untouched. Prefab source capture does
+not translate component EntityRefs into member references, so Create Prefab rejects
+bound sequence tracks. Portable prefab-definition arrangements are not supported.
+Scene-owned bindings on ordinary prefab instances remain supported and persistent.
+Export closes over the existing saved Scene, selected clip cooks and typed audio
+references; it does not ship an editor or require a compiler for sequencing.
+
 ## Source, publication and identity
 
 `TransformAnimationSource` reads `forge.transform-animation` versions 1 through 4 in a bounded

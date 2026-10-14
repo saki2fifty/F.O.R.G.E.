@@ -1689,6 +1689,8 @@ int main(int argc, char** argv) {
                        [&] {
                            animation_timeline.draw(files.document, scene,
                                                    asset_document_locked || play.active());
+                           if (animation_timeline.take_scene_save_request())
+                               files.save();
                        },
                        [&] { animation_timeline.request_save(); },
                        [&] { animation_timeline.undo(); },

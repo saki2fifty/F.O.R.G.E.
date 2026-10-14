@@ -1,5 +1,18 @@
 # FORGE Feature Gallery
 
+## Coordinated animation
+
+Open **Scenes/62-coordinated-animation.scene.json** and press Play. The camera
+moves immediately; the door starts at0.5seconds; light color, brightness and sound
+volume change from1second. Each clip holds its last value, and the arrangement
+repeats every6seconds. Select **Sequence - door, camera, light and sound**, then
+**Content → Create / Register → Open sequence timeline**. Refresh clips and preview,
+scrub tracks, or edit a track start and Apply it. Arrangement Save/Undo use the
+Scene; individual clips under **Assets/Sequences** use Save & Publish. Preview is
+silent; Game Play uses the animated camera and sound. Export includes the saved
+Scene and prepared clips/sound and needs no compiler. See the
+[sequence guide](../../../manual/editor/animation-sequences.md).
+
 ## Smooth property animation
 
 Open **Scenes/61-animated-property-curves.scene.json** and press Play. The left jet

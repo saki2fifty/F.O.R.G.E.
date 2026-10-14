@@ -59,11 +59,15 @@ int main() {
                 auto point = [&](const char* key, float ratio = .5f) {
                     frame();
                     const auto target = test::ui_targets.at(key);
-                    require(target.enabled && target.minimum.y >= target.clip_minimum.y &&
-                                target.maximum.y <= target.clip_maximum.y &&
-                                target.minimum.x >= target.clip_minimum.x &&
-                                target.maximum.x <= target.clip_maximum.x,
-                            "Live animation control clipped/disabled");
+                    if (!target.enabled || target.minimum.y < target.clip_minimum.y ||
+                        target.maximum.y > target.clip_maximum.y ||
+                        target.minimum.x < target.clip_minimum.x ||
+                        target.maximum.x > target.clip_maximum.x)
+                        throw std::runtime_error(
+                            std::string("Live animation control clipped/disabled: ") + key +
+                            " scale=" + std::to_string(scale) +
+                            " width=" + std::to_string(window_width) + " sequence=" +
+                            std::to_string(status.value("sequence_controller", false)));
                     io.AddMousePosEvent(target.minimum.x +
                                             (target.maximum.x - target.minimum.x) * ratio,
                                         (target.minimum.y + target.maximum.y) * .5f);
@@ -119,6 +123,25 @@ int main() {
                     AnimationPlaybackEditor::selected(effective, ref.entity.str()) == ref &&
                         !AnimationPlaybackEditor::selected(effective, EntityId::generate().str()),
                     "Animation selection fabricated identity");
+                status["available"] = true;
+                status["sequence_controller"] = true;
+                status["duration"] = 6;
+                status["playing"] = false;
+                frame();
+                frame(); // Auto-sized child settles after the unavailable-to-ready transition.
+                click("live-animation:pause");
+                require(sent.at("operation") == "play", "Resume sequence failed");
+                click("live-animation:restart");
+                require(sent.at("operation") == "restart", "Restart sequence failed");
+                auto grouped = effective;
+                grouped["entities"][0]["components"] = {
+                    {"forge.animation_sequence", Json::object()}};
+                require(AnimationPlaybackEditor::selected(grouped, ref.entity.str()) == ref,
+                        "Sequence controller did not expose live controls");
+                grouped["entities"][0]["components"] = {
+                    {"forge.transform_animator", {{"sequence", ref}}}};
+                require(!AnimationPlaybackEditor::selected(grouped, ref.entity.str()),
+                        "Bound track exposed independently editable live controls");
                 ImGui::DestroyContext();
             }
         std::cout << "Live animation actual buttons/release seek and status isolation pass eight "

@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v6",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 4,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "7799b2ec2d4e61d64b749a2133cd6fb2fe0632940862ab2211c390db6ccb0f2c",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "4180ebd2-92ed-419e-8854-78506b0a1c5f",
+    "source": "Assets/Sequences/CameraMove.animation.json",
+    "source_digest": "7799b2ec2d4e61d64b749a2133cd6fb2fe0632940862ab2211c390db6ccb0f2c",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

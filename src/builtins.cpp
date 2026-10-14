@@ -63,12 +63,20 @@ template <class T> Json encode(const T& p) {
                 {"destination_x", p.destination_x},
                 {"destination_y", p.destination_y},
                 {"destination_z", p.destination_z}};
+    else if constexpr (std::is_same_v<T, AnimationSequence>)
+        return {{"duration", p.duration},
+                {"enabled", p.enabled},
+                {"play_on_start", p.play_on_start},
+                {"loop", p.loop},
+                {"playback_speed", p.playback_speed}};
     else if constexpr (std::is_same_v<T, TransformAnimator>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"enabled", p.enabled},
                 {"play_on_start", p.play_on_start},
                 {"loop", p.loop},
-                {"playback_speed", p.playback_speed}};
+                {"playback_speed", p.playback_speed},
+                {"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
+                {"sequence_start_seconds", p.sequence_start_seconds}};
     else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         Json value = {
             {"enabled", p.enabled},   {"weight", p.weight},     {"twist_degrees", p.twist_degrees},
@@ -249,6 +257,17 @@ template <class T> Value decode(const Json& p) {
         a.destination_y = p.at("destination_y");
         a.destination_z = p.at("destination_z");
         return a;
+    } else if constexpr (std::is_same_v<T, AnimationSequence>) {
+        AnimationSequence v;
+        v.duration = p.at("duration");
+        v.enabled = p.at("enabled");
+        v.play_on_start = p.at("play_on_start");
+        v.loop = p.at("loop");
+        v.playback_speed = p.at("playback_speed");
+        if (!std::isfinite(v.duration) || v.duration < 1e-6 || v.duration > 3600 ||
+            !std::isfinite(v.playback_speed) || v.playback_speed < 0 || v.playback_speed > 4)
+            throw std::runtime_error("Animation Sequence duration/speed is outside its range");
+        return v;
     } else if constexpr (std::is_same_v<T, TransformAnimator>) {
         TransformAnimator v;
         if (!p.at("clip").is_null())
@@ -257,6 +276,12 @@ template <class T> Value decode(const Json& p) {
         v.play_on_start = p.at("play_on_start");
         v.loop = p.at("loop");
         v.playback_speed = p.at("playback_speed");
+        if (!p.value("sequence", Json()).is_null())
+            v.sequence = p.at("sequence").get<EntityRef>();
+        v.sequence_start_seconds = p.value("sequence_start_seconds", 0.);
+        if (!std::isfinite(v.sequence_start_seconds) || v.sequence_start_seconds < 0 ||
+            v.sequence_start_seconds > 3600)
+            throw std::runtime_error("Sequence track start must be within 0–3600 seconds");
         return v;
     } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         T v;
@@ -602,13 +627,22 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("destination_x")
             .template member<double>("destination_y")
             .template member<double>("destination_z");
+    } else if constexpr (std::is_same_v<T, AnimationSequence>) {
+        c.template member<double>("duration")
+            .template member<bool>("enabled")
+            .template member<bool>("play_on_start")
+            .template member<bool>("loop")
+            .template member<float>("playback_speed");
     } else if constexpr (std::is_same_v<T, TransformAnimator>) {
+        (void)authoring_value_adapters(w);
         register_asset_ref<TransformAnimationAsset>(w, "forge.transform_animation_ref");
         c.template member<AssetRef<TransformAnimationAsset>>("clip")
             .template member<bool>("enabled")
             .template member<bool>("play_on_start")
             .template member<bool>("loop")
-            .template member<float>("playback_speed");
+            .template member<float>("playback_speed")
+            .template member<EntityRef>("sequence")
+            .template member<double>("sequence_start_seconds");
     } else if constexpr (std::is_same_v<T, TwoBoneIK> || std::is_same_v<T, AimIK>) {
         register_asset_ref<ModelNodeAsset>(w, "forge.model_node_ref");
         if constexpr (std::is_same_v<T, TwoBoneIK>)
@@ -888,6 +922,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             "forge.audio_listener", "One enabled listener per runtime world", "unitless", {}, {},
             [](flecs::world& w) {
                 return register_type<AudioListener>(w, "forge.audio_listener");
+            }),
+        descriptor<AnimationSequence>(
+            "forge.animation_sequence", "Coordinate object clips on one animation timeline",
+            "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<AnimationSequence>(w, "forge.animation_sequence");
             }),
         descriptor<TransformAnimator>(
             "forge.transform_animator", "Authored local transform keyframes during Play",
@@ -1364,7 +1404,24 @@ Json registration_options(const Builtin& type, const std::string& field) {
                     : "Local direction; normalized when preparing IK";
         }
     }
-    if (name == "forge.animator" || name == "forge.transform_animator") {
+    if (name == "forge.animator" || name == "forge.transform_animator" ||
+        name == "forge.animation_sequence") {
+        if (field == "duration") {
+            value["minimum"] = .000001;
+            value["maximum"] = 3600;
+            value["description"] =
+                "Sequence length in seconds; clips are held at their end or cut here";
+        } else if (field == "sequence") {
+            value["display_name"] = "Sequence controller";
+            value["description"] =
+                "Optional scene Animation Sequence that controls this clip's timing";
+        } else if (field == "sequence_start_seconds") {
+            value["display_name"] = "Sequence start (seconds)";
+            value["minimum"] = 0;
+            value["maximum"] = 3600;
+            value["description"] =
+                "Clip start on its sequence; first pose holds before start and last pose after end";
+        }
         if (field == "blend_mode") {
             value["display_name"] = "Blend mode";
             value["description"] = "Blend mixes two absolute poses; Additive adds second-clip "
@@ -1756,7 +1813,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             name == "forge.ui_document"             ? 5u
             : name.starts_with("forge.navigation_") ? 4u
             : (name == "forge.animator" || name == "forge.transform_animator" ||
-               name == "forge.two_bone_ik" || name == "forge.aim_ik")
+               name == "forge.animation_sequence" || name == "forge.two_bone_ik" ||
+               name == "forge.aim_ik")
                 ? 3u
             : name.starts_with("forge.audio_") ? 2u
             : (name == "forge.physics_body" || name == "forge.physics_joint" ||
@@ -1770,7 +1828,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.mesh_renderer")
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
         std::vector<ReflectedAdapter> references;
-        if (name == "forge.physics_joint")
+        if (name == "forge.physics_joint" || name == "forge.transform_animator")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.
@@ -1890,6 +1948,10 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
 namespace {
 Json admitted_builtin_source(const Builtin& type, const Json& source) {
     auto current = source;
+    if (std::string_view(type.name) == "forge.transform_animator")
+        for (const auto* field : {"sequence", "sequence_start_seconds"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.particle_emitter")
         for (const auto* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
             if (!current.contains(field))

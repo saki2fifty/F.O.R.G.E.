@@ -312,8 +312,10 @@ typedef struct ForgeSdkWorldV1 {
        1 copied event, 0 end/unavailable, -1 invalid argument or removed target.
        Indexes remain stable for this tick. No consumption or native ownership. */
     int32_t(FORGE_SDK_CALL* animation_read_event)(void*, uint32_t index, ForgeSdkAnimationEventV1*);
-    /* Realized authoritative incoming clip. Fixed-only; Gameplay sees the prior
-       realization, PostPhysics sees this tick. 1 copied status,0 unavailable,-1 bad args. */
+    /* Realized clip or AnimationSequence controller. Controllers have an empty
+       clip_uuid; bound tracks are observable but only their controller is controllable.
+       Fixed-only; Gameplay sees the prior realization, PostPhysics sees this tick.
+       1 copied status,0 unavailable,-1 bad args. */
     int32_t(FORGE_SDK_CALL* animation_playback)(void*, const char* scene, const char* entity,
                                                 ForgeSdkAnimationPlaybackV1*);
     /* Registered matching-world entity only. Intrinsic RuntimeEntities read.

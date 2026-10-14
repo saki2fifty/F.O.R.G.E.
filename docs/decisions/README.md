@@ -30,6 +30,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [018](018-animation-root-motion.md) | Fixed animation extraction with explicit entity or C++ movement authority |
 | [019](019-skeletal-constraints.md) | Reach and aim share the existing skeletal pose owner |
 | [020](020-heightfield-terrain.md) | Root Mesh terrain source with stable layered tile identities |
+| [021](021-animation-sequencing.md) | Scene-owned composition inside the existing animation owner |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per
 [dependency policy](../dependency-policy.md). Existing identity, prefab and TRS

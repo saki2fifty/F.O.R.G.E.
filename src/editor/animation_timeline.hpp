@@ -2,6 +2,7 @@
 #include "../texture_authoring.hpp"
 #include "../transform_animation_authoring.hpp"
 #include "../transform_animation_preview.hpp"
+#include "animation_sequence_editor.hpp"
 #include "animation_timeline_view.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
@@ -15,16 +16,24 @@ namespace forge {
 class AnimationTimelineEditor {
   public:
     bool close_cancelled = false;
-    bool is_open() const { return bool(document_); }
+    bool is_open() const { return bool(document_) || sequence_.is_open(); }
+    bool sequence_mode() const { return sequence_.is_open(); }
+    bool take_scene_save_request() { return std::exchange(sequence_.save_requested, false); }
     bool pending() const { return job_ != 0; }
     bool dirty() const {
+        if (sequence_mode())
+            return sequence_.dirty();
         return document_ && (document_->dirty() || curve_dirty_ || needs_publish_ || pending());
     }
     bool can_undo() const {
+        if (sequence_mode())
+            return sequence_.can_undo();
         return document_ && !pending() &&
                (curve_dirty_ || curve_drag_ || box_ || pan_ || document_->can_undo());
     }
     bool can_redo() const {
+        if (sequence_mode())
+            return sequence_.can_redo();
         return document_ && !pending() && !curve_dirty_ && !curve_drag_ && !box_ && !pan_ &&
                document_->can_redo();
     }
@@ -32,12 +41,20 @@ class AnimationTimelineEditor {
     const std::set<AssetId>& selected_keys() const { return selected_keys_; }
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
     void request_save() {
+        if (sequence_mode()) {
+            sequence_.request_save();
+            return;
+        }
         cancel_ruler_capture();
         cancel_key_drag();
         cancel_curve_drag();
         save_ = true;
     }
     void request_close() {
+        if (sequence_mode()) {
+            sequence_.request_close();
+            return;
+        }
         cancel_ruler_capture();
         cancel_key_drag();
         cancel_curve_drag();
@@ -47,6 +64,10 @@ class AnimationTimelineEditor {
             finish_close();
     }
     void undo() {
+        if (sequence_mode()) {
+            sequence_.undo();
+            return;
+        }
         if (box_ || pan_) {
             cancel_ruler_capture();
             return;
@@ -65,14 +86,26 @@ class AnimationTimelineEditor {
         }
     }
     void redo() {
+        if (sequence_mode()) {
+            sequence_.redo();
+            return;
+        }
         if (can_redo()) {
             document_->redo();
             changed();
         }
     }
-    bool preview_active() const { return document_ && preview_ && target_.entity && clip_; }
-    void stop_preview() { preview_ = playing_ = false; }
+    bool preview_active() const {
+        return sequence_mode() ? sequence_.preview_active()
+                               : document_ && preview_ && target_.entity && clip_;
+    }
+    void stop_preview() {
+        preview_ = playing_ = false;
+        sequence_.stop_preview();
+    }
     Json preview(Json source) {
+        if (sequence_mode())
+            return sequence_.preview(std::move(source));
         try {
             if (preview_active() &&
                 !apply_transform_animation_preview(source, target_, *clip_, time_)) {
@@ -86,6 +119,14 @@ class AnimationTimelineEditor {
         return source;
     }
     void open(SceneDocument& project, const std::filesystem::path& source) {
+        next_sequence_.reset();
+        if (sequence_mode()) {
+            sequence_.request_close();
+            if (sequence_mode()) {
+                next_source_ = source;
+                return;
+            }
+        }
         if (dirty()) {
             next_source_ = source;
             request_close();
@@ -98,7 +139,30 @@ class AnimationTimelineEditor {
         }
     }
     void content(SceneDocument& project, Scene& scene, bool locked) {
-        ImGui::BeginDisabled(locked || dirty());
+        const auto selected =
+            ui::editor_context ? ui::editor_context->selection.entity() : std::string();
+        const auto controller = !selected.empty() && scene.entity(selected) &&
+                                scene.entity(selected).has<AnimationSequence>();
+        ImGui::BeginDisabled(locked);
+        if (ui::button("Create animation sequence", "Create a Scene-owned sequence controller.")) {
+            try {
+                const auto id =
+                    authoring_command(scene, "entity.create", {{"recipe", "animation.sequence"}})
+                        .at("selected")
+                        .get<std::string>();
+                if (ui::editor_context)
+                    ui::editor_context->selection.select_entity(id);
+                open_sequence(project, scene, {scene.asset_id(), EntityId::parse(id)});
+            } catch (const std::exception& e) {
+                report("sequence", e.what());
+            }
+        }
+        ImGui::BeginDisabled(!controller);
+        if (ui::button("Open sequence timeline", "Arrange clips for the selected controller."))
+            open_sequence(project, scene, {scene.asset_id(), EntityId::parse(selected)});
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(locked || (document_ && dirty()) || sequence_.pending_fields());
         if (ui::button("New transform animation...",
                        "Create a reusable animation of local position, rotation and scale."))
             ImGui::OpenPopup("New transform animation");
@@ -107,7 +171,7 @@ class AnimationTimelineEditor {
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Project file", path_, sizeof(path_));
             ui::help("Choose a new .animation.json file inside your project.");
-            ImGui::BeginDisabled(locked || dirty());
+            ImGui::BeginDisabled(locked || (document_ && dirty()) || sequence_.pending_fields());
             if (ui::button("Create", "Create the animation source and open its timeline.")) {
                 try {
                     auto created = TransformAnimationDocument::create(
@@ -130,9 +194,20 @@ class AnimationTimelineEditor {
     }
     void poll(SceneDocument& project, Scene& scene, bool play, double seconds,
               std::string& message) {
+        if (sequence_mode()) {
+            sequence_.poll(play, seconds);
+            if (std::exchange(sequence_.close_cancelled, false)) {
+                next_source_.reset();
+                next_sequence_.reset();
+                close_cancelled = true;
+            }
+            if (sequence_mode())
+                return;
+        }
         if (document_ && document_->project() != project.project()) {
             finish_close();
             next_source_.reset();
+            next_sequence_.reset();
         }
         if (play) {
             stop_preview();
@@ -159,6 +234,10 @@ class AnimationTimelineEditor {
             const auto source = std::exchange(next_source_, {});
             open(project, *source);
         }
+        if (!document_ && next_sequence_) {
+            const auto target = std::exchange(next_sequence_, {});
+            open_sequence(project, scene, *target);
+        }
         if (!document_)
             return;
         if (target_.entity &&
@@ -177,6 +256,22 @@ class AnimationTimelineEditor {
         }
     }
     void draw(SceneDocument& project, Scene& scene, bool locked) {
+        if (sequence_mode()) {
+            bool visible = true;
+            const bool expanded =
+                ImGui::Begin(dirty() ? "* Animation Timeline — Scene sequence###Animation Timeline"
+                                     : "Animation Timeline — Scene sequence###Animation Timeline",
+                             &visible);
+            if (!visible)
+                sequence_.request_close();
+            if (ui::editor_context && ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+                ui::editor_context->task.focus_document("animation_timeline", "Animation Timeline");
+            if (expanded && sequence_mode())
+                sequence_.draw(locked);
+            sequence_.close_dialog();
+            ImGui::End();
+            return;
+        }
         if (!document_)
             return;
         bool visible = true;
@@ -338,6 +433,7 @@ class AnimationTimelineEditor {
             if (ui::button("Keep editing", "Cancel closing this animation.")) {
                 close_ = false;
                 next_source_.reset();
+                next_sequence_.reset();
                 close_cancelled = true;
                 ImGui::CloseCurrentPopup();
             }
@@ -361,8 +457,31 @@ class AnimationTimelineEditor {
             throw;
         }
     }
+    void open_sequence(SceneDocument& project, Scene& scene, EntityRef target) {
+        if (sequence_mode() && sequence_.controller() == target)
+            return;
+        next_source_.reset();
+        if (sequence_mode() && sequence_.pending_fields()) {
+            next_sequence_ = target;
+            sequence_.request_close();
+            return;
+        }
+        if (document_ && dirty()) {
+            next_sequence_ = target;
+            request_close();
+            return;
+        }
+        finish_close();
+        try {
+            sequence_.open(project, scene, target);
+        } catch (const std::exception& e) {
+            report("sequence", e.what());
+        }
+    }
 
   private:
+    AnimationSequenceEditor sequence_;
+    std::optional<EntityRef> next_sequence_;
     std::unique_ptr<TransformAnimationDocument> document_;
     std::unique_ptr<AssetImportService> service_;
     std::optional<TransformAnimationClip> clip_;
@@ -425,6 +544,7 @@ class AnimationTimelineEditor {
         ui::report_error(std::string("animation_timeline/") + action, why);
     }
     void finish_close() {
+        sequence_.close();
         box_ = pan_ = false;
         box_before_.clear();
         view_ = {};

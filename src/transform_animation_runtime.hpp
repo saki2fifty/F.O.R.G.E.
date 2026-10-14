@@ -24,6 +24,11 @@ class TransformAnimationPlayback {
     std::vector<std::uint64_t> take_discontinuities();
     Json checkpoint() const;
     void restore(const Json&);
+    std::optional<AnimationPlayback> playback(EntityRef) const;
+    bool control(EntityRef, AnimationControl);
+    bool seek(EntityRef, double seconds);
+    Json sequence_checkpoint() const;
+    void restore(const Json&, const Json& sequences);
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }
@@ -38,11 +43,21 @@ class TransformAnimationPlayback {
         double time = 0;
         double previous = 0, advance = 0;
         bool playing = false, discontinuous = true;
+        flecs::entity_t sequence = 0;
+    };
+    struct SequenceState {
+        AnimationSequence config;
+        EntityRef entity;
+        double time = 0, previous = 0, advance = 0;
+        bool playing = false, discontinuous = true;
     };
     WorldContext& context_;
     std::filesystem::path project_;
     ResourcePool<TransformAnimationAsset> pool_;
     flecs::query<const TransformAnimator> players_;
+    flecs::query<const AnimationSequence> sequences_;
+    std::map<flecs::entity_t, SequenceState> sequence_states_;
+    std::set<flecs::entity_t> sequence_errors_;
     std::shared_ptr<const AssetCatalog> catalog_;
     std::map<flecs::entity_t, State> states_;
     std::set<std::uint64_t> discontinuities_;
@@ -53,5 +68,8 @@ class TransformAnimationPlayback {
     ResourceTicket request(AssetRef<TransformAnimationAsset>);
     void apply(const std::map<flecs::entity_t, double>& times, bool commit);
     void error(flecs::entity_t, const std::string&);
+    void synchronize_sequences();
+    double sequence_time(const State&, double) const;
+    std::map<flecs::entity_t, double> times_at(flecs::entity_t controller, double time) const;
 };
 } // namespace forge
