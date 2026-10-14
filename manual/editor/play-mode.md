@@ -19,6 +19,22 @@ Large scene updates are sent in bounded pieces while gameplay continues. If an u
 
 Stop Play before editing or saving the **authored scene**. Runtime movement is never automatically saved into the authored scene.
 
+## Change simulation speed
+
+During Play, use **Speed** beside the Play controls. In a narrow window, open
+**More global actions → Simulation speed** or **Run → Simulation speed**. Choose quarter, half, normal, double
+or four times speed. **Hold motion (0x)** keeps the game controls responsive while
+motion stays still; choose **Normal speed (1x)** to continue. FORGE shows the accepted
+speed and **Applying...** while a change is pending.
+
+Pause remains a separate control. While paused, **Step** still advances one tick
+at any chosen speed. Physics keeps its regular step size, and existing sound
+plays at its normal speed. Speed is temporary: a new Play starts at 1x.
+
+Open Gallery **Scenes/58-simulation-speed.scene.json** to compare a bouncing object,
+transform animation and particles. Capture game input and try its speed buttons,
+then export the Scene and use the same buttons in the exported game.
+
 ## Check one tick
 
 Open **Console** while playing. The runtime status shows **Tick**, **Fixed**, **Dropped**, and **Clamped**.

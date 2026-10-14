@@ -1,5 +1,16 @@
 # FORGE Feature Gallery
 
+## Simulation speed
+
+Open **Scenes/58-simulation-speed.scene.json** and press Play. A bouncing object,
+transform animation and particles share the same simulation speed. Capture game
+input and try the HUD's Hold, quarter, half, normal, double and four times buttons.
+Hold keeps the buttons responsive. Pause remains separate; Step advances one tick
+while paused. Existing sound keeps normal speed. Stop/next Play resets speed to 1x.
+The Scene reuses existing clips/effects and exports with its HUD, requiring no C++
+module or compiler in the exported game. The editor's **Speed** control offers the
+same presets; narrow windows expose them in **More global actions**.
+
 ## Shared effect, different emitter appearances
 
 Open **Scenes/57-particle-emitter-appearance.scene.json** and press Play. The front

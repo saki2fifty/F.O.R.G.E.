@@ -60,6 +60,15 @@ void run(const std::filesystem::path& root) {
         check(!c.input && !c.controls, "Candidate initialization received gameplay input");
         c.world.entity("game.prepared").set<int>(1);
     };
+    unsigned control_frames = 0;
+    bool restore_rate = false;
+    module.controls = [&](ModuleContext& c) {
+        ++control_frames;
+        if (restore_rate) {
+            c.services.game()->request(c.id, {{"operation", "time_scale"}, {"scale", 1.}});
+            restore_rate = false;
+        }
+    };
     module.restore = [](ModuleContext& c, const Json& data) {
         check(c.world.lookup("game.prepared").get<int>() == 1,
               "Restore ran before scene initialization");
@@ -98,6 +107,44 @@ void run(const std::filesystem::path& root) {
     check(request({{"operation", "pause"}}).state == "succeeded" &&
               game.status().at("state") == "paused",
           "Queued pause did not reach session");
+    for (const auto scale : {0., .25, .5, 1., 2., 4.}) {
+        const auto result = request({{"operation", "time_scale"}, {"scale", scale}});
+        check(result.state == "succeeded" && result.value == scale &&
+                  game.status().at("clock").at("time_scale") == scale &&
+                  game.status().at("state") == "paused",
+              "Scoped gameplay rate request did not reach the existing paused clock");
+    }
+    const auto before_rate = game.status().at("clock");
+    for (const auto& invalid : {Json(-1.), Json(4.01), Json(true), Json("1"), Json(nullptr)}) {
+        check(request({{"operation", "time_scale"}, {"scale", invalid}}).state == "failed" &&
+                  game.status().at("clock") == before_rate,
+              "Invalid gameplay rate changed clock policy or counters");
+    }
+    check(request({{"operation", "time_scale"}}).state == "failed",
+          "Rate request without a value was admitted");
+    request({{"operation", "time_scale"}, {"scale", 0.}});
+    const auto before_step = game.status().at("clock").at("tick").get<std::uint64_t>();
+    game.step();
+    check(game.status().at("clock").at("tick") == before_step + 1 &&
+              game.status().at("clock").at("time_scale") == 0,
+          "Paused Step at zero rate did not retain policy and advance one fixed tick");
+    request({{"operation", "time_scale"}, {"scale", 1.}});
+    request({{"operation", "time_scale"}, {"scale", 0.}});
+    game.resume(RuntimeClock::Time{});
+    const auto held_tick = game.status().at("clock").at("tick");
+    game.advance(RuntimeClock::Time{} + std::chrono::milliseconds(100));
+    check(game.status().at("clock").at("tick") == held_tick,
+          "Zero-rate session advanced virtual simulation");
+    restore_rate = true;
+    game.control_frame();
+    host.pump(RuntimeClock::Time{} + std::chrono::milliseconds(100));
+    check(control_frames == 1 && game.status().at("clock").at("time_scale") == 1,
+          "Unscaled controls could not restore a zero-rate session");
+    game.advance(RuntimeClock::Time{} + std::chrono::milliseconds(120));
+    check(game.status().at("clock").at("tick").get<std::uint64_t>() >
+              held_tick.get<std::uint64_t>(),
+          "Session did not continue after control-frame rate restore");
+    game.pause(RuntimeClock::Time{} + std::chrono::milliseconds(120));
     check(request(
               {{"operation", "set_settings"}, {"values", {{"input", {{"mouse_sensitivity", 2}}}}}})
                   .state == "succeeded",
@@ -314,11 +361,14 @@ void run(const std::filesystem::path& root) {
     const auto inherited_mix =
         std::static_pointer_cast<AudioRuntime>(game.active().engine.services().audio())->status();
     auto old = game.active().engine.services().game();
+    game.set_time_scale(.25);
     old->request("game.test", {{"operation", "load"}, {"slot", "one"}, {"run", false}});
     host.pump(RuntimeClock::Time{});
     check(game.active().scene.asset_id() == asset &&
               game.active().engine.world().world().lookup("game.saved").get<int>() == 43,
           "Save did not restore into prepared candidate");
+    check(game.status().at("clock").at("time_scale") == .25,
+          "Scene activation replaced the session rate policy");
     const auto restored_mix =
         std::static_pointer_cast<AudioRuntime>(game.active().engine.services().audio())->status();
     check(restored_mix.at("master_volume") == inherited_mix.at("master_volume") &&
@@ -326,6 +376,12 @@ void run(const std::filesystem::path& root) {
           "Newly activated scene did not inherit the live channel preferences");
     check(request({{"operation", "quit"}}).state == "succeeded" && host.quit_requested(),
           "Quit request did not reach host");
+    game.unload(RuntimeClock::Time{});
+    try {
+        game.set_time_scale(1);
+        throw std::logic_error("Inactive session admitted simulation speed");
+    } catch (const std::runtime_error&) {
+    }
 }
 void polled_cursor_navigation(const std::filesystem::path& root) {
     const auto content = root / "content";

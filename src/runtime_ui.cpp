@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <charconv>
 #include <forge/assets.hpp>
 #include <forge/runtime_ui.hpp>
 namespace forge {
@@ -32,7 +33,7 @@ void UiRuntime::publish(EntityId entity, const std::string& name, const Json& va
 void UiRuntime::allow_action(const std::string& name) {
     check();
     if (!active_ || !ui_protocol::identifier(name) || name == "Pause" || name == "Resume" ||
-        name == "Step")
+        name == "Step" || name == "TimeScale")
         throw std::runtime_error("Invalid/reserved UI command capability");
     if (!actions_.contains(name) && actions_.size() >= 29)
         throw std::runtime_error("UI command capability limit");
@@ -99,7 +100,7 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
         auto model = models_.contains(entity) ? models_.at(entity) : Json::object();
         model["tick"] = tick;
         model["paused"] = paused;
-        Json actions = {"Pause", "Resume", "Step"};
+        Json actions = {"Pause", "Resume", "Step", "TimeScale"};
         for (const auto& a : actions_)
             actions.push_back(a);
         docs.push_back({{"entity", entity},
@@ -120,7 +121,8 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
     return result;
 }
 void UiRuntime::command(const Scene& scene, const Json& request,
-                        const std::function<void(const std::string&)>& control) {
+                        const std::function<void(const std::string&)>& control,
+                        const std::function<void(double)>& time_scale) {
     check();
     auto profile = services_.profile("ui", "CommandValidation");
     const auto instance = request.at("instance").get<std::string>();
@@ -141,6 +143,19 @@ void UiRuntime::command(const Scene& scene, const Json& request,
     if (AssetCatalog::open_project(project_).resolve(d.document).state != AssetState::Available)
         throw std::runtime_error("UI document asset is unavailable");
     const auto name = request.at("command").get<std::string>();
+    if (name == "TimeScale") {
+        if (!time_scale || !request.contains("value") || !request.at("value").is_string())
+            throw std::runtime_error("TimeScale requires a host clock and numeric string value");
+        ui_protocol::validate_value(request.at("value"));
+        const auto& text = request.at("value").get_ref<const std::string&>();
+        double value = 0;
+        const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
+        if (parsed.ec != std::errc{} || parsed.ptr != text.data() + text.size())
+            throw std::runtime_error("TimeScale value must be a complete numeric string");
+        // The existing clock owner admits the finite [0,4] policy atomically.
+        time_scale(value);
+        return;
+    }
     if (request.contains("value")) {
         if (!value_actions_.contains(name) || !request.at("value").is_string())
             throw std::runtime_error("UI action does not accept a string value");

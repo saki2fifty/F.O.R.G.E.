@@ -80,6 +80,7 @@
 #include "sdk_platform_effects.hpp"
 #include "shader_diligent.hpp"
 #include "shader_imports.hpp"
+#include "simulation_speed_controls.hpp"
 #include "source_import.hpp"
 #include "spatial_helpers.hpp"
 #include "status_bar.hpp"
@@ -4363,6 +4364,10 @@ int main(int argc, char** argv) {
                         ImGui::Separator();
                         for (auto id : {"play", "pause", "step", "stop", "recover"})
                             actions.item(id);
+                        forge::simulation_speed_controls(
+                            play.timing().value("time_scale", 1.), play.control_ready(),
+                            play.time_scale_pending(),
+                            [&](double scale) { return play.set_time_scale(scale); }, true);
                         ImGui::EndMenu();
                     }
                     FORGE_UI_PROBE("menu:Run");
@@ -4422,6 +4427,13 @@ int main(int argc, char** argv) {
                 actions.icon("step", Icon::Step);
                 ImGui::SameLine();
                 actions.icon("stop", Icon::Stop);
+                if (main_viewport->WorkSize.x > 720 * forge::ui::interface_scale) {
+                    forge::ui::tool_separator();
+                    forge::simulation_speed_controls(
+                        play.timing().value("time_scale", 1.), play.control_ready(),
+                        play.time_scale_pending(),
+                        [&](double scale) { return play.set_time_scale(scale); });
+                }
                 forge::ui::tool_separator();
                 if (forge::ui::icon_button("##global-more", Icon::More, "More global actions"))
                     ImGui::OpenPopup("Global actions");
@@ -4429,6 +4441,10 @@ int main(int argc, char** argv) {
                     for (auto id :
                          {"save", "undo", "redo", "play", "pause", "step", "stop", "recover"})
                         actions.item(id);
+                    forge::simulation_speed_controls(
+                        play.timing().value("time_scale", 1.), play.control_ready(),
+                        play.time_scale_pending(),
+                        [&](double scale) { return play.set_time_scale(scale); }, true);
                     ImGui::EndPopup();
                 }
                 if (main_viewport->WorkSize.x > 650 * forge::ui::interface_scale) {

@@ -66,7 +66,7 @@ void validate_snapshot(const Json& j) {
                 "Invalid UI display options");
         validate_model(d.at("model"));
         const auto& cmds = d.at("commands");
-        require(cmds.is_array() && cmds.size() <= 32, "UI command capability limit exceeded");
+        require(cmds.is_array() && cmds.size() <= 33, "UI command capability limit exceeded");
         std::set<std::string> unique;
         for (const auto& c : cmds) {
             auto name = c.get<std::string>();

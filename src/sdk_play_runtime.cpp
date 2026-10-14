@@ -1283,6 +1283,16 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                                                       s.active_generation);
             return s.snapshot_response(id);
         }
+        if (command == "time_scale") {
+            if (!s.active_generation || !request.contains("generation") ||
+                !request.at("generation").is_number_unsigned() ||
+                request.at("generation").get<std::uint64_t>() != s.active_generation)
+                return s.build_error(id, "Simulation rate targets a stale world generation");
+            if (!request.contains("scale") || !request.at("scale").is_number())
+                return s.build_error(id, "Simulation time scale requires a number");
+            s.game->set_time_scale(request.at("scale").get<double>());
+            return s.snapshot_response(id);
+        }
         if (command == "play" || command == "resume") {
             if (s.game->status().value("state", "") == "paused")
                 s.game->resume(now);
@@ -1330,29 +1340,35 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             // from the synchronous release guard.
             bool mutated = false;
             auto ack = s.ui_commands.dispatch(request.at("ui_command"), [&](const Json& cmd) {
-                ui->command(world.scene, cmd, [&](const std::string& control) {
-                    if (control == "Pause") {
-                        // The host's release path enforces every guard
-                        // the source owns. Surface its honest diagnostic
-                        // through ui_ack (CommandGate::dispatch catches
-                        // and records it on the ack) so the editor sees
-                        // the precise reason rather than a generic
-                        // mutation failure. State is unchanged on
-                        // rejection.
-                        s.perform_released_for_clock_pause();
-                        s.game->pause(now);
-                        mutated = true;
-                    } else if (control == "Resume") {
-                        if (s.game->status().value("state", "") == "paused") {
-                            s.game->resume(now);
+                ui->command(
+                    world.scene, cmd,
+                    [&](const std::string& control) {
+                        if (control == "Pause") {
+                            // The host's release path enforces every guard
+                            // the source owns. Surface its honest diagnostic
+                            // through ui_ack (CommandGate::dispatch catches
+                            // and records it on the ack) so the editor sees
+                            // the precise reason rather than a generic
+                            // mutation failure. State is unchanged on
+                            // rejection.
+                            s.perform_released_for_clock_pause();
+                            s.game->pause(now);
+                            mutated = true;
+                        } else if (control == "Resume") {
+                            if (s.game->status().value("state", "") == "paused") {
+                                s.game->resume(now);
+                                mutated = true;
+                            }
+                        } else if (control == "Step") {
+                            s.perform_released_for_clock_pause();
+                            s.game->step();
                             mutated = true;
                         }
-                    } else if (control == "Step") {
-                        s.perform_released_for_clock_pause();
-                        s.game->step();
+                    },
+                    [&](double scale) {
+                        s.game->set_time_scale(scale);
                         mutated = true;
-                    }
-                });
+                    });
             });
             (void)mutated;
             Json response = s.snapshot_response(id);

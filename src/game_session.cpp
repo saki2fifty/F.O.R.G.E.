@@ -251,6 +251,11 @@ void GameSession::tick(float dt) {
         throw;
     }
 }
+void GameSession::set_time_scale(double value) {
+    require_active();
+    Mutation guard(changing_);
+    clock_.set_time_scale(value);
+}
 void GameSession::step() {
     require_active();
     Mutation guard(changing_);

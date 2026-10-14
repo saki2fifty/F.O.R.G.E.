@@ -78,6 +78,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '55-layered-heightfield-terrain.scene.json',
         '56-particle-shapes-and-lifetime.scene.json',
         '57-particle-emitter-appearance.scene.json',
+        '58-simulation-speed.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
         '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json', '37-animation-subtree-blending.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
@@ -351,6 +352,20 @@ try:
             assert all(row['parent'] == parents[0]['id'] and row['spatial']['mode'] == 'follow_structure' for row in sounds)
             assert parents[0]['components']['forge.transform_animator']['clip'] == by_source['Assets/DopplerPass.animation.json']['id']
             assert sum(row['components']['forge.audio_source']['play_on_start'] for row in sounds) == 1
+        if path.name.startswith('58-'):
+            components = [row['components'] for row in loaded['entities']]
+            assert sum('forge.physics_body' in row for row in components) == 2
+            assert sum('forge.transform_animator' in row for row in components) == 1
+            assert sum('forge.particle_emitter' in row for row in components) == 1
+            assert sum('forge.ui_document' in row for row in components) == 1
+            hud = next(row for row in components if 'forge.ui_document' in row)
+            assert hud['forge.ui_document']['document'] == by_source['Assets/UI/SimulationSpeed.rml']['id']
+            assert hud['forge.primitive']['kind'] == 4
+            assert next(row['forge.transform_animator']['clip'] for row in components
+                        if 'forge.transform_animator' in row) == by_source['Assets/AnimationTiming/OriginalTiming.animation.json']['id']
+            assert next(row['forge.particle_emitter']['effect'] for row in components
+                        if 'forge.particle_emitter' in row) == by_source['Assets/Particles/SharedJet.particles.json']['id']
+            assert not any('time_scale' in key for row in components for key in row)
         if path.name.startswith('36-'):
             actors = [row for row in loaded['entities'] if 'forge.animator' in row['components']]
             assert len(actors) == 3

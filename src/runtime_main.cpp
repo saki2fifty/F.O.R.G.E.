@@ -420,6 +420,15 @@ int main(int argc, char** argv) {
                                                      {"type", target.type},
                                                      {"property", target.property},
                                                      {"value", value}};
+                    } else if (command == "time_scale") {
+                        if (!ui_generation || !request.contains("generation") ||
+                            !request.at("generation").is_number_unsigned() ||
+                            request.at("generation").get<std::uint64_t>() != ui_generation)
+                            throw std::runtime_error(
+                                "Simulation rate targets a stale world generation");
+                        if (!request.contains("scale") || !request.at("scale").is_number())
+                            throw std::runtime_error("Simulation time scale requires a number");
+                        clock.set_time_scale(request.at("scale").get<double>());
                     } else if (command == "play" || command == "resume") {
                         if (clock.paused()) {
                             runtime->simulation.reset_presentation();
@@ -438,19 +447,22 @@ int main(int argc, char** argv) {
                             runtime->engine.services().ui());
                         response["ui_ack"] =
                             ui_commands.dispatch(request.at("ui_command"), [&](const auto& cmd) {
-                                ui->command(runtime->scene, cmd, [&](const std::string& control) {
-                                    if (control == "Pause") {
-                                        runtime->simulation.audio_paused(true);
-                                        clock.pause(forge::RuntimeClock::Clock::now());
-                                    } else if (control == "Resume") {
-                                        if (clock.paused()) {
-                                            runtime->simulation.reset_presentation();
-                                            runtime->simulation.audio_paused(false);
-                                            clock.resume(forge::RuntimeClock::Clock::now());
-                                        }
-                                    } else if (control == "Step")
-                                        clock.step(tick);
-                                });
+                                ui->command(
+                                    runtime->scene, cmd,
+                                    [&](const std::string& control) {
+                                        if (control == "Pause") {
+                                            runtime->simulation.audio_paused(true);
+                                            clock.pause(forge::RuntimeClock::Clock::now());
+                                        } else if (control == "Resume") {
+                                            if (clock.paused()) {
+                                                runtime->simulation.reset_presentation();
+                                                runtime->simulation.audio_paused(false);
+                                                clock.resume(forge::RuntimeClock::Clock::now());
+                                            }
+                                        } else if (control == "Step")
+                                            clock.step(tick);
+                                    },
+                                    [&](double scale) { clock.set_time_scale(scale); });
                             });
                     } else if (command == "save")
                         runtime->scene.save(request.at("path").get<std::string>());

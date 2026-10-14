@@ -1,4 +1,5 @@
 #include "runtime_entity_tests.hpp"
+#include <array>
 #include <cmath>
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
@@ -162,6 +163,67 @@ void poses() {
     rejects([&] { history.evaluate(-.1); });
     rejects([&] { history.evaluate(1.1); });
 }
+void simulation_rates() {
+    for (const auto [rate, expected] : std::array<std::pair<double, unsigned>, 6>{
+             {{0, 0}, {.25, 0}, {.5, 1}, {1, 2}, {2, 4}, {4, 8}}}) {
+        RuntimeClock clock({100, .25, 8});
+        check(clock.time_scale() == 1 && clock.status().at("time_scale") == 1,
+              "Fresh clock did not start at normal rate");
+        clock.set_time_scale(rate);
+        clock.resume(time_ms(0));
+        unsigned calls = 0;
+        clock.advance(time_ms(20), [&](float dt) {
+            check(dt == .01f, "Simulation rate changed the positive fixed physics delta");
+            ++calls;
+        });
+        check(calls == expected && clock.tick() == expected,
+              "Scaled fake-steady interval produced the wrong fixed tick count");
+        expect_near(clock.alpha(), rate == .25 ? .5 : 0);
+        check(clock.status().at("dropped_ticks") == 0, "Rate discarded admitted short interval");
+    }
+    RuntimeClock switched({100, .25, 8});
+    unsigned calls = 0;
+    auto tick = [&](float dt) {
+        check(dt == .01f, "Switch changed fixed delta");
+        ++calls;
+    };
+    switched.resume(time_ms(0));
+    switched.advance(time_ms(5), tick);
+    switched.set_time_scale(.5);
+    switched.advance(time_ms(10), tick);
+    expect_near(switched.alpha(), .75);
+    switched.set_time_scale(0);
+    switched.advance(time_ms(1010), tick);
+    check(calls == 0 && !switched.paused(), "Zero rate advanced or implicitly paused the clock");
+    expect_near(switched.alpha(), .75);
+    expect_near(switched.status().at("clamped_seconds"), .75);
+    switched.set_time_scale(2);
+    switched.advance(time_ms(1015), tick);
+    check(calls == 1, "Rate switch lost retained fractional progress");
+    expect_near(switched.alpha(), .75);
+    const auto unchanged = switched.status();
+    for (const auto value : {-1., 4.001, std::numeric_limits<double>::infinity(),
+                             std::numeric_limits<double>::quiet_NaN()}) {
+        rejects([&] { switched.set_time_scale(value); });
+        check(switched.status() == unchanged, "Invalid rate changed clock state or counters");
+    }
+    switched.pause(time_ms(1015));
+    switched.set_time_scale(0);
+    switched.step(tick);
+    check(calls == 2 && switched.paused() && switched.time_scale() == 0,
+          "Single Step at zero rate did not advance exactly one fixed tick");
+    switched.resume(time_ms(5000));
+    switched.advance(time_ms(5020), tick);
+    check(calls == 2, "Resume at zero rate replayed paused wall time");
+    RuntimeClock bounded({100, .25, 8});
+    bounded.set_time_scale(4);
+    bounded.resume(time_ms(0));
+    bounded.advance(time_ms(500), tick);
+    check(bounded.tick() == 8 && bounded.status().at("dropped_ticks") == 92,
+          "Scaled virtual debt bypassed the existing catch-up bound");
+    expect_near(bounded.status().at("clamped_seconds"), .25);
+    expect_near(bounded.alpha(), 0);
+}
 void partial_pose_publish() {
     PresentationPoses history;
     PresentationPoses::Nodes nodes{{1, {}}, {2, {}}};
@@ -282,6 +344,7 @@ void live() {
 int main(int argc, char** argv) {
     try {
         clocks();
+        simulation_rates();
         signed_scale_interpolation();
         poses();
         partial_pose_publish();

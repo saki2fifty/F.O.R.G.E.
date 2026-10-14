@@ -33,7 +33,7 @@ void RuntimeClock::advance(Time now, const Tick& simulate) {
     if (paused_)
         return;
     clamped_seconds_ += std::max(0.0, elapsed - config_.max_elapsed);
-    accumulator_ += std::min(elapsed, config_.max_elapsed);
+    accumulator_ += std::min(elapsed, config_.max_elapsed) * time_scale_;
     const auto dt = fixed_dt();
     // Only absorb floating-point summation error, not a meaningful fraction of a tick.
     const double epsilon = dt * 1e-10;
@@ -59,12 +59,18 @@ Json RuntimeClock::status() const {
     return {{"paused", paused_},
             {"simulation_hz", config_.simulation_hz},
             {"fixed_dt", fixed_dt()},
+            {"time_scale", time_scale_},
             {"tick", tick_},
             {"ticks_this_iteration", last_ticks_},
             {"accumulator", accumulator_},
             {"alpha", alpha()},
             {"dropped_ticks", dropped_ticks_},
             {"clamped_seconds", clamped_seconds_}};
+}
+void RuntimeClock::set_time_scale(double value) {
+    if (!std::isfinite(value) || value < 0 || value > 4)
+        throw std::runtime_error("Simulation time scale must be finite and in [0,4]");
+    time_scale_ = value;
 }
 namespace {
 LocalRotation slerp(LocalRotation a, LocalRotation b, double t) {

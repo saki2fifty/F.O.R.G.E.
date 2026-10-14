@@ -288,13 +288,17 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* read_control)(void*, const char* action_uuid, ForgeSdkActionV1*);
     /* Copied bounded JSON. Query/inspect return required bytes including NUL;
        output is written only when capacity suffices. 0 means rejection.
-       Requests execute only after the calling module callback returns. */
+       Requests execute only after the calling module callback returns.
+       Host operation "time_scale" accepts finite numeric "scale" in [0,4],
+       latches session simulation speed, and does not change fixed physics dt. */
     uint32_t(FORGE_SDK_CALL* game_query)(void*, char* output, uint32_t capacity);
     uint64_t(FORGE_SDK_CALL* game_request)(void*, const char* command_json);
     uint32_t(FORGE_SDK_CALL* game_inspect)(void*, uint64_t token, char* output, uint32_t capacity);
     int32_t(FORGE_SDK_CALL* game_release)(void*, uint64_t token);
     int32_t(FORGE_SDK_CALL* game_save_schema)(void*, const ForgeSdkSaveSchemaV1*);
-    /* Explicit opt-in to one bounded string argument; module startup only. */
+    /* Explicit opt-in to one bounded string argument; module startup only.
+       Pause/Resume/Step/TimeScale are reserved host UI actions. TimeScale takes
+       a numeric string; the other three actions remain argument-free. */
     int32_t(FORGE_SDK_CALL* ui_allow_value_action)(void*, const char* command);
     /* Publish a copied protocol-supported value in initialization, fixed tick
        or control frame; no native presentation pointers. */

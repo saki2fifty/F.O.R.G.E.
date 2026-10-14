@@ -103,6 +103,33 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="particle-process-")
         request("property_tune", expected=False, **dict(target, generation=target["generation"]+1),
                 property="tint_b", value=.5)
         assert captures(request("snapshot")) == captures(snapshot)
+        rate_target = dict(generation=snapshot["world_generation"])
+        for value in (-1, 4.01, True, "1", None):
+            request("time_scale", expected=False, **rate_target, scale=value)
+        request("time_scale", expected=False,
+                generation=rate_target["generation"]+1, scale=.5)
+        request("time_scale", expected=False, scale=.5)
+        assert request("snapshot")["timing"]["time_scale"] == 1
+        for scale in (0, .25, .5, 1, 2, 4):
+            changed = request("time_scale", **rate_target, scale=scale)
+            assert changed["timing"]["time_scale"] == scale
+            assert changed["timing"]["paused"]
+        request("time_scale", **rate_target, scale=0)
+        held = request("play")
+        time.sleep(.1)
+        held_again = request("snapshot")
+        assert held_again["timing"]["tick"] == held["timing"]["tick"]
+        assert captures(held_again) == captures(held)
+        assert not held_again["timing"]["paused"]
+        paused = request("pause")
+        manual = request("step")
+        assert manual["timing"]["tick"] == paused["timing"]["tick"]+1
+        assert manual["timing"]["time_scale"] == 0
+        request("play")
+        request("time_scale", **rate_target, scale=1)
+        time.sleep(.1)
+        continued = request("pause")
+        assert continued["timing"]["tick"] > manual["timing"]["tick"]
         checkpoint = copy.deepcopy(snapshot["recovery"])
         restored = request("replace", scene=checkpoint["scene"], recovery=checkpoint,
                            recovery_session=checkpoint["session"], recovery_tick=checkpoint["tick"])

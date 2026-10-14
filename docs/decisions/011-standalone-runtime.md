@@ -1,5 +1,15 @@
 # ADR 011 — Standalone visual runtime
 
+## Simulation-rate checkpoint — 2026-10-14
+
+The existing runtime/session clock owns a transient finite 0..4 simulation factor.
+Editor Play, scoped C++ game requests and host-reserved Runtime UI controls forward
+policy to that owner. Fixed physics/Flecs delta remains unchanged; control/UI/device
+time stays unscaled. Zero is a motion hold, separate from Pause and its physical
+release policy. No editor, alternate clock, timer manager or saved Scene property
+is introduced. New processes use normal speed; same-session Scene activation
+retains the factor. Current behavior is specified in [runtime timing](../runtime-timing.md).
+
 ## Implementation checkpoint — 2026-09-23
 
 Phase7 Game rendering uses authored Camera components rather than copying the editor navigation camera. The shared visual renderer and cooked-resource relocation tests are implemented; the full standalone exporter remains future work. See [camera/light contracts](../cameras-lights.md), [Play mode](../../manual/editor/play-mode.md) and [runtime content](../../manual/editor/runtime-content.md).

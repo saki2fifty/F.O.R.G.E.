@@ -19,6 +19,12 @@ Click **Pause**. The tick counter stops, but the HUD stays interactive. Click th
 
 Click **Step** while paused: the counter advances by one. Click **Resume** to continue. **F6** pauses/resumes, **F7** steps while paused, and **Escape** releases game input so you can use the editor again.
 
+For slow motion, a button can use `data-event-click="command('TimeScale','0.5')"`.
+Use `1` for normal speed or `0` to hold motion while keeping the HUD interactive.
+Values must be numeric strings between 0 and 4. This changes simulation speed; it
+keeps existing sound at normal speed. The original Gallery58 Scene includes six
+working speed buttons and can be exported without a C++ gameplay module.
+
 UI capture clears held gameplay controls to prevent stuck movement. Release and press a movement key again when returning from a field to gameplay.
 
 Resize the viewport and editor window. The HUD remains positioned within the game image. Ctrl+Plus/Minus changes the editor interface independently; it is not a game HUD zoom control.

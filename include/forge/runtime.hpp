@@ -25,6 +25,9 @@ class RuntimeClock {
     void pause(Time now);
     void advance(Time now, const Tick& tick);
     void step(const Tick& tick);
+    // Frame-boundary policy, not a change to the physics/fixed simulation delta.
+    void set_time_scale(double value);
+    double time_scale() const { return time_scale_; }
     bool paused() const { return paused_; }
     double fixed_dt() const { return 1 / config_.simulation_hz; }
     double alpha() const { return paused_ ? 1 : accumulator_ / fixed_dt(); }
@@ -41,6 +44,7 @@ class RuntimeClock {
     Time previous_{};
     bool paused_ = true;
     double accumulator_ = 0, clamped_seconds_ = 0;
+    double time_scale_ = 1;
     std::uint64_t tick_ = 0, dropped_ticks_ = 0;
     unsigned last_ticks_ = 0;
 };

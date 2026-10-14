@@ -1,0 +1,20 @@
+<rml><head><style>
+body, div, h1, p { display:block; }
+body { width:100%; height:100%; font-family:Lato; font-size:16px; color:#eeeeee; pointer-events:none; }
+#panel { position:absolute; top:12px; left:12px; width:230px; padding:12px; background-color:#172533e8; }
+h1 { font-size:20px; margin:0 0 8px 0; } p { margin:6px 0; }
+button { display:block; width:220px; height:30px; margin:4px 0; line-height:30px; text-align:center; background-color:#305070; pointer-events:auto; }
+button:hover { background-color:#466d92; }
+</style></head><body><div id="panel"><h1>Simulation speed</h1>
+<p>One clock: bounce, animation, particles.</p>
+<button id="speed0" data-event-click="command('TimeScale','0')">Hold motion (0x)</button>
+<button id="speed1" data-event-click="command('TimeScale','0.25')">Quarter speed (0.25x)</button>
+<button id="speed2" data-event-click="command('TimeScale','0.5')">Half speed (0.5x)</button>
+<button id="speed3" data-event-click="command('TimeScale','1')">Normal speed (1x)</button>
+<button id="speed4" data-event-click="command('TimeScale','2')">Double speed (2x)</button>
+<button id="speed5" data-event-click="command('TimeScale','4')">Four times speed (4x)</button>
+<button id="pause" data-event-click="command('Pause')">Pause</button>
+<button id="resume" data-event-click="command('Resume')">Resume</button>
+<button id="step" data-event-click="command('Step')">Step while paused</button>
+<p>Paused: {{paused}} | Tick: {{tick}}</p><p>Zero holds motion. Controls stay active. Sound keeps its normal speed.</p>
+</div></body></rml>

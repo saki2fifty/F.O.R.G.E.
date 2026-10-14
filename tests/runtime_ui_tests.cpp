@@ -1,6 +1,7 @@
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
+#include <forge/runtime.hpp>
 #include <forge/runtime_ui.hpp>
 #include <forge/ui_assets.hpp>
 #include <fstream>
@@ -136,6 +137,41 @@ int main(int argc, char** argv) {
         reject([&] { dispatch(value_command); });
         value_command["command"] = "Pause";
         reject([&] { dispatch(value_command); });
+        // UI parses the existing bounded value transport; the clock owns rate admission.
+        RuntimeClock clock;
+        auto rate_command = command;
+        rate_command["command"] = "TimeScale";
+        auto rate_dispatch = [&](const Json& c) {
+            service->command(
+                scene, c, [](const std::string&) {},
+                [&](double rate) { clock.set_time_scale(rate); });
+        };
+        for (const auto* value : {"0", "0.25", "0.5", "1", "2", "4"}) {
+            rate_command["value"] = value;
+            rate_dispatch(rate_command);
+            check(clock.time_scale() == std::stod(value), "UI rate reaches clock owner");
+        }
+        const auto clock_before = clock.status();
+        for (const Json& value : {Json("-1"), Json("4.01"), Json("nan"), Json("inf"), Json("1x"),
+                                  Json(""), Json(true), Json(1), Json(nullptr)}) {
+            rate_command["value"] = value;
+            reject([&] { rate_dispatch(rate_command); });
+            check(clock.status() == clock_before, "Invalid UI rate mutated the clock");
+        }
+        rate_command.erase("value");
+        reject([&] { rate_dispatch(rate_command); });
+        rate_command["value"] = "1";
+        reject([&] { dispatch(rate_command); }); // Old caller has no rate owner.
+        reject([&] { service->allow_action("TimeScale"); });
+        reject([&] { service->allow_value_action("TimeScale"); });
+        // All 29 existing custom slots remain available beside the four host actions.
+        for (int i = 0; i != 27; ++i)
+            service->allow_action("Custom" + std::to_string(i));
+        reject([&] { service->allow_action("TooMany"); });
+        auto full = service->snapshot(scene, "session", 1, 0, true);
+        ui_protocol::validate_snapshot(full);
+        check(full["documents"][0]["commands"].size() == 33,
+              "TimeScale consumed a custom action slot");
         const auto saved = scene.document();
         check(saved.dump().find("health") == std::string::npos,
               "Presentation model is not authored state");

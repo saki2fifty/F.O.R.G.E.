@@ -375,7 +375,8 @@ int main(int argc, char** argv) {
                         auto service = std::static_pointer_cast<UiRuntime>(
                             game.active().engine.services().ui());
                         service->command(
-                            game.active().scene, request, [&](const std::string& action) {
+                            game.active().scene, request,
+                            [&](const std::string& action) {
                                 if (action == "Pause")
                                     game.pause(now);
                                 else if (action == "Resume")
@@ -384,7 +385,8 @@ int main(int argc, char** argv) {
                                     game.step();
                                 else
                                     throw std::runtime_error("Unknown runtime control");
-                            });
+                            },
+                            [&](double scale) { game.set_time_scale(scale); });
                     });
                     ui.acknowledge(ack);
                 }

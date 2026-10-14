@@ -56,6 +56,18 @@ class PlaySession {
         return ready() && control_.empty() && (!waiting_ || sent_command_ == "snapshot");
     }
     const Json& timing() const { return timing_; }
+    bool time_scale_pending() const {
+        return !time_scale_command_.is_null() || (waiting_ && sent_command_ == "time_scale");
+    }
+    bool set_time_scale(double value) {
+        const auto generation = sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;
+        if (!std::isfinite(value) || value < 0 || value > 4 || !control_ready() ||
+            time_scale_pending() || !generation)
+            return false;
+        time_scale_command_ = {
+            {"command", "time_scale"}, {"generation", generation}, {"scale", value}};
+        return true;
+    }
     const Json& audio_status() const { return audio_status_; }
     const std::string& audio_mix_error() const { return audio_mix_error_; }
     bool audio_mix_pending() const {
@@ -888,6 +900,11 @@ class PlaySession {
                         }
                         return;
                     }
+                    if (sent_command_ == "time_scale") {
+                        notice_ = "Simulation rate change rejected: " + error + ". ";
+                        sent_at_ = 0;
+                        return;
+                    }
                     if (sent_command_ == "property_tune") {
                         property_tune_ack_ = {{"ok", false}, {"error", error}};
                         notice_ = "Live property change rejected: " + error + ". ";
@@ -1168,6 +1185,10 @@ class PlaySession {
                         const auto command = control_;
                         control_.clear();
                         send({{"command", command}});
+                    } else if (!time_scale_command_.is_null()) {
+                        auto command = std::move(time_scale_command_);
+                        time_scale_command_ = nullptr;
+                        send(std::move(command));
                     } else if (model_assets_changed_) {
                         model_assets_changed_ = false;
                         send({{"command", "refresh_model_assets"}});
@@ -1197,6 +1218,10 @@ class PlaySession {
                         const auto command = control_;
                         control_.clear();
                         send({{"command", command}});
+                    } else if (!time_scale_command_.is_null()) {
+                        auto command = std::move(time_scale_command_);
+                        time_scale_command_ = nullptr;
+                        send(std::move(command));
                     } else if (!property_tune_command_.is_null()) {
                         auto command = std::move(property_tune_command_);
                         property_tune_command_ = nullptr;
@@ -1315,7 +1340,8 @@ class PlaySession {
         sdk_candidate_ticket_ = 0;
         sdk_candidate_fetched_ticket_ = 0;
         sdk_activation_generation_ = 0;
-        property_tune_command_ = property_tune_ack_ = runtime_schema_ = nullptr;
+        property_tune_command_ = property_tune_ack_ = runtime_schema_ = time_scale_command_ =
+            nullptr;
         runtime_world_generation_ = 0;
         sdk_activation_active_ = false;
         sdk_expected_ticket_ = 0;
@@ -1540,6 +1566,7 @@ class PlaySession {
     std::string executable_, notice_, session_, control_;
     Json initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
+    Json time_scale_command_;
     std::uint64_t runtime_world_generation_ = 0;
     Json audio_status_ = Json::object(), live_command_;
     std::string audio_mix_error_;

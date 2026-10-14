@@ -1,5 +1,12 @@
 # 2026-10-14
 
+## Simulation speed
+
+- Add transient 0..4 simulation speed to the existing clock, with a stable fixed physics/Flecs delta, retained fractional progress and bounded catch-up.
+- Connect guarded Editor Play presets, scoped C++ game requests and host-reserved Runtime UI buttons. Zero holds simulation while controls stay responsive; Pause and Step keep their existing ownership and physical release rules.
+- Add original Gallery58 with physics, transform animation, particles and exportable speed buttons, plus an installed C++ control-input example. Exact SDK semantic fingerprint changes; C ABI1 tables and native value layouts stay unchanged.
+- Validate local normal/sanitized consumers and relocated content; Windows physical acceptance remains deferred. No new Windows package is published.
+
 ## Particle emitter appearance
 
 - Add per-emitter size and linear RGB factors after shared effect lifetime values; keep motion, clocks and effect resources unchanged by appearance edits.

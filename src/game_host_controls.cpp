@@ -116,7 +116,12 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
                                               const GameSaveSchema* schema,
                                               const std::string& module, RuntimeClock::Time now) {
     const auto operation = command.at("operation").get<std::string>();
-    if (operation == "pause") {
+    if (operation == "time_scale") {
+        if (!command.contains("scale") || !command.at("scale").is_number())
+            throw std::runtime_error("Simulation time scale requires a number");
+        game_.set_time_scale(command.at("scale").get<double>());
+        return game_.status().at("clock").at("time_scale");
+    } else if (operation == "pause") {
         if (!poll_cursor_release(token))
             return std::nullopt;
         release_cursor();

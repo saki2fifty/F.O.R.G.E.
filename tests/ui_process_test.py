@@ -42,7 +42,25 @@ try:
   changed=a.request('step');assert changed['ui']['documents'][0]['model']['health']==90,changed
  resume=ui_command(frame,'Resume',next_id);next_id+=1
  a.request('ui',ui_command=resume);time.sleep(.07) # No presenter requests while runtime advances.
- paused=a.request('ui',ui_command=ui_command(frame,'Pause',next_id));assert paused['timing']['paused'] and paused['timing']['tick']>1
+ paused=a.request('ui',ui_command=ui_command(frame,'Pause',next_id));next_id+=1
+ assert paused['timing']['paused'] and paused['timing']['tick']>1
+ assert 'TimeScale' in paused['ui']['documents'][0]['commands']
+ held_command=ui_command(frame,'TimeScale',next_id);next_id+=1;held_command['value']='0'
+ held=a.request('ui',ui_command=held_command);assert held['ui_ack']['ok'] and held['timing']['time_scale']==0
+ assert a.request('ui',ui_command=held_command)['ui_ack']==held['ui_ack']
+ resume=ui_command(frame,'Resume',next_id);next_id+=1
+ held=a.request('ui',ui_command=resume);time.sleep(.08)
+ observed=a.request('snapshot');assert observed['timing']['tick']==held['timing']['tick'] and not observed['timing']['paused']
+ for invalid in ('-1','4.1','nan','1x',1,True,None):
+  rejected=ui_command(frame,'TimeScale',next_id);next_id+=1;rejected['value']=invalid
+  result=a.request('ui',ok=invalid is not None,ui_command=rejected)
+  assert (not result['ok'] or not result['ui_ack']['ok']) and result['timing']['time_scale']==0
+  if invalid is None:next_id-=1 # Malformed envelope was never admitted by CommandGate.
+ restore_rate=ui_command(frame,'TimeScale',next_id);next_id+=1;restore_rate['value']='1'
+ continued=a.request('ui',ui_command=restore_rate);assert continued['ui_ack']['ok']
+ time.sleep(.08)
+ paused=a.request('ui',ui_command=ui_command(frame,'Pause',next_id));next_id+=1
+ assert paused['timing']['tick']>held['timing']['tick']
  checkpoint=paused['recovery'];old=copy.deepcopy(command)
  rebuilt=restore(a,checkpoint);assert rebuilt['ui']['generation']!=frame['ui']['generation']
  a.request('ui',ok=False,ui_command=old);assert a.request('snapshot')['timing']['tick']==rebuilt['timing']['tick']

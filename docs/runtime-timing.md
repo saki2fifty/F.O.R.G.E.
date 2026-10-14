@@ -18,13 +18,39 @@ The pipeline selects tagged simulation systems. Exact-SDK C++ modules receive th
 | Maximum catch-up | 8 ticks per outer iteration |
 | Remaining complete debt | Dropped, counted; fractional remainder retained |
 | Simulation tick | uint64, incremented once after each successfully completed tick |
-| Time scale | Not implemented |
+| Time scale | Transient finite factor 0..4; default 1 |
 
 `forge_runtime --simulation-hz N` supports finite 1..240 Hz. This is centralized runtime configuration, not a scene property. The editor supplies the saved project simulation frequency; exact-SDK Play uses that configuration. Default is60Hz when no override exists. This belongs to project/runtime settings, not every Scene. Tests that require a different frequency supply it explicitly.
 
 Startup is paused for scene/module setup. Play/Resume rebases the monotonic reference and clears the accumulator. Pause discards debt. Repeated Resume while running does not reset the clock. Step requires Pause, executes exactly one fixed tick and stays paused. Stop terminates the process; no runtime edits merge into authoring. A restarted process starts tick zero with a new transient session. Reload/recovery never treats paused elapsed time as debt.
 
-Status reports paused, simulation_hz, fixed_dt, tick, ticks_this_iteration, accumulator, alpha, dropped_ticks and clamped_seconds. Clamped seconds and dropped whole ticks report different losses; neither is silently replayed. They are not a full profiler.
+Status reports paused, simulation_hz, fixed_dt, time_scale, tick, ticks_this_iteration, accumulator, alpha, dropped_ticks and clamped_seconds. Clamped seconds measure discarded real elapsed time; dropped whole ticks measure discarded virtual simulation debt. Neither is silently replayed. They are not a full profiler.
+
+### Simulation speed
+
+The existing clock clamps real elapsed time first, then multiplies the admitted
+contribution by `time_scale`. Changing speed retains fractional progress and
+presentation histories. Each physics/Flecs tick still receives the same positive
+`fixed_dt`; animation, navigation, transforms and particles follow the resulting
+tick progression. High rates retain the eight-tick catch-up limit and debt policy.
+
+Zero holds simulation and its interpolation remainder without entering Pause.
+Control callbacks, UI, resource preparation and device polling continue on their
+existing real-time boundaries. Existing audio playback keeps its normal pitch and
+speed; explicit Pause retains its separate audio/input policy. Step requires Pause
+and advances one fixed tick even at zero rate. Resume retains the chosen factor
+while clearing paused wall-time debt. New Play/process starts at one; the policy
+is not stored in Scenes, Prefabs, project settings, saves or recovery documents.
+GameSession retains it across Scene activation within the same session.
+
+Setters apply policy at the control/frame boundary for the next accumulation
+interval; they do not split earlier wall time or execute an extra tick. C++ uses
+the existing scoped `game_request` operation `time_scale` with numeric `scale`.
+The private editor command supplies the current positive unsigned world
+`generation` and numeric `scale`; stale, missing, nonnumeric or out-of-range values
+reject before policy changes. The editor displays accepted speed and a pending
+state, with six presets in its toolbar and overflow menu. Runtime UI uses the
+host-reserved `TimeScale` action with one numeric string.
 
 ## Derived presentation
 
@@ -60,7 +86,11 @@ Recovery covers the existing supported host-owned scene state only. Generated-ch
 
 ## Gameplay input boundary
 
-There is no gameplay input transport/action consumer yet. SDL events currently drive editor interactions only. The future contract is platform events → queued runtime input state → immutable input snapshot at a fixed-tick boundary. Held state may apply to every catch-up tick; pressed/released edges are consumed once, not repeated for all eight ticks. Future input integration must test timestamp/order, focus loss and edge consumption with a real consumer. Phase 4 does not claim physical gameplay input validation or deterministic replay.
+Gameplay input now follows platform events → queued runtime state → immutable
+fixed/control-domain snapshots. Held state may apply to every catch-up tick;
+pressed/released edges are consumed once within their own domain. See [Input](input.md)
+for capture, focus, context and control-frame ownership. This does not claim
+historical timestamp reconstruction, physical platform acceptance or deterministic replay.
 
 ## Evidence
 
@@ -72,7 +102,7 @@ Project simulation_hz and input map are provided at protocol2 Hello. Omitting th
 
 The fixed pipeline now includes pre-physics synchronization, Jolt Update, adoption and PostPhysics before final transforms. Private physics-aware recovery restores a completed tick and resets interpolation/elapsed debt. See [Physics](physics.md).
 
-The current complete order is Input → Gameplay → Animation → Navigation →
+The current complete order is Input → Gameplay → Animation → PostAnimation → Navigation →
 PrePhysics → Physics → PhysicsAdoption → PostPhysics → Transforms. Animation
 advances and applies explicitly animated model-node local channels before physics
 synchronization, using the same fixed delta. Presentation interpolates the captured
@@ -81,7 +111,11 @@ debug sampling remains a read-only presentation consumer.
 
 ## Runtime UI presentation
 
-RmlUi uses the reusable presenter's monotonic presentation clock and can update while fixed simulation is paused. Semantic Pause/Resume/Step commands are validated in the runtime process; custom gameplay UI actions wait for the next fixed tick. No UI update cadence controls the runtime clock. See [Runtime UI](runtime-ui.md).
+RmlUi uses the reusable presenter's monotonic presentation clock and updates while
+simulation is paused or held at zero rate. Pause/Resume/Step/TimeScale commands are
+validated by the runtime owner. Custom actions wait for a module's fixed or control
+callback, according to its declared input/service policy. UI update cadence never
+sets simulation delta. See [Runtime UI](runtime-ui.md).
 
 ### Pending model animation assets
 

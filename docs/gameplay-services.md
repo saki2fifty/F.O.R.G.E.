@@ -8,7 +8,7 @@ context or filesystem owner crosses the boundary.
 
 ## Execution and ownership
 
-`controls` runs once per host control frame, including while simulation is paused.
+`controls` runs once per host control frame, including while simulation is paused or its speed is zero.
 It reads `read_control`; fixed systems read `read_action`. Its sequence is not
 simulation time. `scene_ready` runs after scene restoration and before physics and
 visual admission, followed by optional explicit `restore` state. Neither candidate
@@ -259,6 +259,7 @@ target with their own host.
 | Operation | Additional fields | Result / effect |
 | --- | --- | --- |
 | `pause`, `resume` | none | Existing session clock; pause releases capture |
+| `time_scale` | numeric `scale`, finite 0..4 | Set transient session speed; return accepted factor. Fixed physics delta stays unchanged |
 | `prepare` | `asset`, optional `state`, `activate` (true), `run` (true) | Candidate ticket; optional state requires this module's save schema |
 | `activate` | `ticket`, optional `run` | Publish an admitted candidate |
 | `cancel` | `ticket` | Cancel the matching candidate |
@@ -315,6 +316,14 @@ one action into a single bounded string; reserved Pause/Resume/Step remain
 argument-free. `ui_publish_json` copies protocol-supported values. `ui_poll_event`
 returns copied `{entity,command,value}` and retains an event across sizing calls
 until a sufficient output buffer is supplied.
+
+Host-reserved `TimeScale` accepts one bounded numeric string, for example
+`command('TimeScale','0.5')`. The existing clock admits finite factors0..4.
+It cannot be registered as a custom action. All 29 custom action slots remain
+available beside Pause/Resume/Step/TimeScale. UI/control callbacks remain available
+at zero rate so a player can restore motion. Control input must use an active
+version2 context with `phase: "control"`; fixed-domain actions are not exposed by
+`read_control`. See the original `sdk/sample/time_scale_probe.cpp` example.
 
 The reference game is a consumer in `samples/reference_game`. FPS movement, camera
 angles, interaction selection, menus and its save schema are project policy, not

@@ -2446,6 +2446,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "365eeaf0-bed2-4591-9ade-ac9111b07290",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Assets/UI/SimulationSpeed.rml",
+      "source_dependencies": [],
+      "type": "ui_document"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "38f4ac10-6a11-42c5-bd40-95f13abe56d4",
       "metadata": {
         "forge.import": {
@@ -2936,6 +2946,16 @@
       "source": "Assets/Frame.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "4975c561-c5a1-4cff-9d49-a5bffad4c598",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/58-simulation-speed.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
