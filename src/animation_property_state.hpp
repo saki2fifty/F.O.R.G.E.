@@ -1,5 +1,6 @@
 #pragma once
 #include "audio_values.hpp"
+#include "builtins.hpp"
 #include "render_values.hpp"
 #include <flecs.h>
 #include <forge/animation_property.hpp>
@@ -11,13 +12,20 @@ struct AnimationPropertyState {
     std::optional<Camera> camera;
     std::optional<Light> light;
     std::optional<AudioSource> audio;
+    std::optional<ParticleEmitter> particle;
     static constexpr unsigned camera_mask = 3u, light_mask = 60u, audio_mask = 192u;
+    static constexpr unsigned particle_mask =
+        animation_property_bit(AnimationProperty::ParticleSize) |
+        animation_property_bit(AnimationProperty::ParticleRed) |
+        animation_property_bit(AnimationProperty::ParticleGreen) |
+        animation_property_bit(AnimationProperty::ParticleBlue);
     static bool available(flecs::entity entity, AnimationProperty property) {
         const auto bit = animation_property_bit(property);
-        return entity && ((bit & camera_mask)  ? entity.has<Camera>()
-                          : (bit & light_mask) ? entity.has<Light>()
-                          : (bit & audio_mask) ? entity.has<AudioSource>()
-                                               : false);
+        return entity && ((bit & camera_mask)     ? entity.has<Camera>()
+                          : (bit & light_mask)    ? entity.has<Light>()
+                          : (bit & audio_mask)    ? entity.has<AudioSource>()
+                          : (bit & particle_mask) ? entity.has<ParticleEmitter>()
+                                                  : false);
     }
     static AnimationPropertyState from(flecs::entity entity, unsigned mask) {
         AnimationPropertyState result;
@@ -37,6 +45,13 @@ struct AnimationPropertyState {
                     "Animated audio property requires an AudioSource component");
             result.audio = entity.get<AudioSource>();
             detail::validate_audio_source(entity, *result.audio);
+        }
+        if (mask & particle_mask) {
+            if (!entity.has<ParticleEmitter>())
+                throw std::runtime_error(
+                    "Animated particle property requires a ParticleEmitter component");
+            result.particle = entity.get<ParticleEmitter>();
+            detail::validate_reflected_value(entity, *result.particle);
         }
         return result;
     }
@@ -58,6 +73,14 @@ struct AnimationPropertyState {
                     "Animated audio property requires an AudioSource component");
             result.audio = detail::audio_source_value(components.at("forge.audio_source"));
         }
+        if (mask & particle_mask) {
+            if (!components.contains("forge.particle_emitter"))
+                throw std::runtime_error(
+                    "Animated particle property requires a ParticleEmitter component");
+            const auto& value = components.at("forge.particle_emitter");
+            detail::validate_components({{"forge.particle_emitter", value}});
+            result.particle = detail::particle_emitter_value(value);
+        }
         return result;
     }
     double value(AnimationProperty property) const {
@@ -78,6 +101,14 @@ struct AnimationPropertyState {
             return audio.value().gain;
         case AnimationProperty::AudioPitch:
             return audio.value().pitch;
+        case AnimationProperty::ParticleSize:
+            return particle.value().size_multiplier;
+        case AnimationProperty::ParticleRed:
+            return particle.value().tint_r;
+        case AnimationProperty::ParticleGreen:
+            return particle.value().tint_g;
+        case AnimationProperty::ParticleBlue:
+            return particle.value().tint_b;
         }
         throw std::runtime_error("Unknown animated property");
     }
@@ -112,6 +143,18 @@ struct AnimationPropertyState {
             case AnimationProperty::AudioPitch:
                 audio.value().pitch = float(v);
                 break;
+            case AnimationProperty::ParticleSize:
+                particle.value().size_multiplier = v;
+                break;
+            case AnimationProperty::ParticleRed:
+                particle.value().tint_r = float(v);
+                break;
+            case AnimationProperty::ParticleGreen:
+                particle.value().tint_g = float(v);
+                break;
+            case AnimationProperty::ParticleBlue:
+                particle.value().tint_b = float(v);
+                break;
             }
         }
         if (camera)
@@ -122,6 +165,9 @@ struct AnimationPropertyState {
         // the only changed scalars have the same admitted gain/pitch ranges.
         if (audio)
             detail::validate_audio_source(*audio);
+        // Particle candidates preflight all native fields before sampling. Only
+        // the four appearance scalars change, and each uses the same native range.
+        // Avoid JSON construction/validation on the fixed animation path.
     }
     void commit(flecs::entity entity) const {
         if (camera)
@@ -130,6 +176,8 @@ struct AnimationPropertyState {
             entity.set<Light>(*light);
         if (audio)
             entity.set<AudioSource>(*audio);
+        if (particle)
+            entity.set<ParticleEmitter>(*particle);
     }
     nlohmann::json patch(unsigned mask) const {
         auto result = nlohmann::json::object();

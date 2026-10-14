@@ -1,5 +1,15 @@
 # FORGE Feature Gallery
 
+## Animated particle size and color
+
+Open **Scenes/60-animated-particle-appearance.scene.json** and press Play. The left
+jet grows and changes color in a two-second loop; the right stays unchanged. Both
+share the same effect, seed and emission timing. Select the left emitter and open
+**Assets/AnimationTiming/ParticleAppearance.animation.json** in Timeline. Its
+**Animated properties** use the existing size and linear color factors. Preview,
+edit keys, Save & Publish, then restart Play. Export ships cooked animation/effect
+content and requires no C++ compiler.
+
 ## PNG and JPEG game UI
 
 Open **Scenes/59-ui-png-jpeg.scene.json** and press Play. A transparent PNG health

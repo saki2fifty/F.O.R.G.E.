@@ -1,6 +1,33 @@
 #include "render_values.hpp"
 #include <forge/render_view.hpp>
 namespace forge::detail {
+Json render_value(const ParticleEmitter& p) {
+    return {{"effect", p.effect.id ? Json(p.effect.id) : Json()},
+            {"enabled", p.enabled},
+            {"visible", p.visible},
+            {"seed", p.seed},
+            {"layers", p.layers},
+            {"playback_speed", p.playback_speed},
+            {"size_multiplier", p.size_multiplier},
+            {"tint_r", p.tint_r},
+            {"tint_g", p.tint_g},
+            {"tint_b", p.tint_b}};
+}
+ParticleEmitter particle_emitter_value(const Json& p) {
+    ParticleEmitter value;
+    if (!p.at("effect").is_null())
+        value.effect.id = p.at("effect").get<AssetId>();
+    value.enabled = p.at("enabled");
+    value.visible = p.at("visible");
+    value.seed = p.at("seed").get<std::uint32_t>();
+    value.layers = p.at("layers").get<std::uint32_t>();
+    value.playback_speed = p.at("playback_speed").get<double>();
+    value.size_multiplier = p.value("size_multiplier", 1.);
+    value.tint_r = p.value("tint_r", 1.f);
+    value.tint_g = p.value("tint_g", 1.f);
+    value.tint_b = p.value("tint_b", 1.f);
+    return value;
+}
 Json render_value(const Camera& p) {
     return {{"enabled", p.enabled},
             {"projection", p.projection},

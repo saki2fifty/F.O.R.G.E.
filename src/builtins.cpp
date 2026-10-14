@@ -44,16 +44,7 @@ template <class T> Json encode(const T& p) {
                 {"receive_shadows", p.receive_shadows},
                 {"layers", p.layers}};
     } else if constexpr (std::is_same_v<T, ParticleEmitter>)
-        return {{"effect", p.effect.id ? Json(p.effect.id) : Json()},
-                {"enabled", p.enabled},
-                {"visible", p.visible},
-                {"seed", p.seed},
-                {"layers", p.layers},
-                {"playback_speed", p.playback_speed},
-                {"size_multiplier", p.size_multiplier},
-                {"tint_r", p.tint_r},
-                {"tint_g", p.tint_g},
-                {"tint_b", p.tint_b}};
+        return render_value(p);
     else if constexpr (std::is_same_v<T, UiDocument>)
         return {{"document", p.document.id ? Json(p.document.id) : Json()},
                 {"enabled", p.enabled},
@@ -231,19 +222,7 @@ template <class T> Value decode(const Json& p) {
         value.layers = p.at("layers").get<std::uint32_t>();
         return value;
     } else if constexpr (std::is_same_v<T, ParticleEmitter>) {
-        ParticleEmitter value;
-        if (!p.at("effect").is_null())
-            value.effect.id = p.at("effect").get<AssetId>();
-        value.enabled = p.at("enabled");
-        value.visible = p.at("visible");
-        value.seed = p.at("seed").get<std::uint32_t>();
-        value.layers = p.at("layers").get<std::uint32_t>();
-        value.playback_speed = p.at("playback_speed").get<double>();
-        value.size_multiplier = p.value("size_multiplier", 1.);
-        value.tint_r = p.value("tint_r", 1.f);
-        value.tint_g = p.value("tint_g", 1.f);
-        value.tint_b = p.value("tint_b", 1.f);
-        return value;
+        return particle_emitter_value(p);
     } else if constexpr (std::is_same_v<T, LocalScale>) {
         return checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
     } else if constexpr (std::is_same_v<T, UiDocument>) {

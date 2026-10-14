@@ -20,7 +20,8 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     const auto actor =
         authoring_command(scene, "entity.create", {{"name", "Lens and light"}})["selected"]
             .get<std::string>();
-    for (const char* component : {"forge.camera", "forge.light", "forge.audio_source"})
+    for (const char* component :
+         {"forge.camera", "forge.light", "forge.audio_source", "forge.particle_emitter"})
         authoring_command(scene, "component.add", {{"entity", actor}, {"component", component}});
     auto document = TransformAnimationDocument::create(project.writer_guard(),
                                                        "Assets/Properties.animation.json");
@@ -108,8 +109,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     click("animation:property:forge.light.intensity");
     click("animation:property:forge.audio_source.gain");
     click("animation:property:forge.audio_source.pitch");
+    for (const char* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
+        click(std::string("animation:property:forge.particle_emitter.") + field);
     check(editor.document()->source().document["version"] == 3 &&
-              editor.document()->source().clip().properties == 197,
+              editor.document()->source().clip().properties == 4037,
           "Typed property checkboxes did not add bindings");
     for (const char* name : {"Position", "Rotation", "Scale"})
         click(std::string("animation:channel:") + name);
@@ -124,13 +127,21 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     type("animation:value:forge.light.intensity", "10");
     type("animation:value:forge.audio_source.gain", "0.25");
     type("animation:value:forge.audio_source.pitch", "2");
+    type("animation:value:forge.particle_emitter.size_multiplier", "2.5");
+    type("animation:value:forge.particle_emitter.tint_r", "0.25");
+    type("animation:value:forge.particle_emitter.tint_g", "0.5");
+    type("animation:value:forge.particle_emitter.tint_b", "0.75");
     click("button:Add / Update key at playhead");
     const auto source = editor.document()->source();
     check(source.clip().keys.size() == 2, "Property UI did not create second key");
     check(std::abs(source.clip().keys.back().properties[0] - std::numbers::pi / 2) < 1e-7 &&
               source.clip().keys.back().properties[2] == 10 &&
               source.clip().keys.back().properties[6] == .25 &&
-              source.clip().keys.back().properties[7] == 2,
+              source.clip().keys.back().properties[7] == 2 &&
+              source.clip().keys.back().properties[8] == 2.5 &&
+              source.clip().keys.back().properties[9] == .25 &&
+              source.clip().keys.back().properties[10] == .5 &&
+              source.clip().keys.back().properties[11] == .75,
           "Property UI did not convert degrees or save values");
     const auto revision = editor.document()->revision();
     type("animation:value:forge.camera.vertical_fov", "0");
@@ -156,14 +167,19 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     check(std::abs(editor.document()->source().clip().keys.back().properties[0] -
                    std::numbers::pi / 3) < 1e-7 &&
               editor.document()->source().clip().keys.back().properties[6] == 1 &&
-              editor.document()->source().clip().keys.back().properties[7] == 1,
+              editor.document()->source().clip().keys.back().properties[7] == 1 &&
+              editor.document()->source().clip().keys.back().properties[8] == 1 &&
+              editor.document()->source().clip().keys.back().properties[11] == 1,
           "Capture omitted authored camera field");
     editor.undo();
     const auto preview = editor.preview(scene.effective_document());
     check(preview != scene.effective_document() && scene.document() == authored &&
               scene.revision() == scene_revision &&
               preview["entities"][0]["components"]["forge.audio_source"]["gain"] == .25 &&
-              preview["entities"][0]["components"]["forge.audio_source"]["pitch"] == 2,
+              preview["entities"][0]["components"]["forge.audio_source"]["pitch"] == 2 &&
+              preview["entities"][0]["components"]["forge.particle_emitter"]["size_multiplier"] ==
+                  2.5 &&
+              preview["entities"][0]["components"]["forge.particle_emitter"]["tint_b"] == .75,
           "Property preview changed Scene history or omitted substitution");
     editor.stop_preview();
     check(editor.preview(scene.effective_document()) == scene.effective_document(),
@@ -173,7 +189,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     check(!test::ui_targets.at("animation:property:forge.camera.vertical_fov").enabled &&
               !test::ui_targets.at("animation:value:forge.light.intensity").enabled &&
               !test::ui_targets.at("animation:property:forge.audio_source.gain").enabled &&
-              !test::ui_targets.at("animation:value:forge.audio_source.pitch").enabled,
+              !test::ui_targets.at("animation:value:forge.audio_source.pitch").enabled &&
+              !test::ui_targets.at("animation:property:forge.particle_emitter.size_multiplier")
+                   .enabled &&
+              !test::ui_targets.at("animation:value:forge.particle_emitter.tint_b").enabled,
           "Property editing stayed enabled during Play");
     locked = false;
     editor.request_save();

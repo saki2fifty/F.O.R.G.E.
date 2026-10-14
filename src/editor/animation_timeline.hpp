@@ -712,9 +712,10 @@ class AnimationTimelineEditor {
         if (!expanded)
             return;
         ImGui::BeginDisabled(bool(drag_key_) || curve_drag_ || box_ || pan_);
-        ImGui::TextWrapped("Camera, light and audio values use the same keys. Adding a "
-                           "property captures its current authored value into every key. "
-                           "Key fields below set different values over time.");
+        ImGui::TextWrapped(
+            "Camera, light, audio and particle appearance use the same keys. Adding a "
+            "property captures its current authored value into every key. "
+            "Key fields below set different values over time.");
         const auto entity = target_.entity && target_.scene == scene.asset_id()
                                 ? scene.entity(target_.entity.str())
                                 : flecs::entity{};
@@ -741,7 +742,7 @@ class AnimationTimelineEditor {
         }
         if (!entity)
             ImGui::TextDisabled(
-                "Choose a preview object to add its camera, light or audio properties.");
+                "Choose a preview object to add its camera, light, audio or particle properties.");
         ImGui::EndDisabled();
     }
     void cancel_ruler_capture() {

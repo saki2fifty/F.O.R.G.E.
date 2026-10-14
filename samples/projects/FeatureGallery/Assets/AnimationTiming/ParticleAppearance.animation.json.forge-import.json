@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v5",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 3,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "e817521ac4f0b12804ad798b66ef7d77a5cc05f545babb382d31febea1b9034e",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "ab220582-f67c-4420-921f-276396c1075f",
+    "source": "Assets/AnimationTiming/ParticleAppearance.animation.json",
+    "source_digest": "e817521ac4f0b12804ad798b66ef7d77a5cc05f545babb382d31febea1b9034e",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

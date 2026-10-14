@@ -81,6 +81,27 @@ the camera alternates between 40 and 80 degrees while sunlight changes brightnes
 and shifts between cool and warm colors. Its sources are in
 **Assets / AnimatedProperties**. They are included as compiled clips when exporting.
 
+## Animate particle size and color
+
+Choose an object with a **Particle Emitter** as the **Preview object**. In
+**Animated properties**, enable **Particle size multiplier** and the red, green
+or blue factors. Edit their values and use **Add / Update key at playhead**.
+Size ranges from 0.01 to 16; linear color factors range from 0 to 1. These factors
+multiply the shared effect's lifetime size/color curves. They keep the same effect,
+seed, emission speed and motion. Turn off Position, Rotation and Scale for a clip
+that changes appearance only.
+
+The Scene preview shows the existing frozen particle sample with the selected
+appearance. **Stop preview** restores the authored view. Save and publish, attach
+the clip to the emitter, then use **Play → Game** to see it animate. Inspector live
+changes to a keyframed field are replaced by the clip at the next animation tick.
+
+Try **FeatureGallery / Scenes / 60-animated-particle-appearance.scene.json**. The
+left jet grows and changes color over a two-second loop; the right jet keeps its
+appearance. They share one effect and seed. Select the left jet and open
+**Assets/AnimationTiming/ParticleAppearance.animation.json** in Timeline to change
+its keys. Export ships prepared animation and effect files and needs no C++ build.
+
 ## Animate sound volume and pitch
 
 Select an object with an **Audio Source**, open its animation in **Timeline**, and

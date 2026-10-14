@@ -157,28 +157,31 @@ channel omitted from the clip preserves the object's current local value.
 
 ## Evaluation and preview
 
-### Typed camera, light and audio properties
+### Typed camera, light, audio and particle properties
 
 Source version3 optionally binds `properties` to unique qualified names:
 `forge.camera.vertical_fov`, `forge.camera.orthographic_height`,
 `forge.light.intensity`, `forge.light.color_r`, `forge.light.color_g` and
-`forge.light.color_b`, `forge.audio_source.gain` and `forge.audio_source.pitch`.
+`forge.light.color_b`, `forge.audio_source.gain`, `forge.audio_source.pitch`,
+`forge.particle_emitter.size_multiplier`, `forge.particle_emitter.tint_r`,
+`forge.particle_emitter.tint_g` and `forge.particle_emitter.tint_b`.
 Audio gain is linear0–4; pitch is a playback speed/pitch multiplier0.25–4.
+Particle size multiplier is0.01–16; tint factors are linear0–1.
 Every key has a `values` object containing exactly those
 names and finite numeric values. FOV is strictly0–pi radians; orthographic height
 is positive through1e9; intensity is0–1e9; colors are linear0–1. A clip may omit all
 transform channels when at least one property is bound. Missing components reject;
-animation does not create Cameras/Lights. Unsupported bindings, duplicate/missing
+animation does not create required components. Unsupported bindings, duplicate/missing
 or undeclared values, and property syntax in versions1/2 reject explicitly.
 
-These typed built-in bindings use current native Camera/Light/AudioSource members
+These typed built-in bindings use current native Camera/Light/AudioSource/ParticleEmitter members
 and existing scalar/domain validators. They are not a general custom-component/material/UI binding
 registry. No native component layout, installed SDK input or callback changes.
 Source/cooked version3 is explicit; selected old artifacts remain readable. New
-publication uses recipev4 and cooked3 even for a legacy transform-only source.
+publication uses recipev5 and cooked3 even for a legacy transform-only source.
 Selected previous cooks remain readable; expanding the qualified-name binding set
-does not change the cooked3 structure or renumber the original six bindings. Older
-engines reject unsupported audio names rather than partially executing such clips.
+does not change the cooked3 structure or renumber the original eight bindings. Older
+engines reject unsupported new audio/particle names rather than partially executing such clips.
 
 Properties share existing key times/UUIDs and outgoing held/linear timing; vector
 cubic slopes do not affect them. Adding a property initializes every key from the
@@ -189,7 +192,7 @@ values and key extensions. Removing the last property from a property-only clip
 rejects. Numeric fields are temporary until Add / Update commits one source Undo.
 FOV displays degrees while serialized/native values stay radians. Colors stay linear.
 
-Fixed application builds typed Camera/Light/AudioSource candidates alongside any transform
+Fixed application builds typed Camera/Light/AudioSource/ParticleEmitter candidates alongside any transform
 candidate, validates all players before writes and updates only bound members.
 Property-only application avoids building a transform map or claiming movement.
 Existing AnimationRuntime clock/revision/resource/recovery ownership is unchanged.
@@ -215,6 +218,17 @@ preview only substitutes copied values; sound runs in Play and never from render
 presentation. Automation follows the existing fixed animation clock and audio pause
 policy, with no sample-accurate or pitch-preserving time-stretch claim. Gallery53
 exercises gain/pitch with a matching light pulse and a FORGE-owned tone.
+
+Particle appearance binds the existing per-emitter size/linear RGB factors after
+shared lifetime curves. Effect, seed, emission speed/age, visibility/layers and
+trajectory remain unchanged; appearance does not restart the resource or clock.
+Complete native candidates use existing reflected scalar validation; sampled fields
+share the same admitted ranges. The fixed path builds no validation JSON. Copied
+preview uses the ordinary builtin codec/validation; render-only interpolation patches
+feed existing particle bounds and instancing without mutating ECS. Timeline Scene
+preview uses the existing frozen0.5s particle sample, not another running simulation.
+Gallery60 shares one effect between animated and constant emitters. Export ships
+selected clip/effect cooks without their editable source files.
 
 Position/scale use linear or original cubic Hermite interpolation. Slopes are
 scaled by the segment's duration in seconds; zero slopes ease into and out of a

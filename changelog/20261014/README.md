@@ -1,5 +1,12 @@
 # 2026-10-14
 
+## Animated particle appearance
+
+- Keyframe existing Particle Emitter size and linear RGB factors in the shared Timeline, clip source/runtime and copied preview/presentation paths. Keep effect, seed, age and motion unchanged.
+- Append four qualified binding names while retaining previous indices, source/cooked3 shape, key identities and old selected cooks. New publication uses recipev5; native component and installed SDK boundaries stay unchanged.
+- Reuse builtin codecs and reflected native preflight; avoid fixed-tick validation JSON. Missing/invalid candidates preserve atomic application and authored preview state.
+- Add original Gallery60 with a shared-effect comparison, native size/color readback and relocated source-free export. Windows execution remains deferred; no ZIP or remote delivery.
+
 ## Runtime UI bitmap formats
 
 - Support PNG/JPEG HUD and menu images through the existing bounded texture codecs, preserving TGA and premultiplied display pixels. Keep existing dependency pins and resource ownership.

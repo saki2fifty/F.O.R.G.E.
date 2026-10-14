@@ -11,9 +11,13 @@ enum class AnimationProperty : unsigned {
     LightGreen,
     LightBlue,
     AudioGain,
-    AudioPitch
+    AudioPitch,
+    ParticleSize,
+    ParticleRed,
+    ParticleGreen,
+    ParticleBlue
 };
-inline constexpr unsigned animation_property_count = 8;
+inline constexpr unsigned animation_property_count = 12;
 using AnimationPropertyValues = std::array<double, animation_property_count>;
 struct AnimationPropertyBinding {
     AnimationProperty property;

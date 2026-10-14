@@ -22,7 +22,16 @@ std::span<const AnimationPropertyBinding> animation_property_bindings() {
         AnimationPropertyBinding{AnimationProperty::AudioGain, "forge.audio_source.gain",
                                  "forge.audio_source", "gain", "Audio volume (linear)", 1},
         AnimationPropertyBinding{AnimationProperty::AudioPitch, "forge.audio_source.pitch",
-                                 "forge.audio_source", "pitch", "Audio pitch / speed", 1}};
+                                 "forge.audio_source", "pitch", "Audio pitch / speed", 1},
+        AnimationPropertyBinding{AnimationProperty::ParticleSize,
+                                 "forge.particle_emitter.size_multiplier", "forge.particle_emitter",
+                                 "size_multiplier", "Particle size multiplier", 1},
+        AnimationPropertyBinding{AnimationProperty::ParticleRed, "forge.particle_emitter.tint_r",
+                                 "forge.particle_emitter", "tint_r", "Particle red (linear)", 1},
+        AnimationPropertyBinding{AnimationProperty::ParticleGreen, "forge.particle_emitter.tint_g",
+                                 "forge.particle_emitter", "tint_g", "Particle green (linear)", 1},
+        AnimationPropertyBinding{AnimationProperty::ParticleBlue, "forge.particle_emitter.tint_b",
+                                 "forge.particle_emitter", "tint_b", "Particle blue (linear)", 1}};
     return bindings;
 }
 const AnimationPropertyBinding& animation_property_binding(AnimationProperty property) {
@@ -45,6 +54,7 @@ void validate_animation_property(AnimationProperty property, double value) {
          : property == AnimationProperty::LightIntensity ? value >= 0 && value <= 1e9
          : property == AnimationProperty::AudioGain      ? value >= 0 && value <= 4
          : property == AnimationProperty::AudioPitch     ? value >= .25 && value <= 4
+         : property == AnimationProperty::ParticleSize   ? value >= .01 && value <= 16
                                                          : value >= 0 && value <= 1);
     if (!admitted)
         throw std::runtime_error(std::string(animation_property_binding(property).label) +
