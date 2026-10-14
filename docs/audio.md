@@ -16,7 +16,7 @@ AudioSource holds `AssetRef<AudioClipAsset>`, autoplay/loop/spatialized flags, l
 
 AssetCatalog owns metadata in version1 `forge.assets.json`; ProjectPaths resolves contained project-relative locators. Registration is UI-independent and idempotent for a locator. UI calls require project writer ownership; a detected external index edit prevents publication. Metadata persistence is separate from scene Undo; no cross-document atomicity claim. The shared Phase7 importer/publication and source-watcher workflow below also supports AudioClip. Existing registered-only records remain readable without automatic migration.
 
-Sources are decoded once into bounded immutable PCM. Limits:256 voices including pending sources,1024 queued commands,16MiB source,64MiB decoded clip,256MiB managed resident PCM,2 workers,256 pending requests and4096 selected asset slots. Worker decoding uses bounded temporary memory in addition to resident PCM. Mono/stereo WAV only; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame. Configuration corrections can recover a source; a failed immutable clip request requires restarting Play to retry file admission. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
+Sources are decoded once into bounded immutable PCM. Limits:256 voices including primary, pending and transient sources,16 one-shots per source,1024 queued commands,16MiB source,64MiB decoded clip,256MiB managed resident PCM,2 workers,256 pending requests and4096 selected asset slots. Worker decoding uses bounded temporary memory in addition to resident PCM. Mono/stereo WAV only; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame. Configuration corrections can recover a source; a failed immutable clip request requires restarting Play to retry file admission. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
 
 ### Loading boundaries
 
@@ -257,10 +257,38 @@ most half that sound speed. This prevents singular native denominators and bound
 the pitch ratio to[1/3,3]. Ordinary subsonic motion retains authored strength;
 extreme motion is a safe bounded effect, not supersonic acoustic simulation.
 
+### Overlapping source effects
+
+`AudioService::play_one_shot` queues an independent, nonlooping playback of the
+current AudioSource clip. It shares that source's immutable PCM lease and retains
+its own cursor; it does not restart the primary sound. Source looping applies to
+the primary only. Each transient follows the source's validated current transform,
+gain, pitch, attenuation, cone, Doppler and mix bus. Master/channel updates and the
+whole-game pause group apply to both kinds of voice.
+
+Source Stop retires all its effects and stops/resets the primary. Pause/Resume also
+operate on effects, including beside a stopped primary, preserving their positions.
+Restart resets only the primary; existing effects continue with their own source
+pause state. A new effect inherits the primary's explicit source pause, if present.
+Pending clip commands retain identity/clip/native generation and fold in order;
+new transients start after the entire owner command batch, so Stop or Pause during
+loading cannot leak an initial audio burst. One-shot, Stop, one-shot keeps only the
+last effect. These commands never change authored values or advance simulation.
+
+Limits are16 active effects per source and256 total primary/pending/effect voices.
+The existing1024 command bound also applies; pending queued one-shots are bounded
+at16 per source since the last Stop. Excess commands or native voice requests reject
+with a diagnostic; healthy primary voices are not stolen or failed. Completed
+transients retire on the owner host/fixed boundary (or explicit offline read),
+releasing only their leases. Deleted/removed/changed-clip sources retire their effects;
+a recreated source cannot receive a queued command for its old native generation.
+No callback accesses ECS or files. Recovery restores authored autoplay, without
+transient voices or sample cursors. Export uses the existing AudioSource clip closure.
+
 ### Selected runtime source controls
 
 Inspector's Live sound panel watches only the selected AudioSource in the active
-Play world. Play/Restart, Pause/Resume and Stop use the existing AudioService command queue at
+Play world. Play/Restart, Play one-shot, Pause/Resume and Stop use the existing AudioService command queue at
 an owner boundary; they do not resample transforms or advance paused ticks.
 Identity and shared-SDK generation checks reject stale targets before mutation.
 The existing correlated Play transport carries one bounded audio command at a
@@ -276,12 +304,13 @@ The paused-source flag is ephemeral voice state; recovery follows authored
 autoplay and does not restore that flag or a sample cursor.
 
 The private protocol accepts one `operation` string (`play`, `stop`, `pause`,
-`resume`) or the existing strict `play` boolean. Conflicting fields, unknown or
+`resume`, `one_shot`) or the existing strict `play` boolean. Conflicting fields, unknown or
 mistyped operations reject before mutation. Existing boolean consumers retain
 Restart/Stop behavior.
 
-Status exposes availability, native atomic playing flag, source pause, game pause, loop and clip
-duration. It does not read the mutable data-source cursor or claim physical output
+Status exposes availability, primary native atomic playing flag, source pause, game pause, loop, clip
+duration and total/playing/paused one-shot counts. Global voices counts primary plus transients;
+source_voices and one_shots report those counts separately. Status does not reap/adopt resources. It does not read the mutable data-source cursor or claim physical output
 latency. Already submitted audio buffers may finish after Stop. Saved scenes and
 mix defaults remain unchanged; Stop Play/new Play restores authored autoplay.
 The private access header is not installed SDK API. The appended public component
@@ -296,7 +325,7 @@ Recovery reconstructs autoplay from recovered authored source components, from f
 
 `forge_runtime --project PATH --audio device` explicitly enables optional real output. Plain `--project` supplies the asset root only; protocol hello keeps the existing clock/input/gravity configuration authority, including recovery from the active play session. `--audio offline` selects no-device logic tests; omitting `--audio` remains headless. The experimental profile uses `--sdk-project PATH` with the same audio option. A consumer requiring Audio must declare dependency `forge.audio`; unavailable required services prevent consumer startup. Optional output failure emits a diagnostic and continues without Audio capability.
 
-Exact SDK supplies a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and operation: `FORGE_SDK_AUDIO_STOP`0, `FORGE_SDK_AUDIO_RESTART`1, `FORGE_SDK_AUDIO_PAUSE`2, `FORGE_SDK_AUDIO_RESUME`3. The first two retain their previous semantics; unknown values reject. It is callable on the fixed owner thread; generation is captured at enqueue and revalidated before execution. Source-engine AudioService exposes matching `play`, `stop_source`, `pause_source`, `resume_source` owner-thread commands. The changed installed header fingerprint requires rebuilding exact SDK consumers; callback table size and ABI number remain unchanged. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
+Exact SDK supplies a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and operation: `FORGE_SDK_AUDIO_STOP`0, `FORGE_SDK_AUDIO_RESTART`1, `FORGE_SDK_AUDIO_PAUSE`2, `FORGE_SDK_AUDIO_RESUME`3, `FORGE_SDK_AUDIO_ONE_SHOT`4. The first two retain their previous semantics; unknown values reject. It is callable on the fixed owner thread; generation is captured at enqueue and revalidated before execution. Source-engine AudioService exposes matching `play`, `play_one_shot`, `stop_source`, `pause_source`, `resume_source` owner-thread commands. The changed installed header fingerprint requires rebuilding exact SDK consumers; callback table size and ABI number remain unchanged. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
 
 The C++ convenience wrapper retains `sdk::Client::audio(scene,entity,bool)` and
 adds `audio_operation(scene,entity,uint32_t)` for all four constants. Separate
@@ -320,7 +349,7 @@ pitch-preserving time stretch; ephemeral recovery retains the existing restart p
 
 Audio tests use offline PCM and explicit null-device callback teardown. Process tests cover schema-only mode, pause/step/resume, private recovery reconstruction and rejected candidate preservation; shared SDK fixture checks typed components, Play/Stop and missing capability. Existing physics/runtime/render tests remain required. These tests cannot establish subjective spatial quality or physical-device playback.
 
-Later work includes streaming music, one-shots/voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
+Later work includes streaming music, voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
 ## Phase7 AudioClip import and selected revisions

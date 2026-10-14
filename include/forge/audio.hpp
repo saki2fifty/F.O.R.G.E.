@@ -27,6 +27,7 @@ class AudioRuntime : public AudioService {
     void master_volume(float value);
     void mix_volumes(float master, const std::array<float, 3>& channels);
     void play(EntityRef) override;
+    void play_one_shot(EntityRef) override;
     void stop_source(EntityRef) override;
     void pause_source(EntityRef) override;
     void resume_source(EntityRef) override;

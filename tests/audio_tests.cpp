@@ -107,6 +107,7 @@ struct Fixture {
 #include "audio_cone_tests.hpp"
 #include "audio_doppler_tests.hpp"
 #include "audio_mix_tests.hpp"
+#include "audio_one_shot_tests.hpp"
 #include "audio_source_control_tests.hpp"
 int main(int argc, char** argv) {
     try {
@@ -123,6 +124,7 @@ int main(int argc, char** argv) {
         mix_tests(root, record.id);
         doppler_tests(root, record.id);
         audio_source_control_tests(root, record.id);
+        audio_one_shot_tests(root, record.id);
         audio_source_pause_tests(root);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);

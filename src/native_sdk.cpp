@@ -825,7 +825,7 @@ struct Bridge {
                                uint32_t operation) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;
-                if (!c.input || operation > FORGE_SDK_AUDIO_RESUME)
+                if (!c.input || operation > FORGE_SDK_AUDIO_ONE_SHOT)
                     return 0;
                 const EntityRef ref{AssetId::parse(bounded(scene, 36)),
                                     EntityId::parse(bounded(entity, 36))};
@@ -842,6 +842,9 @@ struct Bridge {
                     break;
                 case FORGE_SDK_AUDIO_RESUME:
                     audio->resume_source(ref);
+                    break;
+                case FORGE_SDK_AUDIO_ONE_SHOT:
+                    audio->play_one_shot(ref);
                     break;
                 }
                 return 1;

@@ -56,6 +56,18 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   source_resumed=worker.request('audio_source',source=ref,operation='resume',audio_source_watch=ref)
   assert source_resumed['audio_source']['playing'] and not source_resumed['audio_source']['source_paused']
   assert source_resumed['timing']['tick']==initial['timing']['tick'] and source_resumed['scene']==initial['scene']
+  effect=worker.request('audio_source',source=ref,operation='one_shot',audio_source_watch=ref)
+  assert effect['audio_source']['one_shots']==1 and effect['audio']['voices']==2
+  effect=worker.request('audio_source',source=ref,operation='one_shot',audio_source_watch=ref)
+  assert effect['audio_source']['one_shots']==2 and effect['audio']['voices']==3
+  held=worker.request('audio_source',source=ref,operation='pause',audio_source_watch=ref)
+  assert held['audio_source']['paused_one_shots']==2
+  resumed=worker.request('audio_source',source=ref,operation='resume',audio_source_watch=ref)
+  assert resumed['audio_source']['playing_one_shots']==2 and resumed['audio']['paused']
+  assert resumed['timing']['tick']==initial['timing']['tick'] and resumed['scene']==initial['scene']
+  worker.request('audio_source',source=ref,operation='stop')
+  cleared=worker.request('audio_source',source=ref,operation='play',audio_source_watch=ref)
+  assert cleared['audio_source']['one_shots']==0 and cleared['audio']['voices']==1
   for fields in (dict(source=ref,play=1),dict(source=dict(scene=scene_id,entity=clip_id),play=False),
                  dict(source=ref,operation='seek'),dict(source=ref,operation=2),
                  dict(source=ref,operation='pause',play=True),dict(source=ref)):
@@ -88,6 +100,9 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
    stepped=worker.request('step');assert stepped['timing']['tick']==n and stepped['audio']['paused']
    if module:
     status=worker.request('snapshot',audio_source_watch=ref)['audio_source']
+    assert status['one_shots']=={1:1,2:1,3:2,4:0}[n],(n,status)
+    assert status['paused_one_shots']==(1 if n==2 else 0),(n,status)
+    assert not any(d['text']=='Audio SDK one-shot rejected' for d in stepped['diagnostics'])
     assert status['playing']==(n in (1,3)) and status['source_paused']==(n==2),(n,status)
     assert stepped['scene']['entities'][0]['components']['forge.audio_source']['gain']==.5
     assert stepped['scene']['entities'][0]['components']['forge.audio_source']['attenuation']==1
@@ -98,11 +113,14 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
     assert cone['bus']==2
     assert any(d['text']=='Audio SDK command queued' for d in stepped['diagnostics'])
     assert not any(d['text']=='Invalid audio SDK operation accepted' for d in stepped['diagnostics'])
-  checkpoint=stepped['recovery']
+  transient=worker.request('audio_source',source=ref,operation='one_shot',audio_source_watch=ref)
+  assert transient['audio_source']['one_shots']==1 and transient['audio']['paused']
+  checkpoint=transient['recovery']
   worker.request('resume');time.sleep(.05);paused=worker.request('pause')
   assert paused['timing']['tick']>4 and paused['audio']['paused']
   restored=worker.request('replace',scene=checkpoint['scene'],recovery=checkpoint,recovery_session=checkpoint['session'],recovery_tick=checkpoint['tick'])
   assert restored['timing']['tick']==4 and restored['audio']['paused'] and restored['audio']['playing_sources']==1
+  assert restored['audio']['one_shots']==0 and restored['audio']['voices']==1
   assert restored['audio']['master_volume']==.25 and restored['audio']['channel_volumes']==[.5,0,.75]
   # Corrupt candidate leaves the old audio-bearing world intact and paused.
   bad=copy.deepcopy(checkpoint);bad['integrity']='bad'

@@ -27,6 +27,8 @@ struct AudioSourceAccess {
                 return AudioSourceOperation::Pause;
             if (value == "resume")
                 return AudioSourceOperation::Resume;
+            if (value == "one_shot")
+                return AudioSourceOperation::OneShot;
         }
         throw std::runtime_error("Unknown source playback operation");
     }

@@ -17,7 +17,7 @@
 #include <thread>
 namespace forge {
 namespace {
-constexpr std::size_t max_voices = 256, max_commands = 1024;
+constexpr std::size_t max_voices = 256, max_commands = 1024, max_source_shots = 16;
 constexpr std::size_t max_cache = 256 * 1024 * 1024;
 void checked(ma_result r, const char* action) {
     if (r != MA_SUCCESS)
@@ -109,7 +109,7 @@ struct AudioRuntime::Impl {
         ma_audio_buffer_ref buffer{};
         ma_sound sound{};
         bool ready = false, buffer_ready = false;
-        bool source_paused = false;
+        bool source_paused = false, start_pending = false;
         float source_volume = 1;
         AudioMotion motion;
         ~Voice() {
@@ -119,7 +119,10 @@ struct AudioRuntime::Impl {
                 ma_audio_buffer_ref_uninit(&buffer);
         }
     };
-    std::map<std::uint64_t, std::unique_ptr<Voice>> voices;
+    struct SourceVoice : Voice {
+        std::vector<std::unique_ptr<Voice>> one_shots;
+    };
+    std::map<std::uint64_t, std::unique_ptr<SourceVoice>> voices;
     std::map<std::uint64_t, std::string> failures;
     std::map<std::uint64_t, AudioSource> failed_config;
     struct Command {
@@ -133,6 +136,8 @@ struct AudioRuntime::Impl {
     std::string listener_error;
     AudioMotion listener_motion;
     std::uint64_t listener_entity = 0;
+    bool listener_valid = false;
+    Double3 listener_velocity{};
     std::set<std::uint64_t> spatial_errors;
     Impl(WorldContext& w, AudioConfig c)
         : world(w), config(std::move(c)), catalog(AssetCatalog::open_project(config.project)) {
@@ -266,7 +271,7 @@ struct AudioRuntime::Impl {
     }
     void queue(EntityRef ref, AudioSourceOperation operation) {
         check();
-        if (std::uint32_t(operation) > std::uint32_t(AudioSourceOperation::Resume))
+        if (std::uint32_t(operation) > std::uint32_t(AudioSourceOperation::OneShot))
             throw std::runtime_error("Unknown audio source operation");
         const auto r = world.resolve(ref);
         if (r.state != WorldContext::ResolveState::Available ||
@@ -274,12 +279,148 @@ struct AudioRuntime::Impl {
             throw std::runtime_error("Audio command references missing, ambiguous or stale source");
         if (commands.size() >= max_commands)
             throw std::runtime_error("Audio command limit reached");
-        commands.push_back(
-            {ref, r.entity, world.world().entity(r.entity).get<AudioSource>().clip.id, operation});
+        const auto selected_clip = world.world().entity(r.entity).get<AudioSource>().clip.id;
+        if (operation == AudioSourceOperation::OneShot) {
+            std::size_t queued = 0;
+            for (auto it = commands.rbegin(); it != commands.rend(); ++it) {
+                if (it->generation != r.entity || it->clip != selected_clip)
+                    continue;
+                if (it->operation == AudioSourceOperation::Stop)
+                    break;
+                queued += it->operation == AudioSourceOperation::OneShot;
+            }
+            if (queued >= max_source_shots)
+                throw std::runtime_error("Queued one-shot limit is 16 per source");
+        }
+        commands.push_back({ref, r.entity, selected_clip, operation});
+    }
+    std::size_t shot_count() const {
+        std::size_t count = 0;
+        for (const auto& [id, source] : voices)
+            count += source->one_shots.size();
+        return count;
+    }
+    std::size_t voice_count() const { return voices.size() + shot_count(); }
+    void reap_shots() {
+        for (auto& [id, source] : voices) {
+            if (source->one_shots.empty())
+                continue;
+            const auto resolved = world.resolve(source->ref);
+            if (resolved.state != WorldContext::ResolveState::Available || resolved.entity != id ||
+                !world.world().entity(id).has<AudioSource>() ||
+                world.world().entity(id).get<AudioSource>().clip != source->authored.clip) {
+                source->one_shots.clear();
+                continue;
+            }
+            std::erase_if(source->one_shots, [](const auto& shot) {
+                return !shot->start_pending && !shot->source_paused &&
+                       ma_sound_at_end(&shot->sound);
+            });
+        }
+    }
+    void initialize_voice(Voice& voice) {
+        checked(ma_audio_buffer_ref_init(ma_format_f32, voice.clip->channels,
+                                         voice.clip->pcm.data(), voice.clip->frames, &voice.buffer),
+                "Audio buffer");
+        voice.buffer_ready = true;
+        voice.buffer.sampleRate = voice.clip->rate;
+        checked(ma_sound_init_from_data_source(&engine, &voice.buffer, 0, &group, &voice.sound),
+                "Audio voice");
+        voice.ready = true;
+        // Source sample rate is supplied before attaching the buffer to the engine.
+        ma_sound_set_pitch(&voice.sound, voice.authored.pitch);
+    }
+    void configure_voice(Voice& v, flecs::entity e, float fixed_delta, bool loading_only,
+                         bool one_shot = false) {
+        const auto& config_value = v.authored;
+        ma_sound_set_looping(&v.sound, (one_shot ? false : config_value.loop));
+        ma_sound_set_pitch(&v.sound, config_value.pitch);
+        ma_sound_set_spatialization_enabled(&v.sound, config_value.spatialized);
+        Double3 direction{0, 0, -1};
+        bool direction_valid = true;
+        const bool source_pose_valid = usable_pose(e);
+        if (config_value.spatialized && config_value.cone_enabled && source_pose_valid) {
+            direction = e.get<WorldTransform>().affine.vector({0, 0, -1});
+            const auto length = std::hypot(direction[0], direction[1], direction[2]);
+            direction_valid = std::isfinite(length) && length >= 1e-12;
+            direction = unit(direction, {0, 0, -1});
+        }
+        const bool spatial_valid = listener_valid && source_pose_valid && direction_valid;
+        v.source_volume = (!config_value.spatialized || spatial_valid) ? config_value.gain : 0;
+        const float channel_volume =
+            config_value.bus == 0 ? 1 : config.channel_volumes.at(config_value.bus - 1);
+        ma_sound_set_volume(&v.sound, v.source_volume * channel_volume);
+        if (config_value.spatialized && !spatial_valid) {
+            if (spatial_errors.insert(e.id()).second)
+                diagnostic("audio.spatial_unavailable",
+                           "Spatial sound requires resolved source and listener transforms "
+                           "within +/-1e9 meters, exactly one enabled listener, and a "
+                           "nonzero finite emitter forward for directional sound",
+                           v.ref, config_value.clip.id);
+        } else
+            spatial_errors.erase(e.id());
+        static constexpr ma_attenuation_model models[] = {ma_attenuation_model_inverse,
+                                                          ma_attenuation_model_linear,
+                                                          ma_attenuation_model_exponential};
+        ma_sound_set_attenuation_model(&v.sound, models[config_value.attenuation]);
+        ma_sound_set_rolloff(&v.sound, config_value.rolloff);
+        constexpr float radians = 0.017453292519943295f;
+        constexpr float full_opening = 6.283185307179586f;
+        ma_sound_set_direction(&v.sound, float(direction[0]), float(direction[1]),
+                               float(direction[2]));
+        ma_sound_set_cone(
+            &v.sound, config_value.cone_enabled ? config_value.inner_angle * radians : full_opening,
+            config_value.cone_enabled ? config_value.outer_angle * radians : full_opening,
+            config_value.outer_gain);
+        ma_sound_set_min_distance(&v.sound, config_value.minimum_distance);
+        ma_sound_set_max_distance(&v.sound, config_value.maximum_distance);
+        Double3 source_velocity{};
+        float doppler = 0;
+        if (source_pose_valid) {
+            const auto p = e.get<WorldTransform>().affine.point({0, 0, 0});
+            ma_sound_set_position(&v.sound, float(p[0]), float(p[1]), float(p[2]));
+            if (spatial_valid && config_value.spatialized && config_value.doppler > 0) {
+                source_velocity = v.motion.observe(p, tick, fixed_delta, loading_only);
+                const double speed = std::max(
+                    std::hypot(source_velocity[0], source_velocity[1], source_velocity[2]),
+                    std::hypot(listener_velocity[0], listener_velocity[1], listener_velocity[2]));
+                // Selected native Doppler divides by c - factor*radial_velocity.
+                // Bound both scaled speeds to c/2: finite ratio in [1/3, 3].
+                constexpr double half_speed_of_sound = 343.3 / 2;
+                doppler = float(
+                    speed > 0 ? std::min(double(config_value.doppler), half_speed_of_sound / speed)
+                              : config_value.doppler);
+            } else
+                v.motion.valid = false;
+        } else
+            v.motion.valid = false;
+        ma_sound_set_velocity(&v.sound, float(source_velocity[0]), float(source_velocity[1]),
+                              float(source_velocity[2]));
+        ma_sound_set_doppler_factor(&v.sound, doppler);
+    }
+    void add_shot(SourceVoice& source, std::uint64_t id) {
+        if (source.one_shots.size() >= max_source_shots ||
+            voice_count() + pending_sources.size() >= max_voices) {
+            diagnostic("audio.one_shot_limit",
+                       "One-shot rejected: 16 per source or 256 total voices", source.ref,
+                       source.authored.clip.id);
+            return;
+        }
+        auto shot = std::make_unique<Voice>();
+        shot->ref = source.ref;
+        shot->authored = source.authored;
+        shot->clip = source.clip;
+        shot->motion = source.motion;
+        initialize_voice(*shot);
+        configure_voice(*shot, world.world().entity(id), 0, true, true);
+        shot->source_paused = source.source_paused;
+        shot->start_pending = !shot->source_paused;
+        source.one_shots.push_back(std::move(shot));
     }
     void sync(std::uint64_t next_tick, float fixed_delta,
               std::span<const std::uint64_t> discontinuities, bool loading_only = false) {
         check();
+        reap_shots();
         clips.pump();
         pending_sources.clear();
         std::set<std::uint64_t> created_voices;
@@ -304,8 +445,11 @@ struct AudioRuntime::Impl {
             if (affected(listener_entity))
                 listener_motion.valid = false;
             for (auto& [id, voice] : voices)
-                if (affected(id))
+                if (affected(id)) {
                     voice->motion.valid = false;
+                    for (auto& shot : voice->one_shots)
+                        shot->motion.valid = false;
+                }
         }
         tick = next_tick;
         const auto notifications = device_events.exchange(0, std::memory_order_relaxed);
@@ -328,7 +472,7 @@ struct AudioRuntime::Impl {
         std::sort(sources.begin(), sources.end(), [](auto a, auto b) { return a.id() < b.id(); });
         std::sort(listeners.begin(), listeners.end(),
                   [](auto a, auto b) { return a.id() < b.id(); });
-        const bool listener_valid = listeners.size() == 1 && usable_pose(listeners.front());
+        listener_valid = listeners.size() == 1 && usable_pose(listeners.front());
         std::string error =
             listeners.size() > 1
                 ? "Multiple enabled AudioListeners; spatial voices muted until exactly one remains"
@@ -342,7 +486,7 @@ struct AudioRuntime::Impl {
                                                 : "audio.listener_transform",
                            error, world.reference(listeners.front().id()));
         }
-        Double3 listener_velocity{};
+        listener_velocity = {};
         if (listener_valid) {
             if (listener_entity != listeners.front().id())
                 listener_motion.valid = false;
@@ -385,9 +529,9 @@ struct AudioRuntime::Impl {
                 }
                 const bool created = found == voices.end();
                 if (created) {
-                    if (voices.size() + pending_sources.size() >= max_voices)
+                    if (voice_count() + pending_sources.size() >= max_voices)
                         throw std::runtime_error("Audio voice limit is 256");
-                    auto voice = std::make_unique<Voice>();
+                    auto voice = std::make_unique<SourceVoice>();
                     voice->ref = ref;
                     voice->authored = config_value;
                     voice->clip = load(config_value.clip);
@@ -397,90 +541,17 @@ struct AudioRuntime::Impl {
                         failed_config.erase(e.id());
                         continue;
                     }
-                    checked(ma_audio_buffer_ref_init(ma_format_f32, voice->clip->channels,
-                                                     voice->clip->pcm.data(), voice->clip->frames,
-                                                     &voice->buffer),
-                            "Audio buffer");
-                    voice->buffer_ready = true;
-                    voice->buffer.sampleRate = voice->clip->rate;
-                    checked(ma_sound_init_from_data_source(&engine, &voice->buffer, 0, &group,
-                                                           &voice->sound),
-                            "Audio voice");
-                    voice->ready = true;
-                    // Source sample rate is supplied before attaching the buffer to the engine.
-                    ma_sound_set_pitch(&voice->sound, config_value.pitch);
+                    initialize_voice(*voice);
                     found = voices.emplace(e.id(), std::move(voice)).first;
                     created_voices.insert(e.id());
                 }
                 auto& v = *found->second;
                 v.authored = config_value;
-                ma_sound_set_looping(&v.sound, config_value.loop);
-                ma_sound_set_pitch(&v.sound, config_value.pitch);
-                ma_sound_set_spatialization_enabled(&v.sound, config_value.spatialized);
-                Double3 direction{0, 0, -1};
-                bool direction_valid = true;
-                const bool source_pose_valid = usable_pose(e);
-                if (config_value.spatialized && config_value.cone_enabled && source_pose_valid) {
-                    direction = e.get<WorldTransform>().affine.vector({0, 0, -1});
-                    const auto length = std::hypot(direction[0], direction[1], direction[2]);
-                    direction_valid = std::isfinite(length) && length >= 1e-12;
-                    direction = unit(direction, {0, 0, -1});
+                configure_voice(v, e, fixed_delta, loading_only);
+                for (auto& shot : v.one_shots) {
+                    shot->authored = config_value;
+                    configure_voice(*shot, e, fixed_delta, loading_only, true);
                 }
-                const bool spatial_valid = listener_valid && source_pose_valid && direction_valid;
-                v.source_volume =
-                    (!config_value.spatialized || spatial_valid) ? config_value.gain : 0;
-                const float channel_volume =
-                    config_value.bus == 0 ? 1 : config.channel_volumes.at(config_value.bus - 1);
-                ma_sound_set_volume(&v.sound, v.source_volume * channel_volume);
-                if (config_value.spatialized && !spatial_valid) {
-                    if (spatial_errors.insert(e.id()).second)
-                        diagnostic("audio.spatial_unavailable",
-                                   "Spatial sound requires resolved source and listener transforms "
-                                   "within +/-1e9 meters, exactly one enabled listener, and a "
-                                   "nonzero finite emitter forward for directional sound",
-                                   ref, config_value.clip.id);
-                } else
-                    spatial_errors.erase(e.id());
-                static constexpr ma_attenuation_model models[] = {ma_attenuation_model_inverse,
-                                                                  ma_attenuation_model_linear,
-                                                                  ma_attenuation_model_exponential};
-                ma_sound_set_attenuation_model(&v.sound, models[config_value.attenuation]);
-                ma_sound_set_rolloff(&v.sound, config_value.rolloff);
-                constexpr float radians = 0.017453292519943295f;
-                constexpr float full_opening = 6.283185307179586f;
-                ma_sound_set_direction(&v.sound, float(direction[0]), float(direction[1]),
-                                       float(direction[2]));
-                ma_sound_set_cone(
-                    &v.sound,
-                    config_value.cone_enabled ? config_value.inner_angle * radians : full_opening,
-                    config_value.cone_enabled ? config_value.outer_angle * radians : full_opening,
-                    config_value.outer_gain);
-                ma_sound_set_min_distance(&v.sound, config_value.minimum_distance);
-                ma_sound_set_max_distance(&v.sound, config_value.maximum_distance);
-                Double3 source_velocity{};
-                float doppler = 0;
-                if (source_pose_valid) {
-                    const auto p = e.get<WorldTransform>().affine.point({0, 0, 0});
-                    ma_sound_set_position(&v.sound, float(p[0]), float(p[1]), float(p[2]));
-                    if (spatial_valid && config_value.spatialized && config_value.doppler > 0) {
-                        source_velocity = v.motion.observe(p, next_tick, fixed_delta, loading_only);
-                        const double speed = std::max(
-                            std::hypot(source_velocity[0], source_velocity[1], source_velocity[2]),
-                            std::hypot(listener_velocity[0], listener_velocity[1],
-                                       listener_velocity[2]));
-                        // Selected native Doppler divides by c - factor*radial_velocity.
-                        // Bound both scaled speeds to c/2: finite ratio in [1/3, 3].
-                        constexpr double half_speed_of_sound = 343.3 / 2;
-                        doppler = float(speed > 0 ? std::min(double(config_value.doppler),
-                                                             half_speed_of_sound / speed)
-                                                  : config_value.doppler);
-                    } else
-                        v.motion.valid = false;
-                } else
-                    v.motion.valid = false;
-                ma_sound_set_velocity(&v.sound, float(source_velocity[0]),
-                                      float(source_velocity[1]), float(source_velocity[2]));
-                ma_sound_set_doppler_factor(&v.sound, doppler);
                 failures.erase(e.id());
                 failed_config.erase(e.id());
             } catch (const std::exception& error_value) {
@@ -512,6 +583,7 @@ struct AudioRuntime::Impl {
         flush_commands(created_voices);
     }
     void flush_commands(const std::set<std::uint64_t>& created = {}) {
+        reap_shots();
         auto pending = std::move(commands);
         commands.clear();
         std::map<std::uint64_t, std::pair<bool, bool>> initial;
@@ -535,6 +607,28 @@ struct AudioRuntime::Impl {
                 continue;
             }
             auto& voice = *voices.at(r.entity);
+            if (c.operation == AudioSourceOperation::OneShot) {
+                try {
+                    add_shot(voice, r.entity);
+                } catch (const std::exception& error) {
+                    diagnostic("audio.one_shot", error.what(), c.ref, c.clip);
+                }
+                continue;
+            }
+            if (c.operation == AudioSourceOperation::Stop)
+                voice.one_shots.clear();
+            for (auto& shot : voice.one_shots) {
+                if (c.operation == AudioSourceOperation::Pause &&
+                    (shot->start_pending ||
+                     (ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound)))) {
+                    checked(ma_sound_stop(&shot->sound), "Pause one-shot");
+                    shot->start_pending = false;
+                    shot->source_paused = true;
+                } else if (c.operation == AudioSourceOperation::Resume && shot->source_paused) {
+                    shot->source_paused = false;
+                    shot->start_pending = true;
+                }
+            }
             if (auto it = initial.find(r.entity); it != initial.end()) {
                 auto& [playing, paused] = it->second;
                 switch (c.operation) {
@@ -552,6 +646,8 @@ struct AudioRuntime::Impl {
                         paused = true;
                     }
                     break;
+                case AudioSourceOperation::OneShot:
+                    break;
                 case AudioSourceOperation::Resume:
                     if (paused) {
                         playing = true;
@@ -559,6 +655,7 @@ struct AudioRuntime::Impl {
                     }
                     break;
                 }
+                voice.source_paused = paused;
                 continue;
             }
             auto& sound = voice.sound;
@@ -579,6 +676,8 @@ struct AudioRuntime::Impl {
                     voice.source_paused = true;
                 }
                 break;
+            case AudioSourceOperation::OneShot:
+                break;
             case AudioSourceOperation::Resume:
                 if (voice.source_paused) {
                     if (!ma_sound_at_end(&sound))
@@ -594,6 +693,12 @@ struct AudioRuntime::Impl {
             if (intent.first)
                 checked(ma_sound_start(&voice.sound), "Start prepared source");
         }
+        for (auto& [id, source] : voices)
+            for (auto& shot : source->one_shots)
+                if (shot->start_pending) {
+                    checked(ma_sound_start(&shot->sound), "Play one-shot");
+                    shot->start_pending = false;
+                }
     }
 };
 AudioRuntime::AudioRuntime(WorldContext& w, AudioConfig c)
@@ -614,6 +719,9 @@ void AudioRuntime::paused(bool value) {
     impl_->is_paused = value;
 }
 void AudioRuntime::play(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Restart); }
+void AudioRuntime::play_one_shot(EntityRef ref) {
+    impl_->queue(ref, AudioSourceOperation::OneShot);
+}
 void AudioRuntime::master_volume(float value) {
     impl_->check();
     if (!std::isfinite(value) || value < 0 || value > 1)
@@ -640,7 +748,15 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
         found->second->ref != ref || !entity.has<AudioSource>() ||
         entity.get<AudioSource>().clip != found->second->authored.clip)
         throw std::runtime_error("AudioSource has no admitted voice in the current world");
+    unsigned playing_shots = 0, paused_shots = 0;
+    for (const auto& shot : found->second->one_shots) {
+        playing_shots += ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound);
+        paused_shots += shot->source_paused;
+    }
     return {{"source", ref},
+            {"one_shots", found->second->one_shots.size()},
+            {"playing_one_shots", playing_shots},
+            {"paused_one_shots", paused_shots},
             {"available", true},
             {"pending", false},
             {"playing", bool(ma_sound_is_playing(&found->second->sound))},
@@ -666,6 +782,8 @@ void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channel
         const float channel_volume =
             voice->authored.bus == 0 ? 1 : channels.at(voice->authored.bus - 1);
         ma_sound_set_volume(&voice->sound, voice->source_volume * channel_volume);
+        for (auto& shot : voice->one_shots)
+            ma_sound_set_volume(&shot->sound, shot->source_volume * channel_volume);
     }
     impl_->config.master_volume = master;
     impl_->config.channel_volumes = channels;
@@ -685,7 +803,9 @@ Json AudioRuntime::status() const {
                        : impl_->config.output == AudioOutput::NullDeviceTest ? "null_test"
                                                                              : "device"},
             {"paused", impl_->is_paused},
-            {"voices", impl_->voices.size()},
+            {"voices", impl_->voice_count()},
+            {"source_voices", impl_->voices.size()},
+            {"one_shots", impl_->shot_count()},
             {"clips", resources.selected},
             {"decoded_bytes", resources.memory.cpu_asset},
             {"pending_sources", impl_->pending_sources.size()},
@@ -718,6 +838,7 @@ bool AudioRuntime::wait_for_sources(std::chrono::milliseconds timeout) {
 }
 void AudioRuntime::poll_loading() {
     impl_->check();
+    impl_->reap_shots();
     if (!impl_->pending_sources.empty() || impl_->clips.statistics().pending)
         impl_->sync(impl_->tick, 0, {}, true);
 }
@@ -727,6 +848,7 @@ void AudioRuntime::read_offline(std::span<float> out) {
         throw std::runtime_error("PCM reads require explicit offline stereo output");
     checked(ma_engine_read_pcm_frames(&impl_->engine, out.data(), out.size() / 2, nullptr),
             "Offline audio read");
+    impl_->reap_shots();
 }
 const asset_detail::AudioClipData& AudioPreviewAccess::clip(AudioRuntime& runtime, EntityRef ref) {
     runtime.impl_->check();

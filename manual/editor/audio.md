@@ -151,6 +151,13 @@ a restarted sound play. A source you paused separately stays paused when the gam
 resumes. Resuming that source while the game is paused also keeps the game silent.
 Controls wait for the current source status and briefly disable while applying.
 
+Use **Play one-shot** for repeated effects. Each click plays the selected clip once
+alongside existing sound, keeping the main sound's position. The panel shows how
+many overlapping effects are active (up to16 per source). The source's Loop setting
+still controls its main sound; these effects finish once. Stop clears them all.
+Pause/Resume also works when only effects are active. Paused game Play stays silent.
+A full voice budget reports a rejected effect instead of replacing existing sound.
+
 These are temporary playback commands. They do not edit saved scene values.
 Stopping game Play and starting again restores the saved autoplay settings.
 
@@ -162,7 +169,8 @@ export it to test the automatic moving sound in a standalone game.
 
 C++ code can call the matching SDK's `audio_source` callback with
 `FORGE_SDK_AUDIO_RESTART`, `FORGE_SDK_AUDIO_STOP`, `FORGE_SDK_AUDIO_PAUSE` or
-`FORGE_SDK_AUDIO_RESUME`. Use persistent scene/entity UUIDs and call during a fixed
+`FORGE_SDK_AUDIO_RESUME` or `FORGE_SDK_AUDIO_ONE_SHOT`. The C++ SDK client also offers
+`audio_one_shot(scene_uuid, entity_uuid)`. Use persistent scene/entity UUIDs and call during a fixed
 game tick. Rebuild project code when the installed SDK fingerprint changes.
 
 ## Registered clips
@@ -209,7 +217,7 @@ Missing clips, invalid files and unavailable devices appear in the existing Play
 log in **Console**. Optional device failure allows the game to continue silently.
 Restart Play after fixing files/device selection if the operating system does not
 recover playback. There is no editor audition player, device picker, mixer bus
-editor, one-shot pool, MP3/FLAC support, streaming music or live voice replacement.
+editor, automatic voice stealing, MP3/FLAC support, streaming music or live voice replacement.
 
 Headless runs can omit audio entirely. Automated offline/null-device tests verify logic and sample output; actual speakers/headphones require this manual test.
 

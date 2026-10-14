@@ -36,6 +36,7 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_AUDIO_RESTART 1u
 #define FORGE_SDK_AUDIO_PAUSE 2u
 #define FORGE_SDK_AUDIO_RESUME 3u
+#define FORGE_SDK_AUDIO_ONE_SHOT 4u
 #define FORGE_SDK_NAVIGATION 32u
 #define FORGE_SDK_UI 64u
 /* Intrinsic fixed-input query ID, not a descriptor permission/provider bit. */

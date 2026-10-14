@@ -286,3 +286,15 @@ NavigationAgent destination fields change, then navigation replans/moves on the
 next boundary. Observation does not queue movement or introduce an AI controller.
 The callback changes the exact private SDK fingerprint: rebuild modules with the
 matching SDK. Existing authored NavigationAgent layout and NavMesh format are unchanged.
+
+## Overlapping audio effects
+
+During a fixed owner callback, `forge::sdk::Client(host).audio_one_shot(scene_uuid,
+entity_uuid)` queues a nonlooping instance of the target AudioSource clip alongside
+its primary sound. The existing C callback accepts `FORGE_SDK_AUDIO_ONE_SHOT` (4);
+Stop/Restart/Pause/Resume remain0–3. A successful enqueue is not a physical-output
+guarantee: invalid/admission/voice-budget failures are diagnostic at execution.
+Effects follow source values, share PCM, honor game/source pause and retire at the
+end. Stop clears the source's effects; Restart affects its primary only. The
+audio_probe sample exercises these controls. Matching SDK rebuilds are required
+when the installed header/bridge fingerprint changes; ABI1 and table sizes remain.

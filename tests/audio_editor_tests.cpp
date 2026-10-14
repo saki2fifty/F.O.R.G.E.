@@ -307,7 +307,7 @@ int main(int argc, char** argv) {
                 live_width = 360;
                 frame();
                 for (const auto* key : {"live-audio-source:play", "live-audio-source:pause",
-                                        "live-audio-source:stop"}) {
+                                        "live-audio-source:stop", "live-audio-source:one-shot"}) {
                     const auto& target = test::ui_targets.at(key);
                     require(target.minimum.x >= target.clip_minimum.x &&
                                 target.maximum.x <= target.clip_maximum.x,
@@ -349,6 +349,22 @@ int main(int argc, char** argv) {
                 require(live_requests == 5 && live_operation == AudioSourceOperation::Stop,
                         "Loading source could not queue Stop");
                 sound_status["pending"] = false;
+                sound_status["available"] = true;
+                click("one-shot");
+                require(live_requests == 6 && live_operation == AudioSourceOperation::OneShot,
+                        "Actual one-shot button did not submit overlapping playback");
+                sound_status["playing_one_shots"] = 1;
+                sound_status["one_shots"] = 1;
+                click("pause");
+                require(live_requests == 7 && live_operation == AudioSourceOperation::Pause,
+                        "Playing effect beside stopped primary did not enable Pause");
+                sound_status["playing_one_shots"] = 0;
+                sound_status["paused_one_shots"] = 1;
+                click("pause");
+                require(live_requests == 8 && live_operation == AudioSourceOperation::Resume,
+                        "Paused effect beside stopped primary did not enable Resume");
+                sound_status["one_shots"] = 0;
+                sound_status["paused_one_shots"] = 0;
                 live = false;
                 mixing = true;
                 settings.open();

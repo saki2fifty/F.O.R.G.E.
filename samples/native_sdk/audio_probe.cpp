@@ -37,8 +37,11 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t siz
                                        "22222222-2222-4222-8222-222222222222", uint32_t(tick % 4));
             h->diagnostic(h->context, result ? 1u : 3u,
                           result ? "Audio SDK command queued" : "Audio SDK command rejected");
+            if (tick % 2 && !client.audio_one_shot("11111111-1111-4111-8111-111111111111",
+                                                   "22222222-2222-4222-8222-222222222222"))
+                h->diagnostic(h->context, 3u, "Audio SDK one-shot rejected");
             if (h->audio_source(h->context, "11111111-1111-4111-8111-111111111111",
-                                "22222222-2222-4222-8222-222222222222", 4u))
+                                "22222222-2222-4222-8222-222222222222", 5u))
                 h->diagnostic(h->context, 3u, "Invalid audio SDK operation accepted");
         })
         .add(h->fixed_tag);

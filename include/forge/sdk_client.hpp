@@ -146,8 +146,11 @@ class Client {
                                play ? FORGE_SDK_AUDIO_RESTART : FORGE_SDK_AUDIO_STOP);
     }
     bool audio_operation(const char* scene, const char* entity, uint32_t operation) const {
-        return operation <= FORGE_SDK_AUDIO_RESUME && callable(Capability::Audio) &&
+        return operation <= FORGE_SDK_AUDIO_ONE_SHOT && callable(Capability::Audio) &&
                host_->audio_source(host_->context, scene, entity, operation) == 1;
+    }
+    bool audio_one_shot(const char* scene, const char* entity) const {
+        return audio_operation(scene, entity, FORGE_SDK_AUDIO_ONE_SHOT);
     }
     bool publish_number(const char* entity, const char* name, double value) const {
         return callable(Capability::Ui) &&

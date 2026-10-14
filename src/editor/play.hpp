@@ -147,6 +147,9 @@ class PlaySession {
         case AudioSourceOperation::Resume:
             name = "resume";
             break;
+        case AudioSourceOperation::OneShot:
+            name = "one_shot";
+            break;
         default:
             return false;
         }

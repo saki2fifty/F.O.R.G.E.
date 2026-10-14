@@ -343,6 +343,13 @@ Play / Restart to compare one at a time. Approaching motion raises pitch and
 receding motion lowers it. The animation's one-second loop jump resets inherited
 motion. Controls do not change saved autoplay, animation or scene values.
 
+**Play one-shot** plays the selected clip once alongside the main sound, without
+restarting it. Click again to overlap effects; the panel shows the active count.
+Stop sound clears all effects for that source. These temporary Inspector triggers
+are not saved into the scene. The matching C++ SDK's `audio_one_shot` can trigger
+the same behavior in exported gameplay; the Native SDK audio_probe sample covers
+that command path.
+
 Pause sound holds that source's playback position and becomes Resume sound. The
 animation keeps moving while only the source is paused. Game Pause holds the whole
 game; game Resume keeps an explicitly paused source silent until you resume it.

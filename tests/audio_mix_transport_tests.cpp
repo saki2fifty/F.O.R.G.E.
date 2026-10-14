@@ -181,6 +181,17 @@ int main(int argc, char** argv) {
             require(!play.audio_source_status().at("source_paused").get<bool>() &&
                         play.timing().at("tick") == tick && play.snapshot() == before,
                     "Source pause/resume changed game clock or authored data");
+            require(play.submit_audio_source(AudioSourceOperation::OneShot),
+                    "One-shot was not queued");
+            require(!play.submit_audio_source(AudioSourceOperation::OneShot),
+                    "Pending one-shot admitted duplicate transport");
+            wait([&] {
+                return !play.audio_source_pending() &&
+                       play.audio_source_status().value("one_shots", 0) == 1;
+            });
+            require(play.timing().at("tick") == tick && play.snapshot() == before &&
+                        play.audio_source_status().at("paused") == true,
+                    "One-shot transport changed paused time or authored data");
             const EntityRef missing{source.scene, EntityId::generate()};
             play.watch_audio_source(missing);
             wait([&] {
@@ -189,8 +200,9 @@ int main(int argc, char** argv) {
             });
             require(play.submit_audio_source(false), "Stale source rejection was not exercised");
             wait([&] { return play.control_ready() && !play.audio_source_error().empty(); });
-            require(play.active() && play.audio_status().at("voices") == 1,
-                    "Rejected source control destroyed the healthy session");
+            require(play.active() && play.audio_status().at("voices") == 2 &&
+                        play.audio_status().at("one_shots") == 1,
+                    "Rejected source control destroyed the healthy session or its effect");
             play.watch_audio_source(source);
             wait([&] {
                 return play.control_ready() && play.audio_source_status().is_object() &&
