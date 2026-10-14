@@ -264,8 +264,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
                     root.metadata.at("forge.transform_animation").at("bytes") ==
                         artifact.files.front().bytes.size(),
                 "Transform animation selection differs from its cooked clip");
-        const auto document = asset_detail::parse_bounded_json(artifact.files.front().bytes,
-                                                               transform_animation_byte_limit);
+        const auto document = asset_detail::parse_bounded_json(
+            artifact.files.front().bytes, transform_animation_cooked_byte_limit);
         require(document.at("version") == root.metadata.at("forge.import").at("output_version"),
                 "Transform clip/recipe version mismatch");
         (void)decode_transform_animation(artifact.files.front().bytes, root.id);

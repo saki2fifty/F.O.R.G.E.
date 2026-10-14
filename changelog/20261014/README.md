@@ -1,5 +1,11 @@
 # 2026-10-14
 
+## Smooth animated properties
+
+- Extend the existing Timeline curve graph, handles and tangent presets to the twelve Camera, Light, Audio Source and Particle Emitter properties. Preserve vector editing and display FOV slopes in degrees per second.
+- Validate cubic interior bounds before publication; retain source/key history and old selected clips. New publication uses explicit source/cooked4 and recipev6 with unchanged native SDK boundaries.
+- Add original Gallery61 comparing cubic easing and existing linear animation on one shared particle effect. Check runtime, presentation, export and native Vulkan readback locally; Windows physical acceptance remains deferred.
+
 ## Animated particle appearance
 
 - Keyframe existing Particle Emitter size and linear RGB factors in the shared Timeline, clip source/runtime and copied preview/presentation paths. Keep effect, seed, age and motion unchanged.

@@ -13,6 +13,8 @@ void animation_particle_property_tests(const std::filesystem::path& scratch) {
     end[unsigned(AnimationProperty::ParticleGreen)] = .75;
     end[unsigned(AnimationProperty::ParticleBlue)] = 1;
     source.set_key(animation_timebase, {}, false, {}, {}, end);
+    source.set_property_curve(source.clip().keys.front().id, AnimationProperty::ParticleSize,
+                              {true, 0, 0});
     source.validate();
     const auto clip = decode_transform_animation(source.cook(), source.asset());
     require(clip.channels == 0 && clip.properties == AnimationPropertyState::particle_mask,
@@ -45,7 +47,7 @@ void animation_particle_property_tests(const std::filesystem::path& scratch) {
     require(receipt.published && receipt.publication, "Particle property clip publication failed");
     const auto catalog = std::make_shared<const AssetCatalog>(receipt.publication->catalog);
     require(catalog->records().at(id).metadata.at("forge.import").at("importer_revision") ==
-                "forge.animation.transform.v5",
+                "forge.animation.transform.v6",
             "Expanded bindings reused an old recipe identity");
     EngineContext authored;
     Scene scene(authored.world());
@@ -96,7 +98,7 @@ void animation_particle_property_tests(const std::filesystem::path& scratch) {
                 actual.layers == emitter.layers && actual.visible == emitter.visible,
             "Particle animation changed emission policy");
     const auto copied = live.simulation.presentation(.5);
-    near(copied["entities"][0]["components"]["forge.particle_emitter"]["size_multiplier"], 1.125);
+    near(copied["entities"][0]["components"]["forge.particle_emitter"]["size_multiplier"], .890625);
     require(live.scene.entity(actor).get<ParticleEmitter>() == actual,
             "Particle presentation interpolation wrote into live ECS");
     const auto checkpoint = live.animation->checkpoint();

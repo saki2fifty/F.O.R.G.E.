@@ -568,6 +568,24 @@ class AnimationTimelineEditor {
         drag_offset_ = 0;
         drag_revision_ = 0;
     }
+    bool scalar_curve() const { return curve_channel_ >= 2; }
+    AnimationProperty curve_property() const { return AnimationProperty(curve_channel_ - 2); }
+    double curve_display_multiplier() const {
+        return scalar_curve() ? animation_property_binding(curve_property()).display_multiplier : 1;
+    }
+    bool curve_cubic(const TransformAnimationCurves& value) const {
+        return scalar_curve() ? (value.property_mask & animation_property_bit(curve_property())) &&
+                                    value.properties[unsigned(curve_property())].cubic
+                              : value.cubic;
+    }
+    double& curve_slope(bool incoming) {
+        if (scalar_curve()) {
+            auto& value = curves_.properties[unsigned(curve_property())];
+            return incoming ? value.incoming : value.outgoing;
+        }
+        auto& side = incoming ? curves_.incoming : curves_.outgoing;
+        return (curve_channel_ == 0 ? side.translation : side.scale)[curve_axis_];
+    }
     void restore_curve_fields() {
         if (clip_)
             for (const auto& key : clip_->keys)
@@ -593,7 +611,7 @@ class AnimationTimelineEditor {
             return false;
         const auto key = *found;
         if (!mutate(
-                "Set vector curves",
+                "Set animation curves",
                 [&](auto& source) {
                     source.set_key(key.time, key.pose, key.held, key.id, curves_);
                 },
@@ -1210,10 +1228,18 @@ class AnimationTimelineEditor {
             AssetId clicked;
             bool toggle = false;
             for (const auto& key : clip_->keys) {
+                const bool property_cubic =
+                    std::any_of(animation_property_bindings().begin(),
+                                animation_property_bindings().end(), [&](const auto& binding) {
+                                    return (key.curves.property_mask &
+                                            animation_property_bit(binding.property)) &&
+                                           key.curves.properties[unsigned(binding.property)].cubic;
+                                });
                 char label[64];
                 std::snprintf(label, sizeof(label), "%.3f s — %s",
                               double(key.time) / animation_timebase,
                               key.held           ? "Held"
+                              : property_cubic   ? "Cubic properties"
                               : key.curves.cubic ? "Cubic vectors"
                                                  : "Linear");
                 ImGui::PushID(key.id.str().c_str());
@@ -1238,7 +1264,7 @@ class AnimationTimelineEditor {
     }
 
     void curve_editor() {
-        const auto expanded = ImGui::CollapsingHeader("Vector curves");
+        const auto expanded = ImGui::CollapsingHeader("Animation curves");
         FORGE_UI_PROBE("animation:curve_section");
         if (!expanded) {
             cancel_curve_drag();
@@ -1247,33 +1273,69 @@ class AnimationTimelineEditor {
         const auto selected = std::find_if(clip_->keys.begin(), clip_->keys.end(),
                                            [&](const auto& key) { return key.id == key_; });
         if (selected == clip_->keys.end()) {
-            ImGui::TextUnformatted("Select a key to edit its incoming and outgoing vector slopes.");
+            ImGui::TextUnformatted("Select a key to edit its incoming and outgoing slopes.");
             return;
         }
         const auto key = *selected;
+        if (curve_channel_ >= int(animation_property_count) + 2 ||
+            (scalar_curve() && !(clip_->properties & animation_property_bit(curve_property())))) {
+            cancel_curve_drag();
+            curve_channel_ = 0;
+        }
+        const char* channels[] = {"Position", "Scale"};
+        const auto curve_label = scalar_curve() ? animation_property_binding(curve_property()).label
+                                                : channels[curve_channel_];
+        if (ImGui::BeginCombo("Curve value", curve_label)) {
+            for (int channel = 0; channel < int(animation_property_count) + 2; ++channel) {
+                if (channel >= 2 &&
+                    !(clip_->properties & animation_property_bit(AnimationProperty(channel - 2))))
+                    continue;
+                const auto label =
+                    channel < 2 ? channels[channel]
+                                : animation_property_binding(AnimationProperty(channel - 2)).label;
+                if (ImGui::Selectable(label, curve_channel_ == channel))
+                    curve_channel_ = channel;
+                FORGE_UI_PROBE("animation:curve_channel_choice:" + std::to_string(channel));
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("animation:curve_channel");
         std::optional<TransformAnimationTangentPreset> preset;
-        if (ui::button("Flat tangents", "Set zero vector slopes on all selected keys."))
+        if (ui::button("Flat tangents", "Set zero slopes on the selected keys."))
             preset = TransformAnimationTangentPreset::Flat;
         ImGui::SameLine();
         if (ui::button("Linear tangents",
                        "Match each neighboring segment's slope on selected keys."))
             preset = TransformAnimationTangentPreset::Linear;
         ImGui::SameLine();
-        if (ui::button("Smooth tangents", "Use shared, bounded slopes; flatten vector extrema."))
+        if (ui::button("Smooth tangents", "Use shared, bounded slopes; flatten extrema."))
             preset = TransformAnimationTangentPreset::Smooth;
         if (preset) {
             cancel_curve_drag();
             const std::vector<AssetId> keys(selected_keys_.begin(), selected_keys_.end());
             mutate(
                 "Set tangent preset",
-                [&](auto& source) { source.set_tangent_preset(keys, *preset); }, false);
+                [&](auto& source) {
+                    if (scalar_curve())
+                        source.set_property_tangent_preset(keys, curve_property(), *preset);
+                    else
+                        source.set_tangent_preset(keys, *preset);
+                },
+                false);
             return; // The current document edit may replace the clip/selected iterator.
         }
         const char* modes[] = {"Linear", "Cubic"};
-        if (ImGui::BeginCombo("Outgoing vectors", modes[curves_.cubic ? 1 : 0])) {
+        ImGui::SetNextItemWidth(std::max(80.f, ImGui::GetContentRegionAvail().x -
+                                                   ImGui::CalcTextSize("Outgoing interpolation").x -
+                                                   ImGui::GetStyle().ItemInnerSpacing.x));
+        if (ImGui::BeginCombo("Outgoing interpolation", modes[curve_cubic(curves_) ? 1 : 0])) {
             for (int mode = 0; mode < 2; ++mode) {
-                if (ImGui::Selectable(modes[mode], curves_.cubic == (mode == 1))) {
-                    curves_.cubic = mode == 1;
+                if (ImGui::Selectable(modes[mode], curve_cubic(curves_) == (mode == 1))) {
+                    if (scalar_curve()) {
+                        curves_.property_mask |= animation_property_bit(curve_property());
+                        curves_.properties[unsigned(curve_property())].cubic = mode == 1;
+                    } else
+                        curves_.cubic = mode == 1;
                     curve_dirty_ = true;
                 }
                 FORGE_UI_PROBE("animation:curve_choice:" + std::to_string(mode));
@@ -1282,7 +1344,7 @@ class AnimationTimelineEditor {
         }
         FORGE_UI_PROBE("animation:curve_mode");
         ImGui::TextDisabled(
-            "Position and scale use these curves; rotation keeps quaternion interpolation.");
+            "Slopes use displayed units per second; rotation keeps quaternion interpolation.");
         if (key.held)
             ImGui::TextWrapped("This key holds until the next key. Its outgoing curve takes effect "
                                "after Hold is cleared.");
@@ -1292,39 +1354,48 @@ class AnimationTimelineEditor {
                 curve_dirty_ = true;
             FORGE_UI_PROBE(probe);
         };
-        slopes("Position incoming (units/s)", curves_.incoming.translation,
-               "animation:curve_translation_in");
-        slopes("Position outgoing (units/s)", curves_.outgoing.translation,
-               "animation:curve_translation_out");
-        slopes("Scale incoming (units/s)", curves_.incoming.scale, "animation:curve_scale_in");
-        slopes("Scale outgoing (units/s)", curves_.outgoing.scale, "animation:curve_scale_out");
+        if (!scalar_curve()) {
+            slopes("Position incoming (units/s)", curves_.incoming.translation,
+                   "animation:curve_translation_in");
+            slopes("Position outgoing (units/s)", curves_.outgoing.translation,
+                   "animation:curve_translation_out");
+            slopes("Scale incoming (units/s)", curves_.incoming.scale, "animation:curve_scale_in");
+            slopes("Scale outgoing (units/s)", curves_.outgoing.scale, "animation:curve_scale_out");
+        } else {
+            for (bool incoming : {true, false}) {
+                double value = curve_slope(incoming) * curve_display_multiplier();
+                const auto* label =
+                    incoming ? "Incoming slope (units/s)" : "Outgoing slope (units/s)";
+                ImGui::SetNextItemWidth(std::max(80.f, ImGui::GetContentRegionAvail().x -
+                                                           ImGui::CalcTextSize(label).x -
+                                                           ImGui::GetStyle().ItemInnerSpacing.x));
+                if (ImGui::InputDouble(label, &value, 0, 0, "%.3f")) {
+                    curve_slope(incoming) = value / curve_display_multiplier();
+                    curves_.property_mask |= animation_property_bit(curve_property());
+                    curve_dirty_ = true;
+                }
+                FORGE_UI_PROBE(incoming ? "animation:curve_property_in"
+                                        : "animation:curve_property_out");
+            }
+        }
         if (curve_dirty_)
             ImGui::TextUnformatted(
                 "Pending slopes: Apply, Save, another source edit or key selection commits them.");
         else
             ImGui::TextDisabled(
                 "Drag a gold tangent vertically; Escape cancels the pending change.");
-        const char* channels[] = {"Position", "Scale"};
-        if (ImGui::BeginCombo("Curve value", channels[curve_channel_])) {
-            for (int channel = 0; channel < 2; ++channel) {
-                if (ImGui::Selectable(channels[channel], curve_channel_ == channel))
-                    curve_channel_ = channel;
-                FORGE_UI_PROBE("animation:curve_channel_choice:" + std::to_string(channel));
+        if (!scalar_curve()) {
+            const char* axes[] = {"X", "Y", "Z"};
+            if (ImGui::BeginCombo("Axis", axes[curve_axis_])) {
+                for (int axis = 0; axis < 3; ++axis) {
+                    if (ImGui::Selectable(axes[axis], curve_axis_ == axis))
+                        curve_axis_ = axis;
+                    FORGE_UI_PROBE("animation:curve_axis_choice:" + std::to_string(axis));
+                }
+                ImGui::EndCombo();
             }
-            ImGui::EndCombo();
+            FORGE_UI_PROBE("animation:curve_axis");
         }
-        FORGE_UI_PROBE("animation:curve_channel");
-        ImGui::SameLine();
-        const char* axes[] = {"X", "Y", "Z"};
-        if (ImGui::BeginCombo("Axis", axes[curve_axis_])) {
-            for (int axis = 0; axis < 3; ++axis) {
-                if (ImGui::Selectable(axes[axis], curve_axis_ == axis))
-                    curve_axis_ = axis;
-                FORGE_UI_PROBE("animation:curve_axis_choice:" + std::to_string(axis));
-            }
-            ImGui::EndCombo();
-        }
-        FORGE_UI_PROBE("animation:curve_axis");
         if (curve_drag_ &&
             (curve_drag_axis_ != curve_axis_ || curve_drag_channel_ != curve_channel_))
             cancel_curve_drag();
@@ -1333,7 +1404,7 @@ class AnimationTimelineEditor {
         ImGui::SameLine();
         if (ui::button("Fit curve and handles", "Include pending tangent endpoints in this view."))
             curve_fit_handles_ = true;
-        if (!(clip_->channels & (curve_channel_ == 0 ? 1 : 4)))
+        if (!scalar_curve() && !(clip_->channels & (curve_channel_ == 0 ? 1 : 4)))
             ImGui::TextDisabled("This value is not animated by the clip's enabled channels.");
         const auto index = std::size_t(selected - clip_->keys.begin());
         const double begin = clip_->keys.size() == 1 ? 0
@@ -1363,16 +1434,24 @@ class AnimationTimelineEditor {
                                                      pose.scale.z}[curve_axis_]);
         };
         std::array<double, 193> values{};
-        double minimum = component(key.pose), maximum = minimum;
+        auto key_value = [&](const TransformAnimationKey& entry) {
+            return scalar_curve()
+                       ? entry.properties[unsigned(curve_property())] * curve_display_multiplier()
+                       : component(entry.pose);
+        };
+        double minimum = key_value(key), maximum = minimum;
         for (unsigned i = 0; i < values.size(); ++i) {
-            values[i] =
-                component(clip_->sample(begin + (end - begin) * double(i) / (values.size() - 1)));
+            const auto sample_time = begin + (end - begin) * double(i) / (values.size() - 1);
+            values[i] = scalar_curve()
+                            ? clip_->sample_properties(sample_time)[unsigned(curve_property())] *
+                                  curve_display_multiplier()
+                            : component(clip_->sample(sample_time));
             minimum = std::min(minimum, values[i]);
             maximum = std::max(maximum, values[i]);
         }
         const auto control_value = [&](double interval, double slope, bool incoming) {
-            return component(key.pose) +
-                   (incoming ? -1 : 1) * slope * interval / (3 * animation_timebase);
+            return key_value(key) + (incoming ? -1 : 1) * slope * curve_display_multiplier() *
+                                        interval / (3 * animation_timebase);
         };
         if (curve_fit_handles_) {
             auto include = [&](double interval, double slope, bool incoming) {
@@ -1382,16 +1461,10 @@ class AnimationTimelineEditor {
                     maximum = std::max(maximum, value);
                 }
             };
-            if (index && clip_->keys[index - 1].curves.cubic && !clip_->keys[index - 1].held)
-                include(double(key.time) - begin,
-                        (curve_channel_ == 0 ? curves_.incoming.translation
-                                             : curves_.incoming.scale)[curve_axis_],
-                        true);
-            if (index + 1 < clip_->keys.size() && curves_.cubic && !key.held)
-                include(end - double(key.time),
-                        (curve_channel_ == 0 ? curves_.outgoing.translation
-                                             : curves_.outgoing.scale)[curve_axis_],
-                        false);
+            if (index && curve_cubic(clip_->keys[index - 1].curves) && !clip_->keys[index - 1].held)
+                include(double(key.time) - begin, curve_slope(true), true);
+            if (index + 1 < clip_->keys.size() && curve_cubic(curves_) && !key.held)
+                include(end - double(key.time), curve_slope(false), false);
         }
         const double padding = std::max(.1, (maximum - minimum) * .1);
         minimum -= padding;
@@ -1421,13 +1494,13 @@ class AnimationTimelineEditor {
                 return;
             // Intersect the true slope with the view boundary. Clamping only
             // Y at the original control time would draw an incorrect slope.
-            const auto start_value = component(key.pose);
+            const auto start_value = key_value(key);
             const auto visible_value = std::clamp(value, minimum, maximum);
             const auto fraction =
                 value == start_value ? 1 : (visible_value - start_value) / (value - start_value);
             const auto handle =
                 point(double(key.time) + (control_time - key.time) * fraction, visible_value);
-            draw->AddLine(point(double(key.time), component(key.pose)), handle,
+            draw->AddLine(point(double(key.time), key_value(key)), handle,
                           IM_COL32(244, 183, 82, 255), 1);
             if (value >= minimum && value <= maximum && interval > 0) {
                 const float radius = 6 * ui::interface_scale;
@@ -1437,7 +1510,7 @@ class AnimationTimelineEditor {
                                                 : "Outgoing tangent handle",
                                        {2 * radius, 2 * radius});
                 FORGE_UI_PROBE(incoming ? "animation:tangent_in" : "animation:tangent_out");
-                ui::help("Drag vertically to change this vector slope. Key time and value stay "
+                ui::help("Drag vertically to change this slope. Key time and value stay "
                          "fixed. Escape cancels.");
                 if (ImGui::IsItemActivated()) {
                     curve_drag_ = true;
@@ -1453,28 +1526,22 @@ class AnimationTimelineEditor {
                     curve_drag_origin_ = origin;
                     curve_drag_size_ = size;
                     curve_drag_slope_ = slope;
-                    curve_drag_per_pixel_ = (incoming ? 1 : -1) * (maximum - minimum) /
-                                            std::max(1.f, size.y - 24) *
-                                            (3 * animation_timebase / interval);
+                    curve_drag_per_pixel_ =
+                        (incoming ? 1 : -1) * (maximum - minimum) / std::max(1.f, size.y - 24) *
+                        (3 * animation_timebase / interval) / curve_display_multiplier();
                     curve_drag_min_ = minimum;
                     curve_drag_max_ = maximum;
                 }
             }
         };
-        if (index && clip_->keys[index - 1].curves.cubic && !clip_->keys[index - 1].held)
-            guide(begin,
-                  (curve_channel_ == 0 ? curves_.incoming.translation
-                                       : curves_.incoming.scale)[curve_axis_],
-                  true);
-        if (index + 1 < clip_->keys.size() && curves_.cubic && !key.held)
-            guide(end,
-                  (curve_channel_ == 0 ? curves_.outgoing.translation
-                                       : curves_.outgoing.scale)[curve_axis_],
-                  false);
+        if (index && curve_cubic(clip_->keys[index - 1].curves) && !clip_->keys[index - 1].held)
+            guide(begin, curve_slope(true), true);
+        if (index + 1 < clip_->keys.size() && curve_cubic(curves_) && !key.held)
+            guide(end, curve_slope(false), false);
         for (const auto i :
              {index ? index - 1 : index, index, std::min(index + 1, clip_->keys.size() - 1)}) {
             const auto& at = clip_->keys[i];
-            draw->AddCircleFilled(point(double(at.time), component(at.pose)), i == index ? 5 : 3,
+            draw->AddCircleFilled(point(double(at.time), key_value(at)), i == index ? 5 : 3,
                                   i == index ? IM_COL32(255, 203, 78, 255)
                                              : IM_COL32(120, 165, 193, 255));
         }
@@ -1485,7 +1552,7 @@ class AnimationTimelineEditor {
         ImGui::Text("%.3f–%.3f s | %.3f–%.3f", begin / animation_timebase, end / animation_timebase,
                     minimum, maximum);
         if (ui::button("Apply curve settings",
-                       "Apply only this key's vector curve mode/slopes as one source Undo step.")) {
+                       "Apply this key's curve settings as one source Undo step.")) {
             cancel_curve_drag();
             apply_pending_curves();
             return;
@@ -1496,10 +1563,10 @@ class AnimationTimelineEditor {
                 const double delta = double(mouse.y) - curve_drag_pointer_y_;
                 curve_drag_moved_ |= std::abs(delta) >= ImGui::GetIO().MouseDragThreshold;
                 if (curve_drag_moved_) {
-                    auto& side = curve_drag_incoming_ ? curves_.incoming : curves_.outgoing;
-                    auto& values = curve_drag_channel_ == 0 ? side.translation : side.scale;
-                    values[curve_drag_axis_] =
+                    curve_slope(curve_drag_incoming_) =
                         std::clamp(curve_drag_slope_ + delta * curve_drag_per_pixel_, -1e9, 1e9);
+                    if (scalar_curve())
+                        curves_.property_mask |= animation_property_bit(curve_property());
                     curve_dirty_ = true;
                 }
             }

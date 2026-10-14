@@ -6,7 +6,7 @@ owned by `AnimationRuntime`; this feature adds no dependency or service manager.
 
 ## Source, publication and identity
 
-`TransformAnimationSource` reads `forge.transform-animation` versions 1, 2 and 3 in a bounded
+`TransformAnimationSource` reads `forge.transform-animation` versions 1 through 4 in a bounded
 2 MiB `.animation.json` document. It stores its AssetId, a 1,000,000-unit-per-second
 integer timebase, positive duration up to one hour, 1–4096 sorted keys at unique
 times within duration, and, for versions1/2, at least one qualified channel:
@@ -38,7 +38,7 @@ signed integers. Moving an overlapping group validates final times rather than
 intermediate single-key moves. Moves and copies preserve complete key objects,
 including held mode, slopes and unknown extension fields. Duplication uses fresh
 AssetIds; deleting all keys is rejected. Single-key retiming delegates to the same
-atomic path and preserves those fields. Source/cooked formats remain versions1/2.
+atomic path and preserves those fields, including version-4 property curves.
 
 Timeline selection is ephemeral stable UUIDs, with one active key for fields. Ctrl
 click toggles; plain list clicks select one; a ruler click on a selected key keeps
@@ -86,7 +86,7 @@ publication, add document Undo, or alter runtime/exported motion.
 `retime_duration` scales every key time and the clip duration together. The Timeline's
 **Retimed duration (seconds)** field is pending until **Scale whole clip timing**;
 the existing **Duration (seconds)** field continues to change only the end time.
-Known position/scale incoming/outgoing slopes multiply by old/new duration, retaining
+Known position/scale/property incoming/outgoing slopes multiply by old/new duration, retaining
 the normalized Hermite motion when key times scale exactly. Key identities, poses,
 held mode, channels and opaque fields remain. Exact unsigned rational arithmetic
 rounds key times to the nearest microsecond, with positive half ties upward; rounding
@@ -136,13 +136,17 @@ ruler and cancel itself; Save & Publish supplies
 Play and export through the existing owners. Gallery47 compares original motion,
 changed position and changed scale using selected Windows-target CPU cooks.
 
-The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v3`
+The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v6`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
-It publishes `forge.transform-clip` version 3, validated by the same bounded
-parser/evaluator. Previously selected version-1/2 artifacts remain readable without
+It publishes `forge.transform-clip` version 4, validated by the same bounded
+parser/evaluator. Previously selected version-1/2/3 artifacts remain readable without
 rewriting their catalog or DDC records. Runtime and export require the cooked root
-version to match the selected output version. Source and cooked readers allow
-500,000 parser events, depth 12 and 2 MiB, including the 4096-key curve profile.
+version to match the selected output version. Cooked4 is a versioned envelope
+containing the original source document, including its source version. This keeps
+older opaque fields opaque when republishing. Legacy cooked1/2/3 retain their raw
+document readers. Source admission allows 500,000 parser events, depth12 and2MiB,
+including the4096-key curve profile. The cooked4 envelope has128bytes of allowance
+and one extra parse level; its enclosed source still passes the original limits.
 Source bytes, stable key IDs, selected recipe, file hashes and
 size are covered by the normal sidecar/catalog/DDC publication. Target recipes
 are Windows/D3D12/desktop and Linux/none/cpu. There are no runtime asset dependencies.
@@ -159,7 +163,7 @@ channel omitted from the clip preserves the object's current local value.
 
 ### Typed camera, light, audio and particle properties
 
-Source version3 optionally binds `properties` to unique qualified names:
+Source versions3/4 optionally bind `properties` to unique qualified names:
 `forge.camera.vertical_fov`, `forge.camera.orthographic_height`,
 `forge.light.intensity`, `forge.light.color_r`, `forge.light.color_g` and
 `forge.light.color_b`, `forge.audio_source.gain`, `forge.audio_source.pitch`,
@@ -177,14 +181,13 @@ or undeclared values, and property syntax in versions1/2 reject explicitly.
 These typed built-in bindings use current native Camera/Light/AudioSource/ParticleEmitter members
 and existing scalar/domain validators. They are not a general custom-component/material/UI binding
 registry. No native component layout, installed SDK input or callback changes.
-Source/cooked version3 is explicit; selected old artifacts remain readable. New
-publication uses recipev5 and cooked3 even for a legacy transform-only source.
-Selected previous cooks remain readable; expanding the qualified-name binding set
-does not change the cooked3 structure or renumber the original eight bindings. Older
-engines reject unsupported new audio/particle names rather than partially executing such clips.
+Version3 introduced these property values; version4 adds scalar curves. New
+publication uses recipev6 and cooked4 even for a legacy transform-only source.
+Selected previous cooks remain readable. Binding indices remain unchanged. Older
+engines reject unsupported versions or names rather than partially executing clips.
 
-Properties share existing key times/UUIDs and outgoing held/linear timing; vector
-cubic slopes do not affect them. Adding a property initializes every key from the
+Properties share existing key times/UUIDs and default outgoing held/linear timing;
+vector cubic slopes do not affect them. Adding a property initializes every key from the
 chosen object's authored value. Key insertion defaults to the sampled property
 values unless values are supplied; replacement without values preserves them.
 Retiming/moving/duplicating keys and transform-value/slope edits retain property
@@ -242,17 +245,55 @@ covers `[0,duration)`; nonloop playback holds duration and ends. Time accumulati
 uses double microseconds while authored key times remain integer microseconds.
 Speed is 0–4; there are no reverse, event, blending, bone-editing or IK tracks.
 
-### Vector curve authoring
+### Scalar property curves
 
-Timeline's **Vector curves** section edits position/scale slopes on the active key.
-The selected-axis view samples the same evaluator 193 times across that key and its
+Version4 keys may store `curves.property_curves`, an object keyed by a declared
+qualified property name. Each entry stores `interpolation` (`linear` or `cubic`),
+`incoming` and `outgoing` slopes in native property units per second. Missing entries
+remain linear; a key's Hold overrides all outgoing interpolation. Existing vector
+settings remain separate. FOV slopes are radians per second on disk.
+
+The sampler reuses the original cubic Hermite segment and derivative-extrema math.
+Admission validates keys, finite slopes bounded to ±1e9, and all segment extrema
+against the property's existing range, before replacing source or publishing. Invalid
+overshoot rejects the complete candidate. Endpoint evaluation retains the authored
+endpoint exactly; scalar sampling evaluates from the nearer endpoint to preserve
+small positive camera heights beside large values. Already-admitted cubic samples correct only floating-point boundary
+excursions within 64 double epsilons times the profile magnitude; this does not relax
+key or extrema admission. Nonfinite or larger sample excursions reject.
+
+`set_property_curve` and `set_property_tangent_preset` use the same key/source owner.
+Flat, Linear and Smooth use the existing vector preset algorithm on the chosen
+property. Edits preserve other bindings, vector settings, UUIDs and opaque settings;
+moving/duplicating retains complete settings, whole-clip retiming rescales slopes,
+and removing a binding removes its associated curve entries. Scalar-curve syntax
+is interpreted only in version4. Versions1/2/3 retain `property_curves` as an opaque
+extension if present. Conversion rejects any legacy collision without changing
+source/history; it never overwrites or reinterprets that extension. Ordinary edits,
+retiming and republishing preserve it. Curve-bearing edits promote atomically when
+there is no collision.
+
+Preview, fixed application, copied presentation, recovery and source-free export
+use the existing shared sampler and typed candidate paths. No native SDK layout,
+clock, animation registry or renderer resource changes. Gallery61 compares cubic
+easing with the unchanged version-3 linear particle clip, sharing one effect.
+
+### Animation curve authoring
+
+Timeline's **Animation curves** section edits slopes on the active key. **Curve
+value** selects Position, Scale or an enabled scalar binding. **Outgoing
+interpolation** selects linear/cubic timing for the chosen target. Vector mode keeps
+the existing XYZ fields; property mode offers one incoming/outgoing slope in displayed
+units per second. FOV displays degrees while stored slopes remain radians. Presets
+edit both vector lanes in vector mode, or only the chosen property in scalar mode.
+The selected vector-axis or scalar view samples the same evaluator 193 times across that key and its
 neighbors. Blue is the applied curve; gold guides use pending slope fields and
 intersect the true slope with the view boundary. **Fit curve** fits the applied
 values; **Fit curve and handles** also includes finite tangent endpoints. These
 controls only change the view. Rotation has no cubic tangent controls.
 
 Drag a visible gold handle vertically to edit one incoming/outgoing slope on the
-chosen channel and axis. Its guide uses one third of the neighboring time interval;
+chosen property or vector channel/axis. Its guide uses one third of the neighboring time interval;
 key time/value and other slope components stay fixed. Capture records stable key
 identity, source revision, channel/axis, original pending fields and view mapping.
 Held frames change temporary fields only; release samples the final pointer and
@@ -270,16 +311,17 @@ buttons deliberately replace pending slopes. Pose/curve edits preserve opaque ke
 curve-root and tangent-side extensions.
 
 **Flat tangents**, **Linear tangents** and **Smooth tangents** atomically edit all
-distinct selected keys using the original neighboring poses/times. Selected keys
-gain cubic vector settings; key identities, times, poses, rotation and Hold remain.
+distinct selected keys using the original neighboring poses/property values and times.
+Selected keys gain cubic settings for the selected target; key identities, times,
+poses, rotation and Hold remain.
 Flat sets zero slopes. Linear uses each side's neighboring secant. Missing endpoint
 sides copy the available secant; a lone key uses zero. Smooth uses a common slope
 on both sides, `(left_secant * right_interval + right_secant * left_interval) /
 (left_interval + right_interval)`, bounded to three times the smaller secant's
 magnitude. Opposite signs or a zero secant give zero at an extremum or plateau.
 Endpoints use their one available secant. The complete candidate must satisfy the
-existing slope/interior-value limits before source replacement. Source/cooked
-versions, import recipe and runtime evaluator remain unchanged.
+existing slope/interior-value limits before source replacement. Presets retain the
+same source/runtime owners and do not change installed native SDK interfaces.
 
 Timeline preview substitutes local components in a copied scene and
 recomputes its render transforms through `Scene::preview_document`. It never

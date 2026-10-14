@@ -30,8 +30,8 @@ double ramp(double time) {
     const auto t = std::fmod(time, 2);
     return t <= 1 ? t : 2 - t;
 }
-void exercise(const std::filesystem::path& root, const Json& source,
-              const ParticleEffectData& data) {
+void exercise(const std::filesystem::path& root, const Json& source, const ParticleEffectData& data,
+              bool curve_gallery = false) {
     EngineContext engine(WorldRole::Runtime, false,
                          {animation_module(root), particle_module(root)});
     Scene scene(engine.world());
@@ -61,7 +61,16 @@ void exercise(const std::filesystem::path& root, const Json& source,
         for (const auto& emitter : render.particles) {
             const auto entity = scene.entity(emitter.entity.str());
             const bool animated = entity.has<TransformAnimator>();
-            const auto blend = ramp(elapsed);
+            const bool nonlinear = curve_gallery && animated &&
+                                   catalog->records()
+                                           .at(entity.get<TransformAnimator>().clip.id)
+                                           .metadata.at("forge.import")
+                                           .at("output_version") == 4;
+            const auto ease = [&](double time) {
+                const auto t = ramp(time);
+                return nonlinear ? t * t * (3 - 2 * t) : t;
+            };
+            const auto blend = ease(elapsed);
             const double size = animated ? .5 + 1.5 * blend : 1;
             const std::array<float, 3> tint =
                 animated ? std::array{float(1 - .9 * blend), float(.2 + .8 * blend),
@@ -103,7 +112,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
                 for (const auto& item : interpolated.particles)
                     if (item.entity == emitter.entity) {
                         near(item.time, elapsed - .125);
-                        near(item.emitter.size_multiplier, .5 + 1.5 * ramp(elapsed - .125));
+                        near(item.emitter.size_multiplier, .5 + 1.5 * ease(elapsed - .125));
                     }
             }
             check(entity.get<ParticleEmitter>() == live,
@@ -117,7 +126,8 @@ void exercise(const std::filesystem::path& root, const Json& source,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3, "Need Gallery and scratch directory");
+        check(argc == 3 || argc == 4, "Need Gallery, scratch directory and optional curve mode");
+        const bool curves = argc == 4;
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         struct Cleanup {
             std::filesystem::path path;
@@ -129,17 +139,21 @@ int main(int argc, char** argv) {
         const auto root = scratch / "source";
         std::filesystem::create_directories(scratch);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
-        const auto source = read(root / "Scenes/60-animated-particle-appearance.scene.json");
+        const auto source =
+            read(root / (curves ? "Scenes/61-animated-property-curves.scene.json"
+                                : "Scenes/60-animated-particle-appearance.scene.json"));
         const auto catalog = AssetCatalog::open_project(root);
         std::filesystem::path effect_source, clip_source;
         for (const auto& [id, row] : catalog.records()) {
             if (row.source == "Assets/Particles/SharedJet.particles.json")
                 effect_source = row.source;
-            if (row.source == "Assets/AnimationTiming/ParticleAppearance.animation.json")
+            if (row.source ==
+                (curves ? "Assets/AnimationTiming/SmoothParticleAppearance.animation.json"
+                        : "Assets/AnimationTiming/ParticleAppearance.animation.json"))
                 clip_source = row.source;
         }
         const auto data = ParticleEffectSource{read(root / effect_source)}.compiled();
-        exercise(root, source, data);
+        exercise(root, source, data, curves);
         const std::array roots{source.at("asset_id").get<AssetId>()};
         {
             ProjectLease writer(root);
@@ -150,11 +164,12 @@ int main(int argc, char** argv) {
         const auto moved = scratch / "relocated";
         std::filesystem::rename(exported, moved);
         const auto shipped = open_runtime_content(moved, {"windows", "d3d12"});
-        check(shipped.records().size() == 3 && !std::filesystem::exists(moved / effect_source) &&
+        check(shipped.records().size() == (curves ? 4 : 3) &&
+                  !std::filesystem::exists(moved / effect_source) &&
                   !std::filesystem::exists(moved / clip_source),
               "Gallery60 export lost closure or leaked editable sources");
         std::filesystem::rename(root, scratch / "source-offline");
-        exercise(moved, read(moved / shipped.records().at(roots[0]).source), data);
+        exercise(moved, read(moved / shipped.records().at(roots[0]).source), data, curves);
         std::cout << "Gallery60 animation/particle clock, seed/revision/motion, interpolated "
                      "instances and relocated source-free export passed\n";
     } catch (const std::exception& e) {

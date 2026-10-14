@@ -31,8 +31,14 @@ template <std::size_t N> std::array<double, N> numbers(const nlohmann::json& val
     return result;
 }
 struct Cubic {
-    double a, b, c, d;
-    double at(double t) const { return ((a * t + b) * t + c) * t + d; }
+    double a, b, c, d, endpoint;
+    double at(double t) const {
+        if (t == 0)
+            return d;
+        if (t == 1)
+            return endpoint;
+        return ((a * t + b) * t + c) * t + d;
+    }
     std::array<double, 2> bounds() const {
         std::array<double, 2> range{std::min(at(0), at(1)), std::max(at(0), at(1))};
         auto include = [&](double t) {
@@ -63,7 +69,29 @@ struct Cubic {
 };
 Cubic segment(double p0, double p1, double m0, double m1, double seconds) {
     const auto left = seconds * m0, right = seconds * m1;
-    return {2 * p0 - 2 * p1 + left + right, -3 * p0 + 3 * p1 - 2 * left - right, left, p0};
+    return {2 * p0 - 2 * p1 + left + right, -3 * p0 + 3 * p1 - 2 * left - right, left, p0, p1};
+}
+
+std::pair<double, double> tangent_slopes(double left, double right, double before, double after,
+                                         TransformAnimationTangentPreset preset) {
+    if (!before)
+        left = right;
+    if (!after)
+        right = left;
+    if (preset == TransformAnimationTangentPreset::Flat)
+        left = right = 0;
+    else if (preset == TransformAnimationTangentPreset::Smooth) {
+        double slope = before && after ? (left * after + right * before) / (before + after)
+                       : before        ? left
+                                       : right;
+        if (left == 0 || right == 0 || std::signbit(left) != std::signbit(right))
+            slope = 0;
+        else
+            slope = std::copysign(
+                std::min(std::abs(slope), 3 * std::min(std::abs(left), std::abs(right))), left);
+        left = right = slope;
+    }
+    return {left, right};
 }
 
 TransformAnimationTangents tangent(const Json& object, const char* name) {
@@ -91,24 +119,64 @@ void merge_curve_settings(Json& key, const TransformAnimationCurves& value) {
         for (const char* field : {"translation", "scale"})
             target[side][field] = encoded.at(side).at(field);
     }
+    for (const auto& binding : animation_property_bindings()) {
+        if (!(value.property_mask & animation_property_bit(binding.property)))
+            continue;
+        const auto& settings = value.properties[unsigned(binding.property)];
+        auto& fields = target["property_curves"][binding.name];
+        fields["interpolation"] = settings.cubic ? "cubic" : "linear";
+        fields["incoming"] = settings.incoming;
+        fields["outgoing"] = settings.outgoing;
+    }
 }
-TransformAnimationCurves curves(const Json& key) {
+void promote_property_curves(Json& document) {
+    if (document.at("version") < 4)
+        for (const auto& key : document.at("keys"))
+            require(!key.contains("curves") || !key.at("curves").contains("property_curves"),
+                    "Legacy property_curves extension collides with version4; source unchanged");
+    document["version"] = 4;
+}
+TransformAnimationCurves curves(const Json& key, bool scalar_enabled) {
     if (!key.contains("curves"))
         return {};
     const auto& object = key.at("curves");
     const auto mode = object.at("interpolation");
     require(mode == "linear" || mode == "cubic", "Invalid vector curve interpolation");
-    return {mode == "cubic", tangent(object, "incoming"), tangent(object, "outgoing")};
+    TransformAnimationCurves result{mode == "cubic", tangent(object, "incoming"),
+                                    tangent(object, "outgoing")};
+    if (scalar_enabled && object.contains("property_curves")) {
+        const auto& map = object.at("property_curves");
+        require(map.is_object() && map.size() <= animation_property_count,
+                "Invalid property curve map");
+        for (const auto& [name, settings] : map.items()) {
+            const auto property = animation_property_named(name);
+            const auto interpolation = settings.at("interpolation");
+            require(interpolation == "linear" || interpolation == "cubic",
+                    "Invalid property curve interpolation");
+            auto slope = [&](const char* field) {
+                const auto& raw = settings.at(field);
+                require(raw.is_number(), "Property curve slopes must be numeric");
+                const auto value = raw.get<double>();
+                require(std::isfinite(value) && std::abs(value) <= 1e9,
+                        "Property curve slope outside source bounds");
+                return value;
+            };
+            result.property_mask |= animation_property_bit(property);
+            result.properties[unsigned(property)] = {interpolation == "cubic", slope("incoming"),
+                                                     slope("outgoing")};
+        }
+    }
+    return result;
 }
 void validate_curve_segments(const TransformAnimationClip& clip) {
     for (std::size_t i = 1; i < clip.keys.size(); ++i) {
         const auto& left = clip.keys[i - 1];
         const auto& right = clip.keys[i];
-        if (left.held || !left.curves.cubic)
+        if (left.held)
             continue;
         const auto seconds = double(right.time - left.time) / animation_timebase;
         for (unsigned axis = 0; axis < 3; ++axis) {
-            if (clip.channels & 1) {
+            if (left.curves.cubic && (clip.channels & 1)) {
                 const auto range =
                     segment(std::array<double, 3>{left.pose.translation.x, left.pose.translation.y,
                                                   left.pose.translation.z}[axis],
@@ -121,7 +189,7 @@ void validate_curve_segments(const TransformAnimationClip& clip) {
                 require(range[0] >= -1e9 && range[1] <= 1e9,
                         "Translation curve overshoots source bounds");
             }
-            if (clip.channels & 4) {
+            if (left.curves.cubic && (clip.channels & 4)) {
                 const std::array<float, 3> a{left.pose.scale.x, left.pose.scale.y,
                                              left.pose.scale.z},
                     b{right.pose.scale.x, right.pose.scale.y, right.pose.scale.z};
@@ -131,6 +199,19 @@ void validate_curve_segments(const TransformAnimationClip& clip) {
                 require(range[0] >= -max_local_scale && range[1] <= max_local_scale,
                         "Scale curve overshoots visual bounds");
             }
+        }
+        for (const auto& binding : animation_property_bindings()) {
+            const auto property = binding.property;
+            const auto index = unsigned(property);
+            if (!(left.curves.property_mask & animation_property_bit(property)) ||
+                !left.curves.properties[index].cubic)
+                continue;
+            const auto range = segment(left.properties[index], right.properties[index],
+                                       left.curves.properties[index].outgoing,
+                                       right.curves.properties[index].incoming, seconds)
+                                   .bounds();
+            validate_animation_property(property, range[0]);
+            validate_animation_property(property, range[1]);
         }
     }
 }
@@ -182,8 +263,24 @@ AnimationPropertyValues TransformAnimationClip::sample_properties(double time) c
     const double t = std::clamp((time - left.time) / double(right->time - left.time), 0., 1.);
     AnimationPropertyValues result{};
     for (unsigned i = 0; i < animation_property_count; ++i)
-        if (properties & (1u << i))
-            result[i] = std::lerp(left.properties[i], right->properties[i], t);
+        if (properties & (1u << i)) {
+            const auto& curve = left.curves.properties[i];
+            if ((left.curves.property_mask & (1u << i)) && curve.cubic) {
+                const auto seconds = double(right->time - left.time) / animation_timebase;
+                // Evaluate from the nearer endpoint. This retains tiny positive
+                // camera heights beside a large value instead of cancelling them.
+                const auto value =
+                    t <= .5
+                        ? segment(left.properties[i], right->properties[i], curve.outgoing,
+                                  right->curves.properties[i].incoming, seconds)
+                              .at(t)
+                        : segment(right->properties[i], left.properties[i],
+                                  -right->curves.properties[i].incoming, -curve.outgoing, seconds)
+                              .at(1 - t);
+                result[i] = animation_property_curve_sample(AnimationProperty(i), value);
+            } else
+                result[i] = std::lerp(left.properties[i], right->properties[i], t);
+        }
     return result;
 }
 LocalTransform TransformAnimationClip::sample(double time) const {
@@ -264,7 +361,7 @@ TransformAnimationClip TransformAnimationSource::clip() const {
     require(document.at("format") == "forge.transform-animation" &&
                 document.at("version").is_number_integer() &&
                 (document.at("version") == 1 || document.at("version") == 2 ||
-                 document.at("version") == 3) &&
+                 document.at("version") == 3 || document.at("version") == 4) &&
                 document.at("timebase") == animation_timebase,
             "Unsupported transform animation schema/timebase");
     TransformAnimationClip result;
@@ -284,7 +381,8 @@ TransformAnimationClip TransformAnimationSource::clip() const {
         result.channels |= bit;
     }
     if (document.contains("properties")) {
-        require(document.at("version") == 3, "Animated properties require source version3");
+        require(document.at("version") >= 3,
+                "Animated properties require source version3 or newer");
         const auto& properties = document.at("properties");
         require(properties.is_array() && properties.size() <= animation_property_count,
                 "Invalid animated property bindings");
@@ -316,7 +414,7 @@ TransformAnimationClip TransformAnimationSource::clip() const {
                 "Vector curves require transform animation version2");
         AnimationPropertyValues values{};
         if (result.properties || key.contains("values")) {
-            require(document.at("version") == 3 && key.contains("values") &&
+            require(document.at("version") >= 3 && key.contains("values") &&
                         key.at("values").is_object(),
                     "Animated keys require version3 property values");
             const auto& fields = key.at("values");
@@ -332,7 +430,10 @@ TransformAnimationClip TransformAnimationSource::clip() const {
                 }
             require(fields.size() == expected, "Animated key contains an undeclared property");
         }
-        result.keys.push_back({id, time, pose, mode == "held", curves(key), values});
+        const auto settings = curves(key, document.at("version") >= 4);
+        require(!(settings.property_mask & ~result.properties),
+                "Property curve binds an undeclared property");
+        result.keys.push_back({id, time, pose, mode == "held", settings, values});
         previous = time;
     }
     validate_curve_segments(result);
@@ -345,9 +446,9 @@ void TransformAnimationSource::validate() const {
 }
 std::vector<std::byte> TransformAnimationSource::cook() const {
     validate();
-    auto compiled = document;
-    compiled["format"] = "forge.transform-clip";
-    compiled["version"] = 3;
+    const auto source = document.dump();
+    (void)parse(std::as_bytes(std::span(source)));
+    const Json compiled{{"format", "forge.transform-clip"}, {"version", 4}, {"document", document}};
     const auto text = compiled.dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
@@ -381,8 +482,11 @@ AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransfor
                 fields[binding.name] = values[unsigned(binding.property)];
     }
     if (curve) {
+        if (curve->property_mask)
+            promote_property_curves(candidate.document);
         merge_curve_settings(key, *curve);
-        candidate.document["version"] = std::max(2, candidate.document.at("version").get<int>());
+        candidate.document["version"] =
+            std::max(curve->property_mask ? 4 : 2, candidate.document.at("version").get<int>());
     }
     key["id"] = id;
     key["time_us"] = time;
@@ -402,7 +506,7 @@ void TransformAnimationSource::add_property(AnimationProperty property, double i
     if (admitted.properties & animation_property_bit(property))
         return;
     auto candidate = *this;
-    candidate.document["version"] = 3;
+    candidate.document["version"] = std::max(3, candidate.document.at("version").get<int>());
     const auto& binding = animation_property_binding(property);
     auto& list = candidate.document["properties"];
     if (list.is_null())
@@ -420,8 +524,31 @@ void TransformAnimationSource::erase_property(AnimationProperty property) {
         return;
     auto candidate = *this;
     std::erase(candidate.document.at("properties").get_ref<Json::array_t&>(), Json(binding.name));
-    for (auto& key : candidate.document.at("keys"))
+    for (auto& key : candidate.document.at("keys")) {
         key.at("values").erase(binding.name);
+        if (candidate.document.at("version") >= 4 && key.contains("curves") &&
+            key["curves"].contains("property_curves"))
+            key["curves"]["property_curves"].erase(binding.name);
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::set_property_curve(AssetId key, AnimationProperty property,
+                                                  const AnimationPropertyCurve& value) {
+    const auto admitted = clip();
+    const auto bit = animation_property_bit(animation_property_binding(property).property);
+    require(admitted.properties & bit, "Property curve needs a declared binding");
+    const auto found = std::find_if(admitted.keys.begin(), admitted.keys.end(),
+                                    [&](const auto& entry) { return entry.id == key; });
+    require(found != admitted.keys.end(), "Property curve key no longer exists");
+    auto settings = found->curves;
+    settings.property_mask |= bit;
+    settings.properties[unsigned(property)] = value;
+    auto candidate = *this;
+    promote_property_curves(candidate.document);
+    for (auto& entry : candidate.document.at("keys"))
+        if (entry.at("id") == Json(key))
+            merge_curve_settings(entry, settings);
     candidate.validate();
     document.swap(candidate.document);
 }
@@ -538,11 +665,16 @@ void TransformAnimationSource::retime_duration(std::int64_t new_duration) {
             std::uint64_t(time_value(key.at("time_us"))) * std::uint64_t(new_duration);
         key["time_us"] =
             std::int64_t((product + std::uint64_t(old_duration) / 2) / std::uint64_t(old_duration));
-        if (key.contains("curves"))
+        if (key.contains("curves")) {
             for (const char* side : {"incoming", "outgoing"})
                 for (const char* channel : {"translation", "scale"})
                     for (auto& slope : key["curves"][side][channel])
                         slope = slope.get<double>() * slope_scale;
+            if (candidate.document.at("version") >= 4 && key["curves"].contains("property_curves"))
+                for (auto& settings : key["curves"]["property_curves"])
+                    for (const auto* side : {"incoming", "outgoing"})
+                        settings[side] = settings[side].get<double>() * slope_scale;
+        }
     }
     candidate.validate();
     document.swap(candidate.document);
@@ -623,26 +755,9 @@ void TransformAnimationSource::set_tangent_preset(std::span<const AssetId> keys,
                     before ? (value - original[i - 1].at(field)[axis].get<double>()) / before : 0;
                 double right =
                     after ? (original[i + 1].at(field)[axis].get<double>() - value) / after : 0;
-                if (!before)
-                    left = right;
-                if (!after)
-                    right = left;
-                if (preset == TransformAnimationTangentPreset::Flat)
-                    left = right = 0;
-                else if (preset == TransformAnimationTangentPreset::Smooth) {
-                    double slope = before && after
-                                       ? (left * after + right * before) / (before + after)
-                                   : before ? left
-                                            : right;
-                    if (left == 0 || right == 0 || std::signbit(left) != std::signbit(right))
-                        slope = 0;
-                    else
-                        slope =
-                            std::copysign(std::min(std::abs(slope),
-                                                   3 * std::min(std::abs(left), std::abs(right))),
-                                          left);
-                    left = right = slope;
-                }
+                const auto slopes = tangent_slopes(left, right, before, after, preset);
+                left = slopes.first;
+                right = slopes.second;
                 auto& incoming = std::string_view(field) == "translation"
                                      ? settings.incoming.translation
                                      : settings.incoming.scale;
@@ -657,11 +772,55 @@ void TransformAnimationSource::set_tangent_preset(std::span<const AssetId> keys,
     candidate.validate();
     document.swap(candidate.document);
 }
+void TransformAnimationSource::set_property_tangent_preset(std::span<const AssetId> keys,
+                                                           AnimationProperty property,
+                                                           TransformAnimationTangentPreset preset) {
+    require(preset == TransformAnimationTangentPreset::Flat ||
+                preset == TransformAnimationTangentPreset::Linear ||
+                preset == TransformAnimationTangentPreset::Smooth,
+            "Unknown property tangent preset");
+    const auto admitted = clip();
+    const auto bit = animation_property_bit(animation_property_binding(property).property);
+    require(admitted.properties & bit, "Property curve needs a declared binding");
+    const auto selected = selected_animation_keys(*this, keys);
+    auto candidate = *this;
+    promote_property_curves(candidate.document);
+    const auto index = unsigned(property);
+    for (std::size_t i = 0; i < admitted.keys.size(); ++i) {
+        const auto& key = admitted.keys[i];
+        if (!selected.contains(key.id))
+            continue;
+        const double before =
+            i ? double(key.time - admitted.keys[i - 1].time) / animation_timebase : 0;
+        const double after = i + 1 < admitted.keys.size()
+                                 ? double(admitted.keys[i + 1].time - key.time) / animation_timebase
+                                 : 0;
+        const auto slopes = tangent_slopes(
+            before ? (key.properties[index] - admitted.keys[i - 1].properties[index]) / before : 0,
+            after ? (admitted.keys[i + 1].properties[index] - key.properties[index]) / after : 0,
+            before, after, preset);
+        auto settings = key.curves;
+        settings.property_mask |= bit;
+        settings.properties[index] = {true, slopes.first, slopes.second};
+        merge_curve_settings(candidate.document["keys"][i], settings);
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
 TransformAnimationClip decode_transform_animation(std::span<const std::byte> bytes, AssetId id) {
-    auto doc = asset_detail::parse_bounded_json(bytes, transform_animation_byte_limit, 500000, 12);
+    auto doc =
+        asset_detail::parse_bounded_json(bytes, transform_animation_cooked_byte_limit, 500016, 13);
     require(doc.at("format") == "forge.transform-clip", "Invalid cooked transform clip format");
-    doc["format"] = "forge.transform-animation";
-    TransformAnimationSource source{std::move(doc)};
+    require(doc.at("version").is_number_integer(), "Cooked transform clip version must be integer");
+    if (doc.at("version") == 4)
+        doc = doc.at("document").get<Json>();
+    else {
+        require(doc.at("version") == 1 || doc.at("version") == 2 || doc.at("version") == 3,
+                "Unsupported cooked transform clip version");
+        doc["format"] = "forge.transform-animation";
+    }
+    const auto text = doc.dump();
+    auto source = TransformAnimationSource::parse(std::as_bytes(std::span(text)));
     auto result = source.clip();
     require(result.asset == id, "Animation clip/asset identity mismatch");
     return result;

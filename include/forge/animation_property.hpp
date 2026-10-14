@@ -27,10 +27,18 @@ struct AnimationPropertyBinding {
     const char* label;
     double display_multiplier;
 };
+struct AnimationPropertyLimits {
+    double minimum, maximum;
+    bool minimum_exclusive = false, maximum_exclusive = false;
+};
 std::span<const AnimationPropertyBinding> animation_property_bindings();
 const AnimationPropertyBinding& animation_property_binding(AnimationProperty);
 AnimationProperty animation_property_named(std::string_view);
 void validate_animation_property(AnimationProperty, double);
+AnimationPropertyLimits animation_property_limits(AnimationProperty);
+// Source admission has already proved the whole cubic interval. Correct only
+// machine-precision excursions at its typed boundary; larger errors reject.
+double animation_property_curve_sample(AnimationProperty, double);
 constexpr unsigned animation_property_bit(AnimationProperty property) {
     return 1u << unsigned(property);
 }

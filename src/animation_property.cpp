@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <cmath>
 #include <forge/animation_property.hpp>
+#include <limits>
 #include <numbers>
 #include <stdexcept>
 namespace forge {
@@ -45,19 +47,45 @@ AnimationProperty animation_property_named(std::string_view name) {
             return binding.property;
     throw std::runtime_error("Unsupported animated component property");
 }
-void validate_animation_property(AnimationProperty property, double value) {
+AnimationPropertyLimits animation_property_limits(AnimationProperty property) {
     (void)animation_property_binding(property);
+    switch (property) {
+    case AnimationProperty::CameraFov:
+        return {0, std::numbers::pi, true, true};
+    case AnimationProperty::CameraHeight:
+        return {0, 1e9, true};
+    case AnimationProperty::LightIntensity:
+        return {0, 1e9};
+    case AnimationProperty::AudioGain:
+        return {0, 4};
+    case AnimationProperty::AudioPitch:
+        return {.25, 4};
+    case AnimationProperty::ParticleSize:
+        return {.01, 16};
+    default:
+        return {0, 1};
+    }
+}
+void validate_animation_property(AnimationProperty property, double value) {
+    const auto limits = animation_property_limits(property);
     const bool admitted =
         std::isfinite(value) &&
-        (property == AnimationProperty::CameraFov        ? value > 0 && value < std::numbers::pi
-         : property == AnimationProperty::CameraHeight   ? value > 0 && value <= 1e9
-         : property == AnimationProperty::LightIntensity ? value >= 0 && value <= 1e9
-         : property == AnimationProperty::AudioGain      ? value >= 0 && value <= 4
-         : property == AnimationProperty::AudioPitch     ? value >= .25 && value <= 4
-         : property == AnimationProperty::ParticleSize   ? value >= .01 && value <= 16
-                                                         : value >= 0 && value <= 1);
+        (limits.minimum_exclusive ? value > limits.minimum : value >= limits.minimum) &&
+        (limits.maximum_exclusive ? value < limits.maximum : value <= limits.maximum);
     if (!admitted)
         throw std::runtime_error(std::string(animation_property_binding(property).label) +
                                  " is outside the animated value range");
+}
+double animation_property_curve_sample(AnimationProperty property, double value) {
+    const auto limits = animation_property_limits(property);
+    const auto low =
+        limits.minimum_exclusive ? std::nextafter(limits.minimum, limits.maximum) : limits.minimum;
+    const auto high =
+        limits.maximum_exclusive ? std::nextafter(limits.maximum, limits.minimum) : limits.maximum;
+    const auto tolerance = 64 * std::numeric_limits<double>::epsilon() *
+                           std::max({1., std::abs(limits.minimum), std::abs(limits.maximum)});
+    if (!std::isfinite(value) || value < low - tolerance || value > high + tolerance)
+        throw std::runtime_error("Animated curve sample is outside its admitted profile");
+    return std::clamp(value, low, high);
 }
 } // namespace forge

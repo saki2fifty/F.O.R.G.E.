@@ -8,14 +8,22 @@
 #include <vector>
 namespace forge {
 inline constexpr std::size_t transform_animation_byte_limit = 2 * 1024 * 1024;
+inline constexpr std::size_t transform_animation_cooked_byte_limit =
+    transform_animation_byte_limit + 128; // Versioned envelope around the original source.
 inline constexpr std::int64_t animation_timebase = 1000000;
 struct TransformAnimationTangents {
     // Local vector units per second. Rotation retains quaternion slerp.
     Double3 translation{}, scale{};
 };
+struct AnimationPropertyCurve {
+    bool cubic = false;
+    double incoming = 0, outgoing = 0; // Native property units per second.
+};
 struct TransformAnimationCurves {
     bool cubic = false;
     TransformAnimationTangents incoming, outgoing;
+    unsigned property_mask = 0;
+    std::array<AnimationPropertyCurve, animation_property_count> properties{};
 };
 enum class TransformAnimationTangentPreset { Flat, Linear, Smooth };
 struct TransformAnimationKey {
@@ -49,6 +57,9 @@ struct TransformAnimationSource {
                     std::optional<AnimationPropertyValues> properties = {});
     void add_property(AnimationProperty, double initial_value);
     void erase_property(AnimationProperty);
+    void set_property_curve(AssetId key, AnimationProperty, const AnimationPropertyCurve&);
+    void set_property_tangent_preset(std::span<const AssetId>, AnimationProperty,
+                                     TransformAnimationTangentPreset);
     void erase_key(AssetId);
     void move_key(AssetId, std::int64_t time);
     // Atomic final-state edits; complete key metadata and stable IDs are retained.

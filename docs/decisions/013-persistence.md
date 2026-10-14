@@ -208,3 +208,18 @@ Public native value layout and exact SDK fingerprint change deliberately;
 gameplay modules require a matching rebuild and old fingerprints remain rejected.
 C ABI1 entry and function table layouts stay unchanged. Pure particle sampling
 helpers and the runtime owner remain private, outside installed gameplay APIs.
+
+## 2026-10-14: Scalar animation curve versioning
+
+Transform-animation source4 adds qualified scalar entries under each key's existing
+curve settings. Sources1/2/3 retain that name as opaque data. Enabling scalar curves
+checks every legacy key for a collision before promoting; failure preserves the
+complete source/history. Ordinary legacy edits and retiming retain opaque settings.
+
+As with Animation States, new cooked4 wraps the original source document and version
+instead of relabeling it as the newest source. Recipev6 explicitly selects cooked4;
+raw cooked1/2/3 remain readable without regeneration. The envelope has128bytes and
+one parse level of allowance, while enclosed source retains its original2MiB,
+500,000-event/depth12 admission. Runtime and export share the existing decoder and
+require selected/cooked versions to match. Persistent IDs, source/history ownership,
+native component layouts and installed SDK contracts remain unchanged.

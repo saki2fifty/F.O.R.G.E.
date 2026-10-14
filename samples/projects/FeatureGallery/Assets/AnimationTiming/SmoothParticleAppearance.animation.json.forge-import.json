@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v6",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 4,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "0dad2a4d85b79e13bf4e006f6669181a94b98724db7e83ce7f4ef454a090f7b4",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "5c6fb823-2098-469a-8547-333f5d24392f",
+    "source": "Assets/AnimationTiming/SmoothParticleAppearance.animation.json",
+    "source_digest": "0dad2a4d85b79e13bf4e006f6669181a94b98724db7e83ce7f4ef454a090f7b4",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

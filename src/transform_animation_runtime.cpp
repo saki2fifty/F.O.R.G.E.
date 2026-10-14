@@ -33,7 +33,7 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
     const auto generation = selected.at("generation");
     if (selected.at("version") != 1 || selected.at("output_format") != "forge.transform-clip" ||
         (selected.at("output_version") != 1 && selected.at("output_version") != 2 &&
-         selected.at("output_version") != 3) ||
+         selected.at("output_version") != 3 && selected.at("output_version") != 4) ||
         !generation.is_number_unsigned() || generation == 0)
         throw std::runtime_error("Unsupported transform animation selection");
     return pool_.request(
@@ -41,14 +41,14 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
         [project = project_, asset, selected, metadata, revision](std::stop_token stop) {
             if (stop.stop_requested())
                 throw std::runtime_error("Animation load cancelled");
-            DerivedDataCache cache(project, {transform_animation_byte_limit,
-                                             transform_animation_byte_limit + 65536, 1});
+            DerivedDataCache cache(project, {transform_animation_cooked_byte_limit,
+                                             transform_animation_cooked_byte_limit + 65536, 1});
             std::optional<TransformAnimationClip> clip;
             auto artifact = cache.load_selected(revision, [&](const auto& cooked) {
                 if (cooked.files.size() != 1 || cooked.files.front().name != "animation.clip")
                     throw std::runtime_error("Invalid transform animation bundle");
                 const auto document = asset_detail::parse_bounded_json(
-                    cooked.files.front().bytes, transform_animation_byte_limit);
+                    cooked.files.front().bytes, transform_animation_cooked_byte_limit);
                 if (document.at("version") != selected.at("output_version"))
                     throw std::runtime_error("Transform clip/recipe version mismatch");
                 clip = decode_transform_animation(cooked.files.front().bytes, asset.id);

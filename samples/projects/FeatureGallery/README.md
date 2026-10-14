@@ -1,5 +1,16 @@
 # FORGE Feature Gallery
 
+## Smooth property animation
+
+Open **Scenes/61-animated-property-curves.scene.json** and press Play. The left jet
+eases size and color at the ends of each transition; the right changes at a constant
+rate between the same values. Both use the same particle effect and emission timing.
+Open **Assets/AnimationTiming/SmoothParticleAppearance.animation.json** in Timeline,
+select a key and expand **Animation curves**. Choose a property in **Curve value**,
+then try Flat, Linear or Smooth tangents or drag a gold handle. Apply and Save &
+Publish before restarting Play. Export ships cooked clips/effect without sources
+or a compiler. See the [Timeline guide](../../../manual/editor/transform-animation.md).
+
 ## Animated particle size and color
 
 Open **Scenes/60-animated-particle-appearance.scene.json** and press Play. The left

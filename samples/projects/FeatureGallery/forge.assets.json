@@ -3248,6 +3248,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "5528e597-4e72-4dd2-bccf-4e84d085ca92",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/61-animated-property-curves.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "557f32af-c8d4-405d-b0c1-72fbf6e53c22",
       "metadata": {},
       "schema_version": 3,
@@ -3666,6 +3676,41 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "5c6fb823-2098-469a-8547-333f5d24392f",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9e066c820afe1828e7973ebaf90cb51b7d4b24056e22bbebdc8457b744fa3031",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v6",
+          "key": "3073ab58487f7b9483ca94fb193f5e23de45202af577194f6a7692b111a7272a",
+          "output_format": "forge.transform-clip",
+          "output_version": 4,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "26d054bacc92ec0692360c756a00d7386c7079953d723f11ad939889a34725e4",
+          "source_digest": "0dad2a4d85b79e13bf4e006f6669181a94b98724db7e83ce7f4ef454a090f7b4",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 2993,
+          "file": "animation.clip",
+          "sha256": "0df4fab3f4429d8675f9ba4b8ac133e6da4190c5ceab6ce848214828faa95d03",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AnimationTiming/SmoothParticleAppearance.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
     },
     {
       "dependencies": [],

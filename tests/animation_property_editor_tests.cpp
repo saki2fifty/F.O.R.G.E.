@@ -205,13 +205,95 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               "Property Timeline publication stalled: " + message);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 3 &&
+    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 4 &&
               !editor.dirty(),
           "Timeline published wrong property cook");
     click("button:Attach animation to object");
     check(scene.entity(actor).get<TransformAnimator>().clip.id == id && scene.undo() &&
               scene.document() == authored,
           "Property attachment did not use Scene history");
+    const auto first = editor.document()->source().clip().keys.front().id;
+    const auto first_ruler = target("animation:ruler");
+    const ImVec2 first_point{first_ruler.minimum.x + 2, first_ruler.minimum.y + 36};
+    mouse(first_point, false);
+    mouse(first_point, true);
+    mouse(first_point, false);
+    frame();
+    click("animation:curve_section");
+    click("animation:curve_channel");
+    click("animation:curve_channel_choice:10"); // Particle size, after2 vector choices.
+    click("animation:curve_mode");
+    click("animation:curve_choice:1");
+    type("animation:curve_property_in", "0");
+    type("animation:curve_property_out", "0");
+    click("button:Apply curve settings");
+    auto curved = editor.document()->source();
+    check(curved.document["version"] == 4 && curved.clip().keys.front().curves.properties[8].cubic,
+          "Scalar curve widgets did not commit source4 settings");
+    const auto interval = curved.clip().keys.back().time - curved.clip().keys.front().time;
+    check(std::abs(curved.clip().sample_properties(double(interval) / 4)[8] - 1.234375) < 1e-9,
+          "Scalar Timeline graph/source retained linear timing");
+    const auto tangent_box = target("animation:tangent_out");
+    const ImVec2 handle{(tangent_box.minimum.x + tangent_box.maximum.x) / 2,
+                        (tangent_box.minimum.y + tangent_box.maximum.y) / 2};
+    mouse(handle, false);
+    mouse(handle, true);
+    mouse({handle.x, handle.y - 20}, true);
+    mouse({handle.x, handle.y - 20}, false);
+    check(editor.document()->source().clip().keys.front().curves.properties[8].outgoing > 0,
+          "Scalar tangent drag did not update the selected slope");
+    editor.undo();
+    frame();
+    check(editor.document()->source().document == curved.document,
+          "Scalar tangent Undo changed key data or identity");
+    const auto cancel_box = target("animation:tangent_out");
+    const ImVec2 cancel_handle{(cancel_box.minimum.x + cancel_box.maximum.x) / 2,
+                               (cancel_box.minimum.y + cancel_box.maximum.y) / 2};
+    mouse(cancel_handle, false);
+    mouse(cancel_handle, true);
+    mouse({cancel_handle.x, cancel_handle.y - 20}, true);
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    frame();
+    mouse(cancel_handle, false);
+    frame();
+    check(editor.document()->source().document == curved.document,
+          "Scalar tangent Escape committed a pending edit");
+    click("animation:curve_channel");
+    click("animation:curve_channel_choice:2");
+    click("animation:curve_mode");
+    click("animation:curve_choice:1");
+    type("animation:curve_property_out", "90");
+    click("button:Apply curve settings");
+    check(std::abs(editor.document()->source().clip().keys.front().curves.properties[0].outgoing -
+                   std::numbers::pi / 2) < 1e-12,
+          "FOV slope fields did not convert displayed degrees to native radians");
+    click("button:Flat tangents");
+    check(editor.document()->source().clip().keys.front().curves.properties[0].outgoing == 0,
+          "Scalar tangent preset did not edit the selected property");
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("animation:curve_property_out").enabled,
+          "Scalar curve editing remained enabled during Play");
+    locked = false;
+    const auto saved_curves = editor.document()->source().document;
+    editor.request_save();
+    catalog.reset();
+    const auto curve_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (!catalog) {
+        frame();
+        catalog = editor.take_catalog();
+        check(std::chrono::steady_clock::now() < curve_deadline,
+              "Scalar curve publication stalled: " + message);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    check(!editor.dirty() &&
+              catalog->records().at(id).metadata["forge.import"]["output_version"] == 4,
+          "Scalar curves did not publish through the existing document");
+    editor.open(project, "Assets/Properties.animation.json");
+    check(editor.document()->source().document == saved_curves,
+          "Timeline save/reopen changed scalar curves or key identities");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }

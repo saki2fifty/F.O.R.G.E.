@@ -179,8 +179,8 @@ second reverses and offsets the position values, and the third changes size valu
 
 ## Shape motion with curves
 
-Select a key in **Keys**, then expand **Vector curves**. Choose **Cubic** in
-**Outgoing vectors** to ease position and scale toward the next key. Zero slopes
+Select a key in **Keys**, then expand **Animation curves**. Choose Position or Scale
+in **Curve value**, then **Cubic** in **Outgoing interpolation** to ease toward the next key. Zero slopes
 slow the motion at each end. **Linear** keeps a constant change between values.
 Rotation still follows the shortest turn between orientations.
 
@@ -205,6 +205,18 @@ Select one or several keys, then choose **Flat tangents** for eased ends,
 tangents** for a shared slope that flattens peaks and valleys. Presets affect
 position and scale on the selected keys, leave Hold unchanged and use one Undo
 step. Applying Linear to both ends of a segment gives constant motion.
+
+For a camera, light, sound or particle property enabled in this clip, choose that
+property in **Curve value**. **Incoming slope** and **Outgoing slope** change how
+quickly its value changes at the key. Zero slopes give eased ends. FOV uses degrees
+per second in the editor. Presets affect only the chosen property; other properties
+and object motion keep their settings. Hold still overrides the outgoing curve.
+
+Try **FeatureGallery / Scenes / 61-animated-property-curves.scene.json**. The left
+particle jet eases its size and color; the right uses constant-rate changes between
+the same values. Open **Assets/AnimationTiming/SmoothParticleAppearance.animation.json**,
+select a key and choose Particle size multiplier to inspect or edit its curve.
+Apply, Save & Publish, and restart Play. Export includes the compiled clip.
 
 Entering numeric slopes leaves them pending. **Apply curve settings**, **Save &
 Publish**, another clip edit or changing key selection commits them. Undo first

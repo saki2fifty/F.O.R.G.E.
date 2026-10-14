@@ -418,61 +418,79 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
               AssetCatalog::open_project(root).records().at(document->source().asset()).metadata ==
                   saved_selection,
           "Extended private previews changed source or selected catalog metadata");
-    if (!gallery.empty()) {
-        Json source;
-        std::ifstream(gallery / "Scenes/60-animated-particle-appearance.scene.json") >> source;
-        EngineContext engine(WorldRole::Runtime, false,
-                             {animation_module(gallery), particle_module(gallery)});
-        Scene live(engine.world());
-        live.restore_snapshot(source);
-        RuntimeSimulation simulation(engine.world(), live);
-        auto animation = animation_runtime(engine.world());
-        auto particles = particle_runtime(engine.world());
-        const auto catalog =
-            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(gallery));
-        animation->catalog(catalog);
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
-        while (!animation->prepare_initial_pose() || !particles->prepare()) {
-            check(std::chrono::steady_clock::now() < deadline,
-                  "Native Gallery60 resources timed out");
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    if (!gallery.empty())
+        for (unsigned number : {60u, 61u}) {
+            const bool curves = number == 61;
+            const auto scene_path =
+                gallery / (curves ? "Scenes/61-animated-property-curves.scene.json"
+                                  : "Scenes/60-animated-particle-appearance.scene.json");
+            if (!std::filesystem::exists(scene_path))
+                continue;
+            Json source;
+            std::ifstream(scene_path) >> source;
+            EngineContext engine(WorldRole::Runtime, false,
+                                 {animation_module(gallery), particle_module(gallery)});
+            Scene live(engine.world());
+            live.restore_snapshot(source);
+            RuntimeSimulation simulation(engine.world(), live);
+            auto animation = animation_runtime(engine.world());
+            auto particles = particle_runtime(engine.world());
+            const auto catalog =
+                std::make_shared<const AssetCatalog>(AssetCatalog::open_project(gallery));
+            animation->catalog(catalog);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+            while (!animation->prepare_initial_pose() || !particles->prepare()) {
+                check(std::chrono::steady_clock::now() < deadline,
+                      "Native Gallery60 resources timed out");
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            simulation.reset_presentation();
+            auto gallery_host = std::make_shared<MeshResourceHost>(presentation, context, gallery);
+            gallery_host->catalog(catalog);
+            MeshSceneRenderer gallery_renderer(gallery_host);
+            active_host = gallery_host;
+            active_renderer = &gallery_renderer;
+            Target wide(device, 960, 540);
+            std::vector<std::array<std::uint8_t, 4>> first;
+            for (unsigned stage = 0; stage < 2; ++stage) {
+                simulation.tick(.25f);
+                if (!curves || stage)
+                    simulation.tick(.25f);
+                scene = extract_render_scene(simulation.presentation(1));
+                check(scene.diagnostics.empty() && scene.cameras.size() == 1 &&
+                          scene.particles.size() == 2,
+                      "Native animated particle gallery capture failed");
+                if (curves && stage == 0) {
+                    std::array sizes{scene.particles[0].emitter.size_multiplier,
+                                     scene.particles[1].emitter.size_multiplier};
+                    std::sort(sizes.begin(), sizes.end());
+                    check(std::abs(sizes[0] - .734375) < 1e-9 && std::abs(sizes[1] - .875) < 1e-9,
+                          "Native source4 scalar curve capture retained linear timing");
+                }
+                camera = scene.cameras.front().camera;
+                camera_world = scene.cameras.front().world;
+                scene.meshes.clear();
+                // Freeze geometry age to isolate the actual keyframed appearance.
+                for (auto& particle : scene.particles)
+                    particle.time = .75;
+                const auto pixels = draw(wide);
+                image(root / ("gallery" + std::to_string(number) + "-phase" +
+                              std::to_string(stage) + ".ppm"),
+                      960, 540, pixels);
+                check(gallery_renderer.bundle_count() == 1 &&
+                          gallery_renderer.draw_stats().instances > 0,
+                      "Native animation duplicated effect selections or lost instances");
+                if (stage == 0)
+                    first = pixels;
+                else
+                    check(visible(pixels) > visible(first) &&
+                              dominant(pixels, 1) > dominant(first, 1),
+                          "Keyframed size/color failed to change native particle pixels");
+            }
+            check(live.document().at("asset_id") == source.at("asset_id"),
+                  "Native observation changed scene identity");
+            context->WaitForIdle();
         }
-        simulation.reset_presentation();
-        auto gallery_host = std::make_shared<MeshResourceHost>(presentation, context, gallery);
-        gallery_host->catalog(catalog);
-        MeshSceneRenderer gallery_renderer(gallery_host);
-        active_host = gallery_host;
-        active_renderer = &gallery_renderer;
-        Target wide(device, 960, 540);
-        std::vector<std::array<std::uint8_t, 4>> first;
-        for (unsigned stage = 0; stage < 2; ++stage) {
-            simulation.tick(.25f);
-            simulation.tick(.25f);
-            scene = extract_render_scene(simulation.presentation(1));
-            check(scene.diagnostics.empty() && scene.cameras.size() == 1 &&
-                      scene.particles.size() == 2,
-                  "Native Gallery60 capture failed");
-            camera = scene.cameras.front().camera;
-            camera_world = scene.cameras.front().world;
-            scene.meshes.clear();
-            // Freeze geometry age to isolate the actual keyframed appearance.
-            for (auto& particle : scene.particles)
-                particle.time = .75;
-            const auto pixels = draw(wide);
-            image(root / ("gallery60-phase" + std::to_string(stage) + ".ppm"), 960, 540, pixels);
-            check(gallery_renderer.bundle_count() == 1 &&
-                      gallery_renderer.draw_stats().instances > 0,
-                  "Native animation duplicated effect selections or lost instances");
-            if (stage == 0)
-                first = pixels;
-            else
-                check(visible(pixels) > visible(first) && dominant(pixels, 1) > dominant(first, 1),
-                      "Keyframed size/color failed to change native particle pixels");
-        }
-        check(live.document().at("asset_id") == source.at("asset_id"),
-              "Native observation changed scene identity");
-        context->WaitForIdle();
-    }
     context->WaitForIdle();
     std::cout << "Shared MeshSceneRenderer particle Vulkan readback, color, instancing, "
                  "owner scope, visibility/layers, resize, selection guards, lifetime and emitter "

@@ -1,0 +1,244 @@
+{
+  "asset_id": "5c6fb823-2098-469a-8547-333f5d24392f",
+  "channels": [],
+  "duration_us": 2000000,
+  "format": "forge.transform-animation",
+  "keys": [
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "linear",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "property_curves": {
+          "forge.particle_emitter.size_multiplier": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_b": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_g": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_r": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          }
+        }
+      },
+      "id": "76fd4ef0-71ff-412a-9af6-50a77a44610e",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 0,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.particle_emitter.size_multiplier": 0.5,
+        "forge.particle_emitter.tint_b": 0.1,
+        "forge.particle_emitter.tint_g": 0.2,
+        "forge.particle_emitter.tint_r": 1.0
+      }
+    },
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "linear",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "property_curves": {
+          "forge.particle_emitter.size_multiplier": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_b": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_g": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_r": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          }
+        }
+      },
+      "id": "ed1253b3-64c6-4fa8-b2fd-2b51a43ebce1",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 1000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.particle_emitter.size_multiplier": 2.0,
+        "forge.particle_emitter.tint_b": 0.25,
+        "forge.particle_emitter.tint_g": 1.0,
+        "forge.particle_emitter.tint_r": 0.1
+      }
+    },
+    {
+      "curves": {
+        "incoming": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "interpolation": "linear",
+        "outgoing": {
+          "scale": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "translation": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "property_curves": {
+          "forge.particle_emitter.size_multiplier": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_b": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_g": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          },
+          "forge.particle_emitter.tint_r": {
+            "incoming": 0.0,
+            "interpolation": "cubic",
+            "outgoing": 0.0
+          }
+        }
+      },
+      "id": "40e5b81b-c405-479a-b781-35b171a80ae0",
+      "interpolation": "linear",
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "time_us": 2000000,
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "values": {
+        "forge.particle_emitter.size_multiplier": 0.5,
+        "forge.particle_emitter.tint_b": 0.1,
+        "forge.particle_emitter.tint_g": 0.2,
+        "forge.particle_emitter.tint_r": 1.0
+      }
+    }
+  ],
+  "properties": [
+    "forge.particle_emitter.size_multiplier",
+    "forge.particle_emitter.tint_r",
+    "forge.particle_emitter.tint_g",
+    "forge.particle_emitter.tint_b"
+  ],
+  "timebase": 1000000,
+  "version": 4
+}
