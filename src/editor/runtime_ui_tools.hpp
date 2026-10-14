@@ -29,7 +29,8 @@ class RuntimeUiTools {
                           ". Add UI Document to an object and select it.";
             }
             ImGui::InputText("Project UI file", source_, sizeof(source_));
-            ui::help("Project-relative RML, RCSS, TTF/OTF or TGA. Registration records admitted "
+            ui::help("Project-relative RML, RCSS, TTF/OTF or PNG/JPEG/TGA. Registration records "
+                     "admitted "
                      "source metadata; it does not replace live UI or its font cache.");
             if (ui::button("Register / Refresh",
                            "Admit this source and update its catalog metadata, preserving an "

@@ -1,27 +1,37 @@
 // Independent RmlUi/Diligent host: deliberately no ImGui/editor linkage.
+#include "Common/interface/RefCntAutoPtr.hpp"
+#include "fixtures/texture_jpeg.hpp"
+#include "fixtures/ui_png.hpp"
+#ifdef FORGE_UI_VULKAN_TEST
+#include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+#else
 // Diligent's native queue interface requires the Direct3D declarations first.
 #include <d3d12.h>
 
-#include "Common/interface/RefCntAutoPtr.hpp"
 #include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
+#include <dxgi1_4.h>
+#include <windows.h>
+#include <wrl/client.h>
+#endif
 #include <RmlUi/Core.h>
 #include <cstring>
-#include <dxgi1_4.h>
 #include <forge/ui_diligent.hpp>
 #include <forge/ui_presenter.hpp>
 #include <fstream>
 #include <iostream>
-#include <windows.h>
-#include <wrl/client.h>
 using namespace Diligent;
+#ifndef FORGE_UI_VULKAN_TEST
 using Microsoft::WRL::ComPtr;
+#endif
 namespace {
 void require(bool value, const char* text) {
     if (!value)
         throw std::runtime_error(text);
 }
+#ifndef FORGE_UI_VULKAN_TEST
 void check(HRESULT result, const char* text) { require(SUCCEEDED(result), text); }
+#endif
 using Pixels = std::vector<std::array<unsigned char, 4>>;
 Pixels readback(IRenderDevice* device, IDeviceContext* context, ITextureView* view) {
     auto* texture = view->GetTexture();
@@ -63,9 +73,18 @@ void save(const Pixels& pixels, unsigned width, unsigned height,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 3, "Need image output and font");
+        require(argc == 3 || argc == 4, "Need image output, font and optional Gallery");
         const std::filesystem::path images(argv[1]);
         std::filesystem::create_directories(images);
+#ifdef FORGE_UI_VULKAN_TEST
+        auto* factory = GetEngineFactoryVk();
+        require(factory != nullptr, "Native Vulkan factory unavailable");
+        EngineVkCreateInfo engine;
+        RefCntAutoPtr<IRenderDevice> device;
+        RefCntAutoPtr<IDeviceContext> context;
+        factory->CreateDeviceAndContextsVk(engine, &device, &context);
+        require(device && context, "Native Vulkan UI device unavailable");
+#else
         ComPtr<IDXGIFactory4> dxgi;
         check(CreateDXGIFactory1(IID_PPV_ARGS(&dxgi)), "DXGI factory failed");
         ComPtr<IDXGIAdapter> warp;
@@ -88,6 +107,7 @@ int main(int argc, char** argv) {
         RefCntAutoPtr<IDeviceContext> context;
         factory->AttachToD3D12Device(native.Get(), 1, queues, engine, &device, &context);
         require(device && context, "Diligent device attachment failed");
+#endif
 
         forge::UiDiligentRenderer renderer(device);
         auto& r = renderer.render_interface();
@@ -187,6 +207,128 @@ int main(int argc, char** argv) {
         r.ReleaseGeometry(mask);
         r.ReleaseGeometry(white);
         r.ReleaseTexture(tex);
+        // Real codec -> RmlUi file admission -> Diligent upload -> pixel readback.
+        const auto bitmap_project = images / ("bitmaps-" + forge::AssetId::generate().str());
+        std::filesystem::create_directories(bitmap_project);
+        const std::array<unsigned char, 16> rgba{255, 0,   0, 128, 255, 255, 255, 0,
+                                                 0,   255, 0, 255, 0,   0,   255, 255};
+        std::vector<unsigned char> bitmap(64 * 64 * 4);
+        for (unsigned y = 0; y < 64; ++y)
+            for (unsigned x = 0; x < 64; ++x)
+                std::copy_n(rgba.data() + ((y / 32) * 2 + x / 32) * 4, 4,
+                            bitmap.data() + (y * 64 + x) * 4);
+        const auto png = forge::test::encode_ui_png(bitmap.data(), 64, 64);
+        auto write = [&](const std::filesystem::path& path, std::span<const std::byte> bytes) {
+            std::ofstream f(bitmap_project / path, std::ios::binary);
+            f.write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+            require(bool(f), "Native bitmap fixture write failed");
+        };
+        write("alpha.png", png);
+        write("photo.jpg", {reinterpret_cast<const std::byte*>(texture_jpeg_fixture.data()),
+                            texture_jpeg_fixture.size()});
+        std::ofstream(bitmap_project / "images.rml") << R"(<rml><head><style>
+body {display:block;width:100%;height:100%;margin:0;padding:0;font-family:Lato;}
+img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg {left:96px;}
+</style></head><body><img id="png" src="alpha.png"/><img id="jpg" src="photo.jpg"/></body></rml>)";
+        const auto bitmap_asset = forge::register_ui_document(bitmap_project, "images.rml");
+        std::ifstream bitmap_font_file(argv[2], std::ios::binary);
+        const std::string bitmap_font_string{std::istreambuf_iterator<char>(bitmap_font_file), {}};
+        std::vector<std::byte> bitmap_font(bitmap_font_string.size());
+        std::memcpy(bitmap_font.data(), bitmap_font_string.data(), bitmap_font.size());
+        {
+            forge::UiPresenter presenter(r, bitmap_project, bitmap_font);
+            presenter.reset("bitmaps", 1);
+            const auto id = forge::EntityId::generate();
+            const nlohmann::json state{
+                {"version", 1},
+                {"session", "bitmaps"},
+                {"generation", 1u},
+                {"revision", 1u},
+                {"documents", nlohmann::json::array({{{"entity", id},
+                                                      {"asset", bitmap_asset.id},
+                                                      {"instance", id.str() + ":1"},
+                                                      {"visible", true},
+                                                      {"layer", 0u},
+                                                      {"model", {{"tick", 0u}, {"paused", true}}},
+                                                      {"commands", {"Pause"}}}})}};
+            require(presenter.accept(state), presenter.diagnostic().c_str());
+            double now = 0;
+            auto draw = [&] {
+                start();
+                presenter.update(++now, 320, 160);
+                presenter.render();
+                renderer.end();
+                return readback(device, context, rtv);
+            };
+            const auto first = draw();
+            save(first, 320, 160, images / "ui-png-jpeg.ppm");
+            const auto red_pixel = first[24 * 320 + 24];
+            require(red_pixel[0] >= 126 && red_pixel[0] <= 130 && red_pixel[1] < 3 &&
+                        red_pixel[2] >= 125 && red_pixel[2] <= 130,
+                    "PNG upload/premultiplied alpha or gamma changed");
+            require(first[24 * 320 + 72][0] < 3 && first[24 * 320 + 72][2] > 250 &&
+                        first[72 * 320 + 24][1] > 250,
+                    "PNG transparent/top-down pixel layout changed");
+            require(first[24 * 320 + 111][0] < 5 && first[24 * 320 + 111][2] < 5 &&
+                        first[24 * 320 + 143][0] > 250 && first[24 * 320 + 143][2] > 250,
+                    "JPEG actual upload/pixel layout failed");
+            const auto admitted = presenter.asset_snapshot()->sources;
+            auto corrupt = png;
+            corrupt[corrupt.size() - 5] ^= std::byte{1};
+            write("alpha.png", corrupt);
+            require(!presenter.reload() && presenter.asset_snapshot()->sources == admitted,
+                    "Invalid PNG replaced good native context/observation");
+            require(draw() == first, "Failed bitmap reload replaced live textures/pixels");
+            write("alpha.png", png);
+            require(presenter.reload(), "Valid bitmap reload failed");
+            require(draw() == first, "Valid bitmap reload changed pixel output");
+        }
+        if (argc == 4) {
+            const auto gallery = std::filesystem::absolute(argv[3]);
+            const auto catalog = forge::AssetCatalog::open_project(gallery);
+            forge::AssetId hud;
+            for (const auto& [id, record] : catalog.records())
+                if (record.source == "Assets/UI/BitmapFormats/hud.rml")
+                    hud = id;
+            const auto entity = forge::EntityId::generate();
+            forge::UiPresenter presenter(r, gallery, bitmap_font);
+            presenter.reset("gallery59", 1);
+            const nlohmann::json state{
+                {"version", 1},
+                {"session", "gallery59"},
+                {"generation", 1u},
+                {"revision", 1u},
+                {"documents",
+                 nlohmann::json::array({{{"entity", entity},
+                                         {"asset", hud},
+                                         {"instance", entity.str()},
+                                         {"visible", true},
+                                         {"layer", 0u},
+                                         {"model", {{"tick", 120u}, {"paused", false}}},
+                                         {"commands", {"Pause", "Resume", "Step"}}}})}};
+            require(presenter.accept(state), presenter.diagnostic().c_str());
+            double now = 0;
+            for (const auto size : {std::pair{420u, 640u}, std::pair{1200u, 900u}}) {
+                desc.Width = size.first;
+                desc.Height = size.second;
+                target.Release();
+                device->CreateTexture(desc, nullptr, &target);
+                require(bool(target), "Gallery59 target allocation failed");
+                rtv = target->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+                presenter.update(++now, size.first, size.second);
+                ITextureView* views[]{rtv};
+                context->SetRenderTargets(1, views, nullptr,
+                                          RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                const float clear[]{.03f, .05f, .08f, 1};
+                context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+                renderer.begin(context, rtv, size.first, size.second);
+                presenter.render();
+                renderer.end();
+                require(presenter.diagnostic().empty(), presenter.diagnostic().c_str());
+                save(readback(device, context, rtv), size.first, size.second,
+                     images / ("ui-gallery59-" + std::to_string(size.first) + ".ppm"));
+            }
+        }
         auto project = images / "project";
         std::filesystem::create_directories(project);
         auto asset = forge::create_ui_example(project);
@@ -237,7 +379,7 @@ int main(int argc, char** argv) {
             }
         }
         context->WaitForIdle();
-        std::cout << "Runtime UI D3D12 WARP geometry, clipping, transform, texture, blend, font "
+        std::cout << "Runtime UI native geometry, clipping, transform, texture, blend, font "
                      "and resize passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

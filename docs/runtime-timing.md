@@ -6,7 +6,17 @@ The headless runtime owns a `std::chrono::steady_clock` driver. The editor contr
 
 `RuntimeClock` accumulates monotonic elapsed time. Each completed tick calls `RuntimeSimulation`, which runs an explicit Flecs pipeline selecting `FixedSimulation` systems and ordering their Phase/DependsOn relationships. Current stages are **Input → Gameplay → Animation → PostAnimation → Navigation → PrePhysics → Physics → PhysicsAdoption → PostPhysics → Transforms**. Animation applies explicit model-node channels; physics synchronizes, simulates and adopts before final world evaluation. RuntimeInput latches an immutable snapshot immediately before this pipeline. These immediate systems operate on the owning world; no Flecs worker threads are enabled. Effective local-pose capture follows completion. Presentation is an explicitly separate extraction stage on snapshot requests, not another gameplay tick. Flecs `progress(fixed_dt)` updates its frame/time metadata using the same explicit delta passed to the native callback.
 
-The pipeline selects tagged simulation systems. Exact-SDK C++ modules receive the current fixed tag and phase IDs and register directly in the shared Flecs world; opt-in authoring remains separately admitted. The retired movement-only ABI is not the current gameplay contract. General timer/rate-filter execution is not included in this explicit fixed pipeline. Presentation never runs simulation systems. Fixed timestep guarantees a stable interval and ordered execution, not cross-platform or lockstep determinism.
+The pipeline selects tagged simulation systems. Exact-SDK C++ modules receive the
+current fixed tag and phase IDs and register directly in the shared Flecs world;
+opt-in authoring remains separately admitted. The existing integration also admits
+the pinned Flecs timer, rate-filter and tick-source progression systems before Input.
+Intervals/timeouts/rate filters follow completed fixed ticks, so simulation speed,
+Pause and Step affect them through the same clock. Physics keeps its fixed delta;
+a timed system's own accrued delta follows the native Flecs contract. See
+[Flecs scheduling](flecs-integration.md). The retired movement-only ABI is not the
+current gameplay contract. Presentation never runs simulation systems. Fixed
+timestep guarantees a stable interval and ordered execution, not cross-platform
+or lockstep determinism.
 
 ## Clock policy
 

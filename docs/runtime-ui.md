@@ -14,7 +14,7 @@ The standalone `forge_game` executable composes gameplay, Diligent and the same 
 
 `UiDocument` contains a typed `AssetRef<UiDocumentAsset>`, `enabled`, `visible`, and `layer` (0–255). One entity displays one document. Only these fields are authored. The builtin participates in reflected editing, structured prefab inheritance, explicit equal-value property overrides, Revert, scene Undo/Redo and save/reopen. No DOM, focus, GPU handle, hover, copied model or text layout is serialized.
 
-The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, TGA and font files remain contained source resources. Phase7 optionally registers them as logical Content assets for identity, inspection and dependency/referrer workflows; the presenter continues to use admitted file copies. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. No generic importer, cooker, HTTP loader or Apply to Prefab is added.
+The catalog records a schema-1 `ui_document` asset with an AssetId and project-relative `.rml` locator. Renaming a catalog locator preserves references. Supporting RCSS, PNG/JPEG/TGA and font files remain contained source resources. Phase7 optionally registers them as logical Content assets for identity, inspection and dependency/referrer workflows; the presenter continues to use admitted file copies. Registration and the generated HUD example are UI-independent operations in `forge_ui_assets`. These asset writes are outside scene Undo. No generic importer, cooker, HTTP loader or Apply to Prefab is added.
 
 ## Private copied-value protocol
 
@@ -40,7 +40,7 @@ Viewport coordinates map to render-target pixels. RmlUi dimensions match that ta
 
 ProjectPaths mediates every resource read. Styles/images are document-relative. RmlUi 6.3 passes `@font-face src` directly to FileInterface without JoinPath; FORGE scopes those font paths to the project root during candidate admission. Absolute paths, escape paths, remote URLs, query/fragment locators and arbitrary resource extensions reject. Engine Lato bytes come from the packaged resource root, independent of the current working directory.
 
-Bounds include: 256 KiB per RML/RCSS, 32 resources / 32 MiB per candidate context, 32 levels / 8192 RML tags, bounded RCSS expressions, finite bounded numeric styles, fonts up to 4 MiB with an admitted SFNT table directory, and uncompressed 24/32-bit TGA up to 2048×2048. Generated GPU textures share a 64 MiB/512-object budget; geometry shares 64 MiB/8192 objects. Font variants cap at 32 / 16 MiB per presenter lifetime. Font parsing uses pinned FreeType; directory validation does not claim to prove every internal font table safe.
+Bounds include: 256 KiB per RML/RCSS, 32 resources / 32 MiB per candidate context, 32 levels / 8192 RML tags, bounded RCSS expressions, finite bounded numeric styles, fonts up to 4 MiB with an admitted SFNT table directory, and PNG/JPEG/uncompressed 24/32-bit TGA up to 2048×2048. Image sources cap at 16 MiB + 274 bytes; native decoded pixels cap at 16 MiB, including 16-bit PNG samples. Generated GPU textures share a 64 MiB/512-object budget; geometry shares 64 MiB/8192 objects. Font variants cap at 32 / 16 MiB per presenter lifetime. Font parsing uses pinned FreeType; directory validation does not claim to prove every internal font table safe.
 
 Reload UI creates a fresh context/resource snapshot, binds copied values, loads documents, updates layout and prepares initial geometry/textures through a non-drawing render gate. Only a successful candidate replaces the previous context. Failure retains the prior usable presentation and reports an error. RmlUi deferred document destruction is completed by destroying the candidate/old context while its callbacks and resources are still alive. Global styles are cleared for each candidate; old documents retain their own live references. Font family caches are global to the presenter: change the family or restart Play when replacing a font with the same family.
 
@@ -65,11 +65,39 @@ RmlUi colors/generated textures are already premultiplied. TGA source pixels are
 
 Context/geometry/textures retire before the render adapter and Diligent device. All presenter calls run on one owning thread, with one active presenter per process. No callback/job can outlive it.
 
+## Bitmap normalization
+
+The existing FORGE bounded C codec boundaries are shared by texture import and
+Runtime UI through `forge_image_codecs`. Selected libpng/stb/zlib revisions stay
+unchanged. Minimal headless builds populate those selected sources and build only
+the software codecs; they do not require a graphics device. Runtime and Native SDK
+installation retain their codec notices.
+
+PNG expands palette/grayscale/transparency to native channels. 8-bit samples are
+retained; host-endian 16-bit samples round to display bytes with `(value+128)/257`.
+Grayscale replicates into RGB; absent alpha is opaque. JPEG uses the existing
+bounded grayscale/RGB decoder; CMYK and embedded orientation/profile transforms
+are outside this subset. PNG gamma/profile chunks also do not alter sample values.
+The adapter treats stored RGB as display-encoded values and premultiplies once for
+native RGBA8_UNORM upload. This preserves the previous TGA convention; the separate
+3D Texture cook can retain its own color-space/semantic/mip policy.
+
+Resource extension and signature must agree. Full decode, byte/extent/layout
+admission precede copied-byte publication; invalid reloads retain the prior native
+context, textures and source observation. Snapshots use header metadata from those
+already admitted immutable bytes instead of decoding pixels again. Rendering reuses
+native texture handles; there is no per-frame file read or bitmap decode.
+
+An imported Texture used by UI keeps its existing AssetId, cooked selection and
+opaque authoring extensions. Export ships both its required cooked selection and
+its admitted raw UI source through the existing content access/closure owner.
+Relocating the game does not require the original project directory.
+
 ## Supported subset and deferred features
 
-Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
+Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
-Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, PNG/JPEG, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Offscreen layers, filters, masks, shader decorators/gradients and shadows are unsupported and diagnosed; they are not silently advertised as working. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
+Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Offscreen layers, filters, masks, shader decorators/gradients and shadows are unsupported and diagnosed; they are not silently advertised as working. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.
 
 ## Upstream evidence
 
@@ -103,7 +131,7 @@ The normal local single-writer/non-adversarial-filesystem contract still applies
 this is not a filesystem-wide lock or cross-document transaction.
 
 Logical types are ui_document, ui_stylesheet, ui_font and the existing Texture
-type for TGA images. A TGA can subsequently use the ordinary Texture importer;
+type for PNG/JPEG/TGA images. An image can also use the ordinary Texture importer;
 a previously imported Texture retains its identity and cooked selection. Metadata is under `forge.ui_source`; source edges use ui.source and
 ui.observed. Documents have typed Runtime edges to supporting resources from their
 successfully loaded set. Multiple roots conservatively reference all non-document

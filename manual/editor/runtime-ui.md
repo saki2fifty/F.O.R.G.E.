@@ -71,11 +71,26 @@ Scrollable documents must also style native `scrollbarvertical` with an explicit
 width; otherwise its auto-sized box can consume the menu content width. The
 reference stylesheet includes a visible track and draggable thumb.
 
+## Try the image gallery
+
+Open **Scenes/59-ui-png-jpeg.scene.json** in **Examples/FeatureGallery** and press
+Play. The HUD shows a transparent PNG health icon and an original JPEG landscape.
+Pause, Resume and Step remain usable in small windows. Export the scene through
+the normal Export Game workflow; the required images ship with it.
+
+For your own HUD, place images beside the RML document and use, for example,
+`<img src="health.png" />`. Register/refresh the document through Content. A UI
+image uses the same Texture asset identity as an image imported for a 3D material.
+UI displays its source pixels; a material uses its cooked texture settings. Reload
+UI applies valid image changes. A bad image keeps the last working HUD and reports
+a problem. FORGE does not apply camera orientation tags or image color profiles;
+export artwork in the orientation and display colors you want.
+
 ## Styles, fonts and images
 
 Use document-relative local resource paths. The supplied **Lato** font is packaged with FORGE, so it does not depend on installed system fonts. You may load project `.ttf`/`.otf` fonts using an RCSS `@font-face` declaration, with suitable redistribution rights. Use explicit `font-family` and `font-size`; font shorthand is not supported in this integration. When replacing a font using the same family name, restart Play to clear its font cache.
 
-Images currently use uncompressed true-color **TGA**, 24 or 32 bits, at most 2048×2048. PNG, JPEG, SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Filters, shader gradients, offscreen effects and shadows are also deferred.
+Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Filters, shader gradients, offscreen effects and shadows are also deferred.
 
 `px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Physical mixed-monitor DPI and IME behavior can vary and still need desktop testing.
 

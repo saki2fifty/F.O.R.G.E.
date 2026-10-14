@@ -1,5 +1,15 @@
 # FORGE Feature Gallery
 
+## PNG and JPEG game UI
+
+Open **Scenes/59-ui-png-jpeg.scene.json** and press Play. A transparent PNG health
+icon blends over the panel; the JPEG landscape is original procedural artwork.
+Capture gameplay input to use Pause, Resume and Step. Resize the Game viewport;
+the panel stays inside it and scrolls when needed. Images live together under
+**Assets/UI/BitmapFormats**. Export ships the required UI files and needs no C++
+compiler. Use Reload UI after changing an image; invalid images keep the last
+working HUD.
+
 ## Simulation speed
 
 Open **Scenes/58-simulation-speed.scene.json** and press Play. A bouncing object,

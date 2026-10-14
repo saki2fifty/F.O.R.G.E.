@@ -909,6 +909,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "11fcf007-1816-43a4-b467-cb996d546e16",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/59-ui-png-jpeg.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "129897d6-caec-4c9e-84b2-4586b9f5afb8",
       "metadata": {
         "forge.import": {
@@ -2915,6 +2925,30 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "47ee8b5e-3172-4caf-b1e7-bfdddf364aca",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 2653,
+          "digest": "9a469631cc59c01a8ae44599ac79f53f2ed9780fa79fd4d87d4268fcaa25f0bb",
+          "format": "png",
+          "height": 128,
+          "width": 128
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/BitmapFormats/health.png",
+      "source_dependencies": [
+        {
+          "revision": "9a469631cc59c01a8ae44599ac79f53f2ed9780fa79fd4d87d4268fcaa25f0bb",
+          "role": "ui.source",
+          "source": "Assets/UI/BitmapFormats/health.png"
+        }
+      ],
+      "type": "texture"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "492d8aa7-cdf0-467d-89cc-b1eb3729d79c",
       "metadata": {
         "forge.import": {
@@ -3698,6 +3732,30 @@
       "source": "Assets/OutwardRoom.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "62dc825c-4b9d-4041-96f0-b2a9b2a6d3de",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 10028,
+          "digest": "4b079db7b0102ebac9c40bad19919200b04393c8841e8c7d195737148b1839ac",
+          "format": "jpg",
+          "height": 256,
+          "width": 512
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/BitmapFormats/landscape.jpg",
+      "source_dependencies": [
+        {
+          "revision": "4b079db7b0102ebac9c40bad19919200b04393c8841e8c7d195737148b1839ac",
+          "role": "ui.source",
+          "source": "Assets/UI/BitmapFormats/landscape.jpg"
+        }
+      ],
+      "type": "texture"
     },
     {
       "dependencies": [],
@@ -7739,6 +7797,28 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "dc6712eb-3cee-46c1-93c2-bfb52bcc45c2",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1387,
+          "digest": "6c8e5d30ae0df1f210129394bbcbcc61366a1a51bf72c6c47f5095a5c0ec8cae",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/BitmapFormats/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "6c8e5d30ae0df1f210129394bbcbcc61366a1a51bf72c6c47f5095a5c0ec8cae",
+          "role": "ui.source",
+          "source": "Assets/UI/BitmapFormats/hud.rml"
+        }
+      ],
+      "type": "ui_document"
     },
     {
       "dependencies": [],

@@ -1,11 +1,16 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
+#include "fixtures/texture_jpeg.hpp"
+#include "fixtures/ui_png.hpp"
 #include "runtime_dependencies.hpp"
 #include "runtime_package.hpp"
+#include "texture_bundle_validation.hpp"
 #include "ui_asset_catalog.hpp"
 #include "ui_inspection.hpp"
 #include "ui_test_renderer.hpp"
+#include <forge/asset_build.hpp>
 #include <forge/scene.hpp>
+#include <forge/texture_bundle.hpp>
 #include <forge/ui_presenter.hpp>
 #include <iostream>
 #include <source_location>
@@ -83,6 +88,14 @@ int main(int argc, char** argv) {
         asset_storage::replace(project / "literal.tga", tga);
         asset_storage::replace(project / "hidden.tga", tga);
         asset_storage::replace(project / "never.tga", tga);
+        const std::array<unsigned char, 16> rgba{255, 0, 0,   128, 0,   255, 0,   255,
+                                                 0,   0, 255, 255, 255, 255, 255, 0};
+        const auto png = test::encode_ui_png(rgba.data(), 2, 2);
+        asset_storage::replace(project / "literal.png",
+                               {reinterpret_cast<const char*>(png.data()), png.size()});
+        asset_storage::replace(project / "hidden.jpg",
+                               {reinterpret_cast<const char*>(texture_jpeg_fixture.data()),
+                                texture_jpeg_fixture.size()});
         asset_storage::replace(
             project / "hud.rcss",
             "body {font-family:Lato;} button {width:180px;height:40px;} #hidden {display:none;}");
@@ -97,16 +110,61 @@ int main(int argc, char** argv) {
                    std::string(pseudo) +
                    " {decorator:image(later.tga);}</style></head><body><button id=\"button\">Hello "
                    "{{runtime_value}}</button>"
-                   "<img src=\"literal.tga\"/><div id=\"hidden\"><img "
-                   "src=\"hidden.tga\"/></div></body></rml>";
+                   "<img src=\"literal.png\"/><div id=\"hidden\"><img "
+                   "src=\"hidden.jpg\"/></div></body></rml>";
         };
         asset_storage::replace(project / "hud.rml", markup("hover"));
         AssetId document, later, never;
+        AssetId literal;
         {
             ProjectLease writer(project);
             document = register_ui_source(writer, "hud.rml").id;
             later = register_ui_source(writer, "later.tga").id;
             never = register_ui_source(writer, "never.tga").id;
+            auto image = register_ui_source(writer, "literal.png");
+            literal = image.id;
+            // One Texture can be both a cooked 3D selection and a raw UI source.
+            TextureData data;
+            data.width = data.height = 2;
+            data.format = TextureFormat::RGBA8Srgb;
+            data.semantic = TextureSemantic::Color;
+            data.subresources = {{reinterpret_cast<const std::byte*>(rgba.data()),
+                                  reinterpret_cast<const std::byte*>(rgba.data() + rgba.size())}};
+            const auto cooked = encode_texture(data);
+            TextureBundleIndex selection;
+            selection.variants = {{TextureSemantic::Color,
+                                   texture_variant_file(TextureSemantic::Color),
+                                   asset_detail::content_digest(cooked), cooked.size()}};
+            AssetBuildInput input;
+            input.source_digest = asset_detail::content_digest(png);
+            input.importer = "forge.texture.image";
+            input.importer_revision = std::string(64, 'b');
+            input.output_format = "forge.texture-bundle";
+            input.platform = "linux";
+            input.backend = "none";
+            input.profile = "cpu";
+            const auto artifact = DerivedDataCache(project).publish(
+                input,
+                {{"texture.json", encode_texture_bundle_index(selection)},
+                 {selection.variants[0].file, cooked}},
+                [](const auto& a) { (void)asset_detail::validate_texture_bundle(a.files); });
+            image.metadata["forge.import"] = {
+                {"version", 1},
+                {"generation", 1u},
+                {"key", artifact.key},
+                {"source_digest", input.source_digest},
+                {"importer", input.importer},
+                {"importer_revision", input.importer_revision},
+                {"output_format", input.output_format},
+                {"output_version", 1},
+                {"platform", input.platform},
+                {"backend", input.backend},
+                {"profile", input.profile},
+                {"artifact_digest", asset_build_digest(artifact.manifest.at("files"))}};
+            image.metadata["owned.test-extension"] = {{"preserve", true}};
+            auto catalog = AssetCatalog::open_project(project);
+            catalog.replace(image);
+            catalog.save(project / "forge.assets.json");
         }
         RuntimeUiInspector inspect = [&](AssetId id, std::stop_token stop) {
             return inspect_ui_dependencies(worker, font_path, project, id, stop);
@@ -141,8 +199,8 @@ int main(int argc, char** argv) {
                   "Native worker and in-process static admission disagree");
         }
         check(snapshot.automatic_sources.contains("hud.rcss") &&
-                  snapshot.automatic_sources.contains("literal.tga") &&
-                  snapshot.automatic_sources.contains("hidden.tga") &&
+                  snapshot.automatic_sources.contains("literal.png") &&
+                  snapshot.automatic_sources.contains("hidden.jpg") &&
                   !snapshot.automatic_sources.contains("later.tga"),
               "Native automatic subset incorrect");
         // Preview observation is deliberately not a declaration, including old Runtime edges.
@@ -165,6 +223,18 @@ int main(int argc, char** argv) {
               "Export mutated source catalog");
         check(!open_runtime_content(scratch / "undeclared", target).records().contains(later),
               "Observed image silently promoted into package");
+        const auto packaged = open_runtime_content(scratch / "undeclared", target);
+        const auto& packaged_image = packaged.records().at(literal);
+        check(packaged_image.metadata.contains("forge.import") &&
+                  packaged_image.metadata.contains("forge.runtime_ui") &&
+                  std::filesystem::exists(scratch / "undeclared" / packaged_image.source) &&
+                  std::filesystem::exists(scratch / "undeclared" /
+                                          packaged_image.metadata.at("forge.runtime_ui")
+                                              .at("source")
+                                              .get<std::string>()) &&
+                  AssetCatalog::open_project(project).records().at(literal).metadata.contains(
+                      "owned.test-extension"),
+              "Cooked/raw PNG coexistence lost a selection, runtime source or original identity");
         std::filesystem::rename(project, scratch / "offline");
         {
             UiTestRenderer renderer;

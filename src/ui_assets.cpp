@@ -1,15 +1,23 @@
 #include "asset_bytes.hpp"
+#include "texture_decode.h"
 #include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <forge/assets.hpp>
 #include <forge/scene.hpp>
 #include <forge/ui_assets.hpp>
 #include <fstream>
 #include <limits>
+#include <utility>
 namespace forge {
 namespace {
+bool image_extension(std::string_view extension) {
+    return extension == ".tga" || extension == ".png" || extension == ".jpg" ||
+           extension == ".jpeg";
+}
 void require(bool b, const char* msg) {
     if (!b)
         throw std::runtime_error(msg);
@@ -234,6 +242,49 @@ void validate_ui_font(std::span<const std::byte> b) {
     }
 }
 UiImage decode_ui_image(std::span<const std::byte> b) {
+    require(b.size() <= 16 * 1024 * 1024 + 274, "UI image source exceeds byte budget");
+    const bool png = b.size() >= 4 && b[0] == std::byte{0x89} && b[1] == std::byte{'P'} &&
+                     b[2] == std::byte{'N'} && b[3] == std::byte{'G'};
+    const bool jpeg = b.size() >= 2 && b[0] == std::byte{0xff} && b[1] == std::byte{0xd8};
+    if (png || jpeg) {
+        // The existing C boundary contains codec errors/longjmp and owns its allocation.
+        ForgeImagePixels pixels{};
+        struct Release {
+            ForgeImagePixels& pixels;
+            ~Release() { forge_image_pixels_free(&pixels); }
+        } release{pixels};
+        constexpr std::size_t limit = 2048ull * 2048 * 4;
+        const auto decode = png ? forge_png_decode : forge_jpeg_decode;
+        require(decode(b.data(), b.size(), 2048, limit, 0, &pixels) != 0, pixels.error);
+        require(pixels.width && pixels.height && pixels.width <= 2048 && pixels.height <= 2048 &&
+                    pixels.channels >= 1 && pixels.channels <= 4 &&
+                    (pixels.component_bytes == 1 || pixels.component_bytes == 2) && pixels.pixels &&
+                    pixels.stride ==
+                        std::size_t(pixels.width) * pixels.channels * pixels.component_bytes &&
+                    pixels.size == pixels.stride * pixels.height,
+                "Unsupported UI image pixel layout");
+        UiImage image{pixels.width, pixels.height,
+                      std::vector<std::byte>(std::size_t(pixels.width) * pixels.height * 4)};
+        auto sample = [&](std::size_t at) -> unsigned {
+            if (pixels.component_bytes == 1)
+                return pixels.pixels[at];
+            std::uint16_t value;
+            std::memcpy(&value, pixels.pixels + at * 2, sizeof(value));
+            return (unsigned(value) + 128) / 257; // Host-endian PNG16 to display byte.
+        };
+        for (std::size_t i = 0; i < std::size_t(pixels.width) * pixels.height; ++i) {
+            const auto src = i * pixels.channels;
+            const unsigned alpha = pixels.channels == 2   ? sample(src + 1)
+                                   : pixels.channels == 4 ? sample(src + 3)
+                                                          : 255;
+            for (unsigned channel = 0; channel != 3; ++channel) {
+                const auto value = sample(src + (pixels.channels < 3 ? 0 : channel));
+                image.rgba[i * 4 + channel] = std::byte((value * alpha + 127) / 255);
+            }
+            image.rgba[i * 4 + 3] = std::byte(alpha);
+        }
+        return image;
+    }
     require(b.size() >= 18, "Truncated UI TGA image");
     require(b[1] == std::byte{0} && b[2] == std::byte{2},
             "UI images require uncompressed truecolor TGA");
@@ -256,6 +307,22 @@ UiImage decode_ui_image(std::span<const std::byte> b) {
         }
     return out;
 }
+namespace {
+std::pair<unsigned, unsigned> image_dimensions(std::span<const std::byte> bytes) {
+    // These immutable bytes already passed full pixel admission in read().
+    // Snapshotting needs metadata only; avoid decoding the bitmap a third time.
+    const bool png = bytes.size() >= 8 && std::memcmp(bytes.data(), "\x89PNG\r\n\x1a\n", 8) == 0;
+    const bool jpeg =
+        bytes.size() >= 2 && bytes[0] == std::byte{0xff} && bytes[1] == std::byte{0xd8};
+    if (!png && !jpeg)
+        return {le(bytes, 12), le(bytes, 14)};
+    ForgeImagePixels pixels{};
+    const auto decode = png ? forge_png_decode : forge_jpeg_decode;
+    require(decode(bytes.data(), bytes.size(), 2048, 2048ull * 2048 * 4, 1, &pixels) != 0,
+            pixels.error);
+    return {pixels.width, pixels.height};
+}
+} // namespace
 std::string UiResources::join(const std::string& base, const std::string& resource) const {
     require(!resource.empty() && resource.size() <= 1024 &&
                 resource.find_first_of(":\\?#") == std::string::npos,
@@ -273,16 +340,23 @@ const std::vector<std::byte>& UiResources::read(const std::string& name) {
     require(files_.size() < 32, "UI dependency count exceeds 32");
     const auto ext = lower(locator.extension().string());
     const bool text = ext == ".rml" || ext == ".rcss";
-    require(text || ext == ".ttf" || ext == ".otf" || ext == ".tga",
+    require(text || ext == ".ttf" || ext == ".otf" || image_extension(ext),
             "Unsupported UI resource type");
     auto data = access_.read(locator, text ? 256 * 1024 : 16 * 1024 * 1024 + 274);
     require(bytes_ + data.size() <= 32 * 1024 * 1024, "UI resource bytes exceed 32 MiB");
     if (text)
         validate_ui_text(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()),
                          ext == ".rml");
-    else if (ext == ".tga")
+    else if (image_extension(ext)) {
+        const bool png = data.size() >= 8 && std::memcmp(data.data(), "\x89PNG\r\n\x1a\n", 8) == 0;
+        const bool jpeg =
+            data.size() >= 2 && data[0] == std::byte{0xff} && data[1] == std::byte{0xd8};
+        require(ext == ".png"                     ? png
+                : ext == ".jpg" || ext == ".jpeg" ? jpeg
+                                                  : !png && !jpeg,
+                "UI image signature does not match its source extension");
         (void)decode_ui_image(data);
-    else
+    } else
         validate_ui_font(data);
     bytes_ += data.size();
     return files_.emplace(key, std::move(data)).first->second;
@@ -302,19 +376,19 @@ UiAssetSnapshot UiResources::snapshot() const {
     for (const auto& [name, bytes] : files_) {
         const auto source = std::filesystem::u8path(name);
         const auto extension = lower(source.extension().string());
-        const std::string type = extension == ".rml"    ? "ui_document"
-                                 : extension == ".rcss" ? "ui_stylesheet"
-                                 : extension == ".tga"  ? "texture"
-                                                        : "ui_font";
+        const std::string type = extension == ".rml"          ? "ui_document"
+                                 : extension == ".rcss"       ? "ui_stylesheet"
+                                 : image_extension(extension) ? "texture"
+                                                              : "ui_font";
         UiSourceInfo info{source,
                           type,
                           asset_detail::content_digest(bytes),
                           bytes.size(),
                           {{"format", extension.substr(1)}}};
-        if (extension == ".tga") {
-            const auto image = decode_ui_image(bytes);
-            info.details["width"] = image.width;
-            info.details["height"] = image.height;
+        if (image_extension(extension)) {
+            const auto [width, height] = image_dimensions(bytes);
+            info.details["width"] = width;
+            info.details["height"] = height;
         }
         result.sources.push_back(std::move(info));
     }

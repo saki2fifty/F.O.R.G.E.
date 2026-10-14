@@ -378,3 +378,13 @@ The private archive links into the existing host runtime; the installed value-on
 SDK exposes no Detour headers or solver ownership. Existing Runtime and NativeSdk
 install components retain the Recast zlib notice.
 See [Navigation](navigation.md) for limits and SDK/recovery compatibility.
+
+## Shared Runtime UI image boundary (2026-10-14)
+
+Runtime UI now reuses the existing bounded `texture_png.c`/`texture_jpeg.c` C
+boundaries through one `forge_image_codecs` target. Texture import and UI retain
+selected libpng1.6.55, stb2.29 and zlib sources and notices; no pin or codec
+implementation changes. Codec errors/longjmp stay inside C. Source-only headless
+configuration builds these software codecs without Diligent graphics backends.
+UI normalization, alpha, last-good reload and raw/cooked export ownership are
+specified in [Runtime UI](runtime-ui.md#bitmap-normalization).

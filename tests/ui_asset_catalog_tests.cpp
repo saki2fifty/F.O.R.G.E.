@@ -1,5 +1,7 @@
 #include "asset_storage.hpp"
 #include "editor/content_model.hpp"
+#include "fixtures/texture_jpeg.hpp"
+#include "fixtures/ui_png.hpp"
 #include "ui_asset_catalog.hpp"
 #include <forge/flecs_script.hpp>
 #include <fstream>
@@ -98,6 +100,21 @@ int main(int argc, char** argv) {
                       texture.metadata.at("opaque.extension") &&
                   refreshed.metadata.at("forge.ui_source").at("width") == 1,
               "UI image refresh lost Texture identity, extension data or dimensions");
+        const std::array<unsigned char, 4> rgba{255, 64, 32, 128};
+        const auto png = test::encode_ui_png(rgba.data(), 1, 1);
+        for (const auto* extension : {"png", "jpg", "jpeg"}) {
+            const auto path = std::filesystem::path("Assets") / (std::string("image.") + extension);
+            const auto bytes = std::string_view(extension) == "png"
+                                   ? std::span<const std::byte>(png)
+                                   : std::as_bytes(std::span(texture_jpeg_fixture));
+            asset_storage::replace(root / path,
+                                   {reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+            const auto registered = register_ui_source(writer, path);
+            check(registered.type == "texture" &&
+                      register_ui_source(writer, path).id == registered.id &&
+                      registered.metadata.at("forge.ui_source").at("format") == extension,
+                  "PNG/JPEG registration lost the common Texture identity or source format");
+        }
         asset_storage::replace(root / "Assets/source.flecs", "Example {}\n");
         const auto script = register_flecs_script(root, "Assets/source.flecs");
         asset_storage::replace(root / "Assets/source.flecs", "Changed {}\n");

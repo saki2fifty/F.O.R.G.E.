@@ -1,5 +1,12 @@
 # 2026-10-14
 
+## Runtime UI bitmap formats
+
+- Support PNG/JPEG HUD and menu images through the existing bounded texture codecs, preserving TGA and premultiplied display pixels. Keep existing dependency pins and resource ownership.
+- Retain one Texture identity for cooked 3D and raw UI use; export both required representations. Invalid image reloads preserve the previous live HUD.
+- Add original Gallery59 with a transparent PNG icon, JPEG landscape, responsive controls and ordinary game export.
+- Validate local normal/sanitized admission, native RmlUi/Vulkan pixels, reload and relocated content. Public SDK value/semantic boundaries remain unchanged; Windows execution remains deferred.
+
 ## Simulation speed
 
 - Add transient 0..4 simulation speed to the existing clock, with a stable fixed physics/Flecs delta, retained fractional progress and bounded catch-up.

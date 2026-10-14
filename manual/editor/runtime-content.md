@@ -161,7 +161,7 @@ verification fail.
 ### What is included
 
 The package contains its manifest, a compact asset catalog and the selected cooked
-artifacts, plus selected scene/prefab documents. It keeps AssetIds and asset references. UI RML/RCSS/fonts/TGA resources and legacy Ozz archives are also included when required.
+artifacts, plus selected scene/prefab documents. It keeps AssetIds and asset references. UI RML/RCSS/fonts/PNG/JPEG/TGA resources and legacy Ozz archives are also included when required.
 It excludes unused raw images, glTF,
 WAV and HLSL, import sidecars, unrelated cache entries and editor notes. Bounded
 recipe settings and digests remain as artifact provenance.
