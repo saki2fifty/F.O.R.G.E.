@@ -4,6 +4,7 @@
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
+#include <set>
 using namespace forge;
 namespace {
 void check(bool value, const char* message) {
@@ -16,6 +17,12 @@ Json read(const std::filesystem::path& path) {
     return result;
 }
 void exercise(const std::filesystem::path& root, const Json& source) {
+    auto admitted = source;
+    for (auto& row : admitted["entities"])
+        if (row["components"].contains("forge.particle_emitter"))
+            for (const auto* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
+                if (!row["components"]["forge.particle_emitter"].contains(field))
+                    row["components"]["forge.particle_emitter"][field] = 1.;
     EngineContext engine(WorldRole::Runtime, false, {particle_module(root)});
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -39,7 +46,7 @@ void exercise(const std::filesystem::path& root, const Json& source) {
                   render.lights.size() == 1,
               "Gallery54 lost particle/floor/camera/light render consumers");
         check(captured.at("entities").size() == source.at("entities").size() &&
-                  scene.document() == source,
+                  scene.document() == admitted,
               "Gallery54 created per-particle Scene entities or rewrote authored values");
         for (const auto& emitter : render.particles) {
             check(emitter.time == elapsed && valid_content_digest(emitter.revision) &&
@@ -86,12 +93,17 @@ int main(int argc, char** argv) {
         const auto source = read(root / path);
         const auto catalog = AssetCatalog::open_project(root);
         std::size_t effects = 0;
+        std::set<AssetId> referenced;
+        for (const auto& row : source.at("entities"))
+            if (row.at("components").contains("forge.particle_emitter"))
+                referenced.insert(
+                    row.at("components").at("forge.particle_emitter").at("effect").get<AssetId>());
         for (const auto& [id, record] : catalog.records())
-            if (record.type == ParticleEffectAsset::type &&
-                record.source.parent_path() == std::filesystem::path("Assets/Particles")) {
+            if (referenced.contains(id)) {
                 const auto& imported = record.metadata.at("forge.import");
-                check(imported.at("platform") == "windows" && imported.at("backend") == "d3d12" &&
-                          imported.at("output_version") == 1,
+                check(record.type == ParticleEffectAsset::type &&
+                          imported.at("platform") == "windows" &&
+                          imported.at("backend") == "d3d12" && imported.at("output_version") == 1,
                       "Gallery54 selected the wrong effect cook target/version");
                 ++effects;
             }

@@ -3,6 +3,7 @@
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "cpu_profile_control.hpp"
+#include "particle_runtime.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
@@ -1207,6 +1208,9 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                         s.game->active().engine.services().animation()),
                     target.target, type, property, request.at("value"));
                 s.game->active().simulation.sync_animation_pose();
+            } else if (RuntimePropertyTune::particle_type(type)) {
+                applied = particle_runtime(s.game->active().engine.world())
+                              ->tune_appearance(target.target, property, request.at("value"));
             } else if (RuntimePropertyTune::navigation_type(type)) {
                 if (!s.game->active().engine.services().available(Capability::Navigation))
                     return s.build_error(id, "Live avoidance tuning requires enabled navigation");

@@ -109,6 +109,34 @@ restored native values, without serializing particle arrays. Captures contain
 compact time, revision/generation and seed; selection mismatch or seed overflow
 rejects before rendering.
 
+## Per-emitter appearance
+
+`ParticleEmitter::size_multiplier` is a finite factor in [0.01,16], default 1.
+`tint_r`, `tint_g`, `tint_b` are finite linear RGB factors in [0,1], default 1.
+Size multiplies the evaluated lifetime size; tint multiplies the evaluated
+gradient. Neither changes origins, velocity, birth count, age, seed or resource
+selection. The emitter affine transforms position and size once. Conservative
+bounds include the peak mesh size after multiplication. Several emitters can use
+one immutable effect and mesh/material bundle.
+
+The ordinary Inspector edits saved values with normal Undo/prefab override rules.
+Live gameplay exposes only these four appearance fields for particle emitters.
+Owner-thread commands validate world generation, Scene identity, entity and field
+range. Observation adopts edits without advancing emission clocks; Stop/next Play
+reconstructs from authored values. Invalid edits retain valid state. Older saved
+values backfill neutral defaults on admission without rewriting source files or
+changing formats/identities. Unknown extensions remain preserved.
+
+The installed C++ `render_components.hpp` includes the trailing fields. This
+changes the exact native SDK fingerprint and value layout: rebuild gameplay
+modules against the matching SDK. Mismatched modules remain rejected. The C ABI
+version and entry/function table layouts remain unchanged; private sampling and
+runtime headers are not installed as gameplay APIs.
+
+Gallery57 demonstrates six differently sized/tinted emitters sharing one effect.
+Exports include compiled effect values and saved emitter parameters; no editable
+effect source or compiler is required to run the game.
+
 ## Limits and ownership
 
 Capacity is 1–1,024; rate is 0.01–256/second; lifetime is 0.01–30 seconds; speed is

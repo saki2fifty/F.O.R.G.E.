@@ -16,6 +16,10 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
         .each([](forge::ParticleEmitter& value) {
             value.seed = 9;
             value.playback_speed = 2.;
+            value.size_multiplier = 2.;
+            value.tint_r = .25f;
+            value.tint_g = .5f;
+            value.tint_b = .75f;
         })
         .add(host->fixed_tag);
     return 1;

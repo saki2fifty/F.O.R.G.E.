@@ -56,6 +56,23 @@ Changes made during Play are temporary live values. Stop to edit and save the
 authored scene. Export through **Export Game** normally: selected effects, meshes
 and materials are included already built. Players need no compiler.
 
+## Size and tint for each object
+
+Select an object with **Particle Emitter** in Inspector. Set **Size multiplier**
+from 0.01 to 16 and **Tint R / G / B** from 0 to 1. A value of 1 keeps the effect's
+original size or color channel; a tint of 0 removes that channel. These values
+multiply the effect's lifetime values without changing motion. Several objects
+can share one effect and have different sizes and colors.
+
+During Play, the colored **Live gameplay** section offers these four controls.
+They update the running effect without restarting it. Stop discards Live changes.
+To keep values, Stop, edit the ordinary Inspector and save the scene.
+
+Open Gallery **57-particle-emitter-appearance.scene.json**. The front row compares
+small, normal and large neutral jets; the back row adds warm, green and blue tints.
+All six use **Assets/Particles/SharedJet.particles.json**. Export and run normally.
+Projects with C++ modules must rebuild those modules against the matching SDK.
+
 ## Limits
 
 Each effect supports up to 1,024 particles; a scene supports 64 enabled emitters

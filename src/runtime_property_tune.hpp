@@ -12,6 +12,11 @@ struct RuntimePropertyTune {
     static bool navigation_type(std::string_view type) {
         return type == "forge.navigation_avoidance";
     }
+    static bool particle_type(std::string_view type) { return type == "forge.particle_emitter"; }
+    static bool particle_property(std::string_view property) {
+        return property == "size_multiplier" || property == "tint_r" || property == "tint_g" ||
+               property == "tint_b";
+    }
     static RuntimePropertyTune parse(const nlohmann::json& request, std::uint64_t generation,
                                      AssetId scene) {
         if (!generation || !request.contains("generation") ||

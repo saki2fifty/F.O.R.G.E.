@@ -370,6 +370,43 @@ void execute(const std::filesystem::path& root) {
               dominant(stepped_pixels, 2) == 0,
           "Native lifetime gradient did not hold the green outgoing Step segment");
     image(root / "gradient-step.ppm", 256, 256, stepped_pixels);
+    extended.burst_count = 1;
+    extended.speed_min = extended.speed_max = 0;
+    extended.acceleration = {0, 0, 0};
+    extended.size_curve.clear();
+    extended.color_gradient.clear();
+    extended.size_start = extended.size_end = .4;
+    extended.color_start = extended.color_end = {1, 1, 1};
+    preview_host->preview_particle_effect(emitter.emitter.effect, extended);
+    scene.particles[0].time = .5;
+    scene.particles[0].emitter.size_multiplier = 1;
+    const auto neutral = draw(square);
+    scene.particles[0].emitter.size_multiplier = 4;
+    const auto large = draw(square);
+    check(visible(neutral) > 0 && visible(large) > visible(neutral) * 8 &&
+              preview_renderer.draw_stats().instances == 1 && preview_renderer.bundle_count() == 1,
+          "Native emitter size did not change geometry without copying its bundle");
+    image(root / "emitter-size-neutral.ppm", 256, 256, neutral);
+    image(root / "emitter-size-large.ppm", 256, 256, large);
+    scene.particles[0].emitter.tint_r = 1;
+    scene.particles[0].emitter.tint_g = scene.particles[0].emitter.tint_b = 0;
+    const auto red = draw(square);
+    check(dominant(red, 0) > 20 && dominant(red, 1) == 0 && dominant(red, 2) == 0 &&
+              visible(red) == visible(large),
+          "Native emitter tint changed geometry or failed to multiply RGB");
+    scene.particles[0].world.m[3] = -1.5;
+    auto shared = scene.particles[0];
+    shared.entity = EntityId::generate();
+    shared.world.m[3] = 1.5;
+    shared.emitter.size_multiplier = 2;
+    shared.emitter.tint_r = 0;
+    shared.emitter.tint_g = 1;
+    scene.particles.push_back(shared);
+    const auto pair = draw(square);
+    check(dominant(pair, 0) > 20 && dominant(pair, 1) > 20 &&
+              preview_renderer.draw_stats().instances == 2 && preview_renderer.bundle_count() == 1,
+          "Distinct emitter appearances duplicated their effect bundle or lost native RGB");
+    image(root / "emitter-shared-appearances.ppm", 256, 256, pair);
     camera_world.m[3] = 1000;
     check(visible(draw(square)) == 0 && preview_renderer.draw_stats().instances == 0,
           "Extended volume/curve preview bypassed ordinary camera culling");

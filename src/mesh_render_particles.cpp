@@ -123,8 +123,9 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             for (const auto& [id, material] : prepared.materials)
                 validate_particle_material_profile(material.get());
             const auto& data = *source->second.data();
-            const auto bounds = particle_effect_bounds(
-                data, prepared.mesh->mesh.lods.front().parts.front().bounds, emitter.world);
+            const auto bounds =
+                particle_effect_bounds(data, prepared.mesh->mesh.lods.front().parts.front().bounds,
+                                       emitter.world, emitter.emitter.size_multiplier);
             particle_bounds_.emplace_back(emitter.entity, bounds);
             if (!emitter.emitter.visible)
                 continue;
@@ -134,9 +135,11 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
             each += draw.renderer.materials.capacity() * sizeof(MaterialSlotOverride);
             for (const auto& slot : draw.renderer.materials)
                 each += slot.slot.capacity();
-            const auto values =
-                particle_render_instances(data, emitter.time, emitter.emitter.seed, emitter.world,
-                                          particle_scene_capacity - particle_instances_.size());
+            const auto values = particle_render_instances(
+                data, emitter.time, emitter.emitter.seed, emitter.world,
+                particle_scene_capacity - particle_instances_.size(),
+                emitter.emitter.size_multiplier,
+                {emitter.emitter.tint_r, emitter.emitter.tint_g, emitter.emitter.tint_b});
             require(values.size() <= (byte_limit - bytes) / each,
                     "Particle instance CPU payload exceeds the 8 MiB frame budget");
             bytes += values.size() * each;

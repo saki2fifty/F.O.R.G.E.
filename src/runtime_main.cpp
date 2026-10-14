@@ -3,6 +3,7 @@
 #include "audio_source_access.hpp"
 #include "authored_inspection.hpp"
 #include "cpu_profile_control.hpp"
+#include "particle_runtime.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "sdk_play_runtime.hpp"
@@ -391,7 +392,11 @@ int main(int argc, char** argv) {
                         const auto target = forge::RuntimePropertyTune::parse(
                             request, ui_generation, runtime->scene.asset_id());
                         forge::Json value;
-                        if (forge::RuntimePropertyTune::navigation_type(target.type)) {
+                        if (forge::RuntimePropertyTune::particle_type(target.type)) {
+                            value = forge::particle_runtime(runtime->engine.world())
+                                        ->tune_appearance(target.target, target.property,
+                                                          request.at("value"));
+                        } else if (forge::RuntimePropertyTune::navigation_type(target.type)) {
                             if (!runtime->engine.services().available(
                                     forge::Capability::Navigation))
                                 throw std::runtime_error(

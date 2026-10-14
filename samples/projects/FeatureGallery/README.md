@@ -1,5 +1,15 @@
 # FORGE Feature Gallery
 
+## Shared effect, different emitter appearances
+
+Open **Scenes/57-particle-emitter-appearance.scene.json** and press Play. The front
+row compares sizes 0.5, 1 and 2; the back row adds warm, green and blue RGB tints.
+All six objects share **Assets/Particles/SharedJet.particles.json**. Select an
+emitter and try **Size multiplier** and **Tint R / G / B** in Inspector. During
+Play those controls appear in the colored **Live gameplay** section; Stop restores
+saved values. Stop before editing values you want to keep, then save. Appearance
+edits keep the jet running. Export ships the cooked effect and emitter values.
+
 ## Particle shapes and lifetime curves
 
 Open **Scenes/56-particle-shapes-and-lifetime.scene.json** and press Play. The front

@@ -192,3 +192,19 @@ Legacy raw cooked version 1 remains readable. Conversion is explicit source Undo
 history and rejects non-null legacy exit collisions. Source budget remains 256 KiB
 with 128 bytes of cooked envelope allowance. Scene/Prefab versions, physics private
 checkpoint 4 and installed native ABI/table/layout/fingerprint are unchanged.
+
+## 2026-10-14: ParticleEmitter appearance parameters
+
+Append size_multiplier and tint_r/g/b to the existing native ParticleEmitter.
+Neutral defaults of 1 preserve older effects. Existing builtin admission and
+codec backfill missing fields without rewriting source files. Scene/Prefab format
+versions, persistent UUIDs, unknown extensions and native inheritance/override
+intent remain authoritative. Explicit later saves serialize the current values.
+Size/RGB edits use ordinary property history and existing owner-thread Live
+commands, without copying the effect asset or restarting its clock. Live edits
+are temporary; Stop/next Play reconstructs from authored values.
+
+Public native value layout and exact SDK fingerprint change deliberately;
+gameplay modules require a matching rebuild and old fingerprints remain rejected.
+C ABI1 entry and function table layouts stay unchanged. Pure particle sampling
+helpers and the runtime owner remain private, outside installed gameplay APIs.

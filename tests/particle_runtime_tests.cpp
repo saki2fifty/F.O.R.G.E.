@@ -7,6 +7,7 @@
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
+#include <limits>
 #include <thread>
 using namespace forge;
 using namespace std::chrono_literals;
@@ -93,6 +94,77 @@ void affine_and_envelope() {
         }
     }
 }
+void instance_parameters() {
+    auto data = ParticleEffectSource::create(AssetId::generate()).compiled();
+    data.emission = ParticleEmission::Burst;
+    data.burst_count = 32;
+    data.shape = ParticleSpawnShape::Sphere;
+    data.shape_radius = 4;
+    data.drag = 2;
+    data.size_curve = {{0, .1, false}, {.4, 3, true}, {1, .2, false}};
+    data.color_gradient = {{0, {1, .5f, .75f}, false}, {1, {.5f, 1, .25f}, false}};
+    AffineTransform affine;
+    affine.m = {-2, .3, 0, 10, 0, 3, .4, -2, 0, 0, .5, 7};
+    const MeshBounds mesh{{-.5f, -.5f, -.5f}, {.5f, .5f, .5f}};
+    const std::array<float, 3> tint{.25f, .5f, 0};
+    for (const double size : {.01, .5, 1., 4., 16.}) {
+        const auto bounds = particle_effect_bounds(data, mesh, affine, size);
+        for (unsigned step = 0; step < 20; ++step) {
+            const auto time = data.lifetime * step / 20;
+            const auto samples = sample_particle_effect(data, time, 8);
+            auto modulated = samples;
+            modulate_particle_samples(modulated, size, tint);
+            const auto instances =
+                particle_render_instances(data, time, 8, affine, 1024, size, tint);
+            require(instances.size() == samples.size(), "Appearance changed particle count");
+            for (std::size_t i = 0; i < samples.size(); ++i) {
+                const auto& old = samples[i];
+                const auto& value = modulated[i];
+                require(value.birth == old.birth && value.age == old.age &&
+                            value.position == old.position && value.velocity == old.velocity &&
+                            value.size == old.size * size,
+                        "Appearance changed birth/age/motion or ignored size curve");
+                const auto position = affine.point(old.position);
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    require(value.color[axis] == old.color[axis] * tint[axis] &&
+                                instances[i].color[axis] == value.color[axis],
+                            "Tint did not multiply evaluated gradient");
+                    require(std::abs(instances[i].world.m[axis * 4 + 3] - position[axis]) < 1e-10,
+                            "Emitter size scaled its particle origin or trajectory");
+                    for (unsigned lane = 0; lane < 3; ++lane)
+                        require(std::abs(instances[i].world.m[axis * 4 + lane] -
+                                         affine.m[axis * 4 + lane] * old.size * size) < 1e-10,
+                                "Size lost emitter affine or was applied twice");
+                }
+                for (unsigned corner = 0; corner < 8; ++corner) {
+                    const auto point = instances[i].world.point(
+                        {corner & 1 ? .5 : -.5, corner & 2 ? .5 : -.5, corner & 4 ? .5 : -.5});
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        require(point[axis] >= bounds.minimum[axis] &&
+                                    point[axis] <= bounds.maximum[axis],
+                                "Emitter multiplier was omitted from conservative bounds");
+                }
+            }
+        }
+    }
+    auto samples = sample_particle_effect(data, .5, 8);
+    const auto unchanged = samples;
+    modulate_particle_samples(samples, 1, {1, 1, 1});
+    require(samples == unchanged, "Default appearance changed legacy samples");
+    for (const auto size : {0., .009, 16.01, std::numeric_limits<double>::infinity(),
+                            std::numeric_limits<double>::quiet_NaN()}) {
+        reject([&] { modulate_particle_samples(samples, size, tint); });
+        reject([&] { particle_effect_bounds(data, mesh, affine, size); });
+        require(samples == unchanged, "Invalid size partially modulated caller samples");
+    }
+    for (unsigned axis = 0; axis < 3; ++axis)
+        for (const auto channel : {-1.f, 1.01f, std::numeric_limits<float>::quiet_NaN()}) {
+            auto invalid = tint;
+            invalid[axis] = channel;
+            reject([&] { modulate_particle_samples(samples, 2, invalid); });
+            require(samples == unchanged, "Invalid tint partially modulated caller samples");
+        }
+}
 void resource_profile() {
     auto mesh = asset_detail::engine_mesh_resource(engine_primitive(0));
     validate_particle_mesh_profile(mesh);
@@ -133,6 +205,7 @@ int main(int argc, char** argv) {
         }
         require(argc == 2, "Need particle runtime scratch root");
         affine_and_envelope();
+        instance_parameters();
         resource_profile();
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
@@ -193,6 +266,39 @@ int main(int argc, char** argv) {
                            {"value", effect}});
         const auto source = authored.document();
         const auto source_revision = authored.revision();
+        {
+            auto legacy = source;
+            auto& fields = legacy["entities"][0]["components"]["forge.particle_emitter"];
+            for (const auto* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
+                fields.erase(field);
+            fields["future_extension"] = {{"retained", "original opaque value"}};
+            const auto original = legacy;
+            EngineContext compatible;
+            Scene restored(compatible.world());
+            restored.restore_snapshot(legacy);
+            const auto value = restored.entity(actor).get<ParticleEmitter>();
+            require(value.size_multiplier == 1 && value.tint_r == 1 && value.tint_g == 1 &&
+                        value.tint_b == 1 && legacy == original,
+                    "Old emitter fields did not backfill defaults without editing source input");
+            require(restored.document()
+                            .at("entities")[0]
+                            .at("components")
+                            .at("forge.particle_emitter")
+                            .at("future_extension") == fields.at("future_extension"),
+                    "Backfilled emitter lost unknown source extensions");
+        }
+        for (const auto* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"}) {
+            for (const auto& value : {Json(-1), Json(20), Json(nullptr), Json("1")})
+                reject([&] {
+                    authoring_command(authored, "property.set",
+                                      {{"entity", actor},
+                                       {"component", "forge.particle_emitter"},
+                                       {"field", field},
+                                       {"value", value}});
+                });
+            require(authored.document() == source && authored.revision() == source_revision,
+                    "Invalid appearance changed authored history");
+        }
         reject([&] {
             authoring_command(authored, "property.set",
                               {{"entity", actor},
@@ -215,10 +321,10 @@ int main(int argc, char** argv) {
             authoring_command(prefab_scene, "property.set",
                               {{"entity", instance},
                                {"component", "forge.particle_emitter"},
-                               {"field", "seed"},
-                               {"value", 13u}});
+                               {"field", "size_multiplier"},
+                               {"value", 3.}});
             require(prefab_scene.entity(instance).owns<ParticleEmitter>() &&
-                        prefab_scene.entity(instance).get<ParticleEmitter>().seed == 13 &&
+                        prefab_scene.entity(instance).get<ParticleEmitter>().size_multiplier == 3 &&
                         prefab_scene.undo() &&
                         !prefab_scene.entity(instance).owns<ParticleEmitter>(),
                     "Particle prefab override/Undo changed authoritative inheritance");
@@ -258,6 +364,44 @@ int main(int argc, char** argv) {
                     captured.at("entities").size() == source.at("entities").size(),
                 "Runtime particles edited authored scene or allocated particle entities");
         auto config = live.scene.entity(actor).get<ParticleEmitter>();
+        const auto before_appearance = live.particles->sample(entity, 1);
+        const auto playback_before = live.particles->presentation(entity, 1);
+        const auto ref = live.engine.world().reference(entity).value();
+        live.particles->tune_appearance(ref, "size_multiplier", 2.);
+        live.particles->tune_appearance(ref, "tint_r", .25);
+        live.particles->tune_appearance(ref, "tint_g", .5);
+        live.particles->tune_appearance(ref, "tint_b", 0.);
+        (void)live.simulation.presentation(1); // Adopt edits while held, with no tick.
+        auto expected = before_appearance;
+        modulate_particle_samples(expected, 2, {.25f, .5f, 0});
+        require(live.particles->sample(entity, 1) == expected &&
+                    live.particles->presentation(entity, 1) == playback_before &&
+                    authored.document() == source && authored.revision() == source_revision,
+                "Live appearance restarted/reloaded/moved particles or touched authoring");
+        const auto edited = live.scene.entity(actor).get<ParticleEmitter>();
+        for (const auto* field : {"effect", "seed", "enabled", "playback_speed", "missing"})
+            reject([&] { live.particles->tune_appearance(ref, field, 1); });
+        reject([&] { live.particles->tune_appearance(ref, "tint_r", 2); });
+        reject([&] {
+            live.particles->tune_appearance({AssetId::generate(), ref.entity}, "size_multiplier",
+                                            2);
+        });
+        require(live.scene.entity(actor).get<ParticleEmitter>() == edited,
+                "Rejected Live appearance changed native values");
+        auto invalid = edited;
+        invalid.size_multiplier = std::numeric_limits<double>::quiet_NaN();
+        live.scene.entity(actor).set(invalid);
+        reject([&] { live.particles->prepare(); });
+        live.scene.entity(actor).set(config);
+        live.particles->synchronize();
+        require(live.particles->sample(entity, 1) == before_appearance &&
+                    live.particles->presentation(entity, 1) == playback_before,
+                "Invalid native appearance changed admitted emission state");
+        for (auto& row : captured["entities"])
+            if (row.at("id") == actor)
+                row["components"]["forge.particle_emitter"]["size_multiplier"] = 20.;
+        require(!extract_render_scene(captured).diagnostics.empty(),
+                "Invalid captured appearance entered render extraction");
         config.playback_speed = 0;
         live.scene.entity(actor).set(config);
         live.simulation.tick(.25f);

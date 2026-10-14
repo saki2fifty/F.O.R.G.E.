@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <forge/asset_ref.hpp>
+#include <span>
 #include <vector>
 namespace forge {
 inline constexpr std::size_t particle_emitter_limit = 64, particle_scene_capacity = 8192;
@@ -54,4 +55,7 @@ nlohmann::json encode_particle_effect(const ParticleEffectData&);
 // same phase units to keep boundary inclusion independent of rounded birth times.
 std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData&, double seconds,
                                                    std::uint32_t seed, std::size_t budget = 1024);
+// Per-emitter appearance, with no effect copy, clock or trajectory mutation.
+void validate_particle_instance_parameters(double size, std::array<float, 3> tint);
+void modulate_particle_samples(std::span<ParticleSample>, double size, std::array<float, 3> tint);
 } // namespace forge

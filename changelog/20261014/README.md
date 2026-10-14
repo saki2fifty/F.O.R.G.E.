@@ -1,5 +1,12 @@
 # 2026-10-14
 
+## Particle emitter appearance
+
+- Add per-emitter size and linear RGB factors after shared effect lifetime values; keep motion, clocks and effect resources unchanged by appearance edits.
+- Expose saved Inspector values and temporary Live gameplay controls through existing native schemas, history and validated owner-thread commands.
+- Backfill neutral defaults for older scenes/prefabs without rewriting sources or changing formats; preserve inheritance and unknown extensions.
+- Add original Gallery57 with six appearances sharing one effect and source-free export. The public C++ component layout and exact SDK fingerprint change; rebuild matching gameplay modules. C ABI1 tables remain unchanged.
+
 ## Particle shapes and lifetime curves
 
 - Add Point, Box, Sphere and Disc origins, analytic linear drag and bounded size/RGB lifetime stops in the existing Particle Effect document.

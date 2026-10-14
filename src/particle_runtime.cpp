@@ -1,4 +1,6 @@
 #include "particle_runtime.hpp"
+#include "builtins.hpp"
+#include "runtime_property_tune.hpp"
 #include <cmath>
 #include <set>
 namespace forge {
@@ -47,6 +49,8 @@ void ParticleRuntime::synchronize() {
     std::set<flecs::entity_t> used;
     std::set<AssetId> required_effects;
     for (const auto& [entity, config] : sources) {
+        validate_particle_instance_parameters(config.size_multiplier,
+                                              {config.tint_r, config.tint_g, config.tint_b});
         require(config.effect.id && std::isfinite(config.playback_speed) &&
                     config.playback_speed >= 0 && config.playback_speed <= 16,
                 "Particle Emitter needs a published effect and playback speed in [0,16]");
@@ -128,8 +132,37 @@ std::vector<ParticleSample> ParticleRuntime::sample(flecs::entity_t entity, doub
     check();
     const auto& entry = entries_.at(entity);
     require(bool(entry.effect), "Particle effect is not ready");
-    return sample_particle_effect(entry.effect.get(), age(entry.previous, entry.current, alpha),
-                                  entry.config.seed);
+    auto samples = sample_particle_effect(
+        entry.effect.get(), age(entry.previous, entry.current, alpha), entry.config.seed);
+    modulate_particle_samples(samples, entry.config.size_multiplier,
+                              {entry.config.tint_r, entry.config.tint_g, entry.config.tint_b});
+    return samples;
+}
+Json ParticleRuntime::tune_appearance(EntityRef ref, const std::string& property,
+                                      const Json& value) {
+    check();
+    require(world_.role() == WorldRole::Runtime && !world_.world().is_readonly(),
+            "Live particle tuning requires the runtime owner");
+    require(RuntimePropertyTune::particle_property(property),
+            "Only particle size and RGB tint can be tuned live");
+    const auto resolved = world_.resolve(ref);
+    require(resolved.state == WorldContext::ResolveState::Available,
+            "Live particle target is unavailable");
+    auto entity = world_.world().entity(resolved.entity);
+    require(!entity.has(flecs::Prefab) && entity.has<ParticleEmitter>(),
+            "Live particle tuning requires an existing emitter");
+    for (const auto& codec : detail::builtins()) {
+        if (std::string_view(codec.name) != "forge.particle_emitter")
+            continue;
+        auto candidate = codec.read(entity, true);
+        candidate[property] = value;
+        detail::validate_components({{"forge.particle_emitter", candidate}});
+        const auto typed = std::get<ParticleEmitter>(codec.decode(candidate));
+        detail::validate_reflected_value(entity, typed);
+        entity.set<ParticleEmitter>(typed);
+        return codec.read(entity, true).at(property);
+    }
+    throw std::runtime_error("Particle Emitter builtin is unavailable");
 }
 void ParticleRuntime::shutdown() {
     check();

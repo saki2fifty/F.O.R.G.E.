@@ -49,7 +49,11 @@ template <class T> Json encode(const T& p) {
                 {"visible", p.visible},
                 {"seed", p.seed},
                 {"layers", p.layers},
-                {"playback_speed", p.playback_speed}};
+                {"playback_speed", p.playback_speed},
+                {"size_multiplier", p.size_multiplier},
+                {"tint_r", p.tint_r},
+                {"tint_g", p.tint_g},
+                {"tint_b", p.tint_b}};
     else if constexpr (std::is_same_v<T, UiDocument>)
         return {{"document", p.document.id ? Json(p.document.id) : Json()},
                 {"enabled", p.enabled},
@@ -235,6 +239,10 @@ template <class T> Value decode(const Json& p) {
         value.seed = p.at("seed").get<std::uint32_t>();
         value.layers = p.at("layers").get<std::uint32_t>();
         value.playback_speed = p.at("playback_speed").get<double>();
+        value.size_multiplier = p.value("size_multiplier", 1.);
+        value.tint_r = p.value("tint_r", 1.f);
+        value.tint_g = p.value("tint_g", 1.f);
+        value.tint_b = p.value("tint_b", 1.f);
         return value;
     } else if constexpr (std::is_same_v<T, LocalScale>) {
         return checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
@@ -573,14 +581,22 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("visible")
             .template member<std::uint32_t>("seed")
             .template member<std::uint32_t>("layers")
-            .template member<double>("playback_speed");
+            .template member<double>("playback_speed")
+            .template member<double>("size_multiplier")
+            .template member<float>("tint_r")
+            .template member<float>("tint_g")
+            .template member<float>("tint_b");
         for (const auto& [field, offset] :
              {std::pair{"effect", offsetof(ParticleEmitter, effect)},
               std::pair{"enabled", offsetof(ParticleEmitter, enabled)},
               std::pair{"visible", offsetof(ParticleEmitter, visible)},
               std::pair{"seed", offsetof(ParticleEmitter, seed)},
               std::pair{"layers", offsetof(ParticleEmitter, layers)},
-              std::pair{"playback_speed", offsetof(ParticleEmitter, playback_speed)}}) {
+              std::pair{"playback_speed", offsetof(ParticleEmitter, playback_speed)},
+              std::pair{"size_multiplier", offsetof(ParticleEmitter, size_multiplier)},
+              std::pair{"tint_r", offsetof(ParticleEmitter, tint_r)},
+              std::pair{"tint_g", offsetof(ParticleEmitter, tint_g)},
+              std::pair{"tint_b", offsetof(ParticleEmitter, tint_b)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("ParticleEmitter native Meta disagrees with typed layout");
@@ -1471,6 +1487,16 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["minimum"] = 0;
             value["maximum"] = 16;
             value["description"] = "Multiply fixed-clock emission time; zero freezes this emitter";
+        } else if (field == "size_multiplier") {
+            value["minimum"] = .01;
+            value["maximum"] = 16;
+            value["description"] = "Multiply particle mesh size after the lifetime curve; does "
+                                   "not change motion or restart the effect";
+        } else if (field == "tint_r" || field == "tint_g" || field == "tint_b") {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["description"] = "Linear RGB factor after the effect gradient; one preserves "
+                                   "the channel, zero removes it; no clock restart";
         } else if (field == "seed")
             value["description"] = "Repeatable visual seed; changing it restarts this effect";
         else if (field == "enabled")
@@ -1885,6 +1911,10 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
 namespace {
 Json admitted_builtin_source(const Builtin& type, const Json& source) {
     auto current = source;
+    if (std::string_view(type.name) == "forge.particle_emitter")
+        for (const auto* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.mesh_renderer" &&
         !current.contains("material_variant"))
         current["material_variant"] = nullptr;

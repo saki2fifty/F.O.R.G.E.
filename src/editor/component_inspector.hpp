@@ -80,6 +80,7 @@ class ComponentInspector {
             return false;
         return AnimationPlaybackAccess::rig_type(key) ||
                RuntimePropertyTune::navigation_type(key) ||
+               RuntimePropertyTune::particle_type(key) ||
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }
@@ -187,6 +188,9 @@ class ComponentInspector {
                 continue;
             for (const auto& field : type.at("fields")) {
                 const auto name = field.at("id").get<std::string>();
+                if (RuntimePropertyTune::particle_type(key) &&
+                    !RuntimePropertyTune::particle_property(name))
+                    continue;
                 if (!components.at(key).contains(name))
                     continue;
                 ui::IdScope field_scope(name.c_str());

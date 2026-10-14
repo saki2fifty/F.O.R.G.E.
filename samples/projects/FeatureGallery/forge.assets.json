@@ -2039,6 +2039,59 @@
     },
     {
       "dependencies": [
+        "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+        "80c55df2-1abb-42b0-9591-502e783cdc97"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "cc59c42dc5a36670a8e1d95f1f47bad4a9013a5b8e592ddeeab82f510e1f2b17",
+          "role": "particles.material",
+          "target": "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "a8dda92bc55956bb8492474c466dab295b4ae88c7dfb8383d25f67e9cd46996b",
+          "role": "particles.mesh",
+          "target": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "type": "mesh"
+        }
+      ],
+      "id": "308f5613-3205-43ce-9c90-ce8f753cf70b",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "7d2ba2390eda25559e278af953fdcd73e6af2f0c68f8d094cba3145e8ca527da",
+          "backend": "d3d12",
+          "dependency_digest": "9d8305e7243b120ad02e855eae87c8774ccc4429e840f4ce8b51eea1277714b2",
+          "generation": 1,
+          "importer": "forge.particles.cpu-mesh",
+          "importer_revision": "forge.particles.cpu-mesh.v2",
+          "key": "947c4e91179521089df2fb91915e5ee0b5e5fac22094b070fd97e84e08ba3c76",
+          "output_format": "forge.particle-effect-cooked",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "aead7654ad26d605f4e5ba49d0ba6f528f5c21564dccef8320c662f6d15b490d",
+          "source_digest": "9de5339b05e52ee1062a9e036f1a4195e832d9cd02647d9fd9f9e249da687564",
+          "version": 1
+        },
+        "forge.particle_effect": {
+          "bytes": 763,
+          "file": "effect.json",
+          "sha256": "24061e2c2292bce04472a4bb844819af28060f9c46ebd76fc51b3c436d65b47b",
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/SharedJet.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [
         "72f03f89-704d-437f-a6cc-97322796a249"
       ],
       "dependency_edges": [
@@ -3127,6 +3180,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "557f32af-c8d4-405d-b0c1-72fbf6e53c22",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/57-particle-emitter-appearance.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

@@ -44,7 +44,9 @@ struct ParticleEmitter {
     AssetRef<ParticleEffectAsset> effect;
     bool enabled = true, visible = true;
     std::uint32_t seed = 1, layers = UINT32_MAX;
-    double playback_speed = 1; // Zero freezes this emitter without resetting it.
+    double playback_speed = 1;                // Zero freezes this emitter without resetting it.
+    double size_multiplier = 1;               // Mesh size only, after the effect's lifetime curve.
+    float tint_r = 1, tint_g = 1, tint_b = 1; // Linear RGB factors, after the gradient.
     bool operator==(const ParticleEmitter&) const = default;
 };
 } // namespace forge

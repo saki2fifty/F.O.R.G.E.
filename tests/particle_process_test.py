@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="particle-process-")
     session = ""
     sequence = 0
 
-    def request(command, **fields):
+    def request(command, expected=True, **fields):
         global session, sequence
         sequence += 1
         process.stdin.write(json.dumps(dict(protocol=2, id=sequence, session=session,
@@ -44,7 +44,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="particle-process-")
         line = process.stdout.readline()
         assert line, process.stderr.read()
         result = json.loads(line)
-        assert result["ok"], result.get("error", result.get("diagnostics"))
+        assert result["ok"] == expected, result.get("error", result.get("diagnostics"))
         session = result["session"]
         return result
 
@@ -84,6 +84,25 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="particle-process-")
                 if row["id"] in actors:
                     values = row["components"]["forge.particle_emitter"]
                     assert values["seed"] == 9 and values["playback_speed"] == 2
+                    assert values["size_multiplier"] == 2
+                    assert [values["tint_" + c] for c in "rgb"] == [.25, .5, .75]
+        target = dict(generation=snapshot["world_generation"], scene_asset=source["asset_id"],
+                      entity=actors[0], type="forge.particle_emitter")
+        for property, value in (("size_multiplier", 3), ("tint_r", .5), ("tint_g", 0),
+                                ("tint_b", 1)):
+            tuned = request("property_tune", **target, property=property, value=value)
+            assert tuned["property_tune"]["value"] == value
+        edited = request("snapshot")
+        assert captures(edited) == captures(snapshot)
+        values = next(row for row in edited["effective_scene"]["entities"]
+                      if row["id"] == actors[0])["components"]["forge.particle_emitter"]
+        assert values["size_multiplier"] == 3 and values["tint_g"] == 0
+        for property, value in (("size_multiplier", 0), ("tint_r", 2), ("tint_g", None),
+                                ("seed", 1), ("effect", None)):
+            request("property_tune", expected=False, **target, property=property, value=value)
+        request("property_tune", expected=False, **dict(target, generation=target["generation"]+1),
+                property="tint_b", value=.5)
+        assert captures(request("snapshot")) == captures(snapshot)
         checkpoint = copy.deepcopy(snapshot["recovery"])
         restored = request("replace", scene=checkpoint["scene"], recovery=checkpoint,
                            recovery_session=checkpoint["session"], recovery_tick=checkpoint["tick"])

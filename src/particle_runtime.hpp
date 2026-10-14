@@ -14,6 +14,7 @@ class ParticleRuntime {
     void reset();
     Json presentation(flecs::entity_t, double) const;
     std::vector<ParticleSample> sample(flecs::entity_t, double) const;
+    Json tune_appearance(EntityRef, const std::string& property, const Json& value);
     void shutdown();
 
   private:

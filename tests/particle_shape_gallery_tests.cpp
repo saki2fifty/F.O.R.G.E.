@@ -18,6 +18,12 @@ Json read(const std::filesystem::path& file) {
 }
 void exercise(const std::filesystem::path& root, const Json& source,
               const std::map<AssetId, ParticleEffectData>& values) {
+    auto admitted = source;
+    for (auto& row : admitted["entities"])
+        if (row["components"].contains("forge.particle_emitter"))
+            for (const auto* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
+                if (!row["components"]["forge.particle_emitter"].contains(field))
+                    row["components"]["forge.particle_emitter"][field] = 1.;
     EngineContext engine(WorldRole::Runtime, false, {particle_module(root)});
     Scene scene(engine.world());
     scene.restore_snapshot(source);
@@ -91,7 +97,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
                       "Gallery56 size curve escaped its independently authored range");
             }
         }
-        check(scene.document() == source &&
+        check(scene.document() == admitted &&
                   captured.at("entities").size() == source.at("entities").size() &&
                   simulation.presentation(1) == captured,
               "Gallery56 observations changed time, source or Scene entity ownership");

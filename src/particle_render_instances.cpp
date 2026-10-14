@@ -34,8 +34,11 @@ void validate_particle_material_profile(const MaterialResourceData& material) {
 std::vector<ParticleRenderInstance> particle_render_instances(const ParticleEffectData& data,
                                                               double time, std::uint32_t seed,
                                                               const AffineTransform& emitter,
-                                                              std::size_t budget) {
-    const auto samples = sample_particle_effect(data, time, seed, budget);
+                                                              std::size_t budget, double size,
+                                                              std::array<float, 3> tint) {
+    validate_particle_instance_parameters(size, tint);
+    auto samples = sample_particle_effect(data, time, seed, budget);
+    modulate_particle_samples(samples, size, tint);
     std::vector<ParticleRenderInstance> result;
     result.reserve(samples.size());
     for (const auto& sample : samples) {
@@ -54,12 +57,14 @@ std::vector<ParticleRenderInstance> particle_render_instances(const ParticleEffe
     return result;
 }
 RenderBounds particle_effect_bounds(const ParticleEffectData& data, const MeshBounds& mesh,
-                                    const AffineTransform& world) {
+                                    const AffineTransform& world, double multiplier) {
     validate_particle_effect(data);
+    validate_particle_instance_parameters(multiplier, {1, 1, 1});
     MeshBounds envelope;
     auto size = std::max(data.size_start, data.size_end);
     for (const auto& stop : data.size_curve)
         size = std::max(size, stop.value);
+    size *= multiplier;
     for (unsigned axis = 0; axis < 3; ++axis) {
         const auto travel = data.speed_max * data.lifetime +
                             .5 * std::abs(data.acceleration[axis]) * data.lifetime * data.lifetime;

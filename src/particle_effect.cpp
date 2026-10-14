@@ -388,4 +388,19 @@ std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& dat
     }
     return result;
 }
+void validate_particle_instance_parameters(double size, std::array<float, 3> tint) {
+    range(size, .01, 16, "emitter size multiplier [0.01,16]");
+    for (const auto channel : tint)
+        range(channel, 0, 1, "emitter linear RGB tint [0,1]");
+}
+void modulate_particle_samples(std::span<ParticleSample> samples, double size,
+                               std::array<float, 3> tint) {
+    // Reject the whole parameter set before touching caller-owned samples.
+    validate_particle_instance_parameters(size, tint);
+    for (auto& sample : samples) {
+        sample.size *= size;
+        for (unsigned channel = 0; channel < 3; ++channel)
+            sample.color[channel] *= tint[channel];
+    }
+}
 } // namespace forge
