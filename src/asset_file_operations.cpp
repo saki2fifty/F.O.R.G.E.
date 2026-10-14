@@ -15,6 +15,7 @@
 #include <forge/scene.hpp>
 #include <forge/scene_identity.hpp>
 #include <forge/shader_asset.hpp>
+#include <forge/terrain_source.hpp>
 #include <forge/transform_animation.hpp>
 namespace forge {
 namespace {
@@ -179,8 +180,9 @@ AssetFilePlan prepare_asset_file_operation(const std::filesystem::path& project,
                         edge.revision.clear();
                 }
                 // These are selection/provenance claims, not user extension payloads.
-                for (const auto* field : {"forge.import", "forge.model", "forge.texture",
-                                          "forge.shader", "forge.audio"})
+                for (const auto* field :
+                     {"forge.import", "forge.model", "forge.mesh", "forge.terrain", "forge.texture",
+                      "forge.shader", "forge.audio"})
                     record.metadata.erase(field);
             }
             records.push_back(std::move(record));
@@ -200,12 +202,16 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
                                                 const std::filesystem::path& destination,
                                                 const std::map<AssetId, AssetId>& identities,
                                                 const Json& schema) {
+    const bool terrain =
+        record.type == MeshAsset::type && path_utf8(record.source).ends_with(".terrain.json");
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&
         record.type != "shader" && record.type != "collision" &&
         record.type != "transform_animation" && record.type != "animation_states" &&
         record.type != "animation_mask" && record.type != "animation_blend_space" &&
-        record.type != ParticleEffectAsset::type)
+        record.type != ParticleEffectAsset::type && !terrain)
         throw std::runtime_error("No authored-document copy adapter for this source format");
+    if (terrain && !path_utf8(destination).ends_with(".terrain.json"))
+        throw std::runtime_error("Terrain files must retain the .terrain.json suffix");
     if (record.type == ParticleEffectAsset::type &&
         !path_utf8(destination).ends_with(".particles.json"))
         throw std::runtime_error("Particle Effect files must retain the .particles.json suffix");
@@ -242,7 +248,9 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             else
                 value["asset_id"] = identities.at(record.id);
         }
-        if (record.type == "material")
+        if (terrain)
+            TerrainSource{value}.validate();
+        else if (record.type == "material")
             MaterialSource{value}.validate();
         else if (record.type == "collision")
             CollisionSource{value}.validate();

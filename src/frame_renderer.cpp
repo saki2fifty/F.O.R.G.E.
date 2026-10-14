@@ -1,7 +1,15 @@
 #include "frame_renderer.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
+#include "render_projection.hpp"
 namespace forge {
 using namespace Diligent;
+std::optional<Double3> FrameRenderer::pick_point(const RenderScene& scene, const CameraView& view,
+                                                 double x, double y) const {
+    if (!meshes_ || pending())
+        return {};
+    const auto hit = meshes_->pick_depth(scene, view, x, y, UINT32_MAX, 0);
+    return hit ? unproject_render_point(view, x, y, hit->second) : std::nullopt;
+}
 FrameRenderer::FrameRenderer(DiligentPresentation& presentation)
     : presentation_(presentation), display_(presentation), bloom_(presentation),
       sky_(presentation, TEX_FORMAT_RGBA16_FLOAT) {

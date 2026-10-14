@@ -1,4 +1,5 @@
 #include "bounded_json.hpp"
+#include "brush_samples.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/editable_mesh.hpp>
@@ -43,36 +44,8 @@ std::array<double, 4> vertex_color(const Json& value) {
         require(channel >= 0 && channel <= 1, "Mesh vertex color must be within [0,1]");
     return result;
 }
-void validate_brush(std::span<const MeshBrushSample> samples, double radius) {
-    require(!samples.empty() && samples.size() <= 256 && std::isfinite(radius) && radius > 1e-4 &&
-                radius <= 1000,
-            "Mesh brush stroke is empty or outside bounded settings");
-    for (const auto& sample : samples) {
-        (void)vector<3>(Json(sample.point));
-        require(std::isfinite(sample.pressure) && sample.pressure >= 0 && sample.pressure <= 1,
-                "Mesh brush pressure must be within [0,1]");
-    }
-}
-double brush_influence(Vec3 point, std::span<const MeshBrushSample> samples, double radius,
-                       MeshBrushSymmetry symmetry) {
-    double influence = 0;
-    for (const auto& sample : samples) {
-        const auto axes = static_cast<std::uint8_t>(symmetry);
-        auto difference = [&](unsigned axis) {
-            // Nearest of the independently reflected sample coordinates. The
-            // existing max influence is exactly the union of all mirror stamps.
-            return axes & (1u << axis) ? std::abs(point[axis]) - std::abs(sample.point[axis])
-                                       : point[axis] - sample.point[axis];
-        };
-        const double dx = difference(0), dy = difference(1), dz = difference(2);
-        const auto distance = std::sqrt(dx * dx + dy * dy + dz * dz);
-        if (distance < radius) {
-            const auto falloff = 1 - distance / radius;
-            influence = std::max(influence, sample.pressure * falloff * falloff);
-        }
-    }
-    return influence;
-}
+using brush_detail::brush_influence;
+using brush_detail::validate_brush;
 Vec3 sub(Vec3 a, Vec3 b) { return {a[0] - b[0], a[1] - b[1], a[2] - b[2]}; }
 Vec3 cross(Vec3 a, Vec3 b) {
     return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};

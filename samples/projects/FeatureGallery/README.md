@@ -1,5 +1,15 @@
 # FORGE Feature Gallery
 
+## Layered terrain and collision
+
+Open **Scenes/55-layered-heightfield-terrain.scene.json** and press Play. Three
+spheres fall onto two adjoining tiles, including their shared seam. Stop Play,
+open **Assets/Terrain/LayeredHills.terrain.json** in Content and try its height
+layers, strength, mask or brushes. **Save / Publish** updates the visible Mesh;
+rebuild **LayeredHills.collision.json** afterward to update the static collider.
+Save the scene and export normally to run the same cooked surfaces and physics.
+No C++ compiler is needed. See the [terrain guide](../../../manual/editor/terrain.md).
+
 ## Mesh particle fountains and burst
 
 Open **Scenes/54-cpu-mesh-particles.scene.json** and press Play. Orange and blue

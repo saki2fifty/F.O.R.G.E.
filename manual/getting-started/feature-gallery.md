@@ -18,6 +18,11 @@ with another startup scene to export a different demonstration.
 The gallery contains ordinary saved project content. It needs no C++ compiler. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
 
+Scene **55-layered-heightfield-terrain** contains editable height layers on two
+adjoining tiles and three spheres that land on the cooked static surface. Open
+its source under **Assets/Terrain**, paint a layer and publish, then rebuild its
+Collision asset before testing physics again. See [Terrain](../editor/terrain.md).
+
 ## Two-clip skeletal animation
 
 For object animation timing, open **45-animation-timing**. Three lanes compare

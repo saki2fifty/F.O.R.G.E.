@@ -11,6 +11,13 @@ struct MaterialPreviewSelection {
     std::uint64_t generation{};
     MaterialResourceData data;
 };
+// Immutable Mesh draft admitted only by an isolated source-preview host.
+struct MeshPreviewSelection {
+    AssetRef<MeshAsset> asset;
+    std::string revision;
+    std::uint64_t generation{};
+    std::shared_ptr<const MeshResourceData> data;
+};
 struct PreparedModelDraw {
     ResourceLease<MeshAsset> mesh;
     MeshMaterialSelection selection;
@@ -76,7 +83,8 @@ class ModelDrawCandidate {
                        std::uint64_t catalog_epoch, AssetRef<MeshAsset> mesh,
                        std::vector<MaterialSlotOverride> overrides, ResourcePool<MeshAsset>& meshes,
                        std::shared_ptr<const MaterialPreviewSelection> preview = {},
-                       AssetRef<MaterialVariantAsset> variant = {}, bool initial_fallbacks = false);
+                       AssetRef<MaterialVariantAsset> variant = {}, bool initial_fallbacks = false,
+                       std::shared_ptr<const MeshPreviewSelection> mesh_preview = {});
     void advance(std::uint64_t current_catalog_epoch, ResourcePool<MeshAsset>& meshes,
                  ResourcePool<MaterialAsset>& materials, ResourcePool<TextureAsset>& textures);
     void cancel(); // Only this consumer; coalesced pool requests remain usable.

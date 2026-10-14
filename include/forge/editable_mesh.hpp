@@ -3,6 +3,7 @@
 #include <compare>
 #include <cstddef>
 #include <cstdint>
+#include <forge/brush_stroke.hpp>
 #include <forge/mesh_asset.hpp>
 #include <nlohmann/json.hpp>
 #include <span>
@@ -12,15 +13,6 @@ namespace forge {
 // Small first-class authored mesh. Polygon/corner identities belong to this
 // source; cooked MeshData remains an immutable runtime projection.
 inline constexpr std::size_t editable_mesh_source_byte_limit = 2 * 1024 * 1024;
-enum class MeshBrushSymmetry : std::uint8_t { None = 0, X = 1, Y = 2, Z = 4 };
-constexpr MeshBrushSymmetry operator|(MeshBrushSymmetry a, MeshBrushSymmetry b) {
-    return static_cast<MeshBrushSymmetry>(static_cast<std::uint8_t>(a) |
-                                          static_cast<std::uint8_t>(b));
-}
-struct MeshBrushSample {
-    std::array<double, 3> point{};
-    double pressure = 1;
-};
 // Corner index is scoped to its authored face, and invalidated by topology edits.
 struct MeshUvCorner {
     std::uint32_t face = 0;

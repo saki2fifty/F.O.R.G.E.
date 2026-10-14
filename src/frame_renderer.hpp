@@ -23,6 +23,8 @@ class FrameRenderer {
     const RenderScene* game_scene() const { return game_scene_ ? &*game_scene_ : nullptr; }
     Diligent::ITextureView* depth() const;
     Diligent::ITextureView* output() const { return display_.output(); }
+    std::optional<Double3> pick_point(const RenderScene&, const CameraView&, double x,
+                                      double y) const;
     std::uint64_t frames = 0;
     std::optional<RenderBounds> bounds() const {
         return meshes_ ? meshes_->bounds() : std::nullopt;

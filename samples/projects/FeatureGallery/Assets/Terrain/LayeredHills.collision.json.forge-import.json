@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [
+      {
+        "kind": "build",
+        "revision": "dbef237aac7fdf72c548fbe67eaee50bd616a0501d007e67491821fc6e7e59a9",
+        "role": "collision.mesh",
+        "target": "32685545-b5d2-4e86-a1ad-00e8198accd0",
+        "type": "mesh"
+      }
+    ],
+    "importer": "forge.collision.builtin",
+    "importer_revision": "827ca4ecbd0696bb3c346e62222bf25704dc8ef7cd02cb944dd45ef9903a9b73",
+    "key_version": 1,
+    "output_format": "forge.collision-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "cpu",
+    "settings": {},
+    "settings_version": 1,
+    "source": "c83d1a833211f848828165ef5f4fe95162d3aa15da9ae6f02b6275598c64de29",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.collision.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "f4941f28-fed4-481e-ae84-6e74ac0c8073",
+    "source": "Assets/Terrain/LayeredHills.collision.json",
+    "source_digest": "c83d1a833211f848828165ef5f4fe95162d3aa15da9ae6f02b6275598c64de29",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.collision.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

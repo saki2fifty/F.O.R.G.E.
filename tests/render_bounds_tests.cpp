@@ -32,6 +32,43 @@ int main() {
         check_model_instance_poses();
         check_mesh_picking();
         check_animation_debug_poses();
+        // Terrain strokes recover the exact picked point from the renderer's
+        // camera and D3D depth, including flips, fitted viewports and -Z imports.
+        for (unsigned projection = 0; projection < 2; ++projection)
+            for (unsigned flip = 0; flip < 4; ++flip)
+                for (unsigned basis = 0; basis < 2; ++basis) {
+                    Camera lens;
+                    lens.projection = projection;
+                    lens.basis = basis;
+                    lens.flip_x = bool(flip & 1);
+                    lens.flip_y = bool(flip & 2);
+                    lens.aspect = 1;
+                    lens.viewport_x = .2f;
+                    lens.viewport_width = .7f;
+                    AffineTransform transform;
+                    transform.m[3] = 10000;
+                    transform.m[7] = -20000;
+                    transform.m[11] = 30000;
+                    const auto view = camera_view(lens, transform, 900, 600);
+                    Double3 point;
+                    for (unsigned i = 0; i < 3; ++i)
+                        point[i] = view.position[i] + view.right[i] * .3 + view.up[i] * .2 +
+                                   view.forward[i] * 10;
+                    const auto pixel = project_render_point(view, point);
+                    check(bool(pixel), "Known projected brush point unavailable");
+                    const auto& p = view.projection;
+                    const auto depth = (p[10] * 10. + p[11]) / (p[14] * 10. + p[15]);
+                    const auto recovered =
+                        unproject_render_point(view, (*pixel)[0], (*pixel)[1], depth);
+                    check(bool(recovered), "Known projected brush point could not be unprojected");
+                    for (unsigned i = 0; i < 3; ++i)
+                        check(std::abs((*recovered)[i] - point[i]) < 1e-7,
+                              "Brush point changed across actual camera projection");
+                    check(!unproject_render_point(view, 0, 0, -.01) &&
+                              !unproject_render_point(view, 0, 0, 1.01) &&
+                              !unproject_render_point(view, 0, 0, NAN),
+                          "Invalid brush pick depth was accepted");
+                }
         const MeshBounds unit{{-1, -1, -1}, {1, 1, 1}};
         {
             std::mt19937 random(47181);

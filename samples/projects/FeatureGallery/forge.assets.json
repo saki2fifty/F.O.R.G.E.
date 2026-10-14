@@ -1973,6 +1973,45 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "32685545-b5d2-4e86-a1ad-00e8198accd0",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "985cd7fdc0590ee64de6a4ae39b5489bd857f01a9a114c9ae242ac1cce730328",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.terrain.heightfield",
+          "importer_revision": "forge.terrain.heightfield.v1",
+          "key": "dbef237aac7fdf72c548fbe67eaee50bd616a0501d007e67491821fc6e7e59a9",
+          "output_format": "forge.mesh-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "6c10d5ed6b3dcfb696eb7679b9b16250ffc3fbe52cc31f164b97a0f13c87dc02",
+          "source_digest": "a1a8568da4a0be8aaadd9a322a97d4e3d75561229978e65c34ae2c5f3b84d756",
+          "version": 1
+        },
+        "forge.mesh": {
+          "bytes": 130284,
+          "file": "mesh.bin",
+          "sha256": "b483e673f40d121fc65cc18811701039fcddf30c4df06df9897f83bd3911921a",
+          "version": 1
+        },
+        "forge.terrain": {
+          "profile": "heightfield_mesh1",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Terrain/LayeredHills.terrain.json",
+      "source_dependencies": [],
+      "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "327101c1-e496-4293-b830-4c25b978607a",
       "metadata": {
         "forge.audio": {
@@ -6680,6 +6719,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "bd983a60-0d47-4d37-bf43-0785d3bd6ecf",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/55-layered-heightfield-terrain.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "bf30c67d-4500-4547-a935-88a1a4e50d50",
       "metadata": {
         "forge.import": {
@@ -7914,6 +7963,50 @@
         "removed": false
       },
       "type": "mesh"
+    },
+    {
+      "dependencies": [
+        "32685545-b5d2-4e86-a1ad-00e8198accd0"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "dbef237aac7fdf72c548fbe67eaee50bd616a0501d007e67491821fc6e7e59a9",
+          "role": "collision.mesh",
+          "target": "32685545-b5d2-4e86-a1ad-00e8198accd0",
+          "type": "mesh"
+        }
+      ],
+      "id": "f4941f28-fed4-481e-ae84-6e74ac0c8073",
+      "metadata": {
+        "forge.collision": {
+          "jolt_revision": "e77f175595e64cb44218cc9d9d56fc365ad0e36a",
+          "static_only": true,
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "faa55fa98f6e83a2f0bcd825e64dd15a4f007b6586a06cb30e614451f79e9f9a",
+          "backend": "none",
+          "dependency_digest": "4b6425ab134867b0dd72131cf4e581f532d43412a1d77aabe2ea28984d8cc0e0",
+          "generation": 1,
+          "importer": "forge.collision.builtin",
+          "importer_revision": "827ca4ecbd0696bb3c346e62222bf25704dc8ef7cd02cb944dd45ef9903a9b73",
+          "key": "4f9ef7679aabd6c9bcae1e1b65c0ee5dbf96357eb0eadecf07c22fc492e750d8",
+          "output_format": "forge.collision-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "cpu",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "4bd2c0800c454a21a5d9d6a17fb6da558126741936825caffec0070049879760",
+          "source_digest": "c83d1a833211f848828165ef5f4fe95162d3aa15da9ae6f02b6275598c64de29",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Terrain/LayeredHills.collision.json",
+      "source_dependencies": [],
+      "type": "collision"
     },
     {
       "dependencies": [],

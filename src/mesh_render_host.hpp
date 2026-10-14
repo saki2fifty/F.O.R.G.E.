@@ -15,9 +15,10 @@ struct MeshResourceInspection {
 class MeshResourceHost {
   public:
     MeshResourceHost(DiligentPresentation&, Diligent::IDeviceContext*, std::filesystem::path,
-                     bool isolated_material_preview = false);
+                     bool isolated_source_preview = false);
     void preview_material(AssetRef<MaterialAsset>, MaterialResourceData);
     void preview_particle_effect(AssetRef<ParticleEffectAsset>, ParticleEffectData);
+    void preview_mesh(AssetRef<MeshAsset>, MeshData);
     void catalog(std::shared_ptr<const AssetCatalog>);
     std::shared_ptr<const AssetCatalog> catalog() const {
         check_thread();
@@ -36,8 +37,9 @@ class MeshResourceHost {
     std::filesystem::path project_;
     std::shared_ptr<const AssetCatalog> catalog_;
     std::uint64_t epoch_ = 0;
-    const bool isolated_material_preview_;
+    const bool isolated_source_preview_;
     std::shared_ptr<const asset_detail::MaterialPreviewSelection> material_preview_;
+    std::shared_ptr<const asset_detail::MeshPreviewSelection> mesh_preview_;
     ResourcePool<MeshAsset> meshes_;
     ResourcePool<MaterialAsset> materials_;
     ResourcePool<TextureAsset> textures_;
@@ -78,6 +80,10 @@ class MeshSceneRenderer {
     std::uint64_t pose_payload_bytes() const;
     EntityId pick(const RenderScene&, const CameraView&, double x, double y,
                   std::uint32_t layers = UINT32_MAX, double point_line_radius = 5) const;
+    std::optional<std::pair<EntityId, double>> pick_depth(const RenderScene&, const CameraView&,
+                                                          double x, double y,
+                                                          std::uint32_t layers = UINT32_MAX,
+                                                          double point_line_radius = 5) const;
     const EnvironmentLease& environment() const { return environment_ready_; }
 
   private:

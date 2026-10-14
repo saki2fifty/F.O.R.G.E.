@@ -1,0 +1,40 @@
+{
+  "asset_id": "f4941f28-fed4-481e-ae84-6e74ac0c8073",
+  "kind": "forge.collision",
+  "nodes": [
+    {
+      "children": [],
+      "dimensions": [
+        0,
+        0,
+        0
+      ],
+      "id": "280bcf11-3870-4676-b37a-4d8e4b9752ef",
+      "kind": "triangle_mesh",
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "source": {
+        "degenerate": "reject",
+        "lod": 0,
+        "mesh": "32685545-b5d2-4e86-a1ad-00e8198accd0",
+        "parts": "all"
+      },
+      "translation": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "root": "280bcf11-3870-4676-b37a-4d8e4b9752ef",
+  "version": 1
+}

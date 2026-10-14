@@ -83,6 +83,8 @@
 #include "source_import.hpp"
 #include "spatial_helpers.hpp"
 #include "status_bar.hpp"
+#include "terrain_editor.hpp"
+#include "terrain_preview.hpp"
 #include "texture_imports.hpp"
 #include "texture_viewer.hpp"
 #include "transform_gesture.hpp"
@@ -951,6 +953,20 @@ int main(int argc, char** argv) {
         // ImGui may already reference this frame's preview texture when Discard
         // closes the document. Retain it until that draw list has been submitted.
         particle_editor.release_preview = [&] { release_particle_preview = true; };
+        forge::TerrainEditor terrain_editor;
+        std::unique_ptr<forge::TerrainPreview> terrain_preview;
+        bool release_terrain_preview = false;
+        terrain_editor.draw_preview = [&](const auto& source, std::uint64_t revision, auto catalog,
+                                          auto settings) {
+            const auto& project = terrain_editor.document()->project();
+            if (!terrain_preview || terrain_preview->project() != project ||
+                terrain_preview->asset() != source.asset())
+                terrain_preview = std::make_unique<forge::TerrainPreview>(presentation, context,
+                                                                          project, source.asset());
+            release_terrain_preview = false;
+            return terrain_preview->draw(source, revision, std::move(catalog), settings);
+        };
+        terrain_editor.release_preview = [&] { release_terrain_preview = true; };
         forge::AnimationBlendSpaceEditor animation_blend_space;
         forge::AnimationPreviewEditor animation_preview;
         forge::MaterialGraphEditor graph_editor(
@@ -1040,7 +1056,7 @@ int main(int argc, char** argv) {
                 navigation_tools.pending() || script_editor.pending() ||
                 texture_imports.pending() || audio_imports.pending() || model_imports.pending() ||
                 shader_imports.pending() || material_editor.pending() || graph_editor.pending() ||
-                collision_editor.pending() || particle_editor.pending())
+                collision_editor.pending() || particle_editor.pending() || terrain_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
             if (documents.source_drafts_dirty())
                 return "Save or discard open source-document drafts before reviewing file changes.";
@@ -1063,6 +1079,12 @@ int main(int argc, char** argv) {
                     particle_editor.request_close();
                     if (plan.request.action == forge::AssetFileAction::Move)
                         particle_editor.open(files.document, plan.request.destination);
+                }
+                if (terrain_editor.document() &&
+                    terrain_editor.document()->source().asset() == id) {
+                    terrain_editor.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        terrain_editor.open(files.document, plan.request.destination);
                 }
                 const auto refresh_import = [&](auto& document) {
                     if (document.selected_asset() == id) {
@@ -1123,6 +1145,7 @@ int main(int argc, char** argv) {
                 mesh_resources->catalog(catalog);
             material_editor.asset_catalog_changed(catalog);
             particle_editor.catalog_changed(catalog);
+            terrain_editor.catalog_changed(catalog);
             graph_editor.asset_catalog_changed(catalog);
             collision_editor.asset_catalog_changed(catalog);
             animation_preview.stop_preview();
@@ -1154,6 +1177,11 @@ int main(int argc, char** argv) {
                               forge::particle_effect_import_registry(),
                               [](auto& candidate, const auto& plan, const auto&) {
                                   forge::prepare_particle_effect_publication(candidate, plan);
+                              }});
+            routes.push_back({forge::terrain_importer, forge::desktop_texture_target(),
+                              forge::terrain_import_registry(),
+                              [](auto& candidate, const auto& plan, const auto&) {
+                                  forge::prepare_terrain_publication(candidate, plan);
                               }});
             routes.push_back({"forge.material.builtin", forge::desktop_texture_target(),
                               forge::material_import_registry(),
@@ -1213,6 +1241,8 @@ int main(int argc, char** argv) {
                    (collision_editor.document() &&
                     collision_editor.document()->source().asset() == id &&
                     collision_editor.dirty()) ||
+                   (terrain_editor.document() &&
+                    terrain_editor.document()->source().asset() == id && terrain_editor.dirty()) ||
                    (editable_mesh_editor.document() &&
                     editable_mesh_editor.document()->source().asset() == id &&
                     editable_mesh_editor.dirty()) ||
@@ -1233,6 +1263,8 @@ int main(int argc, char** argv) {
             material_editor.source_published(files.document, id);
             particle_editor.source_published(files.document, id);
             particle_editor.catalog_changed(catalog);
+            terrain_editor.source_published(files.document, id);
+            terrain_editor.catalog_changed(catalog);
             graph_editor.source_published(id);
             collision_editor.source_published(files.document, id);
             collision_editor.asset_catalog_changed(catalog);
@@ -1287,6 +1319,9 @@ int main(int argc, char** argv) {
             } else if (kind == "transform_animation") {
                 if (open)
                     animation_timeline.open(files.document, path);
+            } else if (kind == "terrain") {
+                if (open)
+                    terrain_editor.open(files.document, path);
             } else if (kind == "editable_mesh") {
                 if (open)
                     editable_mesh_editor.open(files.document, path);
@@ -1684,9 +1719,29 @@ int main(int argc, char** argv) {
                        [&] { return editable_mesh_editor.can_redo(); },
                        {},
                        [&] { return std::exchange(editable_mesh_editor.close_cancelled, false); }});
+        documents.add({"terrain",
+                       "Terrain",
+                       "Terrain###Terrain",
+                       true,
+                       [&] { return terrain_editor.is_open(); },
+                       [&] { return terrain_editor.dirty(); },
+                       [&] {
+                           terrain_editor.draw(files.document, scene,
+                                               asset_document_locked || play.active());
+                       },
+                       [&] { terrain_editor.request_save(); },
+                       [&] { terrain_editor.undo(); },
+                       [&] { terrain_editor.redo(); },
+                       [&] { terrain_editor.request_close(); },
+                       [&] { return terrain_editor.can_undo(); },
+                       [&] { return terrain_editor.can_redo(); },
+                       {},
+                       [&] { return std::exchange(terrain_editor.close_cancelled, false); }});
         asset_editors.add({"mesh", "Open mesh", [&](const forge::AssetRecord& asset) {
                                if (asset.subasset)
                                    asset_view_document.open(files.document.project(), asset);
+                               else if (forge::path_utf8(asset.source).ends_with(".terrain.json"))
+                                   terrain_editor.open(files.document, asset.source);
                                else
                                    editable_mesh_editor.open(files.document, asset.source);
                            }});
@@ -1893,6 +1948,8 @@ int main(int argc, char** argv) {
             presentation.begin_frame();
             if (std::exchange(release_particle_preview, false))
                 particle_preview.reset();
+            if (std::exchange(release_terrain_preview, false))
+                terrain_preview.reset();
             performance.begin();
 #ifdef FORGE_UI_FIXTURE
             if (fixture.workflow)
@@ -4499,6 +4556,14 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                terrain_editor.poll(files.document, message);
+                if (auto catalog = terrain_editor.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 material_editor.poll(files.document, message);
                 if (auto catalog = material_editor.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -5487,6 +5552,7 @@ int main(int argc, char** argv) {
                     [&] {
                         material_editor.content(files.document, edit_locked);
                         particle_editor.content(files.document, edit_locked);
+                        terrain_editor.content(files.document, edit_locked);
                         editable_mesh_editor.content(files.document, edit_locked);
                         animation_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
@@ -5523,8 +5589,9 @@ int main(int argc, char** argv) {
                 documents.source_drafts_dirty() || texture_imports.pending() ||
                 audio_imports.pending() || model_imports.pending() || shader_imports.pending() ||
                 material_editor.pending() || graph_editor.pending() || particle_editor.pending() ||
-                source_import.busy() || animation_tools.pending() || navigation_tools.pending() ||
-                script_editor.pending() || authored_components.busy() || content_files.busy());
+                terrain_editor.pending() || source_import.busy() || animation_tools.pending() ||
+                navigation_tools.pending() || script_editor.pending() ||
+                authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);
             source_import.draw(play.active() || sdk_build->busy() || content_files.busy() ||
                                authored_components.busy() || scene_asset_drop.busy());

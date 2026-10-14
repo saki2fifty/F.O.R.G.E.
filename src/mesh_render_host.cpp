@@ -1,4 +1,5 @@
 #include "mesh_render_host.hpp"
+#include "asset_bytes.hpp"
 #include "mesh_draw_shader.hpp"
 #include "mesh_pick.hpp"
 #include "pbr_material.hpp"
@@ -104,6 +105,12 @@ struct DrawCapacityError : std::runtime_error {
 } // namespace
 EntityId MeshSceneRenderer::pick(const RenderScene& scene, const CameraView& camera, double x,
                                  double y, std::uint32_t layers, double radius) const {
+    const auto result = pick_depth(scene, camera, x, y, layers, radius);
+    return result ? result->first : EntityId{};
+}
+std::optional<std::pair<EntityId, double>>
+MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera, double x,
+                              double y, std::uint32_t layers, double radius) const {
     host_->check_thread();
     MeshPickBudget budget;
     EntityId selected;
@@ -150,20 +157,20 @@ EntityId MeshSceneRenderer::pick(const RenderScene& scene, const CameraView& cam
                     selected = mesh.entity;
                 }
     }
-    return selected;
+    return selected ? std::optional(std::pair{selected, nearest}) : std::nullopt;
 }
 MeshResourceHost::MeshResourceHost(DiligentPresentation& presentation,
                                    Diligent::IDeviceContext* context, std::filesystem::path project,
-                                   bool isolated_material_preview)
+                                   bool isolated_source_preview)
     : presentation_(presentation), context_(context), project_(std::move(project)),
-      isolated_material_preview_(isolated_material_preview),
+      isolated_source_preview_(isolated_source_preview),
       environments_(presentation.device(), context, 512ull * 1024 * 1024, 16,
                     EnvironmentRealization{&presentation}),
       gpu_meshes_(presentation.device(), context, 512ull * 1024 * 1024),
       gpu_textures_(presentation.device(), context, 512ull * 1024 * 1024) {}
 void MeshResourceHost::preview_material(AssetRef<MaterialAsset> ref, MaterialResourceData data) {
     check_thread();
-    if (!isolated_material_preview_ || !ref.id || epoch_ == UINT64_MAX)
+    if (!isolated_source_preview_ || !ref.id || epoch_ == UINT64_MAX)
         throw std::runtime_error("Unsaved material requires an isolated preview host");
     validate_render_material(data);
     const auto revision = asset_build_digest(
@@ -187,7 +194,7 @@ void MeshResourceHost::check_thread() const {
 void MeshResourceHost::preview_particle_effect(AssetRef<ParticleEffectAsset> ref,
                                                ParticleEffectData data) {
     check_thread();
-    if (!isolated_material_preview_ || !ref.id || epoch_ == UINT64_MAX)
+    if (!isolated_source_preview_ || !ref.id || epoch_ == UINT64_MAX)
         throw std::runtime_error("Unsaved particles require an isolated preview host");
     validate_particle_effect(data);
     const auto found = particle_previews_.find(ref.id);
@@ -196,6 +203,25 @@ void MeshResourceHost::preview_particle_effect(AssetRef<ParticleEffectAsset> ref
     if (found == particle_previews_.end() && particle_previews_.size() == 1)
         throw std::runtime_error("Isolated particle preview accepts one source at a time");
     particle_previews_[ref.id] = std::make_shared<const ParticleEffectData>(std::move(data));
+    ++epoch_;
+}
+void MeshResourceHost::preview_mesh(AssetRef<MeshAsset> ref, MeshData mesh) {
+    check_thread();
+    if (!isolated_source_preview_ || !ref.id || epoch_ == UINT64_MAX)
+        throw std::runtime_error("Unsaved Mesh requires an isolated preview host");
+    if (mesh_preview_ && mesh_preview_->asset != ref)
+        throw std::runtime_error("Isolated Mesh preview accepts one source at a time");
+    validate_mesh(mesh, {32 * 1024 * 1024});
+    const auto revision = asset_detail::content_digest(encode_mesh(mesh));
+    if (mesh_preview_ && mesh_preview_->revision == revision)
+        return;
+    auto data = std::make_shared<MeshResourceData>();
+    data->mesh = std::move(mesh);
+    data->materials = {{0, "default", {}}};
+    validate_mesh_material_bindings(*data);
+    auto next = std::make_shared<const asset_detail::MeshPreviewSelection>(
+        asset_detail::MeshPreviewSelection{ref, revision, epoch_ + 1, std::move(data)});
+    mesh_preview_ = std::move(next);
     ++epoch_;
 }
 void MeshResourceHost::catalog(std::shared_ptr<const AssetCatalog> catalog) {
@@ -366,7 +392,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.candidate = std::make_unique<asset_detail::ModelDrawCandidate>(
                     host_->project_, host_->catalog_, host_->epoch_, renderer.mesh,
                     renderer.materials, host_->meshes_, host_->material_preview_,
-                    renderer.material_variant, !entry.ready || entry.fallback);
+                    renderer.material_variant, !entry.ready || entry.fallback,
+                    host_->mesh_preview_);
             } catch (const std::exception& e) {
                 entry.error = e.what();
             }

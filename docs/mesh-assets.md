@@ -6,6 +6,11 @@ into them. `forge_mesh_resources` loads an immutable cooked revision through the
 [typed resource pool](runtime-resources.md). These targets build without ImGui,
 a window or a graphics device.
 
+Project-authored root Mesh sources include [editable meshes](editable-meshes.md)
+and [layered heightfield terrain](terrain-authoring.md). Both publish the same
+MeshData format through existing catalog/cache/resource owners; games load their
+cooked geometry without source editors.
+
 ## Representation
 
 `MeshData` contains ordered LODs, material-slot count and named morph defaults.

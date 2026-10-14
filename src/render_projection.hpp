@@ -3,6 +3,30 @@
 #include <forge/render_view.hpp>
 #include <optional>
 namespace forge {
+// Inverse of FORGE's admitted perspective/orthographic camera projection at
+// D3D depth [0,1]. Uses the same float projection as picking and rendering.
+inline std::optional<Double3> unproject_render_point(const CameraView& view, double x, double y,
+                                                     double depth) {
+    if (!view.viewport.width || !view.viewport.height || !std::isfinite(x) || !std::isfinite(y) ||
+        !std::isfinite(depth) || depth < 0 || depth > 1)
+        return {};
+    const auto& p = view.projection;
+    const double divisor = depth * p[14] - p[10];
+    if (divisor == 0 || p[0] == 0 || p[5] == 0)
+        return {};
+    const double z = (p[11] - depth * p[15]) / divisor, w = p[14] * z + p[15];
+    if (!std::isfinite(z) || !std::isfinite(w) || w <= 0)
+        return {};
+    const double px = ((x - view.viewport.x) * 2 / view.viewport.width - 1) * w / p[0];
+    const double py = (1 - (y - view.viewport.y) * 2 / view.viewport.height) * w / p[5];
+    Double3 result;
+    for (unsigned i = 0; i < 3; ++i) {
+        result[i] = view.position[i] + view.right[i] * px + view.up[i] * py + view.forward[i] * z;
+        if (!std::isfinite(result[i]))
+            return {};
+    }
+    return result;
+}
 // Camera-relative double projection for editor/debug overlays. Result uses the
 // physical target's pixel coordinates, including the camera viewport offset.
 inline std::optional<std::array<double, 2>> project_render_point(const CameraView& view,

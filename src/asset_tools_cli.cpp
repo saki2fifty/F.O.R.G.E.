@@ -19,6 +19,7 @@
 #include "material_authoring.hpp"
 #include "particle_effect_authoring.hpp"
 #include "self_executable.hpp"
+#include "terrain_authoring.hpp"
 #include "texture_authoring.hpp"
 #include "transform_animation_authoring.hpp"
 #endif
@@ -212,8 +213,10 @@ int asset_tools_cli(int argc, char** argv) {
             const bool animation_blend_space = path_utf8(source).ends_with(".blendspace.json");
             const bool transform_animation = path_utf8(source).ends_with(".animation.json");
             const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
+            const bool terrain = path_utf8(source).ends_with(".terrain.json");
             const bool particle_effect = path_utf8(source).ends_with(".particles.json");
-            auto registry = particle_effect         ? particle_effect_import_registry()
+            auto registry = terrain                 ? terrain_import_registry()
+                            : particle_effect       ? particle_effect_import_registry()
                             : animation_blend_space ? animation_blend_space_import_registry()
                             : animation_mask        ? animation_mask_import_registry()
                             : animation_states      ? animation_states_import_registry()
@@ -233,7 +236,12 @@ int asset_tools_cli(int argc, char** argv) {
             }
             AssetImportService service(lease, registry, target);
             AssetId identity;
-            if (particle_effect)
+            if (terrain)
+                identity = TerrainSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        terrain_source_byte_limit))
+                               .asset();
+            else if (particle_effect)
                 identity = ParticleEffectSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         particle_effect_byte_limit))
@@ -308,7 +316,7 @@ int asset_tools_cli(int argc, char** argv) {
             const auto asset = draft.request.asset;
             service.submit(
                 std::move(draft),
-                [decisions, collision, material, editable_mesh, particle_effect,
+                [decisions, collision, material, editable_mesh, particle_effect, terrain,
                  transform_animation, animation_states, animation_mask,
                  animation_blend_space](auto& candidate, const auto& plan, const auto& catalog) {
                     if (particle_effect) {
@@ -346,6 +354,11 @@ int asset_tools_cli(int argc, char** argv) {
                             throw std::runtime_error(
                                 "Material has no imported subasset correspondence decisions");
                         prepare_material_publication(candidate, plan);
+                    } else if (terrain) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Terrain has no imported subasset correspondence decisions");
+                        prepare_terrain_publication(candidate, plan);
                     } else if (editable_mesh) {
                         if (!decisions.empty())
                             throw std::runtime_error(

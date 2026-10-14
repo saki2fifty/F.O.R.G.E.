@@ -13,6 +13,7 @@
 #include "navigation_asset.hpp"
 #include "particle_effect_resource.hpp"
 #include "publish_directory.hpp"
+#include "root_mesh_artifact.hpp"
 #include "runtime_document_package.hpp"
 #include "runtime_raw_assets.hpp"
 #include "texture_bundle_validation.hpp"
@@ -175,10 +176,10 @@ AssetRecord runtime_record(AssetRecord record) {
     }
     Json metadata = Json::object();
     for (const auto* name :
-         {"forge.import", "forge.model", "forge.mesh", "forge.material", "forge.shader",
-          "forge.audio", "forge.ui_source", "forge.collision", "forge.transform_animation",
-          "forge.animation_states", "forge.animation_mask", "forge.animation_blend_space",
-          "forge.particle_effect"})
+         {"forge.import", "forge.model", "forge.mesh", "forge.terrain", "forge.material",
+          "forge.shader", "forge.audio", "forge.ui_source", "forge.collision",
+          "forge.transform_animation", "forge.animation_states", "forge.animation_mask",
+          "forge.animation_blend_space", "forge.particle_effect"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -271,16 +272,7 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     } else if (root.type == ParticleEffectAsset::type && format == particle_effect_cooked_format) {
         (void)admit_particle_effect_artifact(artifact, root);
     } else if (root.type == MeshAsset::type && format == "forge.mesh-bundle") {
-        require(root.metadata.at("forge.import").at("importer") == "forge.mesh.editable" &&
-                    root.metadata.at("forge.mesh").at("version") == 1 &&
-                    root.metadata.at("forge.mesh").at("file") == "mesh.bin" &&
-                    artifact.files.size() == 1 && artifact.files.front().name == "mesh.bin" &&
-                    root.metadata.at("forge.mesh").at("sha256") ==
-                        content_digest(artifact.files.front().bytes) &&
-                    root.metadata.at("forge.mesh").at("bytes") ==
-                        artifact.files.front().bytes.size(),
-                "Editable Mesh package selection differs from cooked artifact");
-        (void)decode_mesh(artifact.files.front().bytes);
+        (void)asset_detail::admit_root_mesh(artifact, root);
     } else if (root.type == TextureAsset::type && format == "forge.texture-bundle")
         (void)validate_texture_bundle(artifact.files);
     else if (root.type == MaterialAsset::type && format == "forge.material-bundle")

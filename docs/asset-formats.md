@@ -29,6 +29,16 @@ Logical AssetIds remain independent of source paths, cooked files and backend pr
 
 ## Cooked data and shipping
 
+[Layered heightfield terrain](terrain-authoring.md) adds a `.terrain.json`
+`forge.heightfield` source and `forge.terrain.heightfield` trusted CPU importer.
+It publishes ordinary root MeshData with stable tile/layer UUIDs, additive masks,
+eight tiles/three layers/sides2–129 and an8MiB source limit. Existing MeshRenderer,
+static Mesh collision, navigation and source-free package consumers are reused.
+Terrain sources do not provide volumes, holes, streaming or a runtime editor.
+Local evidence: `terrain_source`, `terrain_asset`, `terrain_runtime`, `terrain_tools`,
+scaled `terrain_editor` input and native `terrain_vulkan`; Windows physical
+acceptance remains pending.
+
 Runtime Model families, Mesh, Texture, Material, Shader and Audio resources load
 validated immutable cooked data through the catalog and typed resource pools.
 [Runtime content packaging](runtime-content-packaging.md) records the exact package closure

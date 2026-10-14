@@ -9,6 +9,7 @@
 #include <forge/material_source.hpp>
 #include <forge/particle_effect_source.hpp>
 #include <forge/scene_render_settings.hpp>
+#include <forge/terrain_source.hpp>
 namespace forge {
 namespace {
 using Json = nlohmann::json;
@@ -168,6 +169,10 @@ struct Inspect {
                     key != "rendering" && !(prefab && key == "dependencies"))
                     unknown(key);
             }
+        } else if (doc.value("format", std::string{}) == "forge.heightfield") {
+            TerrainSource{doc}.validate();
+            if (doc.contains("extensions") && !doc.at("extensions").empty())
+                unknown("extensions");
         } else if (doc.value("format", std::string{}) == "forge.particle_effect") {
             ParticleEffectSource{doc}.validate();
             reference(doc.at("mesh"), "mesh", "Particle mesh", MeshAsset::type);

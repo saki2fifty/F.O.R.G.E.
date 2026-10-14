@@ -33,7 +33,8 @@ ModelDrawCandidate::ModelDrawCandidate(
     std::filesystem::path project, std::shared_ptr<const AssetCatalog> catalog, std::uint64_t epoch,
     AssetRef<MeshAsset> mesh, std::vector<MaterialSlotOverride> overrides,
     ResourcePool<MeshAsset>& meshes, std::shared_ptr<const MaterialPreviewSelection> preview,
-    AssetRef<MaterialVariantAsset> variant, bool initial_fallbacks)
+    AssetRef<MaterialVariantAsset> variant, bool initial_fallbacks,
+    std::shared_ptr<const MeshPreviewSelection> mesh_preview)
     : epoch_(epoch), project_(std::move(project)), catalog_(std::move(catalog)),
       preview_(std::move(preview)), overrides_(std::move(overrides)), variant_(variant),
       initial_fallbacks_(initial_fallbacks) {
@@ -46,7 +47,24 @@ ModelDrawCandidate::ModelDrawCandidate(
             throw std::runtime_error("Invalid material preview selection");
         validate_render_material(preview_->data);
     }
-    mesh_ = request_model_mesh(meshes, project_, catalog_, mesh);
+    if (mesh_preview && mesh_preview->asset == mesh) {
+        if (!mesh_preview->data || !mesh_preview->generation ||
+            !valid_content_digest(mesh_preview->revision))
+            throw std::runtime_error("Invalid Mesh preview selection");
+        validate_mesh(mesh_preview->data->mesh, {32 * 1024 * 1024});
+        validate_mesh_material_bindings(*mesh_preview->data);
+        mesh_ = meshes.request(
+            mesh, mesh_preview->revision, mesh_preview->generation,
+            [selected = mesh_preview](std::stop_token stop) {
+                if (stop.stop_requested())
+                    throw std::runtime_error("Mesh preview cancelled");
+                auto data = std::make_unique<MeshResourceData>(*selected->data);
+                const auto bytes = data->resident_bytes();
+                return ResourceCandidate<MeshAsset>{std::move(data), {bytes}};
+            },
+            {}, 0, "builtin:mesh-preview-v1");
+    } else
+        mesh_ = request_model_mesh(meshes, project_, catalog_, mesh);
 }
 void ModelDrawCandidate::check_thread() const {
     if (thread_ != std::this_thread::get_id())

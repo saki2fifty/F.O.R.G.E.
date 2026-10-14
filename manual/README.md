@@ -37,6 +37,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Material Graph](editor/material-graphs.md): connect surface values, reuse functions and make material variations.
 - [Materials](editor/materials.md): edit reusable surfaces, preview them and assign mesh slots.
 - [Editable Meshes and UVs](editor/editable-meshes.md): shape a reusable cube Mesh and place its texture coordinates.
+- [Terrain](editor/terrain.md): paint layered heightfield tiles and use their cooked Mesh in scenes.
 - [Shader import](editor/shaders.md): compile project HLSL programs and retain good revisions on errors.
 - [Content browser](editor/content-browser.md): find and open project scene files.
 - [Prefabs](editor/prefabs.md): create reusable groups, edit sources, override and revert instance values.

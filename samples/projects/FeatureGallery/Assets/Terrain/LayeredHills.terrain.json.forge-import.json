@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.terrain.heightfield",
+    "importer_revision": "forge.terrain.heightfield.v1",
+    "key_version": 1,
+    "output_format": "forge.mesh-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "a1a8568da4a0be8aaadd9a322a97d4e3d75561229978e65c34ae2c5f3b84d756",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.heightfield.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "32685545-b5d2-4e86-a1ad-00e8198accd0",
+    "source": "Assets/Terrain/LayeredHills.terrain.json",
+    "source_digest": "a1a8568da4a0be8aaadd9a322a97d4e3d75561229978e65c34ae2c5f3b84d756",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.terrain.heightfield",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

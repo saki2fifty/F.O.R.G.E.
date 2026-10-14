@@ -1,5 +1,16 @@
 # 2026-10-14
 
+## Layered heightfield terrain
+
+- Author sparse adjoining tiles with additive height layers, masks, resolution
+  changes and Raise / lower, Flatten, Smooth and Mask strokes with source history.
+- Preview drafts through the isolated shared mesh renderer; publish ordinary Mesh
+  assets for existing materials, picking, static collision, navigation and export.
+- Add original Gallery55 with camera, light and three spheres landing on real
+  terrain. Preserve previous Gallery content and export without terrain sources.
+- Check normal/sanitized consumers, actual scaled controls and native Vulkan
+  readback. Local source work only; Windows physical acceptance remains pending.
+
 ## Reusable mesh particle effects
 
 - Create and publish reusable continuous fountains or bursts with direction, cone,

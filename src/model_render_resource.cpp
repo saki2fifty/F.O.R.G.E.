@@ -3,6 +3,7 @@
 #include "engine_render_resource.hpp"
 #include "material_selection.hpp"
 #include "pbr_material.hpp"
+#include "root_mesh_artifact.hpp"
 #include "texture_bundle_validation.hpp"
 #include <forge/derived_cache.hpp>
 #include <forge/model_asset.hpp>
@@ -264,15 +265,7 @@ std::string selected_mesh_revision(const AssetCatalog& catalog, AssetRef<MeshAss
         require(record.metadata.contains("forge.mesh"),
                 "Root Mesh has no supported authored source publication");
         const auto& imported = record.metadata.at("forge.import");
-        const auto& authored = record.metadata.at("forge.mesh");
-        require(imported.at("importer") == "forge.mesh.editable" &&
-                    imported.at("output_format") == "forge.mesh-bundle" &&
-                    imported.at("output_version") == 1 && authored.at("version") == 1 &&
-                    authored.at("file") == "mesh.bin",
-                "Editable Mesh publication version is incompatible");
-        require(imported.at("generation").is_number_unsigned() &&
-                    imported.at("generation").get<std::uint64_t>() > 0,
-                "Invalid editable Mesh publication generation");
+        validate_root_mesh_publication(record);
         return imported.at("key").get<std::string>();
     }
     return selected_member(catalog, mesh.id, MeshAsset::type).revision;
@@ -294,25 +287,14 @@ ResourceTicket request_model_mesh(ResourcePool<MeshAsset>& pool, std::filesystem
             mesh, key, generation,
             [project = std::move(project), catalog = std::move(catalog), mesh, key,
              limits](std::stop_token stop) {
-                require(!stop.stop_requested(), "Editable Mesh load cancelled");
+                require(!stop.stop_requested(), "Root Mesh load cancelled");
                 const auto& selected = catalog->records().at(mesh.id);
-                const auto& imported = selected.metadata.at("forge.import");
-                const auto& authored = selected.metadata.at("forge.mesh");
                 DerivedDataCache cache(project, {32 * 1024 * 1024, 64 * 1024 * 1024, 3});
-                auto artifact = cache.load_selected(key, [&](const CachedArtifact& candidate) {
-                    require(candidate.files.size() == 1 && candidate.files[0].name == "mesh.bin" &&
-                                asset_detail::content_digest(candidate.files[0].bytes) ==
-                                    authored.at("sha256").get<std::string>() &&
-                                asset_build_digest(candidate.manifest.at("files")) ==
-                                    imported.at("artifact_digest").get<std::string>() &&
-                                candidate.manifest.at("inputs").at("source") ==
-                                    imported.at("source_digest"),
-                            "Editable Mesh artifact/catalog revision mismatch");
-                    (void)decode_mesh(candidate.files[0].bytes, limits);
-                });
-                require(!stop.stop_requested(), "Editable Mesh load cancelled");
                 auto value = std::make_unique<MeshResourceData>();
-                value->mesh = decode_mesh(artifact.files[0].bytes, limits);
+                (void)cache.load_selected(key, [&](const CachedArtifact& candidate) {
+                    value->mesh = admit_root_mesh(candidate, selected, limits);
+                });
+                require(!stop.stop_requested(), "Root Mesh load cancelled");
                 value->materials.push_back({0, "default", {}});
                 validate_mesh_material_bindings(*value);
                 const auto bytes = value->resident_bytes();
