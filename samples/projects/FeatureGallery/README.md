@@ -1,5 +1,15 @@
 # FORGE Feature Gallery
 
+## Mesh particle fountains and burst
+
+Open **Scenes/54-cpu-mesh-particles.scene.json** and press Play. Orange and blue
+fountains emit continuously; the middle effect bursts once and expires. Stop and
+restart Play to repeat the burst. Open **Assets/Particles/OrangeFountain.particles.json**
+in Content, change cone angle, acceleration or size, preview and **Save / Publish**.
+Select an emitter to change its seed, speed, visibility or layers. Save authored
+values, export normally and expect the same effects in the standalone game.
+No C++ compiler is needed for this scene. See the [particle guide](../../../manual/editor/particles.md).
+
 ## Navigation avoidance
 
 Open **52-navigation-avoidance** and press Play. The passing cube and sphere steer around each other; the other moving cube goes around the parked sphere. Select an agent to see navigation progress and tune **Navigation Avoidance → Enabled / Horizon** in Live gameplay. Stop restores saved settings. The scene includes a baked NavMesh, camera and light and exports without C++ project setup. This is predictive local steering; dense or blocked configurations can still jam.

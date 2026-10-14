@@ -1,11 +1,12 @@
 #pragma once
 #include "mesh_draw_bundle.hpp"
+#include "particle_effect_resource.hpp"
 #include "render_bounds.hpp"
 #include "shadow_renderer.hpp"
 #include <forge/render_scene.hpp>
 namespace forge {
 struct MeshResourceInspection {
-    ResourceStatistics meshes, materials, textures;
+    ResourceStatistics meshes, materials, textures, particles;
     GpuResidencyStats gpu_meshes, gpu_textures, environments;
     std::vector<ResourceInfo> revisions, requests;
 };
@@ -16,6 +17,7 @@ class MeshResourceHost {
     MeshResourceHost(DiligentPresentation&, Diligent::IDeviceContext*, std::filesystem::path,
                      bool isolated_material_preview = false);
     void preview_material(AssetRef<MaterialAsset>, MaterialResourceData);
+    void preview_particle_effect(AssetRef<ParticleEffectAsset>, ParticleEffectData);
     void catalog(std::shared_ptr<const AssetCatalog>);
     std::shared_ptr<const AssetCatalog> catalog() const {
         check_thread();
@@ -39,6 +41,8 @@ class MeshResourceHost {
     ResourcePool<MeshAsset> meshes_;
     ResourcePool<MaterialAsset> materials_;
     ResourcePool<TextureAsset> textures_;
+    ResourcePool<ParticleEffectAsset> particles_{{1, 64, 256, 128 * 1024}};
+    std::map<AssetId, std::shared_ptr<const ParticleEffectData>> particle_previews_;
     EnvironmentResidency environments_;
     GpuResidency<MeshAsset> gpu_meshes_;
     GpuResidency<TextureAsset> gpu_textures_;
@@ -96,7 +100,7 @@ class MeshSceneRenderer {
                                                    std::shared_ptr<const MeshPoseGeometry>);
     std::map<asset_detail::PreparedModelDrawKey, std::weak_ptr<MeshDrawBundle>> bundles_;
     bool update_environment(const RenderScene&);
-    void report(EntityId, const std::string&);
+    void report(EntityId, const std::string&, bool particle = false);
     std::shared_ptr<MeshResourceHost> host_;
     std::unique_ptr<ShadowRenderer> shadows_;
     std::unique_ptr<TransmissionBackground> transmission_;
@@ -109,7 +113,25 @@ class MeshSceneRenderer {
     std::optional<ResourceTicket> environment_candidate_;
     EnvironmentLease environment_ready_;
     std::string environment_error_;
-    std::map<EntityId, Entry> entries_;
+    using DrawOwner = std::pair<EntityId, bool>; // Entity plus mesh/emitter draw scope.
+    std::map<DrawOwner, Entry> entries_;
+    struct ParticleSource {
+        AssetRef<ParticleEffectAsset> effect;
+        std::uint64_t epoch = 0;
+        ResourceTicket effect_ticket, mesh_ticket;
+        ResourceLease<ParticleEffectAsset> effect_lease;
+        ResourceLease<MeshAsset> mesh_lease;
+        std::shared_ptr<const ParticleEffectData> preview;
+        std::string error;
+        const ParticleEffectData* data() const {
+            return preview ? preview.get() : effect_lease ? &effect_lease.get() : nullptr;
+        }
+    };
+    std::vector<RenderMesh> prepare_particle_sources(const RenderScene&);
+    void update_particle_instances(const RenderScene&);
+    std::map<EntityId, ParticleSource> particle_sources_;
+    std::vector<std::pair<RenderMesh, MeshInstancePose>> particle_instances_;
+    std::vector<std::pair<EntityId, RenderBounds>> particle_bounds_;
     std::vector<Diagnostic> diagnostics_;
     std::size_t omitted_ = 0;
     DrawStats draw_stats_;

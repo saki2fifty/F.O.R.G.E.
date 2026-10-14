@@ -1,0 +1,38 @@
+{
+  "acceleration": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "asset_id": "f9c70361-8ac0-4a99-9906-e79dd1e0e1b5",
+  "burst_count": 64,
+  "capacity": 64,
+  "color_end": [
+    0.3,
+    0.2,
+    0.02
+  ],
+  "color_start": [
+    1.0,
+    0.8,
+    0.2
+  ],
+  "cone_angle": 180.0,
+  "direction": [
+    0.0,
+    1.0,
+    0.0
+  ],
+  "emission": "burst",
+  "format": "forge.particle_effect",
+  "lifetime": 4.0,
+  "material": "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+  "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+  "profile": "cpu_mesh1",
+  "size_end": 0.025,
+  "size_start": 0.1,
+  "spawn_rate": 32.0,
+  "speed_max": 1.5,
+  "speed_min": 0.8,
+  "version": 1
+}

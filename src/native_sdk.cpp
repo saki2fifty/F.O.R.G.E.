@@ -40,7 +40,7 @@ static_assert(unsigned(NavStatus::Success) == FORGE_SDK_NAV_SUCCESS &&
 const std::set<std::string> builtins{"forge.core",      "forge.transforms", "forge.prefabs",
                                      "forge.input",     "forge.physics",    "forge.audio",
                                      "forge.animation", "forge.navigation", "forge.ui",
-                                     "forge.resources", "forge.game"};
+                                     "forge.resources", "forge.game",       "forge.particles"};
 #ifdef FORGE_ENABLE_NATIVE_SDK
 struct Library {
     void* handle{};

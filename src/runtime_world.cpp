@@ -1,3 +1,4 @@
+#include "particle_runtime.hpp"
 #include <exception>
 #include <forge/animation.hpp>
 #include <forge/audio.hpp>
@@ -19,6 +20,7 @@ RuntimeWorld::RuntimeWorld(std::vector<EngineModule> modules, PhysicsConfig phys
                  modules.push_back(physics_module(physics, project));
                  modules.push_back(animation_module(project));
                  modules.push_back(navigation_module(project));
+                 modules.push_back(particle_module(project));
                  if (ui)
                      modules.push_back(ui_module(project));
                  if (audio)
@@ -36,6 +38,8 @@ bool RuntimeWorld::prepare_scene_resources() {
     // before this helper is invoked; it does not tick, run control callbacks,
     // publish worlds, or touch GPU.
     if (!animation_runtime(engine.world())->prepare_initial_pose())
+        return false;
+    if (!particle_runtime(engine.world())->prepare())
         return false;
     engine.world().evaluate_world_transforms();
     physics()->synchronize(0);

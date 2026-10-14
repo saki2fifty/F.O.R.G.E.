@@ -104,7 +104,7 @@ MeshInstancePose prepare_mesh_instance_pose(const MeshResourceData& resource,
     result.world = mesh.world;
     std::span<const float> weights = resource.mesh.morph_defaults;
     const MeshSkinBinding* skin = nullptr;
-    const RenderModelNode* node = index.entity(mesh.entity);
+    const RenderModelNode* node = mesh.particle_source ? nullptr : index.entity(mesh.entity);
     if (resource.model && node) {
         const auto& model = *resource.model;
         require(node->source.model.id == model.model && bool(node->source.node.id),

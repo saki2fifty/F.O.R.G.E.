@@ -7,6 +7,7 @@
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
 #include <forge/material_source.hpp>
+#include <forge/particle_effect_source.hpp>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
 namespace {
@@ -167,6 +168,13 @@ struct Inspect {
                     key != "rendering" && !(prefab && key == "dependencies"))
                     unknown(key);
             }
+        } else if (doc.value("format", std::string{}) == "forge.particle_effect") {
+            ParticleEffectSource{doc}.validate();
+            reference(doc.at("mesh"), "mesh", "Particle mesh", MeshAsset::type);
+            if (doc.contains("material"))
+                reference(doc.at("material"), "material", "Particle material", MaterialAsset::type);
+            if (doc.contains("extensions") && !doc.at("extensions").empty())
+                unknown("extensions");
         } else if (doc.value("format", std::string{}) == "forge.animation-blend-space") {
             AnimationBlendSpaceSource{doc}.validate();
             if (!doc.at("skeleton").is_null())

@@ -12,6 +12,7 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     result.meshes = meshes_.statistics();
     result.materials = materials_.statistics();
     result.textures = textures_.statistics();
+    result.particles = particles_.statistics();
     result.gpu_meshes = gpu_meshes_.statistics();
     result.gpu_textures = gpu_textures_.statistics();
     result.environments = environments_.statistics();
@@ -24,6 +25,7 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     append(meshes_);
     append(materials_);
     append(textures_);
+    append(particles_);
     return result;
 }
 std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
@@ -34,6 +36,16 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
         if (!entry.ready)
             continue;
         const auto box = mesh_instance_bounds(entry.pose, {0, 0, 0});
+        if (!result)
+            result = box;
+        else
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                result->minimum[axis] = std::min(result->minimum[axis], box.minimum[axis]);
+                result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
+            }
+    }
+    for (const auto& [id, box] : particle_bounds_) {
+        (void)id;
         if (!result)
             result = box;
         else
@@ -54,10 +66,27 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds(const RenderScene& scene,
     for (const auto& mesh : scene.meshes) {
         if (selected.empty() ? !mesh.renderer.visible : !selected.contains(mesh.entity))
             continue;
-        const auto found = entries_.find(mesh.entity);
+        const auto found = entries_.find({mesh.entity, mesh.particle_source});
         if (found == entries_.end() || !found->second.ready)
             return {};
         const auto box = mesh_instance_bounds(found->second.pose, origin);
+        if (!result)
+            result = box;
+        else
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                result->minimum[axis] = std::min(result->minimum[axis], box.minimum[axis]);
+                result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
+            }
+    }
+    for (const auto& emitter : scene.particles) {
+        if (selected.empty() ? !emitter.emitter.visible : !selected.contains(emitter.entity))
+            continue;
+        const auto found =
+            std::find_if(particle_bounds_.begin(), particle_bounds_.end(),
+                         [&](const auto& row) { return row.first == emitter.entity; });
+        if (found == particle_bounds_.end())
+            return {};
+        const auto& box = found->second;
         if (!result)
             result = box;
         else
@@ -82,7 +111,7 @@ EntityId MeshSceneRenderer::pick(const RenderScene& scene, const CameraView& cam
     for (const auto& mesh : scene.meshes) {
         if (!mesh.selectable || !(mesh.renderer.layers & layers))
             continue;
-        const auto found = entries_.find(mesh.entity);
+        const auto found = entries_.find({mesh.entity, mesh.particle_source});
         if (found == entries_.end() || !found->second.ready)
             continue;
         const auto& entry = found->second;
@@ -155,6 +184,20 @@ void MeshResourceHost::check_thread() const {
     if (thread_ != std::this_thread::get_id())
         throw std::runtime_error("Mesh presentation accessed from another thread");
 }
+void MeshResourceHost::preview_particle_effect(AssetRef<ParticleEffectAsset> ref,
+                                               ParticleEffectData data) {
+    check_thread();
+    if (!isolated_material_preview_ || !ref.id || epoch_ == UINT64_MAX)
+        throw std::runtime_error("Unsaved particles require an isolated preview host");
+    validate_particle_effect(data);
+    const auto found = particle_previews_.find(ref.id);
+    if (found != particle_previews_.end() && *found->second == data)
+        return;
+    if (found == particle_previews_.end() && particle_previews_.size() == 1)
+        throw std::runtime_error("Isolated particle preview accepts one source at a time");
+    particle_previews_[ref.id] = std::make_shared<const ParticleEffectData>(std::move(data));
+    ++epoch_;
+}
 void MeshResourceHost::catalog(std::shared_ptr<const AssetCatalog> catalog) {
     check_thread();
     if (!catalog)
@@ -173,6 +216,8 @@ void MeshResourceHost::pump() {
     meshes_.pump();
     materials_.pump();
     textures_.pump();
+    particles_.pump();
+    particles_.collect();
     environments_.collect();
     gpu_meshes_.collect();
     gpu_textures_.collect();
@@ -214,15 +259,18 @@ std::uint64_t MeshSceneRenderer::pose_payload_bytes() const {
     }
     return bytes;
 }
-void MeshSceneRenderer::report(EntityId entity, const std::string& text) {
+void MeshSceneRenderer::report(EntityId entity, const std::string& text, bool particle) {
     if (diagnostics_.size() >= 256) {
         ++omitted_;
         return;
     }
-    Diagnostic value{Severity::Error, "render.mesh.resource", text.substr(0, 4096), {}};
+    Diagnostic value{Severity::Error,
+                     particle ? "render.particles.resource" : "render.mesh.resource",
+                     text.substr(0, 4096),
+                     {}};
     value.context.asset = scene_;
     value.context.entity = entity;
-    value.context.property = "forge.mesh_renderer";
+    value.context.property = particle ? "forge.particle_emitter" : "forge.mesh_renderer";
     value.context.source = "presentation";
     diagnostics_.push_back(std::move(value));
 }
@@ -268,6 +316,9 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     omitted_ = scene.omitted_diagnostics;
     if (scene_ != scene.scene) {
         entries_.clear();
+        particle_sources_.clear();
+        particle_instances_.clear();
+        particle_bounds_.clear();
         bundles_.clear();
         environment_ready_ = {};
         environment_candidate_.reset();
@@ -278,15 +329,18 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     }
     changed |= update_environment(scene);
     const ModelSceneIndex model_index(scene);
-    std::set<EntityId> used;
-    for (const auto& mesh : scene.meshes)
-        used.insert(mesh.entity);
+    auto meshes = scene.meshes;
+    auto sources = prepare_particle_sources(scene);
+    meshes.insert(meshes.end(), sources.begin(), sources.end());
+    std::set<DrawOwner> used;
+    for (const auto& mesh : meshes)
+        used.insert({mesh.entity, mesh.particle_source});
     // Reclaim deleted instances before admitting this frame's replacements.
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
     std::erase_if(bundles_, [](const auto& row) { return row.second.expired(); });
     auto resident = pose_payload_bytes();
-    for (const auto& mesh : scene.meshes) {
-        auto& entry = entries_[mesh.entity];
+    for (const auto& mesh : meshes) {
+        auto& entry = entries_[{mesh.entity, mesh.particle_source}];
         const auto previous_bytes = entry.pose_bytes();
         auto available = [&] {
             const auto other = resident - previous_bytes;
@@ -397,18 +451,22 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         }
         resident = resident - previous_bytes + entry.pose_bytes();
         if (!entry.pose_error.empty())
-            report(mesh.entity, entry.pose_error + " (previous complete pose retained)");
+            report(mesh.entity, entry.pose_error + " (previous complete pose retained)",
+                   mesh.particle_source);
         if (!entry.error.empty())
             report(mesh.entity,
                    entry.error + (entry.ready ? entry.fallback
                                                     ? " (fallback draw active)"
                                                     : " (previous complete draw retained)"
-                                              : ""));
+                                              : ""),
+                   mesh.particle_source);
         if (entry.ready)
             for (const auto& key : entry.ready->unresolved_slots())
-                report(mesh.entity, "Authored material slot is absent from this revision: " + key);
+                report(mesh.entity, "Authored material slot is absent from this revision: " + key,
+                       mesh.particle_source);
     }
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
+    update_particle_instances(scene);
     return changed;
 }
 bool MeshSceneRenderer::update_environment(const RenderScene& scene) {
@@ -478,7 +536,19 @@ bool MeshSceneRenderer::update_environment(const RenderScene& scene) {
 }
 bool MeshSceneRenderer::pending() const {
     host_->check_thread();
-    return environment_candidate_.has_value() ||
+    const bool particles =
+        std::any_of(particle_sources_.begin(), particle_sources_.end(), [](const auto& row) {
+            const auto& source = row.second;
+            const auto awaiting = [](const ResourceTicket& ticket, bool acquired) {
+                if (!ticket || acquired)
+                    return false;
+                const auto state = ticket.inspect().state;
+                return state == ResourceState::Ready || !resource_detail::terminal(state);
+            };
+            return awaiting(source.effect_ticket, bool(source.effect_lease)) ||
+                   awaiting(source.mesh_ticket, bool(source.mesh_lease));
+        });
+    return particles || environment_candidate_.has_value() ||
            std::any_of(entries_.begin(), entries_.end(), [](const auto& pair) {
                return pair.second.candidate &&
                       pair.second.candidate->state() == ResourceState::Loading;
@@ -505,24 +575,25 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     };
     std::vector<Object> objects;
     std::vector<Item> queue;
-    for (const auto& mesh : scene.meshes) {
+    auto append = [&](const RenderMesh& mesh, const MeshInstancePose* instance_pose = nullptr) {
         if (!mesh.renderer.visible || !(mesh.renderer.layers & layers))
-            continue;
-        const auto found = entries_.find(mesh.entity);
+            return;
+        const auto found = entries_.find({mesh.entity, mesh.particle_source});
         if (found == entries_.end() || !found->second.ready)
-            continue;
+            return;
         auto& entry = found->second;
+        const auto& pose = instance_pose ? *instance_pose : entry.pose;
         const auto queue_start = queue.size();
         try {
-            const auto bounds = mesh_instance_bounds(entry.pose, camera.position);
+            const auto bounds = mesh_instance_bounds(pose, camera.position);
             if (!bounds_visible(bounds, camera))
-                continue;
+                return;
             const float coverage = bounds_screen_coverage(bounds, camera);
             unsigned lod = 0;
             for (unsigned i = 0; i < entry.thresholds.size(); ++i)
                 if (coverage <= entry.thresholds[i])
                     lod = i;
-            Object object{&mesh, entry.ready.get(), &entry.pose, lod, {}, {}};
+            Object object{&mesh, entry.ready.get(), &pose, lod, {}, {}};
             for (const auto& light : scene.lights)
                 if (light.light.layers & mesh.renderer.layers & layers) {
                     if (object.lights.size() == mesh_draw_light_limit)
@@ -535,26 +606,32 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             const auto parts = entry.ready->parts(lod);
             for (unsigned i = 0; i < parts.size(); ++i) {
                 const auto& part = parts[i];
-                const auto part_bounds = mesh_part_bounds(entry.pose, lod, i, camera.position);
+                const auto part_bounds = mesh_part_bounds(pose, lod, i, camera.position);
                 if (!bounds_visible(part_bounds, camera))
                     continue;
                 RenderSortKey key{part.transmission ? MaterialAlpha::Blend : part.alpha,
-                                  entry.pose.skinned ? TransformParity::Positive
-                                                     : transform_parity(entry.pose.world),
+                                  pose.skinned ? TransformParity::Positive
+                                               : transform_parity(pose.world),
                                   part.material,
                                   entry.ready->mesh_identity().asset,
                                   bounds_camera_depth(part_bounds, camera),
                                   mesh.entity,
-                                  i};
+                                  i,
+                                  mesh.particle_source,
+                                  mesh.birth};
                 validate_render_key(key);
                 queue.push_back({key, objects.size(), part.transmission});
             }
             objects.push_back(std::move(object));
         } catch (const std::exception& e) {
             queue.resize(queue_start);
-            report(mesh.entity, e.what());
+            report(mesh.entity, e.what(), mesh.particle_source);
         }
-    }
+    };
+    for (const auto& mesh : scene.meshes)
+        append(mesh);
+    for (const auto& [mesh, pose] : particle_instances_)
+        append(mesh, &pose);
     std::sort(queue.begin(), queue.end(),
               [](const auto& a, const auto& b) { return render_key_less(a.key, b.key); });
     EnvironmentLighting lighting;
@@ -634,7 +711,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             draw_stats_.batched_calls += count > 1;
         } catch (const std::exception& e) {
             if (cursor == batch_start + 1) {
-                report(object.mesh->entity, e.what());
+                report(object.mesh->entity, e.what(), object.mesh->particle_source);
                 continue;
             }
             // A rejected batch must not hide its valid neighbors. Individual
@@ -651,7 +728,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {
-                    report(single.mesh->entity, error.what());
+                    report(single.mesh->entity, error.what(), single.mesh->particle_source);
                 }
             }
         }
@@ -673,7 +750,7 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
         if (!mesh.renderer.visible || !mesh.renderer.cast_shadows ||
             !(mesh.renderer.layers & layers))
             continue;
-        const auto found = entries_.find(mesh.entity);
+        const auto found = entries_.find({mesh.entity, mesh.particle_source});
         if (found == entries_.end() || !found->second.ready)
             continue;
         try {

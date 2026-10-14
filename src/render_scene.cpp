@@ -1,7 +1,9 @@
 #include "builtins.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/asset_build.hpp>
 #include <forge/engine_assets.hpp>
+#include <forge/particle_effect.hpp>
 #include <forge/render_scene.hpp>
 #include <limits>
 #include <set>
@@ -213,6 +215,33 @@ RenderScene extract_render_scene(const Json& source) {
                 result.meshes.push_back(
                     {id, mesh, world_transform(row), {}, state.valid && state.selectable});
             }
+        });
+        admit("forge.particle_emitter", "render.particles.invalid", [&] {
+            auto emitter = component<ParticleEmitter>(values, "forge.particle_emitter");
+            if (!emitter.enabled)
+                return;
+            require(bool(emitter.effect.id), "Particle Emitter has no assigned Particle Effect");
+            require(result.particles.size() < particle_emitter_limit,
+                    "Scene exceeds the 64 enabled-emitter budget");
+            emitter.visible = emitter.visible && state.valid && state.visible;
+            RenderParticleEmitter particle{id, emitter, world_transform(row)};
+            if (row.contains("particle_playback")) {
+                const auto& playback = row.at("particle_playback");
+                require(playback.at("time").is_number() &&
+                            playback.at("generation").is_number_unsigned() &&
+                            playback.at("seed").is_number_unsigned() &&
+                            playback.at("seed").get<std::uint64_t>() <= UINT32_MAX,
+                        "Particle playback capture has invalid scalar types");
+                particle.time = playback.at("time").get<double>();
+                particle.revision = playback.at("revision").get<std::string>();
+                particle.generation = playback.at("generation").get<std::uint64_t>();
+                require(std::isfinite(particle.time) && particle.time >= 0 &&
+                            particle.time <= 1e9 && valid_content_digest(particle.revision) &&
+                            particle.generation &&
+                            playback.at("seed").get<std::uint32_t>() == emitter.seed,
+                        "Particle playback capture does not match its emitter");
+            }
+            result.particles.push_back(std::move(particle));
         });
     }
     std::size_t animation_joint_budget = 8192;

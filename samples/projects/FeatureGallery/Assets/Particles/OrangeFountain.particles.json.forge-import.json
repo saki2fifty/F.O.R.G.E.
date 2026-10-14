@@ -1,0 +1,50 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "cc59c42dc5a36670a8e1d95f1f47bad4a9013a5b8e592ddeeab82f510e1f2b17",
+        "role": "particles.material",
+        "target": "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+        "type": "material"
+      },
+      {
+        "kind": "runtime",
+        "revision": "a8dda92bc55956bb8492474c466dab295b4ae88c7dfb8383d25f67e9cd46996b",
+        "role": "particles.mesh",
+        "target": "80c55df2-1abb-42b0-9591-502e783cdc97",
+        "type": "mesh"
+      }
+    ],
+    "importer": "forge.particles.cpu-mesh",
+    "importer_revision": "forge.particles.cpu-mesh.v1",
+    "key_version": 1,
+    "output_format": "forge.particle-effect-cooked",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "c1c38faa42c68353f63288241e29abac24b1a4522f05e30f7ed279194b44e550",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.particle-effect.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "6ab20ddc-87c3-4097-8133-da32bc61a42a",
+    "source": "Assets/Particles/OrangeFountain.particles.json",
+    "source_digest": "c1c38faa42c68353f63288241e29abac24b1a4522f05e30f7ed279194b44e550",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.particles.cpu-mesh",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

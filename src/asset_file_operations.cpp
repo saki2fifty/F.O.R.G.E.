@@ -10,6 +10,7 @@
 #include <forge/collision_source.hpp>
 #include <forge/material_graph.hpp>
 #include <forge/material_source.hpp>
+#include <forge/particle_effect_source.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene.hpp>
 #include <forge/scene_identity.hpp>
@@ -202,8 +203,12 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&
         record.type != "shader" && record.type != "collision" &&
         record.type != "transform_animation" && record.type != "animation_states" &&
-        record.type != "animation_mask" && record.type != "animation_blend_space")
+        record.type != "animation_mask" && record.type != "animation_blend_space" &&
+        record.type != ParticleEffectAsset::type)
         throw std::runtime_error("No authored-document copy adapter for this source format");
+    if (record.type == ParticleEffectAsset::type &&
+        !path_utf8(destination).ends_with(".particles.json"))
+        throw std::runtime_error("Particle Effect files must retain the .particles.json suffix");
     if (record.type == "animation_states" && !path_utf8(destination).ends_with(".states.json"))
         throw std::runtime_error("Animation States files must retain the .states.json suffix");
     if (record.type == "animation_mask" && !path_utf8(destination).ends_with(".mask.json"))
@@ -249,6 +254,8 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
             AnimationBlendSpaceSource{value}.validate();
         else if (record.type == "transform_animation")
             TransformAnimationSource{value}.validate();
+        else if (record.type == ParticleEffectAsset::type)
+            ParticleEffectSource{value}.validate();
         else
             (void)shader_program_source(value);
     }

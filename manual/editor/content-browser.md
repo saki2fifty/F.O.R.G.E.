@@ -106,6 +106,8 @@ Limits are 256 selected sources, 8,192 copied files, 512 MiB per file and 2 GiB 
 
 Open **Create / Register**:
 
+- **New Particle Effect...** creates a reusable [mesh particle effect](particles.md) with isolated preview, source history and Save / Publish.
+
 - **Import model...** opens [Model import](models.md) for glTF settings, identity review, scene/animation selection and placement.
 - **Import texture...** opens the [Texture import](textures.md) document for image/container settings and safe reimport.
 - **New collision...** creates a reusable [Collision asset](physics.md) with its own source document, shape settings and Save/history. A selected Mesh also offers **Assets → Create Collision from Mesh...**.

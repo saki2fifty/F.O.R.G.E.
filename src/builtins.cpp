@@ -43,7 +43,14 @@ template <class T> Json encode(const T& p) {
                 {"cast_shadows", p.cast_shadows},
                 {"receive_shadows", p.receive_shadows},
                 {"layers", p.layers}};
-    } else if constexpr (std::is_same_v<T, UiDocument>)
+    } else if constexpr (std::is_same_v<T, ParticleEmitter>)
+        return {{"effect", p.effect.id ? Json(p.effect.id) : Json()},
+                {"enabled", p.enabled},
+                {"visible", p.visible},
+                {"seed", p.seed},
+                {"layers", p.layers},
+                {"playback_speed", p.playback_speed}};
+    else if constexpr (std::is_same_v<T, UiDocument>)
         return {{"document", p.document.id ? Json(p.document.id) : Json()},
                 {"enabled", p.enabled},
                 {"visible", p.visible},
@@ -218,6 +225,16 @@ template <class T> Value decode(const Json& p) {
         value.cast_shadows = p.at("cast_shadows");
         value.receive_shadows = p.at("receive_shadows");
         value.layers = p.at("layers").get<std::uint32_t>();
+        return value;
+    } else if constexpr (std::is_same_v<T, ParticleEmitter>) {
+        ParticleEmitter value;
+        if (!p.at("effect").is_null())
+            value.effect.id = p.at("effect").get<AssetId>();
+        value.enabled = p.at("enabled");
+        value.visible = p.at("visible");
+        value.seed = p.at("seed").get<std::uint32_t>();
+        value.layers = p.at("layers").get<std::uint32_t>();
+        value.playback_speed = p.at("playback_speed").get<double>();
         return value;
     } else if constexpr (std::is_same_v<T, LocalScale>) {
         return checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
@@ -549,6 +566,25 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("receive_shadows")
             .template member<std::uint32_t>("layers")
             .template member<AssetRef<MaterialVariantAsset>>("material_variant");
+    } else if constexpr (std::is_same_v<T, ParticleEmitter>) {
+        register_asset_ref<ParticleEffectAsset>(w, "forge.particle_effect_ref");
+        c.template member<AssetRef<ParticleEffectAsset>>("effect")
+            .template member<bool>("enabled")
+            .template member<bool>("visible")
+            .template member<std::uint32_t>("seed")
+            .template member<std::uint32_t>("layers")
+            .template member<double>("playback_speed");
+        for (const auto& [field, offset] :
+             {std::pair{"effect", offsetof(ParticleEmitter, effect)},
+              std::pair{"enabled", offsetof(ParticleEmitter, enabled)},
+              std::pair{"visible", offsetof(ParticleEmitter, visible)},
+              std::pair{"seed", offsetof(ParticleEmitter, seed)},
+              std::pair{"layers", offsetof(ParticleEmitter, layers)},
+              std::pair{"playback_speed", offsetof(ParticleEmitter, playback_speed)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("ParticleEmitter native Meta disagrees with typed layout");
+        }
     } else if constexpr (std::is_same_v<T, LocalTranslation>) {
         c.template member<double>("x").template member<double>("y").template member<double>("z");
     } else if constexpr (std::is_same_v<T, UiDocument>) {
@@ -897,6 +933,11 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<MeshRenderer>(
             "forge.mesh_renderer", "Mesh and logical material slot assignments", "unitless", {}, {},
             [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
+        descriptor<ParticleEmitter>(
+            "forge.particle_emitter", "Reusable CPU mesh-particle effect driven by the fixed clock",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<ParticleEmitter>(w, "forge.particle_emitter"); }),
         descriptor<ModelSource>(
             "forge.model_source", "Imported model and source-node provenance", "unitless", {}, {},
             [](flecs::world& w) { return register_type<ModelSource>(w, "forge.model_source"); }),
@@ -1420,6 +1461,23 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = field == "enabled" ? "Load this document during Play"
                                                       : "Show this document during Play";
     }
+    if (name == "forge.particle_emitter") {
+        if (field == "effect") {
+            value["asset_type"] = ParticleEffectAsset::type;
+            value["nullable"] = true;
+            value["description"] =
+                "Reusable CPU mesh effect; assign a published Particle Effect before Play";
+        } else if (field == "playback_speed") {
+            value["minimum"] = 0;
+            value["maximum"] = 16;
+            value["description"] = "Multiply fixed-clock emission time; zero freezes this emitter";
+        } else if (field == "seed")
+            value["description"] = "Repeatable visual seed; changing it restarts this effect";
+        else if (field == "enabled")
+            value["description"] = "Start the effect; disabling clears its runtime emission age";
+        else if (field == "visible")
+            value["description"] = "Show particle meshes without stopping emission time";
+    }
     if (name == "forge.navigation_avoidance") {
         if (field == "horizon") {
             value["minimum"] = .25;
@@ -1719,6 +1777,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<ModelNodeAsset>();
         add_reference.template operator()<MaterialVariantAsset>();
         add_reference.template operator()<MeshAsset>();
+        add_reference.template operator()<ParticleEffectAsset>();
         add_reference.template operator()<CollisionAsset>();
         add_reference.template operator()<MaterialAsset>();
         add_reference.template operator()<AudioClipAsset>();
@@ -1755,8 +1814,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
              {"schema_version", 1},
              {"fields", fields},
              {"optional", category != 0 || name == "forge.mesh_renderer" ||
-                              name == "forge.camera" || name == "forge.light" ||
-                              name == "forge.node_visibility" ||
+                              name == "forge.particle_emitter" || name == "forge.camera" ||
+                              name == "forge.light" || name == "forge.node_visibility" ||
                               name == "forge.node_selectability"}});
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();

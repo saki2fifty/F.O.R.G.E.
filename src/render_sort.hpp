@@ -15,6 +15,8 @@ struct RenderSortKey {
     double depth{};
     EntityId entity;
     unsigned part{};
+    bool particle = false;
+    std::uint64_t birth = 0;
     bool operator==(const RenderSortKey&) const = default;
 };
 inline bool render_key_less(const RenderSortKey& a, const RenderSortKey& b) {
@@ -22,8 +24,8 @@ inline bool render_key_less(const RenderSortKey& a, const RenderSortKey& b) {
         return a.alpha < b.alpha;
     if (a.alpha == MaterialAlpha::Blend && a.depth != b.depth)
         return a.depth > b.depth;
-    return std::tie(a.parity, a.material, a.mesh, a.part, a.entity) <
-           std::tie(b.parity, b.material, b.mesh, b.part, b.entity);
+    return std::tie(a.parity, a.material, a.mesh, a.part, a.entity, a.particle, a.birth) <
+           std::tie(b.parity, b.material, b.mesh, b.part, b.entity, b.particle, b.birth);
 }
 inline void validate_render_key(const RenderSortKey& key) {
     if (!std::isfinite(key.depth) || key.alpha > MaterialAlpha::Blend)

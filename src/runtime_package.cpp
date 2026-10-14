@@ -11,6 +11,7 @@
 #include "model_render_resource.hpp"
 #include "native_io_path.hpp"
 #include "navigation_asset.hpp"
+#include "particle_effect_resource.hpp"
 #include "publish_directory.hpp"
 #include "runtime_document_package.hpp"
 #include "runtime_raw_assets.hpp"
@@ -176,7 +177,8 @@ AssetRecord runtime_record(AssetRecord record) {
     for (const auto* name :
          {"forge.import", "forge.model", "forge.mesh", "forge.material", "forge.shader",
           "forge.audio", "forge.ui_source", "forge.collision", "forge.transform_animation",
-          "forge.animation_states", "forge.animation_mask", "forge.animation_blend_space"})
+          "forge.animation_states", "forge.animation_mask", "forge.animation_blend_space",
+          "forge.particle_effect"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -266,6 +268,8 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
         require(document.at("version") == root.metadata.at("forge.import").at("output_version"),
                 "Transform clip/recipe version mismatch");
         (void)decode_transform_animation(artifact.files.front().bytes, root.id);
+    } else if (root.type == ParticleEffectAsset::type && format == particle_effect_cooked_format) {
+        (void)admit_particle_effect_artifact(artifact, root);
     } else if (root.type == MeshAsset::type && format == "forge.mesh-bundle") {
         require(root.metadata.at("forge.import").at("importer") == "forge.mesh.editable" &&
                     root.metadata.at("forge.mesh").at("version") == 1 &&

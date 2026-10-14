@@ -57,6 +57,7 @@ class PresentationPoses {
   private:
     Nodes previous_, current_;
 };
+class ParticleRuntime;
 class RuntimeSimulation {
   public:
     RuntimeSimulation(WorldContext& context, Scene& scene);
@@ -96,6 +97,7 @@ class RuntimeSimulation {
     std::shared_ptr<PhysicsRuntime> physics_;
     std::shared_ptr<AudioRuntime> audio_;
     std::shared_ptr<AnimationRuntime> animation_;
+    std::shared_ptr<ParticleRuntime> particles_;
     flecs::entity animation_phase_, animation_system_;
     flecs::entity post_animation_phase_;
     std::shared_ptr<NavigationRuntime> navigation_;

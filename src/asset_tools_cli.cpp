@@ -17,6 +17,7 @@
 #include "editable_mesh_authoring.hpp"
 #include "import_authoring.hpp"
 #include "material_authoring.hpp"
+#include "particle_effect_authoring.hpp"
 #include "self_executable.hpp"
 #include "texture_authoring.hpp"
 #include "transform_animation_authoring.hpp"
@@ -211,14 +212,16 @@ int asset_tools_cli(int argc, char** argv) {
             const bool animation_blend_space = path_utf8(source).ends_with(".blendspace.json");
             const bool transform_animation = path_utf8(source).ends_with(".animation.json");
             const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
-            auto registry = animation_blend_space ? animation_blend_space_import_registry()
-                            : animation_mask      ? animation_mask_import_registry()
-                            : animation_states    ? animation_states_import_registry()
-                            : transform_animation ? transform_animation_import_registry()
-                            : collision           ? collision_import_registry()
-                            : material            ? material_import_registry()
-                            : editable_mesh       ? editable_mesh_import_registry()
-                                                  : asset_import_registry(worker);
+            const bool particle_effect = path_utf8(source).ends_with(".particles.json");
+            auto registry = particle_effect         ? particle_effect_import_registry()
+                            : animation_blend_space ? animation_blend_space_import_registry()
+                            : animation_mask        ? animation_mask_import_registry()
+                            : animation_states      ? animation_states_import_registry()
+                            : transform_animation   ? transform_animation_import_registry()
+                            : collision             ? collision_import_registry()
+                            : material              ? material_import_registry()
+                            : editable_mesh         ? editable_mesh_import_registry()
+                                                    : asset_import_registry(worker);
             auto lease = std::make_shared<ProjectLease>(project);
             auto target = collision ? collision_import_target() : desktop_texture_target();
             if (operation == "import-target") {
@@ -230,7 +233,12 @@ int asset_tools_cli(int argc, char** argv) {
             }
             AssetImportService service(lease, registry, target);
             AssetId identity;
-            if (collision)
+            if (particle_effect)
+                identity = ParticleEffectSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        particle_effect_byte_limit))
+                               .asset();
+            else if (collision)
                 identity =
                     CollisionSource::parse(asset_detail::read_bytes(
                                                ProjectPaths(project).resolve(source), 1024 * 1024))
@@ -300,10 +308,15 @@ int asset_tools_cli(int argc, char** argv) {
             const auto asset = draft.request.asset;
             service.submit(
                 std::move(draft),
-                [decisions, collision, material, editable_mesh, transform_animation,
-                 animation_states, animation_mask,
+                [decisions, collision, material, editable_mesh, particle_effect,
+                 transform_animation, animation_states, animation_mask,
                  animation_blend_space](auto& candidate, const auto& plan, const auto& catalog) {
-                    if (animation_blend_space) {
+                    if (particle_effect) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Particle Effect has no subasset correspondence decisions");
+                        prepare_particle_effect_publication(candidate, plan);
+                    } else if (animation_blend_space) {
                         if (!decisions.empty())
                             throw std::runtime_error(
                                 "Animation Blend Space has no subasset correspondence decisions");

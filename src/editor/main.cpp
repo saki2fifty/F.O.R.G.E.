@@ -60,6 +60,8 @@
 #include "model_viewer.hpp"
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
+#include "particle_effect_editor.hpp"
+#include "particle_effect_preview.hpp"
 #include "performance.hpp"
 #include "physics_overlay.hpp"
 #include "play.hpp"
@@ -934,6 +936,21 @@ int main(int argc, char** argv) {
         forge::AnimationTimelineEditor animation_timeline;
         forge::AnimationStatesEditor animation_states;
         forge::AnimationMaskEditor animation_mask;
+        forge::ParticleEffectEditor particle_editor;
+        std::unique_ptr<forge::ParticleEffectPreview> particle_preview;
+        bool release_particle_preview = false;
+        particle_editor.draw_preview = [&](const auto& source, double time, auto catalog) {
+            const auto& project = particle_editor.document()->project();
+            if (!particle_preview || particle_preview->project() != project ||
+                particle_preview->effect() != source.asset())
+                particle_preview = std::make_unique<forge::ParticleEffectPreview>(
+                    presentation, context, project, source.asset());
+            particle_preview->draw(source, time, std::move(catalog));
+            release_particle_preview = false;
+        };
+        // ImGui may already reference this frame's preview texture when Discard
+        // closes the document. Retain it until that draw list has been submitted.
+        particle_editor.release_preview = [&] { release_particle_preview = true; };
         forge::AnimationBlendSpaceEditor animation_blend_space;
         forge::AnimationPreviewEditor animation_preview;
         forge::MaterialGraphEditor graph_editor(
@@ -1023,7 +1040,7 @@ int main(int argc, char** argv) {
                 navigation_tools.pending() || script_editor.pending() ||
                 texture_imports.pending() || audio_imports.pending() || model_imports.pending() ||
                 shader_imports.pending() || material_editor.pending() || graph_editor.pending() ||
-                collision_editor.pending())
+                collision_editor.pending() || particle_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
             if (documents.source_drafts_dirty())
                 return "Save or discard open source-document drafts before reviewing file changes.";
@@ -1041,6 +1058,12 @@ int main(int argc, char** argv) {
             }
             if (plan.request.action != forge::AssetFileAction::Duplicate) {
                 const auto id = plan.request.asset;
+                if (particle_editor.document() &&
+                    particle_editor.document()->source().asset() == id) {
+                    particle_editor.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        particle_editor.open(files.document, plan.request.destination);
+                }
                 const auto refresh_import = [&](auto& document) {
                     if (document.selected_asset() == id) {
                         document.request_close();
@@ -1099,6 +1122,7 @@ int main(int argc, char** argv) {
             if (mesh_resources)
                 mesh_resources->catalog(catalog);
             material_editor.asset_catalog_changed(catalog);
+            particle_editor.catalog_changed(catalog);
             graph_editor.asset_catalog_changed(catalog);
             collision_editor.asset_catalog_changed(catalog);
             animation_preview.stop_preview();
@@ -1126,6 +1150,11 @@ int main(int argc, char** argv) {
                 routes.push_back(std::move(route));
             for (auto route : shader_imports.automatic_routes())
                 routes.push_back(std::move(route));
+            routes.push_back({forge::particle_effect_importer, forge::desktop_texture_target(),
+                              forge::particle_effect_import_registry(),
+                              [](auto& candidate, const auto& plan, const auto&) {
+                                  forge::prepare_particle_effect_publication(candidate, plan);
+                              }});
             routes.push_back({"forge.material.builtin", forge::desktop_texture_target(),
                               forge::material_import_registry(),
                               [](auto& c, const auto& plan, const auto&) {
@@ -1165,6 +1194,9 @@ int main(int argc, char** argv) {
         };
         content_imports.blocked = [&](forge::AssetId id) {
             return files.busy() ||
+                   (particle_editor.document() &&
+                    particle_editor.document()->source().asset() == id &&
+                    particle_editor.dirty()) ||
                    (animation_blend_space.document() &&
                     animation_blend_space.document()->source().asset() == id &&
                     animation_blend_space.dirty()) ||
@@ -1199,6 +1231,8 @@ int main(int argc, char** argv) {
             model_imports.source_published(id);
             shader_imports.source_published(id);
             material_editor.source_published(files.document, id);
+            particle_editor.source_published(files.document, id);
+            particle_editor.catalog_changed(catalog);
             graph_editor.source_published(id);
             collision_editor.source_published(files.document, id);
             collision_editor.asset_catalog_changed(catalog);
@@ -1241,6 +1275,9 @@ int main(int argc, char** argv) {
             } else if (kind == "animation_blend_space") {
                 if (open)
                     animation_blend_space.open(files.document, path);
+            } else if (kind == "particle_effect") {
+                if (open)
+                    particle_editor.open(files.document, path);
             } else if (kind == "animation_mask") {
                 if (open)
                     animation_mask.open(files.document, path);
@@ -1585,6 +1622,28 @@ int main(int argc, char** argv) {
             {"animation_states", "Open animation states", [&](const forge::AssetRecord& asset) {
                  animation_states.open(files.document, asset.source);
              }});
+        documents.add({"particle_effect",
+                       "Particle Effect",
+                       "Particle Effect###Particle Effect",
+                       true,
+                       [&] { return particle_editor.is_open(); },
+                       [&] { return particle_editor.dirty(); },
+                       [&] {
+                           particle_editor.draw(files.document, scene,
+                                                asset_document_locked || play.active());
+                       },
+                       [&] { particle_editor.request_save(); },
+                       [&] { particle_editor.undo(); },
+                       [&] { particle_editor.redo(); },
+                       [&] { particle_editor.request_close(); },
+                       [&] { return particle_editor.can_undo(); },
+                       [&] { return particle_editor.can_redo(); },
+                       {},
+                       [&] { return std::exchange(particle_editor.close_cancelled, false); }});
+        asset_editors.add(
+            {"particle_effect", "Open Particle Effect", [&](const forge::AssetRecord& asset) {
+                 particle_editor.open(files.document, asset.source);
+             }});
         documents.add({"animation_timeline",
                        "Animation Timeline",
                        "Animation Timeline###Animation Timeline",
@@ -1832,6 +1891,8 @@ int main(int argc, char** argv) {
             fixture.graphics_context(window.get(), 0);
 #endif
             presentation.begin_frame();
+            if (std::exchange(release_particle_preview, false))
+                particle_preview.reset();
             performance.begin();
 #ifdef FORGE_UI_FIXTURE
             if (fixture.workflow)
@@ -4384,6 +4445,14 @@ int main(int argc, char** argv) {
                     content.refresh(files);
                 }
                 graph_editor.poll(files.document, message);
+                particle_editor.poll(files.document, message);
+                if (auto catalog = particle_editor.take_catalog()) {
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 animation_preview.poll(files.document, scene, play.active(),
                                        ImGui::GetIO().DeltaTime);
                 animation_states.poll(files.document, message);
@@ -5417,6 +5486,7 @@ int main(int argc, char** argv) {
                     [&] { prefab_editor.content(scene, files.document, selected, edit_locked); },
                     [&] {
                         material_editor.content(files.document, edit_locked);
+                        particle_editor.content(files.document, edit_locked);
                         editable_mesh_editor.content(files.document, edit_locked);
                         animation_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
@@ -5452,8 +5522,8 @@ int main(int argc, char** argv) {
                 blockout.active() || play.active() || sdk_build->busy() ||
                 documents.source_drafts_dirty() || texture_imports.pending() ||
                 audio_imports.pending() || model_imports.pending() || shader_imports.pending() ||
-                material_editor.pending() || graph_editor.pending() || source_import.busy() ||
-                animation_tools.pending() || navigation_tools.pending() ||
+                material_editor.pending() || graph_editor.pending() || particle_editor.pending() ||
+                source_import.busy() || animation_tools.pending() || navigation_tools.pending() ||
                 script_editor.pending() || authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);
             source_import.draw(play.active() || sdk_build->busy() || content_files.busy() ||

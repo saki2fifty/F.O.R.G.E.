@@ -32,6 +32,16 @@ struct RenderMesh {
     AffineTransform world;
     std::optional<std::array<float, 3>> legacy_tint;
     bool selectable = true;
+    bool particle_source = false; // Derived draw-owner scope, not another entity.
+    std::uint64_t birth = 0;      // Transient ordering within a particle emitter.
+};
+struct RenderParticleEmitter {
+    EntityId entity;
+    ParticleEmitter emitter;
+    AffineTransform world;
+    double time = .5; // Frozen authoring sample when no runtime capture exists.
+    std::string revision;
+    std::uint64_t generation = 0;
 };
 struct RenderModelNode {
     EntityId entity;
@@ -53,6 +63,7 @@ struct RenderScene {
     std::vector<RenderCamera> cameras;
     std::vector<RenderLight> lights;
     std::vector<RenderMesh> meshes;
+    std::vector<RenderParticleEmitter> particles;
     std::vector<Diagnostic> diagnostics;
     std::size_t omitted_diagnostics = 0;
     std::vector<RenderModelNode> model_nodes;

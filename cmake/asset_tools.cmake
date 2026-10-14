@@ -20,6 +20,13 @@ if(NOT TARGET Diligent-AssetLoader)
   set(DILIGENT_INSTALL_TOOLS OFF CACHE BOOL "" FORCE)
   set(DILIGENT_NO_GLSLANG ON CACHE BOOL "Model admission profile has no shader compiler" FORCE)
   set(DILIGENT_NO_HLSL ON CACHE BOOL "Model admission profile has no shader compiler" FORCE)
+  if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
+   # Test-only native renderer execution, using the same immutable Core profile
+   # already selected for graphical hosts. CPU tooling keeps its smaller profile.
+   set(DILIGENT_NO_ARCHIVER OFF CACHE BOOL "Native renderer probe cache" FORCE)
+   set(DILIGENT_NO_GLSLANG OFF CACHE BOOL "Native renderer probe HLSL compiler" FORCE)
+   set(DILIGENT_NO_HLSL OFF CACHE BOOL "Native renderer probe HLSL compiler" FORCE)
+  endif()
   set(DILIGENT_ENABLE_DRACO OFF CACHE BOOL "Enable only with codec admission integration" FORCE)
   set(DILIGENT_USE_RAPIDJSON OFF CACHE BOOL "Retain selected native loader JSON implementation" FORCE)
   include(cmake/diligent_source.cmake)

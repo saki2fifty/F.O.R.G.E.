@@ -38,6 +38,15 @@ struct MeshRenderer {
     AssetRef<MaterialVariantAsset> material_variant;
     bool operator==(const MeshRenderer&) const = default;
 };
+// Authored emitter values only. Effect resources, fixed-clock age and transient
+// particle instances belong to runtime/presentation owners, never the scene file.
+struct ParticleEmitter {
+    AssetRef<ParticleEffectAsset> effect;
+    bool enabled = true, visible = true;
+    std::uint32_t seed = 1, layers = UINT32_MAX;
+    double playback_speed = 1; // Zero freezes this emitter without resetting it.
+    bool operator==(const ParticleEmitter&) const = default;
+};
 } // namespace forge
 
 namespace forge {

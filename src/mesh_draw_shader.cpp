@@ -270,12 +270,13 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         if (source.alpha != MaterialAlpha::Blend)
             ps += "base.a=1;\n";
     }
+    ps += "if(input.LegacyTint.w!=0)base.rgb*=input.LegacyTint.rgb;\n";
     if (profile.workflow == PbrWorkflow::Unlit)
         ps += R"(
     if(input.LegacyTint.w!=0) {
         float3 n=ForgeUnit(input.Normal);
         if(!any(n!=0)) n=ForgeUnit(cross(dpdx,dpdy));
-        base.rgb*=input.LegacyTint.rgb*(0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5)))));
+        base.rgb*=0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5))));
     }
     return all(isfinite(base))?base:float4(1,0,1,1);}
 )";

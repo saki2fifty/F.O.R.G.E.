@@ -7,6 +7,9 @@ struct MeshAsset {
 struct CollisionAsset {
     static constexpr const char* type = "collision";
 };
+struct ParticleEffectAsset {
+    static constexpr const char* type = "particle_effect";
+};
 struct MaterialAsset {
     static constexpr const char* type = "material";
 };

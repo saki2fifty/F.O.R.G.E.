@@ -69,11 +69,11 @@ asset plus scene-level settings; skybox and image-based lighting remain renderer
 resources. Shadow formats, passes and budgets belong to renderer profiles. The CPU
 components alone do not establish rendered shadows or lighting capability.
 
-Future VFX is designed as a logical asset with dependencies; an emitter component
-will reference it and contain instance parameters. Its future editor belongs in a
-central document with local graph selection. The renderer boundary will consume VFX outputs;
-CPU/GPU simulation ownership is declared per effect/profile. No particles or universal
-graph VM are implemented by reserving this boundary.
+The first [particle effect profile](particle-effects.md) is a logical asset with
+Mesh/Material dependencies and a native emitter reference. Its central source
+document supplies fields and an isolated preview. CPU emission follows the fixed
+clock; the shared renderer consumes bounded static mesh instances. VFX graphs,
+GPU simulation and broader particle profiles remain future work.
 
 ## Skeletal bridge
 

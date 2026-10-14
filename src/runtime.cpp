@@ -1,3 +1,4 @@
+#include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
 #include <algorithm>
 #include <cmath>
@@ -126,6 +127,7 @@ RuntimeSimulation::RuntimeSimulation(WorldContext& context, Scene& scene)
     if (context.role() != WorldRole::Runtime)
         throw std::runtime_error("Simulation requires a runtime WorldContext");
     animation_ = animation_runtime(context);
+    particles_ = particle_runtime(context);
     if (context.services().available(Capability::Navigation)) {
         navigation_ = std::static_pointer_cast<NavigationRuntime>(context.services().navigation());
         navigation_->bind(&scene);
@@ -308,6 +310,10 @@ void RuntimeSimulation::tick(float dt) {
     context_.modules().end_tick();
     if (stage_error_)
         std::rethrow_exception(stage_error_);
+    if (particles_) {
+        auto profile = context_.services().profile("runtime", "Particles", input_tick_);
+        particles_->tick(dt);
+    }
     poses_.capture(context_.transform_nodes());
     auto discontinuities =
         animation_ ? animation_->take_discontinuities() : std::vector<std::uint64_t>{};
@@ -348,6 +354,8 @@ void RuntimeSimulation::reset_presentation() {
     poses_.reset(context_.transform_nodes());
     if (animation_)
         animation_->reset_presentation();
+    if (particles_)
+        particles_->reset();
 }
 Json RuntimeSimulation::presentation(double alpha) const {
     // Owner-boundary resource adoption also proceeds while Play is paused.
@@ -358,12 +366,19 @@ Json RuntimeSimulation::presentation(double alpha) const {
         (void)physics_->prepare_assets();
     if (animation_)
         animation_->synchronize();
+    if (particles_)
+        particles_->synchronize();
     sync_animation_pose();
     auto profile = context_.services().profile("runtime", "PresentationExtraction", input_tick_);
     auto result = scene_.effective_document();
     const auto values = poses_.evaluate(alpha);
     for (auto& item : result.at("entities")) {
         const auto entity = scene_.entity(item.at("id")).id();
+        if (particles_) {
+            auto state = particles_->presentation(entity, alpha);
+            if (!state.is_null())
+                item["particle_playback"] = std::move(state);
+        }
         if (navigation_) {
             auto nav = navigation_->debug(entity);
             if (!nav.is_null())

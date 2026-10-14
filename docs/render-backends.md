@@ -126,6 +126,20 @@ ctest --test-dir <build-dir> -R '^vulkan_material_binding$' --output-on-failure
 ```
 
 No window, ImGui host or source importer executes inside the probe's draw path.
+
+### Shared mesh renderer particle probe
+
+With the optional Linux probe prerequisites above configured, enable
+`FORGE_BUILD_VULKAN_RENDERER_PROBE=ON` alongside `FORGE_BUILD_VULKAN_PROBES=ON`.
+This test profile enables the existing pinned Core HLSL/cache providers and builds
+the actual shared renderer; ordinary CPU tooling retains its smaller profile.
+Build `forge_particle_vulkan_probe` and run `ctest -R '^particle_vulkan$'
+from that build directory. The test cooks original effects, reads native pixels,
+checks Unlit/PBR instance color, scene/effect budgets, instancing, camera culling,
+visibility/layers, resize, lifetime and private unsaved preview isolation.
+It writes P6 captures under `particle-vulkan-probe` for inspection. Observed native
+execution uses Mesa llvmpipe. This is renderer test evidence, with Windows/editor
+acceptance and a supported Linux product delivery remaining separate gates.
 Unsupported devices fail with diagnostics; the test does not silently skip a
 missing Vulkan driver or compiler.
 

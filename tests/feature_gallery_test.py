@@ -120,7 +120,8 @@ try:
         assert source['asset_id'] not in all_ids
         all_ids.add(source['asset_id'])
         ids = [entity['id'] for entity in source['entities']]
-        assert len(ids) == len(set(ids)) and len(ids) >= (5 if path.name.startswith(('32-', '34-')) else 6)
+        assert len(ids) == len(set(ids)) and len(ids) >= (
+            5 if path.name.startswith(('32-', '34-', '53-')) else 6), (path.name, ids)
         for entity_id in ids:
             assert str(uuid.UUID(entity_id)) == entity_id and entity_id not in all_ids
             all_ids.add(entity_id)

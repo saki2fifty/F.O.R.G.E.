@@ -3719,6 +3719,59 @@
       "type": "model_node"
     },
     {
+      "dependencies": [
+        "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+        "80c55df2-1abb-42b0-9591-502e783cdc97"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "cc59c42dc5a36670a8e1d95f1f47bad4a9013a5b8e592ddeeab82f510e1f2b17",
+          "role": "particles.material",
+          "target": "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "a8dda92bc55956bb8492474c466dab295b4ae88c7dfb8383d25f67e9cd46996b",
+          "role": "particles.mesh",
+          "target": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "type": "mesh"
+        }
+      ],
+      "id": "6ab20ddc-87c3-4097-8133-da32bc61a42a",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "9f2dc13a40f6e9fe66d9f37d04ce61eb3bc2990642e2dbc2329f6c76752f1a1f",
+          "backend": "d3d12",
+          "dependency_digest": "9d8305e7243b120ad02e855eae87c8774ccc4429e840f4ce8b51eea1277714b2",
+          "generation": 1,
+          "importer": "forge.particles.cpu-mesh",
+          "importer_revision": "forge.particles.cpu-mesh.v1",
+          "key": "24ace655f2e64198feb5f335c83b9cf7bee82a4473f1d6ee0e85615497769486",
+          "output_format": "forge.particle-effect-cooked",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "a16e07075a8aaba998a2258c81130c434001f63a4485192255620be294fb0790",
+          "source_digest": "c1c38faa42c68353f63288241e29abac24b1a4522f05e30f7ed279194b44e550",
+          "version": 1
+        },
+        "forge.particle_effect": {
+          "bytes": 584,
+          "file": "effect.json",
+          "sha256": "294b6cec70f4b8c28c92c3e835c96e18eb34414854bebed3724d2c01337793b5",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/OrangeFountain.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "6abed594-1a57-4157-90bf-96056cc39525",
@@ -5593,6 +5646,16 @@
       "source": "Assets/TimedLocomotion.states.json",
       "source_dependencies": [],
       "type": "animation_states"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "9d35aacb-439c-4c5b-961e-aa2f5da245cc",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/54-cpu-mesh-particles.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -7627,6 +7690,59 @@
     },
     {
       "dependencies": [
+        "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+        "80c55df2-1abb-42b0-9591-502e783cdc97"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "cc59c42dc5a36670a8e1d95f1f47bad4a9013a5b8e592ddeeab82f510e1f2b17",
+          "role": "particles.material",
+          "target": "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "a8dda92bc55956bb8492474c466dab295b4ae88c7dfb8383d25f67e9cd46996b",
+          "role": "particles.mesh",
+          "target": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "type": "mesh"
+        }
+      ],
+      "id": "ee1e6b13-61f0-4ccf-90e9-5bf7facf5cfe",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "07eb86f844d9d6bd8adff0b79d4f15457a02923523cec16719d6ba1ed3dbdff3",
+          "backend": "d3d12",
+          "dependency_digest": "9d8305e7243b120ad02e855eae87c8774ccc4429e840f4ce8b51eea1277714b2",
+          "generation": 1,
+          "importer": "forge.particles.cpu-mesh",
+          "importer_revision": "forge.particles.cpu-mesh.v1",
+          "key": "c7dcce3e297047caccf35970dba793e3f30a60e403b9f02820d91330f5dd4713",
+          "output_format": "forge.particle-effect-cooked",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "90ad41579e3f6470dba3ea96de69e42fdf537b2af6dfecd4b9ae91ee94cee763",
+          "source_digest": "9a74f1c7516b4cebd9116faee8cacfade471ad4d1b0e61a7b678d21e07a8afbe",
+          "version": 1
+        },
+        "forge.particle_effect": {
+          "bytes": 585,
+          "file": "effect.json",
+          "sha256": "a1db7e8612e3ecea0f79040bb36361afafee168e74071006a649e7e1c2ad01d5",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/BlueFountain.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
+    },
+    {
+      "dependencies": [
         "f440eff5-0533-48d2-8698-15ec7f0ed3e9"
       ],
       "dependency_edges": [
@@ -7992,6 +8108,59 @@
         "removed": false
       },
       "type": "skeleton"
+    },
+    {
+      "dependencies": [
+        "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+        "80c55df2-1abb-42b0-9591-502e783cdc97"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "cc59c42dc5a36670a8e1d95f1f47bad4a9013a5b8e592ddeeab82f510e1f2b17",
+          "role": "particles.material",
+          "target": "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "a8dda92bc55956bb8492474c466dab295b4ae88c7dfb8383d25f67e9cd46996b",
+          "role": "particles.mesh",
+          "target": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "type": "mesh"
+        }
+      ],
+      "id": "f9c70361-8ac0-4a99-9906-e79dd1e0e1b5",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "e20dab3af9f2ac218c03ee3f8854a3f80565b95d25832914563f15d0eed7bb17",
+          "backend": "d3d12",
+          "dependency_digest": "9d8305e7243b120ad02e855eae87c8774ccc4429e840f4ce8b51eea1277714b2",
+          "generation": 1,
+          "importer": "forge.particles.cpu-mesh",
+          "importer_revision": "forge.particles.cpu-mesh.v1",
+          "key": "53923d633f5ed53b095692d845150dd18122645dce97d257f79d07bdfb99f835",
+          "output_format": "forge.particle-effect-cooked",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "102890c0c20e557ee67ea0a31e768bd860f27a8ba19aa5f00617a83a7f53c0db",
+          "source_digest": "399283cd132cc500df5d66478f430deb62f62d9ba7902b8eca2319693819fb85",
+          "version": 1
+        },
+        "forge.particle_effect": {
+          "bytes": 577,
+          "file": "effect.json",
+          "sha256": "fc0900b653b653ae86aa310ac192d22214a00454a1dcfdc3782a49febd1e8db9",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Particles/InitialBurst.particles.json",
+      "source_dependencies": [],
+      "type": "particle_effect"
     },
     {
       "dependencies": [],

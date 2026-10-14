@@ -21,6 +21,7 @@ target_compile_definitions(forge_vulkan_renderer_compile PRIVATE NOMINMAX FORGE_
 target_link_libraries(forge_vulkan_renderer_compile PRIVATE forge_render_bounds
  forge_model_render_resources forge_mesh_resources forge_material_resources forge_texture_resources
  forge_texture_formats Diligent-GraphicsEngine Diligent-BuildSettings Vulkan::Headers)
+target_link_libraries(forge_vulkan_renderer_compile PRIVATE forge_particle_effect_resources forge_particle_render)
 add_executable(forge_vulkan_binding_probe tests/vulkan_binding_probe.cpp src/render_backend.cpp
  src/sampler_backend.cpp src/texture_gpu.cpp)
 target_compile_definitions(forge_vulkan_binding_probe PRIVATE FORGE_VULKAN_LIMIT_QUERY=1)
@@ -45,3 +46,11 @@ add_test(NAME hdr_bloom_vulkan COMMAND ${Python3_EXECUTABLE}
  "${PROJECT_SOURCE_DIR}/tests/hdr_bloom_vulkan_probe.py" $<TARGET_FILE:forge_hdr_bloom_vulkan_probe>
  "${FORGE_VULKAN_PROBE_DXC}" "${CMAKE_BINARY_DIR}/hdr-bloom-vulkan")
 set_tests_properties(hdr_bloom_vulkan PROPERTIES TIMEOUT 90)
+if(FORGE_BUILD_VULKAN_RENDERER_PROBE)
+ include(cmake/pbr.cmake)
+ add_executable(forge_particle_vulkan_probe tests/particle_vulkan_probe.cpp)
+ target_include_directories(forge_particle_vulkan_probe PRIVATE src "${diligent_SOURCE_DIR}/DiligentCore")
+ target_link_libraries(forge_particle_vulkan_probe PRIVATE forge_presentation_diligent forge_particle_effect_authoring Diligent-GraphicsEngineVk-static)
+ add_test(NAME particle_vulkan COMMAND forge_particle_vulkan_probe "${CMAKE_BINARY_DIR}/particle-vulkan-probe")
+ set_tests_properties(particle_vulkan PROPERTIES TIMEOUT 180)
+endif()
