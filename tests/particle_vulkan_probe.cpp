@@ -311,6 +311,73 @@ void execute(const std::filesystem::path& root) {
     check(dominant(pbr_pixels, 1) > 20 && preview_renderer.draw_stats().instances == 16,
           "Built-in PBR particles lost per-instance RGB tint under actual lighting");
     image(root / "draft-preview-pbr.ppm", 256, 256, pbr_pixels);
+    // Extended values travel through the real private MeshSceneRenderer path.
+    // Pixel coverage and independent image centroids distinguish origin/motion;
+    // counting CPU samples alone would not prove the GPU consumed these values.
+    auto extended = draft;
+    extended.material = engine_material(EngineMaterial::LegacyBlockout);
+    extended.capacity = extended.burst_count = 96;
+    extended.lifetime = 4;
+    extended.cone_angle = 0;
+    extended.speed_min = extended.speed_max = 4;
+    extended.acceleration = {0, 0, 0};
+    extended.shape_size = {8, 4, 6};
+    extended.shape_radius = 3;
+    extended.size_curve = {{0, .15, false}, {.4, .45, false}, {1, .08, false}};
+    extended.color_gradient = {{0, {1, 0, 0}, false}, {.5, {0, 1, 0}, true}, {1, {0, 0, 1}, false}};
+    std::size_t point_coverage = 0;
+    for (unsigned shape = 0; shape < 4; ++shape) {
+        extended.shape = ParticleSpawnShape(shape);
+        scene.particles[0].time = 0;
+        preview_host->preview_particle_effect(emitter.emitter.effect, extended);
+        const auto pixels = draw(square);
+        check(preview_renderer.draw_stats().instances == 96 && dominant(pixels, 0) > 0,
+              "Extended origin lost native instances or birth gradient color");
+        if (shape == 0)
+            point_coverage = visible(pixels);
+        else
+            check(visible(pixels) > point_coverage * 10,
+                  "Native spawn volume collapsed to a point despite admitted shape data");
+        image(root / ("shape-" + std::to_string(shape) + ".ppm"), 256, 256, pixels);
+    }
+    extended.shape = ParticleSpawnShape::Point;
+    auto centroid_y = [&](const auto& pixels) {
+        double sum = 0;
+        std::size_t count = 0;
+        for (std::size_t i = 0; i < pixels.size(); ++i)
+            if (pixels[i][0] + pixels[i][1] + pixels[i][2] > 12) {
+                sum += i / 256;
+                ++count;
+            }
+        check(count != 0, "Extended motion centroid has no native pixels");
+        return sum / count;
+    };
+    scene.particles[0].time = 1.6;
+    preview_host->preview_particle_effect(emitter.emitter.effect, extended);
+    const auto free_pixels = draw(square);
+    check(visible(free_pixels) > point_coverage * 2,
+          "Native size curve did not grow the actual particle geometry");
+    extended.drag = 2;
+    preview_host->preview_particle_effect(emitter.emitter.effect, extended);
+    const auto dragged_pixels = draw(square);
+    check(std::abs(centroid_y(free_pixels) - centroid_y(dragged_pixels)) > 40,
+          "Native drag did not change image-space motion relative to the free jet");
+    image(root / "curve-free.ppm", 256, 256, free_pixels);
+    image(root / "curve-drag.ppm", 256, 256, dragged_pixels);
+    scene.particles[0].time = 3;
+    const auto stepped_pixels = draw(square);
+    check(dominant(stepped_pixels, 1) > 0 && dominant(stepped_pixels, 0) == 0 &&
+              dominant(stepped_pixels, 2) == 0,
+          "Native lifetime gradient did not hold the green outgoing Step segment");
+    image(root / "gradient-step.ppm", 256, 256, stepped_pixels);
+    camera_world.m[3] = 1000;
+    check(visible(draw(square)) == 0 && preview_renderer.draw_stats().instances == 0,
+          "Extended volume/curve preview bypassed ordinary camera culling");
+    camera_world.m[3] = 0;
+    check(reopened.source().document == saved_source &&
+              AssetCatalog::open_project(root).records().at(document->source().asset()).metadata ==
+                  saved_selection,
+          "Extended private previews changed source or selected catalog metadata");
     context->WaitForIdle();
     std::cout << "Shared MeshSceneRenderer particle Vulkan readback, color, instancing, "
                  "owner scope, visibility/layers, resize, selection guards, lifetime and emitter "

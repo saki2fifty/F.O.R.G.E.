@@ -7,7 +7,20 @@ inline constexpr std::size_t particle_emitter_limit = 64, particle_scene_capacit
 // CPU source/admission values, not an installed gameplay implementation API.
 // Runtime emitter components will reference this logical asset through AssetRef.
 enum class ParticleEmission : std::uint32_t { Continuous, Burst };
+enum class ParticleSpawnShape : std::uint32_t { Point, Box, Sphere, Disc };
+struct ParticleSizeStop {
+    double time = 0, value = .1; // Normalized lifetime, meters.
+    bool hold = false;           // Outgoing segment: Step or Linear.
+    bool operator==(const ParticleSizeStop&) const = default;
+};
+struct ParticleColorStop {
+    double time = 0;
+    std::array<float, 3> value{1, .6f, .1f}; // Linear RGB.
+    bool hold = false;
+    bool operator==(const ParticleColorStop&) const = default;
+};
 struct ParticleEffectData {
+    std::uint32_t version = 1; // Exact legacy cpu_mesh1 or extended cpu_mesh2.
     AssetRef<MeshAsset> mesh;
     AssetRef<MaterialAsset> material;
     ParticleEmission emission = ParticleEmission::Continuous;
@@ -17,6 +30,11 @@ struct ParticleEffectData {
     double cone_angle = 15, speed_min = 1, speed_max = 2;
     double size_start = .1, size_end = .02;
     std::array<float, 3> color_start{1, .6f, .1f}, color_end{.3f, .1f, .02f};
+    ParticleSpawnShape shape = ParticleSpawnShape::Point;
+    std::array<double, 3> shape_size{1, 1, 1}; // Box full XYZ dimensions.
+    double shape_radius = 1, drag = 0;         // Sphere/Disc meters, reciprocal seconds.
+    std::vector<ParticleSizeStop> size_curve;
+    std::vector<ParticleColorStop> color_gradient;
     bool operator==(const ParticleEffectData&) const = default;
 };
 struct ParticleSample {

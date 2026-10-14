@@ -57,12 +57,18 @@ RenderBounds particle_effect_bounds(const ParticleEffectData& data, const MeshBo
                                     const AffineTransform& world) {
     validate_particle_effect(data);
     MeshBounds envelope;
-    const auto size = std::max(data.size_start, data.size_end);
+    auto size = std::max(data.size_start, data.size_end);
+    for (const auto& stop : data.size_curve)
+        size = std::max(size, stop.value);
     for (unsigned axis = 0; axis < 3; ++axis) {
         const auto travel = data.speed_max * data.lifetime +
                             .5 * std::abs(data.acceleration[axis]) * data.lifetime * data.lifetime;
-        const auto reach = travel + size * std::max(std::abs(double(mesh.minimum[axis])),
-                                                    std::abs(double(mesh.maximum[axis])));
+        const auto origin = data.shape == ParticleSpawnShape::Box     ? .5 * data.shape_size[axis]
+                            : data.shape == ParticleSpawnShape::Point ? 0.
+                                                                      : data.shape_radius;
+        const auto reach = origin + travel +
+                           size * std::max(std::abs(double(mesh.minimum[axis])),
+                                           std::abs(double(mesh.maximum[axis])));
         if (!std::isfinite(reach) || reach > std::numeric_limits<float>::max())
             throw std::runtime_error("Particle bounds exceed the supported profile");
         // Round outward before converting to the renderer's admitted float local AABB.

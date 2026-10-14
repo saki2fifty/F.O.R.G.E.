@@ -70,7 +70,7 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     input.importer = particle_effect_importer;
     input.importer_revision = particle_effect_recipe;
     input.output_format = particle_effect_cooked_format;
-    input.output_version = 1;
+    input.output_version = 2;
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
@@ -123,7 +123,7 @@ class ParticleEffectImporter final : public AssetImporter {
                   d.source_kinds = {"forge.particle_effect"};
                   d.output_types = {ParticleEffectAsset::type};
                   d.output_format = particle_effect_cooked_format;
-                  d.output_version = 1;
+                  d.output_version = 2;
                   d.targets = {{"windows", "d3d12", "desktop"}, {"linux", "none", "cpu"}};
                   d.execution = ImportExecution::TrustedCpuTask;
                   d.limits.output_files = 1;
@@ -180,6 +180,11 @@ void prepare_particle_effect_publication(AssetPublicationCandidate& candidate,
                 candidate.sidecar.identity.entries.empty(),
             "Particle effect publication identity/family mismatch");
     const auto& file = effect_file(candidate.files, candidate.ticket.owner);
+    require(plan.input.importer_revision == particle_effect_recipe &&
+                plan.input.output_format == particle_effect_cooked_format &&
+                plan.input.output_version == 2 &&
+                decode_cooked_particle_effect(file.bytes, candidate.ticket.owner).version == 2,
+            "Particle publication recipe/value version mismatch");
     auto& identity = candidate.sidecar.identity;
     identity.owner = candidate.ticket.owner;
     identity.source = candidate.ticket.source;
@@ -191,7 +196,7 @@ void prepare_particle_effect_publication(AssetPublicationCandidate& candidate,
                           1,
                           {},
                           {{"forge.particle_effect",
-                            {{"version", 1},
+                            {{"version", 2},
                              {"file", file.name},
                              {"sha256", asset_detail::content_digest(file.bytes)},
                              {"bytes", file.bytes.size()}}}}}};

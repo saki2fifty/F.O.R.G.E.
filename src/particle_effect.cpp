@@ -38,8 +38,58 @@ std::array<double, 3> normalized(std::array<double, 3> v) {
         coordinate /= length;
     return v;
 }
+template <class Stops> void validate_stops(const Stops& stops) {
+    if (stops.empty())
+        return;
+    if (stops.size() < 2 || stops.size() > 16 || stops.front().time != 0 || stops.back().time != 1)
+        throw std::runtime_error("Particle lifetime values need 2–16 stops and endpoints 0/1");
+    double previous = -1;
+    for (const auto& stop : stops) {
+        range(stop.time, 0, 1, "stop time");
+        if (stop.time <= previous)
+            throw std::runtime_error("Particle stop times must be distinct and ordered");
+        previous = stop.time;
+        if constexpr (std::is_same_v<Stops, std::vector<ParticleSizeStop>>)
+            range(stop.value, .001, 100, "size stop");
+        else
+            for (const auto value : stop.value)
+                range(value, 0, 1, "color stop");
+    }
+}
+template <class Stops> auto sample_stops(const Stops& stops, double time) {
+    const auto next = std::upper_bound(stops.begin(), stops.end(), time,
+                                       [](double at, const auto& stop) { return at < stop.time; });
+    if (next == stops.begin())
+        return next->value;
+    if (next == stops.end())
+        return stops.back().value;
+    const auto& previous = *(next - 1);
+    if (previous.hold)
+        return previous.value;
+    const auto fraction = (time - previous.time) / (next->time - previous.time);
+    if constexpr (std::is_same_v<Stops, std::vector<ParticleSizeStop>>)
+        return std::lerp(previous.value, next->value, fraction);
+    else {
+        auto value = previous.value;
+        for (unsigned axis = 0; axis < 3; ++axis)
+            value[axis] =
+                float(std::lerp(double(value[axis]), double(next->value[axis]), fraction));
+        return value;
+    }
+}
+bool stop_hold(const nlohmann::json& stop) {
+    if (!stop.is_object() || stop.size() != 3 || !stop.contains("time") ||
+        !stop.contains("value") || !stop.contains("interpolation"))
+        throw std::runtime_error("Invalid particle lifetime stop fields");
+    const auto& mode = stop.at("interpolation");
+    if (mode != "linear" && mode != "step")
+        throw std::runtime_error("Unknown particle stop interpolation");
+    return mode == "step";
+}
 } // namespace
 void validate_particle_effect(const ParticleEffectData& data) {
+    if (data.version != 1 && data.version != 2)
+        throw std::runtime_error("Unknown particle value version");
     if (!data.mesh.id)
         throw std::runtime_error("Particle effect requires a Mesh");
     if (data.emission > ParticleEmission::Burst)
@@ -68,11 +118,25 @@ void validate_particle_effect(const ParticleEffectData& data) {
         range(value, 0, 1, "start color");
     for (auto value : data.color_end)
         range(value, 0, 1, "end color");
+    if (data.shape > ParticleSpawnShape::Disc)
+        throw std::runtime_error("Unknown particle origin shape");
+    for (auto size : data.shape_size)
+        range(size, .001, 1000, "shape dimensions");
+    range(data.shape_radius, .001, 1000, "shape radius");
+    range(data.drag, 0, 64, "drag");
+    validate_stops(data.size_curve);
+    validate_stops(data.color_gradient);
+    if (data.version == 1 &&
+        (data.shape != ParticleSpawnShape::Point || data.shape_size != std::array{1., 1., 1.} ||
+         data.shape_radius != 1 || data.drag != 0 || !data.size_curve.empty() ||
+         !data.color_gradient.empty()))
+        throw std::runtime_error("Extended particle values require cpu_mesh2");
 }
 ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
     if (!source.is_object() || source.at("format") != "forge.particle_effect" ||
-        !source.at("version").is_number_integer() || source.at("version") != 1 ||
-        source.at("profile") != "cpu_mesh1")
+        !source.at("version").is_number_integer() ||
+        !((source.at("version") == 1 && source.at("profile") == "cpu_mesh1") ||
+          (source.at("version") == 2 && source.at("profile") == "cpu_mesh2")))
         throw std::runtime_error("Unsupported particle effect format/version/profile");
     static const std::set<std::string> fields{
         "format",     "version",      "profile",     "mesh",       "material",
@@ -80,11 +144,15 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
         "direction",  "acceleration", "cone_angle",  "speed_min",  "speed_max",
         "size_start", "size_end",     "color_start", "color_end",  "extensions"};
     for (const auto& [name, value] : source.items())
-        if (!fields.contains(name))
+        if (!fields.contains(name) &&
+            !(source.at("version") == 2 &&
+              (name == "shape" || name == "shape_size" || name == "shape_radius" ||
+               name == "drag" || name == "size_curve" || name == "color_gradient")))
             throw std::runtime_error("Unknown particle effect field: " + name);
     if (source.contains("extensions") && !source.at("extensions").is_object())
         throw std::runtime_error("Particle effect extensions must be an object");
     ParticleEffectData data;
+    data.version = source.at("version").get<std::uint32_t>();
     data.mesh = source.at("mesh").get<AssetRef<MeshAsset>>();
     if (source.contains("material"))
         data.material = source.at("material").get<AssetRef<MaterialAsset>>();
@@ -126,6 +194,46 @@ ParticleEffectData decode_particle_effect(const nlohmann::json& source) {
         vector_value(source.at("color_start"), data.color_start);
     if (source.contains("color_end"))
         vector_value(source.at("color_end"), data.color_end);
+    if (data.version == 2) {
+        if (source.contains("shape")) {
+            const auto& shape = source.at("shape");
+            if (shape == "point")
+                data.shape = ParticleSpawnShape::Point;
+            else if (shape == "box")
+                data.shape = ParticleSpawnShape::Box;
+            else if (shape == "sphere")
+                data.shape = ParticleSpawnShape::Sphere;
+            else if (shape == "disc")
+                data.shape = ParticleSpawnShape::Disc;
+            else
+                throw std::runtime_error("Unknown particle origin shape");
+        }
+        if (source.contains("shape_size"))
+            vector_value(source.at("shape_size"), data.shape_size);
+        if (source.contains("shape_radius"))
+            data.shape_radius = scalar(source.at("shape_radius"));
+        if (source.contains("drag"))
+            data.drag = scalar(source.at("drag"));
+        for (const auto* field : {"size_curve", "color_gradient"})
+            if (source.contains(field)) {
+                const auto& stops = source.at(field);
+                if (!stops.is_array() || stops.size() > 16)
+                    throw std::runtime_error("Particle stop count exceeds limit");
+                for (const auto& stop : stops) {
+                    const auto hold = stop_hold(stop);
+                    if (std::string_view(field) == "size_curve")
+                        data.size_curve.push_back(
+                            {scalar(stop.at("time")), scalar(stop.at("value")), hold});
+                    else {
+                        ParticleColorStop value;
+                        value.time = scalar(stop.at("time"));
+                        value.hold = hold;
+                        vector_value(stop.at("value"), value.value);
+                        data.color_gradient.push_back(value);
+                    }
+                }
+            }
+    }
     validate_particle_effect(data);
     return data;
 }
@@ -133,8 +241,8 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
     validate_particle_effect(data);
     nlohmann::json result{
         {"format", "forge.particle_effect"},
-        {"version", 1},
-        {"profile", "cpu_mesh1"},
+        {"version", data.version},
+        {"profile", data.version == 1 ? "cpu_mesh1" : "cpu_mesh2"},
         {"mesh", data.mesh},
         {"emission", data.emission == ParticleEmission::Burst ? "burst" : "continuous"},
         {"capacity", data.capacity},
@@ -152,6 +260,23 @@ nlohmann::json encode_particle_effect(const ParticleEffectData& data) {
         {"color_end", data.color_end}};
     if (data.material.id)
         result["material"] = data.material;
+    if (data.version == 2) {
+        constexpr const char* shapes[]{"point", "box", "sphere", "disc"};
+        result["shape"] = shapes[unsigned(data.shape)];
+        result["shape_size"] = data.shape_size;
+        result["shape_radius"] = data.shape_radius;
+        result["drag"] = data.drag;
+        result["size_curve"] = nlohmann::json::array();
+        result["color_gradient"] = nlohmann::json::array();
+        for (const auto& stop : data.size_curve)
+            result["size_curve"].push_back({{"time", stop.time},
+                                            {"value", stop.value},
+                                            {"interpolation", stop.hold ? "step" : "linear"}});
+        for (const auto& stop : data.color_gradient)
+            result["color_gradient"].push_back({{"time", stop.time},
+                                                {"value", stop.value},
+                                                {"interpolation", stop.hold ? "step" : "linear"}});
+    }
     return result;
 }
 std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& data, double seconds,
@@ -207,16 +332,55 @@ std::vector<ParticleSample> sample_particle_effect(const ParticleEffectData& dat
         const auto c = 1 - unit() * (1 - cosine), s = std::sqrt(std::max(0., 1 - c * c)),
                    phi = unit() * 2 * std::numbers::pi;
         const auto speed = data.speed_min + unit() * (data.speed_max - data.speed_min);
+        std::array<double, 3> origin{};
+        if (data.shape == ParticleSpawnShape::Box) {
+            for (unsigned i = 0; i < 3; ++i)
+                origin[i] = (unit() - .5) * data.shape_size[i];
+        } else if (data.shape == ParticleSpawnShape::Sphere) {
+            const auto radius = data.shape_radius * std::cbrt(unit()), y = 2 * unit() - 1,
+                       radial = std::sqrt(std::max(0., 1 - y * y)),
+                       angle = unit() * 2 * std::numbers::pi;
+            origin = {radius * radial * std::cos(angle), radius * y,
+                      radius * radial * std::sin(angle)};
+        } else if (data.shape == ParticleSpawnShape::Disc) {
+            const auto radius = data.shape_radius * std::sqrt(unit()),
+                       angle = unit() * 2 * std::numbers::pi;
+            for (unsigned i = 0; i < 3; ++i)
+                origin[i] = radius * (side[i] * std::cos(angle) + up[i] * std::sin(angle));
+        }
         const auto fraction = particle.age / data.lifetime;
-        particle.size = std::lerp(data.size_start, data.size_end, fraction);
+        particle.size = data.size_curve.empty()
+                            ? std::lerp(data.size_start, data.size_end, fraction)
+                            : sample_stops(data.size_curve, fraction);
+        if (!data.color_gradient.empty())
+            particle.color = sample_stops(data.color_gradient, fraction);
+        double damping = 1, velocity_integral = particle.age,
+               acceleration_integral = .5 * particle.age * particle.age;
+        if (data.drag > 0) {
+            const auto x = data.drag * particle.age;
+            damping = std::exp(-x);
+            velocity_integral = -std::expm1(-x) / data.drag;
+            // Integral of the velocity response: stable near zero drag*age.
+            acceleration_integral =
+                x < .001 ? particle.age * particle.age *
+                               (.5 + x * (-1. / 6 + x * (1. / 24 + x * (-1. / 120 + x / 720))))
+                         : (particle.age - velocity_integral) / data.drag;
+        }
         for (unsigned i = 0; i < 3; ++i) {
             const auto initial =
                 speed * (axis[i] * c + side[i] * s * std::cos(phi) + up[i] * s * std::sin(phi));
-            particle.position[i] =
-                initial * particle.age + .5 * data.acceleration[i] * particle.age * particle.age;
-            particle.velocity[i] = initial + data.acceleration[i] * particle.age;
-            particle.color[i] =
-                float(std::lerp(double(data.color_start[i]), double(data.color_end[i]), fraction));
+            if (data.drag == 0) {
+                particle.position[i] = origin[i] + initial * particle.age +
+                                       .5 * data.acceleration[i] * particle.age * particle.age;
+                particle.velocity[i] = initial + data.acceleration[i] * particle.age;
+            } else {
+                particle.position[i] = origin[i] + initial * velocity_integral +
+                                       data.acceleration[i] * acceleration_integral;
+                particle.velocity[i] = initial * damping + data.acceleration[i] * velocity_integral;
+            }
+            if (data.color_gradient.empty())
+                particle.color[i] = float(
+                    std::lerp(double(data.color_start[i]), double(data.color_end[i]), fraction));
         }
         if (result.size() >= data.capacity || result.size() >= budget)
             throw std::runtime_error("Particle sample exceeds instance budget");

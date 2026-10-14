@@ -1,5 +1,13 @@
 # 2026-10-14
 
+## Particle shapes and lifetime curves
+
+- Add Point, Box, Sphere and Disc origins, analytic linear drag and bounded size/RGB lifetime stops in the existing Particle Effect document.
+- Retain source stop UUIDs through editing/history/copy; strip them from cooked values, admit exact legacy cooks and publish explicit version 2 recipes.
+- Reuse private preview, source publication, shared opaque/masked rendering, conservative bounds and source-free export. Add original Gallery56 without changing previous assets.
+- Prevent redundant source-update rebuilds when typed dependencies are immutable engine assets; retain exact type/revision checks and failure recovery.
+- Validate mathematical, source/runtime/export, actual editor input and native Vulkan paths locally. No native emitter/SDK ABI change; Windows physical acceptance remains pending.
+
 ## Layered heightfield terrain
 
 - Author sparse adjoining tiles with additive height layers, masks, resolution

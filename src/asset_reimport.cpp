@@ -1,4 +1,5 @@
 #include "asset_reimport.hpp"
+#include <forge/engine_assets.hpp>
 namespace forge {
 namespace {
 const ProjectLease& valid_lease(const std::shared_ptr<const ProjectLease>& value) {
@@ -175,6 +176,12 @@ bool AssetReimportService::source_current(const AssetRecord& record) const {
         if (dependency.kind == AssetDependencyKind::Subasset ||
             (dependency.kind == AssetDependencyKind::Optional && dependency.revision.empty()))
             continue;
+        if (const auto* builtin = engine_asset(dependency.target)) {
+            if (std::string_view(builtin->type) != dependency.expected_type ||
+                engine_asset_revision(dependency.target) != dependency.revision)
+                return false;
+            continue;
+        }
         const auto found = catalog_->records().find(dependency.target);
         if (found == catalog_->records().end() || found->second.type != dependency.expected_type ||
             (found->second.subasset && found->second.subasset->removed) ||

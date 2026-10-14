@@ -87,7 +87,8 @@ int main(int argc, char** argv) {
         const auto catalog = AssetCatalog::open_project(root);
         std::size_t effects = 0;
         for (const auto& [id, record] : catalog.records())
-            if (record.type == ParticleEffectAsset::type) {
+            if (record.type == ParticleEffectAsset::type &&
+                record.source.parent_path() == std::filesystem::path("Assets/Particles")) {
                 const auto& imported = record.metadata.at("forge.import");
                 check(imported.at("platform") == "windows" && imported.at("backend") == "d3d12" &&
                           imported.at("output_version") == 1,

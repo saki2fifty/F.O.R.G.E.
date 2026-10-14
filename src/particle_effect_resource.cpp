@@ -12,10 +12,13 @@ void selection(const AssetRecord& record) {
     require(record.type == ParticleEffectAsset::type && !record.subasset,
             "Particle Effect asset has wrong type or ownership");
     const auto& imported = record.metadata.at("forge.import");
+    const bool legacy = imported.at("importer_revision") == particle_effect_legacy_recipe &&
+                        imported.at("output_version") == 1;
+    const bool extended = imported.at("importer_revision") == particle_effect_recipe &&
+                          imported.at("output_version") == 2;
     require(imported.at("version") == 1 && imported.at("importer") == particle_effect_importer &&
-                imported.at("importer_revision") == particle_effect_recipe &&
+                (legacy || extended) &&
                 imported.at("output_format") == particle_effect_cooked_format &&
-                imported.at("output_version") == 1 &&
                 imported.at("generation").get<std::uint64_t>() != 0 &&
                 valid_content_digest(imported.at("key").get<std::string>()),
             "Unsupported Particle Effect selection");
@@ -61,13 +64,14 @@ ParticleEffectData admit_particle_effect_artifact(const CachedArtifact& artifact
     auto edges = record.dependency_edges;
     std::sort(edges.begin(), edges.end());
     std::sort(cooked_edges.begin(), cooked_edges.end());
-    require(cooked_edges == edges && input.at("source") == selected.at("source_digest") &&
-                selected.at("artifact_digest") ==
-                    asset_build_digest(artifact.manifest.at("files")) &&
-                metadata.at("version") == 1 && metadata.at("file") == file.name &&
-                metadata.at("sha256") == asset_detail::content_digest(file.bytes) &&
-                metadata.at("bytes") == file.bytes.size(),
-            "Particle Effect artifact/provenance mismatch");
+    require(
+        cooked_edges == edges && input.at("source") == selected.at("source_digest") &&
+            selected.at("artifact_digest") == asset_build_digest(artifact.manifest.at("files")) &&
+            metadata.at("version") == value.version &&
+            selected.at("output_version") == value.version && metadata.at("file") == file.name &&
+            metadata.at("sha256") == asset_detail::content_digest(file.bytes) &&
+            metadata.at("bytes") == file.bytes.size(),
+        "Particle Effect artifact/provenance mismatch");
     dependencies(value, edges);
     return value;
 }
@@ -102,21 +106,23 @@ ResourceTicket request_particle_effect(ResourcePool<ParticleEffectAsset>& pool,
     const auto revision = record.metadata.at("forge.import").at("key").get<std::string>();
     const auto generation =
         record.metadata.at("forge.import").at("generation").get<std::uint64_t>();
-    return pool.request(ref, revision, generation,
-                        [project, revision, record = std::move(record)](std::stop_token stop) {
-                            require(!stop.stop_requested(), "Particle Effect load cancelled");
-                            DerivedDataCache cache(project,
-                                                   {particle_effect_byte_limit,
-                                                    particle_effect_byte_limit + 65536, 1});
-                            std::optional<ParticleEffectData> value;
-                            (void)cache.load_selected(revision, [&](const auto& artifact) {
-                                value = admit_particle_effect_artifact(artifact, record);
-                            });
-                            require(!stop.stop_requested() && value.has_value(),
-                                    "Particle Effect load cancelled or empty");
-                            return ResourceCandidate<ParticleEffectAsset>{
-                                std::make_unique<ParticleEffectData>(*value),
-                                {0, 0, 0, 0, sizeof(ParticleEffectData)}};
-                        });
+    return pool.request(
+        ref, revision, generation,
+        [project, revision, record = std::move(record)](std::stop_token stop) {
+            require(!stop.stop_requested(), "Particle Effect load cancelled");
+            DerivedDataCache cache(
+                project, {particle_effect_byte_limit, particle_effect_byte_limit + 65536, 1});
+            std::optional<ParticleEffectData> value;
+            (void)cache.load_selected(revision, [&](const auto& artifact) {
+                value = admit_particle_effect_artifact(artifact, record);
+            });
+            require(!stop.stop_requested() && value.has_value(),
+                    "Particle Effect load cancelled or empty");
+            const auto bytes = sizeof(ParticleEffectData) +
+                               value->size_curve.capacity() * sizeof(ParticleSizeStop) +
+                               value->color_gradient.capacity() * sizeof(ParticleColorStop);
+            return ResourceCandidate<ParticleEffectAsset>{
+                std::make_unique<ParticleEffectData>(std::move(*value)), {0, 0, 0, 0, bytes}};
+        });
 }
 } // namespace forge

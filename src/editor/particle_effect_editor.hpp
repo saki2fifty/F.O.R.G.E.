@@ -5,6 +5,7 @@
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
 #include <forge/render_components.hpp>
+#include <numeric>
 namespace forge {
 class ParticleEffectEditor {
   public:
@@ -203,17 +204,40 @@ class ParticleEffectEditor {
             number("Lifetime (seconds)", "lifetime", data.lifetime);
             ui::help("Capacity: 1–1024 per effect. Continuous rate × lifetime must fit. Scene "
                      "limits: 64 enabled emitters, 8192 reserved instances.");
+            ImGui::SeparatorText("Spawn volume");
+            int shape = int(data.shape);
+            if (ImGui::Combo("Shape", &shape, "Point\0Box\0Sphere\0Disc\0")) {
+                constexpr const char* names[]{"point", "box", "sphere", "disc"};
+                set("shape", names[shape]);
+            }
+            FORGE_UI_PROBE("particles:shape");
+            if (data.shape == ParticleSpawnShape::Box)
+                vector("Full dimensions (meters)", "shape_size", data.shape_size);
+            if (data.shape == ParticleSpawnShape::Sphere || data.shape == ParticleSpawnShape::Disc)
+                number("Radius (meters)", "shape_radius", data.shape_radius);
+            ui::help(
+                "Shapes are centered on the emitter. Sphere fills a volume; Disc fills a "
+                "plane perpendicular to Direction. Scene transforms apply to the whole effect.");
             ImGui::SeparatorText("Local motion");
             vector("Direction", "direction", data.direction);
             number("Cone half-angle (degrees)", "cone_angle", data.cone_angle);
             number("Minimum speed (m/s)", "speed_min", data.speed_min);
             number("Maximum speed (m/s)", "speed_max", data.speed_max);
             vector("Acceleration (m/s²)", "acceleration", data.acceleration);
+            number("Drag (1/second)", "drag", data.drag);
+            ui::help(
+                "Drag reduces velocity continuously. Zero keeps the original ballistic motion.");
             ImGui::SeparatorText("Over lifetime");
+            ImGui::BeginDisabled(!data.size_curve.empty());
             number("Start size", "size_start", data.size_start);
             number("End size", "size_end", data.size_end);
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(!data.color_gradient.empty());
             vector("Start color (linear RGB)", "color_start", data.color_start);
             vector("End color (linear RGB)", "color_end", data.color_end);
+            ImGui::EndDisabled();
+            lifetime_channel(ParticleLifetimeChannel::Size);
+            lifetime_channel(ParticleLifetimeChannel::Color);
             ImGui::BeginDisabled(needs_publish_ || document_->dirty() || !ui::editor_context ||
                                  ui::editor_context->selection.entity().empty());
             if (ui::button("Assign to selected Particle Emitter",
@@ -367,7 +391,111 @@ class ParticleEffectEditor {
         }
     }
     void set(const char* name, const Json& value) {
-        mutate(std::string("Set particle ") + name, [&](auto& source) { source[name] = value; });
+        mutate(std::string("Set particle ") + name, [&](auto& source) {
+            if (std::string_view(name) == "shape" || std::string_view(name) == "shape_size" ||
+                std::string_view(name) == "shape_radius" || std::string_view(name) == "drag") {
+                ParticleEffectSource candidate{source};
+                candidate.promote();
+                source = std::move(candidate.document);
+            }
+            source[name] = value;
+        });
+    }
+    void lifetime_channel(ParticleLifetimeChannel channel) {
+        const bool size = channel == ParticleLifetimeChannel::Size;
+        const char* name = size ? "size_curve" : "color_gradient";
+        const std::string probe = std::string("particles:") + name;
+        const auto& source = document_->source().document;
+        bool enabled = source.contains(name) && !source.at(name).empty();
+        if (ImGui::Checkbox(size ? "Use size curve" : "Use color gradient", &enabled))
+            mutate(std::string("Toggle particle ") + name, [&](auto& value) {
+                ParticleEffectSource candidate{value};
+                candidate.enable_lifetime(channel, enabled);
+                value = std::move(candidate.document);
+            });
+        FORGE_UI_PROBE(probe + ":enable");
+        if (!document_->source().document.contains(name) ||
+            document_->source().document.at(name).empty())
+            return;
+        // A snapshot keeps drawing safe when a committed edit replaces the document.
+        const auto stops = document_->source().document.at(name);
+        ImGui::PushID(name);
+        ui::help("Times cover normalized life: 0 is birth, 1 is death. Step holds a value; "
+                 "Linear blends to the next stop. Endpoints stay fixed. Enter commits edits.");
+        ImGui::BeginDisabled(stops.size() >= 16);
+        if (ui::button("Add stop",
+                       "Insert a stop in the largest time gap, retaining the curve shape.")) {
+            double gap = -1, time = .5;
+            for (std::size_t i = 1; i < stops.size(); ++i) {
+                const auto a = stops[i - 1].at("time").get<double>();
+                const auto b = stops[i].at("time").get<double>();
+                if (b - a > gap) {
+                    gap = b - a;
+                    time = std::midpoint(a, b);
+                }
+            }
+            mutate(std::string("Add particle ") + name + " stop", [&](auto& value) {
+                ParticleEffectSource candidate{value};
+                candidate.insert_lifetime_stop(channel, time);
+                value = std::move(candidate.document);
+            });
+        }
+        FORGE_UI_PROBE(probe + ":add");
+        ImGui::EndDisabled();
+        for (std::size_t i = 0; i < stops.size(); ++i) {
+            const auto id = stops[i].at("id").get<AssetId>();
+            ImGui::PushID(id.str().c_str());
+            const auto stop_probe = probe + ":stop:" + std::to_string(i);
+            ImGui::Text("Stop %zu", i + 1);
+            const bool endpoint = i == 0 || i + 1 == stops.size();
+            double at = stops[i].at("time").get<double>();
+            ImGui::BeginDisabled(endpoint);
+            if (ImGui::InputDouble("Time (0–1)", &at, 0, 0, "%.5g",
+                                   ImGuiInputTextFlags_EnterReturnsTrue))
+                set_stop(name, id, "time", at);
+            FORGE_UI_PROBE(stop_probe + ":time");
+            ImGui::EndDisabled();
+            if (size) {
+                double value = stops[i].at("value").get<double>();
+                if (ImGui::InputDouble("Size (meters)", &value, 0, 0, "%.5g",
+                                       ImGuiInputTextFlags_EnterReturnsTrue))
+                    set_stop(name, id, "value", value);
+            } else {
+                auto value = stops[i].at("value").get<std::array<float, 3>>();
+                if (ImGui::InputFloat3("Color (linear RGB)", value.data(), "%.5g",
+                                       ImGuiInputTextFlags_EnterReturnsTrue))
+                    set_stop(name, id, "value", value);
+            }
+            FORGE_UI_PROBE(stop_probe + ":value");
+            int mode = stops[i].at("interpolation") == "step" ? 1 : 0;
+            ImGui::BeginDisabled(i + 1 == stops.size());
+            if (ImGui::Combo("To next stop", &mode, "Linear\0Step\0"))
+                set_stop(name, id, "interpolation", mode ? "step" : "linear");
+            FORGE_UI_PROBE(stop_probe + ":interpolation");
+            ImGui::EndDisabled();
+            ImGui::BeginDisabled(endpoint);
+            if (ui::button("Remove stop", "Remove this interior stop in one Undo step."))
+                mutate(std::string("Remove particle ") + name + " stop", [&](auto& value) {
+                    ParticleEffectSource candidate{value};
+                    candidate.remove_lifetime_stop(channel, id);
+                    value = std::move(candidate.document);
+                });
+            FORGE_UI_PROBE(stop_probe + ":remove");
+            ImGui::EndDisabled();
+            ImGui::Separator();
+            ImGui::PopID();
+        }
+        ImGui::PopID();
+    }
+    void set_stop(const char* channel, AssetId id, const char* field, const Json& value) {
+        mutate(std::string("Set particle stop ") + field, [&](auto& source) {
+            for (auto& stop : source.at(channel))
+                if (stop.at("id").template get<AssetId>() == id) {
+                    stop[field] = value;
+                    return;
+                }
+            throw std::runtime_error("Particle stop no longer exists");
+        });
     }
     void number(const char* label, const char* name, double value) {
         if (ImGui::InputDouble(label, &value, 0, 0, "%.5g", ImGuiInputTextFlags_EnterReturnsTrue))

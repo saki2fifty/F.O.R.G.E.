@@ -16,7 +16,17 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
     SceneDocument project(scene);
     project.open_project(root, true);
     const std::filesystem::path source = "Assets/Original.particles.json";
-    auto created = ParticleEffectDocument::create(project.writer_guard(), source);
+    const bool legacy = scale == 1 && !small;
+    auto created = ParticleEffectDocument::create(project.writer_guard(), source, [&](AssetId id) {
+        auto result = ParticleEffectSource::create(id);
+        if (legacy) {
+            auto values = result.compiled();
+            values.version = 1;
+            result.document = encode_particle_effect(values);
+            result.document["asset_id"] = id;
+        }
+        return result;
+    });
     const auto original = created->source().document;
     created.reset();
     const auto disk = asset_detail::read_bytes(root / source, particle_effect_byte_limit);
@@ -35,6 +45,7 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
     io.DisplaySize = small ? ImVec2{780, 820} : ImVec2{1500, 1800};
     io.DeltaTime = 1.f / 60;
     io.ConfigInputTrickleEventQueue = false;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     unsigned char* pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
@@ -77,7 +88,10 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
                 io.AddMousePosEvent((box.minimum.x + box.maximum.x) * .5f,
                                     (box.minimum.y + box.maximum.y) * .5f);
                 frame();
-                return;
+                const auto settled = test::ui_targets.at(id);
+                if (settled.minimum.y == box.minimum.y && settled.maximum.y == box.maximum.y)
+                    return;
+                continue;
             }
             // Exercise the actual scrollbar input, including compact/high-DPI panes.
             io.AddMousePosEvent(io.DisplaySize.x * .5f, io.DisplaySize.y * .5f);
@@ -95,7 +109,19 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
         frame();
     };
     auto number = [&](const std::string& id, const char* value) {
-        click(id);
+        if (id.starts_with("particles:color_gradient:") && id.ends_with(":value")) {
+            point(id);
+            const auto box = test::ui_targets.at(id);
+            // InputFloat3's group rectangle includes its label. Aim inside the
+            // first lane explicitly rather than assuming the group's center is G.
+            io.AddMousePosEvent(box.minimum.x + 10 * scale, (box.minimum.y + box.maximum.y) * .5f);
+            frame();
+            io.AddMouseButtonEvent(0, true);
+            frame();
+            io.AddMouseButtonEvent(0, false);
+            frame();
+        } else
+            click(id);
         io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
         io.AddKeyEvent(ImGuiKey_A, true);
         frame();
@@ -107,6 +133,20 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
         io.AddKeyEvent(ImGuiKey_Enter, true);
         frame();
         io.AddKeyEvent(ImGuiKey_Enter, false);
+        frame();
+    };
+    auto key = [&](ImGuiKey value) {
+        io.AddKeyEvent(value, true);
+        frame();
+        io.AddKeyEvent(value, false);
+        frame();
+    };
+    auto choose = [&](const std::string& id, unsigned option) {
+        click(id);
+        key(ImGuiKey_Home);
+        for (unsigned i = 0; i < option; ++i)
+            key(ImGuiKey_DownArrow);
+        key(ImGuiKey_Enter);
         frame();
     };
     const auto revision = editor.document()->revision();
@@ -125,9 +165,92 @@ void exercise(const std::filesystem::path& scratch, float scale, bool small) {
     number("particles:cone_angle", "40");
     require(editor.document()->source().document.at("cone_angle") == 40,
             "Particle cone control did not edit the effect");
+    const auto before_extended = editor.document()->source().document;
+    for (unsigned shape = 1; shape < 4; ++shape) {
+        choose("particles:shape", shape);
+        require(unsigned(editor.document()->source().compiled().shape) == shape,
+                "Particle shape combo selected the wrong origin");
+        require(editor.document()->source().compiled().version == 2 &&
+                    editor.document()->source().document.at("asset_id") == original.at("asset_id"),
+                "Actual extended input did not promote legacy source with the same identity");
+        if (shape != 1) {
+            number("particles:shape_radius", "1.8");
+            require(editor.document()->source().compiled().shape_radius == 1.8,
+                    "Particle radius control did not commit meters");
+        } else
+            require(test::ui_targets.contains("particles:shape_size"),
+                    "Box origin did not expose full XYZ dimensions");
+    }
+    number("particles:drag", "2");
+    require(editor.document()->source().compiled().drag == 2, "Particle drag control failed");
+    const auto before_invalid_drag = editor.document()->source().document;
+    number("particles:drag", "-1");
+    require(editor.document()->source().document == before_invalid_drag &&
+                !editor.diagnostic().empty(),
+            "Invalid drag entered source history");
+    click("particles:size_curve:enable");
+    frame();
+    require(editor.document()->source().compiled().size_curve.size() == 2 &&
+                !test::ui_targets.at("particles:size_start").enabled,
+            "Size curve did not replace the editable fallback controls");
+    const auto endpoint = editor.document()->source().document.at("size_curve")[0].at("id");
+    click("particles:size_curve:add");
+    frame();
+    const auto middle = editor.document()->source().document.at("size_curve")[1].at("id");
+    number("particles:size_curve:stop:1:value", ".6");
+    number("particles:size_curve:stop:1:time", ".3");
+    choose("particles:size_curve:stop:1:interpolation", 1);
+    require(editor.document()->source().compiled().size_curve[1].value == .6 &&
+                editor.document()->source().compiled().size_curve[1].time == .3 &&
+                editor.document()->source().compiled().size_curve[1].hold &&
+                editor.document()->source().document.at("size_curve")[1].at("id") == middle &&
+                editor.document()->source().document.at("size_curve")[0].at("id") == endpoint,
+            "Lifetime inputs replaced identities or failed interpolation/value edits");
+    const auto curve = editor.document()->source().document;
+    number("particles:size_curve:stop:1:time", "1");
+    require(editor.document()->source().document == curve && !editor.diagnostic().empty(),
+            "Duplicate endpoint time entered source history");
+    click("particles:size_curve:stop:1:remove");
+    frame();
+    require(editor.document()->source().compiled().size_curve.size() == 2,
+            "Remove stop retained an interior value");
+    click("particles:undo");
+    frame();
+    require(editor.document()->source().document == curve,
+            "Undo did not restore the exact curve stop identity/value");
+    click("particles:color_gradient:enable");
+    click("particles:color_gradient:add");
+    frame();
+    require(editor.document()->source().compiled().color_gradient.size() == 3 &&
+                !test::ui_targets.at("particles:color_start").enabled,
+            "Color gradient controls failed to own the lifetime values");
+    number("particles:color_gradient:stop:1:value", ".9");
+    choose("particles:color_gradient:stop:1:interpolation", 1);
+    require(editor.document()->source().compiled().color_gradient[1].value[0] == .9f &&
+                editor.document()->source().compiled().color_gradient[1].hold,
+            "Actual gradient RGB/Step inputs failed to commit");
+    const auto with_gradient = editor.document()->source().document;
+    click("particles:color_gradient:enable");
+    frame();
+    require(editor.document()->source().compiled().color_gradient.empty() &&
+                test::ui_targets.at("particles:color_start").enabled,
+            "Disabled gradient did not restore fallback editing");
+    click("particles:undo");
+    frame();
+    require(editor.document()->source().document == with_gradient,
+            "Undo of disable lost gradient identity/history");
+    // Keep the original lifecycle/close checks applicable, including start-size editing.
+    for (unsigned i = 0; i < 32 && editor.document()->source().document != before_extended; ++i)
+        editor.undo();
+    require(editor.document()->source().document == before_extended,
+            "Extended particle edits did not return to the exact prior history state");
+    frame();
+    frame();
     number("particles:preview_time", "1.25");
     require(editor.preview_time() == 1.25 && !editor.preview_playing(),
-            "Preview seek did not pause at the requested time");
+            "Preview seek did not pause at the requested time: actual=" +
+                std::to_string(editor.preview_time()) + " scale=" + std::to_string(scale) +
+                " compact=" + std::to_string(small) + " diagnostic=" + editor.diagnostic());
     const auto source_before_preview = editor.document()->source().document;
     click("particles:preview_play");
     require(editor.preview_playing(), "Particle preview Play did not start");

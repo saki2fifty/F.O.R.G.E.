@@ -48,34 +48,48 @@ void affine_and_envelope() {
     data.emission = ParticleEmission::Burst;
     data.burst_count = 32;
     data.cone_angle = 65;
+    data.shape_size = {4, 7, 3};
+    data.shape_radius = 5;
+    data.size_curve = {{0, .1, false}, {.4, 3, true}, {1, .2, false}};
+    data.color_gradient = {{0, {1, 0, 0}, false}, {.5, {0, 1, 0}, true}, {1, {0, 0, 1}, false}};
     AffineTransform emitter;
     emitter.m = {-2, .3, 0, 10, 0, 3, .4, -2, 0, 0, .5, 7};
     MeshBounds mesh{{-.5f, -.5f, -.5f}, {.5f, .5f, .5f}};
-    const auto envelope = particle_effect_bounds(data, mesh, emitter);
-    for (unsigned step = 0; step < 20; ++step) {
-        const auto time = data.lifetime * step / 20;
-        const auto samples = sample_particle_effect(data, time, 8);
-        const auto instances = particle_render_instances(data, time, 8, emitter);
-        require(samples.size() == instances.size(), "Particle presentation changed sample count");
-        for (std::size_t i = 0; i < samples.size(); ++i) {
-            const auto position = emitter.point(
-                {samples[i].position[0], samples[i].position[1], samples[i].position[2]});
-            require(instances[i].birth == samples[i].birth &&
-                        instances[i].color == samples[i].color,
-                    "Particle birth/color changed at render boundary");
-            for (unsigned axis = 0; axis < 3; ++axis) {
-                require(std::abs(instances[i].world.m[axis * 4 + 3] - position[axis]) < 1e-10,
-                        "Particle local motion did not follow emitter affine");
-                for (unsigned lane = 0; lane < 3; ++lane)
-                    require(instances[i].world.m[axis * 4 + lane] ==
-                                emitter.m[axis * 4 + lane] * samples[i].size,
-                            "Particle size did not preserve emitter reflection/shear");
+    for (const auto shape : {ParticleSpawnShape::Point, ParticleSpawnShape::Box,
+                             ParticleSpawnShape::Sphere, ParticleSpawnShape::Disc}) {
+        data.shape = shape;
+        for (const double drag : {0., 1e-8, 2., 64.}) {
+            data.drag = drag;
+            const auto envelope = particle_effect_bounds(data, mesh, emitter);
+            for (unsigned step = 0; step < 20; ++step) {
+                const auto time = data.lifetime * step / 20;
+                const auto samples = sample_particle_effect(data, time, 8);
+                const auto instances = particle_render_instances(data, time, 8, emitter);
+                require(samples.size() == instances.size(),
+                        "Particle presentation changed sample count");
+                for (std::size_t i = 0; i < samples.size(); ++i) {
+                    const auto position = emitter.point(
+                        {samples[i].position[0], samples[i].position[1], samples[i].position[2]});
+                    require(instances[i].birth == samples[i].birth &&
+                                instances[i].color == samples[i].color,
+                            "Particle birth/color changed at render boundary");
+                    for (unsigned axis = 0; axis < 3; ++axis) {
+                        require(std::abs(instances[i].world.m[axis * 4 + 3] - position[axis]) <
+                                    1e-10,
+                                "Particle local motion did not follow emitter affine");
+                        for (unsigned lane = 0; lane < 3; ++lane)
+                            require(instances[i].world.m[axis * 4 + lane] ==
+                                        emitter.m[axis * 4 + lane] * samples[i].size,
+                                    "Particle size did not preserve emitter reflection/shear");
+                    }
+                    const auto bounds = transform_bounds(mesh, instances[i].world);
+                    for (unsigned axis = 0; axis < 3; ++axis)
+                        require(
+                            bounds.minimum[axis] >= envelope.minimum[axis] &&
+                                bounds.maximum[axis] <= envelope.maximum[axis],
+                            "Whole-lifetime particle envelope lost an actual world-space corner");
+                }
             }
-            const auto bounds = transform_bounds(mesh, instances[i].world);
-            for (unsigned axis = 0; axis < 3; ++axis)
-                require(bounds.minimum[axis] >= envelope.minimum[axis] &&
-                            bounds.maximum[axis] <= envelope.maximum[axis],
-                        "Whole-lifetime particle envelope lost an actual world-space corner");
         }
     }
 }
@@ -124,6 +138,18 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root / "Assets");
         auto lease = std::make_shared<ProjectLease>(root);
         auto document = ParticleEffectDocument::create(lease, "Assets/Effect.particles.json");
+        document->edit(document->revision(), "Extended runtime particle values", [](auto& value) {
+            ParticleEffectSource extended{value};
+            extended.document["shape"] = "box";
+            extended.document["shape_size"] = {2, 1, 3};
+            extended.document["drag"] = 2;
+            extended.enable_lifetime(ParticleLifetimeChannel::Size, true);
+            extended.insert_lifetime_stop(ParticleLifetimeChannel::Size, .5);
+            extended.document["size_curve"][1]["value"] = .5;
+            extended.enable_lifetime(ParticleLifetimeChannel::Color, true);
+            value = std::move(extended.document);
+        });
+        document->save();
         const auto effect = document->source().asset();
         AssetImportService imports(lease, particle_effect_import_registry(),
                                    {"linux", "none", "cpu"});
@@ -221,6 +247,10 @@ int main(int argc, char** argv) {
         require(live.particles->sample(entity, 1).size() == 8 &&
                     live.particles->presentation(entity, .5).at("time") == .125,
                 "Fixed-clock particle births or interpolated age wrong");
+        require(live.particles->sample(entity, 1) ==
+                    sample_particle_effect(document->source().compiled(), .25,
+                                           live.scene.entity(actor).get<ParticleEmitter>().seed),
+                "Runtime ignored extended shape, drag or lifetime values");
         for (unsigned i = 0; i < 100; ++i)
             require(live.simulation.presentation(1) == captured,
                     "Presentation read advanced emission age or changed source");

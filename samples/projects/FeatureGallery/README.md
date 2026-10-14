@@ -1,5 +1,14 @@
 # FORGE Feature Gallery
 
+## Particle shapes and lifetime curves
+
+Open **Scenes/56-particle-shapes-and-lifetime.scene.json** and press Play. The front
+row compares Point, Box, Sphere and Disc origins. The back pair shows a free jet
+beside one with drag and a curve that grows then shrinks. Open effect sources
+under **Assets/Particles/Shapes** to change dimensions/radius, drag, size stops or
+linear-RGB gradient stops; preview and publish, then restart Play. This scene
+exports already cooked effects and needs no C++ compiler.
+
 ## Layered terrain and collision
 
 Open **Scenes/55-layered-heightfield-terrain.scene.json** and press Play. Three

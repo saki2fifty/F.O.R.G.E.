@@ -1,0 +1,358 @@
+{
+  "asset_id": "2c614cb7-d5d8-41f4-9e52-82e0a8a8b37b",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.5,
+          "y": 1.1,
+          "z": 1.0
+        },
+        "forge.particle_emitter": {
+          "effect": "f883d3ab-e31f-4b2e-909a-9eb190744178",
+          "enabled": true,
+          "layers": 4294967295,
+          "playback_speed": 1.0,
+          "seed": 101,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "046edf0c-e48d-4158-9fdd-eaa84516768c",
+      "name": "Point - legacy fallback size and color",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.5,
+          "y": 1.1,
+          "z": 1.0
+        },
+        "forge.particle_emitter": {
+          "effect": "2ab3a307-b9a7-4cf2-b1df-036bc8bc0752",
+          "enabled": true,
+          "layers": 4294967295,
+          "playback_speed": 1.0,
+          "seed": 101,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "866a424d-688c-40e3-9154-f8aeb64d6e64",
+      "name": "Box - full volume, lifetime size and color",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.5,
+          "y": 1.1,
+          "z": 1.0
+        },
+        "forge.particle_emitter": {
+          "effect": "3cf542c1-cd89-4725-8ff6-a1c068a63d96",
+          "enabled": true,
+          "layers": 4294967295,
+          "playback_speed": 1.0,
+          "seed": 101,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "fa2dc5e5-4510-40e6-8bea-141d57c5ef83",
+      "name": "Sphere - uniform volume",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.5,
+          "y": 1.1,
+          "z": 1.0
+        },
+        "forge.particle_emitter": {
+          "effect": "f3290165-ac06-4fc5-abee-6cf561f7af8e",
+          "enabled": true,
+          "layers": 4294967295,
+          "playback_speed": 1.0,
+          "seed": 101,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4582a814-7666-49ea-a1a8-c66abf9ba035",
+      "name": "Disc - uniform plane perpendicular to direction",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.5,
+          "y": 0.1,
+          "z": -4.0
+        },
+        "forge.particle_emitter": {
+          "effect": "2ddfe236-aa39-4276-8a12-998d660adee4",
+          "enabled": true,
+          "layers": 4294967295,
+          "playback_speed": 1.0,
+          "seed": 101,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "97df5272-08e3-4f98-81ac-b8b9de50a36f",
+      "name": "Free jet - zero drag",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.5,
+          "y": 0.1,
+          "z": -4.0
+        },
+        "forge.particle_emitter": {
+          "effect": "c020bf56-90c4-4778-84c1-f4bccc0f5e84",
+          "enabled": true,
+          "layers": 4294967295,
+          "playback_speed": 1.0,
+          "seed": 101,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "bef3f460-a929-4e11-bcd1-d3a485c9d3ef",
+      "name": "Drag jet - drag 3, grows then shrinks",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 1.0,
+          "z": 12.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [],
+          "mesh": "68178d81-bcbf-4948-b0a0-cc6a5dbcc224",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "4ac16108-5857-424d-a7ad-3e8bd3338bba",
+      "name": "Floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.0,
+          "x": 0.0,
+          "y": 0.9816271662712097,
+          "z": -0.1908089965581894
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": 15.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c1dc1af9-49ff-402d-b4ed-741654d33a61",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": 3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e6a6ceee-e895-4784-bf31-46f67bb1b3ad",
+      "name": "Directional light",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

@@ -12,15 +12,38 @@ repeat the burst. Select an emitter in Hierarchy to change its seed, visibility,
 layers or playback speed. Speed 0 freezes that emitter; disabling it restarts
 emission when enabled again. Save authored changes for export.
 
+Open **Scenes/56-particle-shapes-and-lifetime.scene.json** to compare Point, Box,
+Sphere and Disc origins. The back pair compares a free jet with drag and a size
+curve. Open effects under **Assets/Particles/Shapes** from Content to change the
+shapes, damping, growth and color. These scenes need no C++ compiler.
+
 ## Create and edit an effect
 
 1. Stop Play. In **Content → Create / Register**, choose **Particle Effect**.
 2. Enter a project file such as `Assets/Particles/Sparks.particles.json` and create it. The **Particle Effect** document opens. Existing sources open from Content.
 3. Choose its **Mesh** and optional **Material**. Start with the built-in cube.
 4. Choose Continuous or Burst. Set capacity, lifetime and either particles/second or burst count. Enter numeric values to commit them. Continuous capacity must accommodate rate times lifetime; errors retain the previous valid values.
-5. Adjust direction, cone angle, speed, acceleration, size and start/end color. Motion follows the emitter transform. Color is RGB, without particle opacity.
+5. Choose Point, Box, Sphere or Disc. Box uses full dimensions in meters; Sphere fills its radius and Disc fills a plane perpendicular to Direction. Adjust direction, cone, speed, acceleration and drag. Zero drag preserves free motion.
 6. Use preview Play/Pause, time and Reset. Preview is independent of game Play and does not change the scene. Orbit/zoom its image. Undo/Redo edits source values.
 7. Choose **Save / Publish**. This saves and builds the runtime effect. A failed build reports the problem and retains the working published revision.
+
+## Size and color over life
+
+Use start/end size and color for a simple fade in size or RGB. Enable **Use size
+curve** or **Use color gradient** for more control. Each channel starts with birth
+and death stops; **Add stop** splits the largest gap. Stop time runs from 0 at
+birth to 1 at death. Enter commits values.
+
+- Edit each stop's size or linear RGB. Colors have no particle opacity.
+- Choose **Linear** to blend to the next stop, or **Step** to hold until it.
+- Move interior times between their neighbors; the birth/death times stay fixed.
+- Remove interior stops. Each channel supports 2–16 stops.
+- Disable a channel to return to its retained start/end values. Undo restores the previous stops and values.
+
+Preview Play/Pause and time show the same motion and lifetime values used by the
+exported game. Changes stay in the effect draft until **Save / Publish**. Existing
+effects stay loadable; adding extended controls updates the source format in the
+same Undo step, without changing its asset identity.
 
 ## Put it in a scene
 
