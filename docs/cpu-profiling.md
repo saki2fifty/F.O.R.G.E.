@@ -29,6 +29,15 @@ simulation FPS or GPU execution time. Present/driver waits can affect CPU sectio
 Runtime scopes include FixedSimulationTick, Animation, Navigation, NavSourceCapture, physics
 synchronization/step/adoption, audio synchronization and PresentationExtraction;
 existing transform/prefab/native-module measurements remain their own scopes.
+RuntimeEntityPublication separates queued ordinary/Prefab creation at the fixed
+boundary, including detached preparation, validation and publication. It is recorded
+even when the queue has no pending requests. ResourceSynchronization measures the
+existing resource synchronization call when that capability is available;
+PresentationPoseCapture includes gathering native transform nodes and retaining
+the interpolation poses after the pipeline. All three use the current fixed tick
+and remain included in FixedSimulationTick. A Ready entity request does not imply
+that asynchronous resources or physics are ready. These are CPU scopes, not GPU
+timings, completed asset counts or an extra simulation step.
 The Navigation controls record NavigationStatus in the editor category when their
 advisory check runs; they consume native source inputs and the existing asset snapshot.
 Opted-in navigation agents record NavAvoidance in the navigation category for

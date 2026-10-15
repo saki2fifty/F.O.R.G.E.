@@ -40,6 +40,8 @@ try:
     if enabled["cpu_profile"]["compiled"]:
         assert len(samples) == 512
         assert any(s["name"] == "FixedSimulationTick" and s["tick"] == 140 for s in samples)
+        for name in ("RuntimeEntityPublication", "PresentationPoseCapture"):
+            assert any(s["name"] == name and s["tick"] == 140 for s in samples), name
         assert all(0 <= s["seconds"] <= 3600 and s["count"] == 1 for s in samples)
         assert all(a["sequence"] < b["sequence"] for a, b in zip(samples, samples[1:]))
     stopped = worker.request("profiling", generation=generation, enabled=False)

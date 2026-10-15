@@ -1,7 +1,9 @@
 #include "cpu_profile_control.hpp"
+#include "runtime_entity_creation.hpp"
 #include <forge/runtime.hpp>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <thread>
 using namespace forge;
 namespace {
@@ -194,11 +196,80 @@ void runtime_workload() {
                   << " ticks=120 samples=" << status.at("samples").size() << '\n';
     }
 }
+void runtime_publication_workload() {
+    EngineContext engine(WorldRole::Runtime);
+    Scene scene(engine.world());
+    const auto asset = AssetId::generate();
+    const auto root = PrefabMemberId::generate(), child = PrefabMemberId::generate();
+    const Json source{
+        {"format", "forge.prefab"},
+        {"version", 3},
+        {"asset_id", asset},
+        {"revision", 1u},
+        {"root", root},
+        {"members",
+         Json::array(
+             {{{"id", root},
+               {"name", "Root"},
+               {"components", {{"forge.local_translation", {{"x", 1}, {"y", 0}, {"z", 0}}}}}},
+              {{"id", child},
+               {"parent", root},
+               {"name", "Child"},
+               {"components", {{"forge.local_translation", {{"x", 0}, {"y", 2}, {"z", 0}}}}}}})}};
+    scene.set_prefab_sources({{asset, source}});
+    RuntimeSimulation runtime(engine.world(), scene);
+    const auto token = detail::request_runtime_prefab(engine.world(), "project.profile", {}, asset,
+                                                      "Measured group");
+    engine.services().profiling(true);
+    engine.services().clear_profiles();
+    runtime.tick(1.f / 60);
+    const auto result = detail::inspect_runtime_entity(engine.world(), "project.profile", token);
+    check(result.state == detail::RuntimeEntityState::Ready && scene.entity_count() == 2 &&
+              !scene.can_undo(),
+          "Profiling changed Prefab publication or pose capture");
+    const auto nodes = engine.world().transform_nodes();
+    const auto document = scene.document();
+    for (const auto& item : document.at("entities"))
+        check(nodes.contains(scene.entity(item.at("id")).id()),
+              "Published Prefab member was absent from presentation pose inputs");
+    const auto samples = engine.services().profiles();
+#ifndef FORGE_DISABLE_PROFILING
+    std::map<std::string, std::size_t> stages;
+    for (std::size_t i = 0; i < samples.size(); ++i)
+        if (samples[i].at("category") == "runtime" && samples[i].at("tick") == 1)
+            stages.emplace(samples[i].at("name").get<std::string>(), i);
+    for (const auto* name :
+         {"RuntimeEntityPublication", "PresentationPoseCapture", "FixedSimulationTick"})
+        check(stages.contains(name), "Runtime publication/pose CPU stage was not recorded");
+    const auto publication = stages.at("RuntimeEntityPublication");
+    const auto capture = stages.at("PresentationPoseCapture");
+    const auto fixed = stages.at("FixedSimulationTick");
+    check(publication < capture && capture < fixed &&
+              samples[publication].at("seconds") <= samples[fixed].at("seconds") &&
+              samples[capture].at("seconds") <= samples[fixed].at("seconds"),
+          "Runtime CPU scopes lost fixed-tick order or inclusive duration");
+    if (engine.services().available(Capability::Resources)) {
+        check(stages.contains("ResourceSynchronization"), "Resource CPU stage was not recorded");
+        const auto resources = stages.at("ResourceSynchronization");
+        check(publication < resources && resources < capture &&
+                  samples[resources].at("seconds") <= samples[fixed].at("seconds"),
+              "Resource synchronization profiling changed stage order");
+    } else
+        check(!stages.contains("ResourceSynchronization"), "Absent resources produced a CPU scope");
+#else
+    check(samples.empty(), "Compile-out runtime retained CPU scopes");
+#endif
+    engine.services().profiling(false);
+    runtime.tick(1.f / 60);
+    check(engine.services().profiles() == samples, "Stopped runtime collection changed samples");
+    detail::release_runtime_entity(engine.world(), "project.profile", token);
+}
 } // namespace
 int main() {
     try {
         service_tests();
         runtime_workload();
+        runtime_publication_workload();
         std::cout << "CPU profiling tests passed\n";
         return 0;
     } catch (const std::exception& error) {

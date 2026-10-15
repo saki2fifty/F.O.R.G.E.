@@ -255,6 +255,13 @@ void live_cpu_profile_controls() {
         if (sample.at("name") == "FixedSimulationTick" && sample.at("tick") == 1)
             found_tick = true;
     check(found_tick, "SDK actual fixed tick was not observed");
+    for (const auto* name :
+         {"RuntimeEntityPublication", "ResourceSynchronization", "PresentationPoseCapture"}) {
+        bool found = false;
+        for (const auto& sample : stepped.at("cpu_profile").at("samples"))
+            found |= sample.at("name") == name && sample.at("tick") == 1;
+        check(found, "SDK Play runtime CPU stage was not observed");
+    }
 #endif
     auto stopped = request("profiling", {{"generation", generation}, {"enabled", false}});
     check(stopped.value("ok", false) && stopped.at("cpu_profile").at("enabled") == false,

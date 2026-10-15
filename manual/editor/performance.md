@@ -33,6 +33,19 @@ These sections measure CPU wall time. GPU work runs asynchronously; waits can oc
 
 For perspective, 2500 FPS is 0.40 ms per frame, 2000 FPS is 0.50 ms and 900 FPS is about 1.11 ms. Compare milliseconds to judge the added work. FORGE does not impose an FPS cap to hide that work.
 
+## Inspect Play CPU costs
+
+Open **Window → CPU Profiler**, choose **Play runtime**, and start collection.
+Use **RuntimeEntityPublication** to see time spent creating queued objects and
+Prefab groups. **ResourceSynchronization** shows resource synchronization;
+**PresentationPoseCapture** shows the work that prepares smooth presentation poses.
+**FixedSimulationTick** includes these stages and the rest of the simulation.
+
+Use the same scene and actions when comparing runs. The profiler keeps recent
+samples, so capture a creation spike soon after it happens. These are CPU times;
+the rows overlap and should not be added together to calculate FPS. Stop collection
+to keep the current samples, or Clear to begin another comparison.
+
 ## Find an error
 
 Open Console and read the latest file/editor message, or runtime status. Compiler output is in Build. Native compilation also writes its current complete log to `.forge/sdk-build/build.log`. The launchers retain console output on an editor failure.

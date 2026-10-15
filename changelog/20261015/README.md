@@ -1,5 +1,10 @@
 # 2026-10-15
 
+## Play CPU stage visibility
+
+- Show queued runtime entity/Prefab publication, resource synchronization and presentation pose capture as distinct fixed-tick scopes in the existing CPU Profiler.
+- Retain the same owner-local bounded collection, disabled/Stop/Clear policy, protocol observations and simulation order. The scopes measure CPU time and remain included in the total fixed tick.
+
 ## Prefab preparation lookup cost
 
 - Replace repeated complete member/scene-row searches with temporary borrowed indexes during Prefab projection, native materialization and Scene preflight. Keep the existing source/Scene owners and native values authoritative.

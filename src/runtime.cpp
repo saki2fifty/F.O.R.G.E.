@@ -301,9 +301,16 @@ void RuntimeSimulation::tick(float dt) {
     auto profile = context_.services().profile("runtime", "FixedSimulationTick", input_tick_ + 1);
     stage_error_ = nullptr;
     input_.latch(++input_tick_);
-    detail::publish_runtime_entities(context_);
-    if (context_.services().available(Capability::Resources))
+    {
+        auto profile =
+            context_.services().profile("runtime", "RuntimeEntityPublication", input_tick_);
+        detail::publish_runtime_entities(context_);
+    }
+    if (context_.services().available(Capability::Resources)) {
+        auto profile =
+            context_.services().profile("runtime", "ResourceSynchronization", input_tick_);
         context_.services().resources()->synchronize();
+    }
     if (navigation_)
         navigation_->synchronize();
     context_.modules().begin_tick(input_.snapshot());
@@ -320,7 +327,11 @@ void RuntimeSimulation::tick(float dt) {
         auto profile = context_.services().profile("runtime", "Particles", input_tick_);
         particles_->tick(dt);
     }
-    poses_.capture(context_.transform_nodes());
+    {
+        auto profile =
+            context_.services().profile("runtime", "PresentationPoseCapture", input_tick_);
+        poses_.capture(context_.transform_nodes());
+    }
     auto discontinuities =
         animation_ ? animation_->take_discontinuities() : std::vector<std::uint64_t>{};
     if (physics_) {
