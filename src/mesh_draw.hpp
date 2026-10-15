@@ -7,6 +7,7 @@
 #include "shadow_lighting.hpp"
 #include "transmission_background.hpp"
 #include <forge/material_resource.hpp>
+#include <forge/render_components.hpp>
 #include <forge/render_view.hpp>
 namespace forge {
 // Diligent prepared draw. The caller owns scene extraction, typed resource
@@ -31,15 +32,25 @@ class MeshDraw {
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);
+    // Detached storage preparation before adopting new values. No SRB changes
+    // or object-value publication. Returns whether this pass consumes a value.
+    bool prepare_object_material_values(std::span<const MaterialParameterOverride>,
+                                        std::string_view slot);
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>, const EnvironmentLighting* = nullptr,
               const std::array<float, 3>* legacy_tint = nullptr,
               const ShadowLighting* shadows = nullptr, std::span<const int> shadow_slots = {},
               const TransmissionLighting* transmission = nullptr,
               std::span<const float> morph_weights = {}, const SkinPose* skin = nullptr,
-              std::span<const Instance> instances = {});
+              std::span<const Instance> instances = {},
+              std::span<const MaterialParameterOverride> object_parameters = {},
+              std::string_view material_slot = {});
 
   private:
+    const MaterialParameterUniform* material_parameter_binding(std::string_view) const;
+    void object_material_values(Diligent::IDeviceContext*,
+                                std::span<const MaterialParameterOverride>, std::string_view slot);
+    Diligent::RefCntAutoPtr<Diligent::IRenderDevice> device_;
     GpuMeshPart mesh_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 3> pipelines_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>, 3> bindings_;
@@ -51,5 +62,9 @@ class MeshDraw {
     bool shadow_pass_{};
     float volume_thickness_{};
     Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_, instances_;
+    Diligent::RefCntAutoPtr<Diligent::IBuffer> material_immutable_, material_dynamic_;
+    std::vector<std::byte> material_defaults_;
+    std::vector<MaterialParameterUniform> material_parameters_;
+    bool material_surface_{}, material_dynamic_bound_{};
 };
 } // namespace forge

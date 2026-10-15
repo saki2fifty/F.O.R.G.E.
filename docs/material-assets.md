@@ -13,6 +13,77 @@ parameters, and named texture slots. Stable parameter and slot keys are independ
 of UI labels or source array positions. Linear color factors are never decoded as
 sRGB texture samples.
 
+## Object material values
+
+`MeshRenderer.material_parameters` is a sparse, Scene-owned collection of
+`{slot, key, parameter}` values. `slot` is the same stable logical mesh binding
+token used by material assignments; `key` is the selected material's parameter
+binding name. Labels and physical part/material ordinals are not identities.
+The shared `MaterialParameter` value lives in `forge/material_parameter.hpp` and
+retains the existing scalar/vector/linear-color semantics. For example:
+
+```json
+"material_parameters": [{
+  "slot": "surface",
+  "key": "roughnessFactor",
+  "parameter": {"type": 0, "value": [0.25, 0, 0, 0]}
+}]
+```
+
+There are at most64 unique `(slot,key)` rows. Slot/key limits are255/256 ASCII
+identifier bytes; values must be finite with exact semantic types and zero unused
+float lanes. Legacy renderers default to an empty collection. Explicit values
+equal to material defaults retain authored override intent. Scene/Prefab history,
+partial property overrides, C++ edits and save/reopen use the existing native
+codec/reflection owners. Unknown row/nested fields follow the composite business
+key across native reordering, not an array position or a newly minted row UUID.
+As with material assignments, a Prefab property mask covers this entire collection.
+Per-parameter **Revert to material** follows the material asset; the Inspector's
+ordinary property Revert follows the Prefab source collection again.
+
+Admission checks the exact selected materials for every affected part and LOD,
+including different variant materials sharing one slot. Built-in PBR uses its
+existing model/type/range validator; custom surfaces use their selected typed
+surface declaration. Unsupported keys/types/ranges or a changed transmission
+eligibility reject. The built-in feature/optics fields `sheenColorFactor`,
+`anisotropyStrength`, `transmissionFactor`, `thicknessFactor`, `ior`, `dispersion`
+and `attenuationDistance` require a material variation. Texture assignments and
+alpha/culling modes remain material-owned. The Inspector hides stored legacy
+parameters unused by Unlit and Specular/Glossiness shaders. An effect that is
+disabled in the shared material can still make its dependent numeric value inert.
+
+Numeric values do not enter resource/bundle keys, change a Material AssetId,
+compile a shader or duplicate a material resource. Each renderer Entry retains
+its observed request and last-good admitted values. A failed value/resource
+replacement preserves the complete old selection. Equal-to-base rows disappear
+only from derived draw data, after checking all part-specific material defaults.
+Retained numeric vector/string capacities have a separate16MiB scene budget.
+
+Shader emission and built-in patches share one uniform packing authority. Custom
+surfaces use the selected pass's native reflected offsets. Needed dynamic buffers
+are prepared before Entry adoption; immutable no-override buffers remain the
+default path. Each draw starts from shared defaults before applying sparse values,
+and returning to an empty patch restores the immutable buffer. Color, masked
+shadow, skin and morph paths consume the same admitted values. Contiguous batches
+require equal values for the current slot; unrelated slots do not split a batch.
+
+The Inspector loads mesh slots and selected material definitions asynchronously.
+It displays common matching declarations when a variant slot spans materials;
+its temporary definition consumer is limited to16 distinct materials per selected
+slot. Larger selections retain/remove intent and can use an explicit slot
+assignment or C++. Enter/Add/Revert use one existing property transaction.
+Live Play edits use only the generation-checked `material_parameters` property,
+are limited to64KiB of JSON, and do not write authored history or sources. Stop
+and a fresh Play world restore authored values.
+
+Export validates actual Scene/Prefab projection and selected resource domains
+before publication. It ships numeric intent with the saved Scene and the ordinary
+shared cooked material; no additional material asset or source compiler is needed.
+Gallery66 demonstrates defaults, independent/shared values and a prefab property
+override. Native Linux/Vulkan readback covers built-in PBR and masked shadows;
+custom surface cooks retain their Windows/D3D12 backend and await physical Windows
+acceptance. Timeline material tracks are not implemented by this value boundary.
+
 The `FRGMAT` version1 envelope uses the same bounded little-endian envelope as
 Mesh/Texture, with up to1MiB of JSON metadata and no binary payload. It admits at
 most256 numeric parameters and64 texture slots, bounded256-byte identifier keys,

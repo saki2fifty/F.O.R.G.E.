@@ -14,6 +14,7 @@ class MeshDrawBundle {
         AssetId material;
         MeshBounds bounds;
         bool transmission{};
+        std::size_t binding{};
     };
     MeshDrawBundle(DiligentPresentation&, Diligent::IDeviceContext*,
                    const asset_detail::PreparedModelDraw&, GpuResidency<MeshAsset>&,
@@ -23,8 +24,10 @@ class MeshDrawBundle {
     void environment(const EnvironmentLease&);
     void shadows(const ShadowLighting*);
     void transmission(const TransmissionLighting*);
+    void prepare_material_parameters(std::span<const MaterialParameterOverride>);
     void draw_shadow(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
-                     unsigned lod = 0, const MeshInstancePose* pose = nullptr);
+                     unsigned lod = 0, const MeshInstancePose* pose = nullptr,
+                     std::span<const MaterialParameterOverride> parameters = {});
     void draw(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
               std::span<const LightView>, const EnvironmentLighting* = nullptr, unsigned lod = 0);
     void draw_part(Diligent::IDeviceContext*, const AffineTransform&, const CameraView&,
@@ -34,7 +37,11 @@ class MeshDrawBundle {
                    const ShadowLighting* shadows = nullptr, std::span<const int> shadow_slots = {},
                    const TransmissionLighting* transmission = nullptr,
                    const MeshInstancePose* pose = nullptr,
-                   std::span<const MeshDraw::Instance> instances = {});
+                   std::span<const MeshDraw::Instance> instances = {},
+                   std::span<const MaterialParameterOverride> parameters = {});
+    std::string_view slot(unsigned lod, unsigned part) const {
+        return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
+    }
     bool supports_instances(unsigned lod, unsigned part) const {
         return lods_.at(lod).at(part)->supports_instances();
     }

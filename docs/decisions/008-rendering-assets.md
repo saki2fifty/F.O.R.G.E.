@@ -1,5 +1,20 @@
 # ADR 008 — Rendering asset model
 
+## Phase104 object value clarification — 2026-10-15
+
+Material assets remain the owners of shared defaults, textures, shader/pass
+selection and immutable resources. `MeshRenderer.material_parameters` owns sparse
+per-object numeric intent, addressed by the existing logical slot token plus the
+material's stable parameter key. Scene/Prefab/history and C++ use the same typed
+value; no new asset identity, registry, material manager or graph VM is introduced.
+
+The existing renderer Entry admits values with its exact resource selection and
+retains the last complete usable selection on replacement failure. Numeric data
+does not enter shared bundle keys. Reusable dynamic buffers are prepared before
+adoption, patched from immutable defaults for each draw, and restored between
+objects. Compatible equal values retain instancing. Feature-selecting changes
+remain material variations. See [material values](../material-assets.md).
+
 ## Implementation checkpoint — 2026-09-23
 
 Phase7 implements the shared Mesh/Material/Texture renderer, built-in mesh resources, PBR lighting, authored cameras, shadows, skinning/morphs and imported model placement. See [render features](../render-features.md), [asset formats](../asset-formats.md) and [backend capabilities](../render-backends.md). The CPU-only viewport below describes the decision-time baseline.

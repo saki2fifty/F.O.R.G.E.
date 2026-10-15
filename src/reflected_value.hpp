@@ -2,12 +2,18 @@
 #include <flecs.h>
 #include <nlohmann/json.hpp>
 #include <span>
+#include <string>
+#include <vector>
 namespace forge::detail {
 // Optional engine authoring semantics attached to a native Meta member entity.
 // This identifies entries within that collection, not globally identifiable objects.
 struct ReflectedSequenceKey {
     std::string member;
+    std::vector<std::string> additional_members;
 };
+// Empty means positional. Composite keys use an unambiguous internal JSON tuple;
+// this is collection-local identity, not a new authored ID or asset reference.
+std::string reflected_sequence_identity(const nlohmann::json& field, const nlohmann::json& element);
 inline constexpr const char* reflected_sequence_key_type = "forge.meta.sequence_key";
 // Explicit engine-owned reference/container adapters only. No arbitrary project opaque types.
 struct ReflectedAdapter {

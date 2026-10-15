@@ -1,5 +1,24 @@
 # FORGE Feature Gallery
 
+## Per-object material values
+
+Open **Scenes/66-object-material-values.scene.json**. Six cubes share
+**Assets/ObjectValues/SharedSurface.material.json**: a gray default, red polished
+and blue matte cubes, two matching green cubes, and an amber prefab instance.
+Select a cube and open Inspector's **Object material values**. Choose **surface**,
+expand **Base Color Factor** or **Roughness Factor**, enter a value and press Enter.
+Undo or **Revert to material** follows the same Scene history. Publishing a shared
+material change still affects objects without an explicit value for that parameter.
+
+Play uses the same values. Inspector's colored **Live gameplay** controls are
+temporary; stop Play, edit authored values and save before exporting. The amber
+cube retains its renderer from **Assets/ObjectValues/SharedCube.prefab.json** with
+only an instance material-value property override. Export uses one shared cooked
+material and saved Scene/Prefab intent, without this project's material sources.
+**CodeExamples/ObjectMaterialValues.hpp** shows ordinary C++ set/revert helpers;
+the installed SDK's **material_value_gameplay** sample exercises them. Timeline
+material tracks are not part of this example.
+
 ## Two-dimensional animation blend spaces
 
 Open **Scenes/65-two-dimensional-blend-spaces.scene.json** and press Play.

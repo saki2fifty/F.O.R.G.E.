@@ -4,6 +4,35 @@ A material controls how a surface responds to light and which textures it uses.
 One material can be shared by many objects. Changing an object's assignment does
 not change that shared material; editing and publishing the material does.
 
+## Change one object's material values
+
+1. Select an object with a **Mesh Renderer** in Hierarchy.
+2. In Inspector, find **Object material values** and choose its material slot.
+3. Expand a parameter, such as **Base Color Factor** or **Roughness Factor**.
+4. Enter a value and press Enter. **Add override** explicitly keeps the displayed default for this object. **Revert to material** removes the override and follows the shared material again. Each edit is one Scene Undo step.
+
+Other objects and the material asset keep their own values. Scalar/vector fields
+and linear colors keep their exact types. Invalid input leaves the previous value
+and draw intact. Unavailable saved overrides remain visible and can be removed.
+Texture choices, transparency mode and changes that enable shader features belong
+to a material variation. Some effect settings matter only when that effect is
+enabled on the shared material.
+
+During Play, these controls appear in the colored **Live gameplay** section.
+Changes there are temporary; stopping and restarting Play uses authored values.
+To export a change, make it in Edit mode and save the Scene. Export includes the
+values and shared compiled material with the game.
+
+Try **Feature Gallery → Scenes/66-object-material-values.scene.json**. Six cubes
+share **Assets/ObjectValues/SharedSurface.material.json**. Compare the gray
+default, red polished and blue matte cubes, matching green cubes, and amber prefab
+instance. Select a cube, change a value, Undo it, or Revert it to the material.
+The amber instance demonstrates a property override over an inherited renderer.
+
+Ordinary C++ uses `MeshRenderer.material_parameters`. The optional
+**CodeExamples/ObjectMaterialValues.hpp** shows setting and reverting a typed
+value by slot/key. Timeline does not yet keyframe these object values.
+
 ## Create a material
 
 1. Stop Play. Open **Content → Create / Register → New material...**.

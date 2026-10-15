@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.material.builtin",
+    "importer_revision": "bc14571782bead9393f017b559f26b0ef96df666a2b29a0b8e0066a6c0bea548",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "40de4b1f796f889a2a781994e6b15a46e2338199985a8a6bb37f9f787c6af46a",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+    "source": "Assets/ObjectValues/SharedSurface.material.json",
+    "source_digest": "40de4b1f796f889a2a781994e6b15a46e2338199985a8a6bb37f9f787c6af46a",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

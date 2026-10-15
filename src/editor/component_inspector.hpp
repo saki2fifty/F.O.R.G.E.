@@ -70,6 +70,7 @@ class ComponentInspector {
     }
     // Domain-specific logical mesh slots reuse the same property command/history.
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
+    std::function<bool(const Json& mesh_renderer, Json& parameters)> material_parameters;
     std::function<void(const std::string&)> open_cpp_definition;
     std::function<void(const std::string&)> edit_rig_target;
     static bool runtime_type_available(const Json& type, const Json& components) {
@@ -80,7 +81,7 @@ class ComponentInspector {
             return false;
         return AnimationPlaybackAccess::rig_type(key) ||
                RuntimePropertyTune::navigation_type(key) ||
-               RuntimePropertyTune::particle_type(key) ||
+               RuntimePropertyTune::particle_type(key) || RuntimePropertyTune::material_type(key) ||
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }
@@ -191,14 +192,20 @@ class ComponentInspector {
                 if (RuntimePropertyTune::particle_type(key) &&
                     !RuntimePropertyTune::particle_property(name))
                     continue;
+                if (RuntimePropertyTune::material_type(key) &&
+                    !RuntimePropertyTune::material_property(name))
+                    continue;
                 if (!components.at(key).contains(name))
                     continue;
                 ui::IdScope field_scope(name.c_str());
                 auto value = components.at(key).at(name);
                 const bool read_only = field.value("read_only", false);
                 ImGui::BeginDisabled(read_only);
-                const bool changed = property_field(project_root, field, value, true,
-                                                    model_node_scope(components, key, field));
+                const bool changed = key == "forge.mesh_renderer" &&
+                                             name == "material_parameters" && material_parameters
+                                         ? material_parameters(components.at(key), value)
+                                         : property_field(project_root, field, value, true,
+                                                          model_node_scope(components, key, field));
                 ImGui::EndDisabled();
                 FORGE_UI_PROBE("runtime-field:" + key + ":" + name);
                 if (changed && !read_only && !submit(key, name, value))
@@ -422,6 +429,9 @@ class ComponentInspector {
                 const bool changed =
                     key == "forge.mesh_renderer" && name == "materials" && material_slots
                         ? material_slots(values.at(key), value)
+                    : key == "forge.mesh_renderer" && name == "material_parameters" &&
+                            material_parameters
+                        ? material_parameters(values.at(key), value)
                         : property_field(project.project(), *display_field, value, true,
                                          model_node_scope(values, key, field));
                 FORGE_UI_PROBE("component-field:" + key + ":" + name);

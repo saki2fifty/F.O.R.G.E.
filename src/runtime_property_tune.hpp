@@ -13,6 +13,10 @@ struct RuntimePropertyTune {
         return type == "forge.navigation_avoidance";
     }
     static bool particle_type(std::string_view type) { return type == "forge.particle_emitter"; }
+    static bool material_type(std::string_view type) { return type == "forge.mesh_renderer"; }
+    static bool material_property(std::string_view property) {
+        return property == "material_parameters";
+    }
     static bool particle_property(std::string_view property) {
         return property == "size_multiplier" || property == "tint_r" || property == "tint_g" ||
                property == "tint_b";
@@ -32,8 +36,10 @@ struct RuntimePropertyTune {
             {request.at("scene_asset").get<AssetId>(), request.at("entity").get<EntityId>()},
             request.at("type"),
             request.at("property")};
+        const std::size_t value_limit =
+            material_type(result.type) && material_property(result.property) ? 64 * 1024 : 8192;
         if (result.type.empty() || result.type.size() > 128 || result.property.empty() ||
-            result.property.size() > 128 || request.at("value").dump().size() > 8192)
+            result.property.size() > 128 || request.at("value").dump().size() > value_limit)
             throw std::runtime_error("Live property target/value exceeds limits");
         if (result.target.scene != scene)
             throw std::runtime_error("Live property targets a different scene asset");

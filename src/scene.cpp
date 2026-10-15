@@ -9,6 +9,7 @@
 #include "reflected_references.hpp"
 #include "relationship_graph.hpp"
 #include "runtime_entity_creation.hpp"
+#include "runtime_property_tune.hpp"
 #include "scene_draft.hpp"
 #include "spatial_document.hpp"
 #include <array>
@@ -779,6 +780,22 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
     const auto target = entity(entity_id);
     if (!target || !target.is_alive() || target.has(flecs::Prefab))
         throw std::runtime_error("Live property target is missing or a prefab source");
+    if (RuntimePropertyTune::material_type(type_key)) {
+        if (!RuntimePropertyTune::material_property(property_key) || !target.has<MeshRenderer>())
+            throw std::runtime_error("Only existing object material values can be tuned live");
+        for (const auto& codec : detail::builtins()) {
+            if (type_key != codec.name)
+                continue;
+            auto candidate = codec.read(target, true);
+            candidate[property_key] = value;
+            detail::validate_components({{type_key, candidate}});
+            const auto typed = std::get<MeshRenderer>(codec.decode(candidate));
+            detail::validate_reflected_value(target, typed);
+            target.set<MeshRenderer>(typed);
+            return codec.read(target, true).at(property_key);
+        }
+        throw std::runtime_error("Mesh Renderer builtin is unavailable");
+    }
     for (const auto& codec : context_.authored_codecs()) {
         if (codec.key() != type_key)
             continue;

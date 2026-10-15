@@ -16,6 +16,14 @@ struct MaterialShader {
     std::vector<MaterialShaderTexture> textures;
     std::vector<SamplerState> samplers;
 };
+struct MaterialParameterUniform {
+    std::string key;
+    MaterialParameterType type;
+    unsigned offset, width; // Bytes, then float lanes.
+};
+// One shared packing authority for built-in shader emission and object values.
+// Input is the admitted canonical PBR value set, including model defaults.
+std::vector<MaterialParameterUniform> material_parameter_uniforms(const MaterialData&);
 // Engine-owned shader binding adapter. Parameter values and UV transforms are
 // uniforms, so changing a factor never creates a new shader permutation.
 // Texture resources use native color-space views and independent binding samplers.

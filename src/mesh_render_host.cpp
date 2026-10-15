@@ -1,5 +1,6 @@
 #include "mesh_render_host.hpp"
 #include "asset_bytes.hpp"
+#include "material_parameter_overrides.hpp"
 #include "mesh_draw_shader.hpp"
 #include "mesh_pick.hpp"
 #include "pbr_material.hpp"
@@ -7,6 +8,23 @@
 #include "render_sort.hpp"
 #include <set>
 namespace forge {
+namespace {
+std::uint64_t parameter_bytes(const std::vector<MaterialParameterOverride>& values) {
+    std::uint64_t bytes = values.capacity() * sizeof(MaterialParameterOverride);
+    for (const auto& value : values)
+        bytes += value.slot.capacity() + value.key.capacity() + 2; // String terminators.
+    return bytes;
+}
+std::span<const MaterialParameterOverride>
+slot_parameters(std::span<const MaterialParameterOverride> values, std::string_view slot) {
+    const auto first =
+        std::lower_bound(values.begin(), values.end(), slot,
+                         [](const auto& value, auto key) { return value.slot < key; });
+    const auto last = std::upper_bound(
+        first, values.end(), slot, [](auto key, const auto& value) { return key < value.slot; });
+    return {first, last};
+}
+} // namespace
 MeshResourceInspection MeshResourceHost::inspect() const {
     check_thread();
     MeshResourceInspection result;
@@ -256,9 +274,9 @@ void MeshResourceHost::submit() {
 }
 MeshSceneRenderer::MeshSceneRenderer(std::shared_ptr<MeshResourceHost> host,
                                      Diligent::TEXTURE_FORMAT color, std::uint64_t pose_budget,
-                                     std::size_t draw_part_limit)
+                                     std::size_t draw_part_limit, std::uint64_t material_budget)
     : host_(std::move(host)), color_(color), pose_budget_(pose_budget),
-      draw_part_limit_(draw_part_limit) {
+      draw_part_limit_(draw_part_limit), material_budget_(material_budget) {
     if (!host_)
         throw std::runtime_error("Mesh scene requires a presentation resource host");
     shadows_ = std::make_unique<ShadowRenderer>(host_->presentation_);
@@ -271,6 +289,21 @@ std::uint64_t MeshSceneRenderer::Entry::pose_bytes() const {
         bytes += mesh_pose_bytes(ready->geometry());
     if (candidate_geometry && (!ready || candidate_geometry != ready->geometry_owner()))
         bytes += mesh_pose_bytes(*candidate_geometry);
+    return bytes;
+}
+std::uint64_t MeshSceneRenderer::Entry::material_bytes() const {
+    return parameter_bytes(requested_parameters) + parameter_bytes(parameters);
+}
+std::uint64_t MeshSceneRenderer::material_payload_bytes() const {
+    host_->check_thread();
+    std::uint64_t bytes = 0;
+    for (const auto& [id, entry] : entries_) {
+        (void)id;
+        const auto count = entry.material_bytes();
+        if (count > material_budget_ - bytes)
+            throw std::runtime_error("Retained object material values exceed the scene budget");
+        bytes += count;
+    }
     return bytes;
 }
 std::uint64_t MeshSceneRenderer::pose_payload_bytes() const {
@@ -365,9 +398,17 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
     std::erase_if(bundles_, [](const auto& row) { return row.second.expired(); });
     auto resident = pose_payload_bytes();
+    auto material_resident = material_payload_bytes();
     for (const auto& mesh : meshes) {
         auto& entry = entries_[{mesh.entity, mesh.particle_source}];
         const auto previous_bytes = entry.pose_bytes();
+        const auto previous_material_bytes = entry.material_bytes();
+        const auto admit_parameters = [&](const auto& requested, const auto& admitted) {
+            const auto other = material_resident - previous_material_bytes;
+            const auto own = parameter_bytes(requested) + parameter_bytes(admitted);
+            if (own > material_budget_ - other)
+                throw std::runtime_error("Object material values exceed the scene payload budget");
+        };
         auto available = [&] {
             const auto other = resident - previous_bytes;
             const auto own = entry.pose_bytes();
@@ -377,8 +418,27 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         };
         bool adopted = false;
         const auto& renderer = mesh.renderer;
-        if (entry.epoch != host_->epoch_ || entry.mesh != renderer.mesh ||
-            entry.overrides != renderer.materials || entry.variant != renderer.material_variant) {
+        const bool values_changed = !entry.parameters_checked ||
+                                    !detail::same_material_parameter_values(
+                                        entry.requested_parameters, renderer.material_parameters);
+        bool parameters_observed = true;
+        if (values_changed)
+            try {
+                detail::validate_material_parameter_overrides(renderer.material_parameters);
+                auto requested = renderer.material_parameters;
+                admit_parameters(requested, entry.parameters);
+                entry.requested_parameters = std::move(requested);
+                entry.parameters_checked = true;
+                entry.parameter_error.clear();
+            } catch (const std::exception& error) {
+                parameters_observed = false;
+                entry.parameter_error = error.what();
+            }
+        const bool resource_changed = entry.epoch != host_->epoch_ || entry.mesh != renderer.mesh ||
+                                      entry.overrides != renderer.materials ||
+                                      entry.variant != renderer.material_variant;
+        if (resource_changed) {
+            entry.resource_current = false;
             entry.candidate.reset();
             entry.candidate_geometry.reset();
             entry.failed_skin_mode.reset();
@@ -388,6 +448,9 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
             entry.variant = renderer.material_variant;
             entry.error.clear();
             changed = true;
+        }
+        if (parameters_observed &&
+            (resource_changed || (!entry.resource_current && !entry.candidate && values_changed))) {
             try {
                 entry.candidate = std::make_unique<asset_detail::ModelDrawCandidate>(
                     host_->project_, host_->catalog_, host_->epoch_, renderer.mesh,
@@ -398,12 +461,17 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.error = e.what();
             }
         }
-        if (entry.candidate) {
+        if (entry.candidate && parameters_observed) {
             entry.candidate->advance(host_->epoch_, host_->meshes_, host_->materials_,
                                      host_->textures_);
             if (const auto* candidate = entry.candidate->ready()) {
                 bool pose_validated = false;
+                bool parameters_validated = false;
                 try {
+                    auto parameters = asset_detail::prepare_model_material_parameters(
+                        *candidate, entry.requested_parameters);
+                    admit_parameters(entry.requested_parameters, parameters);
+                    parameters_validated = true;
                     if (!entry.candidate_geometry)
                         entry.candidate_geometry = std::make_shared<const MeshPoseGeometry>(
                             prepare_mesh_pose_geometry(candidate->mesh->mesh, available()));
@@ -413,11 +481,15 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     pose_validated = true;
                     auto native =
                         prepare_bundle(*candidate, pose.skinned, entry.candidate_geometry);
+                    native->prepare_material_parameters(parameters);
                     std::vector<float> thresholds;
                     for (const auto& lod : candidate->mesh->mesh.lods)
                         thresholds.push_back(lod.screen_coverage);
                     native->environment(environment_ready_);
                     entry.ready = std::move(native);
+                    entry.parameters = std::move(parameters);
+                    entry.parameter_error.clear();
+                    entry.resource_current = true;
                     entry.pose = std::move(pose);
                     entry.thresholds = std::move(thresholds);
                     entry.error = entry.candidate->diagnostic();
@@ -431,7 +503,12 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     entry.error = e.what(); // Retry when another bundle releases capacity.
                 } catch (const std::exception& e) {
                     entry.error = e.what();
-                    if (pose_validated) {
+                    if (!parameters_validated) {
+                        entry.parameter_error = entry.error;
+                        entry.error.clear();
+                        entry.candidate.reset();
+                        entry.candidate_geometry.reset();
+                    } else if (pose_validated) {
                         bool retry = false;
                         if (!entry.ready || entry.fallback)
                             try {
@@ -452,6 +529,20 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.candidate.reset();
             }
         }
+        if (entry.ready && entry.resource_current && !adopted && values_changed &&
+            parameters_observed) {
+            try {
+                auto parameters = asset_detail::prepare_model_material_parameters(
+                    entry.ready->prepared(), entry.requested_parameters);
+                admit_parameters(entry.requested_parameters, parameters);
+                entry.ready->prepare_material_parameters(parameters);
+                changed |= !detail::same_material_parameter_values(entry.parameters, parameters);
+                entry.parameters = std::move(parameters);
+                entry.parameter_error.clear();
+            } catch (const std::exception& error) {
+                entry.parameter_error = error.what();
+            }
+        }
         if (entry.ready && !adopted) {
             try {
                 auto pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
@@ -463,6 +554,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     entry.failed_skin_mode = pose.skinned;
                     auto native = prepare_bundle(entry.ready->prepared(), pose.skinned,
                                                  entry.ready->geometry_owner());
+                    native->prepare_material_parameters(entry.parameters);
                     entry.ready = std::move(native);
                 }
                 entry.failed_skin_mode.reset();
@@ -477,6 +569,11 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
             }
         }
         resident = resident - previous_bytes + entry.pose_bytes();
+        material_resident = material_resident - previous_material_bytes + entry.material_bytes();
+        if (!entry.parameter_error.empty())
+            report(mesh.entity,
+                   entry.parameter_error + " (previous complete material values retained)",
+                   mesh.particle_source);
         if (!entry.pose_error.empty())
             report(mesh.entity, entry.pose_error + " (previous complete pose retained)",
                    mesh.particle_source);
@@ -591,6 +688,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         const RenderMesh* mesh;
         MeshDrawBundle* bundle;
         const MeshInstancePose* pose;
+        std::span<const MaterialParameterOverride> parameters;
         unsigned lod;
         std::vector<LightView> lights;
         std::vector<int> shadow_slots;
@@ -620,7 +718,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
             for (unsigned i = 0; i < entry.thresholds.size(); ++i)
                 if (coverage <= entry.thresholds[i])
                     lod = i;
-            Object object{&mesh, entry.ready.get(), &pose, lod, {}, {}};
+            Object object{&mesh, entry.ready.get(), &pose, entry.parameters, lod, {}, {}};
             for (const auto& light : scene.lights)
                 if (light.light.layers & mesh.renderer.layers & layers) {
                     if (object.lights.size() == mesh_draw_light_limit)
@@ -720,7 +818,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                     next_item.key.parity != item.key.parity ||
                     next_item.key.alpha != item.key.alpha || next_item.transmission ||
                     next.mesh->renderer.layers != object.mesh->renderer.layers ||
-                    next.mesh->renderer.receive_shadows != object.mesh->renderer.receive_shadows)
+                    next.mesh->renderer.receive_shadows != object.mesh->renderer.receive_shadows ||
+                    !detail::same_material_parameter_values(
+                        slot_parameters(object.parameters,
+                                        object.bundle->slot(object.lod, item.key.part)),
+                        slot_parameters(next.parameters,
+                                        next.bundle->slot(next.lod, next_item.key.part))))
                     break;
                 batch[count++] = {next.pose->world, next.mesh->legacy_tint};
                 ++cursor;
@@ -732,7 +835,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 &shadows_->lighting(), object.shadow_slots,
                 transmission.background ? &transmission : nullptr, object.pose,
                 count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
-                          : std::span<const MeshDraw::Instance>{});
+                          : std::span<const MeshDraw::Instance>{},
+                slot_parameters(object.parameters, object.bundle->slot(object.lod, item.key.part)));
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -751,7 +855,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         host_->context_, single.pose->world, camera, single.lights, single.lod,
                         failed_item.key.part, environment_ready_ ? &lighting : nullptr,
                         single.mesh->legacy_tint ? &*single.mesh->legacy_tint : nullptr,
-                        &shadows_->lighting(), single.shadow_slots, nullptr, single.pose);
+                        &shadows_->lighting(), single.shadow_slots, nullptr, single.pose, {},
+                        slot_parameters(single.parameters,
+                                        single.bundle->slot(single.lod, failed_item.key.part)));
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {
@@ -770,6 +876,7 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
         const RenderMesh* source;
         MeshDrawBundle* bundle;
         const MeshInstancePose* pose;
+        std::span<const MaterialParameterOverride> parameters;
     };
     std::vector<Caster> casters;
     std::vector<ShadowCasterBounds> bounds;
@@ -782,7 +889,8 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
             continue;
         try {
             auto world_bounds = mesh_instance_bounds(found->second.pose, camera.position);
-            casters.push_back({&mesh, found->second.ready.get(), &found->second.pose});
+            casters.push_back(
+                {&mesh, found->second.ready.get(), &found->second.pose, found->second.parameters});
             bounds.push_back({world_bounds, mesh.renderer.layers});
         } catch (const std::exception& error) {
             report(mesh.entity, error.what());
@@ -796,7 +904,7 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
                     // Skin arithmetic uses this shadow camera's origin too.
                     if (bounds_visible(mesh_instance_bounds(*caster.pose, view.position), view))
                         caster.bundle->draw_shadow(host_->context_, caster.pose->world, view, 0,
-                                                   caster.pose);
+                                                   caster.pose, caster.parameters);
                 }
         });
     for (const auto& error : shadows_->diagnostics())

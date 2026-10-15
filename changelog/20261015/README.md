@@ -1,5 +1,16 @@
 # 2026-10-15
 
+## Per-object material values
+
+- Add typed sparse Mesh Renderer values by stable material slot/parameter key. Objects share one material while retaining independent values; equal-to-default intent, Scene/Prefab property overrides, native C++ edits and unknown extension data survive save/history/reordering.
+- Extend the shared renderer with immutable default restoration, reusable numeric buffers prepared before adoption, compatible per-slot instancing, complete last-good replacement and bounded retained value data. Color, masked shadows and skinned/morphed draws consume the same values.
+- Add async Inspector Add/Enter/Revert controls, readable labels, applicable model fields and temporary highlighted Live gameplay edits. Texture/mode and shader-feature choices remain material variations; Timeline material tracks remain future work.
+- Add original Gallery66 with six shared-material cubes and an inherited prefab property override. Validate source-offline relocated export, actual native readback, exact installed normal/sanitizer C++ consumers and old-binary rejection.
+- Install the shared value header and C++ set/revert example. The exact SDK fingerprint changes; ABI1 and the native host table are unchanged.
+
+Local implementation and validation. Custom surface cooks remain Windows/D3D12;
+physical Windows testing, a new ZIP and performance acceptance are pending.
+
 ## Two-axis animation blend spaces
 
 - Add explicit source2 X/Y samples, a bounded prepared triangle mesh and up to three native Ozz pose layers at one shared cycle phase. Preserve source1 and attributable cooked1 selections; the current importer writes cooked2 for either source version.

@@ -1,6 +1,7 @@
 #include "mesh_draw.hpp"
 #include "Graphics/GraphicsTools/interface/MapHelper.hpp"
 #include "Utilities/interface/DiligentFXShaderSourceStreamFactory.hpp"
+#include "material_parameter_values.hpp"
 #include "mesh_draw_shader.hpp"
 #include "render_backend.hpp"
 #include "shader_runtime_backend.hpp"
@@ -8,6 +9,7 @@
 #include <algorithm>
 #include <bit>
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <stdexcept>
 namespace forge {
@@ -46,6 +48,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
                    const MaterialShaderSnapshot* surface)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
+    device_ = presentation.device();
+    material_surface_ = surface != nullptr;
     std::optional<PbrMaterialProfile> profile;
     if (surface) {
         validate_shader(surface->program);
@@ -158,6 +162,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     RefCntAutoPtr<IBuffer> values, surface_state, surface_uv, graph_pbr_values;
     if (surface) {
         const auto bytes = surface_parameter_bytes(source, surface_layout);
+        material_defaults_ = bytes;
+        for (const auto& binding : surface_layout.parameters)
+            material_parameters_.push_back({binding.name, source.parameters.at(binding.name).type,
+                                            binding.offset, binding.width});
         if (!bytes.empty())
             values =
                 buffer(device, "FORGE reflected surface parameters", bytes.size(), bytes.data());
@@ -172,9 +180,19 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             surface_uv = buffer(device, "FORGE surface texture coordinates",
                                 surface_layout.uv_bytes, rows.data());
         }
-    } else
+    } else {
         values = buffer(device, "FORGE material values", material.uniforms.size() * sizeof(Row),
                         material.uniforms.data());
+        if (!shadow_pass_ || source.alpha == MaterialAlpha::Mask) {
+            const auto bytes = std::as_bytes(std::span(material.uniforms));
+            material_defaults_.assign(bytes.begin(), bytes.end());
+            material_parameters_ = material_parameter_uniforms(profile->values);
+        }
+    }
+    if (!material_defaults_.empty())
+        material_immutable_ = values;
+    std::sort(material_parameters_.begin(), material_parameters_.end(),
+              [](const auto& a, const auto& b) { return a.key < b.key; });
     if (surface && surface->program.surface->physically_based)
         graph_pbr_values = buffer(device, "FORGE graph PBR defaults",
                                   material.uniforms.size() * sizeof(Row), material.uniforms.data());
@@ -198,6 +216,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     std::vector<ShaderResourceVariableDesc> resource_variables{
         {SHADER_TYPE_VERTEX, "g_MeshVertices", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
          SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS}};
+    if (material_immutable_)
+        resource_variables.push_back(
+            {SHADER_TYPE_PIXEL, material_surface_ ? "ForgeSurfaceMaterial" : "ForgeMaterialValues",
+             SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
     if (fetch.morph_count)
         resource_variables.push_back({SHADER_TYPE_VERTEX, "g_ForgeMorphDeltas",
                                       SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
@@ -400,12 +422,66 @@ void MeshDraw::bind_transmission(const TransmissionLighting* lighting) {
     for (auto& binding : bindings_)
         binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_ForgeTransmission")->Set(view);
 }
+const MaterialParameterUniform* MeshDraw::material_parameter_binding(std::string_view key) const {
+    const auto found = std::lower_bound(
+        material_parameters_.begin(), material_parameters_.end(), key,
+        [](const auto& item, std::string_view selected) { return item.key < selected; });
+    return found != material_parameters_.end() && found->key == key ? &*found : nullptr;
+}
+bool MeshDraw::prepare_object_material_values(std::span<const MaterialParameterOverride> parameters,
+                                              std::string_view slot) {
+    if (!material_immutable_)
+        return false;
+    bool active = false;
+    for (const auto& parameter : parameters)
+        if (parameter.slot == slot)
+            if (const auto* field = material_parameter_binding(parameter.key)) {
+                detail::validate_material_parameter(parameter.parameter);
+                require(field->type == parameter.parameter.type &&
+                            field->offset <= material_defaults_.size() &&
+                            field->width * sizeof(float) <=
+                                material_defaults_.size() - field->offset,
+                        "object material parameter differs from the admitted native layout");
+                active = true;
+            }
+    if (active && !material_dynamic_)
+        material_dynamic_ =
+            buffer(device_, "FORGE object material values", material_defaults_.size());
+    return active;
+}
+void MeshDraw::object_material_values(IDeviceContext* context,
+                                      std::span<const MaterialParameterOverride> parameters,
+                                      std::string_view slot) {
+    const bool active = prepare_object_material_values(parameters, slot);
+    if (active) {
+        MapHelper<std::byte> memory(context, material_dynamic_, MAP_WRITE, MAP_FLAG_DISCARD);
+        auto* bytes = static_cast<std::byte*>(memory);
+        std::memcpy(bytes, material_defaults_.data(), material_defaults_.size());
+        for (const auto& parameter : parameters)
+            if (parameter.slot == slot)
+                if (const auto* field = material_parameter_binding(parameter.key))
+                    std::memcpy(bytes + field->offset, parameter.parameter.value.data(),
+                                field->width * sizeof(float));
+    }
+    // A parameter optimized out of this pass needs no patch. The Entry already
+    // checked the selected material declaration/domain before draw adoption.
+    if (active || material_dynamic_bound_)
+        for (auto& state : bindings_)
+            if (state)
+                if (auto* variable = state->GetVariableByName(
+                        SHADER_TYPE_PIXEL,
+                        material_surface_ ? "ForgeSurfaceMaterial" : "ForgeMaterialValues"))
+                    variable->Set(active ? material_dynamic_ : material_immutable_);
+    material_dynamic_bound_ = active;
+}
 void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world,
                     const CameraView& view, std::span<const LightView> lights,
                     const EnvironmentLighting* environment, const std::array<float, 3>* legacy_tint,
                     const ShadowLighting* shadows, std::span<const int> shadow_slots,
                     const TransmissionLighting* transmission, std::span<const float> morph_weights,
-                    const SkinPose* skin, std::span<const Instance> instances) {
+                    const SkinPose* skin, std::span<const Instance> instances,
+                    std::span<const MaterialParameterOverride> object_parameters,
+                    std::string_view material_slot) {
     const auto world = skin_ ? AffineTransform{} : object_world;
     require(instances.empty() || (instances_ && instances.size() <= instance_limit),
             "instance batch exceeds its supported static draw profile");
@@ -416,6 +492,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
             "invalid context or light list exceeds draw profile");
     require(shadow_slots.empty() || shadow_slots.size() == lights.size(),
             "shadow selections differ from the selected light list");
+    object_material_values(context, object_parameters, material_slot);
     if (morph_weights_) {
         if (morph_weights.empty())
             morph_weights = mesh_.morph_defaults;

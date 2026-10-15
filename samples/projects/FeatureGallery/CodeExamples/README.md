@@ -1,5 +1,23 @@
 # Optional C++ behaviors
 
+## Object material values
+
+Scene66 runs from authored values without a gameplay module. Include
+`ObjectMaterialValues.hpp` from a C++ system and call, for example:
+
+```cpp
+forge_set_object_material_value(actor, "surface", "roughnessFactor",
+                                {forge::MaterialParameterType::Scalar, {.25f}});
+forge_revert_object_material_value(actor, "surface", "roughnessFactor");
+```
+
+Use the logical slot displayed by Inspector. Helpers set bounded typed component
+intent; the renderer checks actual material declarations and retains the last good
+draw on rejection. Shared materials and source files stay unchanged. Build with
+the matching SDK after this Mesh Renderer layout update. The installed SDK sample
+target **material_value_gameplay** exercises changes at fixed ticks, including
+color changes and Revert. The Gallery scene does not activate that probe by default.
+
 ## Two-axis animation blending
 
 Scene65's original column instances already run from their authored Animator

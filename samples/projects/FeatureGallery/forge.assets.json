@@ -9307,6 +9307,60 @@
       "source": "Assets/MotionPlane.blendspace.json",
       "source_dependencies": [],
       "type": "animation_blend_space"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "1ecc7bbd-1254-4628-bb8a-008337ae0b18",
+      "metadata": {},
+      "schema_version": 2,
+      "source": "Assets/ObjectValues/SharedCube.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "1bd37ae0a50b90fd13a9c48199a846935a7d0605654c0e4c23b6fd8281286813",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 1,
+          "importer": "forge.material.builtin",
+          "importer_revision": "bc14571782bead9393f017b559f26b0ef96df666a2b29a0b8e0066a6c0bea548",
+          "key": "9ed49f6a364e9d984e4c1e0a46c37fb4fef7b7c39db6180119af1d2f9860c5b0",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "6c69b6dc7eceb550035bdcca85de106a116e1070edc159475573cedef82cf863",
+          "source_digest": "40de4b1f796f889a2a781994e6b15a46e2338199985a8a6bb37f9f787c6af46a",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {},
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/ObjectValues/SharedSurface.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "c94f7ad7-c2cf-4e7e-89f7-d32e20294036",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/66-object-material-values.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     }
   ],
   "version": 2

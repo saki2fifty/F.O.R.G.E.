@@ -189,12 +189,27 @@ struct Projection {
                         field.at("element").at("type") != "struct" || key->member.empty() ||
                         key->member.size() > 255)
                         fail(m.name, "Collection entry key requires a named string struct field");
-                    bool found = false;
-                    for (const auto& f : field.at("element").at("fields"))
-                        found |= f.at("id") == key->member && f.at("type") == "string";
-                    if (!found)
-                        fail(m.name, "Collection entry key is not a reflected string field");
-                    field["element_key"] = key->member;
+                    std::vector<std::string> members{key->member};
+                    members.insert(members.end(), key->additional_members.begin(),
+                                   key->additional_members.end());
+                    if (members.size() > 4 ||
+                        std::set<std::string>(members.begin(), members.end()).size() !=
+                            members.size())
+                        fail(m.name, "Collection key needs one to four distinct members");
+                    for (const auto& member : members) {
+                        bool found = !member.empty() && member.size() <= 255;
+                        found &=
+                            std::any_of(field.at("element").at("fields").begin(),
+                                        field.at("element").at("fields").end(), [&](const auto& f) {
+                                            return f.at("id") == member && f.at("type") == "string";
+                                        });
+                        if (!found)
+                            fail(m.name, "Collection entry key is not a reflected string field");
+                    }
+                    if (members.size() == 1)
+                        field["element_key"] = members.front();
+                    else
+                        field["element_keys"] = members;
                 }
                 if (m.member)
                     presentation(world, m.member, field);
@@ -357,11 +372,10 @@ void validate(const Json& field, const Json& value, const std::string& path) {
         }
         for (std::size_t i = 0; i < value.size(); ++i)
             validate(element, value[i], path + "[" + std::to_string(i) + "]");
-        if (field.contains("element_key")) {
-            const auto key = field.at("element_key").get<std::string>();
+        if (field.contains("element_key") || field.contains("element_keys")) {
             std::set<std::string> keys;
             for (const auto& item : value) {
-                const auto& id = item.at(key).get_ref<const std::string&>();
+                const auto id = reflected_sequence_identity(field, item);
                 if (id.empty() || !keys.insert(id).second)
                     fail(path, "Empty or duplicate collection entry key");
             }
@@ -448,6 +462,30 @@ void validate(const Json& field, const Json& value, const std::string& path) {
         fail(path, "Unsupported reflected value kind");
 }
 } // namespace
+std::string reflected_sequence_identity(const Json& field, const Json& element) {
+    if (field.contains("element_keys")) {
+        if (field.contains("element_key"))
+            fail("reflection", "Collection cannot declare two key forms");
+        const auto& members = field.at("element_keys");
+        if (!members.is_array() || members.size() < 2 || members.size() > 4)
+            fail("reflection", "Composite collection key requires two to four members");
+        auto tuple = Json::array();
+        std::set<std::string> seen;
+        for (const auto& member : members) {
+            const auto name = member.get<std::string>();
+            if (name.empty() || name.size() > 255 || !seen.insert(name).second)
+                fail("reflection", "Invalid composite collection key member");
+            const auto& value = element.at(name).get_ref<const std::string&>();
+            if (value.empty())
+                fail("value", "Empty collection entry key member");
+            tuple.push_back(value);
+        }
+        return tuple.dump();
+    }
+    return field.contains("element_key")
+               ? element.at(field.at("element_key").get<std::string>()).get<std::string>()
+               : std::string{};
+}
 nlohmann::json reflected_type_schema(flecs::world world, ecs_entity_t type,
                                      std::span<const ReflectedAdapter> references) {
     Projection projection{world.c_ptr(), references, {}, 0};

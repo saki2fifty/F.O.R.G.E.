@@ -3,6 +3,16 @@
 #include <cmath>
 #include <stdexcept>
 namespace forge {
+std::vector<MaterialParameterUniform> material_parameter_uniforms(const MaterialData& values) {
+    std::vector<MaterialParameterUniform> result;
+    result.reserve(values.parameters.size());
+    unsigned row = 1; // Header row: alpha cutoff and derived dielectric F0.
+    constexpr unsigned row_bytes = 4 * sizeof(float);
+    for (const auto& [name, parameter] : values.parameters)
+        result.push_back(
+            {name, parameter.type, row++ * row_bytes, material_parameter_width(parameter.type)});
+    return result;
+}
 MaterialShader material_shader(const PbrMaterialProfile& material,
                                std::span<const unsigned> uv_sets, MaterialSamplerBinding binding) {
     MaterialShader result;
@@ -19,9 +29,11 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
     result.uniforms.push_back({values.alpha_cutoff, canonical.dielectric_f0, 0, 0});
     std::string functions = "float ForgeAlphaCutoff(){return g_MaterialValues[0].x;}\n"
                             "float ForgeDielectricF0(){return g_MaterialValues[0].y;}\n";
-    for (const auto& [name, parameter] : values.parameters) {
-        const auto width = material_parameter_width(parameter.type);
-        const auto index = result.uniforms.size();
+    for (const auto& binding : material_parameter_uniforms(values)) {
+        const auto& name = binding.key;
+        const auto& parameter = values.parameters.at(name);
+        const auto width = binding.width;
+        const auto index = binding.offset / (4 * sizeof(float));
         result.uniforms.push_back(parameter.value);
         static constexpr const char* lanes[]{"", ".x", ".xy", ".xyz", ".xyzw"};
         functions += "float" + (width == 1 ? std::string{} : std::to_string(width)) +

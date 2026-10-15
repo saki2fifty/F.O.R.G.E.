@@ -46,6 +46,9 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
     unresolved_ = prepared.selection.unresolved;
     MaterialData default_material;
     default_material.model = "forge.gltf.metallic-roughness.v1";
+    std::map<std::uint32_t, std::size_t> bindings;
+    for (std::size_t i = 0; i < prepared.selection.bindings.size(); ++i)
+        bindings.emplace(prepared.selection.bindings[i].physical_slot, i);
     for (std::size_t l = 0; l < mesh_.get().lods.size(); ++l) {
         const auto& lod = mesh_.get().lods[l];
         const auto& selected = prepared.selection.parts[l];
@@ -85,13 +88,26 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
             shadows.push_back(values->alpha == MaterialAlpha::Blend || transmits
                                   ? nullptr
                                   : prepare(Diligent::TEX_FORMAT_UNKNOWN));
-            info.push_back({values->alpha, material_ref.id, part.bounds, transmits});
+            info.push_back({values->alpha, material_ref.id, part.bounds, transmits,
+                            bindings.at(part.material_slot)});
         }
     }
 }
+void MeshDrawBundle::prepare_material_parameters(
+    std::span<const MaterialParameterOverride> parameters) {
+    if (parameters.empty())
+        return;
+    for (unsigned lod = 0; lod < lods_.size(); ++lod)
+        for (unsigned part = 0; part < lods_[lod].size(); ++part) {
+            lods_[lod][part]->prepare_object_material_values(parameters, slot(lod, part));
+            if (auto& shadow = shadow_lods_[lod][part])
+                shadow->prepare_object_material_values(parameters, slot(lod, part));
+        }
+}
 void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const AffineTransform& world,
                                  const CameraView& camera, unsigned lod,
-                                 const MeshInstancePose* pose) {
+                                 const MeshInstancePose* pose,
+                                 std::span<const MaterialParameterOverride> parameters) {
     (void)mesh_.get();
     for (const auto& [key, texture] : textures_) {
         (void)key;
@@ -106,7 +122,7 @@ void MeshDrawBundle::draw_shadow(Diligent::IDeviceContext* context, const Affine
                            nullptr, {}, nullptr,
                            pose ? std::span<const float>(pose->morph_weights)
                                 : std::span<const float>{},
-                           skin);
+                           skin, {}, parameters, slot(lod, p));
         }
 }
 void MeshDrawBundle::environment(const EnvironmentLease& lease) {
@@ -143,7 +159,8 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                const ShadowLighting* shadows, std::span<const int> shadow_slots,
                                const TransmissionLighting* transmission,
                                const MeshInstancePose* pose,
-                               std::span<const MeshDraw::Instance> instances) {
+                               std::span<const MeshDraw::Instance> instances,
+                               std::span<const MaterialParameterOverride> parameters) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -156,6 +173,6 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
     selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
-                   skin, instances);
+                   skin, instances, parameters, slot(lod, part));
 }
 } // namespace forge

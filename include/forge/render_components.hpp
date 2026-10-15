@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/asset_ref.hpp>
+#include <forge/material_parameter.hpp>
 #include <forge/model_asset.hpp>
 #include <string>
 #include <vector>
@@ -28,6 +29,12 @@ struct MaterialSlotOverride {
     AssetRef<MaterialAsset> material;
     bool operator==(const MaterialSlotOverride&) const = default;
 };
+struct MaterialParameterOverride {
+    std::string slot, key;
+    MaterialParameter parameter;
+    bool operator==(const MaterialParameterOverride&) const = default;
+};
+inline constexpr std::size_t material_parameter_override_limit = 64;
 // Authored values only. GPU resources, loaded leases, bounds and resolved draw
 // slots are derived state owned by presentation, never component fields.
 struct MeshRenderer {
@@ -36,6 +43,9 @@ struct MeshRenderer {
     bool enabled = true, visible = true, cast_shadows = true, receive_shadows = true;
     std::uint32_t layers = UINT32_MAX;
     AssetRef<MaterialVariantAsset> material_variant;
+    // Sparse object-local numeric values, addressed by stable slot/parameter keys.
+    // Shared material assets and GPU resources remain owned by their existing hosts.
+    std::vector<MaterialParameterOverride> material_parameters;
     bool operator==(const MeshRenderer&) const = default;
 };
 // Authored emitter values only. Effect resources, fixed-clock age and transient

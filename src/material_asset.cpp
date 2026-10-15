@@ -1,4 +1,5 @@
 #include "cooked_envelope.hpp"
+#include "material_parameter_values.hpp"
 #include <cmath>
 #include <forge/material_asset.hpp>
 #include <limits>
@@ -13,13 +14,7 @@ void require(bool ok, const char* why) {
     if (!ok)
         throw std::runtime_error(why);
 }
-void key(std::string_view value) {
-    require(!value.empty() && value.size() <= 256, "Invalid material key length");
-    for (const unsigned char c : value)
-        require((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-                    c == '_' || c == '.' || c == '-',
-                "Invalid material key character");
-}
+void key(std::string_view value) { detail::validate_material_key(value); }
 unsigned number(const Json& j, unsigned maximum) {
     require(j.is_number_integer() && (j.is_number_unsigned() || j.get<std::int64_t>() >= 0),
             "Material count/enum must be nonnegative integer");
@@ -48,21 +43,6 @@ const Json& entries(const Json& j, std::size_t limit) {
     return j;
 }
 } // namespace
-unsigned material_parameter_width(MaterialParameterType type) {
-    switch (type) {
-    case MaterialParameterType::Scalar:
-        return 1;
-    case MaterialParameterType::Vector2:
-        return 2;
-    case MaterialParameterType::Vector3:
-    case MaterialParameterType::LinearColor3:
-        return 3;
-    case MaterialParameterType::Vector4:
-    case MaterialParameterType::LinearColor4:
-        return 4;
-    }
-    throw std::runtime_error("Unknown material parameter type");
-}
 void validate_material(const MaterialData& m) {
     key(m.model);
     require(unsigned(m.alpha) <= unsigned(MaterialAlpha::Blend) && std::isfinite(m.alpha_cutoff) &&
@@ -73,10 +53,7 @@ void validate_material(const MaterialData& m) {
     for (const auto& [name, p] : m.parameters) {
         key(name);
         require(!m.textures.contains(name), "Material parameter and texture keys overlap");
-        const auto width = material_parameter_width(p.type);
-        for (unsigned i = 0; i < 4; ++i)
-            require(std::isfinite(p.value[i]) && (i < width || p.value[i] == 0),
-                    "Invalid material parameter value/unused lane");
+        detail::validate_material_parameter(p);
     }
     for (const auto& [name, t] : m.textures) {
         key(name);

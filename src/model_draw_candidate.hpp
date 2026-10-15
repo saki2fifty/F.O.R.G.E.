@@ -37,6 +37,12 @@ struct PreparedModelDraw {
         return found == texture_fallbacks.end() ? requested : found->second;
     }
 };
+// Pure object-value admission against this exact detached resource selection.
+// Equal-to-base entries disappear only from the derived draw values; authored
+// sparse override intent remains in MeshRenderer. Result is sorted by slot/key.
+std::vector<MaterialParameterOverride>
+prepare_model_material_parameters(const PreparedModelDraw&,
+                                  std::span<const MaterialParameterOverride>);
 // Complete physical identity, including pool owner/generation and texture semantic.
 // This is a transient cache key, never a new authored asset or entity identity.
 struct PreparedModelDrawKey {

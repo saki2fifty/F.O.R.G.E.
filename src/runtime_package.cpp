@@ -8,6 +8,7 @@
 #include "collision_bundle.hpp"
 #include "collision_selection.hpp"
 #include "material_selection.hpp"
+#include "model_draw_candidate.hpp"
 #include "model_render_resource.hpp"
 #include "native_io_path.hpp"
 #include "navigation_asset.hpp"
@@ -23,6 +24,7 @@
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
 #include <forge/mesh_asset.hpp>
+#include <forge/prefab.hpp>
 #include <forge/scene.hpp>
 #include <forge/shader_resource.hpp>
 #include <forge/transform_animation.hpp>
@@ -307,9 +309,73 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
         throw std::runtime_error("No cooked runtime packaging adapter for " + root.type +
                                  "; asset " + root.id.str());
 }
+void validate_object_material_values(const std::filesystem::path& root,
+                                     std::shared_ptr<const AssetCatalog> catalog,
+                                     const Json& snapshot, ResourcePool<MeshAsset>& meshes,
+                                     ResourcePool<MaterialAsset>& materials, std::stop_token stop) {
+    const auto contains_values = [](const Json& rows) {
+        return std::any_of(rows.begin(), rows.end(), [](const auto& row) {
+            const auto components = row.find("components");
+            if (components == row.end())
+                return false;
+            const auto renderer = components->find("forge.mesh_renderer");
+            return renderer != components->end() &&
+                   !renderer->value("material_parameters", Json::array()).empty();
+        });
+    };
+    bool needed = contains_values(snapshot.at("entities"));
+    for (const auto& prefab : snapshot.value("_prefab_sources", Json::array()))
+        needed |= contains_values(prefab.at("members"));
+    if (!needed)
+        return;
+    // Reuse the actual Scene/Prefab projection. This detached validation world
+    // has no simulation, graphics device or authored publication; a hand-written
+    // JSON overlay would disagree with inherited property intent.
+    WorldContext world;
+    Scene scene(world);
+    scene.restore_snapshot(snapshot);
+    const auto effective = scene.effective_document();
+    for (const auto& row : effective.at("entities")) {
+        cancelled(stop);
+        const auto entity = scene.entity(row.at("id").get<std::string>());
+        if (!entity || !entity.has<MeshRenderer>())
+            continue;
+        const auto& renderer = entity.get<MeshRenderer>();
+        if (renderer.material_parameters.empty())
+            continue;
+        const auto mesh_ticket = request_model_mesh(meshes, root, catalog, renderer.mesh);
+        require(meshes.wait(mesh_ticket, std::chrono::seconds(30)),
+                "game.export.material-values: Mesh admission failed: " +
+                    mesh_ticket.inspect().diagnostic);
+        PreparedModelDraw prepared;
+        prepared.mesh = meshes.acquire(mesh_ticket);
+        require(bool(prepared.mesh), "game.export.material-values: Selected mesh expired");
+        prepared.selection = select_mesh_materials(prepared.mesh.get(), renderer.materials,
+                                                   renderer.material_variant);
+        std::set<AssetId> selected;
+        for (const auto& lod : prepared.selection.parts)
+            for (const auto& material : lod)
+                if (material.id)
+                    selected.insert(material.id);
+        for (const auto& id : selected) {
+            cancelled(stop);
+            const auto ticket = request_model_pbr_material(materials, root, catalog, {id});
+            require(materials.wait(ticket, std::chrono::seconds(30)),
+                    "game.export.material-values: Material admission failed: " +
+                        ticket.inspect().diagnostic);
+            const auto lease = materials.acquire(ticket);
+            require(bool(lease), "game.export.material-values: Selected material expired");
+            prepared.materials.emplace(id, lease);
+        }
+        (void)prepare_model_material_parameters(prepared, renderer.material_parameters);
+    }
+}
 void validate_selections(const std::filesystem::path& root, const AssetCatalog& catalog,
                          std::stop_token stop) {
     package_detail::validate_raw_selections(root, catalog);
+    const auto selected_catalog = std::make_shared<const AssetCatalog>(catalog);
+    ResourcePool<MeshAsset> value_meshes;
+    ResourcePool<MaterialAsset> value_materials;
     for (const auto& [id, record] : catalog.records()) {
         cancelled(stop);
         if (record.subasset)
@@ -322,7 +388,8 @@ void validate_selections(const std::filesystem::path& root, const AssetCatalog& 
             require(content_digest(bytes) == revision(record),
                     "Runtime document revision mismatch");
             if (record.type == SceneAsset::type)
-                (void)load_game_scene(root, {id});
+                validate_object_material_values(root, selected_catalog, load_game_scene(root, {id}),
+                                                value_meshes, value_materials, stop);
         } else if (record.type == NavMeshAsset::type)
             (void)navigation_detail::load(root, record);
         else if (record.type == CollisionAsset::type) {

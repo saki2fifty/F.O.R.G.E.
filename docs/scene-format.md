@@ -1,5 +1,12 @@
 # Scene documents: v3 transforms and legacy compatibility
 
+`forge.mesh_renderer.material_parameters` adds sparse per-object numeric material
+intent without changing Scene versions. Missing collections default to empty.
+Rows use stable `(slot,key)` business identity and typed four-lane values; explicit
+equal-to-default intent remains authored. Unknown row/nested fields survive native
+reordering by that composite key. Prefab inheritance and whole/property overrides
+use the existing owners. See [object material values](material-assets.md).
+
 ```json
 {
   "version": 3,

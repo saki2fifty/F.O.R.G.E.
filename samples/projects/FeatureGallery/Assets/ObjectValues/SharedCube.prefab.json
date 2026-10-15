@@ -1,0 +1,31 @@
+{
+  "format": "forge.prefab",
+  "version": 2,
+  "asset_id": "1ecc7bbd-1254-4628-bb8a-008337ae0b18",
+  "revision": 1,
+  "root": "3cb832d5-a26a-46f0-85c1-ca5aea0f1bf2",
+  "members": [
+    {
+      "id": "3cb832d5-a26a-46f0-85c1-ca5aea0f1bf2",
+      "name": "Shared cube",
+      "components": {
+        "forge.mesh_renderer": {
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "materials": [
+            {
+              "slot": "surface",
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954"
+            }
+          ],
+          "material_variant": null,
+          "enabled": true,
+          "visible": true,
+          "cast_shadows": true,
+          "receive_shadows": true,
+          "layers": 4294967295,
+          "material_parameters": []
+        }
+      }
+    }
+  ]
+}

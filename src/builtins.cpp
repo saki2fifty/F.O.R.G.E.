@@ -1,5 +1,6 @@
 #include "builtins.hpp"
 #include "authored_schema.hpp"
+#include "material_parameter_overrides.hpp"
 #include "material_slot.hpp"
 #include "physics_joint_value.hpp"
 #include "reflected_extensions.hpp"
@@ -35,8 +36,17 @@ template <class T> Json encode(const T& p) {
         for (const auto& slot : p.materials)
             slots.push_back({{"slot", slot.slot},
                              {"material", slot.material.id ? Json(slot.material.id) : Json()}});
+        validate_material_parameter_overrides(p.material_parameters);
+        Json parameters = Json::array();
+        for (const auto& entry : p.material_parameters)
+            parameters.push_back(
+                {{"slot", entry.slot},
+                 {"key", entry.key},
+                 {"parameter",
+                  {{"type", unsigned(entry.parameter.type)}, {"value", entry.parameter.value}}}});
         return {{"mesh", p.mesh.id ? Json(p.mesh.id) : Json()},
                 {"materials", slots},
+                {"material_parameters", parameters},
                 {"material_variant", p.material_variant.id ? Json(p.material_variant.id) : Json()},
                 {"enabled", p.enabled},
                 {"visible", p.visible},
@@ -222,6 +232,28 @@ template <class T> Value decode(const Json& p) {
             value.materials.push_back(std::move(entry));
         }
         validate_material_slots(value.materials);
+        if (p.contains("material_parameters")) {
+            const auto& parameters = p.at("material_parameters");
+            if (!parameters.is_array() || parameters.size() > material_parameter_override_limit)
+                throw std::runtime_error("Object material parameter count exceeds64");
+            value.material_parameters.reserve(parameters.size());
+            for (const auto& entry : parameters) {
+                const auto& parameter = entry.at("parameter");
+                const auto& type = parameter.at("type");
+                if (!type.is_number_integer() ||
+                    type.get<std::uint64_t>() > unsigned(MaterialParameterType::LinearColor4))
+                    throw std::runtime_error("Invalid object material parameter type");
+                const auto& lanes = parameter.at("value");
+                if (!lanes.is_array() || lanes.size() != 4)
+                    throw std::runtime_error("Object material values require four lanes");
+                value.material_parameters.push_back(
+                    {entry.at("slot").get<std::string>(),
+                     entry.at("key").get<std::string>(),
+                     {static_cast<MaterialParameterType>(type.get<unsigned>()),
+                      lanes.get<std::array<float, 4>>()}});
+            }
+            validate_material_parameter_overrides(value.material_parameters);
+        }
         if (p.contains("material_variant") && !p.at("material_variant").is_null())
             value.material_variant.id = p.at("material_variant").get<AssetId>();
         value.enabled = p.at("enabled");
@@ -572,6 +604,18 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<AssetRef<MaterialAsset>>("material");
         w.component<std::vector<MaterialSlotOverride>>("forge.material_slot_overrides")
             .opaque(reflected_vector<MaterialSlotOverride>);
+        static_assert(sizeof(MaterialParameterType) == sizeof(std::int32_t));
+        w.component<std::array<float, 4>>("forge.material_parameter_lanes")
+            .template array<float>(4);
+        w.component<MaterialParameter>("forge.material_parameter")
+            .template member<std::int32_t>("type", 0, offsetof(MaterialParameter, type))
+            .template member<std::array<float, 4>>("value", 0, offsetof(MaterialParameter, value));
+        w.component<MaterialParameterOverride>("forge.material_parameter_override")
+            .template member<std::string>("slot")
+            .template member<std::string>("key")
+            .template member<MaterialParameter>("parameter");
+        w.component<std::vector<MaterialParameterOverride>>("forge.material_parameter_overrides")
+            .opaque(reflected_vector<MaterialParameterOverride>);
         c.template member<AssetRef<MeshAsset>>("mesh")
             .template member<std::vector<MaterialSlotOverride>>("materials")
             .template member<bool>("enabled")
@@ -579,7 +623,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("cast_shadows")
             .template member<bool>("receive_shadows")
             .template member<std::uint32_t>("layers")
-            .template member<AssetRef<MaterialVariantAsset>>("material_variant");
+            .template member<AssetRef<MaterialVariantAsset>>("material_variant")
+            .template member<std::vector<MaterialParameterOverride>>("material_parameters");
     } else if constexpr (std::is_same_v<T, ParticleEmitter>) {
         register_asset_ref<ParticleEffectAsset>(w, "forge.particle_effect_ref");
         c.template member<AssetRef<ParticleEffectAsset>>("effect")
@@ -823,7 +868,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"cast_shadows", offsetof(MeshRenderer, cast_shadows)},
               std::pair{"receive_shadows", offsetof(MeshRenderer, receive_shadows)},
               std::pair{"layers", offsetof(MeshRenderer, layers)},
-              std::pair{"material_variant", offsetof(MeshRenderer, material_variant)}}) {
+              std::pair{"material_variant", offsetof(MeshRenderer, material_variant)},
+              std::pair{"material_parameters", offsetof(MeshRenderer, material_parameters)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("MeshRenderer native Meta disagrees with typed layout");
@@ -836,6 +882,16 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error(
                     "MaterialSlotOverride native Meta disagrees with typed layout");
+        }
+        for (const auto& [field, offset] :
+             {std::pair{"slot", offsetof(MaterialParameterOverride, slot)},
+              std::pair{"key", offsetof(MaterialParameterOverride, key)},
+              std::pair{"parameter", offsetof(MaterialParameterOverride, parameter)}}) {
+            const auto* member =
+                ecs_struct_get_member(w.c_ptr(), w.id<MaterialParameterOverride>(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error(
+                    "Material parameter override native Meta disagrees with typed layout");
         }
     }
     c.add(flecs::OnInstantiate, flecs::Inherit);
@@ -1832,8 +1888,10 @@ Json register_builtins(flecs::world& world, unsigned family) {
             continue;
         const auto c = type.register_type(world);
         annotate_type(world, c, type);
-        if (name == "forge.mesh_renderer")
+        if (name == "forge.mesh_renderer") {
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
+            c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
+        }
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.transform_animator")
             references = authoring_value_adapters(world);
@@ -1862,6 +1920,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         if (name == "forge.mesh_renderer") {
             references.push_back({world.id<std::string>(), "string"});
             references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});
+            references.push_back({world.id<std::vector<MaterialParameterOverride>>(), "vector"});
         }
         auto fields = reflected_type_schema(world, c.id(), references).at("fields");
         for (auto& field : fields) {
@@ -1963,9 +2022,12 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         for (const auto* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
-    if (std::string_view(type.name) == "forge.mesh_renderer" &&
-        !current.contains("material_variant"))
-        current["material_variant"] = nullptr;
+    if (std::string_view(type.name) == "forge.mesh_renderer") {
+        if (!current.contains("material_variant"))
+            current["material_variant"] = nullptr;
+        if (!current.contains("material_parameters"))
+            current["material_parameters"] = Json::array();
+    }
     if (std::string_view(type.name) == "forge.animator")
         for (const auto* field :
              {"blend_clip", "blend_weight", "transition_seconds", "states", "state", "root_motion",

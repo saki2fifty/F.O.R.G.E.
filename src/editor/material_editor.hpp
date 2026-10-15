@@ -6,6 +6,7 @@
 #include "../pbr_material.hpp"
 #include "../texture_authoring.hpp"
 #include "document.hpp"
+#include "material_labels.hpp"
 #include "property_drawer.hpp"
 #include <future>
 namespace forge {
@@ -588,17 +589,7 @@ inline void MaterialEditor::fields() {
     if (!custom && schema.workflow == PbrWorkflow::MetallicRoughness)
         parameters.try_emplace("attenuationDistance",
                                MaterialParameter{MaterialParameterType::Scalar, {1}});
-    const auto label = [](std::string name) {
-        std::string out;
-        for (char c : name) {
-            if (c >= 'A' && c <= 'Z' && !out.empty())
-                out += ' ';
-            out += c;
-        }
-        if (!out.empty() && out[0] >= 'a' && out[0] <= 'z')
-            out[0] -= 'a' - 'A';
-        return out;
-    };
+    const auto label = material_field_label;
     ui::heading("Parameters", "Values are linear factors in the selected shader model. Enter "
                               "commits a field. Equal values can remain explicit overrides.");
     const auto group_for = [](std::string_view key) -> std::string_view {
@@ -636,11 +627,7 @@ inline void MaterialEditor::fields() {
         for (const auto& [key, default_parameter] : parameters) {
             if ((custom ? std::string_view("Surface") : group_for(key)) != group)
                 continue;
-            if (!custom && schema.workflow == PbrWorkflow::Unlit && key != "baseColorFactor")
-                continue;
-            if (!custom && schema.workflow == PbrWorkflow::SpecularGlossiness &&
-                (key == "ior" || key == "dispersion" || key.starts_with("clearcoat") ||
-                 key == "metallicFactor"))
+            if (!custom && !material_parameter_visible(model, key))
                 continue;
             ui::IdScope scope(key.c_str());
             const auto text = custom && surface_->program.surface->labels.contains(key)

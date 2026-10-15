@@ -1,16 +1,9 @@
 #pragma once
+#include <forge/material_parameter.hpp>
 #include <forge/texture_asset.hpp>
 #include <map>
 namespace forge {
 
-enum class MaterialParameterType { Scalar, Vector2, Vector3, Vector4, LinearColor3, LinearColor4 };
-struct MaterialParameter {
-    MaterialParameterType type = MaterialParameterType::Scalar;
-    // Unused lanes must be zero. Linear colors never pass through sRGB decoding.
-    std::array<float, 4> value{};
-    bool operator==(const MaterialParameter&) const = default;
-};
-unsigned material_parameter_width(MaterialParameterType type);
 enum class MaterialAlpha { Opaque, Mask, Blend };
 struct MaterialTextureSlot {
     TextureSemantic semantic = TextureSemantic::Data;

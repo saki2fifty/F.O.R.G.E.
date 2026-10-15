@@ -164,10 +164,31 @@ struct Builder {
                     ranges.warning.min != ranges.warning.max ||
                     ranges.error.min != ranges.error.max)
                     member.set<EcsMemberRanges>(ranges);
-                if (field.source->contains("element_key")) {
-                    const auto key = bounded_text(*field.source, "element_key", 255);
+                if (field.source->contains("element_key") ||
+                    field.source->contains("element_keys")) {
+                    require(!(field.source->contains("element_key") &&
+                              field.source->contains("element_keys")),
+                            "Collection cannot declare two key forms");
+                    ReflectedSequenceKey key;
+                    if (field.source->contains("element_key"))
+                        key.member = bounded_text(*field.source, "element_key", 255);
+                    else {
+                        const auto& members = field.source->at("element_keys");
+                        require(members.is_array() && members.size() >= 2 && members.size() <= 4,
+                                "Composite collection key requires two to four members");
+                        for (const auto& item : members) {
+                            require(item.is_string() &&
+                                        !item.get_ref<const std::string&>().empty() &&
+                                        item.get_ref<const std::string&>().size() <= 255,
+                                    "Invalid composite collection key member");
+                            if (key.member.empty())
+                                key.member = item.get<std::string>();
+                            else
+                                key.additional_members.push_back(item.get<std::string>());
+                        }
+                    }
                     world.component<ReflectedSequenceKey>(reflected_sequence_key_type);
-                    member.set<ReflectedSequenceKey>({key});
+                    member.set<ReflectedSequenceKey>(key);
                 }
             }
             const auto& actual = layout(type);

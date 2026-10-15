@@ -130,6 +130,32 @@ consumers are still under implementation. Rebuild modules after this exact SDK c
 
 ## Cooked resources in gameplay
 
+For per-object surface values, include `forge/render_components.hpp`; its shared
+`MaterialParameter` DTO is installed in `forge/material_parameter.hpp`.
+`MeshRenderer.material_parameters` stores up to64 `{slot,key,parameter}` rows.
+Use the logical slot shown by Inspector, not a physical mesh/material ordinal.
+Scalar/vector/linear-color types are distinct; unused float lanes are zero.
+Changing these values does not clone the shared material or compile a shader.
+The renderer admits keys/types/domains against its actual selected materials and
+retains the last good resource/value selection on rejection.
+
+The installed **ObjectMaterialValues.hpp** sample shows ordinary C++ set/revert
+helpers. Build **material_value_gameplay** from `sdk/sample` to exercise changes at
+fixed ticks. It requires no renderer service to edit component data; visible
+rendering still belongs to the existing presentation host. The helper's success
+means a shape-valid value was set, not that an arbitrary key exists in the selected
+material. See [material values](material-assets.md) for supported effects/limits.
+
+This trailing native collection changes the exact SDK fingerprint. Rebuild modules
+with the matching SDK; changing project settings to claim a new fingerprint does
+not make an old binary compatible. The ABI1 host table is unchanged.
+
+Copied reflection can represent engine-owned keyed collections with the existing
+single-string `element_key` or additive `element_keys` containing2–4 distinct
+string fields. Native projection, copied-schema reconstruction and extension merge
+validate the same tuple. Existing single-key schema bytes are unchanged. This
+does not admit arbitrary user opaque C++ containers or create row UUIDs.
+
 The exact SDK exposes CPU resource admission through `sdk::Client`. Add
 `FORGE_SDK_RESOURCES` to the module's allowed capabilities. If startup requires
 it, also add it to required capabilities and declare `forge.resources` as a

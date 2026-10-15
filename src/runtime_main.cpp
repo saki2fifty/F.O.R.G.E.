@@ -392,7 +392,11 @@ int main(int argc, char** argv) {
                         const auto target = forge::RuntimePropertyTune::parse(
                             request, ui_generation, runtime->scene.asset_id());
                         forge::Json value;
-                        if (forge::RuntimePropertyTune::particle_type(target.type)) {
+                        if (forge::RuntimePropertyTune::material_type(target.type)) {
+                            value = runtime->scene.tune_runtime_property(
+                                target.target.entity.str(), target.type, target.property,
+                                request.at("value"));
+                        } else if (forge::RuntimePropertyTune::particle_type(target.type)) {
                             value = forge::particle_runtime(runtime->engine.world())
                                         ->tune_appearance(target.target, target.property,
                                                           request.at("value"));

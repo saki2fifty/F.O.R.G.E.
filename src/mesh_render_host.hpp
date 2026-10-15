@@ -56,7 +56,8 @@ class MeshSceneRenderer {
     explicit MeshSceneRenderer(std::shared_ptr<MeshResourceHost>,
                                Diligent::TEXTURE_FORMAT color = Diligent::TEX_FORMAT_RGBA8_UNORM,
                                std::uint64_t pose_budget = mesh_pose_payload_limit,
-                               std::size_t draw_part_limit = 4096);
+                               std::size_t draw_part_limit = 4096,
+                               std::uint64_t material_budget = 16 * 1024 * 1024);
     bool update(const RenderScene&);
     void shadows(const RenderScene&, const CameraView&, std::uint32_t layers);
     void draw(const RenderScene&, const CameraView&, std::uint32_t layers,
@@ -78,6 +79,7 @@ class MeshSceneRenderer {
                                        Double3 camera_origin) const;
 
     std::uint64_t pose_payload_bytes() const;
+    std::uint64_t material_payload_bytes() const;
     EntityId pick(const RenderScene&, const CameraView&, double x, double y,
                   std::uint32_t layers = UINT32_MAX, double point_line_radius = 5) const;
     std::optional<std::pair<EntityId, double>> pick_depth(const RenderScene&, const CameraView&,
@@ -97,10 +99,14 @@ class MeshSceneRenderer {
         MeshInstancePose pose;
         std::shared_ptr<const MeshPoseGeometry> candidate_geometry;
         std::vector<float> thresholds;
+        std::vector<MaterialParameterOverride> requested_parameters, parameters;
+        bool parameters_checked = false, resource_current = false;
+        std::string parameter_error;
         std::string error, pose_error;
         std::optional<bool> failed_skin_mode;
         bool fallback = false;
         std::uint64_t pose_bytes() const;
+        std::uint64_t material_bytes() const;
     };
     std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,
                                                    std::shared_ptr<const MeshPoseGeometry>);
@@ -113,6 +119,7 @@ class MeshSceneRenderer {
     Diligent::TEXTURE_FORMAT color_;
     const std::uint64_t pose_budget_;
     const std::size_t draw_part_limit_;
+    const std::uint64_t material_budget_;
     AssetId scene_;
     AssetRef<TextureAsset> environment_source_;
     std::uint64_t environment_epoch_ = 0;

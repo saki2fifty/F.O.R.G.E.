@@ -805,15 +805,33 @@ int main(int argc, char** argv) {
         // `game_viewport` is now tracking the live renderer through
         // the slot adopted by play_presentation.
         forge::MeshMaterialInspector mesh_material_inspector;
-        component_inspector.material_slots = [&](const forge::Json& renderer,
-                                                 forge::Json& materials) {
+        const auto select_mesh_materials = [&](const forge::Json& renderer) {
             forge::AssetRef<forge::MeshAsset> mesh;
             if (!renderer.at("mesh").is_null())
                 mesh.id = renderer.at("mesh").get<forge::AssetId>();
+            std::vector<forge::MaterialSlotOverride> assignments;
+            for (const auto& row : renderer.at("materials")) {
+                forge::AssetRef<forge::MaterialAsset> material;
+                if (!row.at("material").is_null())
+                    material.id = row.at("material").get<forge::AssetId>();
+                assignments.push_back({row.at("slot").get<std::string>(), material});
+            }
+            forge::AssetRef<forge::MaterialVariantAsset> variant;
+            if (!renderer.at("material_variant").is_null())
+                variant.id = renderer.at("material_variant").get<forge::AssetId>();
             mesh_material_inspector.select(files.document.project(),
                                            mesh_resources ? mesh_resources->catalog() : nullptr,
-                                           mesh);
+                                           mesh, std::move(assignments), variant);
+        };
+        component_inspector.material_slots = [&](const forge::Json& renderer,
+                                                 forge::Json& materials) {
+            select_mesh_materials(renderer);
             return mesh_material_inspector.draw(materials);
+        };
+        component_inspector.material_parameters = [&](const forge::Json& renderer,
+                                                      forge::Json& parameters) {
+            select_mesh_materials(renderer);
+            return mesh_material_inspector.draw_parameters(parameters);
         };
         forge::RuntimeUiTools runtime_ui_tools;
         forge::AuthoringSnapshot authoring_snapshot;

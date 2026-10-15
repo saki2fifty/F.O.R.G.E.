@@ -1,4 +1,5 @@
 #include "reflected_extensions.hpp"
+#include "reflected_value.hpp"
 namespace forge::detail {
 namespace {
 using Json = nlohmann::json;
@@ -25,16 +26,16 @@ Json extract(const Json& schema, const Json& value, unsigned depth) {
     if (kind == "array" || kind == "vector") {
         if (value.size() > 4096)
             throw std::runtime_error("Reflected extension collection exceeds profile");
-        const auto key = schema.value("element_key", std::string{});
-        Json result = key.empty() ? Json::array() : Json::object();
+        const bool keyed = schema.contains("element_key") || schema.contains("element_keys");
+        Json result = keyed ? Json::object() : Json::array();
         bool any = false;
         for (const auto& element : value) {
             auto part = extract(schema.at("element"), element, depth + 1);
             any |= !part.is_null();
-            if (key.empty())
+            if (!keyed)
                 result.push_back(std::move(part));
             else if (!part.is_null())
-                result[element.at(key).get<std::string>()] = std::move(part);
+                result[reflected_sequence_identity(schema, element)] = std::move(part);
         }
         return any ? result : Json();
     }
@@ -55,13 +56,13 @@ Json merge(const Json& schema, const Json& known, const Json& extensions, unsign
     if (kind == "array" || kind == "vector") {
         if (known.size() > 4096)
             throw std::runtime_error("Reflected extension collection exceeds profile");
-        const auto key = schema.value("element_key", std::string{});
+        const bool keyed = schema.contains("element_key") || schema.contains("element_keys");
         Json result = Json::array();
         for (std::size_t i = 0; i < known.size(); ++i) {
-            const auto& fragment = !key.empty()
-                                       ? child(extensions, known[i].at(key).get<std::string>())
-                                   : extensions.is_array() && i < extensions.size() ? extensions[i]
-                                                                                    : empty;
+            const auto& fragment =
+                keyed ? child(extensions, reflected_sequence_identity(schema, known[i]))
+                : extensions.is_array() && i < extensions.size() ? extensions[i]
+                                                                 : empty;
             result.push_back(merge(schema.at("element"), known[i], fragment, depth + 1));
         }
         return result;

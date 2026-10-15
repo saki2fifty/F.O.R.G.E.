@@ -236,6 +236,13 @@ int main(int argc, char** argv) {
             Json::array({{{"id", entity}, {"name", "Cube"}, {"components", Json::object()}}});
         scene.replace(document);
         scene.entity(entity.str()).set<MeshRenderer>({engine_primitive(0), {}});
+        auto object_renderer = scene.entity(entity.str()).get<MeshRenderer>();
+        object_renderer.material_parameters = {
+            {"surface",
+             "baseColorFactor",
+             {MaterialParameterType::LinearColor4, {.8f, .1f, .2f, 1}}},
+            {"surface", "roughnessFactor", {MaterialParameterType::Scalar, {.25f}}}};
+        scene.entity(entity.str()).set<MeshRenderer>(object_renderer);
         document = scene.document();
         scene.save(authored / "level.scene.json");
         AssetCatalog scene_catalog(authored);
@@ -256,8 +263,28 @@ int main(int argc, char** argv) {
                                       target);
         std::filesystem::rename(authored, scratch / "unavailable-project");
         scene.restore_snapshot(load_game_scene(scene_output, {scene_record.id}));
-        check(scene.entity(entity.str()).is_alive(), "Relocated packaged scene did not load");
+        check(scene.entity(entity.str()).is_alive() &&
+                  scene.entity(entity.str()).get<MeshRenderer>().material_parameters ==
+                      object_renderer.material_parameters,
+              "Relocated packaged scene lost typed object material values");
         std::filesystem::rename(scratch / "unavailable-project", authored);
+        for (unsigned mode = 0; mode < 3; ++mode) {
+            auto invalid_values = document;
+            auto& value = invalid_values["entities"][0]["components"]["forge.mesh_renderer"]
+                                        ["material_parameters"][0];
+            if (mode == 0)
+                value["slot"] = "removed-slot";
+            else if (mode == 1)
+                value["parameter"]["type"] = int(MaterialParameterType::Vector4);
+            else
+                value["parameter"]["value"][0] = -1;
+            text(authored / "level.scene.json", invalid_values.dump());
+            const auto destination = scratch / ("invalid-object-values-" + std::to_string(mode));
+            rejects([&] { package_runtime_content(authored, destination, scene_roots, target); });
+            check(!std::filesystem::exists(destination),
+                  "Invalid material values published a partial export");
+        }
+        text(authored / "level.scene.json", document.dump());
         auto missing = document;
         missing["asset_id"] = scene_record.id;
         missing["entities"][0]["components"]["forge.mesh_renderer"]["mesh"] = AssetId::generate();
@@ -285,6 +312,9 @@ int main(int argc, char** argv) {
                                    {"components", document.at("entities")[0].at("components")}}})}};
         text(authored / "part.prefab.json", prefab.dump());
         scene_catalog.add({prefab_id, PrefabAsset::type, "part.prefab.json", 2});
+        auto scene_record_v5 = scene_catalog.records().at(scene_record.id);
+        scene_record_v5.schema_version = 5;
+        scene_catalog.replace(std::move(scene_record_v5));
         scene_catalog.save(AssetCatalog::project_index(authored));
         auto instance = document;
         instance["version"] = 5;
@@ -300,8 +330,36 @@ int main(int argc, char** argv) {
               "Prefab closure changed authored inheritance");
         scene.restore_snapshot(loaded_prefab);
         check(!scene.entity(entity.str()).owns<MeshRenderer>() &&
-                  scene.entity(entity.str()).get<MeshRenderer>().mesh == engine_primitive(0),
+                  scene.entity(entity.str()).get<MeshRenderer>().mesh == engine_primitive(0) &&
+                  scene.entity(entity.str()).get<MeshRenderer>().material_parameters ==
+                      object_renderer.material_parameters,
               "Relocated prefab lost inherited mesh binding");
+        auto partial_instance = instance;
+        auto partial_values = document.at("entities")[0]
+                                  .at("components")
+                                  .at("forge.mesh_renderer")
+                                  .at("material_parameters");
+        partial_values[0]["parameter"]["value"] = {.1f, .2f, .8f, 1.f};
+        partial_instance["entities"][0]["property_overrides"]["forge.mesh_renderer"]
+                        ["material_parameters"] = partial_values;
+        text(authored / "level.scene.json", partial_instance.dump());
+        const auto partial_output = scratch / "prefab-object-values-output";
+        (void)package_runtime_content(authored, partial_output, scene_roots, target);
+        scene.restore_snapshot(load_game_scene(partial_output, {scene_record.id}));
+        check(scene.entity(entity.str())
+                      .get<MeshRenderer>()
+                      .material_parameters[0]
+                      .parameter.value[2] == .8f,
+              "Export lost per-instance material intent over an inherited MeshRenderer");
+        auto invalid_partial = partial_instance;
+        invalid_partial["entities"][0]["property_overrides"]["forge.mesh_renderer"]
+                       ["material_parameters"][0]["key"] = "removedParameter";
+        text(authored / "level.scene.json", invalid_partial.dump());
+        rejects([&] {
+            package_runtime_content(authored, scratch / "invalid-prefab-values", scene_roots,
+                                    target);
+        });
+        text(authored / "level.scene.json", instance.dump());
         std::filesystem::rename(authored / "part.prefab.json",
                                 authored / "unavailable.prefab.json");
         rejects([&] {
