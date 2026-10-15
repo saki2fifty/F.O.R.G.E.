@@ -1,4 +1,5 @@
 #pragma once
+#include "animation_material_inputs.hpp"
 #include <forge/animation.hpp>
 #include <forge/resource.hpp>
 #include <forge/transform_animation.hpp>
@@ -34,6 +35,12 @@ class TransformAnimationPlayback {
     }
 
   private:
+    struct MaterialTarget {
+        asset_detail::PreparedModelDraw draw;
+        asset_detail::PreparedModelDrawKey identity;
+        ResourceIdentity clip;
+        std::vector<MaterialParameterOverride> unanimated;
+    };
     struct State {
         TransformAnimator config;
         AssetRef<TransformAnimationAsset> requested;
@@ -44,6 +51,8 @@ class TransformAnimationPlayback {
         double previous = 0, advance = 0;
         bool playing = false, discontinuous = true;
         flecs::entity_t sequence = 0;
+        std::optional<MaterialTarget> material;
+        bool material_pending = false, material_error = false;
     };
     struct SequenceState {
         AnimationSequence config;
@@ -65,10 +74,12 @@ class TransformAnimationPlayback {
     bool pending_ = false;
     std::set<flecs::entity_t> load_errors_;
     AnimationRuntime::PoseValidator validator_;
+    AnimationMaterialInputs material_inputs_;
     ResourceTicket request(AssetRef<TransformAnimationAsset>);
     void apply(const std::map<flecs::entity_t, double>& times, bool commit);
     void error(flecs::entity_t, const std::string&);
     void synchronize_sequences();
+    void synchronize_materials();
     double sequence_time(const State&, double) const;
     std::map<flecs::entity_t, double> times_at(flecs::entity_t controller, double time) const;
 };

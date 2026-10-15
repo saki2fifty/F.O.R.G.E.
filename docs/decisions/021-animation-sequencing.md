@@ -53,11 +53,18 @@ physics, navigation, character and skeletal writer-conflict policy. C++ group
 controls reuse current AnimationService operations and owner-thread/tick guards.
 Per-track controls cannot desynchronize a bound clip from its controller.
 
+Per-object material tracks extend this same complete typed candidate and clock
+owner. Their explicit source5/cooked5 format extension is described in
+[transform animation](../transform-animation.md). Selected CPU material/mesh
+leases come from the existing Resources provider; whole-curve target admission
+and complete sampled numeric projection precede component writes. Sequence clips
+still contain no Scene identity or separate arrangement/clock resource.
+
 ## Compatibility and completion boundary
 
 Default-null sequence bindings preserve existing standalone clips. Backfill new
 known members without rewriting source files; preserve other extensions/overrides.
-Scene/Prefab and clip formats/cook recipes remain unchanged. Native component data
+Sequence bindings themselves leave Scene/Prefab and clip formats/cook recipes unchanged. Native component data
 and exact SDK fingerprint change deliberately; gameplay modules require a matching
 SDK rebuild. C ABI1 function/table layouts remain unchanged. Extend the existing
 private animation recovery version explicitly for coordinated controller clocks;

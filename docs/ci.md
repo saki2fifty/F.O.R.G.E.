@@ -42,6 +42,13 @@ no FORGE code consumes this optional backend.
 The graph layout editor fixture links the material resource validator directly;
 its inline preview consumer requires that library even when a fixture disables
 shader compilation. Both full native selections execute this input fixture.
+
+Full native gates also execute material-animation source/runtime/Gallery checks,
+the material Timeline and existing transform/property/sequence Timeline fixtures,
+and the native C++ material-animation probe when that SDK profile is enabled.
+The installed SDK package test compiles and runs its delivered
+`material_animation_gameplay` sample from the relocated host. Shader-only audit
+scope remains focused on shader/material compilation and rendering.
 Source-offline export fixtures end project writer/importer ownership before moving
 their source project. Gallery admission failures include the helper's output and
 the authored-document difference instead of hiding it in a subprocess exception.

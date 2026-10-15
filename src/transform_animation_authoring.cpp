@@ -10,7 +10,7 @@ void require(bool value, const char* why) {
         throw std::runtime_error(why);
 }
 constexpr const char* importer_id = "forge.animation.transform";
-constexpr const char* recipe = "forge.animation.transform.v6";
+constexpr const char* recipe = "forge.animation.transform.v7";
 struct Snapshot {
     TransformAnimationSource source;
     AssetBuildInput input;
@@ -27,7 +27,7 @@ Snapshot capture(const AssetImportRequest& request, std::stop_token stop) {
     input.importer = importer_id;
     input.importer_revision = recipe;
     input.output_format = "forge.transform-clip";
-    input.output_version = 4;
+    input.output_version = 5;
     input.platform = request.target.platform;
     input.backend = request.target.backend;
     input.profile = request.target.profile;
@@ -38,7 +38,8 @@ const ArtifactFile& clip_file(const std::vector<ArtifactFile>& files) {
             "Transform animation artifact must contain one cooked animation clip");
     auto doc =
         asset_detail::parse_bounded_json(files[0].bytes, transform_animation_cooked_byte_limit);
-    const auto& source = doc.at("version") == 4 ? doc.at("document") : doc;
+    const auto& source =
+        doc.at("version") == 4 || doc.at("version") == 5 ? doc.at("document") : doc;
     (void)decode_transform_animation(files[0].bytes, source.at("asset_id").get<AssetId>());
     return files[0];
 }
@@ -57,7 +58,7 @@ class TransformAnimationImporter final : public AssetImporter {
                   d.source_kinds = {"forge.transform-animation"};
                   d.output_types = {TransformAnimationAsset::type};
                   d.output_format = "forge.transform-clip";
-                  d.output_version = 4;
+                  d.output_version = 5;
                   d.targets = {{"windows", "d3d12", "desktop"}, {"linux", "none", "cpu"}};
                   d.execution = ImportExecution::TrustedCpuTask;
                   d.limits.output_files = 1;

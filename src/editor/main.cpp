@@ -4575,6 +4575,8 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                if (mesh_resources)
+                    animation_timeline.asset_catalog_changed(mesh_resources->catalog());
                 animation_timeline.poll(files.document, scene, play.active(),
                                         ImGui::GetIO().DeltaTime, message);
                 if (auto catalog = animation_timeline.take_catalog()) {

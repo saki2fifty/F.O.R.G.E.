@@ -1,5 +1,26 @@
 # Optional C++ behaviors
 
+## Material animation
+
+Scene67 plays its saved clips without a C++ module. To adjust an animated object's
+speed from an ordinary C++ system, include `MaterialAnimation.hpp` and call:
+
+```cpp
+forge_set_material_animation_speed(actor, .5f);
+```
+
+This uses the existing Transform Animator, accepts speeds0–4 and rejects a bound
+sequence track because its controller owns speed. The animation owner samples the
+saved material tracks into that object's Mesh Renderer. Shared material assets
+remain unchanged. Use the current matching SDK; compiled modules from an older
+fingerprint must rebuild.
+
+The installed SDK sample target **material_animation_gameplay** also demonstrates
+pause, seek, resume and restart through the existing animation service, then reads
+the resulting values in PostAnimation. It is a validation example; the Gallery
+does not activate it automatically. Export normally includes the saved cooked
+clips. If you add your own C++ module, export includes its compiled module too.
+
 ## Object material values
 
 Scene66 runs from authored values without a gameplay module. Include

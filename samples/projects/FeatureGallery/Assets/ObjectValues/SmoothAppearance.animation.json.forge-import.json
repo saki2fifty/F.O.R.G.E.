@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v7",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 5,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "13628d70d3f5bb5a8f53279875f9860c204f01a5405a8f07838989c185cc77fa",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "a768d95d-17a1-4187-8e9b-667d747dcefd",
+    "source": "Assets/ObjectValues/SmoothAppearance.animation.json",
+    "source_digest": "13628d70d3f5bb5a8f53279875f9860c204f01a5405a8f07838989c185cc77fa",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

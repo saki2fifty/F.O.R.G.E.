@@ -279,6 +279,22 @@ class MeshMaterialInspector {
         return std::any_of(parameter_tickets_.begin(), parameter_tickets_.end(),
                            [](const auto& item) { return bool(item.second); });
     }
+    // Read-only declaration selection shared with Timeline authoring. Reuse this
+    // same async consumer and the same all-parts semantic intersection/labels.
+    void inspect_parameters(std::string_view slot) {
+        poll();
+        if (parameter_slot_ != slot) {
+            clear_parameters();
+            parameter_slot_ = slot;
+        }
+        prepare_parameters();
+        poll_parameters();
+    }
+    const auto& parameter_slots() const { return selections_; }
+    const auto& parameter_definitions() const { return parameter_definitions_; }
+    const auto& parameter_labels() const { return parameter_labels_; }
+    const std::string& parameter_error() const { return parameter_error_; }
+    bool parameters_ready() const { return parameter_ready_; }
     // Also used by input tests; callers still publish the returned JSON through
     // their existing authored or live property transaction.
     bool commit_parameter(Json& values, const std::string& key, MaterialParameter parameter) {

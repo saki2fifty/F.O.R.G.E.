@@ -2743,6 +2743,8 @@ void AnimationRuntime::restore(const Json& data) {
     const auto transform_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     while (impl_->transforms.pending() && std::chrono::steady_clock::now() < transform_deadline) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        if (impl_->context.services().available(Capability::Resources))
+            impl_->context.services().resources()->synchronize();
         impl_->synchronize();
     }
     // Validate recovered channel values and instance scopes with temporary
@@ -2831,7 +2833,8 @@ EngineModule animation_module(std::filesystem::path project) {
     module.runtime_roles = role_mask(WorldRole::Runtime);
     module.provided_services = capability(Capability::Animation);
     module.allowed_services = capability(Capability::Diagnostics) |
-                              capability(Capability::Profiling) | capability(Capability::Animation);
+                              capability(Capability::Profiling) |
+                              capability(Capability::Animation) | capability(Capability::Resources);
     module.start = [project = std::move(project)](ModuleContext& c) {
         auto state = std::make_shared<AnimationRuntime>(*c.owner, project);
         c.world.component<AnimationBridge>("forge.animation.private_bridge")

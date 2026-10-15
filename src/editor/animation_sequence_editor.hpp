@@ -1,4 +1,5 @@
 #pragma once
+#include "../animation_material_patch.hpp"
 #include "../animation_playback_access.hpp"
 #include "animation_timeline_view.hpp"
 #include "document.hpp"
@@ -8,6 +9,7 @@
 #include <forge/animation.hpp>
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
+#include <forge/runtime_resources.hpp>
 namespace forge {
 // A borrowed Scene editing mode of the Timeline, not another document owner.
 class AnimationSequenceEditor {
@@ -123,6 +125,7 @@ class AnimationSequenceEditor {
         }
         try {
             if (context_ && !ready_ && !stale_) {
+                context_->engine.services().resources()->synchronize();
                 ready_ = context_->animation->prepare_initial_pose();
                 if (ready_)
                     seek_preview();
@@ -158,11 +161,16 @@ class AnimationSequenceEditor {
                 if (name != "forge.local_translation" && name != "forge.local_rotation" &&
                     name != "forge.local_scale" && name != "forge.camera" &&
                     name != "forge.light" && name != "forge.audio_source" &&
-                    name != "forge.particle_emitter")
+                    name != "forge.particle_emitter" && name != "forge.mesh_renderer")
                     continue;
                 const auto fields = type.read(actor, true);
                 if (fields.is_null())
                     continue;
+                if (name == "forge.mesh_renderer") {
+                    merge_animation_material_parameters(row["components"][type.name],
+                                                        fields.at("material_parameters"));
+                    continue;
+                }
                 for (const auto& [field, value] : fields.items())
                     row["components"][type.name][field] = value;
             }
@@ -327,8 +335,9 @@ class AnimationSequenceEditor {
                 if (ui::button("Apply track start", "Commit this offset as one Scene Undo step."))
                     apply_offset();
                 FORGE_UI_PROBE("sequence:apply_start");
-                if (ui::button("Reset pending start", "Reload the saved Scene draft value."))
+                if (ui::button("Reset pending start", "Reload the saved Scene draft value.")) {
                     pending_ = false;
+                }
                 if (pending_)
                     ImGui::TextWrapped("Apply or reset the pending start before changing tracks.");
                 ImGui::BeginDisabled(pending_);
@@ -377,8 +386,9 @@ class AnimationSequenceEditor {
         std::shared_ptr<AnimationRuntime> animation;
         std::set<std::string> targets;
         Context(const std::filesystem::path& project, const Json& source, EntityRef controller)
-            : engine(WorldRole::Runtime, false, {animation_module(project)}), scene(engine.world()),
-              animation(animation_runtime(engine.world())) {
+            : engine(WorldRole::Runtime, false,
+                     {runtime_resources_module(project), animation_module(project)}),
+              scene(engine.world()), animation(animation_runtime(engine.world())) {
             scene.restore_snapshot(source);
             // Keep movement guards on targets/ancestors so preview uses the
             // runtime's own writer-conflict policy. Unrelated animation stays idle.

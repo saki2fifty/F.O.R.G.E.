@@ -14,12 +14,24 @@
 
 - Add typed sparse Mesh Renderer values by stable material slot/parameter key. Objects share one material while retaining independent values; equal-to-default intent, Scene/Prefab property overrides, native C++ edits and unknown extension data survive save/history/reordering.
 - Extend the shared renderer with immutable default restoration, reusable numeric buffers prepared before adoption, compatible per-slot instancing, complete last-good replacement and bounded retained value data. Color, masked shadows and skinned/morphed draws consume the same values.
-- Add async Inspector Add/Enter/Revert controls, readable labels, applicable model fields and temporary highlighted Live gameplay edits. Texture/mode and shader-feature choices remain material variations; Timeline material tracks remain future work.
+- Add async Inspector Add/Enter/Revert controls, readable labels, applicable model fields and temporary highlighted Live gameplay edits. Texture/mode and shader-feature choices remain material variations; Timeline material tracks are described below.
 - Add original Gallery66 with six shared-material cubes and an inherited prefab property override. Validate source-offline relocated export, actual native readback, exact installed normal/sanitizer C++ consumers and old-binary rejection.
 - Install the shared value header and C++ set/revert example. The exact SDK fingerprint changes; ABI1 and the native host table are unchanged.
 
 Local implementation and validation. Custom surface cooks remain Windows/D3D12;
 physical Windows testing, a new ZIP and performance acceptance are pending.
+
+## Animated per-object material values
+
+- Extend the existing Timeline and Transform Animator with stable material slot/key tracks, preserving scalar/vector/linear-color semantics and independent RGBA lanes. Typed fields, authored capture, ruler selection, held/linear/cubic keys, tangent graphs and presets use existing history and publication.
+- Add explicit source5/cooked5 and recipe7 with bounded dynamic storage, analytic curve bounds, atomic edits and opaque-extension protection. Existing selected cooks1–4 remain readable without rewriting assets.
+- Reuse shared CPU Resources and the current material projector for deduplicated target preparation, complete material/property/transform candidate admission, last-good values, copied preview/presentation, sequence timing and recovery. Material resources and render-pass choices remain shared.
+- Add original Gallery67 comparing linear/smooth/held appearance and an unchanged shared-material cube, including a Prefab instance. Export carries prepared content without authored clip/material sources.
+- Add an installed ordinary C++ control/observation example and matching relocated client checks. Public SDK headers and ABI1 tables remain unchanged; the exact implementation fingerprint changes and modules must rebuild.
+
+Local validation includes real Timeline input, sanitizers, compiled C++ recovery,
+source-offline export and native Vulkan readback. Windows delivery/physical
+acceptance of these material tracks remains a separate gate.
 
 ## Two-axis animation blend spaces
 

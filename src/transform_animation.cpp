@@ -1,11 +1,15 @@
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "material_parameter_values.hpp"
+#include "material_slot.hpp"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <forge/transform_animation.hpp>
+#include <limits>
 #include <set>
 #include <string_view>
+#include <tuple>
 namespace forge {
 using Json = nlohmann::json;
 namespace {
@@ -134,7 +138,7 @@ void promote_property_curves(Json& document) {
         for (const auto& key : document.at("keys"))
             require(!key.contains("curves") || !key.at("curves").contains("property_curves"),
                     "Legacy property_curves extension collides with version4; source unchanged");
-    document["version"] = 4;
+    document["version"] = std::max(4, document.at("version").get<int>());
 }
 TransformAnimationCurves curves(const Json& key, bool scalar_enabled) {
     if (!key.contains("curves"))
@@ -164,6 +168,125 @@ TransformAnimationCurves curves(const Json& key, bool scalar_enabled) {
             result.property_mask |= animation_property_bit(property);
             result.properties[unsigned(property)] = {interpolation == "cubic", slope("incoming"),
                                                      slope("outgoing")};
+        }
+    }
+    return result;
+}
+AnimationMaterialBinding material_binding(const Json& row) {
+    AnimationMaterialBinding result{row.at("slot").get<std::string>(),
+                                    row.at("key").get<std::string>()};
+    detail::validate_material_slot_key(result.slot);
+    detail::validate_material_key(result.key);
+    const auto& type = row.at("type");
+    require(type.is_number_integer() && type >= 0 &&
+                type <= unsigned(MaterialParameterType::LinearColor4),
+            "Invalid animated material parameter type");
+    result.type = MaterialParameterType(type.get<unsigned>());
+    return result;
+}
+Json material_numbers_json(const AnimationMaterialBinding& binding,
+                           const AnimationMaterialValues& values) {
+    const auto width = material_parameter_width(binding.type);
+    auto result = Json::array();
+    for (unsigned lane = 0; lane < 4; ++lane) {
+        require(std::isfinite(values[lane]) && std::abs(values[lane]) <= 1e9 &&
+                    (lane < width || values[lane] == 0),
+                "Invalid animated material value or unused lane");
+        if (lane < width)
+            result.push_back(values[lane]);
+    }
+    return result;
+}
+bool same_material_binding(const Json& row, std::string_view slot, std::string_view name) {
+    return row.at("slot").get_ref<const std::string&>() == slot &&
+           row.at("key").get_ref<const std::string&>() == name;
+}
+std::size_t material_binding_index(const TransformAnimationClip& clip, std::string_view slot,
+                                   std::string_view name) {
+    for (std::size_t index = 0; index < clip.material_bindings.size(); ++index)
+        if (clip.material_bindings[index].slot == slot && clip.material_bindings[index].key == name)
+            return index;
+    throw std::runtime_error("Animated material binding is not declared");
+}
+void promote_material_parameters(Json& document) {
+    if (document.at("version") < 5) {
+        require(!document.contains("material_bindings"),
+                "Legacy material_bindings extension collides with version5; source unchanged");
+        for (const auto& key : document.at("keys"))
+            require(!key.contains("material_values"),
+                    "Legacy material_values extension collides with version5; source unchanged");
+    }
+    // Promoting to5 also crosses the scalar-curve version boundary. Older
+    // property_curves extensions must not silently become active animation.
+    promote_property_curves(document);
+    document["version"] = 5;
+}
+void merge_material_values(Json& key, std::span<const AnimationMaterialBinding> bindings,
+                           std::span<const AnimationMaterialValues> values) {
+    require(bindings.size() == values.size(), "Animated material sample count differs");
+    auto& rows = key["material_values"];
+    if (rows.is_null())
+        rows = Json::array();
+    for (std::size_t i = 0; i < bindings.size(); ++i) {
+        const auto& binding = bindings[i];
+        const auto encoded = material_numbers_json(binding, values[i]);
+        auto found = std::find_if(rows.begin(), rows.end(), [&](const auto& row) {
+            return same_material_binding(row, binding.slot, binding.key);
+        });
+        if (found == rows.end())
+            rows.push_back({{"slot", binding.slot}, {"key", binding.key}, {"value", encoded}});
+        else
+            (*found)["value"] = encoded;
+    }
+}
+std::vector<AnimationMaterialKey>
+material_keys(const Json& key, std::span<const AnimationMaterialBinding> bindings) {
+    if (bindings.empty() && !key.contains("material_values"))
+        return {};
+    require(key.contains("material_values") && key.at("material_values").is_array() &&
+                key.at("material_values").size() == bindings.size(),
+            "Animated material key needs every declared binding exactly once");
+    std::vector<AnimationMaterialKey> result(bindings.size());
+    std::set<std::size_t> seen;
+    for (const auto& row : key.at("material_values")) {
+        const auto slot = row.at("slot").get<std::string>();
+        const auto name = row.at("key").get<std::string>();
+        const auto found = std::find_if(bindings.begin(), bindings.end(), [&](const auto& value) {
+            return value.slot == slot && value.key == name;
+        });
+        require(found != bindings.end(), "Animated material key has an undeclared binding");
+        const auto index = std::size_t(found - bindings.begin());
+        require(seen.insert(index).second, "Duplicate animated material key binding");
+        const auto width = material_parameter_width(found->type);
+        const auto& values = row.at("value");
+        require(values.is_array() && values.size() == width,
+                "Invalid animated material parameter width");
+        for (unsigned lane = 0; lane < width; ++lane) {
+            require(values[lane].is_number(), "Animated material value must be numeric");
+            const auto value = values[lane].get<double>();
+            require(std::isfinite(value) && std::abs(value) <= 1e9,
+                    "Animated material value exceeds source bounds");
+            result[index].values[lane] = value;
+        }
+        if (!row.contains("curves"))
+            continue;
+        const auto& curves = row.at("curves");
+        require(curves.is_array() && curves.size() == width,
+                "Invalid animated material curve width");
+        for (unsigned lane = 0; lane < width; ++lane) {
+            const auto& curve = curves[lane];
+            const auto& mode = curve.at("interpolation");
+            require(mode == "linear" || mode == "cubic",
+                    "Invalid animated material curve interpolation");
+            auto slope = [&](const char* field) {
+                const auto& raw = curve.at(field);
+                require(raw.is_number(), "Animated material slope must be numeric");
+                const auto value = raw.get<double>();
+                require(std::isfinite(value) && std::abs(value) <= 1e9,
+                        "Animated material slope exceeds source bounds");
+                return value;
+            };
+            result[index].curves[lane] = {mode == "cubic", slope("incoming"), slope("outgoing")};
         }
     }
     return result;
@@ -213,6 +336,20 @@ void validate_curve_segments(const TransformAnimationClip& clip) {
             validate_animation_property(property, range[0]);
             validate_animation_property(property, range[1]);
         }
+        for (std::size_t binding = 0; binding < clip.material_bindings.size(); ++binding) {
+            const auto width = material_parameter_width(clip.material_bindings[binding].type);
+            const auto& a = left.materials[binding];
+            const auto& b = right.materials[binding];
+            for (unsigned lane = 0; lane < width; ++lane) {
+                if (!a.curves[lane].cubic)
+                    continue;
+                const auto range = segment(a.values[lane], b.values[lane], a.curves[lane].outgoing,
+                                           b.curves[lane].incoming, seconds)
+                                       .bounds();
+                require(range[0] >= -1e9 && range[1] <= 1e9,
+                        "Material curve overshoots source bounds");
+            }
+        }
     }
 }
 LocalRotation slerp(LocalRotation a, LocalRotation b, double t) {
@@ -246,7 +383,81 @@ LocalTransform animation_pose(const nlohmann::json& value) {
             checked_local_scale(numbers<3>(value.at("scale")))};
 }
 std::size_t TransformAnimationClip::resident_bytes() const {
-    return sizeof(*this) + keys.capacity() * sizeof(TransformAnimationKey);
+    std::size_t bytes = sizeof(*this) + keys.capacity() * sizeof(TransformAnimationKey) +
+                        material_bindings.capacity() * sizeof(AnimationMaterialBinding);
+    for (const auto& binding : material_bindings)
+        bytes += binding.slot.capacity() + binding.key.capacity() + 2;
+    for (const auto& key : keys)
+        bytes += key.materials.capacity() * sizeof(AnimationMaterialKey);
+    return bytes;
+}
+void TransformAnimationClip::sample_materials(double time,
+                                              std::span<AnimationMaterialValues> output) const {
+    require(std::isfinite(time) && !keys.empty(), "Invalid material animation sample time/keys");
+    require(output.size() == material_bindings.size(), "Invalid material animation sample buffer");
+    if (output.empty())
+        return;
+    const auto right =
+        std::upper_bound(keys.begin(), keys.end(), time,
+                         [](double value, const auto& key) { return value < key.time; });
+    const auto& left = right == keys.begin() ? *right : *(right - 1);
+    require(left.materials.size() == output.size() &&
+                (right == keys.end() || right->materials.size() == output.size()),
+            "Material animation sample bindings differ from keys");
+    const bool endpoint = right == keys.begin() || right == keys.end() || left.held;
+    const double t =
+        endpoint ? 0 : std::clamp((time - left.time) / double(right->time - left.time), 0., 1.);
+    for (std::size_t binding = 0; binding < output.size(); ++binding) {
+        output[binding] = {};
+        const auto width = material_parameter_width(material_bindings[binding].type);
+        const auto& a = left.materials[binding];
+        for (unsigned lane = 0; lane < width; ++lane) {
+            double value = a.values[lane];
+            if (!endpoint) {
+                const auto& b = right->materials[binding];
+                if (a.curves[lane].cubic) {
+                    const double seconds = double(right->time - left.time) / animation_timebase;
+                    value = t <= .5
+                                ? segment(a.values[lane], b.values[lane], a.curves[lane].outgoing,
+                                          b.curves[lane].incoming, seconds)
+                                      .at(t)
+                                : segment(b.values[lane], a.values[lane], -b.curves[lane].incoming,
+                                          -a.curves[lane].outgoing, seconds)
+                                      .at(1 - t);
+                } else
+                    value = std::lerp(a.values[lane], b.values[lane], t);
+            }
+            require(std::isfinite(value) &&
+                        std::abs(value) <= 1e9 * (1 + 64 * std::numeric_limits<double>::epsilon()),
+                    "Animated material sample exceeds source bounds");
+            output[binding][lane] = std::clamp(value, -1e9, 1e9);
+        }
+    }
+}
+std::array<double, 2> TransformAnimationClip::material_range(std::size_t binding,
+                                                             unsigned lane) const {
+    require(!keys.empty() && binding < material_bindings.size(),
+            "Invalid material animation range binding/keys");
+    require(lane < material_parameter_width(material_bindings[binding].type),
+            "Invalid material animation range lane");
+    const auto first = keys.front().materials.at(binding).values[lane];
+    std::array<double, 2> range{first, first};
+    for (std::size_t i = 1; i < keys.size(); ++i) {
+        const auto& left = keys[i - 1];
+        const auto& right = keys[i];
+        const auto& a = left.materials.at(binding);
+        const auto& b = right.materials.at(binding);
+        auto interval = std::array<double, 2>{std::min(a.values[lane], b.values[lane]),
+                                              std::max(a.values[lane], b.values[lane])};
+        if (!left.held && a.curves[lane].cubic)
+            interval = segment(a.values[lane], b.values[lane], a.curves[lane].outgoing,
+                               b.curves[lane].incoming,
+                               double(right.time - left.time) / animation_timebase)
+                           .bounds();
+        range[0] = std::min(range[0], interval[0]);
+        range[1] = std::max(range[1], interval[1]);
+    }
+    return range;
 }
 AnimationPropertyValues TransformAnimationClip::sample_properties(double time) const {
     require(std::isfinite(time) && !keys.empty(), "Invalid property animation sample time/keys");
@@ -361,7 +572,8 @@ TransformAnimationClip TransformAnimationSource::clip() const {
     require(document.at("format") == "forge.transform-animation" &&
                 document.at("version").is_number_integer() &&
                 (document.at("version") == 1 || document.at("version") == 2 ||
-                 document.at("version") == 3 || document.at("version") == 4) &&
+                 document.at("version") == 3 || document.at("version") == 4 ||
+                 document.at("version") == 5) &&
                 document.at("timebase") == animation_timebase,
             "Unsupported transform animation schema/timebase");
     TransformAnimationClip result;
@@ -394,7 +606,19 @@ TransformAnimationClip TransformAnimationSource::clip() const {
             result.properties |= bit;
         }
     }
-    require(result.channels || result.properties,
+    if (document.at("version") == 5 && document.contains("material_bindings")) {
+        const auto& bindings = document.at("material_bindings");
+        require(bindings.is_array() && bindings.size() <= 64,
+                "Animated material binding count exceeds64");
+        std::set<std::pair<std::string, std::string>> identities;
+        for (const auto& row : bindings) {
+            auto binding = material_binding(row);
+            require(identities.emplace(binding.slot, binding.key).second,
+                    "Duplicate animated material slot/parameter binding");
+            result.material_bindings.push_back(std::move(binding));
+        }
+    }
+    require(result.channels || result.properties || !result.material_bindings.empty(),
             "Animation needs a transform channel or property");
     const auto& keys = document.at("keys");
     require(keys.is_array() && !keys.empty() && keys.size() <= 4096,
@@ -433,7 +657,10 @@ TransformAnimationClip TransformAnimationSource::clip() const {
         const auto settings = curves(key, document.at("version") >= 4);
         require(!(settings.property_mask & ~result.properties),
                 "Property curve binds an undeclared property");
-        result.keys.push_back({id, time, pose, mode == "held", settings, values});
+        auto materials = document.at("version") == 5 ? material_keys(key, result.material_bindings)
+                                                     : std::vector<AnimationMaterialKey>{};
+        result.keys.push_back(
+            {id, time, pose, mode == "held", settings, values, std::move(materials)});
         previous = time;
     }
     validate_curve_segments(result);
@@ -448,14 +675,16 @@ std::vector<std::byte> TransformAnimationSource::cook() const {
     validate();
     const auto source = document.dump();
     (void)parse(std::as_bytes(std::span(source)));
-    const Json compiled{{"format", "forge.transform-clip"}, {"version", 4}, {"document", document}};
+    const Json compiled{{"format", "forge.transform-clip"}, {"version", 5}, {"document", document}};
     const auto text = compiled.dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
 }
-AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransform& pose, bool held,
-                                          AssetId id, std::optional<TransformAnimationCurves> curve,
-                                          std::optional<AnimationPropertyValues> property_values) {
+AssetId TransformAnimationSource::set_key(
+    std::int64_t time, const LocalTransform& pose, bool held, AssetId id,
+    std::optional<TransformAnimationCurves> curve,
+    std::optional<AnimationPropertyValues> property_values,
+    std::optional<std::span<const AnimationMaterialValues>> material_values) {
     const auto admitted = clip();
     auto candidate = *this;
     auto& keys = candidate.document.at("keys");
@@ -481,6 +710,18 @@ AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransfor
             if (admitted.properties & animation_property_bit(binding.property))
                 fields[binding.name] = values[unsigned(binding.property)];
     }
+    if (!admitted.material_bindings.empty() &&
+        (material_values || !key.contains("material_values"))) {
+        std::vector<AnimationMaterialValues> sampled;
+        if (!material_values) {
+            sampled.resize(admitted.material_bindings.size());
+            admitted.sample_materials(double(time), sampled);
+            material_values = std::span<const AnimationMaterialValues>(sampled);
+        }
+        merge_material_values(key, admitted.material_bindings, *material_values);
+    } else
+        require(!material_values || material_values->empty(),
+                "Material values require declared bindings");
     if (curve) {
         if (curve->property_mask)
             promote_property_curves(candidate.document);
@@ -499,6 +740,75 @@ AssetId TransformAnimationSource::set_key(std::int64_t time, const LocalTransfor
     candidate.validate();
     document.swap(candidate.document);
     return id;
+}
+void TransformAnimationSource::add_material_parameter(const AnimationMaterialBinding& binding,
+                                                      const AnimationMaterialValues& initial) {
+    const auto admitted = clip();
+    const Json descriptor{
+        {"slot", binding.slot}, {"key", binding.key}, {"type", unsigned(binding.type)}};
+    (void)material_binding(descriptor);
+    const auto encoded = material_numbers_json(binding, initial);
+    for (const auto& prior : admitted.material_bindings)
+        if (prior.slot == binding.slot && prior.key == binding.key) {
+            require(prior.type == binding.type,
+                    "Animated material binding cannot change type implicitly");
+            return;
+        }
+    auto candidate = *this;
+    promote_material_parameters(candidate.document);
+    auto& bindings = candidate.document["material_bindings"];
+    if (bindings.is_null())
+        bindings = Json::array();
+    bindings.push_back(descriptor);
+    for (auto& key : candidate.document.at("keys")) {
+        auto& rows = key["material_values"];
+        if (rows.is_null())
+            rows = Json::array();
+        rows.push_back({{"slot", binding.slot}, {"key", binding.key}, {"value", encoded}});
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::erase_material_parameter(std::string_view slot,
+                                                        std::string_view parameter) {
+    const auto admitted = clip();
+    const auto found = std::find_if(
+        admitted.material_bindings.begin(), admitted.material_bindings.end(),
+        [&](const auto& binding) { return binding.slot == slot && binding.key == parameter; });
+    if (found == admitted.material_bindings.end())
+        return;
+    auto candidate = *this;
+    std::erase_if(candidate.document.at("material_bindings").get_ref<Json::array_t&>(),
+                  [&](const auto& row) { return same_material_binding(row, slot, parameter); });
+    for (auto& key : candidate.document.at("keys"))
+        std::erase_if(key.at("material_values").get_ref<Json::array_t&>(),
+                      [&](const auto& row) { return same_material_binding(row, slot, parameter); });
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::set_material_value(AssetId id, std::string_view slot,
+                                                  std::string_view parameter,
+                                                  const AnimationMaterialValues& values) {
+    const auto admitted = clip();
+    const auto index = material_binding_index(admitted, slot, parameter);
+    const auto encoded = material_numbers_json(admitted.material_bindings[index], values);
+    auto candidate = *this;
+    bool changed = false;
+    for (auto& key : candidate.document.at("keys"))
+        if (key.at("id") == Json(id))
+            for (auto& row : key.at("material_values"))
+                if (same_material_binding(row, slot, parameter)) {
+                    row["value"] = encoded;
+                    changed = true;
+                }
+    require(changed, "Animated material key no longer exists");
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::set_material_curve(AssetId id, std::string_view slot,
+                                                  std::string_view parameter, unsigned lane,
+                                                  const AnimationPropertyCurve& value) {
+    set_material_curves(std::array{id}, slot, parameter, lane, value);
 }
 void TransformAnimationSource::add_property(AnimationProperty property, double initial_value) {
     const auto admitted = clip();
@@ -596,7 +906,102 @@ void sort_animation_keys(Json& keys) {
         return left.at("time_us") < right.at("time_us");
     });
 }
+void merge_material_curve(Json& key, std::string_view slot, std::string_view parameter,
+                          unsigned lane, unsigned width, const AnimationPropertyCurve& value) {
+    for (auto& row : key.at("material_values"))
+        if (same_material_binding(row, slot, parameter)) {
+            auto& curves = row["curves"];
+            if (curves.is_null()) {
+                curves = Json::array();
+                for (unsigned i = 0; i < width; ++i)
+                    curves.push_back(
+                        {{"interpolation", "linear"}, {"incoming", 0}, {"outgoing", 0}});
+            }
+            auto& fields = curves[lane];
+            fields["interpolation"] = value.cubic ? "cubic" : "linear";
+            fields["incoming"] = value.incoming;
+            fields["outgoing"] = value.outgoing;
+            return;
+        }
+    throw std::runtime_error("Animated material binding no longer exists");
+}
 } // namespace
+void TransformAnimationSource::set_material_curves(std::span<const AssetId> keys,
+                                                   std::string_view slot,
+                                                   std::string_view parameter, unsigned lane,
+                                                   const AnimationPropertyCurve& value) {
+    const auto admitted = clip();
+    const auto index = material_binding_index(admitted, slot, parameter);
+    const auto width = material_parameter_width(admitted.material_bindings[index].type);
+    require(lane < width, "Animated material curve lane exceeds parameter width");
+    const auto selected = selected_animation_keys(*this, keys);
+    auto candidate = *this;
+    for (auto& key : candidate.document.at("keys"))
+        if (selected.contains(key.at("id").get<AssetId>()))
+            merge_material_curve(key, slot, parameter, lane, width, value);
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::set_material_tangent_preset(std::span<const AssetId> keys,
+                                                           std::string_view slot,
+                                                           std::string_view parameter,
+                                                           unsigned lane,
+                                                           TransformAnimationTangentPreset preset) {
+    require(preset == TransformAnimationTangentPreset::Flat ||
+                preset == TransformAnimationTangentPreset::Linear ||
+                preset == TransformAnimationTangentPreset::Smooth,
+            "Unknown material tangent preset");
+    const auto admitted = clip();
+    const auto index = material_binding_index(admitted, slot, parameter);
+    const auto width = material_parameter_width(admitted.material_bindings[index].type);
+    require(lane < width, "Animated material curve lane exceeds parameter width");
+    const auto selected = selected_animation_keys(*this, keys);
+    auto candidate = *this;
+    for (std::size_t i = 0; i < admitted.keys.size(); ++i) {
+        const auto& key = admitted.keys[i];
+        if (!selected.contains(key.id))
+            continue;
+        const double before =
+            i ? double(key.time - admitted.keys[i - 1].time) / animation_timebase : 0;
+        const double after = i + 1 < admitted.keys.size()
+                                 ? double(admitted.keys[i + 1].time - key.time) / animation_timebase
+                                 : 0;
+        const auto value = key.materials[index].values[lane];
+        const auto slopes = tangent_slopes(
+            before ? (value - admitted.keys[i - 1].materials[index].values[lane]) / before : 0,
+            after ? (admitted.keys[i + 1].materials[index].values[lane] - value) / after : 0,
+            before, after, preset);
+        merge_material_curve(candidate.document["keys"][i], slot, parameter, lane, width,
+                             {true, slopes.first, slopes.second});
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::set_material_curves(
+    AssetId id, std::span<const AnimationMaterialCurveEdit> values) {
+    const auto admitted = clip();
+    require(!values.empty() && values.size() <= 256,
+            "Material curve edit set is empty or too large");
+    const auto key = std::find_if(admitted.keys.begin(), admitted.keys.end(),
+                                  [&](const auto& value) { return value.id == id; });
+    require(key != admitted.keys.end(), "Animated material key no longer exists");
+    std::set<std::tuple<std::string, std::string, unsigned>> changed;
+    auto candidate = *this;
+    auto& row = candidate.document.at("keys")[std::size_t(key - admitted.keys.begin())];
+    for (const auto& value : values) {
+        const auto& binding = value.binding;
+        const auto index = material_binding_index(admitted, binding.slot, binding.key);
+        require(admitted.material_bindings[index].type == binding.type,
+                "Animated material curve semantic type changed");
+        const auto width = material_parameter_width(binding.type);
+        require(value.lane < width, "Animated material curve lane exceeds parameter width");
+        require(changed.emplace(binding.slot, binding.key, value.lane).second,
+                "Duplicate material curve edit");
+        merge_material_curve(row, binding.slot, binding.key, value.lane, width, value.value);
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
 void TransformAnimationSource::move_keys(std::span<const AssetId> keys, std::int64_t offset) {
     const auto selected = selected_animation_keys(*this, keys);
     if (offset == 0)
@@ -675,6 +1080,12 @@ void TransformAnimationSource::retime_duration(std::int64_t new_duration) {
                     for (const auto* side : {"incoming", "outgoing"})
                         settings[side] = settings[side].get<double>() * slope_scale;
         }
+        if (candidate.document.at("version") == 5 && key.contains("material_values"))
+            for (auto& row : key.at("material_values"))
+                if (row.contains("curves"))
+                    for (auto& curve : row.at("curves"))
+                        for (const auto* side : {"incoming", "outgoing"})
+                            curve[side] = curve.at(side).get<double>() * slope_scale;
     }
     candidate.validate();
     document.swap(candidate.document);
@@ -812,9 +1223,11 @@ TransformAnimationClip decode_transform_animation(std::span<const std::byte> byt
         asset_detail::parse_bounded_json(bytes, transform_animation_cooked_byte_limit, 500016, 13);
     require(doc.at("format") == "forge.transform-clip", "Invalid cooked transform clip format");
     require(doc.at("version").is_number_integer(), "Cooked transform clip version must be integer");
-    if (doc.at("version") == 4)
+    if (doc.at("version") == 4 || doc.at("version") == 5) {
+        require(doc.at("version") == 5 || doc.at("document").at("version") <= 4,
+                "Material animation source requires cooked version5");
         doc = doc.at("document").get<Json>();
-    else {
+    } else {
         require(doc.at("version") == 1 || doc.at("version") == 2 || doc.at("version") == 3,
                 "Unsupported cooked transform clip version");
         doc["format"] = "forge.transform-animation";

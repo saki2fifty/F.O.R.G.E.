@@ -69,7 +69,7 @@ the selected properties. Hold, key selection, timing, Save & Publish and Undo wo
 as they do for transforms.
 
 You can turn off Position, Rotation and Scale for a clip that changes only camera
-or light properties. Keep at least one property or transform channel. The target
+or light properties. Keep at least one property, material track or transform channel. The target
 must already have the needed component. Play locks authored Timeline controls.
 
 Scene preview leaves saved values unchanged. For Light preview, uncheck Scene's
@@ -81,6 +81,45 @@ Try **FeatureGallery / Scenes / 49-animated-camera-and-light.scene.json**. In Pl
 the camera alternates between 40 and 80 degrees while sunlight changes brightness
 and shifts between cool and warm colors. Its sources are in
 **Assets / AnimatedProperties**. They are included as compiled clips when exporting.
+
+## Animate an object's material values
+
+Choose an object with a **Mesh Renderer** as the **Preview object**, then expand
+**Animated material values**. Wait for its material fields to load, choose its
+**Material slot**, and check **Base Color Factor**, **Roughness Factor** or another
+available numeric value. Adding a track starts every existing key with that
+object's authored value, or the shared material's default when it has no override.
+
+Set **Key time (seconds)** and press Enter. Change the track's fields and choose
+**Add / Update key at playhead**. Color fields use linear RGB/RGBA values. You can
+turn off Position, Rotation and Scale for a material-only clip. **Hold until next
+key** switches immediately at the next key; ordinary keys interpolate. The ruler
+shows a row for each selected material track.
+
+In **Animation curves**, choose the slot/value in **Curve value**, then its
+**Axis** (R/G/B/A for colors). Use Linear or Cubic interpolation, incoming/outgoing
+slopes, Flat/Linear/Smooth tangents, or drag a gold handle. **Fit curve and handles**
+brings tangent handles into view. Apply uses one Timeline Undo step; Escape cancels
+a drag. **Capture authored pose** also copies selected material values into the
+key fields. **Remove track** removes that track and its keys' values together.
+
+Preview changes only the temporary Scene view. A missing slot, incompatible type,
+or curve outside the selected material's allowed values reports an error and
+keeps the authored view. Material tracks change this object's numeric appearance;
+other objects using the same shared material keep their own values. Textures,
+shader features and material variations remain their existing separate controls.
+
+Choose **Save & Publish**, attach the clip, then use **Play → Game**. Stop Play
+before editing the authored keys. During Play the clip replaces an animated value
+at its next update, including an Inspector live change to that value. Save the
+Scene before export; the exported game includes prepared clips/materials and needs
+no C++ compiler for this animation.
+
+Try **FeatureGallery / Scenes / 67-animated-material-values.scene.json**. The gray
+cube stays unchanged. The other cubes compare linear, smooth and held red/blue
+color and polished/matte roughness, using one shared material. The smooth cube is
+a Prefab instance. Sources are under **Assets / ObjectValues**; the ordinary C++
+example is **CodeExamples / MaterialAnimation.hpp**.
 
 ## Animate particle size and color
 

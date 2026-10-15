@@ -1,0 +1,230 @@
+{
+  "format": "forge.transform-animation",
+  "version": 5,
+  "asset_id": "68ffd005-cb5b-4238-840d-1e8bd07a2778",
+  "timebase": 1000000,
+  "duration_us": 4000000,
+  "channels": [],
+  "properties": [],
+  "material_bindings": [
+    {
+      "slot": "surface",
+      "key": "baseColorFactor",
+      "type": 5
+    },
+    {
+      "slot": "surface",
+      "key": "roughnessFactor",
+      "type": 0
+    }
+  ],
+  "keys": [
+    {
+      "id": "fa70edb1-62c6-4b92-a011-366c8fb8755f",
+      "time_us": 0,
+      "interpolation": "linear",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "material_values": [
+        {
+          "slot": "surface",
+          "key": "baseColorFactor",
+          "value": [
+            0.9,
+            0.04,
+            0.02,
+            1
+          ],
+          "curves": [
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            }
+          ]
+        },
+        {
+          "slot": "surface",
+          "key": "roughnessFactor",
+          "value": [
+            0.15
+          ],
+          "curves": [
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ca46b57a-f623-4516-9c3e-b99bb175c06c",
+      "time_us": 2000000,
+      "interpolation": "linear",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "material_values": [
+        {
+          "slot": "surface",
+          "key": "baseColorFactor",
+          "value": [
+            0.02,
+            0.14,
+            0.9,
+            1
+          ],
+          "curves": [
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            }
+          ]
+        },
+        {
+          "slot": "surface",
+          "key": "roughnessFactor",
+          "value": [
+            0.85
+          ],
+          "curves": [
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "e123297d-8c89-4a82-8eb2-77ebc2f69636",
+      "time_us": 4000000,
+      "interpolation": "linear",
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "material_values": [
+        {
+          "slot": "surface",
+          "key": "baseColorFactor",
+          "value": [
+            0.9,
+            0.04,
+            0.02,
+            1
+          ],
+          "curves": [
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            },
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            }
+          ]
+        },
+        {
+          "slot": "surface",
+          "key": "roughnessFactor",
+          "value": [
+            0.15
+          ],
+          "curves": [
+            {
+              "interpolation": "linear",
+              "incoming": 0,
+              "outgoing": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

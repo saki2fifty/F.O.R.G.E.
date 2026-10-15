@@ -127,6 +127,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
         mouse(p, false);
         mouse(p, true);
         mouse(p, false);
+        check(ImGui::GetActiveID() == test::ui_targets.at(id).id,
+              "Sequence typing did not focus its numeric field: " + id);
         io.AddKeyEvent(ImGuiMod_Ctrl, true);
         io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
         io.AddKeyEvent(ImGuiKey_A, true);
@@ -264,6 +266,16 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     click("button:Discard");
     frame();
     check(editor.sequence_mode() && !editor.document(), "Discard did not complete mode switch");
+    // Opening the sequence starts real asynchronous clip preparation. Wait for
+    // its readiness indicator before locating the fields below that status.
+    const auto reopen_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (!test::ui_targets.at("sequence:preview").enabled) {
+        frame();
+        check(std::chrono::steady_clock::now() < reopen_deadline,
+              "Reopened sequence preview did not become ready");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    frame();
     click("sequence:track:" + actor);
     type("sequence:start", "2");
     editor.open(project, "Assets/EasedPlatform.animation.json");
@@ -275,6 +287,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     editor.undo();
     frame();
     type("sequence:start", "2");
+    check(!test::ui_targets.at("sequence:add").enabled,
+          "Retyped sequence field was not retained as pending after Undo");
     scene.delete_subtree(controller);
     frame();
     editor.request_close();

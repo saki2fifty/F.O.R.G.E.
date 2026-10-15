@@ -37,6 +37,8 @@ bool RuntimeWorld::prepare_scene_resources() {
     // GPU/UI surfaces. Physics collision assets are prepared by GameSession
     // before this helper is invoked; it does not tick, run control callbacks,
     // publish worlds, or touch GPU.
+    if (engine.services().available(Capability::Resources))
+        engine.services().resources()->synchronize();
     if (!animation_runtime(engine.world())->prepare_initial_pose())
         return false;
     if (!particle_runtime(engine.world())->prepare())

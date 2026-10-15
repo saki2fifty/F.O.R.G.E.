@@ -1,4 +1,5 @@
 #pragma once
+#include "../animation_material_preview.hpp"
 #include "../texture_authoring.hpp"
 #include "../transform_animation_authoring.hpp"
 #include "../transform_animation_preview.hpp"
@@ -6,6 +7,7 @@
 #include "animation_timeline_view.hpp"
 #include "document.hpp"
 #include "editor_state.hpp"
+#include "mesh_material_inspector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>
@@ -40,6 +42,13 @@ class AnimationTimelineEditor {
     const TransformAnimationDocument* document() const { return document_.get(); }
     const std::set<AssetId>& selected_keys() const { return selected_keys_; }
     std::shared_ptr<const AssetCatalog> take_catalog() { return std::exchange(published_, {}); }
+    void asset_catalog_changed(std::shared_ptr<const AssetCatalog> catalog) {
+        if (!catalog || catalog == material_catalog_)
+            return;
+        material_catalog_ = std::move(catalog);
+        if (material_state_)
+            material_state_->preview.refresh();
+    }
     void request_save() {
         if (sequence_mode()) {
             sequence_.request_save();
@@ -107,11 +116,15 @@ class AnimationTimelineEditor {
         if (sequence_mode())
             return sequence_.preview(std::move(source));
         try {
-            if (preview_active() &&
-                !apply_transform_animation_preview(source, target_, *clip_, time_)) {
+            if (preview_active() && !clip_->material_bindings.empty() && !material_error_.empty())
+                throw std::runtime_error(material_error_);
+            if (preview_active() && !apply_material_animation_preview(source, target_, *clip_,
+                                                                      time_, material_ready())) {
                 stop_preview();
                 error_ = "Preview target is no longer in this scene. Choose an object again.";
             }
+        } catch (const AnimationMaterialPending& e) {
+            material_status_ = e.what();
         } catch (const std::exception& e) {
             stop_preview();
             report("preview", e.what());
@@ -245,6 +258,7 @@ class AnimationTimelineEditor {
             target_ = {};
             stop_preview();
         }
+        prepare_materials(project, scene);
         if (preview_ && playing_ && clip_) {
             time_ += std::clamp(seconds, 0., .25) * animation_timebase * preview_speed_;
             if (preview_loop_)
@@ -297,6 +311,8 @@ class AnimationTimelineEditor {
             (locked || pending() || ImGui::GetIO().AppFocusLost || !document_ ||
              curve_drag_revision_ != document_->revision() || curve_drag_key_ != key_ ||
              curve_drag_axis_ != curve_axis_ || curve_drag_channel_ != curve_channel_ ||
+             curve_drag_material_slot_ != curve_material_slot_ ||
+             curve_drag_material_key_ != curve_material_key_ ||
              !ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) ||
              ImGui::IsKeyPressed(ImGuiKey_Escape)))
             cancel_curve_drag();
@@ -343,6 +359,7 @@ class AnimationTimelineEditor {
             ImGui::EndDisabled();
             channels_controls();
             property_controls(scene);
+            material_controls(scene);
             double seconds = time_ / animation_timebase;
             if (ImGui::SliderScalar("Playhead (seconds)", ImGuiDataType_Double, &seconds, &zero_,
                                     &duration, "%.3f")) {
@@ -451,7 +468,7 @@ class AnimationTimelineEditor {
         const auto before = target_;
         target_ = {scene.asset_id(), EntityId::parse(id)};
         try {
-            capture(scene);
+            capture(scene, false);
         } catch (...) {
             target_ = before;
             throw;
@@ -488,6 +505,20 @@ class AnimationTimelineEditor {
     std::shared_ptr<const AssetCatalog> published_;
     std::optional<std::filesystem::path> next_source_;
     EntityRef target_{};
+    // Resource pools keep stable addresses when this view is moved/reset.
+    // Construct their private editing scope only when material controls need it.
+    struct MaterialState {
+        MeshMaterialInspector inspector;
+        AnimationMaterialPreview preview;
+    };
+    std::unique_ptr<MaterialState> material_state_;
+    std::shared_ptr<const AssetCatalog> material_catalog_;
+    std::string material_slot_, material_status_, material_error_;
+    bool material_open_ = false;
+    std::vector<AnimationMaterialValues> material_fields_;
+    std::vector<AnimationMaterialKey> material_curves_, curve_drag_materials_before_;
+    std::string curve_material_slot_, curve_material_key_;
+    std::string curve_drag_material_slot_, curve_drag_material_key_;
     AssetId key_{}, drag_key_{};
     std::set<AssetId> selected_keys_;
     std::vector<AssetId> drag_keys_;
@@ -551,6 +582,17 @@ class AnimationTimelineEditor {
         curve_drag_ = false;
         curve_fit_handles_ = false;
         stop_preview();
+        material_state_.reset();
+        material_catalog_.reset();
+        material_fields_.clear();
+        material_curves_.clear();
+        curve_drag_materials_before_.clear();
+        curve_material_slot_.clear();
+        curve_material_key_.clear();
+        material_slot_.clear();
+        material_status_.clear();
+        material_error_.clear();
+        material_open_ = false;
         document_.reset();
         clip_.reset();
         service_.reset();
@@ -581,6 +623,7 @@ class AnimationTimelineEditor {
         finish_close();
         document_ = std::move(next);
         service_ = std::move(service);
+        material_catalog_ = std::make_shared<const AssetCatalog>(catalog);
         needs_publish_ = needs;
         changed();
         needs_publish_ = needs;
@@ -596,6 +639,8 @@ class AnimationTimelineEditor {
         view_.reconcile(double(clip_->duration));
         needs_publish_ = true;
         time_ = std::min(time_, double(clip_->duration));
+        material_fields_.resize(clip_->material_bindings.size());
+        clip_->sample_materials(time_, material_fields_);
         if (key_) {
             const auto at = std::find_if(clip_->keys.begin(), clip_->keys.end(),
                                          [&](const auto& k) { return k.id == key_; });
@@ -606,6 +651,7 @@ class AnimationTimelineEditor {
                 curves_ = at->curves;
                 curve_dirty_ = false;
                 fields(at->pose, at->properties);
+                fields_materials(at->materials);
             }
         }
         std::set<AssetId> surviving;
@@ -625,7 +671,7 @@ class AnimationTimelineEditor {
                 if (include_pending && curve_dirty_ && key_)
                     for (const auto& key : source.clip().keys)
                         if (key.id == key_) {
-                            source.set_key(key.time, key.pose, key.held, key.id, curves_);
+                            write_curve_fields(source, key);
                             break;
                         }
                 edit(source);
@@ -653,6 +699,12 @@ class AnimationTimelineEditor {
         scale_[0] = pose.scale.x;
         scale_[1] = pose.scale.y;
         scale_[2] = pose.scale.z;
+    }
+    void fields_materials(std::span<const AnimationMaterialKey> materials) {
+        material_curves_.assign(materials.begin(), materials.end());
+        material_fields_.clear();
+        for (const auto& value : materials)
+            material_fields_.push_back(value.values);
     }
     void select_key(AssetId id) {
         cancel_curve_drag();
@@ -688,17 +740,43 @@ class AnimationTimelineEditor {
         drag_offset_ = 0;
         drag_revision_ = 0;
     }
-    bool scalar_curve() const { return curve_channel_ >= 2; }
+    static constexpr int material_curve_channel = int(animation_property_count) + 2;
+    bool scalar_curve() const {
+        return curve_channel_ >= 2 && curve_channel_ < material_curve_channel;
+    }
+    bool material_curve() const { return curve_channel_ == material_curve_channel; }
+    bool vector_curve() const { return curve_channel_ < 2; }
+    std::size_t material_curve_index() const {
+        const auto at = std::find_if(clip_->material_bindings.begin(),
+                                     clip_->material_bindings.end(), [&](const auto& value) {
+                                         return value.slot == curve_material_slot_ &&
+                                                value.key == curve_material_key_;
+                                     });
+        if (at == clip_->material_bindings.end())
+            throw std::runtime_error("Material curve binding is unavailable");
+        return std::size_t(at - clip_->material_bindings.begin());
+    }
     AnimationProperty curve_property() const { return AnimationProperty(curve_channel_ - 2); }
     double curve_display_multiplier() const {
         return scalar_curve() ? animation_property_binding(curve_property()).display_multiplier : 1;
     }
     bool curve_cubic(const TransformAnimationCurves& value) const {
+        if (material_curve())
+            return material_curves_.at(material_curve_index()).curves.at(curve_axis_).cubic;
         return scalar_curve() ? (value.property_mask & animation_property_bit(curve_property())) &&
                                     value.properties[unsigned(curve_property())].cubic
                               : value.cubic;
     }
+    bool curve_cubic(const TransformAnimationKey& value) const {
+        return material_curve()
+                   ? value.materials.at(material_curve_index()).curves.at(curve_axis_).cubic
+                   : curve_cubic(value.curves);
+    }
     double& curve_slope(bool incoming) {
+        if (material_curve()) {
+            auto& value = material_curves_.at(material_curve_index()).curves.at(curve_axis_);
+            return incoming ? value.incoming : value.outgoing;
+        }
         if (scalar_curve()) {
             auto& value = curves_.properties[unsigned(curve_property())];
             return incoming ? value.incoming : value.outgoing;
@@ -709,14 +787,17 @@ class AnimationTimelineEditor {
     void restore_curve_fields() {
         if (clip_)
             for (const auto& key : clip_->keys)
-                if (key.id == key_)
+                if (key.id == key_) {
                     curves_ = key.curves;
+                    material_curves_ = key.materials;
+                }
         curve_dirty_ = false;
     }
     void cancel_curve_drag() {
         if (!curve_drag_)
             return;
         curves_ = curve_drag_before_;
+        material_curves_ = curve_drag_materials_before_;
         curve_dirty_ = curve_drag_prior_dirty_;
         curve_drag_ = false;
     }
@@ -731,14 +812,47 @@ class AnimationTimelineEditor {
             return false;
         const auto key = *found;
         if (!mutate(
-                "Set animation curves",
-                [&](auto& source) {
-                    source.set_key(key.time, key.pose, key.held, key.id, curves_);
-                },
+                "Set animation curves", [&](auto& source) { write_curve_fields(source, key); },
                 false))
             return false;
         curve_dirty_ = false;
         return true;
+    }
+    static bool same_curve(const AnimationPropertyCurve& a, const AnimationPropertyCurve& b) {
+        return a.cubic == b.cubic && a.incoming == b.incoming && a.outgoing == b.outgoing;
+    }
+    static bool same_curves(const TransformAnimationCurves& a, const TransformAnimationCurves& b) {
+        if (a.cubic != b.cubic || a.property_mask != b.property_mask ||
+            a.incoming.translation != b.incoming.translation ||
+            a.incoming.scale != b.incoming.scale ||
+            a.outgoing.translation != b.outgoing.translation ||
+            a.outgoing.scale != b.outgoing.scale)
+            return false;
+        for (unsigned i = 0; i < animation_property_count; ++i)
+            if (!same_curve(a.properties[i], b.properties[i]))
+                return false;
+        return true;
+    }
+    std::vector<AnimationMaterialCurveEdit>
+    material_curve_edits(const TransformAnimationKey& key) const {
+        std::vector<AnimationMaterialCurveEdit> edits;
+        if (material_curves_.size() != clip_->material_bindings.size())
+            throw std::runtime_error("Pending material curve definitions changed");
+        for (std::size_t i = 0; i < material_curves_.size(); ++i)
+            for (unsigned lane = 0;
+                 lane < material_parameter_width(clip_->material_bindings[i].type); ++lane)
+                if (!same_curve(key.materials.at(i).curves[lane], material_curves_[i].curves[lane]))
+                    edits.push_back(
+                        {clip_->material_bindings[i], lane, material_curves_[i].curves[lane]});
+        return edits;
+    }
+    void write_curve_fields(TransformAnimationSource& source,
+                            const TransformAnimationKey& key) const {
+        if (!same_curves(key.curves, curves_))
+            source.set_key(key.time, key.pose, key.held, key.id, curves_);
+        const auto edits = material_curve_edits(key);
+        if (!edits.empty())
+            source.set_material_curves(key.id, edits);
     }
     void activate_key(AssetId id) {
         for (const auto& key : clip_->keys)
@@ -749,10 +863,11 @@ class AnimationTimelineEditor {
                 curves_ = key.curves;
                 curve_dirty_ = false;
                 fields(key.pose, key.properties);
+                fields_materials(key.materials);
                 return;
             }
     }
-    void capture(Scene& scene) {
+    void capture(Scene& scene, bool materials = true) {
         const auto entity = scene.entity(target_.entity.str());
         if (!entity || scene.asset_id() != target_.scene)
             throw std::runtime_error("Animation preview object is unavailable");
@@ -764,11 +879,27 @@ class AnimationTimelineEditor {
                 validate_animation_property(binding.property, value);
                 captured[unsigned(binding.property)] = value;
             }
+        auto captured_materials = material_fields_;
+        if (materials && !clip_->material_bindings.empty()) {
+            if (!entity.has<MeshRenderer>() || !material_ready())
+                throw AnimationMaterialPending(
+                    "Prepare the selected object's materials before capture");
+            captured_materials.clear();
+            for (const auto& binding : clip_->material_bindings) {
+                const auto value =
+                    material_state().preview.current(binding, entity.get<MeshRenderer>());
+                AnimationMaterialValues numbers{};
+                for (unsigned lane = 0; lane < material_parameter_width(value.type); ++lane)
+                    numbers[lane] = value.value[lane];
+                captured_materials.push_back(numbers);
+            }
+        }
         fields(
             {entity.has<LocalTranslation>() ? entity.get<LocalTranslation>() : LocalTranslation{},
              entity.has<LocalRotation>() ? entity.get<LocalRotation>() : LocalRotation{},
              entity.has<LocalScale>() ? entity.get<LocalScale>() : LocalScale{}},
             captured);
+        material_fields_ = std::move(captured_materials);
     }
     void target_controls(Scene& scene) {
         std::string label = "Choose object";
@@ -843,7 +974,139 @@ class AnimationTimelineEditor {
         }
         ImGui::NewLine();
     }
-    void sample_fields(double time) { fields(clip_->sample(time), clip_->sample_properties(time)); }
+    void sample_fields(double time) {
+        fields(clip_->sample(time), clip_->sample_properties(time));
+        material_fields_.resize(clip_->material_bindings.size());
+        clip_->sample_materials(time, material_fields_);
+    }
+    MaterialState& material_state() {
+        if (!material_state_)
+            material_state_ = std::make_unique<MaterialState>();
+        return *material_state_;
+    }
+    MeshMaterialInspector& material_inspector() { return material_state().inspector; }
+    const asset_detail::PreparedModelDraw* material_ready() const {
+        return material_state_ ? material_state_->preview.ready() : nullptr;
+    }
+    void prepare_materials(SceneDocument& project, Scene& scene) {
+        if (!material_open_ && clip_->material_bindings.empty()) {
+            material_state_.reset();
+            material_status_.clear();
+            return;
+        }
+        if (!target_.entity) {
+            if (material_state_)
+                material_state_->preview.reset();
+            material_status_.clear();
+            return;
+        }
+        try {
+            const auto actor = scene.entity(target_.entity.str());
+            if (target_.scene != scene.asset_id() || !actor || !actor.has<MeshRenderer>())
+                throw std::runtime_error(
+                    "Choose a preview object with a Mesh Renderer for material tracks.");
+            const auto& renderer = actor.get<MeshRenderer>();
+            material_inspector().select(project.project(), material_catalog_, renderer.mesh,
+                                        renderer.materials, renderer.material_variant);
+            material_inspector().poll();
+            if (!material_inspector().parameter_slots().contains(material_slot_) &&
+                !material_inspector().parameter_slots().empty())
+                material_slot_ = material_inspector().parameter_slots().begin()->first;
+            material_inspector().inspect_parameters(material_slot_);
+            const bool ready = material_state().preview.prepare(project.project(), renderer, *clip_,
+                                                                document_->revision());
+            material_status_ = ready ? "" : "Preparing selected material definitions...";
+            material_error_.clear();
+        } catch (const std::exception& e) {
+            material_error_ = e.what();
+        }
+    }
+    void material_controls(Scene& scene) {
+        material_open_ = ImGui::CollapsingHeader("Animated material values");
+        FORGE_UI_PROBE("animation:material_properties");
+        if (!material_open_)
+            return;
+        ImGui::TextWrapped("Animate values on this object by named material slot. Shared material "
+                           "assets stay unchanged.");
+        if (!material_status_.empty())
+            ImGui::TextDisabled("%s", material_status_.c_str());
+        if (!material_error_.empty())
+            ui::field_error(material_error_);
+        if (!material_inspector().error().empty())
+            ui::field_error(material_inspector().error());
+        if (!material_inspector().parameter_error().empty())
+            ui::field_error(material_inspector().parameter_error());
+        ImGui::BeginDisabled(bool(drag_key_) || curve_drag_ || box_ || pan_);
+        std::optional<AnimationMaterialBinding> removed;
+        for (const auto& binding : clip_->material_bindings) {
+            ui::IdScope slot(binding.slot.c_str());
+            ui::IdScope key(binding.key.c_str());
+            ImGui::TextWrapped("%s / %s", binding.slot.c_str(),
+                               material_field_label(binding.key).c_str());
+            ImGui::SameLine();
+            if (ui::button("Remove track", "Remove only this material track; preserve other tracks "
+                                           "and source extensions."))
+                removed = binding;
+            FORGE_UI_PROBE("animation:material_remove:" + binding.slot + ":" + binding.key);
+        }
+        if (removed) {
+            mutate("Remove animated material value", [&](auto& source) {
+                source.erase_material_parameter(removed->slot, removed->key);
+            });
+            ImGui::EndDisabled();
+            return;
+        }
+        if (ImGui::BeginCombo("Material slot", material_slot_.c_str())) {
+            for (const auto& [slot, materials] : material_inspector().parameter_slots()) {
+                (void)materials;
+                if (ImGui::Selectable(slot.c_str(), slot == material_slot_))
+                    material_slot_ = slot;
+            }
+            ImGui::EndCombo();
+        }
+        FORGE_UI_PROBE("animation:material_slot");
+        material_inspector().inspect_parameters(material_slot_);
+        const auto actor = target_.entity && target_.scene == scene.asset_id()
+                               ? scene.entity(target_.entity.str())
+                               : flecs::entity{};
+        ImGui::BeginDisabled(!actor || !actor.has<MeshRenderer>() ||
+                             !material_inspector().parameters_ready());
+        for (const auto& [key, initial] : material_inspector().parameter_definitions()) {
+            const auto selected =
+                std::find_if(clip_->material_bindings.begin(), clip_->material_bindings.end(),
+                             [&](const auto& binding) {
+                                 return binding.slot == material_slot_ && binding.key == key;
+                             });
+            bool enabled = selected != clip_->material_bindings.end();
+            ui::IdScope id(key.c_str());
+            if (ImGui::Checkbox(material_inspector().parameter_labels().at(key).c_str(),
+                                &enabled)) {
+                const AnimationMaterialBinding binding{material_slot_, key, initial.type};
+                if (enabled)
+                    mutate("Add animated material value", [&](auto& source) {
+                        auto value = initial;
+                        for (const auto& current : actor.get<MeshRenderer>().material_parameters)
+                            if (current.slot == binding.slot && current.key == binding.key) {
+                                if (current.parameter.type != binding.type)
+                                    throw std::runtime_error("Existing material override has an "
+                                                             "incompatible semantic type.");
+                                value = current.parameter;
+                            }
+                        AnimationMaterialValues numbers{};
+                        for (unsigned lane = 0; lane < material_parameter_width(value.type); ++lane)
+                            numbers[lane] = value.value[lane];
+                        source.add_material_parameter(binding, numbers);
+                    });
+                else
+                    mutate("Remove animated material value", [&](auto& source) {
+                        source.erase_material_parameter(binding.slot, binding.key);
+                    });
+            }
+            FORGE_UI_PROBE("animation:material_property:" + material_slot_ + ":" + key);
+        }
+        ImGui::EndDisabled();
+        ImGui::EndDisabled();
+    }
     void property_controls(Scene& scene) {
         const bool expanded = ImGui::CollapsingHeader("Animated properties");
         FORGE_UI_PROBE("animation:properties");
@@ -932,8 +1195,11 @@ class AnimationTimelineEditor {
         for (unsigned i = 0; i < animation_property_count; ++i)
             if (clip_->properties & (1u << i))
                 rows.push_back(i + 3);
-        const float row_height =
-            clip_->properties ? std::max(22.f, ImGui::GetTextLineHeightWithSpacing()) : 22.f;
+        for (unsigned i = 0; i < clip_->material_bindings.size(); ++i)
+            rows.push_back(i + 3 + animation_property_count);
+        const float row_height = clip_->properties || !clip_->material_bindings.empty()
+                                     ? std::max(22.f, ImGui::GetTextLineHeightWithSpacing())
+                                     : 22.f;
         const float width = std::max(140.f, ImGui::GetContentRegionAvail().x),
                     height = std::max(100.f, 36.f + float(rows.size()) * row_height);
         ImGui::InvisibleButton("Animation ruler", {width, height},
@@ -1109,10 +1375,15 @@ class AnimationTimelineEditor {
             const auto index = rows[row];
             if (index < 3)
                 continue;
-            const char* label = animation_property_binding(AnimationProperty(index - 3)).label;
+            const auto label =
+                index < 3 + animation_property_count
+                    ? std::string(animation_property_binding(AnimationProperty(index - 3)).label)
+                    : clip_->material_bindings[index - 3 - animation_property_count].slot + " / " +
+                          material_field_label(
+                              clip_->material_bindings[index - 3 - animation_property_count].key);
             draw->AddText(
                 {start.x + 3, start.y + 36 + row * row_height - ImGui::GetTextLineHeight() / 2},
-                IM_COL32(165, 177, 188, 155), label);
+                IM_COL32(165, 177, 188, 155), label.c_str());
         }
         for (const auto& key : clip_->keys) {
             const auto shown_time =
@@ -1290,6 +1561,7 @@ class AnimationTimelineEditor {
                 report("time", e.what());
             }
         }
+        FORGE_UI_PROBE("animation:key_time");
         ImGui::InputScalarN("Position", ImGuiDataType_Double, position_, 3, nullptr, nullptr,
                             "%.3f");
         FORGE_UI_PROBE("animation:position");
@@ -1306,7 +1578,21 @@ class AnimationTimelineEditor {
             FORGE_UI_PROBE(std::string("animation:value:") + binding.name);
         }
         ImGui::Checkbox("Hold until next key", &held_);
-        ImGui::BeginDisabled(!target_.entity);
+        for (std::size_t i = 0; i < clip_->material_bindings.size(); ++i) {
+            const auto& binding = clip_->material_bindings[i];
+            ui::IdScope slot(binding.slot.c_str());
+            ui::IdScope key(binding.key.c_str());
+            ImGui::TextWrapped("%s / %s", binding.slot.c_str(),
+                               material_field_label(binding.key).c_str());
+            const bool color = binding.type == MaterialParameterType::LinearColor3 ||
+                               binding.type == MaterialParameterType::LinearColor4;
+            ImGui::InputScalarN(color ? "Linear color" : "Value", ImGuiDataType_Double,
+                                material_fields_.at(i).data(),
+                                material_parameter_width(binding.type), nullptr, nullptr, "%.6f");
+            FORGE_UI_PROBE("animation:material_value:" + binding.slot + ":" + binding.key);
+        }
+        ImGui::BeginDisabled(!target_.entity ||
+                             (!clip_->material_bindings.empty() && !material_ready()));
         if (ui::button("Capture authored pose", "Copy the chosen object's authored transform and "
                                                 "selected properties into the key fields.")) {
             try {
@@ -1322,15 +1608,26 @@ class AnimationTimelineEditor {
                 "Set these values at the playhead, preserving any existing key at that time.")) {
             const auto revision = document_->revision();
             AssetId added;
+            std::vector<AnimationMaterialCurveEdit> material_edits;
+            std::optional<TransformAnimationCurves> changed_curves;
+            if (curve_dirty_)
+                for (const auto& key : clip_->keys)
+                    if (key.id == key_) {
+                        material_edits = material_curve_edits(key);
+                        if (!same_curves(key.curves, curves_))
+                            changed_curves = curves_;
+                        break;
+                    }
             mutate("Set animation key", [&](auto& source) {
                 const LocalTransform pose{
                     {position_[0], position_[1], position_[2]},
                     rotation_from_euler({rotation_[0], rotation_[1], rotation_[2]}),
                     checked_local_scale({scale_[0], scale_[1], scale_[2]})};
-                added = source.set_key(
-                    std::llround(time_), pose, held_, {},
-                    curve_dirty_ ? std::optional<TransformAnimationCurves>(curves_) : std::nullopt,
-                    property_fields_);
+                added = source.set_key(std::llround(time_), pose, held_, {}, changed_curves,
+                                       property_fields_,
+                                       std::span<const AnimationMaterialValues>(material_fields_));
+                if (!material_edits.empty())
+                    source.set_material_curves(added, material_edits);
             });
             if (document_->revision() != revision)
                 select_key(added);
@@ -1355,10 +1652,16 @@ class AnimationTimelineEditor {
                                             animation_property_bit(binding.property)) &&
                                            key.curves.properties[unsigned(binding.property)].cubic;
                                 });
+                const bool material_cubic =
+                    std::any_of(key.materials.begin(), key.materials.end(), [](const auto& value) {
+                        return std::any_of(value.curves.begin(), value.curves.end(),
+                                           [](const auto& curve) { return curve.cubic; });
+                    });
                 char label[64];
                 std::snprintf(label, sizeof(label), "%.3f s — %s",
                               double(key.time) / animation_timebase,
                               key.held           ? "Held"
+                              : material_cubic   ? "Cubic materials"
                               : property_cubic   ? "Cubic properties"
                               : key.curves.cubic ? "Cubic vectors"
                                                  : "Linear");
@@ -1397,15 +1700,25 @@ class AnimationTimelineEditor {
             return;
         }
         const auto key = *selected;
-        if (curve_channel_ >= int(animation_property_count) + 2 ||
+        const bool missing_material =
+            material_curve() &&
+            std::none_of(clip_->material_bindings.begin(), clip_->material_bindings.end(),
+                         [&](const auto& value) {
+                             return value.slot == curve_material_slot_ &&
+                                    value.key == curve_material_key_;
+                         });
+        if (curve_channel_ > material_curve_channel || missing_material ||
             (scalar_curve() && !(clip_->properties & animation_property_bit(curve_property())))) {
             cancel_curve_drag();
             curve_channel_ = 0;
         }
         const char* channels[] = {"Position", "Scale"};
-        const auto curve_label = scalar_curve() ? animation_property_binding(curve_property()).label
-                                                : channels[curve_channel_];
-        if (ImGui::BeginCombo("Curve value", curve_label)) {
+        const auto curve_label =
+            material_curve()
+                ? curve_material_slot_ + " / " + material_field_label(curve_material_key_)
+            : scalar_curve() ? std::string(animation_property_binding(curve_property()).label)
+                             : std::string(channels[curve_channel_]);
+        if (ImGui::BeginCombo("Curve value", curve_label.c_str())) {
             for (int channel = 0; channel < int(animation_property_count) + 2; ++channel) {
                 if (channel >= 2 &&
                     !(clip_->properties & animation_property_bit(AnimationProperty(channel - 2))))
@@ -1417,9 +1730,27 @@ class AnimationTimelineEditor {
                     curve_channel_ = channel;
                 FORGE_UI_PROBE("animation:curve_channel_choice:" + std::to_string(channel));
             }
+            for (const auto& binding : clip_->material_bindings) {
+                const auto label = binding.slot + " / " + material_field_label(binding.key);
+                const bool active = material_curve() && binding.slot == curve_material_slot_ &&
+                                    binding.key == curve_material_key_;
+                if (ImGui::Selectable(label.c_str(), active)) {
+                    cancel_curve_drag();
+                    curve_channel_ = material_curve_channel;
+                    curve_material_slot_ = binding.slot;
+                    curve_material_key_ = binding.key;
+                }
+                FORGE_UI_PROBE("animation:curve_material_choice:" + binding.slot + ":" +
+                               binding.key);
+            }
             ImGui::EndCombo();
         }
         FORGE_UI_PROBE("animation:curve_channel");
+        const auto axes_count =
+            material_curve()
+                ? material_parameter_width(clip_->material_bindings[material_curve_index()].type)
+                : 3u;
+        curve_axis_ = std::clamp(curve_axis_, 0, int(axes_count) - 1);
         std::optional<TransformAnimationTangentPreset> preset;
         if (ui::button("Flat tangents", "Set zero slopes on the selected keys."))
             preset = TransformAnimationTangentPreset::Flat;
@@ -1436,7 +1767,11 @@ class AnimationTimelineEditor {
             mutate(
                 "Set tangent preset",
                 [&](auto& source) {
-                    if (scalar_curve())
+                    if (material_curve()) {
+                        const auto binding = clip_->material_bindings[material_curve_index()];
+                        source.set_material_tangent_preset(keys, binding.slot, binding.key,
+                                                           curve_axis_, *preset);
+                    } else if (scalar_curve())
                         source.set_property_tangent_preset(keys, curve_property(), *preset);
                     else
                         source.set_tangent_preset(keys, *preset);
@@ -1451,7 +1786,10 @@ class AnimationTimelineEditor {
         if (ImGui::BeginCombo("Outgoing interpolation", modes[curve_cubic(curves_) ? 1 : 0])) {
             for (int mode = 0; mode < 2; ++mode) {
                 if (ImGui::Selectable(modes[mode], curve_cubic(curves_) == (mode == 1))) {
-                    if (scalar_curve()) {
+                    if (material_curve())
+                        material_curves_.at(material_curve_index()).curves.at(curve_axis_).cubic =
+                            mode == 1;
+                    else if (scalar_curve()) {
                         curves_.property_mask |= animation_property_bit(curve_property());
                         curves_.properties[unsigned(curve_property())].cubic = mode == 1;
                     } else
@@ -1474,7 +1812,7 @@ class AnimationTimelineEditor {
                 curve_dirty_ = true;
             FORGE_UI_PROBE(probe);
         };
-        if (!scalar_curve()) {
+        if (vector_curve()) {
             slopes("Position incoming (units/s)", curves_.incoming.translation,
                    "animation:curve_translation_in");
             slopes("Position outgoing (units/s)", curves_.outgoing.translation,
@@ -1491,11 +1829,14 @@ class AnimationTimelineEditor {
                                                            ImGui::GetStyle().ItemInnerSpacing.x));
                 if (ImGui::InputDouble(label, &value, 0, 0, "%.3f")) {
                     curve_slope(incoming) = value / curve_display_multiplier();
-                    curves_.property_mask |= animation_property_bit(curve_property());
+                    if (scalar_curve())
+                        curves_.property_mask |= animation_property_bit(curve_property());
                     curve_dirty_ = true;
                 }
-                FORGE_UI_PROBE(incoming ? "animation:curve_property_in"
-                                        : "animation:curve_property_out");
+                FORGE_UI_PROBE(material_curve() ? (incoming ? "animation:curve_material_in"
+                                                            : "animation:curve_material_out")
+                                                : (incoming ? "animation:curve_property_in"
+                                                            : "animation:curve_property_out"));
             }
         }
         if (curve_dirty_)
@@ -1505,9 +1846,17 @@ class AnimationTimelineEditor {
             ImGui::TextDisabled(
                 "Drag a gold tangent vertically; Escape cancels the pending change.");
         if (!scalar_curve()) {
-            const char* axes[] = {"X", "Y", "Z"};
+            const auto type = material_curve()
+                                  ? clip_->material_bindings[material_curve_index()].type
+                                  : MaterialParameterType::Vector3;
+            const bool color = type == MaterialParameterType::LinearColor3 ||
+                               type == MaterialParameterType::LinearColor4;
+            const std::array<const char*, 4> axes = color ? std::array{"R", "G", "B", "A"}
+                                                    : axes_count == 1
+                                                        ? std::array{"Value", "", "", ""}
+                                                        : std::array{"X", "Y", "Z", "W"};
             if (ImGui::BeginCombo("Axis", axes[curve_axis_])) {
-                for (int axis = 0; axis < 3; ++axis) {
+                for (int axis = 0; axis < int(axes_count); ++axis) {
                     if (ImGui::Selectable(axes[axis], curve_axis_ == axis))
                         curve_axis_ = axis;
                     FORGE_UI_PROBE("animation:curve_axis_choice:" + std::to_string(axis));
@@ -1517,14 +1866,16 @@ class AnimationTimelineEditor {
             FORGE_UI_PROBE("animation:curve_axis");
         }
         if (curve_drag_ &&
-            (curve_drag_axis_ != curve_axis_ || curve_drag_channel_ != curve_channel_))
+            (curve_drag_axis_ != curve_axis_ || curve_drag_channel_ != curve_channel_ ||
+             curve_drag_material_slot_ != curve_material_slot_ ||
+             curve_drag_material_key_ != curve_material_key_))
             cancel_curve_drag();
         if (ui::button("Fit curve", "Fit the applied curve without editing its source."))
             curve_fit_handles_ = false;
         ImGui::SameLine();
         if (ui::button("Fit curve and handles", "Include pending tangent endpoints in this view."))
             curve_fit_handles_ = true;
-        if (!scalar_curve() && !(clip_->channels & (curve_channel_ == 0 ? 1 : 4)))
+        if (vector_curve() && !(clip_->channels & (curve_channel_ == 0 ? 1 : 4)))
             ImGui::TextDisabled("This value is not animated by the clip's enabled channels.");
         const auto index = std::size_t(selected - clip_->keys.begin());
         const double begin = clip_->keys.size() == 1 ? 0
@@ -1554,7 +1905,10 @@ class AnimationTimelineEditor {
                                                      pose.scale.z}[curve_axis_]);
         };
         std::array<double, 193> values{};
+        std::array<AnimationMaterialValues, material_parameter_override_limit> material_samples{};
         auto key_value = [&](const TransformAnimationKey& entry) {
+            if (material_curve())
+                return entry.materials.at(material_curve_index()).values.at(curve_axis_);
             return scalar_curve()
                        ? entry.properties[unsigned(curve_property())] * curve_display_multiplier()
                        : component(entry.pose);
@@ -1562,10 +1916,17 @@ class AnimationTimelineEditor {
         double minimum = key_value(key), maximum = minimum;
         for (unsigned i = 0; i < values.size(); ++i) {
             const auto sample_time = begin + (end - begin) * double(i) / (values.size() - 1);
-            values[i] = scalar_curve()
-                            ? clip_->sample_properties(sample_time)[unsigned(curve_property())] *
-                                  curve_display_multiplier()
-                            : component(clip_->sample(sample_time));
+            if (material_curve()) {
+                clip_->sample_materials(
+                    sample_time,
+                    std::span(material_samples).first(clip_->material_bindings.size()));
+                values[i] = material_samples[material_curve_index()][curve_axis_];
+            } else
+                values[i] =
+                    scalar_curve()
+                        ? clip_->sample_properties(sample_time)[unsigned(curve_property())] *
+                              curve_display_multiplier()
+                        : component(clip_->sample(sample_time));
             minimum = std::min(minimum, values[i]);
             maximum = std::max(maximum, values[i]);
         }
@@ -1581,7 +1942,7 @@ class AnimationTimelineEditor {
                     maximum = std::max(maximum, value);
                 }
             };
-            if (index && curve_cubic(clip_->keys[index - 1].curves) && !clip_->keys[index - 1].held)
+            if (index && curve_cubic(clip_->keys[index - 1]) && !clip_->keys[index - 1].held)
                 include(double(key.time) - begin, curve_slope(true), true);
             if (index + 1 < clip_->keys.size() && curve_cubic(curves_) && !key.held)
                 include(end - double(key.time), curve_slope(false), false);
@@ -1640,6 +2001,9 @@ class AnimationTimelineEditor {
                     curve_drag_channel_ = curve_channel_;
                     curve_drag_incoming_ = incoming;
                     curve_drag_before_ = curves_;
+                    curve_drag_materials_before_ = material_curves_;
+                    curve_drag_material_slot_ = curve_material_slot_;
+                    curve_drag_material_key_ = curve_material_key_;
                     curve_drag_prior_dirty_ = curve_dirty_;
                     curve_drag_moved_ = false;
                     curve_drag_pointer_y_ = ImGui::GetIO().MousePos.y;
@@ -1654,7 +2018,7 @@ class AnimationTimelineEditor {
                 }
             }
         };
-        if (index && curve_cubic(clip_->keys[index - 1].curves) && !clip_->keys[index - 1].held)
+        if (index && curve_cubic(clip_->keys[index - 1]) && !clip_->keys[index - 1].held)
             guide(begin, curve_slope(true), true);
         if (index + 1 < clip_->keys.size() && curve_cubic(curves_) && !key.held)
             guide(end, curve_slope(false), false);

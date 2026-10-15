@@ -99,6 +99,13 @@ Gameplay uses the exact SDK's scoped CPU resource facade. Diligent objects and
 editor inspection owners stay on the presentation side; CPU readiness is distinct
 from complete GPU draw readiness. No process-local revision is persisted as AssetId.
 
+Builtin source consumers can retain the selected immutable Mesh or Material from
+an existing observation token. These getters validate scope/thread/kind and neither
+request nor pump/adopt/reload resources. Animation uses this existing service for
+material-track target admission and deduplicates its observation demand; it owns
+no additional mesh/material pools. This private source interface is distinct from
+the unchanged installed SDK resource facade and C ABI1 table.
+
 ## Explicit variants
 
 A logical image may be used as both sRGB color and linear data, or have different

@@ -1,9 +1,13 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+#include "animation_playback_access.hpp"
 #include "engine_render_resource.hpp"
 #include "mesh_render_host.hpp"
 #include <bit>
+#include <forge/animation.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
+#include <forge/runtime.hpp>
+#include <forge/runtime_resources.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
 #include <iostream>
@@ -51,7 +55,96 @@ void image(const std::filesystem::path& path, const Pixels& pixels) {
         file.write(reinterpret_cast<const char*>(value.data()), 3);
     check(bool(file.flush()), "Material image write failed");
 }
-void execute(const std::filesystem::path& root, const std::filesystem::path& gallery = {}) {
+void animated_gallery(DiligentPresentation& presentation, IRenderDevice* device,
+                      IDeviceContext* context, ITexture* color, ITexture* depth,
+                      const std::filesystem::path& project, const std::filesystem::path& output) {
+    const auto scene_id = AssetId::parse("cc8ae41c-2dd4-4477-bc4f-1a1b3272e44b");
+    EngineContext engine(WorldRole::Runtime, false,
+                         {runtime_resources_module(project), animation_module(project)});
+    Scene scene(engine.world());
+    scene.restore_snapshot(load_game_scene(project, {scene_id}));
+    RuntimeSimulation simulation(engine.world(), scene);
+    const auto animation = animation_runtime(engine.world());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    for (;;) {
+        engine.services().resources()->synchronize();
+        if (animation->prepare_initial_pose())
+            break;
+        check(std::chrono::steady_clock::now() < deadline, "Gallery67 native animation stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto authored = scene.effective_document();
+    std::vector<EntityRef> players;
+    for (const auto& row : authored.at("entities"))
+        if (row.at("components").contains("forge.transform_animator"))
+            players.push_back({scene_id, row.at("id").get<EntityId>()});
+    check(players.size() == 3, "Gallery67 native proof lost an animation/Prefab target");
+    for (const auto& player : players)
+        AnimationPlaybackAccess::control(*animation, player, {{"operation", "pause"}});
+    auto host = std::make_shared<MeshResourceHost>(presentation, context, project);
+    host->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project)));
+    MeshSceneRenderer renderer(host);
+    const auto draw = [&] {
+        simulation.reset_presentation();
+        const auto frame = extract_render_scene(simulation.presentation(1));
+        const auto cameras = prepare_game_cameras(frame, 384, 192);
+        check(frame.meshes.size() == 5 && frame.diagnostics.empty() && cameras.cameras.size() == 1,
+              "Gallery67 native copied material/camera extraction failed");
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        do {
+            renderer.update(frame);
+            check(std::chrono::steady_clock::now() < end,
+                  "Gallery67 native resource admission stalled");
+            if (renderer.pending())
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (renderer.pending());
+        check(renderer.diagnostics().empty(), "Gallery67 native target rejected animated values");
+        const auto& view = cameras.cameras[0].view;
+        renderer.shadows(frame, view, UINT32_MAX);
+        auto* rtv = color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+        auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const float background[4]{.02f, .025f, .03f, 1};
+        context->ClearRenderTarget(rtv, background, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        Viewport viewport{0, 0, 384, 192, 0, 1};
+        context->SetViewports(1, &viewport, 384, 192);
+        renderer.draw(frame, view, UINT32_MAX, color, dsv);
+        host->submit();
+        context->Flush();
+        check(renderer.diagnostics().empty() && renderer.bundle_count() == 2 &&
+                  renderer.draw_stats().instances == 5,
+              "Gallery67 animation split shared resources or lost native draws");
+        return read(device, context, color);
+    };
+    const auto seek = [&](double seconds) {
+        for (const auto& player : players)
+            AnimationPlaybackAccess::control(
+                *animation, player, {{"operation", "seek"}, {"position_seconds", seconds}});
+        return draw();
+    };
+    const auto red = seek(0);
+    const auto quarter = seek(.5);
+    const auto middle = seek(1);
+    const auto checkpoint = animation->checkpoint();
+    const auto blue = seek(2);
+    check(red != quarter && quarter != middle && middle != blue &&
+              dominant(red, 0) > dominant(blue, 0) + 30 &&
+              dominant(blue, 2) > dominant(red, 2) + 30,
+          "Gallery67 animated samples did not reach distinct native color pixels");
+    animation->restore(checkpoint);
+    check(draw() == middle, "Gallery67 recovery failed to restore exact animated native pixels");
+    check(seek(4) == red, "Gallery67 loop-end seek failed to restore initial native pixels");
+    image(output / "gallery67-start.ppm", red);
+    image(output / "gallery67-quarter.ppm", quarter);
+    image(output / "gallery67-middle.ppm", middle);
+    image(output / "gallery67-blue.ppm", blue);
+    std::cout << "Gallery67 actual animation/Prefab samples, recovery/loop pixels and two shared "
+                 "bundles PASS\n";
+}
+void execute(const std::filesystem::path& root, const std::filesystem::path& gallery = {},
+             bool animation_only = false) {
     std::filesystem::create_directories(root);
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
@@ -77,6 +170,10 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
     desc.BindFlags = BIND_DEPTH_STENCIL;
     device->CreateTexture(desc, nullptr, &depth);
     check(color && depth, "Material targets unavailable");
+    if (animation_only) {
+        animated_gallery(presentation, device, context, color, depth, gallery, root);
+        return;
+    }
     RenderScene scene;
     scene.scene = AssetId::generate();
     for (unsigned i = 0; i < 4; ++i) {
@@ -336,6 +433,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
                   dominant(gallery_pixels, 2) > 30 && gallery_renderer.bundle_count() == 2 &&
                   gallery_renderer.draw_stats().instances == 7,
               "Gallery66 lost native object colors or split the shared material resources");
+        animated_gallery(presentation, device, context, color, depth, gallery, root);
     }
     std::cout << "Native object color/roughness, default restoration, equal-value instancing, "
                  "last-good edits/reloads/recovery, bounded sparse payload, skin/morph values "
@@ -344,10 +442,11 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2 || argc == 3,
+        check(argc == 2 || argc == 3 ||
+                  (argc == 4 && std::string_view(argv[3]) == "--animation-only"),
               "Need material native scratch root and optional Gallery/package");
         execute(std::filesystem::path(argv[1]) / AssetId::generate().str(),
-                argc == 3 ? argv[2] : "");
+                argc >= 3 ? argv[2] : "", argc == 4);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

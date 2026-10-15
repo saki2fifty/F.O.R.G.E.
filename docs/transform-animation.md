@@ -42,23 +42,85 @@ The central Timeline's sequence mode borrows Scene Save/history. Numeric start
 edits are pending until Apply; they use one Scene transaction and reject stale
 revisions. Pending fields block destructive track changes and have explicit close
 choices. Clip selection uses the existing typed asset picker. Refresh constructs
-a private animation-only world from the Scene snapshot, preserves relevant writer
+a private animation world with the existing CPU Resources provider from the Scene snapshot, preserves relevant writer
 guards, admits published clips and reuses runtime seek. Preview merges supported
 native fields into a copied Scene view, preserving opaque data and original
 authoring/history. No gameplay module, audio output or physics simulation runs.
 Scene revisions stop the preview; project/Scene identity changes close it.
 
 Scene/subtree copies remap only declared EntityRefs, including bindings overridden
-on prefab instances. Unknown payloads remain untouched. Prefab source capture does
-not translate component EntityRefs into member references, so Create Prefab rejects
-bound sequence tracks. Portable prefab-definition arrangements are not supported.
-Scene-owned bindings on ordinary prefab instances remain supported and persistent.
+on prefab instances. Unknown payloads remain untouched. [ADR022](decisions/022-prefab-component-references.md)
+defines portable source3 Prefab member links and their per-instance Scene resolution,
+including sequence arrangements. Scene-owned bindings on ordinary prefab instances
+remain supported and persistent.
 Export closes over the existing saved Scene, selected clip cooks and typed audio
 references; it does not ship an editor or require a compiler for sequencing.
 
+## Per-object material animation
+
+Source5 adds up to64 `material_bindings`, each identified by the stable mesh
+`slot`, parameter `key` and exact numeric semantic `type`. Types are Scalar,
+Vector2/3/4 and LinearColor3/4; equal widths do not make a vector and color
+interchangeable. Every key has one `material_values` entry per binding, matched
+by(slot,key), containing a width-sized `value` and optional width-sized `curves`.
+Each lane's curve stores `interpolation` (`linear`/`cubic`) and finite native-unit
+`incoming`/`outgoing` slopes. Missing curves mean linear. A held key overrides
+outgoing interpolation without deleting slopes. Values/slopes use the existing
+finite ±1e9 generic source bounds, including analytic interior extrema.
+
+Bindings and every key's entries must be unique and complete. Missing, duplicate,
+extra, wrong-width or wrong-semantic values reject the whole source/edit. Dynamic
+material key storage participates in the existing resource residency budget; old
+keys do not gain fixed64-entry arrays. Sampling writes a caller-provided bounded
+buffer. Key insertion, movement, duplication, deletion and retiming preserve tuple
+identity and extensions. Retiming rescales known material slopes. Bulk curve edits
+and Flat/Linear/Smooth presets validate one detached candidate and use one document
+history entry; unknown fields remain untouched. Explicit promotion rejects reserved
+field collisions. Source1–4 material-like extension fields remain opaque; cook4
+cannot contain a source5 document. No track UUID or Scene/entity identity is added.
+
+The existing transform playback provider owns material clocks, controller timing,
+writer checks, presentation and recovery. Material tracks require an existing
+MeshRenderer and CPU Resources provider. Old transform/property clips still work
+without Resources. Animation deduplicates its subscriptions by unique(kind,asset)
+and retires unused tokens before requesting replacements, within the shared256
+observer bound. Existing Resources owns loading/adoption/retained mesh/material
+leases; no animation-specific pool or replacement catalog is introduced.
+
+Whole-clip target admission reuses the per-object numeric material projector and
+the actual selected mesh slots/part-specific material variations. It checks exact
+semantic declarations and every analytic lane extremum against the selected
+material's supported domain and fixed render passes. This proof is cached by clip,
+resource selection and nonanimated numeric intent, rather than repeated every tick.
+Each sampled complete numeric candidate still passes that same projector before
+any material, builtin-property or transform write. Pending or incompatible target
+changes preserve the last accepted complete values and report the existing pending/
+error status. Values never change a shared material resource, texture, shader,
+feature or render-pass selection. Existing sequence/seek/loop/recovery boundaries
+apply to the same material samples; no separate timeline clock is stored.
+
+Timeline uses the existing async Inspector's common selected material definitions.
+Tracks, typed key fields and ruler rows retain(slot,key); curve selection adds a
+lane, including RGBA alpha and Vector4 W. Removing another track cannot rebind that
+selection by ordinal. Capture uses current authored object intent or the selected
+material's default, never a temporary preview. Graph handles, cancellation and
+history reuse the existing curve editor. Preview preflights a detached renderer and
+merges numeric rows into a copied Scene view by tuple, preserving unknown row/value
+extensions. Pending loads show authored values; invalid targets stop preview without
+partial edits. Play locks authored controls; close/project changes retire preview
+resource ownership. Sequence preview uses the same existing Resources/animation
+providers and merges the same copied numeric fields.
+
+Scene/Prefab format and ABI1 tables do not change. The private retained-resource
+interface changes an existing exact SDK implementation hash input, so rebuild native
+modules with the matching SDK. The ordinary TransformAnimator and AnimationService
+control/status/seek API drive material clips too. Gallery67 includes independently
+animated objects, an ordinary Prefab instance and an unchanged shared-material cube;
+export closes over the saved Scene/Prefab/material and selected cooked5 clips.
+
 ## Source, publication and identity
 
-`TransformAnimationSource` reads `forge.transform-animation` versions 1 through 4 in a bounded
+`TransformAnimationSource` reads `forge.transform-animation` versions 1 through 5 in a bounded
 2 MiB `.animation.json` document. It stores its AssetId, a 1,000,000-unit-per-second
 integer timebase, positive duration up to one hour, 1–4096 sorted keys at unique
 times within duration, and, for versions1/2, at least one qualified channel:
@@ -188,16 +250,16 @@ ruler and cancel itself; Save & Publish supplies
 Play and export through the existing owners. Gallery47 compares original motion,
 changed position and changed scale using selected Windows-target CPU cooks.
 
-The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v6`
+The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v7`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
-It publishes `forge.transform-clip` version 4, validated by the same bounded
-parser/evaluator. Previously selected version-1/2/3 artifacts remain readable without
+It publishes `forge.transform-clip` version 5, validated by the same bounded
+parser/evaluator. Previously selected version-1/2/3/4 artifacts remain readable without
 rewriting their catalog or DDC records. Runtime and export require the cooked root
-version to match the selected output version. Cooked4 is a versioned envelope
+version to match the selected output version. Cooked4/5 are versioned envelopes
 containing the original source document, including its source version. This keeps
 older opaque fields opaque when republishing. Legacy cooked1/2/3 retain their raw
 document readers. Source admission allows 500,000 parser events, depth12 and2MiB,
-including the4096-key curve profile. The cooked4 envelope has128bytes of allowance
+including the4096-key curve profile. The cooked4/5 envelope has128bytes of allowance
 and one extra parse level; its enclosed source still passes the original limits.
 Source bytes, stable key IDs, selected recipe, file hashes and
 size are covered by the normal sidecar/catalog/DDC publication. Target recipes
@@ -234,7 +296,7 @@ These typed built-in bindings use current native Camera/Light/AudioSource/Partic
 and existing scalar/domain validators. They are not a general custom-component/material/UI binding
 registry. No native component layout, installed SDK input or callback changes.
 Version3 introduced these property values; version4 adds scalar curves. New
-publication uses recipev6 and cooked4 even for a legacy transform-only source.
+publication uses recipev7 and cooked5 even for a legacy transform-only source.
 Selected previous cooks remain readable. Binding indices remain unchanged. Older
 engines reject unsupported versions or names rather than partially executing clips.
 

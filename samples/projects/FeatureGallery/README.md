@@ -1,5 +1,22 @@
 # FORGE Feature Gallery
 
+## Animated per-object material values
+
+Open **Scenes/67-animated-material-values.scene.json** and press Play. The gray
+cube stays unchanged; the other cubes compare linear, smooth and held changes
+between red/polished and blue/matte. All use the same shared material. The smooth
+cube is an instance of **Assets/ObjectValues/SharedCube.prefab.json**.
+
+Open **Assets/ObjectValues/LinearAppearance.animation.json** in Timeline and
+choose its cube as **Preview object**. Expand **Animated material values** to
+select slot/value tracks. Change their key fields, or choose a material value and
+R/G/B/A lane in **Animation curves**. Apply, Save & Publish, and restart Play.
+Preview leaves Scene history and shared material assets unchanged. Save the Scene
+and select it as startup before export. Export includes prepared clips/materials
+and the Prefab, without authored clip sources or a compiler. **MaterialAnimation.hpp**
+and the installed SDK's **material_animation_gameplay** example use ordinary C++
+TransformAnimator controls for the same clips.
+
 ## Per-object material values
 
 Open **Scenes/66-object-material-values.scene.json**. Six cubes share

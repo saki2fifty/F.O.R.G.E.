@@ -205,7 +205,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               "Property Timeline publication stalled: " + message);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 4 &&
+    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 5 &&
               !editor.dirty(),
           "Timeline published wrong property cook");
     click("button:Attach animation to object");
@@ -289,7 +289,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     check(!editor.dirty() &&
-              catalog->records().at(id).metadata["forge.import"]["output_version"] == 4,
+              catalog->records().at(id).metadata["forge.import"]["output_version"] == 5,
           "Scalar curves did not publish through the existing document");
     editor.open(project, "Assets/Properties.animation.json");
     check(editor.document()->source().document == saved_curves,

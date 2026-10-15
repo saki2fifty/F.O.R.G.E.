@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v7",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 5,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "8ca96b11ec43e3e1ba45528e4b867f752f43862dca9519667d69def762e4bf0b",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "eec97ea6-7d57-4468-87af-abf3253ae13c",
+    "source": "Assets/ObjectValues/HeldAppearance.animation.json",
+    "source_digest": "8ca96b11ec43e3e1ba45528e4b867f752f43862dca9519667d69def762e4bf0b",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

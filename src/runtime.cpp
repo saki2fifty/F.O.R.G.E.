@@ -1,3 +1,4 @@
+#include "animation_material_patch.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
 #include <algorithm>
@@ -406,8 +407,13 @@ Json RuntimeSimulation::presentation(double alpha) const {
             const auto animated = animation_->presentation_properties(entity, alpha);
             if (!animated.is_null())
                 for (const auto& [component, fields] : animated.items())
-                    for (const auto& [field, value] : fields.items())
-                        item["components"][component][field] = value;
+                    for (const auto& [field, value] : fields.items()) {
+                        if (component == "forge.mesh_renderer" && field == "material_parameters")
+                            merge_animation_material_parameters(item["components"][component],
+                                                                value);
+                        else
+                            item["components"][component][field] = value;
+                    }
             if (node.has<Animator>())
                 if (const auto reference = context_.reference(entity))
                     if (const auto status = animation_->playback(*reference))

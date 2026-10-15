@@ -63,6 +63,7 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
     const auto saved = published.document();
     std::shared_ptr<RuntimeResourceService> expired;
     ResourceLease<MeshAsset> expired_mesh;
+    ResourceLease<MaterialAsset> expired_material;
     ServiceAccess stale;
     {
         EngineContext engine(WorldRole::Runtime, false, {runtime_resources_module(root)});
@@ -91,6 +92,7 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
         check(!service->mesh(mesh), "Unadopted request exposed CPU mesh");
         const auto material = service->request(RuntimeResourceKind::Material, asset);
         const auto material2 = service->request(RuntimeResourceKind::Material, asset);
+        check(!service->material(material), "Unadopted request exposed CPU material");
         auto ready = [](const auto& s) {
             return s.state == "ready" && !s.retained_revision.empty();
         };
@@ -107,6 +109,7 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
               "Read-only mesh acquisition changed selection");
         ecs_readonly_end(engine.world().world().c_ptr());
         check(!service->mesh(material), "Material subscription exposed a mesh lease");
+        check(!service->material(mesh), "Mesh subscription exposed a material lease");
         service->release(mesh2);
         reject([&] { service->mesh(mesh2); });
         check(expired_mesh && !expired_mesh->mesh.lods.empty(),
@@ -123,6 +126,26 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
                   .get(),
               "Off-thread mesh acquisition accepted");
         const auto first = wait(material, ready);
+        expired_material = service->material(material);
+        check(expired_material && expired_material.identity().revision == first.retained_revision,
+              "Material lease differs from the retained selection");
+        const auto original_values = expired_material->values;
+        ecs_readonly_begin(engine.world().world().c_ptr(), false);
+        check(&service->material(material).get() == &expired_material.get() &&
+                  service->inspect(material).retained_revision == first.retained_revision,
+              "Read-only material acquisition changed selection");
+        ecs_readonly_end(engine.world().world().c_ptr());
+        check(std::async(std::launch::async,
+                         [&] {
+                             try {
+                                 service->material(material);
+                             } catch (...) {
+                                 return true;
+                             }
+                             return false;
+                         })
+                  .get(),
+              "Off-thread material acquisition accepted");
         const auto shader = service->request(RuntimeResourceKind::Shader, shader_asset);
         wait(shader, ready);
         std::vector<std::uint64_t> texture_tokens;
@@ -144,8 +167,13 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
         });
         check(wait(material2, ready).retained_revision == first.retained_revision,
               "Coalesced subscriptions disagree");
+        check(&service->material(material2).get() == &expired_material.get(),
+              "Coalesced material consumers duplicated physical CPU data");
         check(service->release(material2) && !service->release(material2), "Release is not scoped");
         reject([&] { service->inspect(material2); });
+        reject([&] { service->material(material2); });
+        check(expired_material && expired_material->values == original_values,
+              "Releasing one subscription revoked or changed pinned material data");
         reject([&] { service->request(RuntimeResourceKind::Shader, asset); });
         reject([&] { service->request(static_cast<RuntimeResourceKind>(99), asset); });
         reject([&] { service->request(RuntimeResourceKind::Mesh, {}); });
@@ -181,6 +209,9 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
         const auto failed = wait(material, [](const auto& s) { return s.state == "failed"; });
         check(failed.retained_revision == first.retained_revision && !failed.diagnostic.empty(),
               "Failed replacement dropped last-good resource");
+        check(&service->material(material).get() == &expired_material.get() &&
+                  expired_material->values == original_values,
+              "Failed replacement changed retained CPU material data");
         for (auto token : texture_tokens) {
             const auto status = wait(token, [](const auto& s) { return s.state == "failed"; });
             check(!status.retained_revision.empty() && !status.diagnostic.empty(),
@@ -215,6 +246,12 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
         });
         check(second.requested_revision == second.retained_revision,
               "Ready replacement did not pin its selected revision");
+        const auto replacement = service->material(material);
+        check(replacement && replacement.identity().revision == second.retained_revision &&
+                  replacement->values.parameters.at("roughnessFactor").value[0] == .17f &&
+                  expired_material->values == original_values &&
+                  expired_material.identity().revision == first.retained_revision,
+              "Material adoption lost new values or mutated the pinned previous revision");
         std::vector<std::uint64_t> bounded;
         for (unsigned i = 0; i < 254; ++i)
             bounded.push_back(service->request(RuntimeResourceKind::Mesh, engine_primitive(0).id));
@@ -228,8 +265,11 @@ inline void runtime_resource_services(const std::filesystem::path& parent) {
     }
     check(!stale.available(Capability::Resources), "Dead world still advertises resources");
     check(!expired_mesh, "Strong CPU mesh lease survived owner shutdown");
+    check(!expired_material, "Strong CPU material lease survived owner shutdown");
     reject([&] { expired_mesh.get(); });
+    reject([&] { expired_material.get(); });
     reject([&] { expired->mesh(1); });
+    reject([&] { expired->material(1); });
     reject([&] { expired->synchronize(); });
     reject([&] { expired->request(RuntimeResourceKind::Mesh, engine_primitive(0).id); });
     expired.reset();

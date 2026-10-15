@@ -213,6 +213,16 @@ class RuntimeResources final : public RuntimeResourceService {
         const auto* lease = std::get_if<ResourceLease<MeshAsset>>(&found->second.retained);
         return lease && *lease ? *lease : ResourceLease<MeshAsset>{};
     }
+    ResourceLease<MaterialAsset> material(std::uint64_t token) const override {
+        check();
+        const auto found = subscriptions_.find(token);
+        if (found == subscriptions_.end())
+            throw std::runtime_error("Unknown or released runtime resource subscription");
+        if (found->second.kind != RuntimeResourceKind::Material)
+            return {};
+        const auto* lease = std::get_if<ResourceLease<MaterialAsset>>(&found->second.retained);
+        return lease && *lease ? *lease : ResourceLease<MaterialAsset>{};
+    }
     bool release(std::uint64_t token) override {
         check();
         // Release only this observer. Shared preparation/other leases remain valid.

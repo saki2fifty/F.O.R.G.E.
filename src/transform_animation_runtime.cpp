@@ -1,4 +1,6 @@
 #include "transform_animation_runtime.hpp"
+#include "animation_material_patch.hpp"
+#include "animation_material_values.hpp"
 #include "animation_property_state.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
@@ -44,7 +46,8 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
     const auto generation = selected.at("generation");
     if (selected.at("version") != 1 || selected.at("output_format") != "forge.transform-clip" ||
         (selected.at("output_version") != 1 && selected.at("output_version") != 2 &&
-         selected.at("output_version") != 3 && selected.at("output_version") != 4) ||
+         selected.at("output_version") != 3 && selected.at("output_version") != 4 &&
+         selected.at("output_version") != 5) ||
         !generation.is_number_unsigned() || generation == 0)
         throw std::runtime_error("Unsupported transform animation selection");
     return pool_.request(
@@ -197,6 +200,7 @@ void TransformAnimationPlayback::synchronize() {
                !sequence_errors_.contains(entry.first);
     });
     std::erase_if(load_errors_, [&](auto id) { return !alive.contains(id); });
+    synchronize_materials();
 }
 void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& times,
                                        bool commit) {
@@ -208,9 +212,24 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
     auto candidate =
         transforms ? context_.transform_nodes() : decltype(context_.transform_nodes()){};
     std::map<flecs::entity_t, AnimationPropertyState> properties;
+    std::map<flecs::entity_t, MeshRenderer> materials;
     for (const auto& [id, time] : times) {
         const auto& state = states_.at(id);
         auto entity = context_.world().entity(id);
+        if (!state.clip->material_bindings.empty()) {
+            if (state.material_error)
+                throw std::runtime_error("Animated material target is invalid");
+            if (state.material_pending || !state.material)
+                throw AnimationMaterialPending("Waiting for animated material target admission");
+            if (!entity.has<MeshRenderer>())
+                throw std::runtime_error("Material animation requires a MeshRenderer component");
+            auto renderer = entity.get<MeshRenderer>();
+            renderer.material_parameters = sample_animation_material_parameters(
+                state.clip.get(), time, renderer.material_parameters);
+            (void)asset_detail::prepare_model_material_parameters(state.material->draw,
+                                                                  renderer.material_parameters);
+            materials.emplace(id, std::move(renderer));
+        }
         if (state.clip->properties) {
             auto values = AnimationPropertyState::from(entity, state.clip->properties);
             values.sample(state.clip->properties, state.clip->sample_properties(time));
@@ -261,6 +280,8 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         auto entity = context_.world().entity(id);
         if (properties.contains(id))
             properties.at(id).commit(entity);
+        if (materials.contains(id))
+            entity.set<MeshRenderer>(materials.at(id));
         const auto pose = state.clip->channels ? candidate.at(id).local : LocalTransform{};
         if (state.clip->channels & 1)
             entity.set<LocalTranslation>(pose.translation);
@@ -361,6 +382,14 @@ void TransformAnimationPlayback::tick(double seconds) {
                     state.clip->sample_properties(0) !=
                         state.clip->sample_properties(state.clip->duration))
                     state.discontinuous = true;
+                if (!state.clip->material_bindings.empty()) {
+                    std::array<AnimationMaterialValues, material_parameter_override_limit> a{}, b{};
+                    const auto count = state.clip->material_bindings.size();
+                    state.clip->sample_materials(0, std::span(a).first(count));
+                    state.clip->sample_materials(state.clip->duration, std::span(b).first(count));
+                    if (!std::equal(a.begin(), a.begin() + count, b.begin()))
+                        state.discontinuous = true;
+                }
             }
             if (state.config.loop)
                 state.time = std::fmod(state.time, double(state.clip->duration));
@@ -372,8 +401,18 @@ void TransformAnimationPlayback::tick(double seconds) {
         }
         times.emplace(id, state.time);
     }
+    // Preparation already owns these diagnostics. Hold the complete candidate
+    // while an input is invalid/loading; do not copy one target's error onto
+    // healthy players or emit a second generic error every fixed tick.
+    if (std::any_of(times.begin(), times.end(), [&](const auto& entry) {
+            const auto& state = states_.at(entry.first);
+            return state.material_error || state.material_pending;
+        }))
+        return;
     try {
         apply(times, true);
+    } catch (const AnimationMaterialPending&) {
+        pending_ = true;
     } catch (const std::exception& e) {
         for (const auto& [id, time] : times) {
             (void)time;
@@ -397,8 +436,9 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
     if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)
         throw std::runtime_error("Invalid property animation presentation alpha");
     const auto at = states_.find(id);
-    if (at == states_.end() || !at->second.clip || !at->second.clip->properties ||
-        errors_.contains(id))
+    if (at == states_.end() || !at->second.clip ||
+        (!at->second.clip->properties && at->second.clip->material_bindings.empty()) ||
+        at->second.material_pending || errors_.contains(id))
         return nullptr;
     const auto& state = at->second;
     auto time = state.previous + state.advance * alpha;
@@ -411,7 +451,20 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
         time = std::fmod(time, double(state.clip->duration));
     auto values = AnimationPropertyState::from(context_.world().entity(id), state.clip->properties);
     values.sample(state.clip->properties, state.clip->sample_properties(time));
-    return values.patch(state.clip->properties);
+    auto result = values.patch(state.clip->properties);
+    if (!state.clip->material_bindings.empty()) {
+        if (!state.material || state.material_error)
+            return nullptr;
+        const auto entity = context_.world().entity(id);
+        if (!entity.has<MeshRenderer>())
+            return nullptr;
+        const auto sampled = sample_animation_material_parameters(
+            state.clip.get(), time, entity.get<MeshRenderer>().material_parameters);
+        (void)asset_detail::prepare_model_material_parameters(state.material->draw, sampled);
+        result["forge.mesh_renderer"]["material_parameters"] =
+            animation_material_parameters_json(sampled);
+    }
+    return result;
 }
 std::vector<std::uint64_t> TransformAnimationPlayback::take_discontinuities() {
     std::vector<std::uint64_t> result(discontinuities_.begin(), discontinuities_.end());
@@ -440,6 +493,8 @@ void TransformAnimationPlayback::restore(const Json& values) { restore(values, J
 void TransformAnimationPlayback::restore(const Json& values, const Json& sequences) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     do {
+        if (context_.services().available(Capability::Resources))
+            context_.services().resources()->synchronize();
         synchronize();
         if (ready())
             break;

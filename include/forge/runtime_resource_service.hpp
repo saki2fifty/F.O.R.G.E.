@@ -4,6 +4,7 @@
 #include <string>
 namespace forge {
 struct MeshAsset;
+struct MaterialAsset;
 template <class T> class ResourceLease;
 // CPU admission only. Ready is not GPU/draw readiness. Tokens are process-local,
 // world-scoped subscriptions, never serialized asset identities or native pointers.
@@ -25,5 +26,7 @@ class RuntimeResourceService {
     virtual bool release(std::uint64_t) = 0;
     virtual void synchronize() = 0;
     virtual void refresh() = 0;
+    // Same retained-lease/read-only boundary as mesh(), for builtin consumers.
+    virtual ResourceLease<MaterialAsset> material(std::uint64_t) const = 0;
 };
 } // namespace forge

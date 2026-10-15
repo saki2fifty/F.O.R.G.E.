@@ -132,10 +132,10 @@ int main() {
         const auto original_legacy = legacy_extension.document;
         const auto envelope_bytes = legacy_extension.cook();
         const auto envelope = nlohmann::json::parse(envelope_bytes);
-        check(envelope.at("version") == 4 && envelope.at("document") == original_legacy,
+        check(envelope.at("version") == 5 && envelope.at("document") == original_legacy,
               "Cooked envelope changed the source version or unknown extensions");
         auto malformed_envelope = envelope;
-        malformed_envelope["version"] = 4.;
+        malformed_envelope["version"] = 5.;
         const auto malformed_text = malformed_envelope.dump();
         rejects([&] {
             decode_transform_animation(std::as_bytes(std::span(malformed_text)),

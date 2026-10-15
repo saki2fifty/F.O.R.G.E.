@@ -1,10 +1,12 @@
 #pragma once
 #include <forge/animation_components.hpp>
 #include <forge/animation_property.hpp>
+#include <forge/material_parameter.hpp>
 #include <forge/transform.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <span>
+#include <string>
 #include <vector>
 namespace forge {
 inline constexpr std::size_t transform_animation_byte_limit = 2 * 1024 * 1024;
@@ -18,6 +20,21 @@ struct TransformAnimationTangents {
 struct AnimationPropertyCurve {
     bool cubic = false;
     double incoming = 0, outgoing = 0; // Native property units per second.
+};
+struct AnimationMaterialBinding {
+    std::string slot, key;
+    MaterialParameterType type = MaterialParameterType::Scalar;
+    bool operator==(const AnimationMaterialBinding&) const = default;
+};
+using AnimationMaterialValues = std::array<double, 4>;
+struct AnimationMaterialKey {
+    AnimationMaterialValues values{};
+    std::array<AnimationPropertyCurve, 4> curves{};
+};
+struct AnimationMaterialCurveEdit {
+    AnimationMaterialBinding binding;
+    unsigned lane = 0;
+    AnimationPropertyCurve value;
 };
 struct TransformAnimationCurves {
     bool cubic = false;
@@ -33,6 +50,8 @@ struct TransformAnimationKey {
     bool held = false;
     TransformAnimationCurves curves;
     AnimationPropertyValues properties{};
+    // Empty for legacy clips. Compiled ordinals belong only to this clip revision.
+    std::vector<AnimationMaterialKey> materials;
 };
 struct TransformAnimationClip {
     AssetId asset;
@@ -40,8 +59,14 @@ struct TransformAnimationClip {
     unsigned channels = 7;
     std::vector<TransformAnimationKey> keys;
     unsigned properties = 0;
+    std::vector<AnimationMaterialBinding> material_bindings;
     LocalTransform sample(double microseconds) const;
     AnimationPropertyValues sample_properties(double microseconds) const;
+    // Reusable caller storage; target-specific material admission precedes writes.
+    void sample_materials(double microseconds, std::span<AnimationMaterialValues>) const;
+    // Exact endpoint/held/linear/cubic extrema over the whole admitted clip.
+    // Computed during target admission, never required on the fixed sampling path.
+    std::array<double, 2> material_range(std::size_t binding, unsigned lane) const;
     std::size_t resident_bytes() const;
 };
 struct TransformAnimationSource {
@@ -54,7 +79,21 @@ struct TransformAnimationSource {
     std::vector<std::byte> cook() const;
     AssetId set_key(std::int64_t time, const LocalTransform&, bool held = false, AssetId key = {},
                     std::optional<TransformAnimationCurves> curves = {},
-                    std::optional<AnimationPropertyValues> properties = {});
+                    std::optional<AnimationPropertyValues> properties = {},
+                    std::optional<std::span<const AnimationMaterialValues>> materials = {});
+    void add_material_parameter(const AnimationMaterialBinding&, const AnimationMaterialValues&);
+    void erase_material_parameter(std::string_view slot, std::string_view parameter);
+    void set_material_value(AssetId key, std::string_view slot, std::string_view parameter,
+                            const AnimationMaterialValues&);
+    void set_material_curve(AssetId key, std::string_view slot, std::string_view parameter,
+                            unsigned lane, const AnimationPropertyCurve&);
+    void set_material_curves(std::span<const AssetId>, std::string_view slot,
+                             std::string_view parameter, unsigned lane,
+                             const AnimationPropertyCurve&);
+    void set_material_curves(AssetId, std::span<const AnimationMaterialCurveEdit>);
+    void set_material_tangent_preset(std::span<const AssetId>, std::string_view slot,
+                                     std::string_view parameter, unsigned lane,
+                                     TransformAnimationTangentPreset);
     void add_property(AnimationProperty, double initial_value);
     void erase_property(AnimationProperty);
     void set_property_curve(AssetId key, AnimationProperty, const AnimationPropertyCurve&);

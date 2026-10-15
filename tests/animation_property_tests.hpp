@@ -122,7 +122,7 @@ void animation_property_tests(const std::filesystem::path& scratch) {
     const auto receipt = publish(service, document->locator(), id);
     require(receipt.published && receipt.publication, "Property clip publication failed");
     const auto catalog = std::make_shared<const AssetCatalog>(receipt.publication->catalog);
-    require(catalog->records().at(id).metadata["forge.import"]["output_version"] == 4,
+    require(catalog->records().at(id).metadata["forge.import"]["output_version"] == 5,
             "Property clip selected wrong cook version");
     EngineContext authored;
     Scene scene(authored.world());
