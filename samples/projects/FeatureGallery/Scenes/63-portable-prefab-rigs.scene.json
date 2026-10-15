@@ -1,0 +1,405 @@
+{
+  "asset_id": "4330357b-6da6-4c88-8f50-8a3de15240bd",
+  "entities": [
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "b1123418-9a37-44c8-b6a2-3311065f9828",
+      "name": "Left rig - sequence 1x",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "eb73b27d-8cc9-483c-8aad-fc8ec876eb5a",
+        "members": {
+          "021650d7-3843-4920-902a-e62a157c59ee": "709d3f45-1834-4824-80f8-3144da3b7dac",
+          "1540781a-faef-43bd-8fab-f7d044b5527c": "ac163b96-da63-447f-a6ef-f6a7a1db4396",
+          "279f9bba-fe83-4994-8867-0434a9f2a222": "d77d92ea-48bb-43ca-ac64-c3706fb7f15c",
+          "464c33aa-307c-413c-b8e1-fe7d93148b63": "23c49b6e-6470-476f-8522-ab22961a0e51",
+          "79058a04-729a-48e6-a120-c1ea36c06334": "d09f4a9e-3b7d-497e-ba8e-57a5083ce3f1",
+          "887119e0-0e6d-42c3-94c7-47ea12f143f7": "b1123418-9a37-44c8-b6a2-3311065f9828",
+          "8e3810d4-0811-429d-8e9b-8e5c66a7dac2": "c9a791dd-3225-4911-92d7-a39ad427d6b5",
+          "a7e7f819-d4d8-411a-8f79-8bb23f19cf12": "6220a909-ba48-4210-b00b-96b855a9167b"
+        },
+        "revision": 1,
+        "status": "current"
+      }
+    },
+    {
+      "components": {},
+      "id": "23c49b6e-6470-476f-8522-ab22961a0e51",
+      "name": "Internal distance link",
+      "parent": "b1123418-9a37-44c8-b6a2-3311065f9828",
+      "prefab_member": {
+        "member": "464c33aa-307c-413c-b8e1-fe7d93148b63",
+        "root": "b1123418-9a37-44c8-b6a2-3311065f9828"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "ac163b96-da63-447f-a6ef-f6a7a1db4396",
+      "name": "Left frame",
+      "parent": "b1123418-9a37-44c8-b6a2-3311065f9828",
+      "prefab_member": {
+        "member": "1540781a-faef-43bd-8fab-f7d044b5527c",
+        "root": "b1123418-9a37-44c8-b6a2-3311065f9828"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "709d3f45-1834-4824-80f8-3144da3b7dac",
+      "name": "Sliding door",
+      "parent": "b1123418-9a37-44c8-b6a2-3311065f9828",
+      "prefab_member": {
+        "member": "021650d7-3843-4920-902a-e62a157c59ee",
+        "root": "b1123418-9a37-44c8-b6a2-3311065f9828"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "6220a909-ba48-4210-b00b-96b855a9167b",
+      "name": "Pendulum anchor",
+      "parent": "b1123418-9a37-44c8-b6a2-3311065f9828",
+      "prefab_member": {
+        "member": "a7e7f819-d4d8-411a-8f79-8bb23f19cf12",
+        "root": "b1123418-9a37-44c8-b6a2-3311065f9828"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": -3.8,
+          "y": 5.1,
+          "z": -1.5
+        }
+      },
+      "id": "c9a791dd-3225-4911-92d7-a39ad427d6b5",
+      "name": "Pendulum bob",
+      "parent": "b1123418-9a37-44c8-b6a2-3311065f9828",
+      "prefab_member": {
+        "member": "8e3810d4-0811-429d-8e9b-8e5c66a7dac2",
+        "root": "b1123418-9a37-44c8-b6a2-3311065f9828"
+      },
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {},
+      "id": "d77d92ea-48bb-43ca-ac64-c3706fb7f15c",
+      "name": "Right frame",
+      "parent": "b1123418-9a37-44c8-b6a2-3311065f9828",
+      "prefab_member": {
+        "member": "279f9bba-fe83-4994-8867-0434a9f2a222",
+        "root": "b1123418-9a37-44c8-b6a2-3311065f9828"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "d09f4a9e-3b7d-497e-ba8e-57a5083ce3f1",
+      "name": "Top frame",
+      "parent": "b1123418-9a37-44c8-b6a2-3311065f9828",
+      "prefab_member": {
+        "member": "79058a04-729a-48e6-a120-c1ea36c06334",
+        "root": "b1123418-9a37-44c8-b6a2-3311065f9828"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 0.0,
+          "z": 0.0
+        }
+      },
+      "id": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+      "name": "Right rig - sequence 0.5x",
+      "name_override": true,
+      "prefab_instance": {
+        "asset": "eb73b27d-8cc9-483c-8aad-fc8ec876eb5a",
+        "members": {
+          "021650d7-3843-4920-902a-e62a157c59ee": "ba32b9eb-e467-45b2-a435-53b27c4a35ec",
+          "1540781a-faef-43bd-8fab-f7d044b5527c": "ccfb0139-6ba2-4301-a14e-27aecea7837a",
+          "279f9bba-fe83-4994-8867-0434a9f2a222": "273e9de3-af1a-40bb-9986-fa31fe6c8b11",
+          "464c33aa-307c-413c-b8e1-fe7d93148b63": "d391d953-a22c-416c-9cde-6545d405146f",
+          "79058a04-729a-48e6-a120-c1ea36c06334": "d914155e-6803-4c4c-bebd-f49c6b8e3e1e",
+          "887119e0-0e6d-42c3-94c7-47ea12f143f7": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+          "8e3810d4-0811-429d-8e9b-8e5c66a7dac2": "d545378b-eb32-416a-88bb-91ed01965411",
+          "a7e7f819-d4d8-411a-8f79-8bb23f19cf12": "073e8f82-6d73-46ea-b786-a84411168a7d"
+        },
+        "revision": 1,
+        "status": "current"
+      },
+      "property_overrides": {
+        "forge.animation_sequence": {
+          "playback_speed": 0.5
+        }
+      }
+    },
+    {
+      "components": {},
+      "id": "d391d953-a22c-416c-9cde-6545d405146f",
+      "name": "Internal distance link",
+      "parent": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+      "prefab_member": {
+        "member": "464c33aa-307c-413c-b8e1-fe7d93148b63",
+        "root": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "ccfb0139-6ba2-4301-a14e-27aecea7837a",
+      "name": "Left frame",
+      "parent": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+      "prefab_member": {
+        "member": "1540781a-faef-43bd-8fab-f7d044b5527c",
+        "root": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "ba32b9eb-e467-45b2-a435-53b27c4a35ec",
+      "name": "Sliding door",
+      "parent": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+      "prefab_member": {
+        "member": "021650d7-3843-4920-902a-e62a157c59ee",
+        "root": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "073e8f82-6d73-46ea-b786-a84411168a7d",
+      "name": "Pendulum anchor",
+      "parent": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+      "prefab_member": {
+        "member": "a7e7f819-d4d8-411a-8f79-8bb23f19cf12",
+        "root": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_translation": {
+          "x": 6.2,
+          "y": 5.1,
+          "z": -1.5
+        }
+      },
+      "id": "d545378b-eb32-416a-88bb-91ed01965411",
+      "name": "Pendulum bob",
+      "parent": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+      "prefab_member": {
+        "member": "8e3810d4-0811-429d-8e9b-8e5c66a7dac2",
+        "root": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021"
+      },
+      "property_overrides": {
+        "forge.physics_body": {
+          "gravity_factor": 0.4000000059604645
+        }
+      },
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {},
+      "id": "273e9de3-af1a-40bb-9986-fa31fe6c8b11",
+      "name": "Right frame",
+      "parent": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+      "prefab_member": {
+        "member": "279f9bba-fe83-4994-8867-0434a9f2a222",
+        "root": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {},
+      "id": "d914155e-6803-4c4c-bebd-f49c6b8e3e1e",
+      "name": "Top frame",
+      "parent": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021",
+      "prefab_member": {
+        "member": "79058a04-729a-48e6-a120-c1ea36c06334",
+        "root": "f9ea2e1c-9550-40b3-86bb-b9ac09ad1021"
+      },
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 20.0,
+          "y": 0.4000000059604645,
+          "z": 8.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.30000001192092896,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b8216eed-ebe0-4f2f-bba1-8e2d85bf85c4",
+      "name": "Floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9961947202682495,
+          "x": 0.08715573698282242,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -18.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "f80d6c96-89bd-4fba-8ce5-194c93dd541d",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 1.0,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9238795042037964,
+          "x": 0.3826834261417389,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 8.0,
+          "z": -3.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "dc5d929c-c07a-425f-b2f2-bae28725d3e0",
+      "name": "Sun",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 4
+}

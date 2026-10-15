@@ -17,15 +17,16 @@ Json load_game_scene(const std::filesystem::path& root, AssetRef<SceneAsset> ref
             throw std::runtime_error("game.content: Missing or incompatible " + std::string(type) +
                                      " " + id.str());
         const auto version = found->second.schema_version;
-        if (type == SceneAsset::type ? version < 3 || version > 5 : version < 1 || version > 2)
+        if (type == SceneAsset::type ? version < 3 || version > 5 : version < 1 || version > 3)
             throw std::runtime_error("game.content: Unsupported catalog schema version");
         auto data = access.read(found->second.source, 64 * 1024 * 1024);
         if (data.size() > 256 * 1024 * 1024 - bytes)
             throw std::runtime_error("game.content: Scene/prefab closure exceeds 256 MiB");
         bytes += data.size();
         auto doc = asset_detail::parse_bounded_json(data, 64 * 1024 * 1024);
-        if (doc.at("asset_id").get<AssetId>() != id)
-            throw std::runtime_error("game.content: Scene/prefab identity differs from catalog");
+        if (doc.at("asset_id").get<AssetId>() != id || doc.at("version") != version)
+            throw std::runtime_error(
+                "game.content: Scene/prefab identity/schema differs from catalog");
         return doc;
     };
     auto scene = read(ref.id, SceneAsset::type);

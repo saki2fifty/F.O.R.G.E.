@@ -4,7 +4,7 @@
 
 Prefab schema 1 uses `format: forge.prefab`, `version: 1`, `asset_id: AssetId`, positive monotonic `revision`, a root `PrefabMemberId`, and an array of member definitions. Each member has a persistent UUIDv4 `id`, display `name`, `components` and (except the root) a `parent` member ID. The prefab source root is an attachment anchor: its source binding is FollowStructure, and each scene instance root owns its scene attachment. Interior definition spatial bindings use `follow_structure`, `world` or `explicit` with a member ID. Validate structural and spatial cycles before realization.
 
-PrefabMemberId names a definition member, not a scene entity or Flecs handle. `PrefabMemberRef` explicitly pairs prefab AssetId and member ID. `prefab_member_reference` resolves through one chosen instance mapping into an EntityRef. Removed-member mappings still identify the same, now unavailable entity. Known typed codecs can remap references during duplication; unknown plugin JSON is never scanned for UUID-looking strings. The existing explicit spatial-binding codec is the current reference-bearing consumer.
+PrefabMemberId names a definition member, not a scene entity or Flecs handle. `PrefabMemberRef` explicitly pairs prefab AssetId and member ID. `prefab_member_reference` resolves through one chosen instance mapping into an EntityRef. Removed-member mappings still identify the same, now unavailable entity. Known typed codecs remap references during duplication; unknown plugin JSON is never scanned for UUID-looking strings. Spatial bindings and source3 component references use this existing instance mapping.
 
 Scene schema 4 is introduced when structured instances are created. A root stores `prefab_instance: {asset, revision, members: {memberUUID: entityUUID}, status}`. Addressable member rows store `prefab_member: {root: rootEntityUUID, member: memberUUID}`, authored override intent and resolved structural/name metadata. The map survives member removal; retained rows have `missing_member: true`. All authored entity UUIDs, including instance roots and mapped children, are unique within the scene. Duplicate instances allocate new entity IDs; duplicate assets allocate both a new AssetId and new member IDs. Whole-scene duplication remaps every instance member and known intra-scene reference.
 
@@ -72,3 +72,50 @@ retains the previous source/instances on failure. Scene-owned signed/zero scale
 overrides use scene5 and remain independently undoable/revertible. Unknown payloads
 are untouched; direct source publication still has its existing separate history
 policy and is not an Apply operation.
+
+## Portable component references
+
+[ADR022](decisions/022-prefab-component-references.md) introduces prefab source3.
+At an admitted `entity_ref` field, its source value is null or a
+`PrefabMemberRef {prefab, member}` naming this source. Scene documents and native
+C++ values retain `EntityRef {scene, entity}`. Versions1/2 keep their prior meaning;
+there is no automatic migration or new SDK layout. Source3 also retains source2's
+expanded scale domain. Older readers reject the explicit new source version.
+
+Create from selection converts admitted internal links, including nested structs,
+arrays and vectors. It rejects external Scene targets and reserved identity-key
+collisions before publication. Exactly admitted custom envelopes participate;
+unknown fields and unavailable schemas remain opaque. Source editing uses a member
+picker, including None and a missing target's retained identity. Draft collection
+selection changes no source until the property edit commits.
+
+Shared immutable templates decode member links as null. Scene realization resolves
+only the required instance values through its existing durable member map. Source
+inheritance is retained on Save despite this native materialization. Explicit whole
+and property overrides remain explicit, including equal values. Native changes to
+declared reference components reach recovery, including after an optional source
+link is cleared; existing opaque mask data is retained. Unused null references
+alone do not require an owned native component.
+
+References to removed members keep their map entry. New instances allocate the
+missing target once, without inventing a member row; the existing16384-entry map
+bound still applies. Duplicate instances/scenes remap those tombstones as well.
+Returning the same member ID restores each instance's own target. Rename, reorder
+and source moves do not change the reference identity.
+
+Apply converts only admitted links to members of the selected instance, before
+the existing coordinated source/Scene transaction. External targets reject the
+candidate without changing either durable file. Undo/Redo retains the existing
+monotonic revision policy. Unrelated scalar/name Apply preserves older source
+versions and their existing absolute Scene links. Transferring a non-null reference
+activates conversion; an unchanged legacy link that cannot be mapped safely then
+rejects the candidate rather than being guessed or silently retargeted.
+Export and `load_game_scene` admit source3 through the
+same catalog and checked typed dependency inspection; internal member links are
+not external Scene dependencies.
+
+Spatial and physics ownership is unchanged. Dynamic bodies still require World
+space; their initial world poses are authored explicitly rather than driven by a
+structural parent. Gallery63 demonstrates two portable sequence/joint instances
+with independent clocks, body links and initial placements. Nested prefabs and
+variants are outside this change.

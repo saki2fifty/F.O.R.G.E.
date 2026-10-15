@@ -6,8 +6,9 @@ acceptance and a new packaged delivery remain deferred.
 ## Evidence and decision
 
 Scene/Prefab already own component composition; scene/entity duplication remaps
-registered EntityRef fields. Prefab source capture currently converts spatial
-member links only; it does not convert component EntityRefs to PrefabMemberRefs.
+registered EntityRef fields. At the phase97 decision, prefab source capture
+converted spatial member links only. [ADR022](022-prefab-component-references.md)
+subsequently adds explicit source3 component member references.
 TransformAnimationPlayback already owns clip resources, clocks, complete pose/property
 candidates, movement-controller conflicts, copied presentation and recovery inside
 AnimationRuntime. Reusable clip assets contain no scene identities. A second sequence
@@ -24,12 +25,12 @@ Only current known reference fields are remapped. Controller references must res
 within the target's loaded scene membership; missing/ambiguous/wrong-type references
 retain identity and report errors. Scene/subtree duplication uses existing typed
 reference machinery, including overrides on prefab instances. Prefab actors can
-participate through scene-owned sequence bindings. Reusable prefab definitions do
-not capture complete arrangements: Create Prefab rejects a subtree containing bound
-tracks, rather than retaining an unintended link to the source scene. Portable
-definition-member sequence bindings require a distinct, versioned prefab design;
-do not disguise prefab member IDs as EntityRefs. Never scan opaque JSON or bind by
-display name/path.
+participate through scene-owned sequence bindings. The initial phase97 boundary
+excluded portable definition arrangements and rejected their capture. ADR022
+supersedes that deferral with source3 member links, resolved into each Scene
+instance's EntityRefs. It retains this decision's clock/candidate ownership.
+Prefab member IDs are never disguised as Scene EntityRefs. Never scan opaque JSON
+or bind by display name/path.
 
 ## Timing and ownership
 

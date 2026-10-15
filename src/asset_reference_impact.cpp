@@ -3,6 +3,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
+#include "prefab_references.hpp"
 #include <forge/animation_blend_space.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
@@ -22,6 +23,7 @@ struct Inspect {
     std::filesystem::path source;
     std::string owner;
     bool all = false;
+    AssetId prefab_reference_owner{};
     void budget(unsigned depth = 0) {
         if (++visits > 1048576 || depth > 32)
             throw std::runtime_error("Reference inspection exceeds its node/depth budget");
@@ -66,7 +68,10 @@ struct Inspect {
         if (type == "asset_ref")
             reference(value, path, "AssetRef", field.at("asset_type").get<std::string>());
         else if (type == "entity_ref") {
-            if (!value.is_null())
+            if (!value.is_null() && prefab_reference_owner) {
+                (void)detail::checked_prefab_reference(value, prefab_reference_owner);
+                // Internal member links are not external asset dependencies.
+            } else if (!value.is_null())
                 reference(value.at("scene"), path, "EntityRef scene", SceneAsset::type);
         } else if (type == "struct")
             fields(field.at("fields"), value, path, depth + 1);
@@ -86,6 +91,7 @@ struct Inspect {
         source = input.source;
         owner.clear();
         const auto& doc = input.document;
+        prefab_reference_owner = {};
         if (!doc.is_object()) {
             unknown("untyped JSON document");
             return;
@@ -94,6 +100,8 @@ struct Inspect {
             doc.contains("version") && doc.contains("entities") && doc.at("entities").is_array();
         const bool prefab = doc.contains("format") && doc.at("format").is_string() &&
                             doc.at("format").get<std::string>() == "forge.prefab";
+        if (prefab && doc.at("version") == 3)
+            prefab_reference_owner = doc.at("asset_id").get<AssetId>();
         const auto rows = scene ? "entities" : prefab ? "members" : nullptr;
         if (rows) {
             for (const auto& row : doc.at(rows)) {
@@ -120,12 +128,14 @@ struct Inspect {
                     reference(row.at("spatial").at("target").at("scene"), "spatial.target",
                               "EntityRef scene", SceneAsset::type);
                 // Both whole-component and per-property intent carry authored values.
-                for (const auto& [key, unused] : row.items()) {
-                    (void)unused;
+                for (const auto& [key, value] : row.items()) {
+                    const bool state_flag =
+                        scene && (doc.at("version") == 4 || doc.at("version") == 5) &&
+                        (key == "name_override" || key == "missing_member") && value.is_boolean();
                     if (key != "id" && key != "name" && key != "components" && key != "parent" &&
                         key != "base" && key != "prefab" && key != "spatial" &&
                         key != "prefab_instance" && key != "prefab_member" &&
-                        key != "property_overrides")
+                        key != "property_overrides" && !state_flag)
                         unknown(key);
                 }
             }

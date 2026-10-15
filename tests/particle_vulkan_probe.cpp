@@ -4,6 +4,8 @@
 #include "particle_runtime.hpp"
 #include <forge/animation.hpp>
 #include <forge/engine_assets.hpp>
+#include <forge/game_content.hpp>
+#include <forge/physics.hpp>
 #include <forge/runtime.hpp>
 #include <fstream>
 #include <iostream>
@@ -538,6 +540,61 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
                     changed += first[i] != pixels[i];
                 check(changed > 10000,
                       "Shared native renderer did not consume coordinated sequence changes");
+            }
+        }
+        context->WaitForIdle();
+    }
+    if (!gallery.empty() &&
+        std::filesystem::exists(gallery / "Scenes/63-portable-prefab-rigs.scene.json")) {
+        Json document;
+        std::ifstream(gallery / "Scenes/63-portable-prefab-rigs.scene.json") >> document;
+        const auto source = load_game_scene(gallery, {document.at("asset_id").get<AssetId>()});
+        EngineContext engine(WorldRole::Runtime, false,
+                             {physics_module({}, gallery), animation_module(gallery)});
+        Scene live(engine.world());
+        live.restore_snapshot(source);
+        RuntimeSimulation simulation(engine.world(), live);
+        const auto animation = animation_runtime(engine.world());
+        const auto catalog =
+            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(gallery));
+        animation->catalog(catalog);
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        while (!animation->prepare_initial_pose()) {
+            check(std::chrono::steady_clock::now() < deadline,
+                  "Native Gallery63 portable animation admission timed out");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto physics = std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+        physics->synchronize(0);
+        check(physics->status().at("joints") == 2, "Native portable constraints missing");
+        simulation.reset_presentation();
+        auto gallery_host = std::make_shared<MeshResourceHost>(presentation, context, gallery);
+        gallery_host->catalog(catalog);
+        MeshSceneRenderer gallery_renderer(gallery_host);
+        active_host = gallery_host;
+        active_renderer = &gallery_renderer;
+        Target wide(device, 960, 540);
+        std::vector<std::array<std::uint8_t, 4>> first;
+        for (unsigned stage = 0; stage < 2; ++stage) {
+            if (stage)
+                for (unsigned tick = 0; tick < 120; ++tick)
+                    simulation.tick(1.f / 60);
+            scene = extract_render_scene(simulation.presentation(1));
+            check(scene.diagnostics.empty() && scene.cameras.size() == 1 &&
+                      scene.meshes.size() == 13 && scene.lights.size() == 1,
+                  "Native portable Gallery lost render participants");
+            camera = scene.cameras.front().camera;
+            camera_world = scene.cameras.front().world;
+            const auto pixels = draw(wide);
+            check(visible(pixels) > 1000, "Native portable Gallery produced an empty frame");
+            image(root / ("gallery63-phase" + std::to_string(stage) + ".ppm"), 960, 540, pixels);
+            if (!stage)
+                first = pixels;
+            else {
+                std::size_t changed = 0;
+                for (std::size_t i = 0; i < first.size(); ++i)
+                    changed += first[i] != pixels[i];
+                check(changed > 1000, "Native portable Gallery motion did not reach the renderer");
             }
         }
         context->WaitForIdle();

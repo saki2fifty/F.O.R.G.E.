@@ -18,6 +18,17 @@ with another startup scene to export a different demonstration.
 The gallery contains ordinary saved project content. It needs no C++ compiler. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
 
+## Portable prefab rigs
+
+Open **63-portable-prefab-rigs** and press Play. The left door runs at normal
+sequence speed and the right at half speed. The pendulums above them use separate
+body links and gravity settings. Both rigs come from the same prefab source.
+
+Select a rig or one of its members to inspect inherited values and overrides.
+Open **Assets/PortableSequenceRig.prefab.json** to inspect its member reference
+fields. Save the scene before exporting. The exported game includes its prefab
+definition and prepared clip; it needs no source project or C++ compiler.
+
 Scene **55-layered-heightfield-terrain** contains editable height layers on two
 adjoining tiles and three spheres that land on the cooked static surface. Open
 its source under **Assets/Terrain**, paint a layer and publish, then rebuild its

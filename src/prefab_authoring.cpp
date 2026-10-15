@@ -1,5 +1,6 @@
 #include "builtins.hpp"
 #include "json_value_equal.hpp"
+#include "prefab_references.hpp"
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
@@ -35,6 +36,8 @@ PrefabDocument create_prefab_source(const Scene& scene, const std::string& selec
                 changed |= included.insert(id).second;
     } while (changed);
     std::map<std::string, std::string> ids;
+    const auto asset = AssetId::generate();
+    bool portable_references = false;
     for (const auto& id : included)
         ids[id] = PrefabMemberId::generate().str();
     Json members = Json::array();
@@ -47,15 +50,17 @@ PrefabDocument create_prefab_source(const Scene& scene, const std::string& selec
                 "conversion are deferred. Use Duplicate asset for an independent prefab.");
         if (item.value("missing_member", false))
             throw std::runtime_error("Resolve missing prefab members before creating a source");
-        if (const auto actor = scene.entity(id);
-            actor.has<TransformAnimator>() && actor.get<TransformAnimator>().sequence.entity)
-            throw std::runtime_error(
-                "Sequence arrangements belong to the Scene. Create an unbound prefab, then "
-                "bind its scene instance to the Animation Sequence.");
         item["id"] = ids.at(id);
         for (const auto& type : detail::builtins())
             if (values.at(id)["components"].contains(type.name))
                 item["components"][type.name] = values.at(id)["components"].at(type.name);
+        portable_references |=
+            !detail::transform_prefab_component_references(
+                 item["components"], scene.schema(),
+                 [&](const Json& value) {
+                     return detail::capture_prefab_reference(value, scene.asset_id(), asset, ids);
+                 })
+                 .empty();
         for (auto key : {"base", "prefab", "prefab_instance", "prefab_member", "property_overrides",
                          "missing_member", "name_override"})
             item.erase(key);
@@ -76,8 +81,8 @@ PrefabDocument create_prefab_source(const Scene& scene, const std::string& selec
         members.push_back(std::move(item));
     }
     return PrefabDocument({{"format", "forge.prefab"},
-                           {"version", 1},
-                           {"asset_id", AssetId::generate()},
+                           {"version", portable_references ? 3 : 1},
+                           {"asset_id", asset},
                            {"revision", std::uint64_t{1}},
                            {"root", ids.at(root)},
                            {"members", std::move(members)}});
@@ -194,7 +199,7 @@ AssetId PrefabLibrary::create(Scene& scene, PrefabDocument document,
 }
 AssetId PrefabLibrary::duplicate(Scene& scene, AssetId asset,
                                  const std::filesystem::path& relative) {
-    return create(scene, PrefabDocument(source(asset)).duplicate(), relative);
+    return create(scene, PrefabDocument(source(asset)).duplicate(scene.schema()), relative);
 }
 void PrefabLibrary::publish(Scene& scene, const Json& expected, Json candidate) {
     const PrefabDocument old(expected);
@@ -257,6 +262,7 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
         types[type.at("id")] = type;
     const auto root_id = root->at("id").get<std::string>();
     const auto mapping = root->at("prefab_instance").at("members");
+    bool portable_references = false;
     for (auto& member : result.source["members"]) {
         const auto key = member.at("id").get<std::string>();
         if (!mapping.contains(key))
@@ -284,6 +290,11 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                 ++it;
                 continue; // Unadmitted/opaque authored values remain exactly where they are.
             }
+            auto transferred = Json{{it.key(), it.value()}};
+            portable_references |=
+                !detail::transform_prefab_component_references(
+                     transferred, schema, [](const Json& value) { return value; })
+                     .empty();
             member["components"][it.key()] = it.value();
             it = components.erase(it);
             ++result.overrides;
@@ -308,6 +319,11 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
                     ++field;
                     continue;
                 }
+                auto transferred = value.at(field.key());
+                bool reference = false;
+                detail::transform_prefab_reference_field(
+                    *known, transferred, [](const Json& input) { return input; }, reference);
+                portable_references |= reference;
                 member["components"][it.key()][field.key()] = value.at(field.key());
                 field = it.value().erase(field);
                 ++result.overrides;
@@ -326,6 +342,24 @@ PrefabApplyCandidate PrefabLibrary::prepare_apply(const Scene& scene,
     }
     if (!result.overrides)
         throw std::runtime_error("This instance has no admitted overrides to Apply");
+    std::map<std::string, std::string> inverse;
+    for (const auto& [member, entity] : mapping.items())
+        inverse.emplace(entity.get<std::string>(), member);
+    if (portable_references) {
+        // Only an explicitly transferred non-null reference activates migration.
+        // Unrelated edits retain legacy absolute Scene references and source version.
+        for (auto& member : result.source["members"])
+            detail::transform_prefab_component_references(
+                member["components"], schema, [&](const Json& value) {
+                    if (value.contains("prefab")) {
+                        (void)detail::checked_prefab_reference(value, asset);
+                        return value;
+                    }
+                    return detail::capture_prefab_reference(value, scene.asset_id(), asset,
+                                                            inverse);
+                });
+        result.source["version"] = 3;
+    }
     if (PrefabDocument(result.expected).revision() == UINT64_MAX)
         throw std::runtime_error("Prefab revision exhausted");
     result.source["revision"] = PrefabDocument(result.expected).revision() + 1;

@@ -1,0 +1,448 @@
+{
+  "asset_id": "eb73b27d-8cc9-483c-8aad-fc8ec876eb5a",
+  "format": "forge.prefab",
+  "members": [
+    {
+      "components": {
+        "forge.animation_sequence": {
+          "duration": 6.0,
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+      "name": "Reusable sequence and pendulum",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_joint": {
+          "anchor_a_x": 0.0,
+          "anchor_a_y": 0.0,
+          "anchor_a_z": 0.0,
+          "anchor_b_x": 0.0,
+          "anchor_b_y": 0.0,
+          "anchor_b_z": 0.0,
+          "axis_a": 2,
+          "axis_b": 2,
+          "body_a": {
+            "member": "a7e7f819-d4d8-411a-8f79-8bb23f19cf12",
+            "prefab": "eb73b27d-8cc9-483c-8aad-fc8ec876eb5a"
+          },
+          "body_b": {
+            "member": "8e3810d4-0811-429d-8e9b-8e5c66a7dac2",
+            "prefab": "eb73b27d-8cc9-483c-8aad-fc8ec876eb5a"
+          },
+          "collide_connected": false,
+          "distance_spring_damping": 1.0,
+          "distance_spring_frequency": 0.0,
+          "enabled": true,
+          "hinge_motor_angle": 0.0,
+          "hinge_motor_speed": 90.0,
+          "kind": 0,
+          "max_angle": 90.0,
+          "max_distance": 2.0,
+          "max_motor_force": 100.0,
+          "max_motor_torque": 10.0,
+          "max_travel": 1.0,
+          "min_angle": -90.0,
+          "min_distance": 2.0,
+          "min_travel": -1.0,
+          "motor_damping": 1.0,
+          "motor_enabled": false,
+          "motor_frequency": 2.0,
+          "motor_mode": 0,
+          "normal_a": 0,
+          "normal_b": 0,
+          "slider_motor_position": 0.0,
+          "slider_motor_speed": 1.0,
+          "swing_normal_angle": 45.0,
+          "swing_plane_angle": 45.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "464c33aa-307c-413c-b8e1-fe7d93148b63",
+      "name": "Internal distance link",
+      "parent": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 3.5999999046325684,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -3.200000047683716,
+          "y": 1.7999999523162842,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1540781a-faef-43bd-8fab-f7d044b5527c",
+      "name": "Left frame",
+      "parent": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.600000023841858,
+          "y": 3.0,
+          "z": 0.3499999940395355
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 1.0,
+          "g": 0.5,
+          "r": 0.20000000298023224
+        },
+        "forge.transform_animator": {
+          "clip": "a5fa9266-52e5-48da-9771-86cb37294118",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": {
+            "member": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+            "prefab": "eb73b27d-8cc9-483c-8aad-fc8ec876eb5a"
+          },
+          "sequence_start_seconds": 0.5
+        }
+      },
+      "id": "021650d7-3843-4920-902a-e62a157c59ee",
+      "name": "Sliding door",
+      "parent": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.25,
+          "y": 0.25,
+          "z": 0.25
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.699999809265137,
+          "z": -1.5
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.physics_body": {
+          "allow_sleeping": true,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 0,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a7e7f819-d4d8-411a-8f79-8bb23f19cf12",
+      "name": "Pendulum anchor",
+      "parent": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.699999988079071,
+          "y": 0.699999988079071,
+          "z": 0.699999988079071
+        },
+        "forge.local_translation": {
+          "x": 1.2000000476837158,
+          "y": 5.099999904632568,
+          "z": -1.5
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.physics_body": {
+          "allow_sleeping": false,
+          "angular_damping": 0.05000000074505806,
+          "continuous_collision": false,
+          "density": 1000.0,
+          "enabled": true,
+          "friction": 0.5,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.05000000074505806,
+          "mask": 4294967295,
+          "mass": 1.0,
+          "max_angular_velocity": 2700.0,
+          "max_linear_velocity": 500.0,
+          "motion": 2,
+          "restitution": 0.0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tint": {
+          "b": 0.15000000596046448,
+          "g": 0.699999988079071,
+          "r": 1.0
+        }
+      },
+      "id": "8e3810d4-0811-429d-8e9b-8e5c66a7dac2",
+      "name": "Pendulum bob",
+      "parent": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 0.4000000059604645,
+          "y": 3.5999999046325684,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 3.200000047683716,
+          "y": 1.7999999523162842,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "279f9bba-fe83-4994-8867-0434a9f2a222",
+      "name": "Right frame",
+      "parent": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 6.800000190734863,
+          "y": 0.4000000059604645,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.799999952316284,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "79058a04-729a-48e6-a120-c1ea36c06334",
+      "name": "Top frame",
+      "parent": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "revision": 1,
+  "root": "887119e0-0e6d-42c3-94c7-47ea12f143f7",
+  "version": 3
+}

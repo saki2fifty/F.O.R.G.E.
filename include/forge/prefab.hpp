@@ -9,7 +9,7 @@ struct PrefabDocument {
     std::uint64_t revision() const { return source.at("revision").get<std::uint64_t>(); }
     PrefabMemberId root() const { return source.at("root").get<PrefabMemberId>(); }
     static void validate(const Json& document);
-    PrefabDocument duplicate() const;
+    PrefabDocument duplicate(const Json& schema = Json::object()) const;
     PrefabDocument reorder_member(PrefabMemberId member, PrefabMemberId before) const;
 };
 // World-local immutable realization. Instances must die before their templates.

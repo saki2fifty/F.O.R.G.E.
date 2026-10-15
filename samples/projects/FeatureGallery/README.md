@@ -1,5 +1,22 @@
 # FORGE Feature Gallery
 
+## Portable prefab rigs
+
+Open **Scenes/63-portable-prefab-rigs.scene.json** and press Play. Both door and
+pendulum rigs use **Assets/PortableSequenceRig.prefab.json**. The left sequence
+runs at1x and the right at0.5x. Each distance joint targets its own anchor and bob;
+the right bob uses lower gravity, so its motion differs too.
+
+Select either instance in Hierarchy and inspect its overrides. **Open prefab
+source** shows the source members and reference pickers. Rename a member without
+breaking its link, or duplicate an instance to get independent target identities.
+Publish source changes deliberately; Scene Undo does not undo direct publication.
+
+Dynamic bodies use World space. Their initial world positions are authored per
+instance, so moving a structural rig root does not move its bob. Save the Scene
+and choose it as startup before exporting. The resulting game consumes the saved
+scene, portable prefab and prepared clip without this editable project.
+
 ## Coordinated animation
 
 Open **Scenes/62-coordinated-animation.scene.json** and press Play. The camera

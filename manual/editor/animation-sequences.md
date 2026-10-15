@@ -45,9 +45,12 @@ Prefab instances can join a sequence through their Scene settings. Duplicate a
 controller together with its objects to make an independently bound copy. Copying
 only an object keeps its link to the existing controller.
 
-Complete arrangements currently belong to Scenes. Create Prefab rejects a subtree
-containing bound tracks. Create an unbound prefab first, place it, then bind its
-instance in the Scene. A prefab definition does not capture a portable arrangement.
+To reuse an arrangement, put its controller and linked objects under one parent
+and create a prefab from that whole group. FORGE stores member links and resolves
+each placed copy independently. In **Prefab source**, reference fields choose
+members of that source. A link outside the selected group must be cleared or its
+target included before capture. See [Links between members](prefabs.md)
+and Gallery63. Individual instances can still join a Scene-owned sequence.
 
 Save the Scene and publish its clips before exporting. Export includes the saved
 arrangement and prepared clips and sounds. The exported game needs no editor or

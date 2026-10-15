@@ -3,6 +3,7 @@
 #include "authored_schema.hpp"
 #include "builtins.hpp"
 #include "json_value_equal.hpp"
+#include "prefab_references.hpp"
 #include "reflected_extensions.hpp"
 #include "reflected_references.hpp"
 #include "relationship_graph.hpp"
@@ -246,6 +247,8 @@ void Scene::replace(const Json& source) {
                         "Edit structured member names/hierarchy/bindings in the prefab source");
         }
     const auto projected = project_prefab_intent(doc, prefab_sources_, schema());
+    const auto reference_materializations =
+        detail::prefab_reference_materializations(doc, prefab_sources_, schema());
     detail::validate_spatial(projected);
     std::map<std::string, flecs::entity> structured_bases;
     std::set<std::string> inactive_members;
@@ -296,6 +299,13 @@ void Scene::replace(const Json& source) {
         if (item.contains("property_overrides"))
             detail::validate_runtime_custom_values(context_, item.at("property_overrides"));
         auto materialized = components;
+        const auto references = reference_materializations.find(next.id);
+        if (references != reference_materializations.end())
+            for (const auto& projected_row : projected.at("entities"))
+                if (projected_row.at("id") == item.at("id"))
+                    for (const auto& key : references->second)
+                        if (projected_row.at("components").contains(key))
+                            materialized[key] = projected_row.at("components").at(key);
         if (item.contains("property_overrides")) {
             for (const auto& projected_row : projected.at("entities"))
                 if (projected_row.at("id") == item.at("id"))
@@ -313,6 +323,11 @@ void Scene::replace(const Json& source) {
             if (!components.contains(type.name))
                 continue;
             auto extensions = detail::builtin_extensions(type, components.at(type.name));
+            // Retain a valid copied projection seed for explicit reference-component
+            // intent. Native values below remain authoritative on every serialization.
+            if (references != reference_materializations.end() &&
+                references->second.contains(type.name))
+                continue;
             if (extensions.is_null())
                 components.erase(type.name);
             else
@@ -323,7 +338,9 @@ void Scene::replace(const Json& source) {
             next.custom.push_back(materialized.contains(key)
                                       ? codec.prepare(world(), materialized.at(key))
                                       : std::nullopt);
-            if (next.custom.back() && components.contains(key))
+            if (next.custom.back() && components.contains(key) &&
+                (references == reference_materializations.end() ||
+                 !references->second.contains(key)))
                 components[key] = codec.extensions(components.at(key));
         }
         item.erase("name");
@@ -889,6 +906,11 @@ Json Scene::serialize(bool effective) const {
     // below are still read from native Flecs storage; authored serialization
     // never materializes inherited payloads as instance ownership.
     auto doc = effective ? project_prefab_intent(opaque_, prefab_sources_, schema()) : opaque_;
+    std::map<std::string, Json> reference_baselines;
+    const auto reference_materializations =
+        effective ? std::map<std::string, std::set<std::string>>()
+                  : detail::prefab_reference_materializations(opaque_, prefab_sources_, schema(),
+                                                              &reference_baselines);
     auto output = Json::array();
     std::map<std::string, const Json*> fragments;
     for (const auto& item : opaque_.at("entities"))
@@ -926,6 +948,30 @@ Json Scene::serialize(bool effective) const {
                 item["components"].erase(type.name);
                 continue;
             }
+            const auto references =
+                reference_materializations.find(item.at("id").get<std::string>());
+            if (!effective && references != reference_materializations.end() &&
+                references->second.contains(type.name) && !item["components"].contains(type.name)) {
+                auto expected = reference_baselines.at(item.at("id")).at(type.name);
+                if (item.value("property_overrides", Json::object()).contains(type.name))
+                    for (const auto& [field, unused] :
+                         item.at("property_overrides").at(type.name).items()) {
+                        (void)unused;
+                        if (value.contains(field))
+                            expected[field] = value.at(field);
+                    }
+                const auto canonical = detail::canonical_builtin_value(type, expected);
+                if (detail::json_value_equal(value, canonical)) {
+                    if (!item.value("property_overrides", Json::object()).contains(type.name))
+                        continue;
+                } else if (item.value("property_overrides", Json::object()).contains(type.name)) {
+                    auto& intent = item["property_overrides"][type.name];
+                    for (const auto& [field, native] : value.items())
+                        if (!detail::json_value_equal(native, canonical.at(field)))
+                            intent[field] = detail::merge_builtin_property_extensions(
+                                type, field, native, expected.value(field, canonical.at(field)));
+                }
+            }
             if (effective) {
                 auto owner = type.owner(e);
                 if (owner && owner != e && owner.owns<StableId>()) {
@@ -960,7 +1006,40 @@ Json Scene::serialize(bool effective) const {
             const auto value = codec.read(e, effective);
             if (value.is_null())
                 continue;
-            if (!effective && item.value("property_overrides", Json::object()).contains(key)) {
+            const bool admitted_mask =
+                item.value("property_overrides", Json::object()).contains(key) &&
+                codec.matches(item.at("property_overrides").at(key));
+            const auto references =
+                reference_materializations.find(item.at("id").get<std::string>());
+            if (!effective && references != reference_materializations.end() &&
+                references->second.contains(key) && !components.contains(key)) {
+                auto expected = reference_baselines.at(item.at("id")).at(key);
+                if (admitted_mask)
+                    for (const auto& [field, unused] :
+                         item.at("property_overrides").at(key).items()) {
+                        (void)unused;
+                        if (value.contains(field))
+                            expected[field] = value.at(field);
+                    }
+                const auto candidate = codec.prepare(world(), expected);
+                auto canonical = detail::read_reflected_native(world(), codec.native_type,
+                                                               candidate->data(), codec.adapters);
+                canonical["$forge"] = codec.stamp();
+                if (detail::json_value_equal(value, canonical)) {
+                    if (!admitted_mask)
+                        continue;
+                } else if (admitted_mask) {
+                    auto& intent = item["property_overrides"][key];
+                    for (const auto& field : codec.declaration.at("structure").at("fields")) {
+                        const auto name = field.at("id").get<std::string>();
+                        if (!detail::json_value_equal(value.at(name), canonical.at(name)))
+                            intent[name] = detail::merge_reflected_extensions(
+                                field, value.at(name),
+                                detail::reflected_extensions(field, expected.at(name)));
+                    }
+                }
+            }
+            if (!effective && admitted_mask) {
                 auto& intent = item["property_overrides"][key];
                 for (const auto& field : codec.declaration.at("structure").at("fields")) {
                     const auto name = field.at("id").get<std::string>();

@@ -505,12 +505,14 @@ physics settings header now includes PhysicsJoint; gameplay modules require a
 matching SDK rebuild. Recovery retains the existing 2 MiB native/6 MiB envelope caps.
 
 Joint values can be inherited from a structured prefab and overridden on an
-instance. Its EntityRef fields still name explicit scene entities; they are not
-prefab-definition member IDs. Reusable rigs with automatic instance-local body
-binding require a separate typed prefab-member reference contract. The current
-body picker assigns the instance's body targets explicitly. Scene/subtree
-duplication remaps admitted intra-scene joint references; opaque extensions remain
-untouched. Source publication and snapshot reopening preserve normal inheritance.
+instance. Native and Scene EntityRef fields name explicit scene entities.
+[Prefab source3](prefabs.md#portable-component-references) stores typed member
+references at the definition boundary and resolves each instance's own body links.
+Capture the bodies and joint in the same subtree, or select source members in the
+Prefab editor. Scene/subtree duplication remaps admitted references and missing
+member mappings; opaque extensions remain untouched. Source publication and
+snapshot reopening preserve inheritance. World-space dynamic body placement is
+unchanged; Gallery63 authors each copy's initial world pose explicitly.
 
 Kinds2 Point and3 Fixed extend the same PhysicsJoint value; kinds0/1 retain their
 Distance/Hinge meaning. Point constrains only its two COM-converted body-origin

@@ -94,6 +94,32 @@ Their values remain in the prefab when you publish unrelated changes. A missing
 module does not replace those values with defaults. Inherited unknown data also
 remains visible on scene instances without becoming a local override.
 
+## Links between members
+
+Include linked objects in the same group when you create a prefab. FORGE converts
+their supported links into reusable member links. Two placed copies then point to
+their own objects. This includes animation sequence controllers and physics joint
+bodies, as well as admitted C++ component fields and collections.
+
+In **Prefab source**, a reference field selects a member of that prefab or **None**.
+Renaming a member keeps its links. A removed target shows **Missing member** and
+its short identity; restoring the same member identity restores the link. Adding a
+new collection entry and choosing **Cancel** leaves the source unchanged.
+
+An instance can override a link in its normal Scene Inspector. Applying that link
+to the source requires a target belonging to the same instance. An outside target
+keeps the current source unchanged and reports an error.
+
+Open **Scenes/63-portable-prefab-rigs.scene.json** in the Feature Gallery to compare
+two copies. The doors run at different sequence speeds, and each pendulum uses its
+own bodies. Dynamic bodies use World space: moving their structural parent leaves
+them in place. Set each body's initial world position when arranging such a rig.
+
+Member links use prefab source version3. Existing source versions remain readable;
+an older editor cannot open the new source version. C++ runtime reference values
+and the installed SDK remain unchanged by this feature. Applying an unrelated
+value to an older prefab keeps its existing format and links.
+
 ## Apply instance overrides
 
 Select the **instance root** in Hierarchy. In Inspector's **Prefab instance** section,

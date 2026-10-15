@@ -148,7 +148,8 @@ void persistence(const std::filesystem::path& root, AssetId clip_id) {
     check(row(whole, whole_actor).at("components").at("future.sequence") ==
               Json{{"untouched", original}},
           "Whole-scene copy interpreted opaque reference");
-    rejects([&] { (void)create_prefab_source(scene, controller); });
+    check(create_prefab_source(scene, controller).source.at("version") == 3,
+          "Portable controller/track subtree capture lost its versioned member link");
     // Portable actor definitions stay unbound; the Scene owns instance bindings.
     authoring_command(scene, "property.set",
                       {{"entity", actor},

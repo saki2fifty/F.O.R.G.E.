@@ -1,4 +1,5 @@
 #pragma once
+#include "../prefab_references.hpp"
 #include "../reflected_value.hpp"
 #include "asset_labels.hpp"
 #include "editor_state.hpp"
@@ -257,6 +258,58 @@ inline bool numeric_property(const char* label, ImGuiDataType type, const char* 
 }
 inline bool property_field(const std::filesystem::path& root, const Json& field, Json& value,
                            bool commit_on_enter = true, std::optional<AssetId> owner = {});
+inline const Json* prefab_property_source = nullptr;
+struct PrefabPropertyScope {
+    const Json* previous = prefab_property_source;
+    explicit PrefabPropertyScope(const Json& source) { prefab_property_source = &source; }
+    PrefabPropertyScope(const PrefabPropertyScope&) = delete;
+    PrefabPropertyScope& operator=(const PrefabPropertyScope&) = delete;
+    ~PrefabPropertyScope() { prefab_property_source = previous; }
+};
+inline bool prefab_member_property(const char* label, Json& value) {
+    auto& source = *prefab_property_source;
+    std::string preview = value.is_null() ? "None" : "External reference";
+    if (value.is_object() && value.contains("member") && value.contains("prefab") &&
+        value.at("prefab") == source.at("asset_id")) {
+        preview = "Missing member / " + value.at("member").get<std::string>().substr(0, 8);
+        for (const auto& member : source.at("members"))
+            if (member.at("id") == value.at("member"))
+                preview = member.at("name").get<std::string>() + " / " +
+                          member.at("id").get<std::string>().substr(0, 8);
+    }
+    bool changed = false;
+    const bool open = ImGui::BeginCombo(label, preview.c_str());
+#ifdef FORGE_UI_FIXTURE
+    test::observe_item(std::string("prefab-member-picker:") + label);
+#endif
+    if (open) {
+        if (ImGui::Selectable("None", value.is_null())) {
+            value = nullptr;
+            changed = true;
+        }
+#ifdef FORGE_UI_FIXTURE
+        test::observe_item("prefab-member-clear");
+#endif
+        for (const auto& member : source.at("members")) {
+            const auto id = member.at("id").get<std::string>();
+            ImGui::PushID(id.c_str());
+            const auto text = member.at("name").get<std::string>() + " / " + id.substr(0, 8);
+            const Json target = {{"prefab", source.at("asset_id")}, {"member", id}};
+            if (ImGui::Selectable(text.c_str(), value == target)) {
+                value = target;
+                changed = true;
+            }
+#ifdef FORGE_UI_FIXTURE
+            test::observe_item("prefab-member-row:" + id);
+#endif
+            ImGui::PopID();
+        }
+        ImGui::EndCombo();
+    }
+    ui::help("Choose a member of this prefab. Every placed copy resolves its own target. "
+             "A missing member keeps its identity until explicitly changed.");
+    return changed;
+}
 // A new collection element is a detached UI draft, not an authored default.
 // It must pass native-derived validation before the collection can be committed.
 inline Json property_draft_seed(const Json& field) {
@@ -377,7 +430,22 @@ inline bool property_collection(const std::filesystem::path& root, const Json& f
                     try {
                         auto candidate = value;
                         candidate.push_back(draft.value);
-                        detail::validate_reflected_json(field, candidate);
+                        auto native_candidate = candidate;
+                        if (prefab_property_source) {
+                            bool found_reference = false;
+                            detail::transform_prefab_reference_field(
+                                field, native_candidate,
+                                [&](const Json& reference) {
+                                    if (!reference.contains("prefab"))
+                                        return reference;
+                                    (void)detail::checked_prefab_reference(
+                                        reference,
+                                        prefab_property_source->at("asset_id").get<AssetId>());
+                                    return Json();
+                                },
+                                found_reference);
+                        }
+                        detail::validate_reflected_json(field, native_candidate);
                         value = std::move(candidate);
                         changed = true;
                         ImGui::CloseCurrentPopup();
@@ -556,6 +624,8 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
                                    commit_on_enter ? ImGuiInputTextFlags_EnterReturnsTrue : 0);
         if (changed)
             value = std::move(buffer);
+    } else if (type == "entity_ref" && prefab_property_source) {
+        changed = prefab_member_property(label.c_str(), value);
     } else if (type == "entity_ref" && ui::editor_context && ui::editor_context->scene) {
         const auto property = field.value("property_id", std::string{});
         changed = entity_ref_picker(*ui::editor_context->scene, value, label.c_str(),

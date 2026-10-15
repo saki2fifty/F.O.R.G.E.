@@ -2906,6 +2906,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "4330357b-6da6-4c88-8f50-8a3de15240bd",
+      "metadata": {},
+      "schema_version": 4,
+      "source": "Scenes/63-portable-prefab-rigs.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "44f8ca1e-edd4-4c14-b7b4-ce31f951f21e",
       "metadata": {
         "forge.import": {
@@ -8221,6 +8231,16 @@
       "source": "Assets/TriangleCube.mesh.json",
       "source_dependencies": [],
       "type": "mesh"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "eb73b27d-8cc9-483c-8aad-fc8ec876eb5a",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Assets/PortableSequenceRig.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
     },
     {
       "dependencies": [],

@@ -25,7 +25,8 @@ Json admit_document(const AssetRecord& r, std::span<const std::byte> bytes) {
             throw std::runtime_error("game.export.document: Scene migration required");
     } else {
         PrefabDocument::validate(doc);
-        if (r.schema_version < 1 || r.schema_version > 2)
+        if (r.schema_version < 1 || r.schema_version > 3 ||
+            r.schema_version != doc.at("version").get<unsigned>())
             throw std::runtime_error("game.export.document: Unsupported prefab schema");
     }
     return doc;

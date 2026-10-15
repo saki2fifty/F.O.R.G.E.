@@ -80,6 +80,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '57-particle-emitter-appearance.scene.json',
         '58-simulation-speed.scene.json',
         '62-coordinated-animation.scene.json',
+        '63-portable-prefab-rigs.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
         '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json', '37-animation-subtree-blending.scene.json'} <= {p.name for p in scenes}
 assert project['version'] == 2 and project['input']['version'] == 1
@@ -122,7 +123,7 @@ try:
     all_ids = set()
     for path in scenes:
         source = json.loads(path.read_text(encoding="utf-8"))
-        assert source['version'] == 3
+        assert source['version'] in (3, 4, 5), path.name
         assert str(uuid.UUID(source['asset_id'])) == source['asset_id']
         assert source['asset_id'] not in all_ids
         all_ids.add(source['asset_id'])
@@ -134,6 +135,15 @@ try:
             assert str(uuid.UUID(entity_id)) == entity_id and entity_id not in all_ids
             all_ids.add(entity_id)
         assert any('forge.camera' in row['components'] for row in source['entities'])
+        if any('prefab_instance' in row for row in source['entities']):
+            # The memory-only authoring API intentionally owns no project sources.
+            # Use the native project/content owner to realize structured prefabs.
+            assert source['version'] in (4, 5) and len(sys.argv) == 4
+            before = path.read_bytes()
+            subprocess.run([sys.argv[3], '--admit', str(project_root), str(path)],
+                           check=True, capture_output=True, text=True)
+            assert path.read_bytes() == before
+            continue
         result = call('scene.replace', target=context['target'],
                       expected_revision=context['revision'], document=source)
         context = call('discover')['result']

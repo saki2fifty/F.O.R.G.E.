@@ -1,5 +1,6 @@
 #include "authored_component.hpp"
 #include "builtins.hpp"
+#include "prefab_references.hpp"
 #include "relationship_graph.hpp"
 #include "spatial_document.hpp"
 #include <algorithm>
@@ -29,8 +30,8 @@ PrefabDocument::PrefabDocument(Json value) : source(std::move(value)) {
 void PrefabDocument::validate(const Json& doc) {
     if (!doc.is_object() || doc.value("format", "") != "forge.prefab" ||
         !doc.at("version").is_number_integer() ||
-        (doc.at("version") != 1 && doc.at("version") != 2))
-        throw std::runtime_error("Expected FORGE prefab schema 1 or 2");
+        (doc.at("version") != 1 && doc.at("version") != 2 && doc.at("version") != 3))
+        throw std::runtime_error("Expected FORGE prefab schema 1, 2 or 3");
     (void)doc.at("asset_id").get<AssetId>();
     const auto& revision = doc.at("revision");
     if (!revision.is_number_integer() || revision.get<double>() < 1)
@@ -52,7 +53,11 @@ void PrefabDocument::validate(const Json& doc) {
         if (item.contains("world_affine") || item["components"].contains("forge.world_transform"))
             throw std::runtime_error(
                 "WorldTransform is derived and cannot be authored in a prefab");
-        detail::validate_components(item.at("components"));
+        if (doc.at("version") == 3)
+            detail::validate_components(
+                detail::normalize_prefab_components(doc, item, Json::object()));
+        else
+            detail::validate_components(item.at("components"));
         if (item.at("components").contains("forge.local_rotation")) {
             const auto q = detail::read_local(item.at("components")).rotation;
             if (std::abs(double(q.x) * q.x + double(q.y) * q.y + double(q.z) * q.z +
@@ -98,7 +103,7 @@ void PrefabDocument::validate(const Json& doc) {
     for (const auto& id : doc.value("dependencies", Json::array()))
         (void)id.get<AssetId>();
 }
-PrefabDocument PrefabDocument::duplicate() const {
+PrefabDocument PrefabDocument::duplicate(const Json& schema) const {
     auto copy = source;
     copy["asset_id"] = AssetId::generate();
     copy["revision"] = std::uint64_t{1};
@@ -109,6 +114,18 @@ PrefabDocument PrefabDocument::duplicate() const {
     for (auto& item : copy["members"]) {
         item["id"] = ids.at(item.at("id"));
         remap_member_fields(item, ids);
+        if (source.at("version") == 3)
+            detail::transform_prefab_component_references(
+                item["components"], schema, [&](const Json& value) {
+                    const auto ref = detail::checked_prefab_reference(value, asset());
+                    // Removed target identities remain missing in the independent source.
+                    if (!ids.contains(ref.member.str()))
+                        ids[ref.member.str()] = PrefabMemberId::generate().str();
+                    auto result = value;
+                    result["prefab"] = copy.at("asset_id");
+                    result["member"] = ids.at(ref.member.str());
+                    return result;
+                });
     }
     return PrefabDocument(std::move(copy));
 }
@@ -139,7 +156,12 @@ CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
             if (members_.contains(key))
                 return members_.at(key);
             const auto& item = member(document.source, id);
-            detail::validate_runtime_custom_values(context_, item.at("components"));
+            Json normalized;
+            const auto& components = document.source.at("version") == 3
+                                         ? (normalized = detail::normalize_prefab_components(
+                                                document.source, item, context_.schema()))
+                                         : item.at("components");
+            detail::validate_runtime_custom_values(context_, components);
             auto e =
                 item.contains("parent")
                     ? world.entity(flecs::Parent{compile(item.at("parent"))}).add(flecs::Prefab)
@@ -147,11 +169,11 @@ CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
             e.set<TemplateMember>({key});
             members_.emplace(key, e);
             for (const auto& type : detail::builtins())
-                if (item["components"].contains(type.name))
-                    type.apply(e, type.decode(item["components"].at(type.name)));
+                if (components.contains(type.name))
+                    type.apply(e, type.decode(components.at(type.name)));
             for (const auto& codec : context_.authored_codecs())
-                if (item["components"].contains(codec.key()))
-                    codec.apply(e, codec.prepare(world, item["components"].at(codec.key())));
+                if (components.contains(codec.key()))
+                    codec.apply(e, codec.prepare(world, components.at(codec.key())));
             return e;
         };
         for (const auto& item : document.source.at("members"))
@@ -297,6 +319,18 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, c
                 alive.insert(m);
                 if (!mapping.contains(m))
                     mapping[m] = EntityId::generate();
+                if (prefab.source.at("version") == 3)
+                    (void)detail::normalize_prefab_components(
+                        prefab.source, item, schema, [&](PrefabMemberRef reference) {
+                            const auto target = reference.member.str();
+                            if (!mapping.contains(target))
+                                mapping[target] = EntityId::generate();
+                            if (mapping.size() > 16384)
+                                throw std::runtime_error(
+                                    "Prefab member mapping exceeds 16384 entries");
+                            return Json(EntityRef{doc.at("asset_id").get<AssetId>(),
+                                                  mapping.at(target).get<EntityId>()});
+                        });
             }
             for (const auto& item : prefab.source.at("members")) {
                 const std::string m = item.at("id"), id = mapping.at(m);
@@ -318,7 +352,13 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, c
                                                              mapping.at(target).get<EntityId>()};
                     }
                 }
-                (void)prefab_override_value(item, row, schema);
+                if (prefab.source.at("version") == 3) {
+                    auto normalized = item;
+                    normalized["components"] =
+                        detail::normalize_prefab_components(prefab.source, item, schema);
+                    (void)prefab_override_value(normalized, row, schema);
+                } else
+                    (void)prefab_override_value(item, row, schema);
             }
             for (const auto& [m, id] : mapping.items())
                 if (!alive.contains(m) && rows.contains(id.get<std::string>()))
@@ -390,7 +430,21 @@ Json project_prefab_intent(const Json& scene, const PrefabSources& sources, cons
         const auto& definition = sources.at(asset);
         if (m.empty())
             m = definition.at("root");
-        row["components"] = prefab_override_value(member(definition, m), row, schema);
+        if (definition.at("version") != 3) {
+            row["components"] = prefab_override_value(member(definition, m), row, schema);
+            continue;
+        }
+        auto normalized = member(definition, m);
+        normalized["components"] = detail::normalize_prefab_components(
+            definition, normalized, schema, [&](PrefabMemberRef reference) {
+                const auto resolved =
+                    prefab_member_reference(scene, root->at("id").get<EntityId>(), reference);
+                if (!resolved)
+                    throw std::runtime_error(
+                        "Reconcile prefab member references before projection");
+                return Json(*resolved);
+            });
+        row["components"] = prefab_override_value(normalized, row, schema);
     }
     return doc;
 }

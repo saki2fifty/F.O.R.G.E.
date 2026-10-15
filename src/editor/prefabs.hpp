@@ -419,6 +419,9 @@ class PrefabEditor {
                         if (ui::editor_context)
                             ui::editor_context->selection.select_member(edited, member_);
                     }
+#ifdef FORGE_UI_FIXTURE
+                    test::observe_item("prefab-source-member:" + id);
+#endif
                     ui::help("Choose a source member. Names are display labels; member identity "
                              "survives rename/reparent.");
                     ImGui::PopID();
@@ -624,8 +627,23 @@ class PrefabEditor {
                             for (const auto& field : component.at("fields")) {
                                 const std::string f = field.at("id");
                                 auto value = m["components"][key][f];
-                                if (property_field(project.project(), field, value, false))
+                                PrefabPropertyScope prefab_properties(draft_);
+                                if (property_field(project.project(), field, value, false)) {
+                                    auto admitted = value;
+                                    bool found_reference = false;
+                                    detail::transform_prefab_reference_field(
+                                        field, admitted,
+                                        [&](const Json& reference) {
+                                            if (reference.contains("prefab")) {
+                                                (void)detail::checked_prefab_reference(reference,
+                                                                                       edited);
+                                                draft_["version"] = 3;
+                                            }
+                                            return reference;
+                                        },
+                                        found_reference);
                                     set_property(key, f, value);
+                                }
                             }
                         }
                         for (const auto& [key, value] : m.at("components").items()) {
