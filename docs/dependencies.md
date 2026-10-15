@@ -53,6 +53,16 @@ The latest numbered release is 2.5.6; FORGE intentionally uses a later coordinat
 | DiligentFX | `aaa41d47a101d0bf1d12267c4a85b2d9b38cd1da` | Native PBR utility/source-factory subset; umbrella target disabled |
 | DiligentSamples | `73b08a788380b6db5aaa3274335749aaf7fc0056` | Disabled |
 
+Presentation profile verification, 2026-10-15: `DILIGENT_NO_SUPER_RESOLUTION=ON`
+disables the unused Core super-resolution targets for both editor and graphical
+standalone builds. FORGE has no consumer or advertised DLSS/DirectSR feature.
+At Core `744f079f`, the default complete target build otherwise links DLSS-NGX's
+dynamic-runtime archive into FORGE's static-runtime profile and fails MSVC's
+`RuntimeLibrary` check. Keep `MultiThreaded`, all pins, D3D12, archiver and shader
+features unchanged; no vendor code, mixed-runtime workaround or runtime feature
+removal is required. A future upscaling integration requires its own dependency,
+license, configuration and acceptance evidence.
+
 Phase7 tooling verification2026-09-20: `FORGE_BUILD_ASSET_TOOLS` adds an optional
 headless native-loader target, defaulting on with the Windows editor. Standalone
 Linux tools compose exact native ThirdParty/TextureLoader/AssetLoader targets,

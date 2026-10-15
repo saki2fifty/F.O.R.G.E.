@@ -33,6 +33,12 @@ test executables without maintaining a second list in the workflows. The early
 process-controller gate and explicitly focused shader/input audits retain their
 limited target selections.
 
+The presentation profile disables Diligent's unused super-resolution targets.
+The pinned optional DLSS-NGX archive uses the dynamic MSVC runtime, which conflicts
+with FORGE's static runtime when CMake's full default target builds that unused
+DLL. Preserve the complete FORGE acceptance target build and the selected CRT;
+no FORGE code consumes this optional backend.
+
 The graph layout editor fixture links the material resource validator directly;
 its inline preview consumer requires that library even when a fixture disables
 shader compilation. Both full native selections execute this input fixture.
