@@ -4,6 +4,8 @@
 
 - Replace repeated complete member/scene-row searches with temporary borrowed indexes during Prefab projection, native materialization and Scene preflight. Keep the existing source/Scene owners and native values authoritative.
 - Compare identical 4096-member fixture outputs and repeated GCC12 Release operation timings against the committed backend. This improves preparation cost without changing identity, source formats, SDK inputs, override intent or missing-member behavior.
+- Extend scoped lookups to recursive template compilation and projected per-member property materialization. Check mixed whole/property/inherited values, native edits, source order and recovery across a many-member group.
+- Fix effective Prefab views of whole builtin overrides with unknown extensions: restore owned native fields into the copied projection before validation, preserving the extensions and existing ownership.
 
 Local performance engineering; this is not a Windows or real-time game throughput
 acceptance claim.

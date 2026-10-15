@@ -151,12 +151,16 @@ PrefabDocument PrefabDocument::reorder_member(PrefabMemberId id, PrefabMemberId 
 CompiledPrefab::CompiledPrefab(WorldContext& context, PrefabDocument source)
     : document(std::move(source)), context_(context) {
     auto& world = context.world();
+    const auto member_rows = detail::index_json_rows(document.source.at("members"));
     try {
         std::function<flecs::entity(const std::string&)> compile = [&](const std::string& id) {
             const auto key = PrefabMemberId::parse(id);
             if (members_.contains(key))
                 return members_.at(key);
-            const auto& item = member(document.source, id);
+            const auto found = member_rows.find(id);
+            if (found == member_rows.end())
+                throw std::runtime_error("Missing prefab member: " + id);
+            const auto& item = *found->second;
             Json normalized;
             const auto& components = document.source.at("version") == 3
                                          ? (normalized = detail::normalize_prefab_components(

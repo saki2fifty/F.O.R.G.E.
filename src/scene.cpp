@@ -253,6 +253,7 @@ void Scene::replace(const Json& source) {
                         "Edit structured member names/hierarchy/bindings in the prefab source");
         }
     const auto projected = project_prefab_intent(doc, prefab_sources_, schema());
+    const auto projected_rows = detail::index_json_rows(projected.at("entities"));
     const auto reference_materializations =
         detail::prefab_native_materializations(doc, prefab_sources_, schema());
     detail::validate_spatial(projected);
@@ -306,20 +307,20 @@ void Scene::replace(const Json& source) {
             detail::validate_runtime_custom_values(context_, item.at("property_overrides"));
         auto materialized = components;
         const auto references = reference_materializations.find(next.id);
+        const auto projection = projected_rows.find(next.id);
         if (references != reference_materializations.end())
-            for (const auto& projected_row : projected.at("entities"))
-                if (projected_row.at("id") == item.at("id"))
-                    for (const auto& key : references->second)
-                        if (projected_row.at("components").contains(key))
-                            materialized[key] = projected_row.at("components").at(key);
+            if (projection != projected_rows.end())
+                for (const auto& key : references->second)
+                    if (projection->second->at("components").contains(key))
+                        materialized[key] = projection->second->at("components").at(key);
         if (item.contains("property_overrides")) {
-            for (const auto& projected_row : projected.at("entities"))
-                if (projected_row.at("id") == item.at("id"))
-                    for (const auto& [component, fields] : item.at("property_overrides").items()) {
-                        (void)fields;
-                        if (projected_row.at("components").contains(component))
-                            materialized[component] = projected_row.at("components").at(component);
-                    }
+            if (projection != projected_rows.end())
+                for (const auto& [component, fields] : item.at("property_overrides").items()) {
+                    (void)fields;
+                    if (projection->second->at("components").contains(component))
+                        materialized[component] =
+                            projection->second->at("components").at(component);
+                }
         }
         for (std::size_t i = 0; i < detail::builtins().size(); ++i) {
             const auto& type = detail::builtins()[i];
@@ -937,7 +938,7 @@ Json Scene::serialize(bool effective) const {
                    (item.contains("prefab_member") &&
                     retired_instances.contains(item.at("prefab_member").at("root")));
         });
-    if (effective && !context_.authored_codecs().empty()) {
+    if (effective) {
         for (std::size_t i = 0; i < input->at("entities").size(); ++i) {
             const auto& item = input->at("entities")[i];
             if (!item.contains("prefab_instance") && !item.contains("prefab_member"))
@@ -945,6 +946,19 @@ Json Scene::serialize(bool effective) const {
             const auto native = entity(item.at("id"));
             if (!native)
                 continue;
+            // Whole builtin intent can retain only unknown extensions in opaque
+            // storage. Rehydrate its owned native fields before validating the
+            // copied Prefab projection, just as for admitted custom components.
+            for (const auto& type : detail::builtins()) {
+                if (!item.at("components").contains(type.name))
+                    continue;
+                const auto value = type.read(native, false);
+                if (!value.is_null()) {
+                    const auto hydrated = detail::merge_builtin_extensions(
+                        type, value, item.at("components").at(type.name));
+                    writable()["entities"][i]["components"][type.name] = hydrated;
+                }
+            }
             for (const auto& codec : context_.authored_codecs()) {
                 const auto key = codec.key();
                 if (!item.at("components").contains(key) ||
