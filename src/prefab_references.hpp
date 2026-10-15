@@ -1,5 +1,6 @@
 #pragma once
 #include "builtins.hpp"
+#include "json_row_index.hpp"
 #include <algorithm>
 #include <functional>
 #include <set>
@@ -128,6 +129,7 @@ prefab_native_materializations(const Json& scene, const std::map<AssetId, Json>&
     if (roots.empty())
         return {};
     std::map<std::string, std::set<std::string>> result;
+    std::map<AssetId, JsonRowIndex> member_rows;
     for (const auto& row : scene.at("entities")) {
         const Json* root = nullptr;
         std::string member;
@@ -148,86 +150,88 @@ prefab_native_materializations(const Json& scene, const std::map<AssetId, Json>&
             continue;
         if (member.empty())
             member = source->second.at("root");
-        for (const auto& definition : source->second.at("members"))
-            if (definition.at("id") == member) {
-                auto components = definition.at("components");
-                auto keys = portable ? transform_prefab_component_references(
-                                           components, schema, [](const Json&) { return Json(); })
-                                     : std::set<std::string>{};
-                // Explicit whole values need valid copied projection seeds;
-                // partial masks already materialize native storage. Clearing a
-                // source reference must preserve both kinds of ownership, and
-                // later C++ changes outside a mask must reach recovery.
-                if (row.contains("property_overrides") || !row.at("components").empty())
-                    for (const auto& type : prefab_reference_schema(schema).at("components")) {
-                        const auto key = type.at("id").get<std::string>();
-                        const bool whole = portable && row.at("components").contains(key);
-                        const bool partial = masks != row.end() && masks->contains(key);
-                        if (!whole && !partial)
+        auto [index, inserted] = member_rows.try_emplace(source->first);
+        if (inserted)
+            index->second = index_json_rows(source->second.at("members"));
+        const auto found = index->second.find(member);
+        if (found != index->second.end()) {
+            const auto& definition = *found->second;
+            auto components = definition.at("components");
+            auto keys = portable ? transform_prefab_component_references(
+                                       components, schema, [](const Json&) { return Json(); })
+                                 : std::set<std::string>{};
+            // Explicit whole values need valid copied projection seeds;
+            // partial masks already materialize native storage. Clearing a
+            // source reference must preserve both kinds of ownership, and
+            // later C++ changes outside a mask must reach recovery.
+            if (row.contains("property_overrides") || !row.at("components").empty())
+                for (const auto& type : prefab_reference_schema(schema).at("components")) {
+                    const auto key = type.at("id").get<std::string>();
+                    const bool whole = portable && row.at("components").contains(key);
+                    const bool partial = masks != row.end() && masks->contains(key);
+                    if (!whole && !partial)
+                        continue;
+                    if (type.value("custom", false)) {
+                        if (partial &&
+                            (!masks->at(key).is_object() ||
+                             masks->at(key).value("$forge", Json()) != type.at("admission")))
                             continue;
-                        if (type.value("custom", false)) {
-                            if (partial &&
-                                (!masks->at(key).is_object() ||
-                                 masks->at(key).value("$forge", Json()) != type.at("admission")))
-                                continue;
-                            if (whole && (!row.at("components").at(key).is_object() ||
-                                          row.at("components").at(key).value("$forge", Json()) !=
-                                              type.at("admission")))
-                                continue;
-                            if (partial && components.contains(key) &&
-                                (!components.at(key).is_object() ||
-                                 components.at(key).value("$forge", Json()) !=
-                                     type.at("admission")))
-                                continue;
-                        }
-                        // A mask already owns native storage. Compare every
-                        // unmasked field too, so unrelated runtime creation or
-                        // recovery cannot replay inherited values over C++ edits.
-                        if (partial) {
-                            if (!components.contains(key)) {
-                                if (type.value("custom", false)) {
-                                    components[key] = type.at("defaults");
-                                    components[key]["$forge"] = type.at("admission");
-                                } else {
-                                    const auto builtin = std::find_if(
-                                        builtins().begin(), builtins().end(),
-                                        [&](const auto& value) { return key == value.name; });
-                                    if (builtin == builtins().end())
-                                        continue;
-                                    components[key] = builtin->defaults;
-                                }
+                        if (whole && (!row.at("components").at(key).is_object() ||
+                                      row.at("components").at(key).value("$forge", Json()) !=
+                                          type.at("admission")))
+                            continue;
+                        if (partial && components.contains(key) &&
+                            (!components.at(key).is_object() ||
+                             components.at(key).value("$forge", Json()) != type.at("admission")))
+                            continue;
+                    }
+                    // A mask already owns native storage. Compare every
+                    // unmasked field too, so unrelated runtime creation or
+                    // recovery cannot replay inherited values over C++ edits.
+                    if (partial) {
+                        if (!components.contains(key)) {
+                            if (type.value("custom", false)) {
+                                components[key] = type.at("defaults");
+                                components[key]["$forge"] = type.at("admission");
+                            } else {
+                                const auto builtin = std::find_if(
+                                    builtins().begin(), builtins().end(),
+                                    [&](const auto& value) { return key == value.name; });
+                                if (builtin == builtins().end())
+                                    continue;
+                                components[key] = builtin->defaults;
                             }
+                        }
+                        keys.insert(key);
+                    }
+                    for (const auto& field : type.at("fields"))
+                        if (prefab_reference_field(field)) {
                             keys.insert(key);
+                            break;
                         }
-                        for (const auto& field : type.at("fields"))
-                            if (prefab_reference_field(field)) {
-                                keys.insert(key);
-                                break;
-                            }
-                    }
-                if (!keys.empty()) {
-                    if (baselines) {
-                        auto normalized =
-                            portable
-                                ? normalize_prefab_components(
-                                      source->second, definition, schema,
-                                      [&](PrefabMemberRef reference) {
-                                          return Json(EntityRef{scene.at("asset_id").get<AssetId>(),
-                                                                root->at("prefab_instance")
-                                                                    .at("members")
-                                                                    .at(reference.member.str())
-                                                                    .get<EntityId>()});
-                                      })
-                                : definition.at("components");
-                        for (const auto& key : keys)
-                            if (!normalized.contains(key))
-                                normalized[key] = components.at(key);
-                        baselines->emplace(row.at("id").get<std::string>(), std::move(normalized));
-                    }
-                    result.emplace(row.at("id").get<std::string>(), std::move(keys));
                 }
-                break;
+            if (!keys.empty()) {
+                if (baselines) {
+                    auto normalized =
+                        portable
+                            ? normalize_prefab_components(
+                                  source->second, definition, schema,
+                                  [&](PrefabMemberRef reference) {
+                                      return Json(EntityRef{scene.at("asset_id").get<AssetId>(),
+                                                            root->at("prefab_instance")
+                                                                .at("members")
+                                                                .at(reference.member.str())
+                                                                .get<EntityId>()});
+                                  })
+                            : definition.at("components");
+                    for (const auto& key : keys)
+                        if (!normalized.contains(key))
+                            normalized[key] = components.at(key);
+                    baselines->emplace(row.at("id").get<std::string>(), std::move(normalized));
+                }
+                result.emplace(row.at("id").get<std::string>(), std::move(keys));
             }
+        }
     }
     return result;
 }

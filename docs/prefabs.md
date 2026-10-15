@@ -16,6 +16,13 @@ No inherited values, WorldTransform, Flecs IDs, table IDs or TreeSpawner pointer
 
 ## Flecs realization and lifetime
 
+Projection and Scene preflight use temporary borrowed row/member indexes within
+each operation. Used sources are indexed lazily; these lookups do not allocate
+identity, mutate source documents or persist a second cache/registry. Native
+values, explicit override intent and the existing Scene/template owners retain
+authority. Large-group preparation still has a measurable cost; this is not a
+promise of constant-time or real-time spawning across arbitrary scenes.
+
 `CompiledPrefab` compiles immutable, world-local Prefab/IsA template revisions. Structured interiors use the documented `world.entity(flecs::Parent{parent})` constructor. Direct `.set<Parent>` addition can expose an uninitialized parent to OnAdd observers and is deliberately avoided. Dynamic scene attachments and instance roots use ChildOf where applicable. A member never has both storages. Shared logical parent traversal uses Flecs parent/children APIs, which support both storages.
 
 Every live structured member inherits from its corresponding template member. Independent local translation/rotation/scale ownership remains native Flecs ownership. WorldTransform is derived, instance-owned and non-inherited. Persistent member rows address actual Flecs children rather than an editor-only shadow hierarchy.

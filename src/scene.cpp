@@ -2,6 +2,7 @@
 #include "authored_generation.hpp"
 #include "authored_schema.hpp"
 #include "builtins.hpp"
+#include "json_row_index.hpp"
 #include "json_value_equal.hpp"
 #include "prefab_references.hpp"
 #include "reflected_extensions.hpp"
@@ -238,9 +239,14 @@ void Scene::replace(const Json& source) {
     if (reconciled.at("entities").size() != doc.at("entities").size())
         throw std::runtime_error(
             "Instance member rows cannot be removed independently; edit the prefab source");
+    const auto reconciled_rows = detail::index_json_rows(reconciled.at("entities"));
+    const auto new_items = detail::index_json_rows(doc.at("entities"));
     for (const auto& item : doc.at("entities"))
         if (item.contains("prefab_member")) {
-            const auto& expected = find_entity(reconciled, item.at("id"));
+            const auto found = reconciled_rows.find(item.at("id"));
+            const auto& expected = found != reconciled_rows.end()
+                                       ? *found->second
+                                       : find_entity(reconciled, item.at("id"));
             for (auto key : {"name", "parent", "spatial", "missing_member"})
                 if (item.value(key, Json()) != expected.value(key, Json()))
                     throw std::runtime_error(
@@ -258,9 +264,9 @@ void Scene::replace(const Json& source) {
         if (item.contains("prefab_instance"))
             root = &item;
         else if (item.contains("prefab_member")) {
-            for (const auto& r : doc.at("entities"))
-                if (r.at("id") == item.at("prefab_member").at("root"))
-                    root = &r;
+            const auto found = new_items.find(item.at("prefab_member").at("root"));
+            if (found != new_items.end())
+                root = found->second;
             member = item.at("prefab_member").at("member");
         }
         if (!root)
@@ -360,11 +366,9 @@ void Scene::replace(const Json& source) {
     // Reconcile affected generated interiors when their source changes; preserve
     // every surviving authored handle. This is not a new prefab asset workflow.
     const auto previous = document();
-    std::map<std::string, const Json*> old_items, new_items;
+    std::map<std::string, const Json*> old_items;
     for (const auto& item : previous.at("entities"))
         old_items[item.at("id")] = &item;
-    for (const auto& item : doc.at("entities"))
-        new_items[item.at("id")] = &item;
     std::set<std::string> dirty_templates;
     auto dirty_ancestors = [&](const auto& items, std::string id) {
         while (!id.empty()) {

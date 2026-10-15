@@ -1,5 +1,6 @@
 #include "authored_component.hpp"
 #include "builtins.hpp"
+#include "json_row_index.hpp"
 #include "prefab_references.hpp"
 #include "relationship_graph.hpp"
 #include "spatial_document.hpp"
@@ -406,6 +407,7 @@ Json reconcile_prefab_intent(const Json& source, const PrefabSources& sources, c
 }
 Json project_prefab_intent(const Json& scene, const PrefabSources& sources, const Json& schema) {
     auto doc = scene;
+    std::map<AssetId, detail::JsonRowIndex> member_rows;
     std::map<std::string, const Json*> roots;
     for (const auto& row : scene.at("entities"))
         if (row.contains("prefab_instance"))
@@ -430,11 +432,18 @@ Json project_prefab_intent(const Json& scene, const PrefabSources& sources, cons
         const auto& definition = sources.at(asset);
         if (m.empty())
             m = definition.at("root");
+        auto [index, inserted] = member_rows.try_emplace(asset);
+        if (inserted)
+            index->second = detail::index_json_rows(definition.at("members"));
+        const auto found = index->second.find(m);
+        if (found == index->second.end())
+            throw std::runtime_error("Missing prefab member: " + m);
+        const auto& source_member = *found->second;
         if (definition.at("version") != 3) {
-            row["components"] = prefab_override_value(member(definition, m), row, schema);
+            row["components"] = prefab_override_value(source_member, row, schema);
             continue;
         }
-        auto normalized = member(definition, m);
+        auto normalized = source_member;
         normalized["components"] = detail::normalize_prefab_components(
             definition, normalized, schema, [&](PrefabMemberRef reference) {
                 const auto resolved =
