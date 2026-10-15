@@ -75,7 +75,7 @@ class AnimationPreviewEditor {
                 if (states_asset_)
                     preview_.select_state(state_);
                 if (space_asset_)
-                    preview_.select_blend_position(position_);
+                    preview_.select_blend_position(position_, position_y_);
                 if (playing_ && dt > 0)
                     preview_.tick(std::min(dt, .25f));
                 auto pose = preview_.pose();
@@ -122,6 +122,7 @@ class AnimationPreviewEditor {
                 }
                 ImGui::EndCombo();
             }
+            FORGE_UI_PROBE("animation_preview:object:" + name_);
             ImGui::BeginDisabled(!target_.entity);
             if (ui::button(
                     playing_ ? "Pause preview" : "Play preview",
@@ -169,12 +170,18 @@ class AnimationPreviewEditor {
             if (space_asset_) {
                 ImGui::TextUnformatted("Blend Space: neighboring clips share one cycle phase. "
                                        "Changes here are temporary.");
-                changed |= ImGui::SliderFloat("Blend position", &position_, minimum_position_,
-                                              maximum_position_, "%.3f");
+                changed |= ImGui::SliderFloat(
+                    space_dimensions_ == 2 ? "Blend position X" : "Blend position", &position_,
+                    minimum_position_, maximum_position_, "%.3f");
                 FORGE_UI_PROBE("animation_preview:position");
+                if (space_dimensions_ == 2) {
+                    changed |= ImGui::SliderFloat("Blend position Y", &position_y_,
+                                                  minimum_position_y_, maximum_position_y_, "%.3f");
+                    FORGE_UI_PROBE("animation_preview:position_y");
+                }
                 if (changed && preview_active()) {
                     try {
-                        preview_.select_blend_position(position_);
+                        preview_.select_blend_position(position_, position_y_);
                     } catch (const std::exception& e) {
                         fail(e);
                     }
@@ -219,6 +226,8 @@ class AnimationPreviewEditor {
                         settings = {{"blend_position", position_},
                                     {"loop", loop_},
                                     {"playback_speed", speed_}};
+                    if (space_asset_ && space_dimensions_ == 2)
+                        settings["blend_position_y"] = position_y_;
                     for (const auto& [field, value] : settings.items())
                         commands.push_back({{"operation", "property.set"},
                                             {"arguments",
@@ -255,6 +264,10 @@ class AnimationPreviewEditor {
         states_asset_ = config.states.id;
         space_asset_ = config.blend_space.id;
         position_ = config.blend_position;
+        position_y_ = config.blend_position_y;
+        space_dimensions_ = 1;
+        minimum_position_y_ = 0;
+        maximum_position_y_ = 1;
         state_ = config.state;
         named_states_ = {};
         if (states_asset_) {
@@ -296,9 +309,23 @@ class AnimationPreviewEditor {
                             artifact.files.front().name != "blendspace.json")
                             throw std::runtime_error("Invalid Blend Space preview artifact");
                         const auto space = decode_animation_blend_space(
-                            artifact.files.front().bytes, space_asset_);
+                            artifact.files.front().bytes, space_asset_,
+                            resolved.record->metadata.at("forge.import")
+                                .at("output_version")
+                                .get<unsigned>());
                         minimum_position_ = float(space.samples.front().position);
                         maximum_position_ = float(space.samples.back().position);
+                        space_dimensions_ = space.dimensions;
+                        if (space_dimensions_ == 2) {
+                            minimum_position_y_ = maximum_position_y_ =
+                                float(space.samples.front().position_y);
+                            for (const auto& sample : space.samples) {
+                                minimum_position_y_ =
+                                    std::min(minimum_position_y_, float(sample.position_y));
+                                maximum_position_y_ =
+                                    std::max(maximum_position_y_, float(sample.position_y));
+                            }
+                        }
                     });
             } catch (const std::exception& e) {
                 error_ = e.what();
@@ -310,7 +337,13 @@ class AnimationPreviewEditor {
         loop_ = config.loop;
         revision_ = scene.revision();
         time_ = duration_ = 0;
-        name_ = actor.name().c_str();
+        name_ = id;
+        const auto authored = scene.document();
+        for (const auto& row : authored.at("entities"))
+            if (row.at("id") == id) {
+                name_ = row.at("name").get<std::string>();
+                break;
+            }
         if (!states_asset_ && !space_asset_)
             error_.clear();
     }
@@ -321,6 +354,8 @@ class AnimationPreviewEditor {
     AssetId states_asset_;
     AssetId space_asset_;
     float position_ = 0, minimum_position_ = 0, maximum_position_ = 1;
+    float position_y_ = 0, minimum_position_y_ = 0, maximum_position_y_ = 1;
+    unsigned space_dimensions_ = 1;
     std::uint32_t state_ = 0;
     std::string state_name() const {
         try {

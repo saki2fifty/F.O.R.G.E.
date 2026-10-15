@@ -45,6 +45,17 @@ pair's weight into a different pair's displacement. Pair changes preserve cycle
 phase, and paused edits commit only the pose, never a motion interval. The existing
 per-layer delta blend, rest conjugation and complete transaction remain authoritative.
 
+Two-dimensional Blend Spaces extend this rule to at most three clips. The
+triangle/edge/point selection supplies constant normalized weights before the
+interval. Each clip computes its own scaled interval and loop displacement.
+In stable selected-sample order, accumulate translations by their influence and
+use the existing shortest-path root slerp with each new weight divided by the
+accumulated weight. This ordered root rotation rule is explicit; it does not
+change Ozz's normalized local-pose quaternion blending. Coordinate/triangle
+changes preserve phase and inject no displacement from the previous selection.
+Neutralization, rest conjugation, Apply/Extract, rigging and physics authority
+remain in the same complete transaction. No additional motion clock is introduced.
+
 Apply composes the exact actor local affine with this rigid delta, uses the
 existing signed TRS decomposition with its continuity hint, and requires the
 actor's scale to remain unchanged. Unrepresentable shear or scale changes reject

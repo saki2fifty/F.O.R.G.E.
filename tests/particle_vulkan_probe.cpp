@@ -108,6 +108,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
+    create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
     GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
     check(device && context, "Native particle Vulkan device/context unavailable");
     std::cout << "Particle native adapter: " << device->GetAdapterInfo().Description << '\n';
@@ -654,6 +655,64 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
                 for (std::size_t i = 0; i < previous.size(); ++i)
                     changed += previous[i] != pixels[i];
                 check(changed > 500, "Created Prefabs did not reach the shared native renderer");
+            }
+            previous = pixels;
+        }
+        context->WaitForIdle();
+    }
+    if (!gallery.empty() &&
+        std::filesystem::exists(gallery / "Scenes/65-two-dimensional-blend-spaces.scene.json")) {
+        Json source;
+        std::ifstream(gallery / "Scenes/65-two-dimensional-blend-spaces.scene.json") >> source;
+        EngineContext engine(WorldRole::Runtime, false, {animation_module(gallery)});
+        Scene live(engine.world());
+        live.restore_snapshot(source);
+        RuntimeSimulation simulation(engine.world(), live);
+        const auto animation = animation_runtime(engine.world());
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        while (!animation->prepare_initial_pose()) {
+            check(std::chrono::steady_clock::now() < deadline,
+                  "Native Gallery65 animation admission timed out");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        simulation.reset_presentation();
+        auto gallery_host = std::make_shared<MeshResourceHost>(presentation, context, gallery);
+        gallery_host->catalog(
+            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(gallery)));
+        MeshSceneRenderer gallery_renderer(gallery_host);
+        active_host = gallery_host;
+        active_renderer = &gallery_renderer;
+        Target wide(device, 960, 540);
+        std::vector<std::array<std::uint8_t, 4>> previous;
+        for (unsigned stage = 0; stage < 3; ++stage) {
+            if (stage == 1)
+                for (unsigned tick = 0; tick < 60; ++tick)
+                    simulation.tick(1.f / 60);
+            if (stage == 2)
+                for (const auto& row : source.at("entities"))
+                    if (row.at("name") == "Three-way interior") {
+                        const auto actor = live.entity(row.at("id").get<std::string>());
+                        auto config = actor.get<Animator>();
+                        config.blend_position = 0;
+                        config.blend_position_y = 2;
+                        actor.set(config);
+                    }
+            scene = extract_render_scene(simulation.presentation(1));
+            check(animation->checkpoint_ready() && scene.diagnostics.empty() &&
+                      scene.meshes.size() == 6 && scene.cameras.size() == 1 &&
+                      scene.lights.size() == 1,
+                  "Native Gallery65 lost its admitted/render participants");
+            camera = scene.cameras.front().camera;
+            camera_world = scene.cameras.front().world;
+            const auto pixels = draw(wide);
+            check(visible(pixels) > 1000, "Native Gallery65 produced an empty frame");
+            image(root / ("gallery65-stage" + std::to_string(stage) + ".ppm"), 960, 540, pixels);
+            if (stage) {
+                std::size_t changed = 0;
+                for (std::size_t i = 0; i < previous.size(); ++i)
+                    changed += previous[i] != pixels[i];
+                check(changed > 20,
+                      "Gallery65 animation/paused XY edit did not reach native renderer");
             }
             previous = pixels;
         }

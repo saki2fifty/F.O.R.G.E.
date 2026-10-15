@@ -56,9 +56,10 @@ struct Animator {
     std::uint32_t blend_mode = 0;
     // Optional reusable influence multiplied by the selected blend subtree.
     AssetRef<AnimationMaskAsset> blend_mask{};
-    // A numeric axis selects neighboring clips with one shared cycle phase.
+    // One or two numeric axes select neighboring clips at one shared cycle phase.
     AssetRef<AnimationBlendSpaceAsset> blend_space{};
     float blend_position = 0;
+    float blend_position_y = 0;
     bool operator==(const Animator&) const = default;
 };
 // Opt-in constraints on an imported model holder. Values are in skeleton model

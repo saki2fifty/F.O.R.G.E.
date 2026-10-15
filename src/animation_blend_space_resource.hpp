@@ -26,10 +26,13 @@ inline ResourceTicket request_animation_blend_space(ResourcePool<AnimationBlendS
     const auto metadata = record.metadata.at("forge.animation_blend_space");
     const auto revision = selection.at("key").get<std::string>();
     const auto generation = selection.at("generation").get<std::uint64_t>();
+    const bool legacy = selection.at("importer_revision") == "forge.animation.blend-space.v1" &&
+                        selection.at("output_version") == 1;
+    const bool current = selection.at("importer_revision") == "forge.animation.blend-space.v2" &&
+                         selection.at("output_version") == 2;
     if (selection.at("version") != 1 || selection.at("importer") != "forge.animation.blend-space" ||
-        selection.at("importer_revision") != "forge.animation.blend-space.v1" ||
-        selection.at("output_format") != "forge.animation-blend-space" ||
-        selection.at("output_version") != 1 || !generation)
+        (!legacy && !current) || selection.at("output_format") != "forge.animation-blend-space" ||
+        !generation)
         throw std::runtime_error("Unsupported Animation Blend Space selection");
     auto edges = record.dependency_edges;
     std::sort(edges.begin(), edges.end());
@@ -44,7 +47,8 @@ inline ResourceTicket request_animation_blend_space(ResourcePool<AnimationBlendS
             const auto artifact = cache.load_selected(revision, [&](const auto& cooked) {
                 if (cooked.files.size() != 1 || cooked.files.front().name != "blendspace.json")
                     throw std::runtime_error("Invalid Animation Blend Space artifact");
-                value = decode_animation_blend_space(cooked.files.front().bytes, id);
+                value = decode_animation_blend_space(
+                    cooked.files.front().bytes, id, selection.at("output_version").get<unsigned>());
             });
             const auto& input = artifact.manifest.at("inputs");
             for (const auto* field : {"importer", "importer_revision", "output_format",

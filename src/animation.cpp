@@ -42,7 +42,7 @@ struct Playback {
     ResourceLease<AnimationStatesAsset> definition;
     ResourceLease<AnimationMaskAsset> mask;
     ResourceLease<AnimationBlendSpaceAsset> space;
-    AnimationBlendPair space_pair;
+    AnimationBlendSelection space_selection;
     std::map<AssetId, Pair> clips;
     std::unique_ptr<Sampler> outgoing_sampler;
     Pair outgoing_assets;
@@ -51,7 +51,8 @@ struct Playback {
     std::vector<LocalPose> frozen;
     MorphPose frozen_morphs, morph_defaults;
     EntityRef reference;
-    Pair assets, blend_assets;
+    Pair assets, blend_assets, third_assets;
+    std::unique_ptr<Sampler> third_sampler;
     std::vector<AnimatedTransformChannel> transform_channels;
     RigInputs rig_inputs;
     RigConstraints rig, previous_rig;
@@ -123,8 +124,17 @@ std::optional<std::size_t> root_joint(const Playback& p) {
     return selected;
 }
 std::size_t evaluated_joints(const Playback& p) {
+    if (p.space && p.space->space.dimensions == 2)
+        return p.assets.skeleton->info().tracks * p.space_selection.count;
     const bool two_layers = p.blend_sampler || (p.definition && p.blend < 1);
     return p.assets.skeleton->info().tracks * (two_layers ? 2 : 1);
+}
+Json space_selection_json(const Playback& p) {
+    auto result = Json::array();
+    for (std::size_t i = 0; i < p.space_selection.count; ++i)
+        result.push_back({{"sample", p.space->space.samples[p.space_selection.samples[i]].id},
+                          {"weight", p.space_selection.weights[i]}});
+    return result;
 }
 void append_markers(const Playback& p, std::uint64_t tick, std::vector<AnimationEvent>& events) {
     const auto& state = p.definition->state(p.config.state);
@@ -160,6 +170,7 @@ struct SampledPose {
     std::vector<LocalPose> local;
     std::optional<LocalPose> incoming, second, outgoing;
     MorphPose morphs;
+    std::optional<LocalPose> third;
 };
 std::vector<float> subtree_mask(const Pair& assets, AssetId selected) {
     if (!selected)
@@ -211,6 +222,25 @@ MorphPose sample_morphs(const Playback& p, double time, double blend, double out
     if (p.blend_assets.model)
         second = p.blend_assets.model.clip->morphs->sample(
             time * p.blend_assets.clip->info().duration / playback_duration(p));
+    if (p.space && p.space->space.dimensions == 2) {
+        if (!p.blend_sampler)
+            return blend_morph_samples(p.morph_defaults, incoming, {}, 0);
+        auto result = incoming;
+        double total = p.space_selection.weights[0];
+        if (p.blend_sampler) {
+            total += p.space_selection.weights[1];
+            result = blend_morph_samples(p.morph_defaults, result, second,
+                                         p.space_selection.weights[1] / total);
+        }
+        if (p.third_sampler) {
+            total += p.space_selection.weights[2];
+            const auto third = p.third_assets.model.clip->morphs->sample(
+                time * p.third_assets.clip->info().duration / playback_duration(p));
+            result = blend_morph_samples(p.morph_defaults, result, third,
+                                         p.space_selection.weights[2] / total);
+        }
+        return result;
+    }
     return blend_morph_samples(p.morph_defaults, incoming, second, p.blend_sampler ? blend : 0,
                                p.config.blend_mode == 1, p.morph_mask);
 }
@@ -218,9 +248,10 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
                         double outgoing_time = -1, const RigConstraints* constraints = nullptr,
                         bool apply_constraints = true,
                         const std::vector<LocalPoseOverride>* base = nullptr) {
-    std::unique_ptr<Sampler> first, second;
+    std::unique_ptr<Sampler> first, second, third;
     auto* sampler = p.sampler.get();
     auto* blend_sampler = p.blend_sampler.get();
+    auto* third_sampler = p.third_sampler.get();
     const auto joint = root_joint(p);
     if (temporary) {
         first = std::make_unique<Sampler>(p.assets.skeleton, p.assets.clip);
@@ -229,14 +260,26 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
             second = std::make_unique<Sampler>(p.assets.skeleton, p.blend_assets.clip);
             blend_sampler = second.get();
         }
+        if (p.third_assets.clip) {
+            third = std::make_unique<Sampler>(p.assets.skeleton, p.third_assets.clip);
+            third_sampler = third.get();
+        }
     }
     sampler->root_motion_joint(joint);
     if (blend_sampler)
         blend_sampler->root_motion_joint(joint);
+    if (third_sampler)
+        third_sampler->root_motion_joint(joint);
     const auto ratio = float(std::clamp(time / playback_duration(p), 0., 1.));
     std::vector<Matrix> model;
     std::optional<LocalPose> outgoing_root;
-    if (p.definition && blend < 1 && (!p.frozen.empty() || p.outgoing_sampler)) {
+    if (p.space && p.space->space.dimensions == 2) {
+        const std::array<Sampler*, 3> samplers{sampler, blend_sampler, third_sampler};
+        std::array<WeightedAnimationSample, 3> layers;
+        for (std::size_t i = 0; i < p.space_selection.count; ++i)
+            layers[i] = {samplers[i], ratio, float(p.space_selection.weights[i])};
+        model = sampler->sample_weighted({layers.data(), p.space_selection.count});
+    } else if (p.definition && blend < 1 && (!p.frozen.empty() || p.outgoing_sampler)) {
         if (!p.frozen.empty())
             model = sampler->sample_transition(ratio, p.frozen, float(blend));
         else {
@@ -263,9 +306,13 @@ SampledPose sample_pose(Playback& p, double time, double blend, bool temporary =
     const auto& rig_base = base ? *base : p.rig_base;
     if (apply_constraints && (rig.reach || rig.aim || !rig_base.empty()))
         model = sampler->constrain(rig, rig_base);
-    return {std::move(model),        sampler->local_pose(),
-            sampler->sampled_root(), blend_sampler ? blend_sampler->sampled_root() : std::nullopt,
-            outgoing_root,           sample_morphs(p, time, blend, outgoing_time)};
+    return {std::move(model),
+            sampler->local_pose(),
+            sampler->sampled_root(),
+            blend_sampler ? blend_sampler->sampled_root() : std::nullopt,
+            outgoing_root,
+            sample_morphs(p, time, blend, outgoing_time),
+            third_sampler ? third_sampler->sampled_root() : std::nullopt};
 }
 RootRigid layer_motion(Playback& p, const Pair& assets, std::size_t joint, double begin,
                        double advance, bool loop, double time,
@@ -304,7 +351,25 @@ RootRigid root_motion_delta(Playback& p, const SampledPose& pose, std::size_t jo
                                  p.tick_advance * incoming_ratio, p.config.loop,
                                  p.time * incoming_ratio, pose.incoming);
     const double weight = (p.previous_blend + p.blend) * .5;
-    if (p.definition && p.previous_blend < 1) {
+    if (p.space && p.space->space.dimensions == 2) {
+        double total = p.space_selection.weights[0];
+        if (p.blend_sampler) {
+            const double ratio = p.blend_assets.clip->info().duration / playback_duration(p);
+            const auto second =
+                layer_motion(p, p.blend_assets, joint, p.tick_begin * ratio, p.tick_advance * ratio,
+                             p.config.loop, p.time * ratio, pose.second);
+            total += p.space_selection.weights[1];
+            incoming = root_blend(incoming, second, p.space_selection.weights[1] / total);
+        }
+        if (p.third_sampler) {
+            const double ratio = p.third_assets.clip->info().duration / playback_duration(p);
+            const auto third =
+                layer_motion(p, p.third_assets, joint, p.tick_begin * ratio, p.tick_advance * ratio,
+                             p.config.loop, p.time * ratio, pose.third);
+            total += p.space_selection.weights[2];
+            incoming = root_blend(incoming, third, p.space_selection.weights[2] / total);
+        }
+    } else if (p.definition && p.previous_blend < 1) {
         RootRigid outgoing;
         if (p.outgoing_sampler)
             outgoing =
@@ -1266,23 +1331,26 @@ struct AnimationRuntime::Impl {
             if (cached) {
                 auto unchanged = requested;
                 unchanged.blend_position = old->second.requested.blend_position;
-                const auto pair = old->second.space->space.select(requested.blend_position);
+                unchanged.blend_position_y = old->second.requested.blend_position_y;
+                const auto pair = old->second.space->space.select(requested.blend_position,
+                                                                  requested.blend_position_y);
                 if (unchanged == old->second.requested &&
-                    pair.first == old->second.space_pair.first &&
-                    pair.second == old->second.space_pair.second) {
+                    pair.count == old->second.space_selection.count &&
+                    pair.samples == old->second.space_selection.samples) {
                     // Movement commonly changes only the weight within an admitted
                     // pair. Keep its leases, channels, samplers and cycle clock.
                     auto& p = old->second;
                     const auto previous_request = p.requested;
                     const auto previous_config = p.config;
-                    const auto previous_pair = p.space_pair;
+                    const auto previous_pair = p.space_selection;
                     const auto previous_blend = p.blend, previous_previous_blend = p.previous_blend;
                     const auto previous_from = p.blend_from;
                     const auto previous_discontinuous = p.discontinuous;
                     p.requested = requested;
                     p.config.blend_position = requested.blend_position;
-                    p.space_pair = pair;
-                    p.config.blend_weight = float(pair.weight);
+                    p.config.blend_position_y = requested.blend_position_y;
+                    p.space_selection = pair;
+                    p.config.blend_weight = pair.count > 1 ? float(pair.weights[1]) : 0;
                     p.blend = p.previous_blend = p.blend_from = p.config.blend_weight;
                     p.discontinuous = true;
                     try {
@@ -1291,7 +1359,7 @@ struct AnimationRuntime::Impl {
                     } catch (...) {
                         p.requested = previous_request;
                         p.config = previous_config;
-                        p.space_pair = previous_pair;
+                        p.space_selection = previous_pair;
                         p.blend = previous_blend;
                         p.previous_blend = previous_previous_blend;
                         p.blend_from = previous_from;
@@ -1335,19 +1403,20 @@ struct AnimationRuntime::Impl {
             }
             if (requested.skeleton.id && requested.skeleton.id != space->space.skeleton)
                 throw ArchiveError("Animation Blend Space does not match the Animator skeleton");
-            const auto selection = space->space.select(requested.blend_position);
+            const auto selection =
+                space->space.select(requested.blend_position, requested.blend_position_y);
             Playback next;
             next.requested = requested;
             next.config = requested;
             next.config.skeleton.id = space->space.skeleton;
-            next.config.clip = space->space.samples[selection.first].clip;
-            next.config.blend_clip = selection.first == selection.second
+            next.config.clip = space->space.samples[selection.samples[0]].clip;
+            next.config.blend_clip = selection.count == 1
                                          ? AssetRef<AnimationClipAsset>{}
-                                         : space->space.samples[selection.second].clip;
-            next.config.blend_weight = float(selection.weight);
+                                         : space->space.samples[selection.samples[1]].clip;
+            next.config.blend_weight = selection.count > 1 ? float(selection.weights[1]) : 0;
             next.config.transition_seconds = 0;
             next.space = std::move(space);
-            next.space_pair = selection;
+            next.space_selection = selection;
             if (cached) {
                 next.clips = old->second.clips;
                 next.transform_channels = old->second.transform_channels;
@@ -1388,6 +1457,12 @@ struct AnimationRuntime::Impl {
                 next.blend_assets = next.clips.at(next.config.blend_clip.id);
                 next.blend_sampler =
                     std::make_unique<Sampler>(next.assets.skeleton, next.blend_assets.clip);
+            }
+            if (selection.count > 2) {
+                next.third_assets =
+                    next.clips.at(next.space->space.samples[selection.samples[2]].clip.id);
+                next.third_sampler =
+                    std::make_unique<Sampler>(next.assets.skeleton, next.third_assets.clip);
             }
             if (reload && old != states.end() && old->second.space &&
                 old->second.requested == requested &&
@@ -2255,11 +2330,16 @@ Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
         result["states"] = p.requested.states.id;
     }
     if (p.space) {
-        const auto pair = p.space_pair;
+        const auto pair = p.space_selection;
         result["blend_space"] = p.requested.blend_space.id;
         result["blend_position"] = p.requested.blend_position;
-        result["first_sample"] = p.space->space.samples[pair.first].id;
-        result["second_sample"] = p.space->space.samples[pair.second].id;
+        result["first_sample"] = p.space->space.samples[pair.samples[0]].id;
+        result["second_sample"] = p.space->space.samples[pair.samples[pair.count > 1 ? 1 : 0]].id;
+        if (p.space->space.dimensions == 2) {
+            result["blend_dimensions"] = 2;
+            result["blend_position_y"] = p.requested.blend_position_y;
+            result["blend_samples"] = space_selection_json(p);
+        }
     }
     if (p.assets.model) {
         result["model_asset"] = p.assets.model.skeleton->model;
@@ -2350,14 +2430,21 @@ Json AnimationRuntime::checkpoint() const {
                    {"target", p.config.blend_weight},
                    {"seconds", p.config.transition_seconds}}}});
             if (p.space) {
-                const auto pair = p.space_pair;
+                const auto pair = p.space_selection;
                 entries.back()["blend_space"] = {
                     {"asset", p.requested.blend_space.id},
                     {"revision", p.space.identity().revision},
                     {"position", p.requested.blend_position},
                     {"cycle_seconds", playback_duration(p)},
-                    {"first_sample", p.space->space.samples[pair.first].id},
-                    {"second_sample", p.space->space.samples[pair.second].id}};
+                    {"first_sample", p.space->space.samples[pair.samples[0]].id},
+                    {"second_sample",
+                     p.space->space.samples[pair.samples[pair.count > 1 ? 1 : 0]].id}};
+                if (p.space->space.dimensions == 2) {
+                    auto& saved = entries.back()["blend_space"];
+                    saved["dimensions"] = 2;
+                    saved["position_y"] = p.requested.blend_position_y;
+                    saved["samples"] = space_selection_json(p);
+                }
             }
             if (p.definition) {
                 auto frozen = Json::array();
@@ -2485,14 +2572,20 @@ void AnimationRuntime::restore(const Json& data) {
         auto& p = *selected;
         if (p.space) {
             const auto& space = entry.at("blend_space");
-            const auto pair = p.space_pair;
+            const auto pair = p.space_selection;
             if (space.at("asset") != Json(p.requested.blend_space.id) ||
                 space.at("revision") != p.space.identity().revision ||
                 space.at("position") != p.requested.blend_position ||
+                space.value("dimensions", 1u) != p.space->space.dimensions ||
                 space.at("cycle_seconds") != playback_duration(p) ||
-                space.at("first_sample") != Json(p.space->space.samples[pair.first].id) ||
-                space.at("second_sample") != Json(p.space->space.samples[pair.second].id))
+                space.at("first_sample") != Json(p.space->space.samples[pair.samples[0]].id) ||
+                space.at("second_sample") !=
+                    Json(p.space->space.samples[pair.samples[pair.count > 1 ? 1 : 0]].id))
                 throw ArchiveError("Animation Blend Space recovery selection/revision differs");
+            if (p.space->space.dimensions == 2 &&
+                (space.at("position_y") != p.requested.blend_position_y ||
+                 space.at("samples") != space_selection_json(p)))
+                throw ArchiveError("2D Blend Space recovery coordinates or layers differ");
         } else if (entry.contains("blend_space"))
             throw ArchiveError("Unexpected Animation Blend Space recovery data");
         double time = entry.at("time");
@@ -2638,12 +2731,13 @@ void AnimationRuntime::restore(const Json& data) {
         values.push_back(std::move(value));
     }
     std::size_t recovered_joints = 0;
-    for (const auto& value : values)
-        recovered_joints +=
-            value.playback->assets.skeleton->info().tracks *
-            ((value.playback->blend_sampler || (value.playback->definition && value.blend < 1))
-                 ? 2
-                 : 1);
+    for (const auto& value : values) {
+        const auto& p = *value.playback;
+        const auto layers = p.space && p.space->space.dimensions == 2 ? p.space_selection.count
+                            : (p.blend_sampler || (p.definition && value.blend < 1)) ? 2
+                                                                                     : 1;
+        recovered_joints += p.assets.skeleton->info().tracks * layers;
+    }
     if (recovered_joints > 8192)
         throw ArchiveError("Animation recovery exceeds evaluated-joint budget");
     const auto transform_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);

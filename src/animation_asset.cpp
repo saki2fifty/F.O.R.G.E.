@@ -290,6 +290,40 @@ std::vector<Matrix> Sampler::sample_blended(float ratio, Sampler& second, float 
     impl_->local.swap(impl_->blended);
     return evaluate_model();
 }
+std::vector<Matrix> Sampler::sample_weighted(std::span<const WeightedAnimationSample> samples) {
+    if (samples.empty() || samples.size() > 3 || samples.front().sampler != this)
+        throw ArchiveError("Weighted animation sampling requires one to three layers");
+    double total = 0;
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        const auto& layer = samples[i];
+        if (!layer.sampler || layer.sampler->impl_->skeleton != impl_->skeleton ||
+            !std::isfinite(layer.ratio) || layer.ratio < 0 || layer.ratio > 1 ||
+            !std::isfinite(layer.weight) || layer.weight < 0 || layer.weight > 1)
+            throw ArchiveError("Invalid weighted animation layer or skeleton compatibility");
+        for (std::size_t j = 0; j < i; ++j)
+            if (samples[j].sampler == layer.sampler)
+                throw ArchiveError("Weighted animation layers require independent samplers");
+        total += layer.weight;
+    }
+    if (std::abs(total - 1) > 1e-5)
+        throw ArchiveError("Weighted animation influences must sum to one");
+    if (samples.size() == 1)
+        return sample(samples.front().ratio);
+    std::array<ozz::animation::BlendingJob::Layer, 3> layers{};
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        samples[i].sampler->sample_local(samples[i].ratio);
+        layers[i] = {samples[i].weight, ozz::make_span(samples[i].sampler->impl_->local), {}};
+    }
+    impl_->blended.resize(impl_->local.size());
+    ozz::animation::BlendingJob blend;
+    blend.layers = {layers.data(), samples.size()};
+    blend.rest_pose = impl_->skeleton->impl_->value.joint_rest_poses();
+    blend.output = ozz::make_span(impl_->blended);
+    if (!blend.Run())
+        throw ArchiveError("Ozz weighted skeletal blending failed");
+    impl_->local.swap(impl_->blended);
+    return evaluate_model();
+}
 std::vector<Matrix> Sampler::sample_transition(float ratio, Sampler& outgoing, float outgoing_ratio,
                                                float weight) {
     if (this == &outgoing || impl_->skeleton != outgoing.impl_->skeleton)

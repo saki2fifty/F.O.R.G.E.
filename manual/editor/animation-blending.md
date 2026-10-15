@@ -135,3 +135,28 @@ the nearest endpoint. Changing position preserves cycle phase, including while
 paused. **CodeExamples / SetBlendPosition.hpp** shows ordinary C++ control. Save
 and export normally; the game receives the compiled code and cooked animation
 assets, and needs no editor or compiler to run.
+
+## Blend clips with two controls
+
+Open **FeatureGallery / Scenes / 65-two-dimensional-blend-spaces.scene.json**.
+Its five original columns show the Rest, X and Y corners, a three-clip interior,
+and a position in the other triangle. Press Play, or select a holder and use
+Animation Preview to try **Blend position X** and **Blend position Y**.
+
+To author your own, choose **Dimensions / 2D plane** when creating a blend space. Place
+each compatible clip at an X/Y point, then Save / Publish and attach it to the
+model's Animator. The plane shows the triangles used for blending. Dragging a
+point commits one Undo step on release; Escape cancels the drag. Numeric X/Y
+fields are also available. An existing one-axis source can be converted explicitly
+with **Convert to 2D**; Undo restores its original format and values.
+
+Inside each triangle, up to three clips contribute. Beyond the plane's boundary,
+the position uses its nearest boundary point. A line of samples behaves as a
+line blend. All clips retain one shared cycle phase as either control changes.
+Preview changes stay temporary until **Apply preview settings to Animator**,
+which saves both controls as one Undo step. Live Play edits stay runtime-only.
+
+`forge_set_blend_position(actor, x, y)` in **CodeExamples / SetBlendPosition.hpp**
+sets both controls together from C++. After this FORGE update, rebuild project
+modules with its matching SDK because Animator gained the second coordinate.
+Export ships cooked blend/model data and your compiled module.

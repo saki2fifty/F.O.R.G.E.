@@ -1,5 +1,16 @@
 # 2026-10-15
 
+## Two-axis animation blend spaces
+
+- Add explicit source2 X/Y samples, a bounded prepared triangle mesh and up to three native Ozz pose layers at one shared cycle phase. Preserve source1 and attributable cooked1 selections; the current importer writes cooked2 for either source version.
+- Extend morph defaults, root-motion intervals, rigging, physics validation, paused edits, asset reload, recovery and shared evaluated-joint accounting to three active layers.
+- Add a source plane with numeric coordinates, point dragging, Escape cancellation and one-step Undo. New sources choose one or two axes; existing sources convert explicitly. Preview applies both temporary controls in one Scene transaction.
+- Add original Gallery65, with corner and interior comparisons, and an atomic two-coordinate C++ helper. Export retains cooked dependencies without authored blend/model sources.
+- Deliberately change the exact SDK fingerprint for Animator's trailing Y field. Matching modules must rebuild; ABI1 and the host table remain unchanged.
+
+Local implementation and validation; no new Windows ZIP or physical Windows
+acceptance is claimed.
+
 ## Play CPU stage visibility
 
 - Show queued runtime entity/Prefab publication, resource synchronization and presentation pose capture as distinct fixed-tick scopes in the existing CPU Profiler.

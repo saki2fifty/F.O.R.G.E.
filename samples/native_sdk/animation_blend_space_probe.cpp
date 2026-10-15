@@ -1,4 +1,4 @@
-#include "../projects/FeatureGallery/CodeExamples/SetBlendPosition.hpp"
+#include <SetBlendPosition.hpp>
 #include <cstdio>
 #include <forge/native_sdk.h>
 #include <forge/native_sdk_identity.h>
@@ -6,15 +6,17 @@
 namespace {
 struct BlendSpaceProbe {
     std::uint32_t ticks = 0;
+    bool plane = false;
 };
 int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t capacity) {
     try {
         flecs::world world(host->world);
         world.component<forge::Animator>("forge.animator");
         const auto type = world.component<BlendSpaceProbe>("project.BlendSpaceProbe")
-                              .member<std::uint32_t>("ticks");
+                              .member<std::uint32_t>("ticks")
+                              .member<bool>("plane");
         return host->authoring_type(host->context, type, "project.blend_space_probe", 1,
-                                    R"({"ticks":0})", "Animation", error, capacity);
+                                    R"({"ticks":0,"plane":false})", "Animation", error, capacity);
     } catch (const std::exception& e) {
         if (capacity)
             std::snprintf(error, capacity, "%s", e.what());
@@ -27,6 +29,23 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
         .kind(host->fixed_phase)
         .each([](flecs::entity actor, BlendSpaceProbe& probe) {
             ++probe.ticks;
+            if (probe.plane) {
+                const auto tick = probe.ticks;
+                const float x = tick < 5    ? .5f
+                                : tick < 10 ? .75f
+                                : tick < 15 ? 1.5f
+                                : tick < 20 ? 0.f
+                                : tick < 25 ? 2.f
+                                            : 0.f;
+                const float y = tick < 5    ? .5f
+                                : tick < 10 ? .25f
+                                : tick < 15 ? 1.5f
+                                : tick < 25 ? 0.f
+                                            : 2.f;
+                if (!forge_set_blend_position(actor, x, y))
+                    throw std::runtime_error("Ordinary C++ XY blend-position helper rejected");
+                return;
+            }
             bool valid = true;
             if (probe.ticks == 5)
                 valid = forge_set_blend_position(actor, 0);

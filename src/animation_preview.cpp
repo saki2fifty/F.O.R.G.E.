@@ -96,15 +96,20 @@ void SkeletalAnimationPreview::seek(double time) {
     (void)world_->animation->prepare_initial_pose();
 }
 void SkeletalAnimationPreview::select_blend_position(float position) {
+    select_blend_position(position, 0);
+}
+void SkeletalAnimationPreview::select_blend_position(float position, float y) {
     if (!prepare())
         return;
     auto actor = world_->actor();
     auto config = actor.get<Animator>();
-    if (!config.blend_space.id || !std::isfinite(position) || std::abs(position) > 1000000)
-        throw std::runtime_error("Preview Animator needs a Blend Space and a finite axis position");
-    if (config.blend_position == position)
+    if (!config.blend_space.id || !std::isfinite(position) || std::abs(position) > 1000000 ||
+        !std::isfinite(y) || std::abs(y) > 1000000)
+        throw std::runtime_error("Preview Animator needs a Blend Space and finite coordinates");
+    if (config.blend_position == position && config.blend_position_y == y)
         return;
     config.blend_position = position;
+    config.blend_position_y = y;
     actor.set(config);
     world_->animation->synchronize();
     if (!world_->animation->checkpoint_ready())

@@ -1,5 +1,24 @@
 # FORGE Feature Gallery
 
+## Two-dimensional animation blend spaces
+
+Open **Scenes/65-two-dimensional-blend-spaces.scene.json** and press Play.
+Five instances of FORGE's original column compare the Rest, X and Y corners,
+a three-way interior and the other triangle. Select a model holder and tune
+Animator's **Blend position X/Y**, or use Animation Preview to scrub and adjust
+both controls temporarily. Apply saves both coordinates as one Scene Undo step.
+
+Open **Assets/MotionPlane.blendspace.json** to see its four points and triangles.
+Select/drag points or edit their numeric X/Y values; release commits one Undo step
+and Escape cancels a drag. Save / Publish adopts changes through the ordinary asset
+pipeline. Clips share one two-second cycle. Outside the hull, blending clamps to
+its nearest boundary. No authored triangle topology is needed.
+
+**CodeExamples/SetBlendPosition.hpp** includes `forge_set_blend_position(actor,x,y)`
+for atomic two-axis C++ control. Rebuild modules with the matching SDK after this
+update. Export includes cooked blend/model data; authored sources and an editor
+are unnecessary to run the exported scene. This scene adds no downloaded assets.
+
 ## Runtime Prefab creation from C++
 
 Open **Scenes/64-runtime-prefab-creation.scene.json**. This starts as an empty stage

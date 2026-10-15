@@ -32,6 +32,13 @@ motion. Conjugating the blended rigid delta by the admitted root rest transform
 expresses the result in the model holder's local coordinates before actor scale.
 Translation is meters; rotation is a unit x/y/z/w quaternion.
 
+Blend Spaces select their pair or triangle before the interval and hold its
+normalized weights constant for that interval. In2D, at most three per-clip
+deltas are accumulated in stable sample order: weighted translation and the
+existing root slerp at each new weight divided by accumulated weight. Each
+clip maps the shared cycle phase to its own duration. Changing either coordinate
+does not contribute a pose jump as movement, and paused edits emit no interval.
+
 ## Application and physics
 
 Apply prepares `actor_local_affine * delta_affine`, then uses the existing signed

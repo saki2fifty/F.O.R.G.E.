@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-15](20261015/README.md) — Portable prefab component links, member pickers, independent sequence/joint instances and Gallery63; local validation, Windows delivery pending.
+- [2026-10-15](20261015/README.md) — Two-axis animation blend spaces and Gallery65, runtime Prefab creation and portable links, Prefab preparation improvements and Play CPU stages; local validation, Windows delivery pending.
 - [2026-10-14](20261014/README.md) — Coordinated animation sequences and smooth animated properties; local validation, Windows delivery pending.
 
 - [2026-10-13](20261013/README.md) — Animation key value transforms, timeline navigation and timing, material graph vector geometry, selection/layout and thresholds/rounding, Model topology refinement and duplication/grid placement, topology cleanup and face groups, UV selection/arrangement/packing, interactive transform curves, animation state graphs, blend spaces, bone masks and rig target controls; Windows delivery pending.

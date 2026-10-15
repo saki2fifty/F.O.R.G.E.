@@ -16,7 +16,8 @@ int main(int argc, char** argv) {
     try {
         require(argc == 3 || argc == 4, "Need prepared project and UI scratch root");
         const bool states_mode = argc == 4 && std::string_view(argv[3]) == "--states";
-        const bool space_mode = argc == 4 && std::string_view(argv[3]) == "--space";
+        const bool plane_mode = argc == 4 && std::string_view(argv[3]) == "--space2d";
+        const bool space_mode = plane_mode || (argc == 4 && std::string_view(argv[3]) == "--space");
         require(argc == 3 || states_mode || space_mode, "Unknown preview fixture mode");
         for (float scale : {.65f, 1.f, 1.5f, 2.f}) {
             const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
@@ -26,8 +27,10 @@ int main(int argc, char** argv) {
             Scene scene(engine.world());
             SceneDocument project(scene);
             project.open_project(root, true);
-            std::ifstream input(root / (space_mode ? "Scenes/43-animation-blend-spaces.scene.json"
-                                                   : "main.scene.json"));
+            std::ifstream input(root / (plane_mode
+                                            ? "Scenes/65-two-dimensional-blend-spaces.scene.json"
+                                        : space_mode ? "Scenes/43-animation-blend-spaces.scene.json"
+                                                     : "main.scene.json"));
             Json source;
             input >> source;
             scene.restore_snapshot(source);
@@ -148,6 +151,14 @@ int main(int argc, char** argv) {
             playback_inspector = false;
             frame();
             frame();
+            const auto selected_row =
+                std::find_if(source.at("entities").begin(), source.at("entities").end(),
+                             [&](const auto& row) { return row.at("id") == actor; });
+            require(
+                selected_row != source.at("entities").end() &&
+                    test::ui_targets.contains("animation_preview:object:" +
+                                              selected_row->at("name").template get<std::string>()),
+                "Preview object omitted its authored display name");
             click("Play preview");
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
             while (!test::ui_targets.contains("animation_preview:playhead")) {
@@ -167,6 +178,8 @@ int main(int argc, char** argv) {
             number("animation_preview:playhead", states_mode ? "0.5" : "1");
             if (space_mode)
                 number("animation_preview:position", "0.75");
+            if (plane_mode)
+                number("animation_preview:position_y", "0.25");
             auto sampled = editor.snapshot(scene.effective_document());
             Json pose;
             for (const auto& item : sampled.at("entities"))
@@ -174,7 +187,14 @@ int main(int argc, char** argv) {
                     pose = item.at("animation_pose");
             if (states_mode)
                 require(pose.at("state") == 2, "UI state selector did not apply");
-            else if (space_mode) {
+            else if (plane_mode) {
+                require(std::abs(pose.at("blend_position").get<double>() - .75) < .001 &&
+                            std::abs(pose.at("blend_position_y").get<double>() - .25) < .001 &&
+                            pose.at("blend_samples").size() == 3 &&
+                            std::abs(pose.at("morphs")[0].at("weights")[0].get<double>() - .5) <
+                                .001,
+                        "UI XY controls did not select the expected three-layer pose/morph");
+            } else if (space_mode) {
                 require(std::abs(pose.at("blend_position").get<double>() - .75) < .001 &&
                             std::abs(pose.at("blend_weight").get<double>() - .75) < .001 &&
                             std::abs(pose.at("duration").get<double>() - 2) < .001,
@@ -193,6 +213,9 @@ int main(int argc, char** argv) {
                     : space_mode ? scene.entity(actor).get<Animator>().blend_position == .75f
                                  : scene.entity(actor).get<Animator>().blend_weight == .5f,
                     "Preview settings not saved to Animator");
+            if (plane_mode)
+                require(scene.entity(actor).get<Animator>().blend_position_y == .25f,
+                        "Preview Apply lost the second axis");
             require(scene.undo() && scene.document() == before,
                     "Settings were not one atomic Undo step");
             require(scene.redo(), "Settings Redo failed");

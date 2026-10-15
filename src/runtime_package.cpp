@@ -217,9 +217,12 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
              format == "forge.animation-blend-space") {
         require(
             root.metadata.at("forge.import").at("importer") == "forge.animation.blend-space" &&
-                root.metadata.at("forge.import").at("importer_revision") ==
-                    "forge.animation.blend-space.v1" &&
-                root.metadata.at("forge.import").at("output_version") == 1 &&
+                ((root.metadata.at("forge.import").at("importer_revision") ==
+                      "forge.animation.blend-space.v1" &&
+                  root.metadata.at("forge.import").at("output_version") == 1) ||
+                 (root.metadata.at("forge.import").at("importer_revision") ==
+                      "forge.animation.blend-space.v2" &&
+                  root.metadata.at("forge.import").at("output_version") == 2)) &&
                 root.metadata.at("forge.animation_blend_space").at("version") == 1 &&
                 root.metadata.at("forge.animation_blend_space").at("file") == "blendspace.json" &&
                 artifact.files.size() == 1 && artifact.files.front().name == "blendspace.json" &&
@@ -228,7 +231,9 @@ void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
                 root.metadata.at("forge.animation_blend_space").at("bytes") ==
                     artifact.files.front().bytes.size(),
             "Animation Blend Space selection differs from its cooked data");
-        (void)decode_animation_blend_space(artifact.files.front().bytes, root.id);
+        (void)decode_animation_blend_space(
+            artifact.files.front().bytes, root.id,
+            root.metadata.at("forge.import").at("output_version").get<unsigned>());
     } else if (root.type == AnimationMaskAsset::type && format == "forge.animation-mask") {
         require(root.metadata.at("forge.import").at("importer") == "forge.animation.mask" &&
                     root.metadata.at("forge.import").at("importer_revision") ==

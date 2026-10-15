@@ -1,5 +1,6 @@
 #pragma once
 #include "../animation_blend_space_authoring.hpp"
+#include "../animation_blend_space_geometry.hpp"
 #include "../texture_authoring.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
@@ -50,19 +51,36 @@ class AnimationBlendSpaceEditor {
     }
     void content(SceneDocument& project, bool locked) {
         ImGui::BeginDisabled(locked || dirty());
-        if (ui::button("New animation blend space...",
-                       "Create compatible clips along one numeric animation axis."))
+        if (ui::button(
+                "New animation blend space...",
+                "Create compatible clips along one numeric axis or on a two-dimensional plane."))
             ImGui::OpenPopup("New animation blend space");
         ImGui::EndDisabled();
         if (ImGui::BeginPopupModal("New animation blend space", nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Project file", path_, sizeof(path_));
+            FORGE_UI_PROBE("animation_blend_space:new_path");
+            const bool dimensions_open =
+                ImGui::BeginCombo("Dimensions", new_dimensions_ ? "2D plane" : "1D axis");
+            FORGE_UI_PROBE("animation_blend_space:new_dimensions");
+            if (dimensions_open) {
+                for (int axis = 0; axis < 2; ++axis) {
+                    if (ImGui::Selectable(axis ? "2D plane" : "1D axis", new_dimensions_ == axis))
+                        new_dimensions_ = axis;
+                    FORGE_UI_PROBE("animation_blend_space:new_dimensions:" +
+                                   std::to_string(axis + 1));
+                }
+                ImGui::EndCombo();
+            }
             ImGui::BeginDisabled(locked);
             if (ui::button("Create",
                            "Create the source document; choose an imported skeleton and clips.")) {
                 try {
                     auto created = AnimationBlendSpaceDocument::create(
-                        project.writer_guard(), std::filesystem::u8path(path_));
+                        project.writer_guard(), std::filesystem::u8path(path_), [&](AssetId id) {
+                            return AnimationBlendSpaceSource::create(id,
+                                                                     unsigned(new_dimensions_ + 1));
+                        });
                     const auto source = created->locator();
                     created.reset();
                     load(project, source);
@@ -138,8 +156,8 @@ class AnimationBlendSpaceEditor {
                                                     path_utf8(document_->locator()));
         if (expanded && document_) {
             ImGui::TextWrapped(
-                "Place clips along one numeric axis. Animator Blend position mixes the two "
-                "neighbors at the same cycle phase; positions beyond the ends clamp.");
+                "Place compatible clips on one axis or a two-axis plane. Neighboring clips "
+                "share one cycle phase; positions beyond the boundary clamp.");
             ImGui::TextUnformatted(path_utf8(document_->locator()).c_str());
             ImGui::BeginDisabled(locked || pending());
             if (ui::button(
@@ -168,8 +186,22 @@ class AnimationBlendSpaceEditor {
             FORGE_UI_PROBE("animation_blend_space:cycle");
             ui::help("All clips share this cycle; their individual durations may differ. Press "
                      "Enter to commit.");
-            ImGui::SeparatorText("Samples on the axis");
-            axis(draft);
+            const bool planar = draft.at("version") == 2;
+            ImGui::SeparatorText(planar ? "Samples on the plane" : "Samples on the axis");
+            if (planar)
+                plane(draft, locked || pending());
+            else {
+                axis(draft);
+                if (ui::button("Convert to 2D",
+                               "Keep sample identities and X positions; begin with Y = 0. Undo "
+                               "restores the one-dimensional draft."))
+                    mutate("Convert blend space to 2D", [](Json& d) {
+                        d["version"] = 2;
+                        for (auto& sample : d["samples"])
+                            sample["position"] = {{"x", sample.at("position")}, {"y", 0}};
+                    });
+                FORGE_UI_PROBE("animation_blend_space:convert_2d");
+            }
             ImGui::BeginDisabled(draft.at("samples").size() >= 64);
             if (ui::button("Add sample",
                            "Add a clip point with a unique position; choose its clip below.")) {
@@ -178,10 +210,16 @@ class AnimationBlendSpaceEditor {
                     double position = 0;
                     while (std::any_of(
                         d["samples"].begin(), d["samples"].end(), [&](const auto& sample) {
-                            return sample.at("position").template get<double>() == position;
+                            const auto& p = sample.at("position");
+                            return planar ? p.at("x").template get<double>() == position &&
+                                                p.at("y").template get<double>() == 0
+                                          : p.template get<double>() == position;
                         }))
                         ++position;
-                    d["samples"].push_back({{"id", id}, {"clip", nullptr}, {"position", position}});
+                    d["samples"].push_back(
+                        {{"id", id},
+                         {"clip", nullptr},
+                         {"position", planar ? Json{{"x", position}, {"y", 0}} : Json(position)}});
                 });
                 selected_ = id;
             }
@@ -195,7 +233,11 @@ class AnimationBlendSpaceEditor {
                     for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
                         const auto& sample = draft.at("samples")[std::size_t(i)];
                         const auto id = sample.at("id").get<AssetId>();
-                        auto label = std::to_string(sample.at("position").get<double>()) + " | ";
+                        const auto& point = sample.at("position");
+                        auto label = planar
+                                         ? std::to_string(point.at("x").get<double>()) + ", " +
+                                               std::to_string(point.at("y").get<double>()) + " | "
+                                         : std::to_string(point.get<double>()) + " | ";
                         if (sample.at("clip").is_null())
                             label += "Choose a clip";
                         else {
@@ -216,11 +258,27 @@ class AnimationBlendSpaceEditor {
             ImGui::EndChild();
             for (const auto& sample : draft.at("samples"))
                 if (selected_ && sample.at("id") == Json(selected_)) {
-                    double position = sample.at("position");
-                    if (ImGui::InputDouble("Sample position", &position, 0, 0, "%.3f",
-                                           ImGuiInputTextFlags_EnterReturnsTrue))
-                        mutate_entry("Move blend-space sample", "position", position);
+                    auto point = sample.at("position");
+                    double position = planar ? point.at("x").get<double>() : point.get<double>();
+                    if (ImGui::InputDouble(planar ? "Sample X" : "Sample position", &position, 0, 0,
+                                           "%.3f", ImGuiInputTextFlags_EnterReturnsTrue)) {
+                        if (planar)
+                            point["x"] = position;
+                        else
+                            point = position;
+                        mutate_entry("Move blend-space sample", "position", point);
+                    }
                     FORGE_UI_PROBE("animation_blend_space:position");
+                    if (planar) {
+                        double y = sample.at("position").at("y");
+                        if (ImGui::InputDouble("Sample Y", &y, 0, 0, "%.3f",
+                                               ImGuiInputTextFlags_EnterReturnsTrue)) {
+                            point = sample.at("position");
+                            point["y"] = y;
+                            mutate_entry("Move blend-space sample", "position", point);
+                        }
+                        FORGE_UI_PROBE("animation_blend_space:position_y");
+                    }
                     auto clip = sample.at("clip");
                     if (asset_ref_picker(*catalog_, clip, AnimationClipAsset::type, "Sample clip",
                                          false, owner_))
@@ -247,7 +305,7 @@ class AnimationBlendSpaceEditor {
             FORGE_UI_PROBE("animation_blend_space:attach");
             ImGui::SameLine();
             if (preview &&
-                ui::button("Open Animation Preview", "Preview the selected object's numeric axis "
+                ui::button("Open Animation Preview", "Preview the selected object's coordinates "
                                                      "without changing its authored settings."))
                 preview();
             ImGui::EndDisabled();
@@ -298,6 +356,15 @@ class AnimationBlendSpaceEditor {
     bool needs_publish_ = false, save_ = false, close_ = false, open_error_ = false;
     char path_[256] = "Assets/Motion.blendspace.json";
     std::string error_;
+    int new_dimensions_ = 0;
+    std::uint64_t plane_revision_ = 0;
+    std::optional<AnimationBlendSpace> plane_layout_;
+    std::string plane_error_;
+    AssetId dragged_sample_;
+    std::uint64_t drag_revision_ = 0;
+    Json drag_position_;
+    bool drag_moved_ = false;
+    void plane(const Json& draft, bool locked);
     void axis(const Json& draft) {
         const auto count = draft.at("samples").size();
         if (!count)
@@ -326,6 +393,9 @@ class AnimationBlendSpaceEditor {
         ImGui::Text("Axis: %.3f to %.3f", minimum, maximum);
     }
     void finish_close() {
+        plane_revision_ = 0;
+        plane_layout_.reset();
+        dragged_sample_ = {};
         document_.reset();
         service_.reset();
         catalog_.reset();
@@ -335,6 +405,9 @@ class AnimationBlendSpaceEditor {
         needs_publish_ = save_ = close_ = open_error_ = false;
     }
     void load(SceneDocument& project, const std::filesystem::path& source) {
+        plane_revision_ = 0;
+        plane_layout_.reset();
+        dragged_sample_ = {};
         auto doc = std::make_unique<AnimationBlendSpaceDocument>(project.writer_guard(), source);
         auto catalog =
             std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project.project()));
@@ -431,11 +504,12 @@ class AnimationBlendSpaceEditor {
                         {"clip", nullptr},
                         {"skeleton", compiled.skeleton},
                         {"blend_space", compiled.asset},
-                        {"blend_position", float(compiled.samples.front().position)}};
+                        {"blend_position", float(compiled.samples.front().position)},
+                        {"blend_position_y", float(compiled.samples.front().position_y)}};
             auto commands = Json::array();
             for (const char* field :
                  {"blend_weight", "blend_root", "blend_mask", "blend_mode", "blend_clip", "states",
-                  "state", "clip", "skeleton", "blend_space", "blend_position"})
+                  "state", "clip", "skeleton", "blend_space", "blend_position", "blend_position_y"})
                 commands.push_back({{"operation", "property.set"},
                                     {"arguments",
                                      {{"entity", id},
@@ -449,4 +523,133 @@ class AnimationBlendSpaceEditor {
         }
     }
 };
+inline void AnimationBlendSpaceEditor::plane(const Json& draft, bool locked) {
+    if (plane_revision_ != document_->revision()) {
+        plane_revision_ = document_->revision();
+        plane_layout_.emplace();
+        auto& layout = *plane_layout_;
+        layout.dimensions = 2;
+        for (const auto& sample : draft.at("samples"))
+            layout.samples.push_back({sample.at("id").get<AssetId>(),
+                                      {},
+                                      sample.at("position").at("x").get<double>(),
+                                      sample.at("position").at("y").get<double>()});
+        std::sort(layout.samples.begin(), layout.samples.end(), [](const auto& a, const auto& b) {
+            return a.position == b.position ? a.position_y < b.position_y : a.position < b.position;
+        });
+        plane_error_.clear();
+        try {
+            if (!layout.samples.empty())
+                animation_detail::prepare_blend_geometry(layout);
+        } catch (const std::exception& e) {
+            plane_error_ = e.what();
+            layout.triangles.clear();
+            layout.boundary.clear();
+        }
+    }
+    const auto& layout = *plane_layout_;
+    const float unit = ImGui::GetFrameHeight();
+    const auto start = ImGui::GetCursorScreenPos();
+    const ImVec2 size{std::max(1.f, ImGui::GetContentRegionAvail().x), unit * 11};
+    ImGui::InvisibleButton("Blend plane", size);
+    FORGE_UI_PROBE("animation_blend_space:plane");
+    const bool hovered = ImGui::IsItemHovered(), active = ImGui::IsItemActive();
+    const float side = std::max(1.f, std::min(size.x, size.y) - unit * 2);
+    const ImVec2 lower{start.x + (size.x - side) * .5f, start.y + (size.y + side) * .5f};
+    const double extent = layout.samples.size() > 1 ? layout.extent : 1;
+    const double x0 =
+        (layout.samples.size() == 1 ? layout.samples[0].position - .5 : layout.origin[0]) -
+        extent * .15;
+    const double y0 =
+        (layout.samples.size() == 1 ? layout.samples[0].position_y - .5 : layout.origin[1]) -
+        extent * .15;
+    const double span = extent * 1.3;
+    const auto screen = [&](double x, double y) {
+        return ImVec2{lower.x + float((x - x0) / span) * side,
+                      lower.y - float((y - y0) / span) * side};
+    };
+    const auto mouse = ImGui::GetIO().MousePos;
+    std::optional<std::size_t> nearest;
+    float best = unit * unit * .36f;
+    for (std::size_t i = 0; i < layout.samples.size(); ++i) {
+        const auto p = screen(layout.samples[i].position, layout.samples[i].position_y);
+        const float dx = mouse.x - p.x, dy = mouse.y - p.y, distance = dx * dx + dy * dy;
+        if (distance < best) {
+            best = distance;
+            nearest = i;
+        }
+    }
+    if (locked || drag_revision_ != document_->revision())
+        dragged_sample_ = {};
+    if (!locked && ImGui::IsItemClicked() && nearest) {
+        selected_ = dragged_sample_ = layout.samples[*nearest].id;
+        drag_revision_ = document_->revision();
+        drag_moved_ = false;
+        for (const auto& sample : draft.at("samples"))
+            if (sample.at("id") == Json(dragged_sample_))
+                drag_position_ = sample.at("position");
+    }
+    if (dragged_sample_) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+            (!active && !ImGui::IsMouseReleased(ImGuiMouseButton_Left)))
+            dragged_sample_ = {};
+        else if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left, unit * .15f)) {
+            drag_moved_ = true;
+            drag_position_["x"] =
+                std::clamp(x0 + std::clamp(double((mouse.x - lower.x) / side), 0., 1.) * span,
+                           -1000000., 1000000.);
+            drag_position_["y"] =
+                std::clamp(y0 + std::clamp(double((lower.y - mouse.y) / side), 0., 1.) * span,
+                           -1000000., 1000000.);
+        } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            if (drag_moved_ && selected_ == dragged_sample_)
+                mutate_entry("Move blend-space sample", "position", drag_position_);
+            dragged_sample_ = {};
+        }
+    }
+    const auto point = [&](std::size_t i) {
+        const auto& sample = layout.samples[i];
+        return dragged_sample_ == sample.id ? screen(drag_position_.at("x"), drag_position_.at("y"))
+                                            : screen(sample.position, sample.position_y);
+    };
+    auto* draw = ImGui::GetWindowDrawList();
+    draw->PushClipRect(start, {start.x + size.x, start.y + size.y}, true);
+    draw->AddRectFilled(start, {start.x + size.x, start.y + size.y}, IM_COL32(24, 32, 40, 255));
+    for (unsigned i = 0; i <= 4; ++i) {
+        const float at = side * float(i) / 4;
+        draw->AddLine({lower.x + at, lower.y}, {lower.x + at, lower.y - side},
+                      IM_COL32(60, 77, 90, 255));
+        draw->AddLine({lower.x, lower.y - at}, {lower.x + side, lower.y - at},
+                      IM_COL32(60, 77, 90, 255));
+    }
+    for (const auto& triangle : layout.triangles)
+        for (unsigned i = 0; i < 3; ++i)
+            draw->AddLine(point(triangle[i]), point(triangle[(i + 1) % 3]),
+                          IM_COL32(85, 145, 175, 255));
+    if (layout.triangles.empty())
+        for (const auto& edge : layout.boundary)
+            draw->AddLine(point(edge[0]), point(edge[1]), IM_COL32(85, 145, 175, 255));
+    for (std::size_t i = 0; i < layout.samples.size(); ++i) {
+        const auto p = point(i);
+        draw->AddCircleFilled(p, unit * .22f,
+                              selected_ == layout.samples[i].id ? IM_COL32(245, 190, 60, 255)
+                                                                : IM_COL32(120, 210, 240, 255));
+#ifdef FORGE_UI_FIXTURE
+        const ImVec2 minimum{p.x - unit * .22f, p.y - unit * .22f};
+        const ImVec2 maximum{p.x + unit * .22f, p.y + unit * .22f};
+        FORGE_UI_RECT_PROBE("animation_blend_space:plane_point:" + layout.samples[i].id.str(),
+                            minimum, maximum, !locked);
+#endif
+    }
+    draw->AddText({lower.x + side, lower.y}, IM_COL32(185, 200, 210, 255), "X");
+    draw->AddText({lower.x, lower.y - side - unit * .75f}, IM_COL32(185, 200, 210, 255), "Y");
+    draw->PopClipRect();
+    if (hovered && nearest && !dragged_sample_)
+        ImGui::SetTooltip("X %.3f, Y %.3f\nClick to select; drag to move.",
+                          layout.samples[*nearest].position, layout.samples[*nearest].position_y);
+    ui::help("Select a point or a list row. Drag a point, or enter its X and Y below. Escape "
+             "cancels a drag.");
+    if (!plane_error_.empty())
+        ui::field_error(plane_error_);
+}
 } // namespace forge

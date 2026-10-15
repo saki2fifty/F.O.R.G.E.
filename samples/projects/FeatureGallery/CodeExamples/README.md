@@ -1,5 +1,14 @@
 # Optional C++ behaviors
 
+## Two-axis animation blending
+
+Scene65's original column instances already run from their authored Animator
+settings. `SetBlendPosition.hpp` also provides
+`forge_set_blend_position(actor, x, y)` for a C++ system to set both coordinates
+together without restarting the admitted cycle. The one-coordinate overload
+remains available. Both reject invalid values before changing the component.
+Build your module with the editor's matching SDK after the Animator layout update.
+
 ## Runtime Prefab creation
 
 Use a writable copy of the Gallery with the matching FORGE editor/SDK.

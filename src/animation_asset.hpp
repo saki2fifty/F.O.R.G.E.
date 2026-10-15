@@ -67,6 +67,11 @@ class Clip {
     std::unique_ptr<Impl> impl_;
     ArchiveInfo info_;
 };
+class Sampler;
+struct WeightedAnimationSample {
+    Sampler* sampler = nullptr;
+    float ratio = 0, weight = 0;
+};
 class Sampler {
   public:
     explicit Sampler(std::shared_ptr<const Skeleton>, std::shared_ptr<const Clip>);
@@ -78,6 +83,9 @@ class Sampler {
     std::vector<Matrix> sample_blended(float ratio, Sampler& second, float weight,
                                        std::span<const float> joint_mask = {},
                                        bool additive = false);
+    // At most three normalized absolute layers, sharing the admitted skeleton.
+    // All layers sample before the one blended local-to-model evaluation.
+    std::vector<Matrix> sample_weighted(std::span<const WeightedAnimationSample>);
     // State transitions use independent clip phases. Interrupted transitions can
     // blend from an already evaluated local pose without another sampling layer.
     std::vector<Matrix> sample_transition(float ratio, Sampler& outgoing, float outgoing_ratio,

@@ -10,6 +10,7 @@ using namespace forge::asset_detail;
 using namespace std::chrono_literals;
 namespace {
 const char* phase = "initial pose";
+bool plane = false;
 void begin_phase(const char* value) {
     phase = value;
     std::cerr << "Checking Gallery blend-space " << phase << '\n';
@@ -62,13 +63,31 @@ Points geometry(World& world, const ModelSelection& selected, bool check = true,
                 const auto found = std::find(ids.begin(), ids.end(), Json(root));
                 require(found != ids.end(), "Gallery blend-space root identity absent");
                 const auto index = std::size_t(found - ids.begin());
-                const double x = name == "Rest to base" ? 0 : name == "Base to overlay" ? .5 : 1;
-                const double z = name == "Rest to base" ? .5 : name == "Base to overlay" ? .5 : 0;
+                const double x = plane                       ? (name == "Y corner"             ? 1
+                                                                : name == "Three-way interior" ? .25
+                                                                : name == "Other triangle"     ? .375
+                                                                                               : 0)
+                                 : name == "Rest to base"    ? 0
+                                 : name == "Base to overlay" ? .5
+                                                             : 1;
+                const double z = plane                       ? (name == "X corner"             ? 1
+                                                                : name == "Three-way interior" ? .25
+                                                                : name == "Other triangle"     ? .375
+                                                                                               : 0)
+                                 : name == "Rest to base"    ? .5
+                                 : name == "Base to overlay" ? .5
+                                                             : 0;
                 near(pose.at("local")[index].at("translation")[0], x);
                 near(pose.at("local")[index].at("translation")[2], z);
-                near(pose.at("morphs")[0].at("weights")[0], name == "Rest to base"      ? .375
-                                                            : name == "Base to overlay" ? 1
-                                                                                        : 1.5);
+                const double morph = plane ? (name == "Rest corner"          ? .25
+                                              : name == "X corner"           ? .5
+                                              : name == "Y corner"           ? 1.5
+                                              : name == "Three-way interior" ? .625
+                                                                             : .8125)
+                                     : name == "Rest to base"    ? .375
+                                     : name == "Base to overlay" ? 1
+                                                                 : 1.5;
+                near(pose.at("morphs")[0].at("weights")[0], morph);
             }
         }
     if (observed)
@@ -119,7 +138,7 @@ Points geometry(World& world, const ModelSelection& selected, bool check = true,
         require(result.emplace(actors.at(node->root), std::move(points)).second,
                 "Duplicate Gallery blend-space holder geometry");
     }
-    require(result.size() == 3, "Gallery blend-space lost a comparison holder");
+    require(result.size() == (plane ? 5 : 3), "Gallery blend-space lost a comparison holder");
     return result;
 }
 void same(const Points& a, const Points& b) {
@@ -135,12 +154,16 @@ void same(const Points& a, const Points& b) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 3, "Need Gallery project and scratch root");
+        require(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--2d"),
+                "Need Gallery project and scratch root, optionally --2d");
+        plane = argc == 4;
         const auto project = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(project);
         std::filesystem::copy(argv[1], project, std::filesystem::copy_options::recursive);
         Json source;
-        std::ifstream(project / "Scenes/43-animation-blend-spaces.scene.json") >> source;
+        std::ifstream(project / (plane ? "Scenes/65-two-dimensional-blend-spaces.scene.json"
+                                       : "Scenes/43-animation-blend-spaces.scene.json")) >>
+            source;
         const auto catalog = AssetCatalog::open_project(project);
         AssetId model;
         for (const auto& [id, record] : catalog.records())
@@ -156,19 +179,23 @@ int main(int argc, char** argv) {
             for (std::size_t i = 0; i < points.size(); ++i)
                 for (unsigned c = 0; c < 3; ++c)
                     changed |= std::abs(points[i][c] - rest.at(name)[i][c]) > .05;
-            require(changed, "Gallery blend-space comparison has no visible deformation");
+            require(changed == !(plane && name == "Rest corner"),
+                    "Gallery blend-space comparison has incorrect visible deformation");
         }
         flecs::entity edited_actor;
         Json edited_source = source;
         for (auto& row : edited_source.at("entities"))
-            if (row.at("name") == "Base to overlay") {
+            if (row.at("name") == (plane ? "Three-way interior" : "Base to overlay")) {
                 edited_actor = world.scene.entity(row.at("id").get<std::string>());
-                row["components"]["forge.animator"]["blend_position"] = 0;
+                row["components"]["forge.animator"]["blend_position"] = plane ? 2 : 0;
+                if (plane)
+                    row["components"]["forge.animator"]["blend_position_y"] = 0;
             }
         require(bool(edited_actor), "Gallery center Animator absent");
         const auto saved_config = edited_actor.get<Animator>();
         auto config = saved_config;
-        config.blend_position = 0;
+        config.blend_position = plane ? 2 : 0;
+        config.blend_position_y = 0;
         edited_actor.set(config);
         begin_phase("paused position geometry");
         const auto edited = geometry(world, selected, false);
@@ -191,13 +218,15 @@ int main(int argc, char** argv) {
         std::filesystem::rename(package, relocated);
         const auto shipped = open_runtime_content(relocated, {"windows", "d3d12"});
         const auto shipped_model = load_model_selection(relocated, shipped, model);
-        require(!std::filesystem::exists(relocated / "Assets/Motion.blendspace.json") &&
+        require(!std::filesystem::exists(relocated / (plane ? "Assets/MotionPlane.blendspace.json"
+                                                            : "Assets/Motion.blendspace.json")) &&
                     !std::filesystem::exists(relocated / "Assets/OverlayColumn.gltf"),
                 "Gallery export shipped authored blend-space/model source");
         World exported(relocated, source);
         exported.simulation.tick(1);
         same(expected, geometry(exported, shipped_model));
-        std::cout << "Gallery43 phase-aligned native skin/morph geometry, paused numeric edits, "
+        std::cout << (plane ? "Gallery65 two-axis three-layer" : "Gallery43 phase-aligned")
+                  << " native skin/morph geometry, paused numeric edits, "
                      "bounds/camera and relocated "
                      "source-free export passed\n";
     } catch (const std::exception& e) {

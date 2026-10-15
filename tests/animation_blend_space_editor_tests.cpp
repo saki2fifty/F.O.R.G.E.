@@ -49,10 +49,18 @@ int main(int argc, char** argv) {
             ui::EditorUiContext context;
             ui::ContextScope scope(context);
             std::string message;
+            bool show_create = false;
             auto frame = [&] {
                 test::ui_targets.clear();
                 editor.poll(project, message);
                 ImGui::NewFrame();
+                if (show_create) {
+                    ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+                    ImGui::SetNextWindowSize({1450, 1750}, ImGuiCond_Always);
+                    ImGui::Begin("Content creation fixture");
+                    editor.content(project, false);
+                    ImGui::End();
+                }
                 ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
                 ImGui::SetNextWindowSize({1450, 1750}, ImGuiCond_Always);
                 editor.draw(project, scene, false);
@@ -66,14 +74,15 @@ int main(int argc, char** argv) {
                 const auto bottom = std::min(box.maximum.y, box.clip_maximum.y);
                 // Popup Selectable hit boxes include spacing above their visible text.
                 // Click the visible area; document fields must remain fully visible.
-                const bool visible = id.starts_with("picker-option:")
+                const bool visible = (id.starts_with("picker-option:") ||
+                                      id.starts_with("animation_blend_space:new_dimensions:"))
                                          ? bottom > top
                                          : box.minimum.y >= box.clip_minimum.y &&
                                                box.maximum.y <= box.clip_maximum.y;
                 require(box.enabled && visible,
-                        "Mask control was disabled or vertically clipped: " + id + " enabled=" +
-                            std::to_string(box.enabled) + " y=" + std::to_string(box.minimum.y) +
-                            "/" + std::to_string(box.maximum.y) +
+                        "Blend Space control was disabled or vertically clipped: " + id +
+                            " enabled=" + std::to_string(box.enabled) + " y=" +
+                            std::to_string(box.minimum.y) + "/" + std::to_string(box.maximum.y) +
                             " clip=" + std::to_string(box.clip_minimum.y) + "/" +
                             std::to_string(box.clip_maximum.y));
                 io.AddMousePosEvent((box.minimum.x + box.maximum.x) * .5f, (top + bottom) * .5f);
@@ -89,10 +98,12 @@ int main(int argc, char** argv) {
             auto number = [&](const std::string& id, const char* value) {
                 click(id);
                 io.AddKeyEvent(ImGuiKey_LeftCtrl, true);
+                io.AddKeyEvent(ImGuiMod_Ctrl, true);
                 io.AddKeyEvent(ImGuiKey_A, true);
                 frame();
                 io.AddKeyEvent(ImGuiKey_A, false);
                 io.AddKeyEvent(ImGuiKey_LeftCtrl, false);
+                io.AddKeyEvent(ImGuiMod_Ctrl, false);
                 frame();
                 io.AddInputCharactersUTF8(value);
                 frame();
@@ -230,6 +241,7 @@ int main(int argc, char** argv) {
                     "Invalid source did not remain a visible error document");
             click("button:Close");
             require(!editor.is_open(), "Invalid source error document failed to close");
+#include "animation_blend_space_plane_editor_tests.hpp"
             ImGui::DestroyContext();
         }
         std::cout

@@ -2,12 +2,15 @@
 #include "animation_blend_space_resource.hpp"
 #include "animation_preview.hpp"
 #include "asset_reference_impact.hpp"
+#include "builtins.hpp"
 #include "model_placement.hpp"
 #include "runtime_package.hpp"
 #include <array>
 #include <cmath>
 #include <forge/authoring.hpp>
+#include <forge/physics.hpp>
 #include <forge/runtime.hpp>
+#include <fstream>
 #include <iostream>
 #include <thread>
 using namespace forge;
@@ -114,6 +117,7 @@ Json direct(Json source, EntityId actor, AssetId clip) {
         }
     return source;
 }
+#include "animation_blend_space_plane_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     const char* phase = "source publication";
@@ -142,6 +146,11 @@ int main(int argc, char** argv) {
         const auto rest = selected.bindings.at("/animations/2"),
                    base = selected.bindings.at("/animations/0"),
                    overlay = selected.bindings.at("/animations/1");
+        if (argc == 4 && std::string_view(argv[3]) == "--2d") {
+            phase = "two-dimensional playback";
+            plane_pipeline(project, catalog, selected, skeleton, rest, base, overlay);
+            return 0;
+        }
         auto lease = std::make_shared<ProjectLease>(project);
         auto document = AnimationBlendSpaceDocument::create(
             lease, "Assets/TestMotion.blendspace.json", [&](AssetId id) {
