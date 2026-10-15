@@ -2748,6 +2748,10 @@ int main(int argc, char** argv) {
                     {"model_import_pending", model_imports.pending()},
                     {"model_import_error", model_imports.diagnostic()},
                     {"model_preview", model_viewer ? model_viewer->loading_state() : "absent"},
+                    {"play_status", play.status()},
+                    {"play_log", play.log()},
+                    {"play_active", play.active()},
+                    {"control_ready", play.control_ready()},
                     {"status", message}};
                 if (auto* w = ImGui::FindWindowByName("###Model import"))
                     stalled["model_window"] = {{"active", bool(w->Active)},
@@ -2810,7 +2814,18 @@ int main(int argc, char** argv) {
                     break;
                 case 6:
                     project_settings.request_close();
-                    actions.invoke("play");
+                    // The first Inspector capture intentionally shows an unassigned
+                    // AudioSource. It is not playable content: keep normal runtime
+                    // admission and remove this placeholder before starting Play.
+                    for (const auto& row : scene.document().at("entities")) {
+                        if (row.at("components").contains("forge.audio_source")) {
+                            forge::authoring_command(
+                                scene, "component.remove",
+                                {{"entity", row.at("id")}, {"component", "forge.audio_source"}});
+                            break;
+                        }
+                    }
+                    ready = actions.invoke("play");
                     break;
                 case 7:
                     if (play.control_ready()) {

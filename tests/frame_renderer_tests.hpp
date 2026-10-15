@@ -5,6 +5,7 @@
 #include "viewport.hpp"
 #include <forge/engine_assets.hpp>
 #include <fstream>
+#include <iostream>
 void check_frame_renderer(forge::DiligentPresentation& presentation,
                           Diligent::IDeviceContext* context, const std::filesystem::path& images) {
     using namespace forge;
@@ -52,6 +53,11 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         {"version", 1u},
         {"bloom", {{"enabled", true}, {"threshold", .25}, {"intensity", 1}, {"radius", 2}}}};
     const auto glowing = render();
+    save(glowing, 64, 32, images / "game-camera-bloom.ppm");
+    std::cout << "Camera bloom pixels: before " << int(split[16 * 64 + 16][0]) << ','
+              << int(split[16 * 64 + 16][2]) << '/' << int(split[16 * 64 + 48][2]) << " after "
+              << int(glowing[16 * 64 + 16][0]) << ',' << int(glowing[16 * 64 + 16][2]) << '/'
+              << int(glowing[16 * 64 + 48][2]) << '\n';
     require(glowing[16 * 64 + 16][0] > split[16 * 64 + 16][0] &&
                 glowing[16 * 64 + 48][2] > split[16 * 64 + 48][2] &&
                 glowing[16 * 64 + 16][2] == split[16 * 64 + 16][2],

@@ -180,7 +180,9 @@ inline void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* 
                                                  std::to_string(x) + "," + std::to_string(y) +
                                                  " channel " + std::to_string(c) + " actual " +
                                                  std::to_string(actual[index][c]) + " expected " +
-                                                 std::to_string(expected[index][c]));
+                                                 std::to_string(expected[index][c]) + " radius " +
+                                                 std::to_string(settings.radius) + " intensity " +
+                                                 std::to_string(settings.intensity));
                     ++comparisons;
                 }
             }
