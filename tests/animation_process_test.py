@@ -38,7 +38,7 @@ try:
  assert abs(pose(stepped)['time']-(2 if sdk else 1)/60)<1e-6
  time.sleep(.03);assert pose(a.request('snapshot'))==pose(stepped)
  for _ in range(4):stepped=a.request('step')
- checkpoint=stepped['recovery'];assert checkpoint['animation']['version']==2
+ checkpoint=stepped['recovery'];assert checkpoint['animation']['version']==3
  assert 'model' not in json.dumps(checkpoint['animation'])
  a.request('resume');time.sleep(.05);paused=a.request('pause');assert paused['timing']['tick']>5
  assert pose(restore(a,checkpoint))==pose(stepped)

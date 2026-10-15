@@ -5,6 +5,8 @@
 - Compare Particle Effect artifact keys as explicit strings to avoid an MSVC C++20 overload-resolution failure while retaining strict artifact identity checks.
 - Keep editable-Mesh navigation tests available without asset tools; enable their imported-glTF extension and its model-import dependencies together in asset-tool builds.
 - Build the full editor target set at numbered and full-audit gates so newly registered acceptance tests are compiled before execution; retain focused audit selections.
+- Align integration checks with additive material defaults, sequence-aware animation recovery, portable Prefab payloads and preservation of native Prefab changes in runtime snapshots. Retain independent source round-trip and recovery checks.
+- Enable terrain CLI acceptance with its required asset-tool configuration and run it at both full native editor gates. Use explicit string comparisons in navigation capture checks for MSVC.
 
 ## Per-object material values
 

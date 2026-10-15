@@ -253,7 +253,8 @@ void spatial_and_prefab(const std::filesystem::path& root, const Json& snapshot)
                        {"component", "forge.navigation_avoidance"},
                        {"field", "horizon"},
                        {"value", 1.25}});
-    Running prefab_run(root, authored.snapshot());
+    const auto authored_snapshot = authored.snapshot();
+    Running prefab_run(root, authored_snapshot);
     auto holder = prefab_run.scene.entity(instance);
     auto config = holder.get<NavigationAvoidance>();
     config.horizon = .5f;
@@ -261,12 +262,16 @@ void spatial_and_prefab(const std::filesystem::path& root, const Json& snapshot)
     holder.set<NavigationAvoidance>(config);
     const auto checkpoint = prefab_run.navigation->checkpoint();
     Running recovered(root, prefab_run.scene.snapshot());
-    check(recovered.scene.entity(instance).get<NavigationAvoidance>() ==
-              NavigationAvoidance{true, .5f},
-          "Fixture did not exercise authored property mask over a gameplay change");
+    const auto cold = recovered.scene.entity(instance).get<NavigationAvoidance>();
+    check(cold == config, "Runtime snapshot lost native prefab property changes");
+    // Recovery must restore the checkpoint even after another native change;
+    // it must not depend on the old serializer losing non-masked fields.
+    recovered.scene.entity(instance).set<NavigationAvoidance>({true, 1});
     recovered.navigation->restore(checkpoint);
     check(recovered.scene.entity(instance).get<NavigationAvoidance>() == config,
           "Avoidance recovery lost gameplay value hidden by authored override intent");
+    check(authored.snapshot() == authored_snapshot,
+          "Runtime prefab changes modified the authored Scene");
     NavigationRuntime author_access(author.world(), root);
     author_access.bind(&authored);
     reject([&] {

@@ -289,6 +289,17 @@ int main() {
         check(rejected && !wrote_invalid,
               "Prefab no-op comparison permitted an invalid candidate's durable write");
         const auto instance_id = instantiate_prefab(scene, prefab.asset());
+        auto instance_intent = [&]() -> Json {
+            const auto document = scene.document();
+            for (const auto& row : document.at("entities"))
+                if (row.at("id") == instance_id)
+                    return row;
+            throw std::runtime_error("Missing prefab instance intent");
+        };
+        const EntityRef instance_ref{scene.asset_id(), Json(instance_id).get<EntityId>()};
+        check(prefab.source.at("version") == 3 &&
+                  codec.read(scene.entity(instance_id), true).at("target") == Json(instance_ref),
+              "Admitted prefab component did not resolve its portable self reference");
         const auto inherited_view = scene.effective_document();
         for (const auto& row : inherited_view.at("entities"))
             if (row.at("id") == instance_id)
@@ -301,37 +312,47 @@ int main() {
             opaque_prefab.restore_snapshot(scene.snapshot());
             const auto missing_view = opaque_prefab.effective_document();
             for (const auto& row : missing_view.at("entities"))
-                if (row.at("id") == instance_id)
+                if (row.at("id") == instance_id) {
                     check(row.at("components").at(codec.key()) ==
-                              saved.at("entities")[0].at("components").at(codec.key()),
+                              prefab.source.at("members")[0].at("components").at(codec.key()),
                           "Missing schema hid an inherited prefab payload");
+                }
             check(opaque_prefab.snapshot() == scene.snapshot(),
                   "Missing-schema effective view created an authored override");
         }
         check(scene.entity(instance_id).has(codec.native_type) &&
-                  !scene.entity(instance_id).owns(codec.native_type),
-              "Structured prefab did not inherit native custom values");
+                  scene.entity(instance_id).owns(codec.native_type) &&
+                  !instance_intent().at("components").contains(codec.key()),
+              "Portable reference materialization manufactured authored component ownership");
         const auto authored_title = saved["entities"][0]["components"][codec.key()]["title"];
         const auto inherited_snapshot = scene.snapshot();
         authoring_command(scene, "component.override",
                           {{"entity", instance_id}, {"component", codec.key()}});
         check(scene.entity(instance_id).owns(codec.native_type) &&
+                  instance_intent().at("components").contains(codec.key()) &&
                   codec.read(scene.entity(instance_id), true).at("title") == authored_title,
               "Explicit equal-value component override did not own native values");
         check(scene.undo() && scene.snapshot() == inherited_snapshot && scene.redo() &&
-                  scene.entity(instance_id).owns(codec.native_type),
+                  scene.entity(instance_id).owns(codec.native_type) &&
+                  instance_intent().at("components").contains(codec.key()),
               "Whole-component override Undo/Redo failed");
         authoring_command(scene, "component.revert",
                           {{"entity", instance_id}, {"component", codec.key()}});
-        check(!scene.entity(instance_id).owns(codec.native_type),
+        check(scene.entity(instance_id).owns(codec.native_type) &&
+                  !instance_intent().at("components").contains(codec.key()) &&
+                  !instance_intent()
+                       .value("property_overrides", Json::object())
+                       .contains(codec.key()),
               "Whole-component Revert did not resume inheritance");
         authoring_command(scene, "property.set",
                           {{"entity", instance_id},
                            {"component", codec.key()},
                            {"field", "title"},
                            {"value", authored_title}});
-        check(scene.entity(instance_id).owns(codec.native_type),
-              "Equal property intent did not materialize native override");
+        check(scene.entity(instance_id).owns(codec.native_type) &&
+                  !instance_intent().at("components").contains(codec.key()) &&
+                  instance_intent().at("property_overrides").at(codec.key()).contains("title"),
+              "Equal property intent was lost or promoted to a whole-component override");
         const auto partial_snapshot = scene.snapshot();
         authoring_command(scene, "component.override",
                           {{"entity", instance_id}, {"component", codec.key()}});
@@ -367,9 +388,13 @@ int main() {
         authoring_command(
             scene, "property.revert",
             {{"entity", instance_id}, {"component", codec.key()}, {"field", "title"}});
-        check(!scene.entity(instance_id).owns(codec.native_type) &&
+        check(scene.entity(instance_id).owns(codec.native_type) &&
+                  !instance_intent().at("components").contains(codec.key()) &&
+                  !instance_intent()
+                       .value("property_overrides", Json::object())
+                       .contains(codec.key()) &&
                   codec.read(scene.entity(instance_id), true).at("title") == "New source",
-              "Property Revert failed to resume native prefab inheritance");
+              "Property Revert failed to resume logical prefab inheritance");
         check(scene.undo() &&
                   codec.read(scene.entity(instance_id), true).at("title") == authored_title,
               "Revert Undo did not restore explicit equal-value intent");

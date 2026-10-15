@@ -210,7 +210,7 @@ void removed_prefab_test(bool own_geometry) {
     for (const auto& row : doc.at("entities"))
         if (row.at("id") == instance)
             for (const auto& [member, id] : row.at("prefab_instance").at("members").items())
-                if (member != source.source.at("root"))
+                if (member != source.source.at("root").get_ref<const std::string&>())
                     child = id.get<std::string>();
     check(!child.empty(), "Missing prefab child fixture");
     authoring_command(f.scene, "component.override",
@@ -250,7 +250,7 @@ void runtime_tests(const std::filesystem::path& root, const std::filesystem::pat
     auto candidates = query(engine.world());
     const auto native = navigation_detail::capture_native(engine.world(), scene, candidates);
     check(navigation_detail::selected_geometry_digest(root, native, record.metadata) ==
-                  record.metadata.at("geometry_sha256") &&
+                  record.metadata.at("geometry_sha256").get_ref<const std::string&>() &&
               navigation_detail::selected_geometry_digest(root, native, record.metadata) ==
                   navigation_geometry_digest(root, scene.effective_document(), record.metadata),
           "Native selected provenance differs from baked/document source");

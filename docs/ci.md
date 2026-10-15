@@ -20,6 +20,13 @@ only when asset tools are enabled. Editor/package builds exercise that extension
 Core tests must not link optional model-import targets that do not exist in their
 configuration.
 
+`terrain_tools` exercises the import CLI enabled by `FORGE_BUILD_ASSET_TOOLS`;
+register it only in that configuration and include it in both full native editor
+acceptance selections. Terrain source/cook library tests remain available in core
+profiles. Gallery runtime immutability checks compare against the admitted Scene
+before ticking; the Gallery source round-trip independently checks every expected
+authored value, including additive builtin defaults.
+
 Full numbered editor builds and full editor source audits build CMake's default
 target before running their acceptance selection. This compiles newly registered
 test executables without maintaining a second list in the workflows. The early

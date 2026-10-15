@@ -21,6 +21,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
     EngineContext engine(WorldRole::Runtime, false, {particle_module(root)});
     Scene scene(engine.world());
     scene.restore_snapshot(source);
+    const auto admitted = scene.document();
     RuntimeSimulation simulation(engine.world(), scene);
     const auto particles = particle_runtime(engine.world());
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
@@ -71,7 +72,7 @@ void exercise(const std::filesystem::path& root, const Json& source,
         check(references.size() == 1 && revisions.size() == 1 &&
                   sizes == std::set<double>{.5, 1, 2} && colors.size() == 4,
               "Gallery57 copied effect selections or lost authored variants");
-        check(scene.document() == source && simulation.presentation(1) == capture,
+        check(scene.document() == admitted && simulation.presentation(1) == capture,
               "Gallery57 observations changed source or drove emission time");
         simulation.tick(.25f);
     }

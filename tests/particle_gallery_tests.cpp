@@ -17,15 +17,10 @@ Json read(const std::filesystem::path& path) {
     return result;
 }
 void exercise(const std::filesystem::path& root, const Json& source) {
-    auto admitted = source;
-    for (auto& row : admitted["entities"])
-        if (row["components"].contains("forge.particle_emitter"))
-            for (const auto* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
-                if (!row["components"]["forge.particle_emitter"].contains(field))
-                    row["components"]["forge.particle_emitter"][field] = 1.;
     EngineContext engine(WorldRole::Runtime, false, {particle_module(root)});
     Scene scene(engine.world());
     scene.restore_snapshot(source);
+    const auto admitted = scene.document();
     RuntimeSimulation simulation(engine.world(), scene);
     const auto particles = particle_runtime(engine.world());
     check(bool(particles), "Gallery54 runtime particle module missing");

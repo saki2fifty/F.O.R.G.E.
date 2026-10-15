@@ -155,6 +155,9 @@ try:
         # admitted typed values explicitly expose their documented defaults.
         expected = json.loads(json.dumps(source))
         for row in expected['entities']:
+            renderer = row['components'].get('forge.mesh_renderer')
+            if renderer is not None:
+                renderer.setdefault('material_parameters', [])
             transform = row['components'].get('forge.transform_animator')
             if transform is not None:
                 transform.setdefault('sequence', None)

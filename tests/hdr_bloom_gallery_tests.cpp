@@ -22,6 +22,7 @@ void inspect(const std::filesystem::path& root, const Json& source,
     EngineContext engine(WorldRole::Runtime);
     Scene scene(engine.world());
     scene.restore_snapshot(source);
+    const auto admitted = scene.document();
     RuntimeSimulation simulation(engine.world(), scene);
     simulation.reset_presentation();
     for (unsigned tick = 0; tick < 3; ++tick) {
@@ -40,7 +41,7 @@ void inspect(const std::filesystem::path& root, const Json& source,
               "Bloom Gallery lost typed emissive assignments");
         simulation.tick(1.f / 60);
     }
-    check(scene.document() == source, "Bloom runtime rewrote authored scene");
+    check(scene.document() == admitted, "Bloom runtime rewrote authored scene");
     const std::array<std::array<float, 3>, 2> colors{{{.6f, .12f, .03f}, {.02f, .3f, .6f}}};
     for (unsigned i = 0; i < materials.size(); ++i) {
         ResourcePool<MaterialAsset> pool;
