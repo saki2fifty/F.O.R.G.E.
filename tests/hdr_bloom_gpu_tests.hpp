@@ -3,7 +3,12 @@
 #include <bit>
 #include <cmath>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <limits>
+#include <string_view>
+#include <utility>
 namespace forge::test_bloom {
 using Pixel = std::array<float, 4>;
 inline void check(bool value, const char* why) {
@@ -180,7 +185,9 @@ inline void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* 
                                                  std::to_string(x) + "," + std::to_string(y) +
                                                  " channel " + std::to_string(c) + " actual " +
                                                  std::to_string(actual[index][c]) + " expected " +
-                                                 std::to_string(expected[index][c]));
+                                                 std::to_string(expected[index][c]) + " radius " +
+                                                 std::to_string(settings.radius) + " intensity " +
+                                                 std::to_string(settings.intensity));
                     ++comparisons;
                 }
             }
@@ -255,7 +262,99 @@ inline void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* 
         check(rejected && bloom.payload_bytes() == last_payload && bloom.draws() == last_draws,
               "Oversized backend profile request changed previous pass state");
     }
+    // Nonfinite source pixels remain diagnostic inputs to display resolve.
+    // They must not poison nearby finite pixels through highlight extraction.
+    std::vector<Pixel> diagnostic(25, {.5f, .25f, .125f, .5f});
+    diagnostic[6][0] = std::numeric_limits<float>::quiet_NaN();
+    diagnostic[7][1] = std::numeric_limits<float>::infinity();
+    diagnostic[11][2] = -std::numeric_limits<float>::infinity();
+    diagnostic[12][3] = std::numeric_limits<float>::quiet_NaN();
+    diagnostic[18] = {-.5f, -.25f, -.125f, .5f};
+    auto diagnostic_image = texture(device, 5, 5, diagnostic);
+    const auto diagnostic_before = read(device, context, diagnostic_image);
+    bloom.apply(context, diagnostic_image, {1, 1, 3, 3}, {true, 1, 1, .5f});
+    const auto diagnostic_after = read(device, context, diagnostic_image);
+    for (unsigned p = 0; p < diagnostic.size(); ++p)
+        for (unsigned c = 0; c < 4; ++c)
+            check(std::isnan(diagnostic_before[p][c])
+                      ? std::isnan(diagnostic_after[p][c])
+                      : diagnostic_after[p][c] == diagnostic_before[p][c],
+                  "Bloom lost a nonfinite diagnostic or contaminated below-threshold neighbors");
     std::cout << comparisons << " HDR channels vs independent 2D convolution; view isolation, "
               << "alpha, identity, target reuse/resize, finite clamp and failed admission PASS\n";
+}
+// Native acceptance captures. Keep the original four-pass CPU
+// path and first three shaders; substitute the final output to expose its inputs.
+inline void diagnose(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+                     const std::filesystem::path& root) {
+    using namespace Diligent;
+    const std::array<std::pair<const char*, const char*>, 8> variants{
+        {{"output", "return float4(min(original.rgb+glow,65504),original.a);"},
+         {"filtered", "return float4(g_Source.Load(int3(clamp(p,int2(0,0),"
+                      "int2(width-1,height-1)),0)).rgb,original.a);"},
+         {"coordinates", "return float4(glow_position,width,height)+"
+                         "(g_Source.Load(int3(0,0,0)).r<0?original:0);"},
+         {"device-dimensions", "uint reported_width,reported_height;"
+                               "g_Source.GetDimensions(reported_width,reported_height);"
+                               "return float4(g_SourceSize.xy,reported_width,reported_height);"},
+         {"device-float-dimensions",
+          "float reported_width,reported_height;"
+          "g_Source.GetDimensions(reported_width,reported_height);"
+          "return float4(g_SourceSize.xy,reported_width,reported_height);"},
+         {"device-mip-dimensions",
+          "uint reported_width,reported_height,levels;"
+          "g_Source.GetDimensions(0,reported_width,reported_height,levels);"
+          "return float4(g_SourceSize.x,reported_width,reported_height,levels);"},
+         {"rectangle", "return g_Rect+(g_Source.Load(int3(0,0,0)).r<0?original:0);"},
+         {"settings", "return g_Settings+(g_Source.Load(int3(0,0,0)).r<0?original:0);"}}};
+    std::vector<Pixel> below(19 * 13, {.5f, .25f, .125f, .5f});
+    auto impulse = below;
+    impulse[5 * 19 + 8] = {16, 8, 4, .25f};
+    impulse[2 * 19 + 2] = {128, 64, 32, .75f};
+    for (bool warm : {false, true})
+        for (const auto& [name, replacement] : variants) {
+            HdrBloom bloom(
+                presentation.device(),
+                [&](const ShaderCreateInfo& input, IShader** out) {
+                    auto selected = input;
+                    std::string source(input.Source);
+                    if (std::string_view(input.Desc.Name).ends_with("composite")) {
+                        const std::string original =
+                            "return float4(min(original.rgb+glow,65504),original.a);";
+                        const auto at = source.find(original);
+                        check(at != std::string::npos, "Bloom diagnostic output boundary missing");
+                        source.replace(at, original.size(), replacement);
+                    }
+                    selected.Source = source.c_str();
+                    presentation.shader(selected, out);
+                },
+                [&](const auto& input, auto** out) { presentation.graphics(input, out); });
+            auto execute = [&](const auto& pixels, float radius) {
+                auto image = texture(presentation.device(), 19, 13, pixels);
+                (void)read(presentation.device(), context, image);
+                bloom.apply(context, image, {3, 2, 11, 7}, {true, 1, .75f, radius});
+                return read(presentation.device(), context, image);
+            };
+            if (warm) {
+                (void)execute(below, 2);
+                (void)execute(impulse, .5f);
+            }
+            const auto pixels = execute(impulse, 1);
+            const auto label = std::string(warm ? "warm-" : "fresh-") + name;
+            std::ofstream file(root / ("bloom-" + label + ".csv"));
+            file << "x,y,r,g,b,a\n";
+            for (unsigned y = 2; y < 9; ++y)
+                for (unsigned x = 3; x < 14; ++x) {
+                    file << x << ',' << y;
+                    for (const auto value : pixels[y * 19 + x])
+                        file << ',' << value;
+                    file << '\n';
+                }
+            check(bool(file.flush()), "Bloom diagnostic capture write failed");
+            std::cout << "Bloom " << label << " at 3,3:";
+            for (const auto value : pixels[3 * 19 + 3])
+                std::cout << ' ' << value;
+            std::cout << '\n';
+        }
 }
 } // namespace forge::test_bloom

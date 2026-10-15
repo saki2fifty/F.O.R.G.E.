@@ -24,6 +24,13 @@ Bilinear reconstruction and edge replication stay inside the view. Composite add
 intensity-scaled glow, preserves alpha and bounds finite RGB to65504. Nonfinite
 original pixels remain available to the existing display-resolve diagnostic.
 
+The presentation owner supplies each bound single-mip input's width and height
+from its retained texture descriptor, alongside effect settings and the camera
+rectangle in a uniform buffer containing 48 bytes. Extraction, tap clamping and
+reconstruction use that exact extent. They do not issue redundant shader texture-size queries.
+This preserves odd-size views, isolated borders and the one-pixel case without
+making texture metadata queries part of the bloom sampling contract.
+
 Game applies bloom after each camera's geometry and before final exposure/tone
 mapping/sRGB resolve. Camera order remains authoritative: an overlapping later
 camera processes its then-composed rectangle, including retained earlier color.

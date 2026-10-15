@@ -251,8 +251,56 @@ int main(int argc, char** argv) {
             else if (selected == "frame")
                 check_frame_renderer(isolated, context, images);
             else if (selected == "optics") {
-                forge::HdrBloom bloom(isolated);
-                forge::test_bloom::exercise(device, context, bloom);
+                std::string bloom_failures;
+                for (const auto compiler : {SHADER_COMPILER_DXC, SHADER_COMPILER_FXC}) {
+                    for (const auto optimization :
+                         {SHADER_OPTIMIZATION_LEVEL_DISABLED, SHADER_OPTIMIZATION_LEVEL_DEFAULT}) {
+                        const auto profile =
+                            std::string(compiler == SHADER_COMPILER_DXC ? "DXC" : "FXC") +
+                            (optimization == SHADER_OPTIMIZATION_LEVEL_DISABLED ? " unoptimized"
+                                                                                : " default");
+                        forge::HdrBloom bloom(
+                            device,
+                            [&](const ShaderCreateInfo& source, IShader** result) {
+                                auto selected = source;
+                                selected.ShaderCompiler = compiler;
+                                selected.ShaderOptimizationLevel = optimization;
+                                isolated.shader(selected, result);
+                                if (compiler == SHADER_COMPILER_FXC && *result) {
+                                    const void* bytecode = nullptr;
+                                    Uint64 size = 0;
+                                    (*result)->GetBytecode(&bytecode, size);
+                                    ComPtr<ID3DBlob> assembly;
+                                    check(D3DDisassemble(bytecode, SIZE_T(size), 0, nullptr,
+                                                         &assembly),
+                                          "Bloom comparison disassembly failed");
+                                    std::ofstream file(images / ("bloom-" + profile + "-" +
+                                                                 source.Desc.Name + ".asm"),
+                                                       std::ios::binary);
+                                    file.write(
+                                        static_cast<const char*>(assembly->GetBufferPointer()),
+                                        std::streamsize(assembly->GetBufferSize()));
+                                    require(bool(file.flush()),
+                                            "Bloom comparison disassembly write failed");
+                                }
+                            },
+                            [&](const auto& source, auto** result) {
+                                isolated.graphics(source, result);
+                            });
+                        try {
+                            forge::test_bloom::exercise(device, context, bloom);
+                            std::cout << profile << " bloom comparison passed\n";
+                        } catch (const std::exception& error) {
+                            const auto failure = profile + ": " + error.what();
+                            std::cout << failure << '\n';
+                            bloom_failures += failure + '\n';
+                        }
+                    }
+                }
+                forge::test_bloom::diagnose(isolated, context, images);
+                if (!bloom_failures.empty()) {
+                    throw std::runtime_error(bloom_failures);
+                }
                 check_texture_preview(isolated, context, images);
                 check_display_resolve(isolated, context, images);
                 check_transmission_background(isolated, context);

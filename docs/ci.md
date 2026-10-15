@@ -33,6 +33,21 @@ test executables without maintaining a second list in the workflows. The early
 process-controller gate and explicitly focused shader/input audits retain their
 limited target selections.
 
+The isolated optics fixture compares the same bloom pass against its independent
+pixel oracle with FXC and DXC, each with default and disabled optimization. Every
+profile must pass; failures include the selected radius and intensity. Audit
+artifacts retain FXC disassembly and shared-frame camera captures for diagnosis.
+Bloom captures compare fresh and warmed targets and expose filtered pixels,
+sampling coordinates, effect/rectangle values and CPU/device size observations.
+They supplement the unchanged numerical oracle; they do not replace it.
+Camera bloom isolation compares the entire display image with independently
+supplied HDR solids passed through the ordinary display resolve. Its tone mapper
+intentionally desaturates bright highlights, so unchanged individual display
+channels are not an isolation oracle.
+Stalled editor captures retain the runtime status and worker log as well as the
+backbuffer. The initial Inspector's unassigned Audio Source placeholder is removed
+before the staged fixture enters Play, preserving normal audio asset admission.
+
 The presentation profile disables Diligent's unused super-resolution targets.
 The pinned optional DLSS-NGX archive uses the dynamic MSVC runtime, which conflicts
 with FORGE's static runtime when CMake's full default target builds that unused
