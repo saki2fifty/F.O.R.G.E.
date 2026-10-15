@@ -33,6 +33,13 @@ test executables without maintaining a second list in the workflows. The early
 process-controller gate and explicitly focused shader/input audits retain their
 limited target selections.
 
+The graph layout editor fixture links the material resource validator directly;
+its inline preview consumer requires that library even when a fixture disables
+shader compilation. Both full native selections execute this input fixture.
+Source-offline export fixtures end project writer/importer ownership before moving
+their source project. Gallery admission failures include the helper's output and
+the authored-document difference instead of hiding it in a subprocess exception.
+
 ## Cache behavior
 
 Requested Windows builds restore the dependency checkout/build directory and CMake/Ninja build directory under the runner's short `AgentFiles` paths. Configure, build, tests, and packaging always execute even on a cache hit. Product source is freshly checked out. Verified source-content records preserve timestamps only for unchanged inputs, allowing Ninja to reuse compatible outputs; changed inputs rebuild.
@@ -392,14 +399,14 @@ with controlled scrolling/undocking; capture increments the stage before exit142
 The final combined package route exports Gallery19 and runs its actual EXE startup.
 These authored native routes are separate from executed evidence.
 
-### Windows SDK job allowance
+### Core and SDK job allowance
 
-The Windows native-SDK matrix job has a45minute job allowance for configure, build,
-its complete core test suite and SDK installation. Other core matrix jobs retain
-30minutes. Build159 reached the former30minute limit after compiling successfully
-and passing98of103 tests, while the catalog scale test was running. Individual test
-limits and acceptance requirements remain intact; a timed-out job never qualifies
-as passing delivery evidence.
+All Linux/Windows core and native-SDK matrix jobs have a 45 minute allowance for
+configure, a clean build, the complete applicable test suite and installation.
+Run 38780698543 exhausted the former 30 minute limits in three profiles; its Windows
+SDK job completed in 32 minutes under the existing 45 minute allowance. Individual
+test limits and acceptance requirements remain intact; a timed-out job never
+qualifies as passing delivery evidence.
 
 Static native layout captures apply their controlled mouse position after SDL's
 platform update and before ImGui consumes input. Brush and vertex-selection setup

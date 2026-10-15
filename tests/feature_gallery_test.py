@@ -143,8 +143,11 @@ try:
             # Use the native project/content owner to realize structured prefabs.
             assert source['version'] in (4, 5) and len(sys.argv) == 4
             before = path.read_bytes()
-            subprocess.run([sys.argv[3], '--admit', str(project_root), str(path)],
-                           check=True, capture_output=True, text=True)
+            admission = subprocess.run(
+                [sys.argv[3], '--admit', str(project_root), str(path)],
+                capture_output=True, text=True)
+            assert admission.returncode == 0, (
+                path.name, admission.returncode, admission.stdout, admission.stderr)
             assert path.read_bytes() == before
             continue
         result = call('scene.replace', target=context['target'],

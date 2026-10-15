@@ -97,9 +97,11 @@ int main(int argc, char** argv) {
                     "Refinement Gallery cube outside camera");
         }
         require(observed.size() == 3, "Refinement Gallery did not use all three Mesh sources");
-        auto lease = std::make_shared<ProjectLease>(root);
         const std::array roots{scene.asset_id()};
-        prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
+        {
+            ProjectLease lease(root);
+            prepare_runtime_content_catalog(lease, roots, {}, scene.schema());
+        }
         const auto output =
             root.parent_path() / ("refinement-gallery-export-" + AssetId::generate().str());
         package_runtime_content(root, output, roots, {"windows", "d3d12"});

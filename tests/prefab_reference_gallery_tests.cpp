@@ -153,8 +153,20 @@ int main(int argc, char** argv) {
             Scene scene(engine.world());
             scene.restore_snapshot(
                 load_game_scene(argv[2], {authored.at("asset_id").get<AssetId>()}));
-            check(detail::json_value_equal(scene.document(), authored),
-                  "Structured Gallery admission changed authored values or reference ownership");
+            auto expected = authored;
+            // Old authored bytes remain untouched; typed admission exposes this additive default.
+            for (auto& row : expected.at("entities")) {
+                auto& components = row.at("components");
+                if (auto renderer = components.find("forge.mesh_renderer");
+                    renderer != components.end() && !renderer->contains("material_parameters"))
+                    (*renderer)["material_parameters"] = Json::array();
+            }
+            const auto admitted = scene.document();
+            if (!detail::json_value_equal(admitted, expected)) {
+                std::cerr << Json::diff(expected, admitted).dump(2) << '\n';
+                throw std::runtime_error(
+                    "Structured Gallery admission changed authored values or reference ownership");
+            }
             std::cout << "Structured Gallery scene admitted without changing authored intent\n";
             return 0;
         }

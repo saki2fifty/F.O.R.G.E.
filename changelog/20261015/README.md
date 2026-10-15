@@ -7,6 +7,7 @@
 - Build the full editor target set at numbered and full-audit gates so newly registered acceptance tests are compiled before execution; retain focused audit selections.
 - Align integration checks with additive material defaults, sequence-aware animation recovery, portable Prefab payloads and preservation of native Prefab changes in runtime snapshots. Retain independent source round-trip and recovery checks.
 - Enable terrain CLI acceptance with its required asset-tool configuration and run it at both full native editor gates. Use explicit string comparisons in navigation capture checks for MSVC.
+- Release fixture project writers before source-offline relocation, include the known additive material default in structured Gallery expectations, expose admission diagnostics, and link/run the graph layout fixture with its required material resource validator. Allow all core/SDK jobs 45 minutes for clean compilation and complete acceptance.
 
 ## Per-object material values
 

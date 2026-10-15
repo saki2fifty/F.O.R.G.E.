@@ -105,9 +105,11 @@ int main(int argc, char** argv) {
                     "Packed Gallery panel outside camera");
         }
         require(observed.size() == 3, "Packed Gallery did not use all three Mesh sources");
-        auto lease = std::make_shared<ProjectLease>(root);
         const std::array roots{scene.asset_id()};
-        prepare_runtime_content_catalog(*lease, roots, {}, scene.schema());
+        {
+            ProjectLease lease(root);
+            prepare_runtime_content_catalog(lease, roots, {}, scene.schema());
+        }
         const auto output =
             root.parent_path() / ("packing-gallery-export-" + AssetId::generate().str());
         package_runtime_content(root, output, roots, {"windows", "d3d12"});

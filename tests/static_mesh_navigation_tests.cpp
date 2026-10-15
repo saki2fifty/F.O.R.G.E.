@@ -136,16 +136,17 @@ int main(int argc, char** argv) {
         check(argc == 3, "Need scratch root and nav worker");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
-        const auto lease = std::make_shared<ProjectLease>(root);
         const auto mesh_id = AssetId::generate();
         auto source = EditableMeshSource::create_cube(mesh_id);
         const std::filesystem::path source_path = "Assets/Floor.mesh.json";
         AssetCatalog initial(root);
         initial.add({mesh_id, MeshAsset::type, source_path});
         initial.save(AssetCatalog::project_index(root));
-        AssetImportService importer(lease, editable_mesh_import_registry(),
-                                    {"windows", "d3d12", "desktop"});
         auto publish_mesh = [&] {
+            // Join the importer and release writer ownership before the source-offline checks.
+            auto lease = std::make_shared<ProjectLease>(root);
+            AssetImportService importer(lease, editable_mesh_import_registry(),
+                                        {"windows", "d3d12", "desktop"});
             atomic_write(root / source_path, source.document.dump());
             importer.submit(
                 importer.prepare(source_path),
@@ -301,7 +302,7 @@ int main(int argc, char** argv) {
         std::filesystem::rename(hidden, root);
         std::filesystem::remove_all(moved);
 #if defined(FORGE_TEST_MODEL_IMPORT)
-        const auto imported = imported_floor(root, lease);
+        const auto imported = imported_floor(root, std::make_shared<ProjectLease>(root));
         auto renderer = scene.entity(floor).get<MeshRenderer>();
         renderer.mesh = {imported};
         scene.entity(floor).set<MeshRenderer>(renderer);
