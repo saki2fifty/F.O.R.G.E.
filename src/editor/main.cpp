@@ -2752,6 +2752,8 @@ int main(int argc, char** argv) {
                     {"play_log", play.log()},
                     {"play_active", play.active()},
                     {"control_ready", play.control_ready()},
+                    {"authored_scene", scene.document()},
+                    {"play_snapshot", play.effective_snapshot()},
                     {"status", message}};
                 if (auto* w = ImGui::FindWindowByName("###Model import"))
                     stalled["model_window"] = {{"active", bool(w->Active)},
@@ -2817,12 +2819,15 @@ int main(int argc, char** argv) {
                     // The first Inspector capture intentionally shows an unassigned
                     // AudioSource. It is not playable content: keep normal runtime
                     // admission and remove this placeholder before starting Play.
-                    for (const auto& row : scene.document().at("entities")) {
-                        if (row.at("components").contains("forge.audio_source")) {
-                            forge::authoring_command(
-                                scene, "component.remove",
-                                {{"entity", row.at("id")}, {"component", "forge.audio_source"}});
-                            break;
+                    {
+                        const auto authored = scene.document();
+                        for (const auto& row : authored.at("entities")) {
+                            if (row.at("components").contains("forge.audio_source")) {
+                                forge::authoring_command(scene, "component.revert",
+                                                         {{"entity", row.at("id")},
+                                                          {"component", "forge.audio_source"}});
+                                break;
+                            }
                         }
                     }
                     ready = actions.invoke("play");

@@ -37,6 +37,10 @@ The isolated optics fixture compares the same bloom pass against its independent
 pixel oracle with FXC and DXC, each with default and disabled optimization. Every
 profile must pass; failures include the selected radius and intensity. Audit
 artifacts retain FXC disassembly and shared-frame camera captures for diagnosis.
+Camera bloom isolation compares the entire display image with independently
+supplied HDR solids passed through the ordinary display resolve. Its tone mapper
+intentionally desaturates bright highlights, so unchanged individual display
+channels are not an isolation oracle.
 Stalled editor captures retain the runtime status and worker log as well as the
 backbuffer. The initial Inspector's unassigned Audio Source placeholder is removed
 before the staged fixture enters Play, preserving normal audio asset admission.

@@ -59,9 +59,37 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
               << int(glowing[16 * 64 + 16][0]) << ',' << int(glowing[16 * 64 + 16][2]) << '/'
               << int(glowing[16 * 64 + 48][2]) << '\n';
     require(glowing[16 * 64 + 16][0] > split[16 * 64 + 16][0] &&
-                glowing[16 * 64 + 48][2] > split[16 * 64 + 48][2] &&
-                glowing[16 * 64 + 16][2] == split[16 * 64 + 16][2],
-            "Shared Game frame ignored bloom or mixed camera rectangles");
+                glowing[16 * 64 + 48][2] > split[16 * 64 + 48][2],
+            "Shared Game frame ignored bloom");
+    // Camera isolation is a linear-HDR contract. The display tone mapper
+    // desaturates bright colors, so an unchanged blue display channel is not
+    // a valid oracle for a red camera. Independently supply the exact expected
+    // HDR solids (1 + (1 - .25) * 1) and compare the entire composed image.
+    TextureDesc reference_desc;
+    reference_desc.Name = "FORGE camera bloom reference";
+    reference_desc.Type = RESOURCE_DIM_TEX_2D;
+    reference_desc.Width = reference_desc.Height = 1;
+    reference_desc.Format = TEX_FORMAT_RGBA16_FLOAT;
+    reference_desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
+    RefCntAutoPtr<ITexture> reference;
+    presentation.device()->CreateTexture(reference_desc, nullptr, &reference);
+    require(bool(reference), "Camera bloom reference allocation failed");
+    DisplayResolve reference_display(presentation);
+    auto resolved_solid = [&](const std::array<float, 4>& color) {
+        auto* rtv = reference->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+        context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearRenderTarget(rtv, color.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        return readback(
+            presentation.device(), context,
+            reference_display.resolve(
+                context, reference->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), 0))[0];
+    };
+    const auto red = resolved_solid({1.75f, 0, 0, 1});
+    const auto blue = resolved_solid({0, 0, 1.75f, 1});
+    for (unsigned y = 0; y < 32; ++y)
+        for (unsigned x = 0; x < 64; ++x)
+            require(glowing[y * 64 + x] == (x < 32 ? red : blue),
+                    "Shared Game bloom changed camera-local HDR solids or rectangle isolation");
     document.erase("rendering");
     overlay.clear_color = false;
     overlay.clear_depth = true;
