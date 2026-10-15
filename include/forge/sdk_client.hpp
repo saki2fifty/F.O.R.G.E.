@@ -187,6 +187,12 @@ class Client {
                    ? host_->entity_request(host_->context, scene, name)
                    : 0;
     }
+    uint64_t request_prefab(const char* prefab, const char* name,
+                            const char* scene = nullptr) const {
+        return callable(Capability::RuntimeEntities) && host_->prefab_request
+                   ? host_->prefab_request(host_->context, prefab, scene, name)
+                   : 0;
+    }
     bool inspect_entity(uint64_t token, ForgeSdkEntityV1& out) const {
         out = {};
         out.size = sizeof(out);

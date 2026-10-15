@@ -112,6 +112,15 @@ int main(int argc, char** argv) {
         invalid = project;
         invalid["modules"].push_back(declaration);
         reject([&] { validate_project_modules(invalid); });
+        {
+            EngineContext isolated(
+                WorldRole::Runtime, false,
+                {load_native_sdk(std::filesystem::absolute(argv[1]), "project.sdk_probe", "1")});
+            auto& w = isolated.world().world();
+            const auto* host = *static_cast<const ForgeSdkWorldV1* const*>(
+                ecs_get_id(w.c_ptr(), w.lookup("sdk.host").id(), w.lookup("sdk.HostProbe").id()));
+            test_sdk_prefabs(host, isolated.world());
+        }
         std::filesystem::remove(trace);
         auto sdk = load_native_sdk(std::filesystem::absolute(argv[1]), "project.sdk_probe", "1");
         std::weak_ptr<void> lease = sdk.code;
@@ -237,6 +246,7 @@ int main(int argc, char** argv) {
             engine.world().modules().stop();
             detail::publish_runtime_entities(engine.world());
             check(scene.entity_count() == 1 && !client.request_entity("Stopped") &&
+                      !client.request_prefab("3f95b972-aa2a-4fab-999a-8857a5a35e11", "Stopped") &&
                       !client.available(sdk::Capability::RuntimeEntities),
                   "Stopped SDK retained/published entity creation requests");
             ForgeSdkEntityRefV1 stopped_reference{};

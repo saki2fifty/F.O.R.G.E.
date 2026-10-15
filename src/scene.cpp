@@ -248,7 +248,7 @@ void Scene::replace(const Json& source) {
         }
     const auto projected = project_prefab_intent(doc, prefab_sources_, schema());
     const auto reference_materializations =
-        detail::prefab_reference_materializations(doc, prefab_sources_, schema());
+        detail::prefab_native_materializations(doc, prefab_sources_, schema());
     detail::validate_spatial(projected);
     std::map<std::string, flecs::entity> structured_bases;
     std::set<std::string> inactive_members;
@@ -803,6 +803,13 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
 Json Scene::snapshot() const {
     auto result = document();
     std::set<AssetId> referenced;
+    // Runtime-only declarations must survive a private snapshot taken before
+    // their first instance. Authoring snapshots retain their existing pruning.
+    if (context_.role() == WorldRole::Runtime)
+        for (const auto& [id, source] : prefab_sources_) {
+            (void)source;
+            referenced.insert(id);
+        }
     for (const auto& item : result.at("entities"))
         if (item.contains("prefab_instance"))
             referenced.insert(item.at("prefab_instance").at("asset").get<AssetId>());
@@ -905,12 +912,57 @@ Json Scene::serialize(bool effective) const {
     // Seed only the copied view with source/instance extensions. Known values
     // below are still read from native Flecs storage; authored serialization
     // never materializes inherited payloads as instance ownership.
-    auto doc = effective ? project_prefab_intent(opaque_, prefab_sources_, schema()) : opaque_;
+    Json prepared;
+    const Json* input = &opaque_;
+    auto writable = [&]() -> Json& {
+        if (input == &opaque_) {
+            prepared = opaque_;
+            input = &prepared;
+        }
+        return prepared;
+    };
+    // Ordinary C++ destruction retires the complete structural instance. Its
+    // dead member rows must not become orphaned authored missing-member intent.
+    std::set<std::string> retired_instances;
+    for (const auto& item : opaque_.at("entities"))
+        if (item.contains("prefab_instance") && !entity(item.at("id")))
+            retired_instances.insert(item.at("id"));
+    if (!retired_instances.empty())
+        std::erase_if(writable()["entities"].get_ref<Json::array_t&>(), [&](const Json& item) {
+            return retired_instances.contains(item.at("id")) ||
+                   (item.contains("prefab_member") &&
+                    retired_instances.contains(item.at("prefab_member").at("root")));
+        });
+    if (effective && !context_.authored_codecs().empty()) {
+        for (std::size_t i = 0; i < input->at("entities").size(); ++i) {
+            const auto& item = input->at("entities")[i];
+            if (!item.contains("prefab_instance") && !item.contains("prefab_member"))
+                continue;
+            const auto native = entity(item.at("id"));
+            if (!native)
+                continue;
+            for (const auto& codec : context_.authored_codecs()) {
+                const auto key = codec.key();
+                if (!item.at("components").contains(key) ||
+                    !codec.matches(item.at("components").at(key)))
+                    continue;
+                const auto value = codec.read(native, false);
+                if (value.is_null())
+                    continue;
+                // Opaque storage retains extensions/stamps, not native fields.
+                // Reconstruct only existing admitted intent for projection;
+                // never manufacture whole ownership for inherited components.
+                const auto hydrated = codec.merge(value, item.at("components").at(key));
+                writable()["entities"][i]["components"][key] = hydrated;
+            }
+        }
+    }
+    auto doc = effective ? project_prefab_intent(*input, prefab_sources_, schema()) : *input;
     std::map<std::string, Json> reference_baselines;
     const auto reference_materializations =
         effective ? std::map<std::string, std::set<std::string>>()
-                  : detail::prefab_reference_materializations(opaque_, prefab_sources_, schema(),
-                                                              &reference_baselines);
+                  : detail::prefab_native_materializations(*input, prefab_sources_, schema(),
+                                                           &reference_baselines);
     auto output = Json::array();
     std::map<std::string, const Json*> fragments;
     for (const auto& item : opaque_.at("entities"))
@@ -1191,13 +1243,13 @@ void detail::SceneDraft::edit(const Json& document) {
     detail::promote_scale_format(normalized, "entities", 5);
     document_ = std::move(normalized);
 }
-std::string detail::SceneDraft::instantiate_prefab(AssetId asset) {
+std::string detail::SceneDraft::instantiate_prefab(AssetId asset, EntityId reserved_root) {
     if (!prefabs_.contains(asset))
         throw std::runtime_error("Prefab source is not available in this project");
     const PrefabDocument source(prefabs_.at(asset));
     auto doc = document_;
     doc["version"] = std::max(doc.at("version").get<unsigned>(), 4u);
-    const auto id = EntityId::generate().str();
+    const auto id = (reserved_root ? reserved_root : EntityId::generate()).str();
     std::string name = "Prefab";
     for (const auto& m : source.source.at("members"))
         if (m.at("id") == source.root().str())

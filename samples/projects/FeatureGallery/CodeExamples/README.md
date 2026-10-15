@@ -1,4 +1,23 @@
-# Optional C++ animation behaviors
+# Optional C++ behaviors
+
+## Runtime Prefab creation
+
+Use a writable copy of the Gallery with the matching FORGE editor/SDK.
+
+1. In **Build**, create the C++ project if needed and test compiler tools.
+2. Copy `SpawnPrefabs.cpp` to `Native/Systems/SpawnPrefabs.cpp`.
+3. In `Native/CMakeLists.txt`, after `add_library(gameplay ...)`, add `target_sources(gameplay PRIVATE Systems/SpawnPrefabs.cpp)`.
+4. In `Native/gameplay.cpp`, before the anonymous namespace, declare `void forge_register_system_SpawnPrefabs(const ForgeSdkWorldV1* host);`. In `start`, after `forge_register_systems(host)`, call `forge_register_system_SpawnPrefabs(host);`.
+5. Save and build the C++ project. RuntimeEntities is intrinsic; do not add its bit to descriptor permission fields. Keep the template's Diagnostics permission to report failures.
+6. Open `64-runtime-prefab-creation.scene.json`, save and press Play. Two robots appear on the next creation boundary and rotate in opposite directions. A third appears after two seconds and rotates faster. Stop discards all three runtime-created groups.
+7. Save this Scene as startup in Project Settings. Its Runtime Dependencies already include `RuntimeRobot.prefab.json`. Export with the matching runtime/module kits and run the result. The game carries compiled C++ and the Prefab; the player needs no compiler.
+
+The example uses this Gallery's saved Scene/Prefab UUIDs. Adapt those constants
+for your own project, and declare your selected Prefab on a reachable saved Scene.
+It requests only three groups, releases each observation after Ready and writes
+the root through the fixed system's Flecs stage. Children follow their existing
+structural spatial policy. New World-space physics children would need explicit
+placement. No source file, editor history or saved scene is modified during Play.
 
 Scene11 plays without C++. To see its Pulse markers change the characters' height,
 register MarkerPulseSystem.cpp in a FORGE-created C++ project. Work on a writable

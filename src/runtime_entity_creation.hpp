@@ -19,6 +19,8 @@ void register_runtime_entity_creation(WorldContext&);
 void attach_runtime_scene(Scene&);
 std::uint64_t request_runtime_entity(WorldContext&, const std::string& module, AssetId scene,
                                      const std::string& name);
+std::uint64_t request_runtime_prefab(WorldContext&, const std::string& module, AssetId scene,
+                                     AssetId prefab, const std::string& name);
 RuntimeEntityResult inspect_runtime_entity(WorldContext&, const std::string& module,
                                            std::uint64_t token);
 bool release_runtime_entity(WorldContext&, const std::string& module, std::uint64_t token);

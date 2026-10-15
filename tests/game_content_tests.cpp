@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
                             {{"forge.local_translation", {{"x", 2}, {"y", 0}, {"z", 0}}},
                              {"forge.local_scale", {{"x", -1}, {"y", 1}, {"z", 1}}}}}}})}};
         atomic_write(root / "shape.prefab.json", definition.dump());
-        catalog.add({prefab, PrefabAsset::type, "shape.prefab.json"});
+        catalog.add({prefab, PrefabAsset::type, "shape.prefab.json", 2});
         catalog.save(AssetCatalog::project_index(root));
         auto structured = Json::parse(original);
         structured["version"] = 5;
@@ -81,6 +81,11 @@ int main(int argc, char** argv) {
               {"prefab_instance",
                {{"asset", prefab}, {"revision", 1u}, {"members", {{member.str(), entity}}}}}}});
         atomic_write(root / "main.scene.json", structured.dump());
+        rejects([&] { load_game_scene(root, {record.id}); });
+        auto structured_record = record;
+        structured_record.schema_version = 5;
+        catalog.replace(structured_record);
+        catalog.save(AssetCatalog::project_index(root));
         auto candidate = load_game_scene(root, {record.id});
         check(candidate.at("_prefab_sources").size() == 1, "Prefab source closure missing");
         game.activate(game.prepare(candidate), RuntimeClock::Clock::now(), false);
@@ -92,6 +97,8 @@ int main(int argc, char** argv) {
         rejects([&] { load_game_scene(root, {record.id}); });
         check(game.active().scene.entity(entity.str()).is_alive(),
               "Failed source read changed live scene");
+        catalog.replace(record);
+        catalog.save(AssetCatalog::project_index(root));
         atomic_write(root / "main.scene.json", original);
         // Missing structured sources cannot silently become stripped instances.
         invalid = Json::parse(original);

@@ -23,7 +23,7 @@ These classifications describe supported ownership, not a promise of permanent C
 | RuntimeInput / InputSnapshot / InputMonitor | C | Owner-thread latch/edge policy. SDK gets copied action values only during fixed execution. |
 | ForgeSdkActionV1 / read_action | B | Intrinsic fixed-input contract, discoverable separately from optional provider permission bits. |
 | LocalTranslation / LocalRotation / LocalScale | A authored; B values | Independent native component ownership/inheritance; SDK installs value-only declarations, not WorldContext or derived-transform writers. |
-| ForgeSdkEntityV1 / entity request, inspect, release | B | Intrinsic runtime-only, owner-thread requests published at the next fixed boundary. Scene membership/UUIDs remain authoritative; copied native handle is borrowed and world-local. |
+| ForgeSdkEntityV1 / entity or Prefab request, inspect, release | B | Intrinsic runtime-only, owner-thread requests published at the next fixed boundary. Prefab groups use existing admitted sources/member maps;4096 new rows per boundary. Scene membership/UUIDs remain authoritative; copied native root handle is borrowed and world-local. |
 | PhysicsBody / Box, Sphere, CapsuleCollider | A authored; B values | No Jolt ID/pointer. Absent body means no separate simulation body; no invented enabled flag. |
 | PhysicsService / PhysicsHit / PhysicsContact | C | Source ray/pose/contact operations; SDK has copied ray hit + queued pose subset. Contact vectors remain built-in. |
 | Jolt world/body IDs/jobs/state recorder | D | World-owned implementation and private exact recovery. |

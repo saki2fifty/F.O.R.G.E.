@@ -188,6 +188,39 @@ requests from deferred fixed systems are supported. The runtime publishes pendin
 requests **before the next fixed tick**. Paused presentation does not create them;
 Step does. Startup may request before the scene has loaded.
 
+To create a prepared reusable hierarchy, use
+`client.request_prefab(prefab_uuid, name, scene_uuid)`. It returns the same kind
+of token, inspected/released through `inspect_entity` and `release_entity`.
+Ready identifies the instance root. Each instance gets fresh member identities
+and resolves portable internal links through its own existing member map.
+The Prefab must already be admitted to the selected Scene. For a C++-selected
+Prefab with no authored instance, add a required typed Prefab entry to the saved
+Scene's **Runtime Dependencies**. Play and export consume that same graph; the
+engine does not scan C++ strings or import source assets during spawning.
+
+Source component inheritance, root transforms and spatial policies are retained.
+The request overrides only the root display name. In Gameplay after Ready, set
+native root transforms using the iterator's stage before physics runs. World-space
+children keep their explicit world positions; moving a root does not move dynamic
+World-space children. Place those explicitly using the existing transform/physics
+rules. A detached group is validated before Scene publication; invalid preparation
+does not publish some of its members. Trusted arbitrary native observer faults
+are outside that guarantee. Empty and Prefab requests share the observation limits
+below; publication admits at most4096 new rows per boundary and leaves excess work
+pending in order. See Gallery64's optional `CodeExamples/SpawnPrefabs.cpp` for
+delayed creation, placement and independent rotation.
+
+The installed SDK's `sdk/sample` CMake project also provides `prefab_gameplay`,
+which compiles the same Gallery source with its small integration driver. Runtime
+Ready means the Scene group is registered; render/collision resource readiness
+and native physics realization still belong to their existing services.
+
+To destroy a created group, use ordinary Flecs destruction of its root through
+the current stage. This retires its structural children; releasing an observation
+alone does not. Later creation preserves native changes on existing instances,
+including fields outside an authored property mask. The original Prefab definition
+and its version remain unchanged.
+
 The optional scene UUID is a scene AssetId. Null/empty selects the only loaded
 scene at publication. An absent or ambiguous scene fails with a copied diagnostic;
 the host never guesses between multiple instances of the same scene asset. Names

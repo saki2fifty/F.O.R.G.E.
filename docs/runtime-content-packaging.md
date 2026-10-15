@@ -75,6 +75,15 @@ described below. Its new-directory publication contract remains unchanged.
 
 ## Declared runtime closure
 
+`load_game_scene` also follows this typed Runtime graph to admit code-selected
+Prefab sources, even when no instance exists in the saved Scene. It excludes
+`ui.observed`, validates expected target types and removed members, and bounds
+traversal at16384 assets with the existing256MiB aggregate document budget.
+The same saved dependency list serves editor SDK Play and standalone. Unused
+project files are not discovered by a runtime directory scan. A requested Prefab
+outside the admitted sources produces a failed entity observation; the runtime
+does not fall back to a source-project path.
+
 The package contains and validates the complete **declared runtime dependency
 closure**. This does not prove every request arbitrary gameplay code could make.
 Automatic reflected/cooked edges and explicit `declared:` Runtime edges share

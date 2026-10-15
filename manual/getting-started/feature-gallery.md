@@ -15,8 +15,20 @@ Export Game...**, selecting the `runtime-kit` beside the packaged editor and an
 output folder outside the project. Run the resulting `forge_game.exe`. Repeat
 with another startup scene to export a different demonstration.
 
-The gallery contains ordinary saved project content. It needs no C++ compiler. The included [reference game](../reference-game.md)
+The gallery contains ordinary saved project content. Most scenes need no C++ compiler; optional C++ examples require the matching development tools to build. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
+
+## Create Prefabs from C++
+
+Scene **64-runtime-prefab-creation** starts with a floor, camera and light.
+Its optional original C++ example creates two blue robots with gold caps, then a
+third after two seconds. They rotate independently. Follow **Runtime Prefab
+creation** in the Gallery's `CodeExamples/README.md` to add and build the example
+in a writable Gallery copy. The C++ code is optional; without it, this scene stays
+an empty stage. `Assets/RuntimeRobot.prefab.json` is already declared in the
+Scene's Runtime Dependencies. Save the startup scene/settings and export after
+building. The exported game carries the compiled behavior and Prefab; a player
+does not need a compiler. See [C++ project code](../editor/native-gameplay.md).
 
 ## Portable prefab rigs
 

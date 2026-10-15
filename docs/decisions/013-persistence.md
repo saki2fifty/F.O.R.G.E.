@@ -10,6 +10,12 @@ ownership and explicit override intent. Recovery checkpoints are ephemeral, exac
 runtime-compatible state, not save games. A future save-game schema and network
 replication schema each need explicit version/authority/remapping semantics.
 
+Runtime Prefab requests retain these boundaries: minted Scene-local entity/member
+addresses are transient runtime values and do not promote an authored file.
+Private runtime snapshots retain admitted definitions even before their first
+instance. Observation tokens and arbitrary C++ state are not serialized. See
+[ADR023](023-runtime-prefab-creation.md).
+
 ## Current evidence and implementation boundary
 
 scene-format.md, prefabs.md, transforms.md and runtime-timing.md describe current

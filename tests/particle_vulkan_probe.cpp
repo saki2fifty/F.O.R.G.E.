@@ -2,6 +2,7 @@
 #include "mesh_render_host.hpp"
 #include "particle_effect_authoring.hpp"
 #include "particle_runtime.hpp"
+#include "runtime_entity_creation.hpp"
 #include <forge/animation.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/game_content.hpp>
@@ -596,6 +597,65 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
                     changed += first[i] != pixels[i];
                 check(changed > 1000, "Native portable Gallery motion did not reach the renderer");
             }
+        }
+        context->WaitForIdle();
+    }
+    if (!gallery.empty() &&
+        std::filesystem::exists(gallery / "Scenes/64-runtime-prefab-creation.scene.json")) {
+        const auto asset = AssetId::parse("fab9f548-3f22-4fbc-a5e0-bd0a2cffd9a1");
+        const auto prefab = AssetId::parse("3f95b972-aa2a-4fab-999a-8857a5a35e11");
+        EngineContext engine(WorldRole::Runtime);
+        Scene live(engine.world());
+        live.restore_snapshot(load_game_scene(gallery, {asset}));
+        RuntimeSimulation simulation(engine.world(), live);
+        simulation.reset_presentation();
+        const auto catalog =
+            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(gallery));
+        auto gallery_host = std::make_shared<MeshResourceHost>(presentation, context, gallery);
+        gallery_host->catalog(catalog);
+        MeshSceneRenderer gallery_renderer(gallery_host);
+        active_host = gallery_host;
+        active_renderer = &gallery_renderer;
+        Target wide(device, 960, 540);
+        std::vector<std::array<std::uint8_t, 4>> previous;
+        for (unsigned stage = 0; stage < 3; ++stage) {
+            if (stage) {
+                const unsigned count = stage == 1 ? 2 : 1;
+                for (unsigned i = 0; i < count; ++i) {
+                    const auto token = detail::request_runtime_prefab(
+                        engine.world(), "project.native_gallery", asset, prefab, "Visible spawn");
+                    detail::publish_runtime_entities(engine.world());
+                    const auto info = detail::inspect_runtime_entity(
+                        engine.world(), "project.native_gallery", token);
+                    check(info.state == detail::RuntimeEntityState::Ready,
+                          "Native Gallery64 creation failed: " + info.diagnostic);
+                    engine.world()
+                        .world()
+                        .entity(info.native_entity)
+                        .set<LocalTranslation>({stage == 1 ? (i == 0 ? -4.0 : 4.0) : 0.0, 1.3,
+                                                stage == 2 ? -3.0 : 0.0})
+                        .set<LocalRotation>({0, .38268343f, 0, .92387953f});
+                    detail::release_runtime_entity(engine.world(), "project.native_gallery", token);
+                }
+                simulation.tick(1.f / 60);
+            }
+            scene = extract_render_scene(simulation.presentation(1));
+            const std::size_t expected = stage == 0 ? 1 : stage == 1 ? 5 : 7;
+            check(scene.diagnostics.empty() && scene.meshes.size() == expected &&
+                      scene.cameras.size() == 1 && scene.lights.size() == 1,
+                  "Native Gallery64 lost created render participants");
+            camera = scene.cameras.front().camera;
+            camera_world = scene.cameras.front().world;
+            const auto pixels = draw(wide);
+            check(visible(pixels) > 1000, "Native Gallery64 produced an empty stage");
+            image(root / ("gallery64-stage" + std::to_string(stage) + ".ppm"), 960, 540, pixels);
+            if (stage) {
+                std::size_t changed = 0;
+                for (std::size_t i = 0; i < previous.size(); ++i)
+                    changed += previous[i] != pixels[i];
+                check(changed > 500, "Created Prefabs did not reach the shared native renderer");
+            }
+            previous = pixels;
         }
         context->WaitForIdle();
     }

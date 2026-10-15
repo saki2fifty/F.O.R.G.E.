@@ -6,6 +6,26 @@ systems query matching entities at the registered lifecycle phase. A system is
 not attached to one entity. `Native/` is project source shown under **Content → Code**. It is not an AssetId asset or a scene Hierarchy entry. The [user guide](../manual/editor/native-gameplay.md)
 shows the editor workflow.
 
+## Runtime Prefab instances
+
+Exact-SDK C++ can request an admitted Prefab with
+`sdk::Client::request_prefab(prefab_uuid, name, scene_uuid)`. It shares the existing
+runtime entity Pending/Ready/Failed/Gone queue, cancellation and observation
+lifetime. Publication precedes the next fixed tick; Ready returns the root's
+borrowed world-local handle. Native gameplay may then set components through its
+Flecs stage. Source spatial policies and inheritance remain intact, and internal
+portable references resolve independently for every instance. Spawning writes no
+authored file or editor history. Add code-selected assets to the saved Scene's
+Runtime Dependencies so Play and export admit them. See the
+[extension guide](extension-guide.md) and [ADR023](decisions/023-runtime-prefab-creation.md).
+
+The new tail callback deliberately changes the exact SDK fingerprint/table size;
+rebuild modules against the matching installed SDK. Native ABI1 remains unchanged.
+Observation tokens and arbitrary C++ state are not checkpoints. Supported created
+host-owned values use existing private recovery; exact-SDK Play recovery remains
+unsupported. Runtime snapshots retain admitted unused definitions so a host
+recovery can create the first instance later.
+
 ## Binary and ownership boundary
 
 The exact SDK uses a versioned C-shaped entry descriptor, an exact fingerprint,

@@ -1,4 +1,5 @@
 #include "runtime_entity_creation.hpp"
+#include "scene_draft.hpp"
 #include <algorithm>
 #include <atomic>
 #include <forge/scene.hpp>
@@ -14,7 +15,7 @@ struct RuntimeSceneOwner {
 };
 struct Request {
     std::string module, name;
-    AssetId target;
+    AssetId target, prefab;
     RuntimeEntityResult result;
     flecs::entity_t membership = 0;
 };
@@ -52,8 +53,9 @@ void register_runtime_entity_creation(WorldContext& context) {
 void attach_runtime_scene(Scene& scene) {
     scene.world().entity(scene.membership()).set<RuntimeSceneOwner>({&scene});
 }
-std::uint64_t request_runtime_entity(WorldContext& context, const std::string& module,
-                                     AssetId scene, const std::string& name) {
+static std::uint64_t request_runtime_creation(WorldContext& context, const std::string& module,
+                                              AssetId scene, AssetId prefab,
+                                              const std::string& name) {
     auto& values = queue(context);
     if (!valid_module_id(module) || name.empty() || name.size() > 255 ||
         name.find('\0') != std::string::npos)
@@ -71,8 +73,18 @@ std::uint64_t request_runtime_entity(WorldContext& context, const std::string& m
     } while (!next.compare_exchange_weak(token, token + 1));
     RuntimeEntityResult pending;
     pending.reference = {scene, EntityId::generate()};
-    values.requests.emplace(token, Request{module, name, scene, std::move(pending), 0});
+    values.requests.emplace(token, Request{module, name, scene, prefab, std::move(pending), 0});
     return token;
+}
+std::uint64_t request_runtime_entity(WorldContext& context, const std::string& module,
+                                     AssetId scene, const std::string& name) {
+    return request_runtime_creation(context, module, scene, {}, name);
+}
+std::uint64_t request_runtime_prefab(WorldContext& context, const std::string& module,
+                                     AssetId scene, AssetId prefab, const std::string& name) {
+    if (!prefab)
+        throw std::runtime_error("Runtime prefab requires an asset identity");
+    return request_runtime_creation(context, module, scene, prefab, name);
 }
 RuntimeEntityResult inspect_runtime_entity(WorldContext& context, const std::string& module,
                                            std::uint64_t token) {
@@ -108,6 +120,7 @@ void publish_runtime_entities(WorldContext& context) {
         if (request.result.state == RuntimeEntityState::Pending)
             pending.push_back(token);
     // Fixed bounded snapshot: callbacks cannot extend this publication batch.
+    std::size_t remaining_rows = 4096;
     for (const auto token : pending) {
         auto found = values.requests.find(token);
         if (found == values.requests.end())
@@ -128,13 +141,35 @@ void publish_runtime_entities(WorldContext& context) {
             if (matches != 1)
                 throw std::runtime_error(matches ? "Runtime scene selection is ambiguous"
                                                  : "Runtime scene is not loaded");
-            auto candidate = selected->document();
+            std::size_t rows = 1;
+            if (intended.prefab) {
+                const auto source = selected->prefab_sources().find(intended.prefab);
+                if (source == selected->prefab_sources().end())
+                    throw std::runtime_error(
+                        "Runtime prefab is not admitted; review Runtime Dependencies");
+                rows = source->second.at("members").size();
+            }
+            if (rows > remaining_rows)
+                break; // Preserve order and bound one fixed boundary's work.
+            remaining_rows -= rows;
             const auto id = result.reference.entity.str();
-            candidate["entities"].push_back(
-                {{"id", id}, {"name", intended.name}, {"components", Json::object()}});
-            // Existing candidate validation and differential native realization.
-            // Only the empty new entity is introduced; gameplay sets its native
-            // components through normal Flecs APIs after observing Ready.
+            Json candidate;
+            if (intended.prefab) {
+                SceneDraft draft(*selected);
+                draft.instantiate_prefab(intended.prefab, result.reference.entity);
+                candidate = draft.document();
+                for (auto& row : candidate["entities"])
+                    if (row.at("id") == id) {
+                        row["name"] = intended.name;
+                        row["name_override"] = true;
+                    }
+            } else {
+                candidate = selected->document();
+                candidate["entities"].push_back(
+                    {{"id", id}, {"name", intended.name}, {"components", Json::object()}});
+            }
+            // Existing detached validation and differential native realization
+            // publish the complete member group without authoring history.
             selected->replace(candidate);
             result.reference = selected->reference(id);
             result.native_entity = selected->entity(id).id();

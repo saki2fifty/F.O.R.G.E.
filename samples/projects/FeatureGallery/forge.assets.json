@@ -2820,6 +2820,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "3f95b972-aa2a-4fab-999a-8857a5a35e11",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Assets/RuntimeRobot.prefab.json",
+      "source_dependencies": [],
+      "type": "prefab"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "4180ebd2-92ed-419e-8854-78506b0a1c5f",
       "metadata": {
         "forge.import": {
@@ -9010,6 +9020,33 @@
       "source": "Assets/ProcessingOriginal.wav",
       "source_dependencies": [],
       "type": "audio_clip"
+    },
+    {
+      "dependencies": [
+        "3f95b972-aa2a-4fab-999a-8857a5a35e11"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "declared:gallery-runtime-robot",
+          "target": "3f95b972-aa2a-4fab-999a-8857a5a35e11",
+          "type": "prefab"
+        }
+      ],
+      "id": "fab9f548-3f22-4fbc-a5e0-bd0a2cffd9a1",
+      "metadata": {
+        "forge.runtime_declarations": {
+          "sources": {
+            "Scenes/64-runtime-prefab-creation.scene.json": "db5af2f04d7ef91471b7347d9a93152bf7516a5fd868bc276e0e3b6f32a6c742"
+          },
+          "version": 1
+        }
+      },
+      "schema_version": 5,
+      "source": "Scenes/64-runtime-prefab-creation.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [

@@ -1,5 +1,16 @@
 # FORGE Feature Gallery
 
+## Runtime Prefab creation from C++
+
+Open **Scenes/64-runtime-prefab-creation.scene.json**. This starts as an empty stage
+with floor, camera and light. Its optional C++ example creates two blue robots
+with gold caps, then a third after two seconds. Each group rotates independently.
+Follow **Runtime Prefab creation** in **CodeExamples/README.md** to compile it in a
+writable project copy. Without that optional code, no robots spawn. The Scene's
+Runtime Dependencies already include **Assets/RuntimeRobot.prefab.json**; no
+authored instance is needed. Export after saving/building to run the same compiled
+behavior and saved Prefab in a standalone game.
+
 ## Portable prefab rigs
 
 Open **Scenes/63-portable-prefab-rigs.scene.json** and press Play. Both door and

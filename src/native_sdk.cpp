@@ -517,6 +517,28 @@ struct Bridge {
                 return 0;
             }
         };
+        host.prefab_request = [](void* p, const char* prefab, const char* scene,
+                                 const char* name) -> uint64_t {
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.entities_callable() || b.entity_requests.size() >= 64)
+                    return 0;
+                const auto scene_id =
+                    scene && *scene ? AssetId::parse(bounded(scene, 36)) : AssetId{};
+                const auto token = detail::request_runtime_prefab(
+                    *b.context.owner, b.context.id, scene_id, AssetId::parse(bounded(prefab, 36)),
+                    bounded(name, 255));
+                try {
+                    b.entity_requests.insert(token);
+                } catch (...) {
+                    detail::release_runtime_entity(*b.context.owner, b.context.id, token);
+                    throw;
+                }
+                return token;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.entity_inspect = [](void* p, uint64_t token, ForgeSdkEntityV1* out) -> int32_t {
             if (!out || out->size != sizeof(*out))
                 return 0;

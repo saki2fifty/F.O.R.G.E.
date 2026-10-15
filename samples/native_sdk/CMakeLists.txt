@@ -27,8 +27,19 @@ add_library(sequence_gameplay MODULE sequence_probe.cpp)
 target_link_libraries(sequence_gameplay PRIVATE ForgeNativeSdk::Client)
 set_target_properties(sequence_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
 
+# The installed SDK keeps both example translation units in this directory;
+# the source checkout retains one authoritative Gallery implementation.
+set(FORGE_PREFAB_EXAMPLE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/SpawnPrefabs.cpp")
+if(NOT EXISTS "${FORGE_PREFAB_EXAMPLE_SOURCE}")
+ set(FORGE_PREFAB_EXAMPLE_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../projects/FeatureGallery/CodeExamples/SpawnPrefabs.cpp")
+endif()
+add_library(prefab_gameplay MODULE prefab_spawn_probe.cpp "${FORGE_PREFAB_EXAMPLE_SOURCE}")
+target_link_libraries(prefab_gameplay PRIVATE ForgeNativeSdk::Client)
+set_target_properties(prefab_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)
+
 if(WIN32)
  forge_install_gameplay_runtime(gameplay NAME project.sdk_probe)
  forge_install_gameplay_runtime(combined_gameplay NAME project.example)
  forge_install_gameplay_runtime(time_scale_gameplay NAME project.time_scale_probe)
+ forge_install_gameplay_runtime(prefab_gameplay NAME project.prefab_spawn_probe)
 endif()

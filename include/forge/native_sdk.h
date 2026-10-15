@@ -386,6 +386,13 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* navigation_agent_state)(void*, const char* scene_uuid,
                                                     const char* entity_uuid,
                                                     ForgeSdkNavigationAgentV1*);
+    /* Queue an admitted Prefab instance at the next fixed boundary. Uses the
+       entity request ownership/limits/inspection/release contract above. The
+       returned observation identifies its root. Source transforms/spatial policy
+       are retained; C++ may set native values after Ready. Runtime-only Prefabs
+       require a typed Runtime Dependency reachable from the loaded Scene. */
+    uint64_t(FORGE_SDK_CALL* prefab_request)(void*, const char* prefab_uuid, const char* scene_uuid,
+                                             const char* name);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

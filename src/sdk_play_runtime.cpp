@@ -7,6 +7,7 @@
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
+#include "runtime_scene_content.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -1268,9 +1269,12 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             if (request.contains("recovery") && !request.at("recovery").is_null())
                 return s.build_error(id, "Recovery is not supported on the SDK Play path");
             try {
-                const auto scene = request.at("scene");
+                auto scene = request.at("scene");
                 if (scene.dump().size() > kEnvelopeBytesLimit)
                     return s.build_error(id, "replace scene exceeds 8 MiB");
+                scene = detail::runtime_scene_content(s.config.project, scene);
+                if (scene.dump().size() > kEnvelopeBytesLimit)
+                    return s.build_error(id, "replace scene with Runtime Prefabs exceeds 8 MiB");
                 const auto ticket = s.game->prepare(scene);
                 s.initial_ticket = ticket;
                 return s.snapshot_response(id);

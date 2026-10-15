@@ -1,0 +1,94 @@
+{
+  "asset_id": "3f95b972-aa2a-4fab-999a-8857a5a35e11",
+  "format": "forge.prefab",
+  "members": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1,
+          "y": 1,
+          "z": 1
+        },
+        "forge.local_translation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.tint": {
+          "b": 0.95,
+          "g": 0.55,
+          "r": 0.1
+        }
+      },
+      "id": "8d78c9ce-3770-47bb-98a2-175f6ae49862",
+      "name": "Robot body"
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.4,
+          "y": 0.4,
+          "z": 1.4
+        },
+        "forge.local_translation": {
+          "x": 0,
+          "y": 0.7,
+          "z": 0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "9d087798-a173-48e0-938d-7607eed42f91",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.tint": {
+          "b": 0.1,
+          "g": 0.6,
+          "r": 0.95
+        }
+      },
+      "id": "4751b31a-7677-42f7-9ce5-835a6ca2cd4f",
+      "name": "Gold cap",
+      "parent": "8d78c9ce-3770-47bb-98a2-175f6ae49862"
+    }
+  ],
+  "revision": 1,
+  "root": "8d78c9ce-3770-47bb-98a2-175f6ae49862",
+  "version": 3
+}
