@@ -1,7 +1,9 @@
 #include "asset_bytes.hpp"
 #include "editable_mesh_authoring.hpp"
+#if defined(FORGE_TEST_MODEL_IMPORT)
 #include "model_authoring.hpp"
 #include "model_import_test.hpp"
+#endif
 #include "model_render_resource.hpp"
 #include "navigation_geometry.hpp"
 #include "runtime_package.hpp"
@@ -32,6 +34,7 @@ Json read(const std::filesystem::path& path) {
     std::ifstream(path) >> value;
     return value;
 }
+#if defined(FORGE_TEST_MODEL_IMPORT)
 AssetId imported_floor(const std::filesystem::path& root,
                        const std::shared_ptr<ProjectLease>& lease) {
     // Original four-vertex glTF fixture, not an external engine/sample asset.
@@ -87,6 +90,7 @@ AssetId imported_floor(const std::filesystem::path& root,
             return id;
     throw std::runtime_error("Original glTF did not publish a Mesh member");
 }
+#endif
 struct Fixture {
     EngineContext engine;
     Scene scene;
@@ -296,6 +300,7 @@ int main(int argc, char** argv) {
         }
         std::filesystem::rename(hidden, root);
         std::filesystem::remove_all(moved);
+#if defined(FORGE_TEST_MODEL_IMPORT)
         const auto imported = imported_floor(root, lease);
         auto renderer = scene.entity(floor).get<MeshRenderer>();
         renderer.mesh = {imported};
@@ -323,6 +328,8 @@ int main(int argc, char** argv) {
             runtime.ready(nav.id);
             runtime.journey(ref);
         }
+#endif
+        std::filesystem::remove_all(root);
         std::filesystem::remove_all(hidden);
         std::filesystem::remove_all(moved);
         std::cout << "Static Mesh navigation publication/lifetimes/route/offline export passed\n";

@@ -1,5 +1,11 @@
 # 2026-10-15
 
+## Build portability corrections
+
+- Compare Particle Effect artifact keys as explicit strings to avoid an MSVC C++20 overload-resolution failure while retaining strict artifact identity checks.
+- Keep editable-Mesh navigation tests available without asset tools; enable their imported-glTF extension and its model-import dependencies together in asset-tool builds.
+- Build the full editor target set at numbered and full-audit gates so newly registered acceptance tests are compiled before execution; retain focused audit selections.
+
 ## Per-object material values
 
 - Add typed sparse Mesh Renderer values by stable material slot/parameter key. Objects share one material while retaining independent values; equal-to-default intent, Scene/Prefab property overrides, native C++ edits and unknown extension data survive save/history/reordering.

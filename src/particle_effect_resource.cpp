@@ -51,8 +51,8 @@ ParticleEffectData admit_particle_effect_artifact(const CachedArtifact& artifact
     selection(record);
     const auto& selected = record.metadata.at("forge.import");
     const auto& metadata = record.metadata.at("forge.particle_effect");
-    require(artifact.key == selected.at("key") && artifact.files.size() == 1 &&
-                artifact.files.front().name == "effect.json",
+    require(artifact.key == selected.at("key").get_ref<const std::string&>() &&
+                artifact.files.size() == 1 && artifact.files.front().name == "effect.json",
             "Particle Effect artifact identity/files mismatch");
     const auto& file = artifact.files.front();
     auto value = decode_cooked_particle_effect(file.bytes, record.id);

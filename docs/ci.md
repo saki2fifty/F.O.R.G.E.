@@ -10,6 +10,22 @@ gh workflow run build.yml --ref forge/windows-build -f windows_package=true -f b
 
 Reserve the build identifier with the release coordinator before dispatch; the example above is a placeholder. The coordinator maintains one persistent, monotonically increasing counter and never reuses failed reservations. Use your intended branch in place of `forge/windows-build`. GitHub's Run workflow UI requires the workflow on the default branch; branch-specific dispatch can also be requested through the API/CLI. The complete user-facing artifact is FORGE-Windows-x64; it includes the editor, exact Native SDK, shared runtime kit and reference game. No new package is needed merely to validate documentation or portable code edits.
 
+## Test profiles
+
+The core and native-sdk presets leave `FORGE_BUILD_ASSET_TOOLS` disabled.
+`static_mesh_navigation` still exercises editable-Mesh publication, resource
+lifetimes, routing and source-free export in these profiles. Its imported-glTF
+extension, model worker source and model-import library links are enabled together
+only when asset tools are enabled. Editor/package builds exercise that extension.
+Core tests must not link optional model-import targets that do not exist in their
+configuration.
+
+Full numbered editor builds and full editor source audits build CMake's default
+target before running their acceptance selection. This compiles newly registered
+test executables without maintaining a second list in the workflows. The early
+process-controller gate and explicitly focused shader/input audits retain their
+limited target selections.
+
 ## Cache behavior
 
 Requested Windows builds restore the dependency checkout/build directory and CMake/Ninja build directory under the runner's short `AgentFiles` paths. Configure, build, tests, and packaging always execute even on a cache hit. Product source is freshly checked out. Verified source-content records preserve timestamps only for unchanged inputs, allowing Ninja to reuse compatible outputs; changed inputs rebuild.
