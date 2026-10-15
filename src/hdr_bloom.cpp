@@ -64,7 +64,7 @@ void HdrBloom::prepare() {
     }
     BufferDesc desc;
     desc.Name = "FORGE spatial bloom parameters";
-    desc.Size = 32;
+    desc.Size = 48;
     desc.BindFlags = BIND_UNIFORM_BUFFER;
     desc.Usage = USAGE_DYNAMIC;
     desc.CPUAccessFlags = CPU_ACCESS_WRITE;
@@ -145,6 +145,12 @@ void HdrBloom::draw(IDeviceContext* context, unsigned pass, ITextureView* source
         data[5] = float(area.y);
         data[6] = float(area.width);
         data[7] = float(area.height);
+        // Private single-mip inputs already have an admitted, retained extent.
+        // Supply it with settings; sampling need not query descriptor metadata.
+        const auto& input = source->GetTexture()->GetDesc();
+        data[8] = float(input.Width);
+        data[9] = float(input.Height);
+        data[10] = data[11] = 0;
     }
     auto& binding = bindings_[pass];
     binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_Source")->Set(source);

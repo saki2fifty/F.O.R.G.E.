@@ -283,16 +283,28 @@ inline void exercise(Diligent::IRenderDevice* device, Diligent::IDeviceContext* 
     std::cout << comparisons << " HDR channels vs independent 2D convolution; view isolation, "
               << "alpha, identity, target reuse/resize, finite clamp and failed admission PASS\n";
 }
-// Only used after a native acceptance failure. Keep the original four-pass CPU
+// Native acceptance captures. Keep the original four-pass CPU
 // path and first three shaders; substitute the final output to expose its inputs.
 inline void diagnose(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                      const std::filesystem::path& root) {
     using namespace Diligent;
-    const std::array<std::pair<const char*, const char*>, 5> variants{
+    const std::array<std::pair<const char*, const char*>, 8> variants{
         {{"output", "return float4(min(original.rgb+glow,65504),original.a);"},
          {"filtered", "return float4(g_Source.Load(int3(clamp(p,int2(0,0),"
                       "int2(width-1,height-1)),0)).rgb,original.a);"},
-         {"coordinates", "return float4(glow_position,width,height);"},
+         {"coordinates", "return float4(glow_position,width,height)+"
+                         "(g_Source.Load(int3(0,0,0)).r<0?original:0);"},
+         {"device-dimensions", "uint reported_width,reported_height;"
+                               "g_Source.GetDimensions(reported_width,reported_height);"
+                               "return float4(g_SourceSize.xy,reported_width,reported_height);"},
+         {"device-float-dimensions",
+          "float reported_width,reported_height;"
+          "g_Source.GetDimensions(reported_width,reported_height);"
+          "return float4(g_SourceSize.xy,reported_width,reported_height);"},
+         {"device-mip-dimensions",
+          "uint reported_width,reported_height,levels;"
+          "g_Source.GetDimensions(0,reported_width,reported_height,levels);"
+          "return float4(g_SourceSize.x,reported_width,reported_height,levels);"},
          {"rectangle", "return g_Rect+(g_Source.Load(int3(0,0,0)).r<0?original:0);"},
          {"settings", "return g_Settings+(g_Source.Load(int3(0,0,0)).r<0?original:0);"}}};
     std::vector<Pixel> below(19 * 13, {.5f, .25f, .125f, .5f});

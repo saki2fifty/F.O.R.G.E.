@@ -297,8 +297,8 @@ int main(int argc, char** argv) {
                         }
                     }
                 }
+                forge::test_bloom::diagnose(isolated, context, images);
                 if (!bloom_failures.empty()) {
-                    forge::test_bloom::diagnose(isolated, context, images);
                     throw std::runtime_error(bloom_failures);
                 }
                 check_texture_preview(isolated, context, images);

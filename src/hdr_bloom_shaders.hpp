@@ -6,10 +6,10 @@ float4 main(uint id:SV_VertexID):SV_Position {
 })";
 inline constexpr const char* common = R"(
 Texture2D<float4> g_Source;
-cbuffer ForgeBloom {float4 g_Settings; float4 g_Rect;};
+cbuffer ForgeBloom {float4 g_Settings; float4 g_Rect; float4 g_SourceSize;};
 // Pixel-index coordinates, bilinear reconstruction, view-local edge replication.
 float3 sample_glow(float2 p) {
-    uint width,height;g_Source.GetDimensions(width,height);
+    uint width=uint(g_SourceSize.x),height=uint(g_SourceSize.y);
     p=clamp(p,0,float2(width-1,height-1));
     int2 low=int2(floor(p)),high=min(low+1,int2(width-1,height-1));
     float2 t=frac(p);
@@ -21,7 +21,7 @@ float3 sample_glow(float2 p) {
 )";
 inline constexpr const char* extract = R"(
 float4 main(float4 position:SV_Position):SV_Target0 {
-    uint width,height;g_Source.GetDimensions(width,height);
+    uint width=uint(g_SourceSize.x),height=uint(g_SourceSize.y);
     int2 base=int2(position.xy)*2;
     float3 sum=0;
     [unroll]for(int y=0;y<2;++y)[unroll]for(int x=0;x<2;++x) {
@@ -45,7 +45,7 @@ inline constexpr const char* composite = R"(
 Texture2D<float4> g_Original;
 float4 main(float4 position:SV_Position):SV_Target0 {
     int2 p=int2(position.xy-g_Rect.xy);
-    uint width,height;g_Source.GetDimensions(width,height);
+    uint width=uint(g_SourceSize.x),height=uint(g_SourceSize.y);
     float4 original=g_Original.Load(int3(p,0));
     if(!all(isfinite(original)))return original;
     float2 glow_position=(float2(p)+.5)*float2(width,height)/g_Rect.zw-.5;

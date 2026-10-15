@@ -1,5 +1,15 @@
 # 2026-10-15
 
+## Native bloom and editor acceptance
+
+- Supply HDR bloom inputs with their retained single-mip texture extents for extraction, clamping and reconstruction. Keep the existing view isolation, four draws, resource budgets and numeric oracle; avoid reliance on shader dimension queries that returned zero in native captures.
+- Compare every camera-composition pixel against independently supplied HDR reference colors through display resolve, accounting for intended highlight desaturation.
+- Remove the staged Inspector's unassigned Audio Source through the registered authoring command before Play; retain runtime status, logs and snapshots on capture failure.
+- Compare FXC/DXC at default and disabled optimization, capture fresh/warmed pass inputs, and check nonfinite-source preservation without contaminating finite neighbors. No compiler-policy, dependency, source-format or SDK-contract changes.
+
+Local numerical and shared-frame GPU checks pass. Windows acceptance of the
+dimension upload correction and a new delivery remain pending.
+
 ## Build portability corrections
 
 - Disable the unused upstream super-resolution targets so full editor builds keep the selected static MSVC runtime without linking an incompatible optional DLSS archive. Rendering features and dependency pins remain unchanged.
