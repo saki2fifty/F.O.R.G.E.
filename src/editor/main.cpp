@@ -6890,6 +6890,7 @@ int main(int argc, char** argv) {
                 if (fixture.root_motion && fixture.stage >= 253 && fixture.stage <= 255) {
                     auto* w = ImGui::FindWindowByName("Inspector");
                     captured_document_visible &= w && play.control_ready() &&
+                                                 play.animation_status().is_object() &&
                                                  play.animation_status().value("available", false);
                     if (w) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
