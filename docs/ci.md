@@ -161,6 +161,10 @@ reports: carriage poses, connected-pair positions, swing angles, spring gaps or
 animation states. Package acceptance checks each report's matching fields.
 The C++ onboarding workflow scrolls the live Inspector to Rotator Speed before
 requiring the complete enabled field to be visible and testing runtime tuning.
+The SDK reference workflow tolerates an unpublished scene snapshot while recording
+startup diagnostics. It retries an unaccepted initial toolbar click at most twice,
+500ms apart, only with a stopped untouched session and an enabled visible button.
+Reported startup failures are retained; stage and overall deadlines are unchanged.
 
 ## Content-verified incremental Windows inputs
 

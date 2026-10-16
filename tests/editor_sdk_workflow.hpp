@@ -56,6 +56,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace forge::test {
@@ -193,6 +194,8 @@ class EditorSdkWorkflow {
     float toolbar_y_ = 0;
     bool toolbar_armed_ = false;
     bool toolbar_click_attempted_ = false;
+    unsigned toolbar_attempts_ = 0;
+    Uint64 toolbar_attempt_at_ = 0;
 
     static void push_event(SDL_Event event) {
         if (!SDL_PushEvent(&event))
@@ -317,6 +320,14 @@ class EditorSdkWorkflow {
     // Live observations from the running editor + PlaySession.
 
   public:
+    static std::string scene_asset_from_snapshot(const Json& snapshot) {
+        return snapshot.is_object() ? snapshot.value("asset_id", std::string{}) : std::string{};
+    }
+    static bool toolbar_retry_allowed(unsigned attempts, Uint64 elapsed, bool active,
+                                      std::string_view status, std::string_view log) {
+        return attempts > 0 && attempts < 3 && elapsed >= 500 && !active &&
+               status.starts_with("Stopped.") && log.empty();
+    }
     // Select the active reference UI document from the snapshot by
     // "single visible document": 0 visible -> empty (unready),
     // 1 visible -> that document's model, 2+ visible -> empty
@@ -364,7 +375,7 @@ class EditorSdkWorkflow {
         return {0, 0, 0};
     }
     static std::string scene_asset(PlaySession& play) {
-        return play.effective_snapshot().value("asset_id", "");
+        return scene_asset_from_snapshot(play.effective_snapshot());
     }
 
   public:
@@ -510,12 +521,16 @@ class EditorSdkWorkflow {
         mouse_up(window, toolbar_x_, toolbar_y_);
         toolbar_armed_ = false;
         toolbar_click_attempted_ = true;
+        ++toolbar_attempts_;
+        toolbar_attempt_at_ = SDL_GetTicks();
     }
 
     void append_stage(unsigned next, PlaySession& play, const std::string& note) {
         if (!trace_.contains("stages") || !trace_["stages"].is_array())
             trace_["stages"] = Json::array();
         Json entry = {{"from", stage_}, {"to", next}, {"note", note}};
+        entry["toolbar_attempts"] = toolbar_attempts_;
+        entry["snapshot_ready"] = play.effective_snapshot().is_object();
         const auto model = ui_model(play);
         entry["page"] = model_page(model);
         entry["interactions"] = model_interactions(model);
@@ -540,7 +555,11 @@ class EditorSdkWorkflow {
             return;
         failed_ = true;
         const auto model = ui_model(play);
+        ImVec2 toolbar_center{};
         failure_ = {{"stage", stage_},
+                    {"toolbar_attempts", toolbar_attempts_},
+                    {"toolbar_ready", toolbar_play_visible(toolbar_center)},
+                    {"snapshot_ready", play.effective_snapshot().is_object()},
                     {"outside_phase", outside_phase_},
                     {"reason", why},
                     {"status", play.status()},
@@ -713,12 +732,14 @@ class EditorSdkWorkflow {
         const bool live_rml = !has_staged && live_visible_context() != nullptr;
 
         // Stage 0: click toolbar Play, wait for runtime to become active
-        // and publish the main menu document. One click attempt; the
-        // arm is idempotent so re-entering stage 0 while !play.active
-        // does not re-queue DOWN before UP.
+        // and publish the main menu document. Retry an unaccepted initial click
+        // only while the session is untouched and stopped, at most twice, without
+        // extending the stage deadline. A real startup failure is never retried.
         if (stage_ == 0) {
             if (!play.active()) {
-                if (!toolbar_click_attempted_) {
+                if (!toolbar_click_attempted_ ||
+                    toolbar_retry_allowed(toolbar_attempts_, SDL_GetTicks() - toolbar_attempt_at_,
+                                          play.active(), play.status(), play.log())) {
                     ImVec2 center{};
                     if (toolbar_play_visible(center))
                         arm_toolbar_click(center);
@@ -1305,6 +1326,7 @@ class EditorSdkWorkflow {
         }
         if (stage_ == 19 && !play.active()) {
             toolbar_click_attempted_ = false;
+            toolbar_attempts_ = 0;
             capture("sdk-editor-recovered", play);
             // Editor is back to authored scene; the toolbar Play icon is
             // enabled+clipped again. Re-arm a real two-frame click to

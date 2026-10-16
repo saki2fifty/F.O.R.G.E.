@@ -117,6 +117,25 @@ const nlohmann::json level_snapshot() {
 } // namespace
 
 int main() {
+    using Workflow = forge::test::EditorSdkWorkflow;
+    require(Workflow::scene_asset_from_snapshot(nullptr).empty(),
+            "Unpublished snapshot must not throw while recording startup failure");
+    require(Workflow::scene_asset_from_snapshot(nlohmann::json::object()).empty(),
+            "Empty snapshot must remain unready");
+    require(Workflow::scene_asset_from_snapshot({{"asset_id", "published-scene"}}) ==
+                "published-scene",
+            "Published scene identity changed");
+    require(Workflow::toolbar_retry_allowed(1, 500, false, "Stopped. Initial scene.", ""),
+            "Untouched stopped session cannot retry an unaccepted click");
+    require(Workflow::toolbar_retry_allowed(2, 500, false, "Stopped.", ""),
+            "Second bounded toolbar retry rejected");
+    require(!Workflow::toolbar_retry_allowed(3, 500, false, "Stopped.", "") &&
+                !Workflow::toolbar_retry_allowed(1, 499, false, "Stopped.", ""),
+            "Toolbar retry exceeded its count or spacing bound");
+    require(!Workflow::toolbar_retry_allowed(1, 500, true, "Stopped.", "") &&
+                !Workflow::toolbar_retry_allowed(1, 500, false, "Cannot start play: failed", "") &&
+                !Workflow::toolbar_retry_allowed(1, 500, false, "Stopped.", "Runtime started"),
+            "Toolbar retry masked an active session or reported startup failure");
     // -------- find_live_visible_context safety --------
     // (1) Absent observer must yield nullptr without touching RmlUi.
     //     RmlUi Core is NOT initialised here; a regression that
@@ -297,8 +316,8 @@ int main() {
                 "single visible + hidden unrelated: must read the visible reference document");
     }
     std::cout << "editor_sdk_workflow_probe_tests: OK "
-              << "(2 safe-probe paths + 7 ui_model_from_snapshot "
-                 "document-selection cases before Rml::Initialise)"
+              << "(snapshot/retry controls, safe probes and document selection before "
+                 "Rml::Initialise)"
               << std::endl;
     return 0;
 }
