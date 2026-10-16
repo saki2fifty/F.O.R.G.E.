@@ -804,6 +804,10 @@ The43-image process has230seconds inside a240second CTest limit. The first Play
 stage has75seconds for process startup and playback status; other stages have45.
 Capture outputs are cleared before execution and every frame records its build
 and source identity, which the test checks against the CI environment.
+While Play is active, this capture fixture pauses50ms after each rendered frame
+to leave CPU time for its isolated runtime on software-rendered CI hosts. The
+pause is recorded in capture metadata; shipping frame pacing and the5second
+transport deadline are unchanged. All readiness and settling checks still apply.
 Root capture probes are refreshed each
 frame, and live rig captures clear the authored component's automatic scroll
 focus so the actual live controls must remain visible across consecutive frames.

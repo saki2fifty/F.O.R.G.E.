@@ -241,6 +241,7 @@ int main(int argc, char** argv) {
     try {
 #ifdef FORGE_UI_FIXTURE
         forge::test::EditorFixture fixture(argc, argv);
+        constexpr Uint32 root_play_frame_pause_ms = 50;
         forge::test::fixture_breadcrumb("after-fixture-construct");
         // Legacy EditorInputWorkflow runs only for the historical
         // --workflow and --physics modes. SDK mode drives its own
@@ -7233,6 +7234,7 @@ int main(int argc, char** argv) {
                         if (fixture.root_motion) {
                             metrics["build_id"] = forge::build_id;
                             metrics["source_commit"] = forge::source_commit;
+                            metrics["fixture_play_frame_pause_ms"] = root_play_frame_pause_ms;
                             metrics["capture_settling"] = root_controls ? "stable_panel"
                                                           : root_marker ? "stable_marker"
                                                                         : "scene_game";
@@ -7338,6 +7340,12 @@ int main(int argc, char** argv) {
                 play.sdk_diag_slow("perf.frame_all", forge::ui::Performance::milliseconds(
                                                          performance.start, perf_end));
             }
+#ifdef FORGE_UI_FIXTURE
+            // WARP can consume the small CI runner's CPUs at unrestricted Present(0).
+            // Leave time for the real isolated runtime without extending its deadline.
+            if (fixture.root_motion && play.active())
+                SDL_Delay(root_play_frame_pause_ms);
+#endif
         }
         if (startup_layout.save_enabled)
             ImGui::SaveIniSettingsToDisk(ini.c_str());

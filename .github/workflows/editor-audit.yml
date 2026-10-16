@@ -98,6 +98,10 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: cmd
         run: tools\Run-Forge-Dev.cmd --check
+      - name: Record native audit CPU
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        shell: pwsh
+        run: Get-CimInstance Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors | ConvertTo-Json -Compress
       - name: Prepare cache workspace path
         id: cache-workspace
         shell: pwsh
