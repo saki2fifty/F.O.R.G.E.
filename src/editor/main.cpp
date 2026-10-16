@@ -8,6 +8,7 @@
 #include "editor_sdk_workflow.hpp"
 #include "gltf_variant_fixture.hpp"
 #include "thumbnail_cache_tests.hpp"
+#include <array>
 #include <backends/imgui_impl_sdl3.h>
 #endif
 #include "../install_paths.hpp"
@@ -7068,6 +7069,33 @@ int main(int argc, char** argv) {
                         }
                     }
                 }
+                const bool root_controls =
+                    fixture.root_motion && ((fixture.stage >= 250 && fixture.stage <= 273) ||
+                                            (fixture.stage >= 282 && fixture.stage <= 292 &&
+                                             fixture.stage != 285 && fixture.stage != 289));
+                bool capture_settled = fixture.frames > 12;
+                unsigned stable_control_frames = 0;
+                if (root_controls) {
+                    // Require ready controls and unchanged panel geometry across frames.
+                    // These document captures do not need the Scene/Game settling delay.
+                    static unsigned layout_stage = 0, stable_frames = 0;
+                    static std::array<float, 5> previous_layout{};
+                    if (layout_stage != fixture.stage) {
+                        layout_stage = fixture.stage;
+                        stable_frames = 0;
+                    }
+                    auto* w = ImGui::FindWindowByName(fixture.focused_document());
+                    if (fixture.prepared && captured_document_visible && w) {
+                        const std::array layout{w->Pos.x, w->Pos.y, w->Size.x, w->Size.y,
+                                                w->Scroll.y};
+                        stable_frames =
+                            stable_frames && layout == previous_layout ? stable_frames + 1 : 1;
+                        previous_layout = layout;
+                    } else
+                        stable_frames = 0;
+                    capture_settled = stable_frames >= 3;
+                    stable_control_frames = stable_frames;
+                }
                 if (fixture.stage >= 47 && fixture.stage <= 49 &&
                     !audio_imports.diagnostic().empty())
                     throw std::runtime_error("Audio import fixture failed: " +
@@ -7083,7 +7111,7 @@ int main(int argc, char** argv) {
                     !asset_view_document.error().empty())
                     throw std::runtime_error("Member preview fixture failed: " +
                                              asset_view_document.error());
-                if (fixture.prepared && fixture.frames > 12 && captured_document_visible &&
+                if (fixture.prepared && capture_settled && captured_document_visible &&
                     ((fixture.stage != 26 && fixture.stage != 27 && fixture.stage != 41) ||
                      (texture_viewer && texture_viewer->ready())) &&
                     (fixture.stage != 6 || (play.control_ready() && !play.paused())) &&
@@ -7142,6 +7170,13 @@ int main(int argc, char** argv) {
                                                {"content_y", w->DC.CursorStartPos.y}};
                         metrics["scale"] = forge::ui::interface_scale;
                         metrics["scene_image_y"] = fixture.scene_image_y;
+                        if (fixture.root_motion) {
+                            metrics["capture_settling"] =
+                                root_controls ? "stable_panel" : "scene_game";
+                            metrics["stable_control_frames"] = stable_control_frames;
+                            metrics["fixture_frames"] = fixture.frames;
+                            metrics["controls_ready"] = captured_document_visible;
+                        }
                         forge::atomic_write(
                             fixture.output / ("chrome-" + std::to_string(fixture.stage) + ".json"),
                             metrics.dump(2));

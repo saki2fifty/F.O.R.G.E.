@@ -203,7 +203,11 @@ full commit SHA and `windows_package=false`. For changes confined to native
 input/capture fixtures, set `audit_workflow_only=true` to build their required
 editor/runtime targets and run the process, input, physics, root-motion and
 standalone workflows. The root-motion fixture waits for an object-valued animation
-status before checking availability; startup may legitimately have no observation.
+status before checking availability; startup may legitimately have no observation. Root-mode
+Inspector/document captures require their controls to be ready and the panel
+bounds/scroll unchanged for three consecutive frames. Scene/Game captures retain
+their separate settling requirement. Each image records that proof in its chrome
+JSON; the harness verifies all43 images and retains partial logs on timeout.
 The default remains the full source audit. The artifact records the selected scope; focused success is not a
 full-suite result. Use the full audit when shared behavior or rendering changes
 require its additional coverage. Locally on a configured Windows
