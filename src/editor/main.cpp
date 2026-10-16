@@ -2753,6 +2753,7 @@ int main(int argc, char** argv) {
                     {"play_log", play.log()},
                     {"play_active", play.active()},
                     {"control_ready", play.control_ready()},
+                    {"play_timing", play.timing()},
                     {"authored_scene", scene.document()},
                     {"play_snapshot", play.effective_snapshot()},
                     {"status", message}};
@@ -7045,8 +7046,6 @@ int main(int argc, char** argv) {
                                 field->second.maximum.y <= field->second.clip_maximum.y;
                     }
                 }
-                if (fixture.root_motion && fixture.stage == 285)
-                    captured_document_visible &= play.control_ready();
                 if (fixture.root_motion && fixture.stage >= 286 && fixture.stage <= 288) {
                     auto* w =
                         ImGui::FindWindowByName("Animation Blend Space###Animation Blend Space");
@@ -7080,8 +7079,20 @@ int main(int argc, char** argv) {
                                 field->second.maximum.y <= field->second.clip_maximum.y;
                     }
                 }
-                if (fixture.root_motion && fixture.stage == 289)
-                    captured_document_visible &= play.control_ready();
+                if (fixture.root_motion && (fixture.stage == 285 || fixture.stage == 289)) {
+                    const auto* rendered = game_viewport->game_scene();
+                    captured_document_visible &=
+                        play.control_ready() && !play.paused() && rendered &&
+                        rendered->model_animations.size() == 3 &&
+                        std::all_of(rendered->model_animations.begin(),
+                                    rendered->model_animations.end(),
+                                    [](const auto& value) { return value.ready; }) &&
+                        !game_viewport->pending();
+                    for (const auto& diagnostic : game_viewport->diagnostics())
+                        if (diagnostic.severity == forge::Severity::Error ||
+                            diagnostic.severity == forge::Severity::Fatal)
+                            captured_document_visible = false;
+                }
                 if (fixture.root_motion && fixture.stage >= 290 && fixture.stage <= 292) {
                     auto* w = ImGui::FindWindowByName("Animation States###Animation States");
                     captured_document_visible &= w && animation_states.document();
@@ -7219,6 +7230,17 @@ int main(int argc, char** argv) {
                             metrics["stable_control_frames"] = stable_control_frames;
                             metrics["fixture_frames"] = fixture.frames;
                             metrics["controls_ready"] = captured_document_visible;
+                            if (fixture.stage == 285 || fixture.stage == 289) {
+                                const auto* rendered = game_viewport->game_scene();
+                                metrics["ready_model_animations"] =
+                                    rendered ? std::count_if(
+                                                   rendered->model_animations.begin(),
+                                                   rendered->model_animations.end(),
+                                                   [](const auto& value) { return value.ready; })
+                                             : 0;
+                                metrics["play_timing"] = play.timing();
+                                metrics["presentation_pending"] = game_viewport->pending();
+                            }
                             const auto* focused = ImGui::GetCurrentContext()->NavWindow;
                             const auto* target =
                                 ImGui::FindWindowByName(fixture.focused_document());

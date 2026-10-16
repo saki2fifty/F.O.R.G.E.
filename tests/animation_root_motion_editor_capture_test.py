@@ -47,4 +47,6 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
             assert metrics['capture_settling'] == 'stable_marker' and metrics['stable_control_frames'] >= 3 and metrics['marker_visible'], (label, metrics)
         else:
             assert metrics['capture_settling'] == 'scene_game' and metrics['fixture_frames'] > 12, (label, metrics)
+            assert metrics['ready_model_animations'] == 3 and not metrics['presentation_pending'], (label, metrics)
+            assert not metrics['play_timing']['paused'] and metrics['play_timing']['tick'] > 0, (label, metrics)
 print('Native animation controls, target guides, bone-mask, blend-space and state-graph documents captured at100/150/200%; Game markers, weighted masks and numeric blending at100%')

@@ -789,6 +789,15 @@ independent settings publication and scene Undo/save/reopen.
 combined-package acceptance starts source-free Gallery33 in the production host.
 Native capture configuration is distinct from actual image/physical acceptance.
 
+### Animation Game capture readiness
+
+The weighted-mask and blend-space Game images in `editor_animation_root_motion`
+require all three runtime model animations to be ready, active playback after a
+fixed tick, completed presentation resources and no current presentation errors.
+The saved chrome metadata records these conditions. A responsive Play worker
+alone cannot admit an image of the floor while its animated models are absent.
+Image review and physical GPU acceptance remain separate from these checks.
+
 ### AudioClip preview gate
 
 `audio_preview` reads actual offline PCM through the normal provider, proving
