@@ -6985,7 +6985,15 @@ int main(int argc, char** argv) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                         ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
                         ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
-                        ImGui::SetScrollY(w, 0);
+                        if (field != forge::test::ui_targets.end()) {
+                            const auto& target = field->second;
+                            if (target.maximum.y > target.clip_maximum.y)
+                                ImGui::SetScrollY(w, w->Scroll.y + target.maximum.y -
+                                                         target.clip_maximum.y + 12);
+                            else if (target.minimum.y < target.clip_minimum.y)
+                                ImGui::SetScrollY(w, w->Scroll.y + target.minimum.y -
+                                                         target.clip_minimum.y - 12);
+                        }
                     }
                     if (field != forge::test::ui_targets.end())
                         captured_document_visible &=
@@ -7073,11 +7081,12 @@ int main(int argc, char** argv) {
                     fixture.root_motion && ((fixture.stage >= 250 && fixture.stage <= 273) ||
                                             (fixture.stage >= 282 && fixture.stage <= 292 &&
                                              fixture.stage != 285 && fixture.stage != 289));
+                const bool root_marker =
+                    fixture.root_motion && fixture.stage >= 274 && fixture.stage <= 281;
                 bool capture_settled = fixture.frames > 12;
                 unsigned stable_control_frames = 0;
-                if (root_controls) {
-                    // Require ready controls and unchanged panel geometry across frames.
-                    // These document captures do not need the Scene/Game settling delay.
+                if (root_controls || root_marker) {
+                    // Require ready controls or visible markers and stable panel geometry.
                     static unsigned layout_stage = 0, stable_frames = 0;
                     static std::array<float, 5> previous_layout{};
                     if (layout_stage != fixture.stage) {
@@ -7171,8 +7180,13 @@ int main(int argc, char** argv) {
                         metrics["scale"] = forge::ui::interface_scale;
                         metrics["scene_image_y"] = fixture.scene_image_y;
                         if (fixture.root_motion) {
-                            metrics["capture_settling"] =
-                                root_controls ? "stable_panel" : "scene_game";
+                            metrics["capture_settling"] = root_controls ? "stable_panel"
+                                                          : root_marker ? "stable_marker"
+                                                                        : "scene_game";
+                            if (root_marker)
+                                metrics["marker_visible"] = fixture.stage < 280
+                                                                ? fixture.rig_scene_marker_visible
+                                                                : fixture.rig_game_marker_visible;
                             metrics["stable_control_frames"] = stable_control_frames;
                             metrics["fixture_frames"] = fixture.frames;
                             metrics["controls_ready"] = captured_document_visible;

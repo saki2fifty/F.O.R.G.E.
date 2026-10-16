@@ -205,9 +205,12 @@ editor/runtime targets and run the process, input, physics, root-motion and
 standalone workflows. The root-motion fixture waits for an object-valued animation
 status before checking availability; startup may legitimately have no observation. Root-mode
 Inspector/document captures require their controls to be ready and the panel
-bounds/scroll unchanged for three consecutive frames. Scene/Game captures retain
-their separate settling requirement. Each image records that proof in its chrome
-JSON; the harness verifies all43 images and retains partial logs on timeout.
+bounds/scroll unchanged for three consecutive frames. Target-guide captures also
+require the actual Scene/Game marker to remain visible across those ready frames.
+Other Game captures retain their separate settling requirement. Live IK captures
+scroll the required weight field into view at large UI scales. Each image records
+its readiness proof in chrome JSON; the harness verifies all43 images and retains
+partial logs on timeout.
 The default remains the full source audit. The artifact records the selected scope; focused success is not a
 full-suite result. Use the full audit when shared behavior or rendering changes
 require its additional coverage. Locally on a configured Windows
