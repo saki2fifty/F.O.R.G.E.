@@ -1,6 +1,7 @@
 #include "animation_mask_authoring.hpp"
 #include "animation_mask_binding.hpp"
 #include "animation_mask_resource.hpp"
+#include "animation_pose_compare.hpp"
 #include "animation_preview.hpp"
 #include "asset_reference_impact.hpp"
 #include "model_authoring.hpp"
@@ -281,7 +282,8 @@ int main(int argc, char** argv) {
              std::array{std::pair{root, quarter.pose()}, std::pair{mesh, quarter.pose()},
                         std::pair{upper, ahalf.pose()}, std::pair{tip, athree.pose()},
                         std::pair{side, bp}})
-            require(ap["local"][joint(ap, id)] == comparison["local"][joint(comparison, id)],
+            require(test::same_blended_local_pose(ap["local"][joint(ap, id)],
+                                                  comparison["local"][joint(comparison, id)]),
                     "Additive joint influence differs from scalar overlay: " +
                         Json{{"joint", id},
                              {"actual", ap["local"][joint(ap, id)]},

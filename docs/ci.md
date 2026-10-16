@@ -828,6 +828,12 @@ to request; numbered builds compile the full default target set.
 Their focused selection also executes the real additive-overlay and weighted-mask
 pipeline checks, with exact failed pose values retained in diagnostics. The complete
 Gallery ZIP-writer regression runs before focused native compilation.
+Independent additive and ordinary blend paths use estimated native quaternion
+normalization. These two cross-path tests allow at most four float ULPs
+(representable steps) per rotation component; translation, scale, morph weights
+and other pose fields remain exact. Regression controls cover an observed one-step
+Windows difference and reject five-step rotations, nonfinite values and one-step
+translation/scale changes. Same-path recovery comparisons remain exact.
 
 ### AudioClip preview gate
 

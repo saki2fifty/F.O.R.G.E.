@@ -1,5 +1,6 @@
 #include "animation_additive.hpp"
 #include "animation_morph_blend.hpp"
+#include "animation_pose_compare.hpp"
 #include "animation_preview.hpp"
 #include "animation_states_authoring.hpp"
 #include "asset_import_service.hpp"
@@ -35,6 +36,34 @@ template <class F> void rejects(F f) {
     require(failed, "Invalid overlay or morph recovery accepted");
 }
 void arithmetic() {
+    // Actual one-ULP Windows output from excluded additive vs ordinary blending.
+    const Json expected = {{"translation", {0, 0, .999755859375}},
+                           {"scale", {1, 1, 1}},
+                           {"rotation",
+                            {-2.1582149202004075e-5, -2.1582149202004075e-5, -2.1582149202004075e-5,
+                             .9999999403953552}}};
+    auto rounded = expected;
+    rounded["rotation"] = {-2.158214738301467e-5, -2.158214738301467e-5, -2.158214738301467e-5,
+                           .9999998807907104};
+    require(test::same_blended_local_pose(rounded, expected),
+            "Equivalent native normalization roundoff rejected");
+    auto boundary = expected;
+    auto value = expected["rotation"][3].get<float>();
+    for (unsigned i = 0; i < 4; ++i)
+        value = std::nextafter(value, 0.f);
+    boundary["rotation"][3] = value;
+    require(test::same_blended_local_pose(boundary, expected), "Four-ULP rotation bound differs");
+    boundary["rotation"][3] = std::nextafter(value, 0.f);
+    require(!test::same_blended_local_pose(boundary, expected),
+            "Rotation change beyond four ULPs accepted");
+    for (const auto field : {"translation", "scale"}) {
+        auto changed = rounded;
+        changed[field][2] = std::nextafter(expected[field][2].get<float>(), 2.f);
+        require(!test::same_blended_local_pose(changed, expected),
+                "Non-rotation pose change accepted");
+    }
+    rounded["rotation"][3] = std::numeric_limits<float>::infinity();
+    require(!test::same_blended_local_pose(rounded, expected), "Nonfinite rotation accepted");
     LocalPose rest{{2, 3, 4}, {-2, 0, 4}, {.5f, 0, 0, .8660254f}};
     LocalPose sample{{5, 1, 5}, {-4, 0, 2}, {0, .5f, 0, .8660254f}};
     const auto delta = additive_delta(sample, rest);
@@ -231,7 +260,7 @@ int main(int argc, char** argv) {
         near(extracted.pose()["local"][r]["translation"][0], 0);
         near(extracted.pose()["local"][r]["translation"][2], 0);
         const auto masked_pose = masked.pose(), primary_pose = primary.pose();
-        require(masked_pose["local"][r] == primary_pose["local"][r] &&
+        require(test::same_blended_local_pose(masked_pose["local"][r], primary_pose["local"][r]) &&
                     morph(masked_pose) == morph(primary_pose),
                 "Upper overlay modified excluded root/morph mesh: " +
                     Json{{"actual_root", masked_pose["local"][r]},
