@@ -328,6 +328,9 @@ jobs:
           path: ${{ runner.temp }}/forge-work/AgentFiles/b/forge_editor_fixture.exe
           if-no-files-found: error
           retention-days: 7
+      - name: Verify complete Gallery packaging
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: python tests/windows_example_packaging_test.py
       - name: Package Windows editor
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tools/package_windows.py --build ../AgentFiles/b --dependencies ../AgentFiles/d --output "../AgentFiles/packages/${env:FORGE_BUILD_ID}-FORGE-Windows-x64.zip"

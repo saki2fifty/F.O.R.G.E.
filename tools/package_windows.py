@@ -99,10 +99,13 @@ def package(build, dependencies, output):
     gallery_scenes = list((gallery_root/'Scenes').glob('*.scene.json'))
     if not required_gallery.issubset(gallery_files) or not gallery_scenes:
         raise ValueError('Feature Gallery project or scenes missing from Windows package source')
-    omitted_gallery = [p for p in gallery_files if p.is_symlink() or p not in example_files]
-    if omitted_gallery:
-        raise ValueError('Feature Gallery files would be omitted from Windows ZIP: ' +
-                         ', '.join(str(p.relative_to(example_root)) for p in omitted_gallery))
+    linked_gallery = [p for p in gallery_files if p.is_symlink()]
+    if linked_gallery:
+        raise ValueError('Feature Gallery contains a link: ' +
+                         ', '.join(str(p.relative_to(example_root)) for p in linked_gallery))
+    # Ship the complete editable Gallery, including selected cooked data and new
+    # resource formats. Other examples retain their source-file filter.
+    example_files = sorted(set(example_files).union(gallery_files))
     for example in example_files:
         manifest['files']['Examples/'+example.relative_to(example_root).as_posix()] = hashlib.sha256(example.read_bytes()).hexdigest()
     animation_source = source/'samples/animation/two-joints.gltf'

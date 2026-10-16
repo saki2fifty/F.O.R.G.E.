@@ -130,8 +130,12 @@ audio acceptance.
 
 Every numbered editor ZIP includes the complete editable project under
 `Examples/FeatureGallery/`. Packaging fails if its manifest, README, scenes or
-any current gallery file would be omitted; a newly added source format must be
-explicitly admitted by the package copier. The same final-package test copies
+project are missing, and rejects links. Its complete regular-file inventory,
+including cooked audio/navigation and UI source/images, is copied without an
+extension allowlist. A ZIP-writer regression checks every curated Gallery file's
+bytes and manifest digest, an unfamiliar extension, and link rejection retaining
+the previous archive. Other sample projects use the source-extension filter.
+The same final-package test copies
 the extracted gallery into a writable project, exports its saved startup scene
 using the packaged static runtime kit, and runs the resulting standalone
 executable in startup-verification mode. The source-level `feature_gallery` test

@@ -1,5 +1,6 @@
 # Changelog
 
+- [2026-10-16](20261016/README.md) — Windows animation capture and complete Gallery packaging repairs; Windows delivery pending.
 - [2026-10-15](20261015/README.md) — Per-object material values and Gallery66, two-axis animation blend spaces, runtime Prefab creation and portable links, Prefab preparation improvements and Play CPU stages; local validation, Windows delivery pending.
 - [2026-10-14](20261014/README.md) — Coordinated animation sequences and smooth animated properties; local validation, Windows delivery pending.
 
