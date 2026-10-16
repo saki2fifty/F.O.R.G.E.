@@ -33,6 +33,12 @@ test executables without maintaining a second list in the workflows. The early
 process-controller gate and explicitly focused shader/input audits retain their
 limited target selections.
 
+Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
+source gate must exercise the same acceptance selection before allocating a new
+delivery number. Focused shader/input scopes remain explicitly separate. Numbered
+failures retain the full capture diagnostics and CTest logs, including the stalled
+state JSON, so a screenshot is not the only available readiness evidence.
+
 The isolated optics fixture compares the same bloom pass against its independent
 pixel oracle with FXC and DXC, each with default and disabled optimization. Every
 profile must pass; failures include the selected radius and intensity. Audit

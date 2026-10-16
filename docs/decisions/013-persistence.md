@@ -191,6 +191,12 @@ bounds, then adopts playback and the typed runtime selection. Legacy checkpoint 
 keeps its strict scene-selection behavior. Failure leaves admitted runtime state
 intact. No new persistence owner or durable save format is introduced.
 
+Authored editor Scene/Prefab intent remains unchanged by runtime transitions.
+A private runtime Scene snapshot can record a real native state change outside
+an existing partial mask, as required by [ADR023](023-runtime-prefab-creation.md);
+this is an ephemeral recovery delta, not a write to the authored source. Rejected
+recovery must retain the entire prior native Animator, clocks and pose.
+
 State source version 2 recognizes optional local-ID exits. Source version 1 keeps
 opaque exits manual. Recipe v4 publishes fixed cooked version 2 containing the
 original source document, so rebuilding source 1 does not reinterpret extensions.

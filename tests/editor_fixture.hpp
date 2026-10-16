@@ -100,7 +100,7 @@ struct EditorFixture {
         active_wait_probe = nullptr;
         std::error_code ec;
         if (!physics && !sdk_play && !animation_exits && !audio_falloff && !audio_cones &&
-            !audio_mixer && !audio_preview)
+            !audio_mixer && !audio_preview && !root_motion)
             std::filesystem::remove_all(project, ec);
         if (sdk_play)
             std::filesystem::remove_all(user_data, ec);

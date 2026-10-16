@@ -4153,6 +4153,8 @@ int main(int argc, char** argv) {
                     break;
                 case 250:
                     if (fixture.root_motion) {
+                        forge::test::observe_ui = true;
+                        SDL_SetWindowSize(window.get(), 1920, 1080);
                         forge::ui::style(1);
                         files.document.open_scene("Scenes/36-animation-root-motion.scene.json");
                         const auto authored = scene.snapshot();

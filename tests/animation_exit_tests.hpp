@@ -210,6 +210,12 @@ Json exit_runtime_tests(const std::filesystem::path& root,
                        {"field", "playback_speed"},
                        {"value", 1}});
     const auto prefab_authored = prefab_scene.snapshot();
+    Json authored_mask;
+    for (const auto& row : prefab_authored.at("entities"))
+        if (row.at("id") == instance)
+            authored_mask = row.at("property_overrides").at("forge.animator");
+    require(authored_mask.contains("playback_speed") && !authored_mask.contains("state"),
+            "State fixture did not begin with the intended partial authored mask");
     Fixture inherited(root, prefab_authored, EntityId::parse(instance));
     inherited.animation->tick(.5f, 1);
     require(inherited.pose().at("state") == 2, "Partial prefab did not advance automatically");
@@ -218,13 +224,19 @@ Json exit_runtime_tests(const std::filesystem::path& root,
     same_pose(inherited_copy.pose().at("local"), inherited.pose().at("local"),
               "Partial prefab lost automatic state during recovery");
     const auto inherited_snapshot = inherited.scene.snapshot();
+    auto runtime_mask = authored_mask;
+    runtime_mask["state"] = 2;
     for (const auto& row : inherited_snapshot.at("entities"))
         if (row.at("id") == instance)
-            require(!row.at("property_overrides").at("forge.animator").contains("state"),
-                    "Recovery fabricated authored state override intent");
+            // ADR023 retains real native mutations outside a mask in private recovery.
+            // The separate authored Scene/Prefab below must remain unchanged.
+            require(
+                row.at("property_overrides").at("forge.animator") == runtime_mask,
+                "Private recovery lost the actual state transition or changed unrelated intent");
     Fixture rejected_copy(root, inherited.scene.snapshot(), EntityId::parse(instance));
     const auto retained = rejected_copy.animation->checkpoint();
     const auto retained_pose = rejected_copy.pose();
+    const auto retained_component = rejected_copy.scene.entity(instance).get<Animator>();
     auto bad_recovery = inherited.animation->checkpoint();
     for (auto& entry : bad_recovery["entries"])
         if (entry.at("entity").at("entity") == instance)
@@ -233,7 +245,7 @@ Json exit_runtime_tests(const std::filesystem::path& root,
             "Invalid recovery target revision admitted");
     require(rejected_copy.animation->checkpoint() == retained &&
                 rejected_copy.pose() == retained_pose &&
-                rejected_copy.scene.entity(instance).get<Animator>().state == 0,
+                rejected_copy.scene.entity(instance).get<Animator>() == retained_component,
             "Rejected prepared recovery mutated prior player/component/pose");
     inherited.animation->tick(dt, 2);
     inherited_copy.animation->tick(dt, 2);
