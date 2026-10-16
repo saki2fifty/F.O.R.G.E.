@@ -40,7 +40,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
         metrics = json.loads((evidence/f'chrome-{stage}.json').read_text())
-        assert metrics['controls_ready'], (label, metrics)
+        assert metrics['controls_ready'] and metrics['document_in_front'], (label, metrics)
         if stage <= 273 or (stage >= 282 and stage not in (285, 289)):
             assert metrics['capture_settling'] == 'stable_panel' and metrics['stable_control_frames'] >= 3, (label, metrics)
         elif 274 <= stage <= 281:

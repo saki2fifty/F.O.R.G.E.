@@ -207,10 +207,11 @@ status before checking availability; startup may legitimately have no observatio
 Inspector/document captures require their controls to be ready and the panel
 bounds/scroll unchanged for three consecutive frames. Target-guide captures also
 require the actual Scene/Game marker to remain visible across those ready frames.
-Other Game captures retain their separate settling requirement. Live IK captures
-scroll the required weight field into view at large UI scales. Each image records
-its readiness proof in chrome JSON; the harness verifies all43 images and retains
-partial logs on timeout.
+Other Game captures retain their separate settling requirement. Captures scroll
+required live IK and source-control groups into view at large UI scales and
+verify that the intended document owns foreground focus. Each image records its
+readiness, focus and domain diagnostics in chrome JSON; the harness verifies all43
+images and retains partial logs on timeout.
 The default remains the full source audit. The artifact records the selected scope; focused success is not a
 full-suite result. Use the full audit when shared behavior or rendering changes
 require its additional coverage. Locally on a configured Windows

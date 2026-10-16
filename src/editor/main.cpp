@@ -6030,7 +6030,7 @@ int main(int argc, char** argv) {
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
                         (fixture.stage >= 103 && fixture.stage <= 141) ||
                         (fixture.stage >= 145 && fixture.stage <= 168) ||
-                        (fixture.stage >= 217 && fixture.stage <= 252))
+                        (fixture.stage >= 217 && fixture.stage <= 252) || fixture.root_motion)
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
@@ -6257,6 +6257,11 @@ int main(int argc, char** argv) {
                     const auto* w = ImGui::FindWindowByName(target);
                     captured_document_visible =
                         w && w->Active && !w->Hidden && (!w->DockIsActive || w->DockTabIsVisible);
+                    if (fixture.root_motion) {
+                        const auto* focused = ImGui::GetCurrentContext()->NavWindow;
+                        captured_document_visible &=
+                            w && focused && focused->RootWindow == w->RootWindow;
+                    }
                 }
                 if (fixture.stage >= 56 && fixture.stage <= 58) {
                     const auto* popup = ImGui::FindWindowByName("##Combo_00");
@@ -7015,7 +7020,19 @@ int main(int argc, char** argv) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                         ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
                         ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
-                        ImGui::SetScrollY(w, 0);
+                        const auto first =
+                            forge::test::ui_targets.find("animation_mask:default_weight");
+                        const auto last =
+                            forge::test::ui_targets.find("animation_mask:descendants");
+                        if (first != forge::test::ui_targets.end() &&
+                            last != forge::test::ui_targets.end()) {
+                            if (last->second.maximum.y > last->second.clip_maximum.y)
+                                ImGui::SetScrollY(w, w->Scroll.y + last->second.maximum.y -
+                                                         last->second.clip_maximum.y + 12);
+                            else if (first->second.minimum.y < first->second.clip_minimum.y)
+                                ImGui::SetScrollY(w, w->Scroll.y + first->second.minimum.y -
+                                                         first->second.clip_minimum.y - 12);
+                        }
                     }
                     for (const char* id : {"animation_mask:default_weight", "animation_mask:weight",
                                            "animation_mask:descendants"}) {
@@ -7038,7 +7055,19 @@ int main(int argc, char** argv) {
                         ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
                         ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
                         ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
-                        ImGui::SetScrollY(w, 0);
+                        const auto first =
+                            forge::test::ui_targets.find("animation_blend_space:cycle");
+                        const auto last =
+                            forge::test::ui_targets.find("animation_blend_space:position");
+                        if (first != forge::test::ui_targets.end() &&
+                            last != forge::test::ui_targets.end()) {
+                            if (last->second.maximum.y > last->second.clip_maximum.y)
+                                ImGui::SetScrollY(w, w->Scroll.y + last->second.maximum.y -
+                                                         last->second.clip_maximum.y + 12);
+                            else if (first->second.minimum.y < first->second.clip_minimum.y)
+                                ImGui::SetScrollY(w, w->Scroll.y + first->second.minimum.y -
+                                                         first->second.clip_minimum.y - 12);
+                        }
                     }
                     for (const char* id :
                          {"animation_blend_space:cycle", "animation_blend_space:position"}) {
@@ -7190,6 +7219,16 @@ int main(int argc, char** argv) {
                             metrics["stable_control_frames"] = stable_control_frames;
                             metrics["fixture_frames"] = fixture.frames;
                             metrics["controls_ready"] = captured_document_visible;
+                            const auto* focused = ImGui::GetCurrentContext()->NavWindow;
+                            const auto* target =
+                                ImGui::FindWindowByName(fixture.focused_document());
+                            metrics["document_in_front"] =
+                                target && focused && focused->RootWindow == target->RootWindow;
+                            metrics["problems"] = forge::Json::array();
+                            for (const auto& problem : editor.problems.items())
+                                metrics["problems"].push_back({{"severity", problem.severity},
+                                                               {"text", problem.text},
+                                                               {"source", problem.source}});
                         }
                         forge::atomic_write(
                             fixture.output / ("chrome-" + std::to_string(fixture.stage) + ".json"),
