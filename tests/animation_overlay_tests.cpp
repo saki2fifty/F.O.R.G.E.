@@ -230,9 +230,15 @@ int main(int argc, char** argv) {
         near(motion->rotation[1], std::sin(3.141592653589793 / 12));
         near(extracted.pose()["local"][r]["translation"][0], 0);
         near(extracted.pose()["local"][r]["translation"][2], 0);
-        require(masked.pose()["local"][r] == primary.pose()["local"][r] &&
-                    morph(masked.pose()) == morph(primary.pose()),
-                "Upper overlay modified excluded root/morph mesh");
+        const auto masked_pose = masked.pose(), primary_pose = primary.pose();
+        require(masked_pose["local"][r] == primary_pose["local"][r] &&
+                    morph(masked_pose) == morph(primary_pose),
+                "Upper overlay modified excluded root/morph mesh: " +
+                    Json{{"actual_root", masked_pose["local"][r]},
+                         {"expected_root", primary_pose["local"][r]},
+                         {"actual_morphs", morph(masked_pose)},
+                         {"expected_morphs", morph(primary_pose)}}
+                        .dump());
         auto changed = additive.entity().get<Animator>();
         changed.blend_mode = 0;
         additive.entity().set(changed);

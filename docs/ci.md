@@ -811,6 +811,9 @@ Image review and physical GPU acceptance remain separate from these checks.
 Focused native audits explicitly build the animation converter as well as the
 editor fixtures. A restored cache must not supply a tool that a clean audit forgot
 to request; numbered builds compile the full default target set.
+Their focused selection also executes the real additive-overlay and weighted-mask
+pipeline checks, with exact failed pose values retained in diagnostics. The complete
+Gallery ZIP-writer regression runs before focused native compilation.
 
 ### AudioClip preview gate
 

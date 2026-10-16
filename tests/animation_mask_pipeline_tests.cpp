@@ -282,7 +282,11 @@ int main(int argc, char** argv) {
                         std::pair{upper, ahalf.pose()}, std::pair{tip, athree.pose()},
                         std::pair{side, bp}})
             require(ap["local"][joint(ap, id)] == comparison["local"][joint(comparison, id)],
-                    "Additive joint influence differs from scalar overlay");
+                    "Additive joint influence differs from scalar overlay: " +
+                        Json{{"joint", id},
+                             {"actual", ap["local"][joint(ap, id)]},
+                             {"expected", comparison["local"][joint(comparison, id)]}}
+                            .dump());
         near(ap["morphs"][0]["weights"][0], .8125);
         near(ap["morphs"][0]["weights"][1], -.4375);
         auto motion = config(source, actor, mask, 1, 1);
