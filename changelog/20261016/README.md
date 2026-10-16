@@ -5,4 +5,5 @@
 - Align state-recovery regression checks with retained native changes and unchanged authored sources. Full source audits now share the numbered editor acceptance selection and retain complete failure diagnostics.
 - Require consecutive ready frames with stable panel geometry for root-mode Inspector/document and target-guide captures, scroll required controls into view, verify document focus, and retain complete capture evidence and partial timeout logs.
 - Require complete animated models for Game captures and fresh live Inspector observations. Clean focused native audits explicitly build the animation converter.
+- Give the initial Play capture a separate startup/status budget, clear cached capture outputs, and verify each frame's build/source identity before accepting evidence.
 - Package the complete editable Feature Gallery, including cooked audio/navigation and UI files, without extension omissions. A ZIP-writer regression verifies the curated project bytes and manifest, new formats, and link rejection preserving the previous archive. Windows delivery remains pending.

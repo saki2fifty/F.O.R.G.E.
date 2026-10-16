@@ -800,8 +800,11 @@ require all three runtime model animations to be ready, active playback after a
 fixed tick, completed presentation resources and no current presentation errors.
 The saved chrome metadata records these conditions. A responsive Play worker
 alone cannot admit an image of the floor while its animated models are absent.
-The43-image process has230seconds inside a240second CTest limit; the fixture
-retains its45second per-stage stall guard. Root capture probes are refreshed each
+The43-image process has230seconds inside a240second CTest limit. The first Play
+stage has75seconds for process startup and playback status; other stages have45.
+Capture outputs are cleared before execution and every frame records its build
+and source identity, which the test checks against the CI environment.
+Root capture probes are refreshed each
 frame, and live rig captures clear the authored component's automatic scroll
 focus so the actual live controls must remain visible across consecutive frames.
 Image review and physical GPU acceptance remain separate from these checks.

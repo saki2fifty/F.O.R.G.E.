@@ -2737,13 +2737,17 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
             // Legacy staged-capture timeout; bypass for SDK mode (the
             // dedicated EditorSdkWorkflow tracks its own deadline).
+            // Initial Play also starts the process and requests live playback status.
+            const Uint64 fixture_stage_budget =
+                fixture.root_motion && fixture.stage == 253 ? 75000 : 45000;
             if (!fixture.workflow && !fixture.sdk_play &&
                 // The expanded capture suite exceeds four minutes under WARP.
                 // Keep a separate per-stage deadline to catch actual stalls.
                 (SDL_GetTicks() - fixture.started > 600000 ||
-                 SDL_GetTicks() - fixture.stage_started > 45000)) {
+                 SDL_GetTicks() - fixture.stage_started > fixture_stage_budget)) {
                 forge::Json stalled{
                     {"stage", fixture.stage},
+                    {"stage_budget_ms", fixture_stage_budget},
                     {"frames", fixture.frames},
                     {"ui_frame", ImGui::GetFrameCount()},
                     {"mesh_picker_requested", forge::fixture_open_mesh_picker},
@@ -2756,6 +2760,10 @@ int main(int argc, char** argv) {
                     {"play_active", play.active()},
                     {"control_ready", play.control_ready()},
                     {"play_timing", play.timing()},
+                    {"animation_status", play.animation_status()},
+                    {"animation_command_pending", play.animation_pending()},
+                    {"animation_error", play.animation_error()},
+                    {"snapshot_version", play.snapshot_version()},
                     {"authored_scene", scene.document()},
                     {"play_snapshot", play.effective_snapshot()},
                     {"status", message}};
@@ -7223,6 +7231,8 @@ int main(int argc, char** argv) {
                         metrics["scale"] = forge::ui::interface_scale;
                         metrics["scene_image_y"] = fixture.scene_image_y;
                         if (fixture.root_motion) {
+                            metrics["build_id"] = forge::build_id;
+                            metrics["source_commit"] = forge::source_commit;
                             metrics["capture_settling"] = root_controls ? "stable_panel"
                                                           : root_marker ? "stable_marker"
                                                                         : "scene_game";

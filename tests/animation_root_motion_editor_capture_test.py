@@ -1,6 +1,7 @@
 """Native root mode and durable-joint Inspector controls at actual UI scales."""
 from pathlib import Path
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -8,6 +9,11 @@ import tempfile
 
 fixture, gallery, evidence = (Path(p).resolve() for p in sys.argv[1:4])
 evidence.mkdir(parents=True, exist_ok=True)
+for pattern in ('editor-*.ppm', 'chrome-*.json', 'stalled-*.ppm',
+                'stalled-state.json', 'capture.log', 'fixture-crash.txt'):
+    for previous in evidence.glob(pattern):
+        if previous.is_file() or previous.is_symlink():
+            previous.unlink()
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-capture-') as scratch:
     project = Path(scratch)/'Gallery'
     shutil.copytree(gallery, project)
@@ -22,6 +28,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
     (evidence/'capture.log').write_text(result.stdout+result.stderr, encoding='utf-8')
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
+    identities = set()
     for stage, label in enumerate(('animation-root-motion', 'animation-root-motion-150', 'animation-root-motion-200',
                   'live-animation', 'live-animation-150', 'live-animation-200',
                   'animation-subtree', 'animation-subtree-150', 'animation-subtree-200',
@@ -40,6 +47,10 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
         image = evidence/f'editor-{label}.ppm'
         assert image.is_file() and image.stat().st_size > 1920*1080, image
         metrics = json.loads((evidence/f'chrome-{stage}.json').read_text())
+        identities.add((metrics['build_id'], metrics['source_commit']))
+        for key, variable in (('build_id', 'FORGE_BUILD_ID'), ('source_commit', 'FORGE_SOURCE_COMMIT')):
+            if variable in os.environ:
+                assert metrics[key] == os.environ[variable], (label, key, metrics[key])
         assert metrics['controls_ready'] and metrics['document_in_front'], (label, metrics)
         if stage <= 273 or (stage >= 282 and stage not in (285, 289)):
             assert metrics['capture_settling'] == 'stable_panel' and metrics['stable_control_frames'] >= 3, (label, metrics)
@@ -49,4 +60,5 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
             assert metrics['capture_settling'] == 'scene_game' and metrics['fixture_frames'] > 12, (label, metrics)
             assert metrics['ready_model_animations'] == 3 and not metrics['presentation_pending'], (label, metrics)
             assert not metrics['play_timing']['paused'] and metrics['play_timing']['tick'] > 0, (label, metrics)
+    assert len(identities) == 1, identities
 print('Native animation controls, target guides, bone-mask, blend-space and state-graph documents captured at100/150/200%; Game markers, weighted masks and numeric blending at100%')
