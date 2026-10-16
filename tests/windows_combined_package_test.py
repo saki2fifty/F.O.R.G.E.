@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import uuid
 import zipfile
 
 with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as temporary:
@@ -388,6 +389,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     assert started.returncode == 0, (started.stdout, started.stderr)
     assert not (tuning_export/'Scenes').exists() and not (tuning_export/'Assets').exists()
     # Ordinary editable joint scenes run after deleting their copied sources/kits.
+    gallery_storage_roots = set()
     for label, scene_path, observer_mode, result_file in (
         ('Slider Joint', 'Scenes/24-slider-joints.scene.json', '--packaged-slider', 'physics-slider-result.json'),
         ('Velocity Motors', 'Scenes/25-velocity-motors.scene.json', '--packaged-motors', 'physics-motors-result.json'),
@@ -405,6 +407,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         slider = json.loads((slider_source / slider_scene).read_text())
         slider_settings = json.loads((slider_source / 'forge.project.json').read_text())
         slider_settings['startup_scene'] = dict(asset=slider['asset_id'], source=slider_scene)
+        # Each scene is an independent test game. Reusing the Gallery application
+        # ID would load the previous test's save with a different startup Scene.
+        slider_settings['game']['application_id'] = 'org.forge.package-test.' + uuid.uuid4().hex
         (slider_source / 'forge.project.json').write_text(json.dumps(slider_settings))
         slider_kit = root / (label + ' Test Runtime Kit')
         # This observer is built with the shared SDK and imports flecs.dll.
@@ -424,7 +429,7 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         shutil.rmtree(slider_source)
         shutil.rmtree(slider_kit)
         assert not (slider_export / 'Scenes').exists() and not (slider_export / 'Assets').exists()
-        slider_evidence = evidence.parent / label
+        slider_evidence = evidence / 'gallery' / label
         slider_evidence.mkdir(parents=True, exist_ok=True)
         runs = [('forge_game.exe', ['--verify-startup'], 'production-startup.log')]
         if observer_mode:
@@ -433,13 +438,19 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
             result = subprocess.run([str(slider_export / executable), *arguments], cwd=slider_export,
                 env=env, text=True, capture_output=True, timeout=180)
             (slider_evidence / log).write_text(result.stdout + result.stderr)
-            assert result.returncode == 0, (executable, result.returncode, result.stdout, result.stderr)
+            assert result.returncode == 0, (label, executable, arguments, result.returncode, result.stdout, result.stderr)
             assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
         if observer_mode is None:
             # Actual offline PCM equations and relocated closure run in audio_falloff_gallery.
             # Here the final shipped executable must initialize that cooked scene cleanly.
             assert not (slider_export/'Assets/FalloffTone.wav').exists()
             continue
+        storage = json.loads((slider_evidence / 'storage-result.json').read_text())
+        storage_root = Path(storage['root'])
+        assert not storage['reopened'] and storage['scene'] == slider['asset_id'], (label, storage)
+        assert storage_root.is_absolute() and not storage_root.is_relative_to(slider_export), storage
+        assert storage_root not in gallery_storage_roots, (label, storage)
+        gallery_storage_roots.add(storage_root)
         proof = json.loads((slider_evidence / result_file).read_text())
         if observer_mode == '--packaged-exits':
             assert len(proof['actors']) == 3 and set(proof['actors'].values()) == {14}

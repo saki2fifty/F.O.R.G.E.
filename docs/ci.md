@@ -151,6 +151,11 @@ validated compiled-source run while retaining its build/source identity.
 The editor fixture routes audio through `AudioOutput::Offline` for the runner;
 this checks authored clip decoding without claiming a physical audio device.
 A package-only retry does not rebuild or relabel previous delivery binaries.
+Independent Gallery export cases assign unique application IDs to their temporary
+copies so one scene's fixture save cannot become another case's initial state.
+Each observer checks its saved Scene identity and a distinct OS storage root;
+its evidence is retained with the package checks. The dedicated relocation tests
+still move and reopen the same application and require its saves to persist.
 
 ## Content-verified incremental Windows inputs
 
