@@ -2301,6 +2301,8 @@ int main(int argc, char** argv) {
             }
 #ifdef FORGE_UI_FIXTURE
             fixture.rig_scene_marker_visible = fixture.rig_game_marker_visible = false;
+            if (fixture.root_motion)
+                forge::test::ui_targets.clear();
             // SDK Play: skip the legacy EditorInputWorkflow and the
             // staged-capture ImGui path entirely. The editor renders
             // the same frame the SDK acceptance is reading.
@@ -4233,7 +4235,8 @@ int main(int argc, char** argv) {
                                 selected = row.at("id").get<std::string>();
                                 break;
                             }
-                        component_inspector.fixture_focus_component = key;
+                        component_inspector.fixture_focus_component =
+                            fixture.stage >= 268 ? "" : key;
                         workspace.inspector = true;
                         if (fixture.stage >= 268)
                             ready = actions.invoke("play");

@@ -490,7 +490,9 @@ if(BUILD_TESTING)
  add_test(NAME editor_animation_exits COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/animation_exits_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/animation-exits")
  set_tests_properties(editor_animation_exits PROPERTIES TIMEOUT 120)
  add_test(NAME editor_animation_root_motion COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/animation_root_motion_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/animation-root-motion")
- set_tests_properties(editor_animation_root_motion PROPERTIES TIMEOUT 180)
+ # All43 scaled images include admitted native animation/presentation readiness.
+ # Keep the fixture's45s per-stage stall guard; allow aggregate WARP work/teardown.
+ set_tests_properties(editor_animation_root_motion PROPERTIES TIMEOUT 240)
  add_test(NAME editor_audio_falloff COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_falloff_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-falloff")
  set_tests_properties(editor_audio_falloff PROPERTIES TIMEOUT 120)
  add_test(NAME editor_audio_cones COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cone_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cones")
