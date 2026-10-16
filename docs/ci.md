@@ -801,6 +801,9 @@ retains its45second per-stage stall guard. Root capture probes are refreshed eac
 frame, and live rig captures clear the authored component's automatic scroll
 focus so the actual live controls must remain visible across consecutive frames.
 Image review and physical GPU acceptance remain separate from these checks.
+Focused native audits explicitly build the animation converter as well as the
+editor fixtures. A restored cache must not supply a tool that a clean audit forgot
+to request; numbered builds compile the full default target set.
 
 ### AudioClip preview gate
 

@@ -156,7 +156,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
-          $targets = @('forge_editor_fixture', 'forge_editor_tests', 'forge_fault_runtime')
+          $targets = @('forge_editor_fixture', 'forge_editor_tests', 'forge_fault_runtime', 'gltf2ozz')
           if (Test-Path cmake/game.cmake) { $targets += @('forge_game_fixture', 'forge_tools') }
           cmake --build ../AgentFiles/b --target $targets --parallel 2
           if ($LASTEXITCODE) { throw 'Native workflow fixture build failed' }
