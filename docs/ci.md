@@ -159,6 +159,8 @@ still move and reopen the same application and require its saves to persist.
 Gallery observers retain their native motion checks and publish case-specific
 reports: carriage poses, connected-pair positions, swing angles, spring gaps or
 animation states. Package acceptance checks each report's matching fields.
+The C++ onboarding workflow scrolls the live Inspector to Rotator Speed before
+requiring the complete enabled field to be visible and testing runtime tuning.
 
 ## Content-verified incremental Windows inputs
 

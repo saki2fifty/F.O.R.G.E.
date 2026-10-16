@@ -826,6 +826,7 @@ class EditorInputWorkflow {
             capture("cpp-rotator-inspector");
             click("icon:play");
             check("starter-ticked");
+            hover("runtime-field:project.rotator:speed");
             check("live-field-visible");
             check("spin-sample");
             check("spin-before");
@@ -1603,11 +1604,16 @@ class EditorInputWorkflow {
             // Selectable expands its hit rectangle into ItemSpacing. The first
             // visible row can extend above its child clip edge even though its
             // click center is fully visible; scrolling cannot remove that padding.
-            if (pointer_.y < t.clip_minimum.y || pointer_.y > t.clip_maximum.y) {
+            // A live numeric field's visibility assertion requires its full height.
+            const bool full_field =
+                step.kind == Kind::Hover && target.starts_with("runtime-field:");
+            const float top = full_field ? t.minimum.y : pointer_.y;
+            const float bottom = full_field ? t.maximum.y : pointer_.y;
+            if (top < t.clip_minimum.y || bottom > t.clip_maximum.y) {
                 // Pinned ImGui caps one wheel unit at 0.67 * viewport height.
                 // Three units can jump completely over a short dock; half a unit
                 // moves at most 0.335 * height and cannot skip its visible span.
-                const float direction = pointer_.y < t.clip_minimum.y ? .5f : -.5f;
+                const float direction = top < t.clip_minimum.y ? .5f : -.5f;
                 // Use the scrollable window's edge, outside preview images that
                 // correctly consume the wheel for their own camera/image zoom.
                 pointer_.x = t.clip_maximum.x - 1.f;
