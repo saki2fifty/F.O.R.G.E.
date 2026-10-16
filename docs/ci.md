@@ -156,6 +156,9 @@ copies so one scene's fixture save cannot become another case's initial state.
 Each observer checks its saved Scene identity and a distinct OS storage root;
 its evidence is retained with the package checks. The dedicated relocation tests
 still move and reopen the same application and require its saves to persist.
+Gallery observers retain their native motion checks and publish case-specific
+reports: carriage poses, connected-pair positions, swing angles, spring gaps or
+animation states. Package acceptance checks each report's matching fields.
 
 ## Content-verified incremental Windows inputs
 

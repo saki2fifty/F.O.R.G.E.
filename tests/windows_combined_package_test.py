@@ -454,8 +454,17 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         proof = json.loads((slider_evidence / result_file).read_text())
         if observer_mode == '--packaged-exits':
             assert len(proof['actors']) == 3 and set(proof['actors'].values()) == {14}
+        elif observer_mode == '--packaged-connected':
+            assert proof['tick'] >= 240 and set(proof['positions']) == {
+                'Ignored pair A', 'Ignored pair B', 'Colliding pair A', 'Colliding pair B'}
+        elif observer_mode == '--packaged-swing':
+            assert proof['tick'] >= 240 and len(proof['angles']) == 2
+            assert len(proof['minimum']) == len(proof['maximum']) == 2
+        elif observer_mode == '--packaged-springs':
+            assert proof['tick'] >= 240 and len(proof['gaps']) == 2
+            assert len(proof['minimum']) == len(proof['maximum']) == 2
         else:
-            assert len(proof['carriages']) == 2
+            assert proof['tick'] >= 180 and len(proof['carriages']) == 2
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())
