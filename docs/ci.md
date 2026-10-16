@@ -211,7 +211,10 @@ Other Game captures retain their separate settling requirement. Captures scroll
 required live IK and source-control groups into view at large UI scales and
 verify that the intended document owns foreground focus. Each image records its
 readiness, focus and domain diagnostics in chrome JSON; the harness verifies all43
-images and retains partial logs on timeout.
+images and retains partial logs on timeout. Its 170-second process budget stays
+inside the existing 180-second CTest limit; the fixture retains its 45-second
+per-stage stall check. Hosted WARP measurements require this aggregate allowance
+for all43 images, including the first isolated Play startup.
 The default remains the full source audit. The artifact records the selected scope; focused success is not a
 full-suite result. Use the full audit when shared behavior or rendering changes
 require its additional coverage. Locally on a configured Windows
