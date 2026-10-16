@@ -158,6 +158,13 @@ records a manifest for subsequent runs. `clean_build` bypasses this optimization
 `tests/ci_cache_test.py` runs a real Ninja dependency check, including modified header
 bytes with a deliberately preserved timestamp. Cache reuse is not validation evidence.
 
+Curated projects under `samples/projects/` retain exact source and cooked bytes
+through Git checkout. Their selected artifact metadata records raw source digests;
+automatic LF/CRLF conversion would mark otherwise unchanged assets for rebuild
+and alter packaged examples. The repository attributes disable text conversion
+for these projects. A real checkout test enables Windows-style conversion, proves
+that project bytes stay unchanged, and checks conversion still applies elsewhere.
+
 ## Input-driven editor review
 
 `editor_input_workflow` launches the real editor fixture on Windows/D3D12 WARP

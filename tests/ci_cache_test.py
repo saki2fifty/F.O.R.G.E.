@@ -20,6 +20,39 @@ spec.loader.exec_module(stamps)
 
 
 class CacheIdentity(unittest.TestCase):
+    def test_hash_addressed_project_checkout(self):
+        work = source.parent/'AgentFiles'
+        work.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=work, prefix='project checkout ') as directory:
+            root = Path(directory)/'repository'
+            root.mkdir()
+            git = ['git', '-c', 'core.safecrlf=false']
+            subprocess.run([*git, 'init', '-q'], cwd=root, check=True)
+            (root/'.gitattributes').write_bytes((source/'.gitattributes').read_bytes())
+            paths = {
+                'samples/projects/FeatureGallery/Assets/EasedPlatform.animation.json':
+                    (source/'samples/projects/FeatureGallery/Assets/EasedPlatform.animation.json').read_bytes(),
+                'samples/projects/FeatureGallery/.forge/cache/derived/fixture/animation.clip':
+                    b'{"cooked":true}\n',
+                'samples/projects/PhysicsAcceptance/Assets/fixture.json':
+                    b'{"original_crlf":true}\r\n',
+            }
+            for name, data in paths.items():
+                path = root/name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            (root/'ordinary.txt').write_bytes(b'ordinary text\n')
+            subprocess.run([*git, '-c', 'core.autocrlf=false', 'add', '.'], cwd=root,
+                           check=True, capture_output=True)
+            checkout = Path(directory)/'Windows checkout'
+            subprocess.run([*git, '-c', 'core.autocrlf=true', 'checkout-index', '--all',
+                            '--prefix='+checkout.as_posix()+'/'], cwd=root,
+                           check=True, capture_output=True)
+            for name, data in paths.items():
+                self.assertEqual((checkout/name).read_bytes(), data, name)
+            # Prove the simulated Windows conversion is active outside projects.
+            self.assertEqual((checkout/'ordinary.txt').read_bytes(), b'ordinary text\r\n')
+
     def test_invalidation(self):
         work = source.parent/'AgentFiles'
         work.mkdir(exist_ok=True)

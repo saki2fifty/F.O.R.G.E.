@@ -12,6 +12,7 @@ dimension upload correction and a new delivery remain pending.
 
 ## Build portability corrections
 
+- Preserve hash-addressed curated project bytes across Git checkouts so Windows examples retain their selected source digests and open without spurious rebuilds. Verify actual Windows-style checkout conversion while retaining ordinary text conversion elsewhere.
 - Disable the unused upstream super-resolution targets so full editor builds keep the selected static MSVC runtime without linking an incompatible optional DLSS archive. Rendering features and dependency pins remain unchanged.
 - Compare Particle Effect artifact keys as explicit strings to avoid an MSVC C++20 overload-resolution failure while retaining strict artifact identity checks.
 - Keep editable-Mesh navigation tests available without asset tools; enable their imported-glTF extension and its model-import dependencies together in asset-tool builds.
