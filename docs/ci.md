@@ -86,6 +86,14 @@ This uses the official [cache restore/save actions](https://github.com/actions/c
 
 The repository name ends in a period, so Windows cache actions use a scoped Node preload to set their working directory to the short checkout. The preload affects only those cache processes. **Cache transport check** verifies a real save/delete/restore round trip whenever that shim or its diagnostic workflow changes; it can also be dispatched manually.
 
+For a focused model-reimport investigation, dispatch **Cache transport check** with
+`model_reimport_source_run` set to a successful complete Windows package run. This
+skips the cache probe and runs the packaged tools twice against an independent
+Gallery copy with a restricted PATH. It verifies the original package manifest and
+source identity, retains selected/candidate indexes and structured conflicts, and
+checks stable member identities or last-good metadata retention on failure. It
+does not rebuild the engine, change the accepted package, or replace delivery gates.
+
 ## Measured results
 
 On September 15, 2026, the [cold Windows editor job](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/34989524125) took **8m50s**. The [next-commit cached job](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/34990556960) took **3m00s**, approximately 66% less time, including setup, cache transfer, tests, and packaging. Ninja executed 14 build steps instead of 579; configuration fell from 3m24s to 27s and compilation from 4m10s to 35s. Both editor test suites passed. This measures dependency reuse across a documentation-only commit with freshly checked-out product sources; timings vary with changes and runner conditions.

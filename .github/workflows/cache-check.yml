@@ -11,14 +11,18 @@ on:
         type: boolean
         required: false
         default: false
+      model_reimport_source_run:
+        description: "Audit unchanged model reimports using a successful Windows package run; no engine rebuild"
+        type: string
+        default: ""
 permissions:
   contents: read
+  actions: read
 jobs:
   cache:
-    # Skip the cache transport check when the operator used the
-    # pipe_probe dispatch input; that path runs the Windows
-    # pipe-contract probe in the `pipe-probe` job below.
-    if: github.event_name != 'workflow_dispatch' || !inputs.pipe_probe
+    # Diagnostic dispatches reuse this registered entry point without running
+    # the unrelated cache transport probe.
+    if: github.event_name != 'workflow_dispatch' || (!inputs.pipe_probe && inputs.model_reimport_source_run == '')
     runs-on: windows-2022
     timeout-minutes: 10
     steps:
@@ -88,3 +92,8 @@ jobs:
   pipe-probe:
     if: github.event_name == 'workflow_dispatch' && inputs.pipe_probe
     uses: ./.github/workflows/windows-pipe-probe.yml
+  model-reimport:
+    if: github.event_name == 'workflow_dispatch' && inputs.model_reimport_source_run != ''
+    uses: ./.github/workflows/windows-model-reimport.yml
+    with:
+      source_run: ${{ inputs.model_reimport_source_run }}

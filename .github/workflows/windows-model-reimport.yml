@@ -1,0 +1,77 @@
+name: Packaged Windows model reimport
+on:
+  workflow_call:
+    inputs:
+      source_run:
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reimport:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: Checkout the audit recipe in a short Windows path
+        shell: pwsh
+        env:
+          FORGE_COMMIT: ${{ github.sha }}
+          FORGE_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:FORGE_COMMIT -notmatch '^[0-9a-f]{40}$') { throw 'Immutable audit source required' }
+          $source = Join-Path $env:RUNNER_TEMP 'forge-work/FORGE'
+          New-Item -ItemType Directory -Path $source -Force | Out-Null
+          git -C $source init
+          if ($LASTEXITCODE) { throw 'git init failed' }
+          git -C $source remote add origin https://github.com/${{ github.repository }}.git
+          if ($LASTEXITCODE) { throw 'git remote failed' }
+          $auth = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("x-access-token:$env:FORGE_TOKEN"))
+          Write-Output "::add-mask::$auth"
+          git -C $source -c "http.extraheader=AUTHORIZATION: basic $auth" fetch --depth=1 origin $env:FORGE_COMMIT
+          if ($LASTEXITCODE) { throw 'git fetch failed' }
+          git -C $source checkout --detach FETCH_HEAD
+          if ($LASTEXITCODE) { throw 'git checkout failed' }
+      - name: Verify the accepted package run
+        id: package
+        shell: pwsh
+        env:
+          FORGE_SOURCE_RUN: ${{ inputs.source_run }}
+          FORGE_TOKEN: ${{ github.token }}
+        run: |
+          if ($env:FORGE_SOURCE_RUN -notmatch '^\d+$') { throw 'Invalid package run identifier' }
+          $headers = @{ Authorization = "Bearer $env:FORGE_TOKEN"; Accept = 'application/vnd.github+json' }
+          $uri = '${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/' + $env:FORGE_SOURCE_RUN
+          $run = Invoke-RestMethod -Uri $uri -Headers $headers
+          if ($run.status -ne 'completed' -or $run.conclusion -ne 'success') { throw 'Package run is not successful' }
+          $jobs = (Invoke-RestMethod -Uri "$uri/jobs?per_page=100" -Headers $headers).jobs
+          $package = @($jobs | Where-Object { $_.name -eq 'package' })
+          if ($package.Count -ne 1 -or $package[0].conclusion -ne 'success') { throw 'Missing accepted package job' }
+          "sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: FORGE-Windows-x64
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-model-package
+      - name: Reimport using only the shipped tools and DLLs
+        shell: pwsh
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        env:
+          FORGE_PACKAGE_SOURCE: ${{ steps.package.outputs.sha }}
+        run: |
+          $zip = @(Get-ChildItem -LiteralPath '${{ runner.temp }}/forge-model-package' -Filter '*.zip')
+          if ($zip.Count -ne 1) { throw 'Expected exactly one packaged Windows ZIP' }
+          $archive = $zip[0].FullName
+          python tests/windows_model_reimport_test.py $archive $env:FORGE_PACKAGE_SOURCE '${{ runner.temp }}/forge-model-evidence'
+          if ($LASTEXITCODE) { throw 'Packaged model reimport failed; see structured evidence' }
+      - name: Preserve selected and candidate evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: windows-model-reimport
+          path: |
+            ${{ runner.temp }}/forge-model-evidence/*.json
+            ${{ runner.temp }}/forge-model-evidence/*.txt
+          if-no-files-found: error
+          retention-days: 14
