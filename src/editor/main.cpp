@@ -2819,6 +2819,16 @@ int main(int argc, char** argv) {
                     {"authored_scene", scene.document()},
                     {"play_snapshot", play.effective_snapshot()},
                     {"status", message}};
+                const auto& input = fixture.capture_input;
+                stalled["capture_input"] = {{"valid", input.valid},
+                                            {"point", {input.x, input.y}},
+                                            {"click_stage", input.click_stage},
+                                            {"click_frame", input.click_frame},
+                                            {"candidate_stage", input.candidate_stage},
+                                            {"candidate_frame", input.candidate_frame},
+                                            {"candidate", {input.candidate.x, input.candidate.y}},
+                                            {"stable_frames", input.stable_frames},
+                                            {"mouse_down", ImGui::GetIO().MouseDown[0]}};
                 if (auto* w = ImGui::FindWindowByName("###Model import"))
                     stalled["model_window"] = {{"active", bool(w->Active)},
                                                {"hidden", bool(w->Hidden)},

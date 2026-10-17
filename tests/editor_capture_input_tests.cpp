@@ -57,16 +57,46 @@ int main() {
         for (unsigned stage : {235u, 238u}) {
             input.click_once(io, stage, 4, {50, 50}, false);
             frame(stage, 4);
-            require(!hover, "Audio capture clicked before its widget became ready");
+            require(!hover, "Capture clicked before its widget became ready");
             input.click_once(io, stage, 40, {50, 50}, true);
             frame(stage, 41);
-            input.click_once(io, stage, 41, {50, 50}, true);
+            require(!hover && input.click_stage != stage,
+                    "Capture clicked on its first ready observation");
+            // A moved target and a readiness gap must each restart settling.
+            input.click_once(io, stage, 41, {51, 50}, true);
             frame(stage, 42);
-            require(clicked, "Audio capture did not receive actual click/release");
-            input.click_once(io, stage, 43, {50, 50}, true);
-            frame(stage, 45);
-            require(!hover, "Audio setup leaked pointer past its finite bound");
+            input.click_once(io, stage, 42, {50, 50}, true);
+            input.click_once(io, stage, 43, {50, 50}, false);
+            input.click_once(io, stage, 44, {50, 50}, true);
+            input.click_once(io, stage, 45, {50, 50}, true);
+            require(input.click_stage != stage, "Readiness gap did not reset settling");
+            input.click_once(io, stage, 46, {50, 50}, true);
+            frame(stage, 46);
+            require(hover && !io.MouseDown[0], "Capture did not hover before pressing");
+            frame(stage, 47);
+            require(io.MouseDown[0] && !clicked, "Capture omitted the press frame");
+            // A menu/control may disappear on press. No further click_once call
+            // is needed to release after the platform overwrites its input.
+            frame(stage, 48);
+            require(clicked, "Capture did not receive actual click/release");
+            input.click_once(io, stage, 49, {50, 50}, true);
+            frame(stage, 51);
+            require(!hover, "Capture setup leaked pointer past its finite bound");
         }
+        input = {};
+        input.click_once(io, 238, 60, {50, 50}, true);
+        input.click_once(io, 238, 61, {50, 50}, true);
+        input.click_once(io, 238, 62, {50, 50}, true);
+        frame(238, 62);
+        frame(238, 63);
+        require(io.MouseDown[0], "Stage departure fixture omitted initial press");
+        frame(239, 0);
+        require(!io.MouseDown[0], "Leaving a capture stage leaked a held button");
+        input.click_once(io, 235, 65, {50, 50}, true);
+        input.click_once(io, 235, 66, {50, 50}, true);
+        input.click_once(io, 235, 67, {std::numeric_limits<float>::quiet_NaN(), 50}, true);
+        require(input.click_stage != 235 && input.stable_frames == 0,
+                "Nonfinite click target did not reset settling");
         input.queue(io, {std::numeric_limits<float>::quiet_NaN(), 50}, 0);
         frame(124, 5);
         require(!hover && !input.valid, "Nonfinite fixture pointer accepted");
