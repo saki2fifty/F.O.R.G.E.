@@ -201,9 +201,12 @@ int main(int argc, char** argv) {
                 std::ifstream oracle_file(fixture / "expected-v2.json");
                 const auto oracle = Json::parse(oracle_file);
                 for (const auto& row : oracle) {
-                    const auto& member = current.member(current.bindings.at(row.at("address")));
-                    check(member.identity.evidence.content_digest == row.at("content_digest") &&
-                              member.identity.evidence.semantic_digest == row.at("semantic_digest"),
+                    const auto& member =
+                        current.member(current.bindings.at(row.at("address").get<std::string>()));
+                    check(member.identity.evidence.content_digest ==
+                                  row.at("content_digest").get<std::string>() &&
+                              member.identity.evidence.semantic_digest ==
+                                  row.at("semantic_digest").get<std::string>(),
                           "Platform source evidence differs from the independent JSON/hash oracle");
                 }
             }
