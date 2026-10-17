@@ -310,6 +310,17 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             if (!found)
                 throw CommandError("unavailable", "Recipe component is not registered");
         }
+        if (a.contains("component_values")) {
+            const auto& values = a.at("component_values");
+            if (!recipe || recipe->component.empty() || !values.is_object() || values.size() > 128)
+                throw CommandError("invalid_arguments", "Initial values require a component recipe "
+                                                        "and an object of at most 128 fields");
+            for (const auto& [field, value] : values.items()) {
+                detail::validate_reflected_json(property_schema(scene, recipe->component, field),
+                                                value);
+                created_row["components"][recipe->component][field] = value;
+            }
+        }
         const auto name = doc["entities"].back().at("name").get<std::string>();
         if (name.find_first_not_of(" \t\r\n") == std::string::npos)
             throw CommandError("invalid_arguments", "Entity name must not be blank");
@@ -607,6 +618,7 @@ Json authoring_commands() {
         {{"kind", {{"type", "integer"}, {"minimum", 0}, {"maximum", primitive_count - 1}}},
          {"name", text_type()},
          {"recipe", {{"type", "string"}, {"enum", recipe_ids}}},
+         {"component_values", Json::object()},
          {"position", xyz()}},
         Json::array());
     auto named = entity_arg;

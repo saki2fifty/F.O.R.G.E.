@@ -5245,7 +5245,12 @@ int main(int argc, char** argv) {
                     viewport.preview_lighting(preview_lighting);
                     view_camera.fly_speed = scene_tools.fly_speed;
                     viewport.exposure(scene_tools.exposure);
-                    if (game_view && !play.ready()) {
+                    const bool sequence_camera_preview =
+                        game_view && !play.active() && !sdk_build->busy() &&
+                        animation_timeline.sequence_mode() && animation_timeline.preview_active();
+                    if (sequence_camera_preview)
+                        ImGui::TextUnformatted("SEQUENCE PREVIEW | authored scene unchanged");
+                    if (game_view && !play.ready() && !sequence_camera_preview) {
                         ImGui::TextWrapped("%s", play.status().c_str());
                         const bool sdk_active_no_world =
                             play.active() && play.sdk_play() && !play.sdk_activation_active();
@@ -5299,7 +5304,7 @@ int main(int argc, char** argv) {
                                 animation_timeline.preview_active() ||
                                 animation_preview.preview_active(),
                             [&] {
-                                if (game_view)
+                                if (game_view && !sequence_camera_preview)
                                     return play.ready() ? play.effective_snapshot()
                                                         : scene.effective_document();
                                 auto source = authoring_snapshot.document(scene);
@@ -5429,7 +5434,7 @@ int main(int argc, char** argv) {
                                                   {scene_tools.grid, scene_tools.grid_step});
                         performance.scene_ms = forge::ui::Performance::milliseconds(
                             scene_submit, forge::ui::Performance::Clock::now());
-                        if (game_view)
+                        if (game_view && !sequence_camera_preview)
                             runtime_ui.draw(play, context, texture, image_origin, size,
                                             unsigned(std::max(1.0f, size.x * render_scale)),
                                             unsigned(std::max(1.0f, size.y * render_scale)));
@@ -6177,6 +6182,13 @@ int main(int argc, char** argv) {
                     {"ui_scale", forge::ui::interface_scale},
                     {"status", message}};
                 auto observed = state;
+                observed["sequence_preview"] = animation_timeline.sequence_mode() &&
+                                               animation_timeline.preview_active() &&
+                                               !play.active();
+                observed["game_render_ready"] = !game_viewport->pending();
+                observed["game_camera_ids"] = forge::Json::array();
+                for (const auto& camera : game_viewport->cameras())
+                    observed["game_camera_ids"].push_back(camera.entity);
                 observed["collision_preview_ready"] = physics_overlay.ready();
                 observed["collision_preview_status"] = physics_overlay.status();
                 observed["physics"] = play.physics_status();

@@ -77,6 +77,15 @@ and the native C++ material-animation probe when that SDK profile is enabled.
 The installed SDK package test compiles and runs its delivered
 `material_animation_gameplay` sample from the relocated host. Shader-only audit
 scope remains focused on shader/material compilation and rendering.
+The same installed SDK gate runs `sequence_gameplay` through Gallery62 and 68,
+checking typed camera-shot references, copied camera selection, sequence controls
+and fresh-worker recovery. The native editor input workflow creates camera shots
+through Entity/Timeline controls and inspects stopped Game preview at 100/150/200%
+scale, including unchanged authored content, gameplay ticks and input capture.
+The Vulkan material probe also checks Gallery68's actual camera/geometry pixels
+against independently enabled native cameras, with gap, loop and recovery cases.
+Final assembled-package acceptance exports Gallery68 through shipped tools and
+starts its production EXE after deleting the copied source project and runtime kit.
 Source-offline export fixtures end project writer/importer ownership before moving
 their source project. Gallery admission failures include the helper's output and
 the authored-document difference instead of hiding it in a subprocess exception.

@@ -2266,7 +2266,13 @@ void AnimationRuntime::reset_presentation() {
     }
 }
 Json AnimationRuntime::presentation_properties(flecs::entity_t id, double alpha) const {
-    return impl_ ? impl_->transforms.presentation_properties(id, alpha) : Json(nullptr);
+    if (!impl_)
+        return nullptr;
+    auto result = impl_->transforms.presentation_properties(id, alpha);
+    const auto camera = impl_->transforms.camera_presentation(id, alpha);
+    if (!camera.is_null())
+        result["forge.camera"]["enabled"] = camera;
+    return result;
 }
 Json AnimationRuntime::presentation(flecs::entity_t id, double alpha) {
     if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)
@@ -2468,10 +2474,19 @@ Json AnimationRuntime::checkpoint() const {
                     {"frozen_morphs", frozen_morphs}};
             }
         }
-    return {{"version", 3},
-            {"entries", entries},
-            {"sequence_entries", impl_ ? impl_->transforms.sequence_checkpoint() : Json::array()},
-            {"transform_entries", impl_ ? impl_->transforms.checkpoint() : Json::array()}};
+    Json result = {
+        {"version", 3},
+        {"entries", entries},
+        {"sequence_entries", impl_ ? impl_->transforms.sequence_checkpoint() : Json::array()},
+        {"transform_entries", impl_ ? impl_->transforms.checkpoint() : Json::array()}};
+    if (impl_) {
+        auto shots = impl_->transforms.camera_shots_checkpoint();
+        if (!shots.empty()) {
+            result["version"] = 4;
+            result["camera_shots"] = std::move(shots);
+        }
+    }
+    return result;
 }
 void AnimationRuntime::restore(const Json& data) {
     if (!impl_)
@@ -2518,10 +2533,15 @@ void AnimationRuntime::restore(const Json& data) {
         if (!impl_->pending.empty())
             throw ArchiveError("Animation recovery admission timed out");
     }
-    if ((data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3) ||
+    if ((data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3 &&
+         data.at("version") != 4) ||
         !data.at("entries").is_array() || data.at("entries").size() != impl_->states.size() ||
         !impl_->errors.empty())
         throw ArchiveError("Animation recovery configuration differs");
+    if ((data.at("version") != 4 && data.contains("camera_shots")) ||
+        (data.at("version") == 4 ? data.at("camera_shots") : Json::array()) !=
+            impl_->transforms.camera_shots_checkpoint())
+        throw ArchiveError("Camera Shot recovery configuration differs");
     std::set<flecs::entity_t> seen;
     struct RestoreValue {
         Playback* playback;

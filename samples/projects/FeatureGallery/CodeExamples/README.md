@@ -1,5 +1,20 @@
 # Optional C++ behaviors
 
+## Sequence and camera-shot speed
+
+Scene68 runs its saved shots without a C++ module. From an ordinary owner-thread
+C++ system before Animation, include `SequenceControl.hpp` and call:
+
+```cpp
+forge_set_sequence_speed(controller, .5f);
+```
+
+The controller must have Animation Sequence. Speeds0–4 are accepted; zero holds
+time. Object clips and camera shots keep sharing that controller's clock. This
+does not edit authored files or Camera enabled flags. Use the matching installed
+SDK. The existing animation service controls pause, seek and restart on that same
+controller; bound clip clocks remain controlled by the sequence.
+
 ## Material animation
 
 Scene67 plays its saved clips without a C++ module. To adjust an animated object's

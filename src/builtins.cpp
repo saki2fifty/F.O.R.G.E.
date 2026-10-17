@@ -79,6 +79,12 @@ template <class T> Json encode(const T& p) {
                 {"play_on_start", p.play_on_start},
                 {"loop", p.loop},
                 {"playback_speed", p.playback_speed}};
+    else if constexpr (std::is_same_v<T, CameraShot>)
+        return {{"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
+                {"camera", p.camera.entity ? Json(p.camera) : Json()},
+                {"start_seconds", p.start_seconds},
+                {"end_seconds", p.end_seconds},
+                {"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, TransformAnimator>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"enabled", p.enabled},
@@ -300,6 +306,19 @@ template <class T> Value decode(const Json& p) {
         if (!std::isfinite(v.duration) || v.duration < 1e-6 || v.duration > 3600 ||
             !std::isfinite(v.playback_speed) || v.playback_speed < 0 || v.playback_speed > 4)
             throw std::runtime_error("Animation Sequence duration/speed is outside its range");
+        return v;
+    } else if constexpr (std::is_same_v<T, CameraShot>) {
+        CameraShot v;
+        if (!p.at("sequence").is_null())
+            v.sequence = p.at("sequence").get<EntityRef>();
+        if (!p.at("camera").is_null())
+            v.camera = p.at("camera").get<EntityRef>();
+        v.start_seconds = p.at("start_seconds");
+        v.end_seconds = p.at("end_seconds");
+        v.enabled = p.at("enabled");
+        if (!std::isfinite(v.start_seconds) || !std::isfinite(v.end_seconds) ||
+            v.start_seconds < 0 || v.start_seconds >= v.end_seconds || v.end_seconds > 3600)
+            throw std::runtime_error("Camera Shot requires 0 <= start < end <= 3600 seconds");
         return v;
     } else if constexpr (std::is_same_v<T, TransformAnimator>) {
         TransformAnimator v;
@@ -680,6 +699,13 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("play_on_start")
             .template member<bool>("loop")
             .template member<float>("playback_speed");
+    } else if constexpr (std::is_same_v<T, CameraShot>) {
+        (void)authoring_value_adapters(w);
+        c.template member<EntityRef>("sequence")
+            .template member<EntityRef>("camera")
+            .template member<double>("start_seconds")
+            .template member<double>("end_seconds")
+            .template member<bool>("enabled");
     } else if constexpr (std::is_same_v<T, TransformAnimator>) {
         (void)authoring_value_adapters(w);
         register_asset_ref<TransformAnimationAsset>(w, "forge.transform_animation_ref");
@@ -988,6 +1014,9 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) {
                 return register_type<AnimationSequence>(w, "forge.animation_sequence");
             }),
+        descriptor<CameraShot>(
+            "forge.camera_shot", "Select a camera during a Scene sequence interval", "unitless", {},
+            {}, [](flecs::world& w) { return register_type<CameraShot>(w, "forge.camera_shot"); }),
         descriptor<TransformAnimator>(
             "forge.transform_animator", "Authored local transform keyframes during Play",
             "unitless", {}, {},
@@ -1463,6 +1492,21 @@ Json registration_options(const Builtin& type, const std::string& field) {
                     : "Local direction; normalized when preparing IK";
         }
     }
+    if (name == "forge.camera_shot") {
+        if (field == "sequence") {
+            value["display_name"] = "Sequence controller";
+            value["description"] = "Scene Animation Sequence that owns this shot's timing";
+        } else if (field == "camera") {
+            value["display_name"] = "Camera";
+            value["description"] = "Camera in the same loaded Scene; selection never binds by name";
+        } else if (field == "start_seconds" || field == "end_seconds") {
+            value["display_name"] = field == "start_seconds" ? "Start (seconds)" : "End (seconds)";
+            value["minimum"] = 0;
+            value["maximum"] = 3600;
+            value["unit"] = "seconds";
+            value["description"] = "Nonoverlapping interval inside the controller duration";
+        }
+    }
     if (name == "forge.animator" || name == "forge.transform_animator" ||
         name == "forge.animation_sequence") {
         if (field == "duration") {
@@ -1876,8 +1920,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             name == "forge.ui_document"             ? 5u
             : name.starts_with("forge.navigation_") ? 4u
             : (name == "forge.animator" || name == "forge.transform_animator" ||
-               name == "forge.animation_sequence" || name == "forge.two_bone_ik" ||
-               name == "forge.aim_ik")
+               name == "forge.animation_sequence" || name == "forge.camera_shot" ||
+               name == "forge.two_bone_ik" || name == "forge.aim_ik")
                 ? 3u
             : name.starts_with("forge.audio_") ? 2u
             : (name == "forge.physics_body" || name == "forge.physics_joint" ||
@@ -1893,7 +1937,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
         }
         std::vector<ReflectedAdapter> references;
-        if (name == "forge.physics_joint" || name == "forge.transform_animator")
+        if (name == "forge.physics_joint" || name == "forge.transform_animator" ||
+            name == "forge.camera_shot")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.

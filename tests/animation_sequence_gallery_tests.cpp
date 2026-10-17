@@ -137,6 +137,73 @@ void exercise(const std::filesystem::path& root, const Json& source) {
     check(live.scene.entity(actors.door.str()).get<LocalTranslation>() == before,
           "Invalid property target allowed partial sequence writes");
 }
+void exercise_shots(const std::filesystem::path& root, const Json& source) {
+    World live(root, source);
+    EntityRef group;
+    EntityId fallback;
+    std::map<double, EntityId> targets;
+    for (const auto& row : source.at("entities")) {
+        const auto& c = row.at("components");
+        if (c.contains("forge.animation_sequence"))
+            group = {source.at("asset_id").get<AssetId>(), row.at("id").get<EntityId>()};
+        if (c.contains("forge.camera_shot")) {
+            const auto& shot = c.at("forge.camera_shot");
+            targets.emplace(shot.at("start_seconds").get<double>(),
+                            shot.at("camera").get<EntityRef>().entity);
+        }
+        if (c.contains("forge.camera") && c.at("forge.camera").at("enabled").get<bool>())
+            fallback = row.at("id").get<EntityId>();
+    }
+    check(group.entity && fallback && targets.size() == 3, "Gallery68 shot actors are missing");
+    const auto expected = [&](double time) {
+        return time < 2     ? targets.at(0)
+               : time < 4   ? targets.at(2)
+               : time < 5.5 ? targets.at(4)
+                            : fallback;
+    };
+    const auto inspect = [&](World& world, EntityId target, double alpha = 1) {
+        const auto snapshot = world.simulation.presentation(alpha);
+        const auto render = extract_render_scene(snapshot);
+        const auto views = prepare_game_cameras(render, 640, 360);
+        check(render.diagnostics.empty() && views.diagnostics.empty() &&
+                  views.cameras.size() == 1 && views.cameras.front().entity == target &&
+                  render.meshes.size() == 4 && render.lights.size() == 1,
+              "Gallery68 did not present its actual selected camera/geometry/light");
+        for (const auto& row : source.at("entities"))
+            if (row.at("components").contains("forge.camera"))
+                check(world.scene.entity(row.at("id").get<std::string>()).get<Camera>().enabled ==
+                          row.at("components").at("forge.camera").at("enabled").get<bool>(),
+                      "Gallery68 camera selection mutated native Camera intent");
+    };
+    inspect(live, expected(0));
+    for (unsigned i = 1; i <= 24; ++i) {
+        live.simulation.tick(.25f);
+        const auto time = std::fmod(i * .25, 6.);
+        inspect(live, expected(time));
+        inspect(live, expected(i == 24 ? 0 : i * .25 - .125), .5);
+    }
+    for (double time : {1.999999, 2., 3.999999, 4., 5.499999, 5.5, 6.}) {
+        AnimationPlaybackAccess::control(*live.animation, group,
+                                         {{"operation", "seek"}, {"position_seconds", time}});
+        inspect(live, expected(time == 6 ? 0 : time));
+    }
+    AnimationPlaybackAccess::control(*live.animation, group,
+                                     {{"operation", "seek"}, {"position_seconds", 3.25}});
+    AnimationPlaybackAccess::control(*live.animation, group, {{"operation", "pause"}});
+    const auto checkpoint = live.animation->checkpoint();
+    check(checkpoint.at("version") == 4 && checkpoint.at("camera_shots").size() == 3,
+          "Gallery68 lost its shot recovery boundary");
+    World recovered(root, source);
+    recovered.animation->restore(checkpoint);
+    recovered.simulation.reset_presentation();
+    inspect(recovered, targets.at(2));
+    live.simulation.tick(.25f);
+    inspect(live, targets.at(2));
+    auto config = live.scene.entity(group.entity.str()).get<AnimationSequence>();
+    config.enabled = false;
+    live.scene.entity(group.entity.str()).set(config);
+    inspect(live, fallback);
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -146,6 +213,7 @@ int main(int argc, char** argv) {
         const auto root = scratch / "source";
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto source = read(root / "Scenes/62-coordinated-animation.scene.json");
+        const auto shots = read(root / "Scenes/68-sequence-camera-shots.scene.json");
         const auto catalog = AssetCatalog::open_project(root);
         std::set<AssetId> clips;
         for (const auto& row : source.at("entities"))
@@ -159,7 +227,9 @@ int main(int argc, char** argv) {
             }
         check(clips.size() == 3, "Sequence Gallery did not reuse three independent clips");
         exercise(root, source);
-        const std::array roots{source.at("asset_id").get<AssetId>()};
+        exercise_shots(root, shots);
+        const std::array roots{source.at("asset_id").get<AssetId>(),
+                               shots.at("asset_id").get<AssetId>()};
         {
             ProjectLease lease(root);
             prepare_runtime_content_catalog(lease, roots, {});
@@ -169,14 +239,15 @@ int main(int argc, char** argv) {
         const auto moved = scratch / "relocated";
         std::filesystem::rename(exported, moved);
         const auto shipped = open_runtime_content(moved, {"windows", "d3d12"});
-        check(shipped.records().size() == 5, "Sequence export has an incorrect content closure");
+        check(shipped.records().size() == 7, "Sequence export has an incorrect content closure");
         for (const auto id : clips)
             check(shipped.records().contains(id) &&
                       !std::filesystem::exists(moved / catalog.records().at(id).source),
                   "Sequence export lost a selected cook or shipped editable clip source");
         std::filesystem::rename(root, scratch / "source-offline");
         exercise(moved, read(moved / shipped.records().at(roots[0]).source));
-        std::cout << "Gallery62 coordinated transform/camera/light/audio, holds/loop/controls, "
+        exercise_shots(moved, read(moved / shipped.records().at(roots[1]).source));
+        std::cout << "Gallery62 coordinated animation and Gallery68 actual camera shots/cuts/gaps, "
                      "recovery/candidates and relocated source-free Windows-target data PASS\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

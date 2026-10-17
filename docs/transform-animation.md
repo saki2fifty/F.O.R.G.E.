@@ -56,6 +56,46 @@ remain supported and persistent.
 Export closes over the existing saved Scene, selected clip cooks and typed audio
 references; it does not ship an editor or require a compiler for sequencing.
 
+## Sequence camera shots
+
+`CameraShot` is a Scene-owned native component with `sequence` and `camera`
+EntityRefs, `start_seconds`, `end_seconds` and `enabled`. An unbound shot is inactive.
+The existing transform provider prepares up to 256 enabled/bound shots per world;
+both references resolve in the shot's loaded Scene membership. The controller must
+be an AnimationSequence and the target a Camera. Intervals require finite
+`0 <= start < end <= controller duration`. Each loaded Scene admits one enabled
+shot director, with nonoverlapping intervals; other object-only controllers remain
+independent. Invalid arrangements report diagnostics and provide no shot override
+for that Scene. Cross-entity arrangement errors block initial animation admission
+and leave the authored source unchanged.
+
+Selection samples the existing controller's presentation time. Intervals are
+start-inclusive/end-exclusive. A shot ending at sequence duration also holds at
+that final nonlooping time. Loop discontinuities snap with the existing clip
+presentation; there is no cross-camera blend. Gaps and disabled controllers restore
+ordinary camera composition. Only copied Camera.enabled values change: the chosen
+camera becomes enabled, including a disabled standby camera, and the other cameras
+in that membership become disabled. Native Camera components, source files and
+authored history remain unchanged. Lens/transform/resource admission stays with
+the existing render and animation owners.
+
+Timeline borrows Scene history for creation, camera/interval edits and removal.
+Creation uses the existing `entity.create` recipe command with initial component
+values, so a bound shot is one transaction. Pending edits retain their Scene revision
+and reject stale commits. The existing isolated preview projects the same copied
+selection; Game can render it while Play is stopped, with an explicit preview label
+and without running runtime UI, native gameplay, sound or physics. Stop/close/Scene
+changes restore the authored view.
+
+Private animation checkpoint4 records exact active shot identities, references and
+intervals alongside the existing sequence clocks. Nonshot configurations keep
+checkpoint3; versions1–3 reject recovery when active shots cannot be described.
+Shot mismatches reject before clock adoption. Scene/Prefab/clip formats and ABI1
+function tables are unchanged. The installed animation component header changes the
+exact SDK fingerprint; rebuild native modules with the matching SDK. ADR021/022
+retain clock and portable-reference ownership. Gallery68 demonstrates cuts, a gap,
+coordinated object motion and normal source-free export.
+
 ## Per-object material animation
 
 Source5 adds up to64 `material_bindings`, each identified by the stable mesh

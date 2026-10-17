@@ -143,8 +143,118 @@ void animated_gallery(DiligentPresentation& presentation, IRenderDevice* device,
     std::cout << "Gallery67 actual animation/Prefab samples, recovery/loop pixels and two shared "
                  "bundles PASS\n";
 }
+void camera_shot_gallery(DiligentPresentation& presentation, IRenderDevice* device,
+                         IDeviceContext* context, ITexture* color, ITexture* depth,
+                         const std::filesystem::path& project,
+                         const std::filesystem::path& output) {
+    const auto scene_id = AssetId::parse("45697f18-c66f-407b-a04b-51f037a71f48");
+    EngineContext engine(WorldRole::Runtime, false,
+                         {runtime_resources_module(project), animation_module(project)});
+    Scene scene(engine.world());
+    scene.restore_snapshot(load_game_scene(project, {scene_id}));
+    RuntimeSimulation simulation(engine.world(), scene);
+    const auto animation = animation_runtime(engine.world());
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (!animation->prepare_initial_pose()) {
+        engine.services().resources()->synchronize();
+        check(std::chrono::steady_clock::now() < deadline, "Gallery68 native animation stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    EntityRef controller;
+    std::map<double, EntityId> cameras;
+    EntityId fallback;
+    const auto authored = scene.effective_document();
+    for (const auto& row : authored.at("entities")) {
+        const auto& c = row.at("components");
+        if (c.contains("forge.animation_sequence"))
+            controller = {scene_id, row.at("id").get<EntityId>()};
+        if (c.contains("forge.camera_shot")) {
+            const auto& shot = c.at("forge.camera_shot");
+            cameras.emplace(shot.at("start_seconds").get<double>(),
+                            shot.at("camera").get<EntityRef>().entity);
+        }
+        if (c.contains("forge.camera") && c.at("forge.camera").at("enabled").get<bool>())
+            fallback = row.at("id").get<EntityId>();
+    }
+    check(controller.entity && fallback && cameras.size() == 3,
+          "Gallery68 camera arrangement missing");
+    AnimationPlaybackAccess::control(*animation, controller, {{"operation", "pause"}});
+    auto host = std::make_shared<MeshResourceHost>(presentation, context, project);
+    host->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project)));
+    MeshSceneRenderer renderer(host);
+    const auto render = [&](const RenderScene& frame) {
+        const auto views = prepare_game_cameras(frame, 384, 192);
+        check(frame.diagnostics.empty() && views.diagnostics.empty() && views.cameras.size() == 1,
+              "Gallery68 native camera admission failed");
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        do {
+            renderer.update(frame);
+            check(std::chrono::steady_clock::now() < end,
+                  "Gallery68 native mesh admission stalled");
+            if (renderer.pending())
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (renderer.pending());
+        check(renderer.diagnostics().empty(), "Gallery68 native resources rejected");
+        const auto& camera = views.cameras.front();
+        renderer.shadows(frame, camera.view, camera.settings.layers);
+        auto* rtv = color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+        auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
+        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        // Common background isolates actual camera/geometry changes in this probe.
+        const float background[4]{.02f, .025f, .03f, 1};
+        context->ClearRenderTarget(rtv, background, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        Viewport viewport{0, 0, 384, 192, 0, 1};
+        context->SetViewports(1, &viewport, 384, 192);
+        renderer.draw(frame, camera.view, camera.settings.layers, color, dsv);
+        host->submit();
+        context->Flush();
+        check(renderer.diagnostics().empty() && renderer.draw_stats().instances == 4,
+              "Gallery68 native shot lost geometry or failed draw");
+        return read(device, context, color);
+    };
+    const auto sample = [&](double seconds, EntityId expected) {
+        AnimationPlaybackAccess::control(*animation, controller,
+                                         {{"operation", "seek"}, {"position_seconds", seconds}});
+        simulation.reset_presentation();
+        const auto frame = extract_render_scene(simulation.presentation(1));
+        check(frame.cameras.size() == 1 && frame.cameras.front().entity == expected,
+              "Gallery68 selected the wrong native camera");
+        auto reference = scene.effective_document();
+        for (auto& row : reference["entities"])
+            if (row["components"].contains("forge.camera")) {
+                const auto id = row.at("id").get<EntityId>();
+                check(row.at("components").at("forge.camera").at("enabled") == (id == fallback),
+                      "Camera shots changed native camera intent");
+                row["components"]["forge.camera"]["enabled"] = id == expected;
+            }
+        const auto pixels = render(frame);
+        check(pixels == render(extract_render_scene(reference)),
+              "Shot pixels differ from an independently selected native Camera");
+        return pixels;
+    };
+    const auto wide = sample(0, cameras.at(0));
+    const auto side = sample(2.5, cameras.at(2));
+    const auto checkpoint = animation->checkpoint();
+    const auto close = sample(4.5, cameras.at(4));
+    const auto overview = sample(5.75, fallback);
+    check(wide != side && side != close && close != overview && overview != wide,
+          "Native shot camera changes did not reach distinct geometry pixels");
+    animation->restore(checkpoint);
+    simulation.reset_presentation();
+    check(render(extract_render_scene(simulation.presentation(1))) == side,
+          "Recovered camera-shot clock did not restore native pixels");
+    check(sample(6, cameras.at(0)) == wide, "Camera sequence loop did not restore initial pixels");
+    image(output / "gallery68-wide.ppm", wide);
+    image(output / "gallery68-side.ppm", side);
+    image(output / "gallery68-close.ppm", close);
+    image(output / "gallery68-overview-gap.ppm", overview);
+    std::cout << "Gallery68 actual camera-shot geometry pixels, independent camera oracle, "
+                 "gap/recovery/loop and immutable native cameras PASS\n";
+}
 void execute(const std::filesystem::path& root, const std::filesystem::path& gallery = {},
-             bool animation_only = false) {
+             bool animation_only = false, bool camera_shots_only = false) {
     std::filesystem::create_directories(root);
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
@@ -170,6 +280,10 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
     desc.BindFlags = BIND_DEPTH_STENCIL;
     device->CreateTexture(desc, nullptr, &depth);
     check(color && depth, "Material targets unavailable");
+    if (camera_shots_only) {
+        camera_shot_gallery(presentation, device, context, color, depth, gallery, root);
+        return;
+    }
     if (animation_only) {
         animated_gallery(presentation, device, context, color, depth, gallery, root);
         return;
@@ -434,6 +548,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
                   gallery_renderer.draw_stats().instances == 7,
               "Gallery66 lost native object colors or split the shared material resources");
         animated_gallery(presentation, device, context, color, depth, gallery, root);
+        camera_shot_gallery(presentation, device, context, color, depth, gallery, root);
     }
     std::cout << "Native object color/roughness, default restoration, equal-value instancing, "
                  "last-good edits/reloads/recovery, bounded sparse payload, skin/morph values "
@@ -443,10 +558,13 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
 int main(int argc, char** argv) {
     try {
         check(argc == 2 || argc == 3 ||
-                  (argc == 4 && std::string_view(argv[3]) == "--animation-only"),
+                  (argc == 4 && (std::string_view(argv[3]) == "--animation-only" ||
+                                 std::string_view(argv[3]) == "--camera-shots-only")),
               "Need material native scratch root and optional Gallery/package");
         execute(std::filesystem::path(argv[1]) / AssetId::generate().str(),
-                argc >= 3 ? argv[2] : "", argc == 4);
+                argc >= 3 ? argv[2] : "",
+                argc == 4 && std::string_view(argv[3]) == "--animation-only",
+                argc == 4 && std::string_view(argv[3]) == "--camera-shots-only");
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

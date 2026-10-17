@@ -2981,6 +2981,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "45697f18-c66f-407b-a04b-51f037a71f48",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/68-sequence-camera-shots.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
       "metadata": {
         "forge.import": {

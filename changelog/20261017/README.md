@@ -1,5 +1,16 @@
 # 2026-10-17
 
+## Sequence camera shots
+
+- Add Scene-owned camera shots to the existing Animation Sequence clock and Timeline. Create a shot from the selected camera, choose a camera by its stable ID, edit its interval, and use Scene Save/Undo/Redo.
+- Switch cameras in copied presentation during Play and export. Adjacent shots cut at their boundary; gaps restore normal cameras; a final shot can hold at sequence completion. Authored camera enabled flags remain intact.
+- Show stopped sequence preview in Game with an explicit preview label. Gameplay C++, physics, sound and runtime UI stay stopped.
+- Include editable Gallery68 with three shots, a normal-camera gap and a moving panel. Preserve all existing Gallery assets and scenes.
+- Extend exact private recovery for shot arrangements, typed Scene/Prefab reference remapping and C++ SDK coverage. Install the sequence-speed example with the SDK. Existing C++ modules require a rebuild against the matching SDK; ABI1 function tables and dependency pins are unchanged.
+
+Local runtime, source-free export, C++ SDK and native Vulkan camera checks pass.
+Integrated Windows source/package gates and physical user testing remain pending.
+
 ## Model import review
 
 - Show saved part names, types and full asset IDs in ambiguous-import choices, with a fallback for unnamed parts and a marker for removed parts. Duplicate names remain independent choices; matching and publication rules are unchanged.

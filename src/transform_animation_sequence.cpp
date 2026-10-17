@@ -1,6 +1,7 @@
 #include "transform_animation_runtime.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/render_components.hpp>
 #include <stdexcept>
 namespace forge {
 void TransformAnimationPlayback::synchronize_sequences() {
@@ -29,10 +30,15 @@ void TransformAnimationPlayback::synchronize_sequences() {
                 at = sequence_states_.insert_or_assign(entity.id(), value).first;
             }
             auto& state = at->second;
-            state.discontinuous |=
+            const bool changed =
                 state.config.duration != config.duration || state.config.loop != config.loop;
+            state.discontinuous |= changed;
             state.config = config;
             state.time = std::min(state.time, config.duration * animation_timebase);
+            if (changed) {
+                state.previous = state.time;
+                state.advance = 0;
+            }
             if (sequence_errors_.erase(entity.id()) && !load_errors_.contains(entity.id()))
                 errors_.erase(entity.id());
         } catch (const std::exception& e) {
@@ -168,6 +174,125 @@ Json TransformAnimationPlayback::sequence_checkpoint() const {
                           {"time_us", state.time},
                           {"playing", state.playing}});
     }
+    return result;
+}
+namespace {
+flecs::entity_t scene_membership(flecs::entity entity) {
+    for (auto parent = entity; parent; parent = parent.target(flecs::ChildOf))
+        if (const auto membership = parent.target<SceneMember>())
+            return membership.id();
+    return 0;
+}
+} // namespace
+void TransformAnimationPlayback::synchronize_camera_shots() {
+    const auto previous_errors = std::move(shot_errors_);
+    shot_errors_.clear();
+    std::map<flecs::entity_t, std::vector<Shot>> candidate;
+    std::set<flecs::entity_t> invalid_scenes;
+    std::size_t count = 0;
+    camera_shots_.each([&](flecs::entity entity, const CameraShot& config) {
+        const auto ref = context_.reference(entity.id());
+        if (entity.has(flecs::Prefab) || !ref || !config.enabled || !config.sequence.entity)
+            return;
+        const auto membership = scene_membership(entity);
+        try {
+            if (++count > 256)
+                throw std::runtime_error("Camera Shot limit (256) exceeded");
+            const auto resolved = context_.resolve(config.sequence, membership);
+            if (!membership || resolved.state != WorldContext::ResolveState::Available ||
+                !context_.world().entity(resolved.entity).has<AnimationSequence>())
+                throw std::runtime_error("Camera Shot sequence is unavailable in this Scene");
+            const auto controller = context_.world().entity(resolved.entity);
+            if (!controller.get<AnimationSequence>().enabled)
+                return;
+            if (!sequence_states_.contains(resolved.entity) ||
+                sequence_errors_.contains(resolved.entity))
+                throw std::runtime_error("Camera Shot sequence configuration is invalid");
+            const auto camera = context_.resolve(config.camera, membership);
+            if (camera.state != WorldContext::ResolveState::Available ||
+                !context_.world().entity(camera.entity).has<Camera>())
+                throw std::runtime_error("Camera Shot camera is unavailable in this Scene");
+            const auto duration = sequence_states_.at(resolved.entity).config.duration;
+            if (!std::isfinite(config.start_seconds) || !std::isfinite(config.end_seconds) ||
+                config.start_seconds < 0 || config.start_seconds >= config.end_seconds ||
+                config.end_seconds > duration)
+                throw std::runtime_error(
+                    "Camera Shot requires 0 <= start < end <= sequence duration");
+            candidate[membership].push_back({config, *ref, resolved.entity, camera.entity});
+        } catch (const std::exception& e) {
+            invalid_scenes.insert(membership);
+            shot_errors_.insert(entity.id());
+            error(entity.id(), e.what());
+        }
+    });
+    for (auto& [membership, shots] : candidate) {
+        std::sort(shots.begin(), shots.end(), [](const Shot& a, const Shot& b) {
+            return a.config.start_seconds < b.config.start_seconds;
+        });
+        for (std::size_t i = 1; i < shots.size(); ++i) {
+            const bool different = shots[i].sequence != shots.front().sequence;
+            if (!different && shots[i - 1].config.end_seconds <= shots[i].config.start_seconds)
+                continue;
+            invalid_scenes.insert(membership);
+            for (const auto& shot : shots) {
+                const auto id = context_.resolve(shot.entity, membership).entity;
+                shot_errors_.insert(id);
+                error(id, different ? "Only one camera-shot sequence may direct a loaded Scene"
+                                    : "Camera Shot intervals overlap in this Scene sequence");
+            }
+            break;
+        }
+    }
+    for (auto membership : invalid_scenes)
+        candidate.erase(membership);
+    shot_scenes_.swap(candidate);
+    for (auto id : previous_errors)
+        if (!shot_errors_.contains(id) && !load_errors_.contains(id) &&
+            !sequence_errors_.contains(id))
+            errors_.erase(id);
+}
+Json TransformAnimationPlayback::camera_presentation(flecs::entity_t id, double alpha) const {
+    if (!std::isfinite(alpha) || alpha < 0 || alpha > 1)
+        throw std::runtime_error("Invalid camera-shot presentation alpha");
+    if (shot_scenes_.empty())
+        return nullptr;
+    const auto entity = context_.world().entity(id);
+    if (!entity.has<Camera>())
+        return nullptr;
+    const auto at = shot_scenes_.find(scene_membership(entity));
+    if (at == shot_scenes_.end())
+        return nullptr;
+    const auto& shots = at->second;
+    const auto& group = sequence_states_.at(shots.front().sequence);
+    const auto duration = group.config.duration * animation_timebase;
+    // The existing sequence clock owns interpolation. A wrap snaps all clip
+    // presentation endpoints; camera selection must sample that same wrapped pose.
+    const bool wrapped = group.config.loop && group.previous + group.advance >= duration;
+    const auto time =
+        group.advance == 0 || wrapped ? group.time : group.previous + group.advance * alpha;
+    for (const auto& shot : shots) {
+        const auto start = shot.config.start_seconds * animation_timebase;
+        const auto end = shot.config.end_seconds * animation_timebase;
+        if (time >= start && (time < end || (time == duration && end == duration)))
+            return id == shot.camera;
+    }
+    return nullptr; // A gap restores ordinary authored camera composition.
+}
+Json TransformAnimationPlayback::camera_shots_checkpoint() const {
+    auto result = Json::array();
+    for (const auto& [membership, shots] : shot_scenes_) {
+        (void)membership;
+        for (const auto& shot : shots)
+            result.push_back({{"entity", shot.entity},
+                              {"sequence", shot.config.sequence},
+                              {"camera", shot.config.camera},
+                              {"start_seconds", shot.config.start_seconds},
+                              {"end_seconds", shot.config.end_seconds}});
+    }
+    // Native entity/membership allocation order is not persistent identity.
+    std::sort(result.begin(), result.end(), [](const Json& a, const Json& b) {
+        return a.at("entity").dump() < b.at("entity").dump();
+    });
     return result;
 }
 } // namespace forge

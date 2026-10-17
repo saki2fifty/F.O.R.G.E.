@@ -30,7 +30,8 @@ TransformAnimationPlayback::TransformAnimationPlayback(WorldContext& context,
                                                        std::filesystem::path project)
     : context_(context), project_(std::move(project)), pool_({1, 64, 64, 16 * 1024 * 1024}),
       players_(context.world().query<const TransformAnimator>()),
-      sequences_(context.world().query<const AnimationSequence>()) {}
+      sequences_(context.world().query<const AnimationSequence>()),
+      camera_shots_(context.world().query<const CameraShot>()) {}
 void TransformAnimationPlayback::catalog(std::shared_ptr<const AssetCatalog> catalog) {
     catalog_ = std::move(catalog);
 }
@@ -197,10 +198,11 @@ void TransformAnimationPlayback::synchronize() {
     std::erase_if(states_, [&](const auto& entry) { return !alive.contains(entry.first); });
     std::erase_if(errors_, [&](const auto& entry) {
         return !alive.contains(entry.first) && !sequence_states_.contains(entry.first) &&
-               !sequence_errors_.contains(entry.first);
+               !sequence_errors_.contains(entry.first) && !shot_errors_.contains(entry.first);
     });
     std::erase_if(load_errors_, [&](auto id) { return !alive.contains(id); });
     synchronize_materials();
+    synchronize_camera_shots();
 }
 void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& times,
                                        bool commit) {

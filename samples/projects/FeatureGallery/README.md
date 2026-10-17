@@ -1,5 +1,26 @@
 # FORGE Feature Gallery
 
+## Sequence camera shots
+
+Open **Scenes/68-sequence-camera-shots.scene.json** and press Play. The front view
+lasts two seconds, the side view lasts two seconds, and the close view lasts one
+and a half seconds. The last half-second uses the normal overview camera. The
+moving panel and shots share one six-second sequence.
+
+Select **Sequence - camera shots and moving object**, then choose **Open sequence
+timeline** in Content's Create / Register menu. Select a shot under **Camera shots**,
+change **Shot start**, **Shot end** or **Shot camera**, and choose **Apply shot fields**.
+Undo restores that edit. Use **Refresh clips → Preview sequence**, then open Game
+and scrub a strip to view the cuts without gameplay. Stop preview restores the
+authored camera settings. Standby cameras intentionally have Enabled turned off;
+the active shot selects them in the rendered view.
+
+Try extending the last shot to six seconds to remove the overview gap. Save the
+Scene and select it as startup before export. The exported game uses the saved
+shots and prepared moving-panel clip, with no compiler or C++ module required.
+The optional **SequenceControl.hpp** helper changes the same controller's speed
+from a C++ system. See the [sequence guide](../../../manual/editor/animation-sequences.md).
+
 ## Animated per-object material values
 
 Open **Scenes/67-animated-material-values.scene.json** and press Play. The gray

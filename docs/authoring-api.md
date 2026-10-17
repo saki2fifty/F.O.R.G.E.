@@ -6,7 +6,7 @@
 
 Each `AuthoringSession` owns a reference to one Scene and is dispatched on its creation thread. `discover` returns a target with `kind: scene`, `id: <scene AssetId>`, and a session token. Echo the complete target on every document request. This token is a routing identity, not an authentication secret or a persistent scene UUID. Persisted entity IDs are canonical UUIDv4 EntityIds in scene-v3; migrated legacy aliases remain explicit compatibility metadata. Future asset document kinds require their own capabilities; they must not be shoehorned into scene entities.
 
-Property schema augments Flecs-reflected members with immutable built-in `property_id` values such as `forge.local_translation.x`, defaults, units, constraints, schema version and serialization/binding metadata. The existing member IDs are now reserved compatibility identifiers; renaming their display labels must not rename their stored identity. Animation metadata describes eligible numeric binding targets; animation evaluation is not implemented. Unknown components/extra fields still round-trip, and commands only edit supported built-in fields.
+Property schema augments Flecs-reflected members with immutable built-in `property_id` values such as `forge.local_translation.x`, defaults, units, constraints, schema version and serialization/binding metadata. The existing member IDs are now reserved compatibility identifiers; renaming their display labels must not rename their stored identity. Animation metadata describes eligible numeric binding targets; [AnimationRuntime](transform-animation.md) owns evaluation while these commands edit authored intent. Unknown components/extra fields still round-trip, and commands only edit supported built-in fields.
 
 ## Transport
 
@@ -28,6 +28,14 @@ Begin with `{"api":1,"method":"discover"}`. It returns the target, current revis
 Successful responses contain `api`, `ok`, `revision`, and `result`. Failures contain `api`, `ok:false`, and `error.code/message`. Codes include `unsupported_version`, `wrong_target`, `wrong_thread`, `stale_revision`, `invalid_arguments`, `not_found`, `unsupported_property`, `unknown_operation`, `limit_exceeded`, `unavailable` and `invalid_request`. The stdio adapter is synchronous and has no subscriptions, request replay cache, cross-document transactions or automatic retry. The live adapter adds separate numbered replay receipts. Reread state after a stale response and decide explicitly whether to submit again.
 
 ## Transaction behavior
+
+`entity.create` accepts optional `component_values` with an explicit component
+recipe. Supply an object of at most 128 known fields for that recipe's component;
+omitted fields retain schema defaults. The same reflected field and complete
+component validation runs before the new entity is published. For example,
+`animation.camera_shot` can receive its controller/camera references and interval
+in one creation command and one Undo entry. Unknown fields, wrong types, invalid
+cross-field values and values without a component recipe reject the entire command.
 
 Commands execute sequentially on a candidate using existing Scene validation and hierarchy operations. A later invalid command discards earlier candidate changes. Only the final valid document commits to the authored scene, creating one undo entry and changing its revision. Every intermediate command must produce a valid scene. A semantic no-op consumes no history entry. UI gesture previews remain outside Scene until release; Escape discards them. Unknown numeric properties are not modified by a vector edit.
 

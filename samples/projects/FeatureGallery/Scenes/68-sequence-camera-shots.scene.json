@@ -1,0 +1,656 @@
+{
+  "asset_id": "45697f18-c66f-407b-a04b-51f037a71f48",
+  "entities": [
+    {
+      "components": {
+        "forge.animation_sequence": {
+          "duration": 6.0,
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "88dbc482-243d-4bbe-938c-d2fb2fb289c2",
+      "name": "Sequence - camera shots and moving object",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.4000000059604645,
+          "z": 10.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.1599999964237213,
+                  0.18000000715255737,
+                  0.2199999988079071,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "beaca768-3734-4bf8-b4a6-baf87671cf56",
+      "name": "Floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 2.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8500000238418579,
+                  0.03500000014901161,
+                  0.02500000037252903,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "f4bf69f4-b4fd-4e6c-8995-d0ae9ed3660b",
+      "name": "Red marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 2.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.10000000149011612,
+                  0.8500000238418579,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "ca83b342-9e05-4a70-a8eb-d3afe91ba51d",
+      "name": "Blue marker",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 3.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8999999761581421,
+                  0.6000000238418579,
+                  0.02500000037252903,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.transform_animator": {
+          "clip": "a5fa9266-52e5-48da-9771-86cb37294118",
+          "enabled": true,
+          "loop": false,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": {
+            "entity": "88dbc482-243d-4bbe-938c-d2fb2fb289c2",
+            "scene": "45697f18-c66f-407b-a04b-51f037a71f48"
+          },
+          "sequence_start_seconds": 0.5
+        }
+      },
+      "id": "dbfc565b-0509-4ac5-930b-239879b874ff",
+      "name": "Moving panel - shared sequence",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.05999999865889549,
+          "background_g": 0.029999999329447746,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": false,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9959527254104614,
+          "x": 0.08987855166196823,
+          "y": 0.0,
+          "z": -0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": -11.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7673d5ae-616c-40de-8591-8621fd527b86",
+      "name": "Wide front camera - shot 0 to 2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.014999999664723873,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.07000000029802322,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": false,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9212823510169983,
+          "x": 0.06922602653503418,
+          "y": -0.38160765171051025,
+          "z": 0.028674356639385223
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 8.0,
+          "y": 3.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "766df135-4a45-4e89-80ab-a87e075e239e",
+      "name": "Side camera - shot 2 to 4",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.07000000029802322,
+          "background_r": 0.02500000037252903,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": false,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9992001056671143,
+          "x": 0.03998933359980583,
+          "y": 0.0,
+          "z": -0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.0,
+          "z": -6.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "23d99a98-554e-446a-baa1-9cbfc809f05d",
+      "name": "Close camera - shot 4 to 5.5",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.05999999865889549,
+          "background_g": 0.03999999910593033,
+          "background_r": 0.05000000074505806,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9820042252540588,
+          "x": 0.18885889649391174,
+          "y": 0.0,
+          "z": -0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 7.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c0bbd4a8-06d9-4478-b9b0-376c05ff9dd5",
+      "name": "Normal overview - gap 5.5 to 6",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera_shot": {
+          "camera": {
+            "entity": "7673d5ae-616c-40de-8591-8621fd527b86",
+            "scene": "45697f18-c66f-407b-a04b-51f037a71f48"
+          },
+          "enabled": true,
+          "end_seconds": 2.0,
+          "sequence": {
+            "entity": "88dbc482-243d-4bbe-938c-d2fb2fb289c2",
+            "scene": "45697f18-c66f-407b-a04b-51f037a71f48"
+          },
+          "start_seconds": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "32861a80-2772-4fff-83e5-f9a185894842",
+      "name": "Shot - wide front",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera_shot": {
+          "camera": {
+            "entity": "766df135-4a45-4e89-80ab-a87e075e239e",
+            "scene": "45697f18-c66f-407b-a04b-51f037a71f48"
+          },
+          "enabled": true,
+          "end_seconds": 4.0,
+          "sequence": {
+            "entity": "88dbc482-243d-4bbe-938c-d2fb2fb289c2",
+            "scene": "45697f18-c66f-407b-a04b-51f037a71f48"
+          },
+          "start_seconds": 2.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8e1e75f5-332c-4e87-8467-1fede5e8d0cf",
+      "name": "Shot - side",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera_shot": {
+          "camera": {
+            "entity": "23d99a98-554e-446a-baa1-9cbfc809f05d",
+            "scene": "45697f18-c66f-407b-a04b-51f037a71f48"
+          },
+          "enabled": true,
+          "end_seconds": 5.5,
+          "sequence": {
+            "entity": "88dbc482-243d-4bbe-938c-d2fb2fb289c2",
+            "scene": "45697f18-c66f-407b-a04b-51f037a71f48"
+          },
+          "start_seconds": 4.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "458359fa-81ee-4901-87b8-fee06ef7a74b",
+      "name": "Shot - close",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 2.5,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9027010798454285,
+          "x": 0.38165590167045593,
+          "y": 0.1829865723848343,
+          "z": -0.07736548036336899
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "062c5c41-2ecd-41fd-9f3c-8d3159f83ab0",
+      "name": "Sun",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

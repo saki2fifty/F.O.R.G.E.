@@ -90,6 +90,9 @@ subprocess.run([sys.executable,str(Path(__file__).with_name('material_animation_
                 str(runtime),str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
                 str(client/('material_animation_gameplay'+ext)),str(build/'installed-material-animation')],
                env=env,cwd=stage,check=True,timeout=120)
+subprocess.run([sys.executable,str(Path(__file__).with_name('animation_sequence_process_test.py')),
+                str(runtime),str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'),
+                str(client/('sequence_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=120)
 # Ordinary gameplay starter: installed-only headers, admitted data and fixed system.
 # No internal probe behavior, private headers, graphics device or second Flecs.
 starter = build / 'sdk-starter-client-test'

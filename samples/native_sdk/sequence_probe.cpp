@@ -3,6 +3,7 @@
 #include <flecs.h>
 #include <forge/animation_components.hpp>
 #include <forge/native_sdk_identity.h>
+#include <forge/render_components.hpp>
 #include <forge/sdk_client.hpp>
 #include <limits>
 #include <stdexcept>
@@ -21,6 +22,8 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t
         flecs::world world(host->world);
         world.component<forge::AnimationSequence>("forge.animation_sequence");
         world.component<forge::TransformAnimator>("forge.transform_animator");
+        world.component<forge::CameraShot>("forge.camera_shot");
+        world.component<forge::Camera>("forge.camera");
         auto type = world.component<SequenceProbe>("project.SequenceProbe")
                         .member<std::uint32_t>("ticks")
                         .member<double>("time");
@@ -84,7 +87,27 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                               "C++ independently controlled a bound track");
                         ++tracks;
                     });
-                    check(tracks == 3, "Sequence probe did not inspect its three tracks");
+                    unsigned shots = 0;
+                    current.each([&](const forge::CameraShot& shot) {
+                        if (shot.sequence.entity.str() != ref.entity_uuid)
+                            return;
+                        bool found = false;
+                        current.each([&](flecs::entity camera, const forge::Camera& lens) {
+                            ForgeSdkEntityRefV1 camera_ref{};
+                            if (client.entity_reference(camera.id(), camera_ref) == 1 &&
+                                shot.camera.scene.str() == camera_ref.scene_uuid &&
+                                shot.camera.entity.str() == camera_ref.entity_uuid) {
+                                check(!lens.enabled, "Camera Shot rewrote native Camera.enabled "
+                                                     "across SDK boundary");
+                                found = true;
+                            }
+                        });
+                        check(found && shot.enabled && shot.start_seconds < shot.end_seconds,
+                              "Camera Shot typed data/reference unavailable through matching SDK");
+                        ++shots;
+                    });
+                    check((shots == 0 && tracks == 3) || (shots == 3 && tracks == 1),
+                          "Sequence probe did not inspect its complete object/shot tracks");
                 } else if (tick == 4) {
                     control(FORGE_SDK_ANIMATION_PAUSE);
                     seek(config.duration);

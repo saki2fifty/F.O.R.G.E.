@@ -1,4 +1,5 @@
 #include "animation_timeline.hpp"
+#include <forge/render_scene.hpp>
 #include <imgui_internal.h>
 #include <iostream>
 #include <thread>
@@ -14,6 +15,14 @@ void near(double a, double b) {
 }
 void exercise(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
               float scale, ImVec2 display) {
+    const auto began = std::chrono::steady_clock::now();
+    const auto progress = [&](const char* stage) {
+        std::cerr << "Sequence UI " << scale << " " << display.x << "x" << display.y << " " << stage
+                  << " "
+                  << std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count()
+                  << " s\n";
+    };
+    progress("begin");
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root.parent_path());
     std::filesystem::copy(gallery, root, std::filesystem::copy_options::recursive);
@@ -85,7 +94,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
         check(test::ui_targets.contains(id), "Missing sequence control " + id);
         auto box = test::ui_targets.at(id);
         const bool selectable =
-            id.starts_with("picker-option:") || id.starts_with("sequence:track:");
+            id.starts_with("picker-option:") || id.starts_with("sequence:track:") ||
+            id.starts_with("sequence:shot:") || id.starts_with("entity-picker-row:");
         auto inside = [&] {
             const ImVec2 center{(box.minimum.x + box.maximum.x) / 2,
                                 (box.minimum.y + box.maximum.y) / 2};
@@ -249,7 +259,116 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     check(scene.entity(actor).get<TransformAnimator>().sequence.entity ==
               EntityId::parse(controller),
           "Remove track Undo lost binding");
+    // Camera shots reuse Scene commands/history and the isolated sequence clock.
+    progress("object tracks passed");
+    const auto camera = authoring_command(scene, "entity.create",
+                                          {{"name", "Equal camera name"},
+                                           {"recipe", "render.camera"},
+                                           {"component_values", {{"enabled", false}}}})
+                            .at("selected")
+                            .get<std::string>();
+    const auto other_camera = authoring_command(scene, "entity.create",
+                                                {{"name", "Equal camera name"},
+                                                 {"recipe", "render.camera"},
+                                                 {"component_values", {{"enabled", false}}}})
+                                  .at("selected")
+                                  .get<std::string>();
+    context.selection.select_entity(camera);
+    const auto before_shot = scene.document();
+    click("sequence:add_shot");
+    std::string shot;
+    const auto with_shot = scene.document();
+    for (const auto& row : with_shot.at("entities")) {
+        const auto id = row.at("id").get<std::string>();
+        if (scene.entity(id).has<CameraShot>())
+            shot = id;
+    }
+    check(!shot.empty() &&
+              scene.entity(shot).get<CameraShot>().camera.entity == EntityId::parse(camera),
+          "Timeline did not create a bound shot from the selected camera");
+    editor.undo();
+    frame();
+    check(scene.document() == before_shot, "Shot creation was not one Scene Undo transaction");
+    editor.redo();
+    frame();
+    check(scene.entity(shot).get<CameraShot>().sequence.entity == EntityId::parse(controller),
+          "Shot Redo did not retain its durable reference");
+    const auto initial_shot = scene.entity(shot).get<CameraShot>();
+    type("sequence:shot_start", "3");
+    type("sequence:shot_end", "4");
+    check(scene.entity(shot).get<CameraShot>() == initial_shot &&
+              !test::ui_targets.at("sequence:add_shot").enabled,
+          "Pending shot fields were published or discarded by another action");
+    click("sequence:apply_shot");
+    near(scene.entity(shot).get<CameraShot>().start_seconds, 3);
+    near(scene.entity(shot).get<CameraShot>().end_seconds, 4);
+    editor.undo();
+    frame();
+    check(scene.entity(shot).get<CameraShot>() == initial_shot,
+          "Shot interval edit was not one Scene Undo transaction");
+    editor.redo();
+    frame();
+    type("sequence:shot_start", "2");
+    authoring_command(scene, "entity.rename", {{"entity", actor}, {"name", "Renamed door"}});
+    frame();
+    click("sequence:apply_shot");
+    near(scene.entity(shot).get<CameraShot>().start_seconds, 3);
+    click("sequence:reset_shot");
+    type("sequence:shot_end", "7");
+    click("sequence:apply_shot");
+    near(scene.entity(shot).get<CameraShot>().end_seconds, 4);
+    click("sequence:reset_shot");
+    click("sequence:shot_camera");
+    check(!test::ui_targets.contains("entity-picker-row:" + actor),
+          "Shot camera picker offered an object without Camera");
+    click("entity-picker-row:" + other_camera);
+    click("sequence:apply_shot");
+    check(scene.entity(shot).get<CameraShot>().camera.entity == EntityId::parse(other_camera),
+          "Same-name camera picker rebound by label instead of ID");
+    click("sequence:refresh");
+    const auto shot_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (!test::ui_targets.at("sequence:preview").enabled) {
+        frame();
+        check(std::chrono::steady_clock::now() < shot_deadline, "Shot preview did not prepare");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    click("sequence:preview");
+    const auto shot_span = target("sequence:shot_span:" + shot);
+    const auto shot_box = test::ui_targets.at("sequence:shot_span:" + shot);
+    const ImVec2 shot_sample{shot_box.minimum.x + (shot_box.maximum.x - shot_box.minimum.x) * .6f,
+                             shot_span.y};
+    mouse(shot_sample, false);
+    mouse(shot_sample, true);
+    mouse(shot_sample, false);
+    frame();
+    const auto shot_authored = scene.document();
+    const auto shot_render = extract_render_scene(editor.preview(scene.effective_document()));
+    check(shot_render.cameras.size() == 1 &&
+              shot_render.cameras.front().entity == EntityId::parse(other_camera),
+          "Sequence preview did not project its selected Camera");
+    check(scene.document() == shot_authored && !scene.entity(other_camera).get<Camera>().enabled,
+          "Shot preview changed authored Camera values");
+    editor.stop_preview();
+    check(editor.preview(scene.effective_document()) == scene.effective_document(),
+          "Stopping shot preview did not restore authored composition");
+    click("sequence:remove_shot");
+    check(!scene.entity(shot).get<CameraShot>().sequence.entity &&
+              scene.entity(shot).get<CameraShot>().camera.entity == EntityId::parse(other_camera),
+          "Removing shot destroyed its Camera reference");
+    editor.undo();
+    frame();
+    click("sequence:shot:" + shot);
+    type("sequence:shot_start", "2.5");
+    editor.request_close();
+    frame();
+    click("button:Keep editing");
+    check(editor.sequence_mode(), "Pending shot close cancelled the sequence view");
+    editor.undo();
+    frame();
+    near(scene.entity(shot).get<CameraShot>().start_seconds, 3);
+    click("sequence:track:" + actor);
     // One central workspace keeps the two document owners' pending choices distinct.
+    progress("camera shots passed");
     editor.open(project, "Assets/EasedPlatform.animation.json");
     frame();
     check(editor.document() && !editor.sequence_mode(), "Sequence did not switch to clip mode");
@@ -310,6 +429,7 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     check(!editor.is_open(), "A queued Timeline action escaped into another project");
     test::observe_ui = false;
     ImGui::DestroyContext();
+    progress("passed");
 }
 } // namespace
 int main(int argc, char** argv) {

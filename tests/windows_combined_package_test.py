@@ -400,7 +400,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         ('Animation Exits', 'Scenes/30-animation-exits.scene.json', '--packaged-exits', 'animation-exits-result.json'),
         ('Audio Falloff', 'Scenes/31-audio-falloff.scene.json', None, None),
         ('Directional Audio', 'Scenes/32-directional-audio.scene.json', None, None),
-        ('Audio Mixer', 'Scenes/33-audio-mixer.scene.json', None, None)):
+        ('Audio Mixer', 'Scenes/33-audio-mixer.scene.json', None, None),
+        ('Sequence Camera Shots', 'Scenes/68-sequence-camera-shots.scene.json', None, None)):
         slider_source = root / (label + ' Gallery Copy')
         shutil.copytree(gallery, slider_source)
         slider_scene = scene_path
@@ -441,8 +442,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
             assert result.returncode == 0, (label, executable, arguments, result.returncode, result.stdout, result.stderr)
             assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
         if observer_mode is None:
-            # Actual offline PCM equations and relocated closure run in audio_falloff_gallery.
-            # Here the final shipped executable must initialize that cooked scene cleanly.
+            # Focused Gallery tests check runtime behavior and relocated closure.
+            # Here the final shipped executable must initialize the cooked scene cleanly.
             assert not (slider_export/'Assets/FalloffTone.wav').exists()
             continue
         storage = json.loads((slider_evidence / 'storage-result.json').read_text())

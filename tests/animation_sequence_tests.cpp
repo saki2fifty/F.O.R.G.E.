@@ -1,3 +1,4 @@
+#include "../samples/projects/FeatureGallery/CodeExamples/SequenceControl.hpp"
 #include "animation_playback_access.hpp"
 #include "transform_animation_authoring.hpp"
 #include <chrono>
@@ -9,6 +10,7 @@
 #include <forge/runtime.hpp>
 #include <forge/scene_identity.hpp>
 #include <iostream>
+#include <limits>
 #include <thread>
 using namespace forge;
 namespace {
@@ -239,6 +241,295 @@ void held_boundary(const std::filesystem::path& root, Json source, const std::st
     const auto presented = runtime.simulation.presentation(.5);
     near(row(presented, target).at("components").at("forge.local_translation").at("x"), 2);
 }
+void camera_shot_identity(const std::filesystem::path& root) {
+    const auto project = root / "shot-identity";
+    std::filesystem::create_directories(project);
+    EngineContext engine;
+    Scene scene(engine.world());
+    const auto create = [&](const char* name, const char* recipe, Json values = Json::object()) {
+        return authoring_command(scene, "entity.create",
+                                 {{"name", name}, {"recipe", recipe}, {"component_values", values}})
+            .at("selected")
+            .get<std::string>();
+    };
+    const auto controller = create("Director", "animation.sequence");
+    const auto camera = create("Camera", "render.camera", {{"enabled", false}});
+    const EntityRef group{scene.asset_id(), EntityId::parse(controller)};
+    const EntityRef lens{scene.asset_id(), EntityId::parse(camera)};
+    const auto shot =
+        create("Shot", "animation.camera_shot", {{"sequence", group}, {"camera", lens}});
+    scene.reparent_entity(camera, controller, ReparentMode::KeepLocal);
+    scene.reparent_entity(shot, controller, ReparentMode::KeepLocal);
+    auto original = scene.snapshot();
+    for (auto& item : original["entities"])
+        if (item["id"] == shot)
+            item["components"]["future.shot"] = {{"sequence", group}, {"camera", lens}};
+    scene.restore_snapshot(original);
+    const auto duplicate = scene.duplicate_subtree(controller);
+    const auto copy_camera = named(scene, "Camera", duplicate);
+    const auto copy_shot = named(scene, "Shot", duplicate);
+    const auto copied = scene.entity(copy_shot).get<CameraShot>();
+    check(copied.sequence == EntityRef{scene.asset_id(), EntityId::parse(duplicate)} &&
+              copied.camera == EntityRef{scene.asset_id(), EntityId::parse(copy_camera)},
+          "Subtree copy did not remap both Camera Shot references");
+    check(row(scene.document(), copy_shot).at("components").at("future.shot") ==
+              Json{{"sequence", group}, {"camera", lens}},
+          "Shot copy interpreted opaque reference-like data");
+    const auto detached = scene.duplicate_subtree(shot);
+    check(scene.entity(detached).get<CameraShot>().sequence == group &&
+              scene.entity(detached).get<CameraShot>().camera == lens,
+          "Shot-only copy rebound its external references");
+    const auto definition = create_prefab_source(scene, controller);
+    check(definition.source.at("version") == 3, "Camera shot Prefab did not declare member links");
+    PrefabLibrary library(project);
+    const auto prefab = library.create(scene, definition, "CameraRig.prefab.json");
+    const auto a = instantiate_prefab(scene, prefab);
+    const auto b = instantiate_prefab(scene, prefab);
+    const auto verify = [&](const Scene& target, const std::string& actor) {
+        const auto child = target.entity(named(target, "Shot", actor)).get<CameraShot>();
+        check(child.sequence == EntityRef{target.asset_id(), EntityId::parse(actor)} &&
+                  child.camera ==
+                      EntityRef{target.asset_id(), EntityId::parse(named(target, "Camera", actor))},
+              "Portable Camera Shot references crossed Prefab instances");
+    };
+    verify(scene, a);
+    verify(scene, b);
+    scene.save(project / "Shots.scene.json");
+    EngineContext reopened_engine;
+    Scene reopened(reopened_engine.world());
+    library.load_scene(reopened, read_scene_file(project / "Shots.scene.json"));
+    verify(reopened, a);
+    verify(reopened, b);
+    check(row(reopened.document(), shot).at("components").at("future.shot") ==
+              Json{{"sequence", group}, {"camera", lens}},
+          "Save/reopen changed opaque shot metadata");
+}
+void camera_shots(const std::filesystem::path& root) {
+    EngineContext author;
+    Scene scene(author.world());
+    const auto create = [&](const char* name, const char* recipe = "empty") {
+        return authoring_command(scene, "entity.create", {{"name", name}, {"recipe", recipe}})
+            .at("selected")
+            .get<std::string>();
+    };
+    const auto controller = create("Director", "animation.sequence");
+    const EntityRef group{scene.asset_id(), EntityId::parse(controller)};
+    auto sequence = scene.entity(controller).get<AnimationSequence>();
+    sequence.duration = 3;
+    scene.entity(controller).set(sequence);
+    const auto a = create("Camera", "render.camera");
+    const auto b = create("Camera", "render.camera");
+    const auto fallback = create("Normal camera", "render.camera");
+    auto camera = scene.entity(a).get<Camera>();
+    camera.enabled = false;
+    scene.entity(a).set(camera);
+    scene.entity(b).set(camera);
+    const auto add = [&](const std::string& target, double start, double end) {
+        return authoring_command(
+                   scene, "entity.create",
+                   {{"name", "Shot"},
+                    {"recipe", "animation.camera_shot"},
+                    {"component_values",
+                     {{"sequence", group},
+                      {"camera", EntityRef{scene.asset_id(), EntityId::parse(target)}},
+                      {"start_seconds", start},
+                      {"end_seconds", end}}}})
+            .at("selected")
+            .get<std::string>();
+    };
+    const auto first = add(a, 0, 1);
+    add(b, 1, 2);
+    add(a, 2.5, 2.75);
+    add(b, 2.75, 3);
+    const auto before_invalid = scene.document();
+    const auto revision = scene.revision();
+    for (const auto& values : {Json{{"start_seconds", 2}, {"end_seconds", 1}},
+                               Json{{"unknown_field", 4}}, Json::array({1})})
+        rejects([&] {
+            authoring_command(scene, "entity.create",
+                              {{"recipe", "animation.camera_shot"}, {"component_values", values}});
+        });
+    rejects([&] {
+        authoring_command(scene, "entity.create",
+                          {{"recipe", "empty"}, {"component_values", Json::object()}});
+    });
+    check(scene.document() == before_invalid && scene.revision() == revision,
+          "Rejected initial component values published a partial entity/history");
+    const auto source = scene.snapshot();
+    Runtime live(root, source);
+    const auto shown = [&](Runtime& runtime, double alpha = 1) {
+        const auto copied = runtime.simulation.presentation(alpha);
+        const auto render = extract_render_scene(copied);
+        check(render.cameras.size() == 1, "Camera shot did not select exactly one camera");
+        check(!runtime.scene.entity(a).get<Camera>().enabled &&
+                  !runtime.scene.entity(b).get<Camera>().enabled &&
+                  runtime.scene.entity(fallback).get<Camera>().enabled,
+              "Camera selection wrote native/authored enabled values");
+        return render.cameras.front().entity.str();
+    };
+    check(shown(live) == a, "Initial camera shot is incorrect");
+    live.simulation.tick(.75f);
+    live.simulation.tick(.5f);
+    check(shown(live, .49) == a && shown(live, .5) == b && shown(live) == b,
+          "Adjacent camera cut did not use the shared presentation time");
+    AnimationPlaybackAccess::control(*live.animation, group, {{"operation", "pause"}});
+    live.simulation.tick(.5f);
+    check(shown(live) == b, "Paused camera sequence advanced");
+    const auto seek = [&](Runtime& runtime, double time) {
+        AnimationPlaybackAccess::control(*runtime.animation, group,
+                                         {{"operation", "seek"}, {"position_seconds", time}});
+    };
+    seek(live, 2.25);
+    check(shown(live) == fallback, "Camera-shot gap did not restore authored composition");
+    seek(live, 2.5);
+    check(shown(live) == a, "Repeated camera reference was rebound by name");
+    seek(live, 3);
+    check(shown(live) == b, "One-shot completion did not hold its final camera");
+    seek(live, 1.5);
+    const auto checkpoint = live.animation->checkpoint();
+    check(checkpoint.at("version") == 4 && checkpoint.at("camera_shots").size() == 4,
+          "Camera-shot recovery did not declare its exact configuration");
+    Runtime restored(root, source);
+    restored.animation->restore(checkpoint);
+    check(shown(restored) == b, "Recovered sequence camera differs");
+    auto corrupt = checkpoint;
+    corrupt["camera_shots"][0]["camera"]["entity"] = EntityId::generate();
+    rejects([&] { restored.animation->restore(corrupt); });
+    near(restored.animation->playback(group)->time, 1.5);
+    auto old = checkpoint;
+    old["version"] = 3;
+    old.erase("camera_shots");
+    rejects([&] { restored.animation->restore(old); });
+    check(shown(restored) == b, "Rejected recovery changed camera selection");
+    seek(live, .75);
+    check(forge_set_sequence_speed(live.scene.entity(controller), .5f),
+          "Compiled sequence helper rejected valid speed");
+    check(!forge_set_sequence_speed(live.scene.entity(controller),
+                                    std::numeric_limits<float>::quiet_NaN()) &&
+              !forge_set_sequence_speed(live.scene.entity(a), .5f),
+          "Compiled sequence helper accepted invalid input");
+    AnimationPlaybackAccess::control(*live.animation, group, {{"operation", "play"}});
+    live.simulation.tick(.5f);
+    check(shown(live) == b, "C++ sequence speed did not reach camera selection");
+    near(live.animation->playback(group)->time, 1);
+    check(forge_set_sequence_speed(live.scene.entity(controller), 0),
+          "Sequence zero speed rejected");
+    live.simulation.tick(.5f);
+    near(live.animation->playback(group)->time, 1);
+    sequence.loop = true;
+    live.scene.entity(controller).set(sequence);
+    seek(live, 2.875);
+    AnimationPlaybackAccess::control(*live.animation, group, {{"operation", "play"}});
+    live.simulation.tick(.25f);
+    check(shown(live, 0) == a && shown(live) == a,
+          "Wrapped camera sequence did not snap with its clip presentation");
+    sequence.enabled = false;
+    live.scene.entity(controller).set(sequence);
+    check(shown(live) == fallback, "Disabling sequence did not restore authored cameras");
+    check(scene.snapshot() == source, "Runtime camera shots changed their authoring source");
+    const auto modified = [&](const char* field, const Json& value) {
+        auto result = source;
+        for (auto& item : result["entities"])
+            if (item["id"] == first)
+                item["components"]["forge.camera_shot"][field] = value;
+        return result;
+    };
+    rejects([&] { Runtime invalid(root, modified("end_seconds", 1.25)); });
+    rejects([&] { Runtime invalid(root, modified("camera", group)); });
+    rejects([&] {
+        Runtime invalid(root, modified("sequence", EntityRef{AssetId::generate(), group.entity}));
+    });
+    rejects([&] { Runtime invalid(root, modified("end_seconds", 4)); });
+    rejects([&] { Runtime invalid(root, modified("start_seconds", -1)); });
+    {
+        Runtime changed(root, source);
+        const auto actor = changed.scene.entity(first);
+        auto shot = actor.get<CameraShot>();
+        const auto saved = shot;
+        shot.camera = {changed.scene.asset_id(), EntityId::parse(b)};
+        actor.set(shot);
+        check(shown(changed) == b, "Native C++ camera retarget did not reach presentation");
+        shot.end_seconds = std::numeric_limits<double>::quiet_NaN();
+        actor.set(shot);
+        check(shown(changed) == fallback,
+              "Invalid native shot retained a guessed camera selection");
+        shot.enabled = false;
+        actor.set(shot);
+        check(changed.animation->prepare_initial_pose() && shown(changed) == fallback,
+              "Disabled invalid shot retained its admission error");
+        actor.set(saved);
+        check(changed.animation->prepare_initial_pose() && shown(changed) == a,
+              "Corrected native shot did not recover its camera selection");
+    }
+    {
+        auto competing = source;
+        auto director = row(source, controller);
+        const auto id = EntityId::generate();
+        director["id"] = id;
+        competing["entities"].push_back(director);
+        for (auto& item : competing["entities"])
+            if (item["id"] == first)
+                item["components"]["forge.camera_shot"]["sequence"] =
+                    EntityRef{scene.asset_id(), id};
+        rejects([&] { Runtime invalid(root, competing); });
+        competing["entities"].back()["components"]["forge.animation_sequence"]["enabled"] = false;
+        Runtime inactive(root, competing);
+        check(shown(inactive) == fallback,
+              "Disabled competing director changed ordinary camera composition");
+    }
+    {
+        Runtime scoped(root, source);
+        const auto copied = duplicate_scene_asset(source);
+        Scene second(scoped.engine.world());
+        second.restore_snapshot(copied);
+        check(scoped.animation->prepare_initial_pose(), "Two independent Scene directors failed");
+        check(shown(scoped) == a, "A different Scene's shots selected this Scene's camera");
+        for (const auto& item : copied.at("entities"))
+            if (item.at("components").contains("forge.camera_shot") &&
+                item.at("components").at("forge.camera_shot").at("start_seconds") == 0) {
+                const auto config =
+                    second.entity(item.at("id").get<std::string>()).get<CameraShot>();
+                const auto target = second.entity(config.camera.entity.str());
+                check(config.sequence.scene == second.asset_id() &&
+                          config.camera.scene == second.asset_id() &&
+                          scoped.animation->presentation_properties(target.id(), 1)
+                              .at("forge.camera")
+                              .at("enabled"),
+                      "Whole-Scene copy lost shot/camera references or loaded-membership scope");
+            }
+    }
+    {
+        auto budget = source;
+        auto& rows = budget["entities"];
+        rows.erase(std::remove_if(rows.begin(), rows.end(),
+                                  [](const auto& item) {
+                                      return item.at("components").contains("forge.camera_shot");
+                                  }),
+                   rows.end());
+        for (auto& item : rows)
+            if (item["id"] == controller)
+                item["components"]["forge.animation_sequence"]["duration"] = 300;
+        const auto base = row(source, first);
+        for (unsigned i = 0; i < 256; ++i) {
+            auto item = base;
+            item["id"] = EntityId::generate();
+            item["components"]["forge.camera_shot"]["start_seconds"] = i;
+            item["components"]["forge.camera_shot"]["end_seconds"] = i + 1;
+            rows.push_back(std::move(item));
+        }
+        Runtime maximum(root, budget);
+        check(maximum.animation->checkpoint().at("camera_shots").size() == 256,
+              "Legal 256-shot arrangement was truncated");
+        auto extra = rows.back();
+        extra["id"] = EntityId::generate();
+        extra["components"]["forge.camera_shot"]["start_seconds"] = 256;
+        extra["components"]["forge.camera_shot"]["end_seconds"] = 257;
+        rows.push_back(std::move(extra));
+        rejects([&] { Runtime invalid(root, budget); });
+    }
+    std::cout << "Camera shots: shared clock/interpolation, cuts/gaps/end/loop, immutable cameras, "
+                 "typed duplicate-name references and exact recovery passed\n";
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -248,6 +539,8 @@ int main(int argc, char** argv) {
         auto lease = std::make_shared<ProjectLease>(root);
         AssetImportService imports(lease, transform_animation_import_registry(),
                                    {"windows", "d3d12", "desktop"});
+        camera_shot_identity(root);
+        camera_shots(root);
         const auto motion = clip(lease, imports, "Assets/Motion.animation.json", false);
         const auto pulse = clip(lease, imports, "Assets/Pulse.animation.json", true);
         const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);

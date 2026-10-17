@@ -49,7 +49,9 @@ class EditorInputWorkflow {
     std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_,
         graph_function_, graph_call_;
     Json graph_before_;
-    Json starter_modules_, apply_before_, apply_after_;
+    Json starter_modules_, apply_before_, apply_after_, shot_before_;
+    std::string shot_camera_, shot_controller_, shot_entity_;
+    std::uint64_t shot_tick_ = 0;
     std::string starter_source_, generated_input_;
     struct SpinPose {
         std::uint64_t tick = 0;
@@ -132,7 +134,53 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "graph-created") {
+        if (what == "shot-camera-created") {
+            shot_camera_ = state.at("selected");
+            require(state.at("selected_preview").at("components").contains("forge.camera"),
+                    "Second camera was not created through the Entity menu");
+        } else if (what == "shot-controller-created") {
+            shot_controller_ = state.at("selected");
+            require(
+                state.at("selected_preview").at("components").contains("forge.animation_sequence"),
+                "Sequence controller was not created through the Entity menu");
+        } else if (what == "shot-first-created" || what == "shot-second-created") {
+            const auto target = what == "shot-first-created" ? camera_ : shot_camera_;
+            shot_entity_.clear();
+            for (const auto& item : entities) {
+                const auto& c = item.at("components");
+                if (c.contains("forge.camera_shot") &&
+                    c.at("forge.camera_shot").at("camera").at("entity").get<std::string>() ==
+                        target &&
+                    c.at("forge.camera_shot").at("sequence").at("entity").get<std::string>() ==
+                        shot_controller_)
+                    shot_entity_ = item.at("id");
+            }
+            require(!shot_entity_.empty(),
+                    "Timeline did not create a shot with the exact chosen camera");
+        } else if (what == "shot-fields-applied") {
+            const auto actor = std::find_if(entities.begin(), entities.end(), [&](const auto& row) {
+                return row.at("id").template get<std::string>() == shot_entity_;
+            });
+            require(actor != entities.end(), "Created camera shot disappeared");
+            const auto& shot = actor->at("components").at("forge.camera_shot");
+            require(shot.at("start_seconds") == 1 && shot.at("end_seconds") == 3,
+                    "Timeline did not apply the second shot interval");
+            shot_before_ = doc;
+            shot_tick_ = state.at("tick");
+        } else if (what == "shot-preview-ready") {
+            const auto at = ui_targets.find("sequence:preview");
+            require(at != ui_targets.end() && at->second.enabled,
+                    "Sequence preview still preparing");
+        } else if (what == "shot-game-preview") {
+            require(!state.at("playing").get<bool>() && state.at("sequence_preview").get<bool>() &&
+                        state.at("game_render_ready").get<bool>() &&
+                        state.at("game_camera_ids") == Json::array({shot_camera_}),
+                    "Stopped Game view did not render the sequence's selected camera");
+            require(doc == shot_before_ && state.at("tick").get<std::uint64_t>() == shot_tick_ &&
+                        !state.at("game_input_captured").get<bool>() &&
+                        !state.at("game_mouse_relative").get<bool>(),
+                    "Camera preview changed authoring/gameplay time or captured game input");
+        } else if (what == "graph-created") {
             const auto& g = state.at("graph_document");
             require(g.is_object(), "Graph creation did not open a source document");
             graph_before_ = g;
@@ -1428,6 +1476,44 @@ class EditorInputWorkflow {
         check("collision-assigned");
         check("collision-preview");
         capture("collision-published-asset-assigned");
+        // Actual stopped Game camera preview through ordinary Entity/Timeline input.
+        key(ImGuiKey_0, true);
+        create("Rendering", "Camera");
+        check("shot-camera-created");
+        text("transform:forge.position:0", "3", true);
+        key(ImGuiKey_Enter);
+        create("Animation", "Animation Sequence");
+        check("shot-controller-created");
+        click("tab:Content");
+        click("button:Actions");
+        click("button:Create / Register");
+        click("button:Open sequence timeline");
+        click("shot-first-camera-row");
+        click("sequence:add_shot");
+        check("shot-first-created");
+        click("shot-second-camera-row");
+        click("sequence:add_shot");
+        check("shot-second-created");
+        text("sequence:shot_end", "3");
+        click("sequence:apply_shot");
+        check("shot-fields-applied");
+        click("sequence:refresh");
+        check("shot-preview-ready");
+        click("sequence:preview");
+        click("shot-time-strip");
+        capture("camera-shots-timeline-100");
+        click("tab:Game");
+        check("shot-game-preview");
+        capture("sequence-camera-preview-100");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        check("shot-game-preview");
+        capture("sequence-camera-preview-150");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        check("shot-game-preview");
+        capture("sequence-camera-preview-200");
+        key(ImGuiKey_0, true);
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {
@@ -1585,6 +1671,9 @@ class EditorInputWorkflow {
                 : step.value == "failed-model-problem"      ? "problem:reimport:" + model_asset_
                 : step.value == "placed-model-row"          ? "entity:" + model_root_
                 : step.value == "placed-model-mesh-row"     ? "entity:" + model_mesh_
+                : step.value == "shot-first-camera-row"     ? "entity:" + camera_
+                : step.value == "shot-second-camera-row"    ? "entity:" + shot_camera_
+                : step.value == "shot-time-strip"           ? "sequence:shot_span:" + shot_entity_
                 : step.value == "camera-marker"             ? "marker:" + camera_
                 : step.value == "light-marker"              ? "marker:" + light_
                 : step.value == "saved-scene-asset"         ? "asset:" + scene_

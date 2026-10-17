@@ -60,6 +60,25 @@ leases come from the existing Resources provider; whole-curve target admission
 and complete sampled numeric projection precede component writes. Sequence clips
 still contain no Scene identity or separate arrangement/clock resource.
 
+## Camera-shot extension — 2026-10-17
+
+The F49 camera-cut consumer extends this same Scene/controller design. Each
+ordinary shot entity carries CameraShot with explicit controller/camera EntityRefs
+and a bounded interval. Reuse ADR022's typed member-reference traversal for Scene,
+subtree and portable Prefab copies. There is no dynamic arrangement asset or
+additional identity registry. Up to 256 enabled/bound shots share the provider's
+existing clocks; each loaded Scene membership has one enabled shot director and
+nonoverlapping intervals. Camera composition is overridden in copied presentation
+only, preserving native/authored enabled flags, with normal composition in gaps.
+The exact timing, invalid-input policy and recovery4 boundary are specified in
+[transform animation](../transform-animation.md#sequence-camera-shots).
+
+The existing Game viewport also consumes stopped sequence preview. Its explicit
+preview label and absent gameplay/runtime-UI execution preserve the authoring/Play
+boundary. This adds cuts, not shot blending, nested sequences or offline capture.
+The new native component changes the exact installed SDK fingerprint. Existing
+controller/player layouts and ABI1 function tables remain unchanged.
+
 ## Compatibility and completion boundary
 
 Default-null sequence bindings preserve existing standalone clips. Backfill new

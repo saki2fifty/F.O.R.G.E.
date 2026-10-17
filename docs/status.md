@@ -1,3 +1,13 @@
+# Sequence camera shots — 2026-10-17
+
+Current source extends the existing Scene sequence Timeline with timed camera
+shots, typed camera selection, atomic Scene history, stopped Game preview and
+editable Gallery68. Runtime, source-free export, matching C++ SDK and native
+Vulkan camera checks pass locally. Integrated Windows source/package validation
+and physical user testing remain pending; Build188 remains the latest delivery.
+See [the user guide](../manual/editor/animation-sequences.md) and
+[daily changes](../changelog/20261017/README.md).
+
 # One C++ gameplay model delivered — 2026-10-01
 
 Build **261001-000142**, compiled source `1ef5b4d577b8ee4a9d2ba337439af96787e6ccf3`, passed the

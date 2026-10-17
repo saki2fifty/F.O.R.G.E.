@@ -84,7 +84,7 @@ inline std::string entity_ref_label(const Scene& scene, const Json& value) {
     }
 }
 inline bool entity_ref_picker(const Scene& scene, Json& value, const char* title,
-                              bool physics_body_only = false) {
+                              bool physics_body_only = false, ecs_entity_t required_type = 0) {
     ui::IdScope scope(title);
     bool changed = false;
     const auto label = entity_ref_label(scene, value);
@@ -106,9 +106,11 @@ inline bool entity_ref_picker(const Scene& scene, Json& value, const char* title
 #endif
         ui::help("Clear this entity reference. The component's validation still applies.");
         auto rows = entity_picker_entries(scene.document(), search.data());
-        if (physics_body_only)
+        if (physics_body_only || required_type)
             std::erase_if(rows, [&](const auto& row) {
-                return !scene.entity(row.id.str()).template has<PhysicsBody>();
+                const auto entity = scene.entity(row.id.str());
+                return (physics_body_only && !entity.template has<PhysicsBody>()) ||
+                       (required_type && !entity.has(required_type));
             });
         const auto height = ImGui::GetTextLineHeight();
         ImGuiListClipper clipper;

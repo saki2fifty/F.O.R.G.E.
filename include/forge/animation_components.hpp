@@ -27,6 +27,14 @@ struct AnimationSequence {
     float playback_speed = 1;
     bool operator==(const AnimationSequence&) const = default;
 };
+// Scene-owned shot arrangement. Selection is derived in copied presentation;
+// authored Camera components and the sequence's existing clock remain unchanged.
+struct CameraShot {
+    EntityRef sequence{}, camera{};
+    double start_seconds = 0, end_seconds = 1;
+    bool enabled = true;
+    bool operator==(const CameraShot&) const = default;
+};
 struct TransformAnimator {
     AssetRef<TransformAnimationAsset> clip{};
     bool enabled = true, play_on_start = true, loop = true;

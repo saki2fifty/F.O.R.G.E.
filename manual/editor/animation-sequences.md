@@ -22,7 +22,36 @@ last values. The whole arrangement repeats every six seconds.
 
 Preview changes a temporary Scene view. It runs no gameplay C++, physics or sound.
 After Scene edits or publishing changed clips, choose **Refresh clips** again.
-Use Game Play to see the animated camera image and hear the sound.
+Open **Game** while sequence preview is active to see the camera image without
+starting gameplay. The **SEQUENCE PREVIEW** label identifies this temporary view.
+Use Game Play to hear sound and run gameplay.
+
+## Camera shots
+
+Open **FeatureGallery / Scenes / 68-sequence-camera-shots.scene.json**. Play shows
+the front view for two seconds, then the side view, then a close view. A short gap
+returns to the normal overview camera before the six-second sequence repeats.
+
+To author shots in your own sequence:
+
+1. Create the cameras and position them in the Scene. Standby cameras can have **Enabled** turned off; a shot activates its chosen camera in the rendered view.
+2. Open the controller's sequence Timeline. Select a camera in Hierarchy and choose **Add shot from selected camera**. The shot fills the next free interval at or after the playhead.
+3. Select its row under **Camera shots**. Choose **Shot camera**, enter **Shot start** and **Shot end**, then choose **Apply shot fields**. The edit uses one Scene Undo step. Apply or reset pending fields before switching tracks.
+4. Choose **Refresh clips**, then **Preview sequence** and open **Game**. Scrub a shot's strip or the playhead slider to inspect the cuts. Stopping preview restores the authored camera settings.
+5. Choose **Save scene**. Play and export use this saved arrangement; no C++ module is required.
+
+Adjacent shots cut exactly at their shared boundary. Shots cannot overlap and must
+fit inside the controller's duration. Gaps use normal enabled cameras and their
+composition order. A final shot ending at the controller duration holds when a
+nonlooping sequence finishes. Disabled controllers and unbound or disabled shots
+do not direct the camera.
+
+One enabled controller with camera shots can direct each loaded Scene. Disable an
+unused director before enabling another; ordinary object-only sequences can still
+run independently. Camera shots can be renamed, copied and included with their
+controller and cameras in a Prefab. The links use IDs, so equal camera names stay
+independent. **Remove shot from sequence** clears its controller link and retains
+the shot entity and camera reference.
 
 ## Playback rules
 
@@ -32,8 +61,8 @@ playback intent govern all its tracks; the individual clips' standalone settings
 stay stored for when they are removed from the sequence.
 
 **Remove from sequence** clears the binding and keeps the clip. An object can have
-one Transform Animator clip. This first sequence mode does not blend overlapping
-tracks, edit bones, cut between cameras or nest sequences.
+one Transform Animator clip. This sequence mode does not blend overlapping
+tracks, blend between shots, edit bones or nest sequences.
 
 Pause, Step and simulation Speed work as they do for other animations. C++ can use
 the existing animation playback/control/seek operations on the controller. Bound
