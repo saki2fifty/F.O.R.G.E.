@@ -9,7 +9,9 @@
 - Migrate verified unchanged format3/4 model imports without replacing logical asset IDs. Preserve keys, tombstones and opaque metadata, require explicit review for changed/unverifiable inputs, and retain the old import on validation or compatibility failure.
 - Migrate the five existing Gallery model families and rebuild their seven dependent animation assets through the existing importers. Preserve all 113 model-member IDs, 227 catalog records and authored scene/source bytes; exercise repeated real CLI imports and relocated source-free animation exports.
 
-These editor changes are pending Windows validation and delivery.
-Build261016-000187 remains the delivered package. Its complete automated Windows,
-Linux, SDK, editor, Gallery and standalone gates passed; physical user testing
-remains pending.
+Build261017-000188 delivers these changes from source
+`399d28bc62fd198ba5c2ca276fbd3a0201f2071b`. Its complete automated Windows,
+Linux, SDK, editor, Gallery and standalone gates passed. The shipped Windows tools
+also migrated Build187's original animated Gallery model twice, preserving all
+74 model-member IDs and all 227 Gallery asset IDs. Physical user testing remains
+pending.
