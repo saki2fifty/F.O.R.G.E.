@@ -244,12 +244,15 @@ class BlockoutProperties {
             {
                 ui::DisabledScope disabled(entity.contains("prefab_member"));
                 ui::property_label_row("Spatial binding");
-                if (ImGui::BeginCombo("##binding", space_label)) {
+                const bool binding_open = ImGui::BeginCombo("##binding", space_label);
+                FORGE_UI_PROBE("spatial:binding");
+                if (binding_open) {
                     for (auto choice : {"follow_structure", "world"}) {
                         if (ImGui::Selectable(std::string(choice) == "world" ? "World"
                                                                              : "Follow parent",
                                               mode == choice))
                             bind({{"entity", id}, {"spatial", {{"mode", choice}}}});
+                        FORGE_UI_PROBE(std::string("spatial:choice:") + choice);
                         ui::help("Preserve world placement while changing spatial binding. Only "
                                  "required "
                                  "local channels become owned. Unrepresentable local shear is "

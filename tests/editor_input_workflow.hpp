@@ -174,6 +174,15 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
+        if (what == "character-world-binding") {
+            bool valid = false;
+            for (const auto& entity : entities)
+                if (entity.at("id") == state.at("selected"))
+                    valid = entity.at("components").contains("forge.character_controller") &&
+                            entity.at("spatial").at("mode") == "world";
+            require(valid, "Character fixture was not authored with required World binding");
+            return;
+        }
         if (what == "shortcut-bound") {
             const auto& binding =
                 state.at("editor_shortcuts").at("bindings").at("Entity / Duplicate subtree").at(0);
@@ -1653,6 +1662,11 @@ class EditorInputWorkflow {
         text("component-search", "Character Controller");
         click("component-choice:forge.character_controller");
         key(ImGuiKey_Escape);
+        // The earlier visual-only character now participates in later Play checks.
+        // Author its required World binding through the real Inspector control.
+        click("spatial:binding");
+        click("spatial:choice:world");
+        check("character-world-binding");
         check("collision-preview");
         capture("character-capsule-scene");
         click("tab:Content");
