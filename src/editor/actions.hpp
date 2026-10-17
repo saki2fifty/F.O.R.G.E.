@@ -2,15 +2,27 @@
 #include "icons.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <functional>
 #include <string>
 #include <vector>
 namespace forge::ui {
+inline bool command_matches(std::string text, std::string filter) {
+    auto lower = [](unsigned char c) { return char(std::tolower(c)); };
+    std::transform(text.begin(), text.end(), text.begin(), lower);
+    std::transform(filter.begin(), filter.end(), filter.begin(), lower);
+    return text.find(filter) != std::string::npos;
+}
 struct EditorAction {
     std::string id, label, shortcut, description;
     bool available = true;
     std::function<void()> execute;
     std::string unavailable_reason;
+    // Global editor commands opt in here; viewport/text/gameplay keys keep their owners.
+    bool global_shortcut = false;
+    std::array<ImGuiKeyChord, 2> default_keys{};
     std::string help_text() const {
         return description + (available || unavailable_reason.empty()
                                   ? ""

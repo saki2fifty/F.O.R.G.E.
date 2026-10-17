@@ -1,10 +1,21 @@
+# Personal editor shortcuts — 2026-10-17
+
+Current source adds personal shortcut recording, conflict feedback, clear/reset
+and persistence for the existing global command catalog. The active C++ source
+uses the configured Save key while retaining its own text editing controls.
+Normal and sanitizer checks pass locally. Native Windows recording/restart and
+visual review remain pending; this is not a numbered delivery. See
+[Keyboard shortcuts](../manual/editor/shortcuts.md).
+
 # Sequence camera shots — 2026-10-17
 
 Current source extends the existing Scene sequence Timeline with timed camera
 shots, typed camera selection, atomic Scene history, stopped Game preview and
 editable Gallery68. Runtime, source-free export, matching C++ SDK and native
-Vulkan camera checks pass locally. Integrated Windows source/package validation
-and physical user testing remain pending; Build188 remains the latest delivery.
+Vulkan camera checks pass locally. Windows core/SDK checks and the full editor
+acceptance step passed for source90495c9. The source audit then hit its overall
+job time limit. Remaining source-audit steps, package validation and physical user testing remain pending; Build188 remains
+the latest delivery.
 See [the user guide](../manual/editor/animation-sequences.md) and
 [daily changes](../changelog/20261017/README.md).
 

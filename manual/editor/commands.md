@@ -21,10 +21,14 @@ Search ignores letter case. Actions that require a selection are disabled when n
 - Place on ground or snap to the Scene View menu’s Snap spacing.
 - Switch primitive shape or apply a blockout color preset.
 - Undo or redo an edit.
+- Create or open a Scene, save the active task, or use Save scene As when a Scene owns the task.
+- Start Play or open Export Game, subject to their normal readiness checks.
 - Open Scene diagnostics or Component schema.
 
 Palette actions use the same authoring operations as the corresponding editor controls. Creation and property edits can be undone. Changing shape preserves transform and color.
 
-The palette currently contains common scene actions. File operations and custom shortcut editing are not included yet.
+Results show the same effective shortcut and availability as the corresponding
+menu command. Change eligible global bindings in **Edit → Preferences → Editor
+shortcuts...**; see [Keyboard shortcuts](shortcuts.md).
 
 Continue with [Transforms](transforms.md), [Primitives and color](primitives.md), and [Scene diagnostics](diagnostics.md).

@@ -12,6 +12,7 @@
 #include "ecs_workspace_tests.hpp"
 #include "editor_redesign_tests.hpp"
 #include "editor_refinement_tests.hpp"
+#include "editor_shortcut_tests.hpp"
 #include "entity_picker_tests.hpp"
 #include "framing_tests.hpp"
 #include "game_input_tests.hpp"
@@ -326,6 +327,7 @@ int main(int argc, char** argv) {
         test_diagnostic_source();
         test_reflected_value_inputs();
         test_editor_selection_and_actions();
+        test_editor_shortcuts();
         test_batch_authoring();
         test_spatial_helpers();
         test_asset_action_routes();

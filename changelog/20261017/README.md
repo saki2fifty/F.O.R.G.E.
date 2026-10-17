@@ -1,5 +1,16 @@
 # 2026-10-17
 
+## Personal editor shortcuts
+
+- Add searchable shortcut preferences for existing New/Open/Save As, active-task Save, Undo/Redo, Duplicate, Play and Export actions, with two bindings per command.
+- Record keys, explain conflicts and reserved controls, consume the recorded input, and clear or reset bindings. Store personal settings through the existing atomic writer and keep the last working keys on failure.
+- Show effective shortcuts in menus, tooltips and command search. Match exact modifiers without repeat, preserve text/viewport/gameplay input ownership, and use the configured Save key in C++ Sources.
+- Extend actual recorder and C++ typing/save tests, plus native editor recording and fresh-process persistence checks. No project input, runtime editor, SDK ABI or dependency change.
+
+Normal and sanitizer checks pass locally. Native Windows shortcut/restart tests,
+capture review and a combined numbered delivery remain pending. User Windows
+testing is deferred.
+
 ## Sequence camera shots
 
 - Add Scene-owned camera shots to the existing Animation Sequence clock and Timeline. Create a shot from the selected camera, choose a camera by its stable ID, edit its interval, and use Scene Save/Undo/Redo.
@@ -9,7 +20,9 @@
 - Extend exact private recovery for shot arrangements, typed Scene/Prefab reference remapping and C++ SDK coverage. Install the sequence-speed example with the SDK. Existing C++ modules require a rebuild against the matching SDK; ABI1 function tables and dependency pins are unchanged.
 
 Local runtime, source-free export, C++ SDK and native Vulkan camera checks pass.
-Integrated Windows source/package gates and physical user testing remain pending.
+Windows core/SDK checks and the full editor acceptance step passed for source90495c9.
+The audit then hit its overall job time limit during standalone-only configuration.
+Remaining source-audit and package gates and physical user testing remain pending.
 
 ## Model import review
 

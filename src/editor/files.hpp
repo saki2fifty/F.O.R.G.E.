@@ -1,4 +1,5 @@
 #pragma once
+#include "actions.hpp"
 #include "document.hpp"
 #include "file_dialog.hpp"
 #include "ui_probe.hpp"
@@ -149,7 +150,7 @@ class EditorFiles {
             }
         }
     }
-    void menu(const std::function<void()>& save_menu = {}, bool scene_write = true) {
+    void menu(const ui::EditorActions& actions) {
         const bool open = ImGui::BeginMenu("File");
         FORGE_UI_PROBE("menu:File");
         if (open) {
@@ -174,10 +175,8 @@ class EditorFiles {
             }
             ui::help("The last eight successfully opened projects.");
             ImGui::Separator();
-            if (entry("New scene", "Create an unsaved empty scene. Ctrl+N."))
-                request({Command::NewScene, {}, {}});
-            if (entry("Open scene...", "Choose a scene inside this project. Ctrl+O."))
-                open_scene_dialog();
+            menu_action(actions, "file.new_scene", "New scene");
+            menu_action(actions, "file.open_scene", "Open scene...");
             if (entry("Reload from disk",
                       "Reload the current scene file after resolving unsaved edits.")) {
                 if (!document.path().empty())
@@ -185,19 +184,8 @@ class EditorFiles {
                 else
                     status = "Untitled scenes have no disk file to reload";
             }
-            if (save_menu)
-                save_menu();
-            else if (entry("Save", "Save the active task. Ctrl+S.")) {
-                if (save_active)
-                    save_active();
-                else
-                    save();
-            }
-            ImGui::BeginDisabled(!scene_write);
-            if (entry("Save scene As...",
-                      "Save to another JSON scene file inside this project. Ctrl+Shift+S."))
-                save(true);
-            ImGui::EndDisabled();
+            actions.item("save");
+            menu_action(actions, "file.save_scene_as", "Save scene As...");
             ImGui::Separator();
             if (entry("Create recovery snapshot", "Write unsaved edits to the recovery file now; "
                                                   "the scene file remains unchanged.")) {
@@ -227,23 +215,8 @@ class EditorFiles {
         }
         ui::help("Project and scene file operations, recent projects, and autosave recovery.");
     }
-    void shortcuts(bool scene_write = true) {
-        const auto& io = ImGui::GetIO();
-        if (busy() ||
-            ImGui::IsPopupOpen(nullptr,
-                               ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) ||
-            io.WantTextInput || ImGui::IsAnyItemActive() || !io.KeyCtrl)
-            return;
-        if (ImGui::IsKeyPressed(ImGuiKey_S, false)) {
-            if (!io.KeyShift && save_active)
-                save_active();
-            else if (scene_write)
-                save(io.KeyShift);
-        }
-        if (ImGui::IsKeyPressed(ImGuiKey_O, false))
-            open_scene_dialog();
-        if (ImGui::IsKeyPressed(ImGuiKey_N, false))
-            request({Command::NewScene, {}, {}});
+    void open_scene_dialog() {
+        dialog_.show(FileDialog::Kind::OpenScene, window_, path_text(document.project()));
     }
     void draw_dialogs() {
         if (create_prompt_) {
@@ -360,20 +333,16 @@ class EditorFiles {
     }
 
   private:
+    static void menu_action(const ui::EditorActions& actions, const char* id, const char* label) {
+        actions.item(id, label);
+        FORGE_UI_PROBE(std::string("file:") + label);
+    }
     static bool entry(const char* label, const char* description) {
         const std::string name = label;
-        const char* shortcut = name == "New scene"          ? "Ctrl+N"
-                               : name == "Open scene..."    ? "Ctrl+O"
-                               : name == "Save"             ? "Ctrl+S"
-                               : name == "Save scene As..." ? "Ctrl+Shift+S"
-                                                            : nullptr;
-        const bool clicked = ImGui::MenuItem(label, shortcut);
+        const bool clicked = ImGui::MenuItem(label);
         FORGE_UI_PROBE("file:" + name);
         ui::help(description);
         return clicked;
-    }
-    void open_scene_dialog() {
-        dialog_.show(FileDialog::Kind::OpenScene, window_, path_text(document.project()));
     }
     void remember() {
         const auto path = path_text(document.project());

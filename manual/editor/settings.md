@@ -16,7 +16,11 @@ Pause the pointer over a control to show help after roughly 0.4 seconds. Long he
 
 ## Persisted preferences
 
-FORGE remembers interface scale, tooltip state, panel layout, recent/last projects, native tool/build-on-save settings, and the Add menu's Placement: At View Target setting in its Windows user preferences area. Scene tool preferences also persist: move handles, grid, snap spacing, and flight speed. Use **Save view** in Scene to keep a per-scene camera bookmark. Undo history does not persist.
+FORGE remembers interface scale, tooltip state, panel layout, personal editor shortcuts, recent/last projects, native tool/build-on-save settings, and the Add menu's Placement: At View Target setting in its Windows user preferences area. Scene tool preferences also persist: move handles, grid, snap spacing, and flight speed. Use **Save view** in Scene to keep a per-scene camera bookmark. Undo history does not persist.
+
+Use **Edit → Preferences → Editor shortcuts...** to search, record, clear or reset
+supported global commands. Changes save immediately and survive a restart. They
+do not alter project gameplay input. See [Keyboard shortcuts](shortcuts.md).
 
 There is no theme picker or general settings dialog yet. See [Panels and windows](panels-windows.md).
 

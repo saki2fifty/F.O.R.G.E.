@@ -1,4 +1,6 @@
+#define FORGE_UI_FIXTURE 1
 #include "../src/gameplay_source_identity.hpp"
+#include "cpp_shortcut_editor_tests.hpp"
 #include "cpp_source_files.hpp"
 #include <TextEditor.h>
 #include <chrono>
@@ -190,6 +192,7 @@ int main(int argc, char** argv) {
                 .count();
         std::cout << "Pinned widget 250KB/10000 lines, 20 headless UI frames: " << ms << " ms\n";
         ImGui::DestroyContext(context);
+        test_cpp_shortcut_editor(root);
         std::cout << "C++ source IO, registration, diagnostics and actual editing/history checks "
                      "passed\n";
         std::filesystem::remove_all(root);

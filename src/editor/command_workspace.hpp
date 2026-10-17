@@ -15,12 +15,6 @@ struct PaletteEntry {
     bool available = true;
     std::string help;
 };
-inline bool command_matches(std::string text, std::string filter) {
-    auto lower = [](unsigned char c) { return char(std::tolower(c)); };
-    std::transform(text.begin(), text.end(), text.begin(), lower);
-    std::transform(filter.begin(), filter.end(), filter.begin(), lower);
-    return text.find(filter) != std::string::npos;
-}
 inline std::vector<PaletteEntry> palette_entries(const std::string& selected, float snap,
                                                  Float3 target, bool at_target) {
     std::vector<PaletteEntry> entries;
@@ -103,11 +97,11 @@ class CommandWorkspace {
         help("Authoring command search, scene diagnostics, and reflected component information.");
     }
     void draw(Scene& scene, std::string& selected, std::string& message, float snap, Float3 target,
-              bool at_target, bool busy) {
+              bool at_target, bool busy, bool shortcuts_blocked = false) {
         (void)snap;
         (void)target;
         (void)at_target;
-        if ((actions || !busy) && !ImGui::IsAnyItemActive() &&
+        if (!shortcuts_blocked && (actions || !busy) && !ImGui::IsAnyItemActive() &&
             !ImGui::IsPopupOpen(nullptr,
                                 ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) &&
             ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift &&

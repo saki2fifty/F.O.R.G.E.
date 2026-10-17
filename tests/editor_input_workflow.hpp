@@ -32,6 +32,7 @@ class EditorInputWorkflow {
         std::string value;
         ImGuiKey key = ImGuiKey_None;
         bool control = false;
+        int extra_mods = 0;
     };
     std::vector<Step> steps_;
     std::size_t index_ = 0;
@@ -49,7 +50,7 @@ class EditorInputWorkflow {
     std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_,
         graph_function_, graph_call_;
     Json graph_before_;
-    Json starter_modules_, apply_before_, apply_after_, shot_before_;
+    Json starter_modules_, apply_before_, apply_after_, shot_before_, shortcut_before_;
     std::string shot_camera_, shot_controller_, shot_entity_;
     std::uint64_t shot_tick_ = 0;
     std::string starter_source_, generated_input_;
@@ -107,9 +108,47 @@ class EditorInputWorkflow {
     void check(std::string what) { steps_.push_back({Kind::Check, std::move(what)}); }
     void capture(std::string name) { steps_.push_back({Kind::Capture, std::move(name)}); }
     void key(ImGuiKey key, bool ctrl = false) { steps_.push_back({Kind::Key, {}, key, ctrl}); }
+    void chord(ImGuiKey key, int mods) {
+        steps_.push_back({Kind::Key, {}, key, bool(mods & ImGuiMod_Ctrl), mods & ~ImGuiMod_Ctrl});
+    }
     void text(std::string target, std::string value, bool ctrl = false) {
         click(std::move(target), ctrl);
         steps_.push_back({Kind::Text, std::move(value)});
+    }
+    void open_shortcuts() {
+        click("menu:Edit");
+        hover("preferences:menu");
+        click("preferences:shortcuts");
+        text("shortcuts:search", "duplicate");
+    }
+    void configure_shortcuts() {
+        key(ImGuiKey_0, true);
+        open_shortcuts();
+        click("shortcuts:record:Entity / Duplicate subtree:0");
+        chord(ImGuiKey_D, ImGuiMod_Ctrl | ImGuiMod_Alt);
+        check("shortcut-bound");
+        hover("shortcuts:search");
+        capture("editor-shortcut-100");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        check("shortcut-bound");
+        hover("shortcuts:search");
+        capture("editor-shortcut-150");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        check("shortcut-bound");
+        hover("shortcuts:search");
+        capture("editor-shortcut-200");
+        key(ImGuiKey_0, true);
+        click("shortcuts:close");
+        click("saved-cube-row");
+        check("shortcut-before");
+        key(ImGuiKey_D, true);
+        check("shortcut-unchanged");
+        chord(ImGuiKey_D, ImGuiMod_Ctrl | ImGuiMod_Alt);
+        check("shortcut-duplicated");
+        key(ImGuiKey_Z, true);
+        check("shortcut-unchanged");
     }
     void create_cpp(const std::string& kind) {
         click("tab:Content");
@@ -134,7 +173,33 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "shot-camera-created") {
+        if (what == "shortcut-bound") {
+            const auto& binding =
+                state.at("editor_shortcuts").at("bindings").at("Entity / Duplicate subtree").at(0);
+            require(binding.at("key") == "D" && binding.at("Ctrl") == true &&
+                        binding.at("Alt") == true && binding.at("Shift") == false &&
+                        binding.at("Super") == false &&
+                        state.at("shortcut_labels").at("Entity / Duplicate subtree") ==
+                            "Ctrl+Alt+D" &&
+                        !state.at("shortcut_capture").get<bool>(),
+                    "Saved shortcut, effective action label or recorder release differs");
+        } else if (what == "shortcut-default") {
+            require(!state.at("editor_shortcuts")
+                            .at("bindings")
+                            .contains("Entity / Duplicate subtree") &&
+                        state.at("shortcut_labels").at("Entity / Duplicate subtree") == "Ctrl+D",
+                    "Reset did not restore the native default command binding");
+        } else if (what == "shortcut-before") {
+            shortcut_before_ = doc;
+        } else if (what == "shortcut-unchanged") {
+            require(doc == shortcut_before_,
+                    "Old shortcut executed or Undo did not restore the Scene");
+        } else if (what == "shortcut-duplicated") {
+            require(
+                doc != shortcut_before_ && state.at("selected") != cube_ &&
+                    state.at("selected_preview").at("components").contains("forge.mesh_renderer"),
+                "Configured native shortcut did not duplicate the chosen Scene entity");
+        } else if (what == "shot-camera-created") {
             shot_camera_ = state.at("selected");
             require(state.at("selected_preview").at("components").contains("forge.camera"),
                     "Second camera was not created through the Entity menu");
@@ -143,6 +208,14 @@ class EditorInputWorkflow {
             require(
                 state.at("selected_preview").at("components").contains("forge.animation_sequence"),
                 "Sequence controller was not created through the Entity menu");
+            const auto camera =
+                std::find_if(entities.begin(), entities.end(), [&](const auto& row) {
+                    return row.at("id").template get<std::string>() == shot_camera_;
+                });
+            require(camera != entities.end() &&
+                        camera->at("components").at("forge.local_translation") ==
+                            Json{{"x", 3}, {"y", 1}, {"z", -5}},
+                    "Preview camera positioning did not reach the authored Scene");
         } else if (what == "shot-first-created" || what == "shot-second-created") {
             const auto target = what == "shot-first-created" ? camera_ : shot_camera_;
             shot_entity_.clear();
@@ -773,10 +846,35 @@ class EditorInputWorkflow {
   public:
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
                                  const std::filesystem::path& physics_project = {},
-                                 bool sdk_onboarding = false) {
+                                 bool sdk_onboarding = false, bool shortcut_reopen = false) {
         observe_ui = enabled;
         if (!enabled)
             return;
+        if (shortcut_reopen) {
+            key(ImGuiKey_0, true);
+            check("shortcut-bound");
+            check("empty");
+            create("3D Primitive", "Cube");
+            check("cube");
+            check("shortcut-before");
+            key(ImGuiKey_D, true);
+            check("shortcut-unchanged");
+            chord(ImGuiKey_D, ImGuiMod_Ctrl | ImGuiMod_Alt);
+            check("shortcut-duplicated");
+            key(ImGuiKey_Z, true);
+            check("shortcut-unchanged");
+            open_shortcuts();
+            capture("editor-shortcut-reopened");
+            click("shortcuts:reset:Entity / Duplicate subtree");
+            check("shortcut-default");
+            capture("editor-shortcut-reset");
+            click("shortcuts:close");
+            key(ImGuiKey_D, true);
+            check("shortcut-duplicated");
+            key(ImGuiKey_Z, true);
+            check("shortcut-unchanged");
+            return;
+        }
         if (sdk_onboarding) {
             key(ImGuiKey_0, true);
             check("empty");
@@ -981,6 +1079,7 @@ class EditorInputWorkflow {
             check("game-exported");
             capture("starter-export-complete");
             click("button:Close Export");
+            configure_shortcuts();
             return;
         }
         if (!physics_project.empty()) {
@@ -1515,6 +1614,7 @@ class EditorInputWorkflow {
         check("shot-game-preview");
         capture("sequence-camera-preview-200");
         key(ImGuiKey_0, true);
+        configure_shortcuts();
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {
@@ -1788,6 +1888,9 @@ class EditorInputWorkflow {
                 io.AddKeyEvent(ImGuiKey_Enter, false);
         } else if (step.kind == Kind::Key && frame_ < 2 && step.value != "game-native-escape") {
             io.AddKeyEvent(ImGuiMod_Ctrl, frame_ == 0 && step.control);
+            io.AddKeyEvent(ImGuiMod_Alt, frame_ == 0 && bool(step.extra_mods & ImGuiMod_Alt));
+            io.AddKeyEvent(ImGuiMod_Shift, frame_ == 0 && bool(step.extra_mods & ImGuiMod_Shift));
+            io.AddKeyEvent(ImGuiMod_Super, frame_ == 0 && bool(step.extra_mods & ImGuiMod_Super));
             io.AddKeyEvent(step.key, frame_ == 0);
         }
         ++frame_;

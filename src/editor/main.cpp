@@ -81,6 +81,7 @@
 #include "sdk_platform_effects.hpp"
 #include "shader_diligent.hpp"
 #include "shader_imports.hpp"
+#include "shortcuts.hpp"
 #include "simulation_speed_controls.hpp"
 #include "source_import.hpp"
 #include "spatial_helpers.hpp"
@@ -249,7 +250,8 @@ int main(int argc, char** argv) {
         // old staged-capture fixture path.
         forge::test::EditorInputWorkflow input_workflow(
             fixture.workflow || fixture.physics, fixture.output,
-            fixture.physics ? fixture.project : std::filesystem::path{}, fixture.sdk_onboarding);
+            fixture.physics ? fixture.project : std::filesystem::path{}, fixture.sdk_onboarding,
+            fixture.shortcut_reopen);
         forge::test::fixture_breadcrumb("after-input-workflow-construct");
         // SDK Play reference workflow: drives the editor + PlaySession
         // through the standalone reference acceptance flow.
@@ -422,6 +424,7 @@ int main(int argc, char** argv) {
         bool document_locked = false, asset_document_locked = false;
         forge::BlockoutProperties blockout;
         forge::ui::CommandWorkspace commands;
+        forge::ui::EditorShortcuts editor_shortcuts;
         char hierarchy_filter[256]{};
         std::vector<std::string> recent_projects;
         std::string last_project;
@@ -440,6 +443,8 @@ int main(int argc, char** argv) {
                 SDL_strlcpy(exact_sdk_root, j.value("exact_sdk_root", std::string{}).c_str(),
                             sizeof(exact_sdk_root));
                 workspace.load(j);
+                if (j.contains("editor_shortcuts"))
+                    editor_shortcuts.load(j.at("editor_shortcuts"));
                 content.load_settings(j.value("content_browser", forge::Json::object()));
                 orientation.visible = j.value("orientation_gizmo", true);
                 physics_overlay.visible = j.value("collision_overlay", false);
@@ -464,6 +469,7 @@ int main(int argc, char** argv) {
         auto save_preferences = [&] {
             forge::atomic_write(
                 settings, forge::Json{{"tooltips", forge::ui::tooltips},
+                                      {"editor_shortcuts", editor_shortcuts.settings()},
                                       {"panels", workspace.settings()},
                                       {"content_browser", content.settings()},
                                       {"orientation_gizmo", orientation.visible},
@@ -2048,7 +2054,8 @@ int main(int argc, char** argv) {
                 if (game_input.event(event, play))
                     continue;
                 gui->HandleSDLEvent(&event);
-                if (event.type == SDL_EVENT_KEY_DOWN && (event.key.mod & SDL_KMOD_CTRL)) {
+                if (!editor_shortcuts.capturing() && event.type == SDL_EVENT_KEY_DOWN &&
+                    (event.key.mod & SDL_KMOD_CTRL)) {
                     float scale = forge::ui::interface_scale;
                     if (event.key.key == SDLK_MINUS || event.key.key == SDLK_KP_MINUS)
                         scale -= 0.1f;
@@ -2412,8 +2419,17 @@ int main(int argc, char** argv) {
                         action.unavailable_reason = "Select an authored entity for this action.";
                 }
             };
-            add_action(
-                "game.export", "Export Game...", "",
+            auto add_global_action = [&](std::string id, std::string label,
+                                         forge::ui::EditorShortcuts::Keys keys, std::string help,
+                                         bool enabled, std::function<void()> run) {
+                add_action(std::move(id), std::move(label), "", std::move(help), enabled,
+                           std::move(run));
+                auto& action = actions.entries.back();
+                action.global_shortcut = true;
+                action.default_keys = keys;
+            };
+            add_global_action(
+                "game.export", "Export Game...", {},
                 "Build a relocatable Development standalone game from saved project content.", true,
                 [&] {
                     if (!sdk_build->managed() && !files.document.settings().requires_native_sdk() &&
@@ -2454,28 +2470,43 @@ int main(int argc, char** argv) {
                          : edit_locked;
             const bool task_history_locked =
                 cpp_task ? (files.busy() || content_files.busy()) : edit_locked;
-            add_action("save", std::string("Save / ") + editor.task.name(), "Ctrl+S",
-                       "Save or Publish the active task. Scene, prefab and settings have "
-                       "independent ownership.",
-                       !task_save_locked, [&] { files.save_active(); });
-            add_action(
-                "undo", std::string("Undo / ") + editor.task.name(), "Ctrl+Z",
+            add_global_action("file.new_scene", "New scene", {ImGuiMod_Ctrl | ImGuiKey_N, 0},
+                              "Create an unsaved empty Scene, resolving existing drafts first.",
+                              !edit_locked && !files.busy(), [&] {
+                                  files.request({forge::EditorFiles::Command::NewScene, {}, {}});
+                              });
+            add_global_action("file.open_scene", "Open scene...", {ImGuiMod_Ctrl | ImGuiKey_O, 0},
+                              "Choose a Scene inside the current project.",
+                              !edit_locked && !files.busy(), [&] { files.open_scene_dialog(); });
+            add_global_action("file.save_scene_as", "Save scene As...",
+                              {ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_S, 0},
+                              "Save the active Scene to another project-relative path.",
+                              scene_task && !edit_locked && !files.busy(),
+                              [&] { files.save(true); });
+            add_global_action("save", std::string("Save / ") + editor.task.name(),
+                              {ImGuiMod_Ctrl | ImGuiKey_S, 0},
+                              "Save or Publish the active task. Scene, prefab and settings have "
+                              "independent ownership.",
+                              !task_save_locked, [&] { files.save_active(); });
+            add_global_action(
+                "undo", std::string("Undo / ") + editor.task.name(),
+                {ImGuiMod_Ctrl | ImGuiKey_Z, 0},
                 "Undo in the active task. Prefab and Settings drafts do not provide history.",
                 !task_history_locked && documents.history(editor.task.id(), false),
                 [&] { documents.undo(editor.task.id(), false); });
-            add_action("redo", std::string("Redo / ") + editor.task.name(), "Ctrl+Y",
-                       "Redo in the active task. Ctrl+Shift+Z also works.",
-                       !task_history_locked && documents.history(editor.task.id(), true),
-                       [&] { documents.undo(editor.task.id(), true); });
+            add_global_action(
+                "redo", std::string("Redo / ") + editor.task.name(),
+                {ImGuiMod_Ctrl | ImGuiKey_Y, ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z},
+                "Redo in the active task.",
+                !task_history_locked && documents.history(editor.task.id(), true),
+                [&] { documents.undo(editor.task.id(), true); });
             for (auto entry : forge::ui::palette_entries(selected, scene_tools.snap_step,
                                                          camera.target, blockout.at_view_target)) {
                 if (entry.operation == "history.undo" || entry.operation == "history.redo")
                     continue;
                 const bool inspect =
                     entry.operation == "diagnostics" || entry.operation == "schema";
-                std::string shortcut = entry.operation == "entity.duplicate" ? "Ctrl+D"
-                                       : entry.operation == "entity.delete"  ? "Delete"
-                                                                             : "";
+                std::string shortcut = entry.operation == "entity.delete" ? "Delete" : "";
                 add_action(
                     entry.label, entry.label, shortcut, entry.help,
                     entry.available &&
@@ -2516,6 +2547,10 @@ int main(int argc, char** argv) {
                                         .get<std::string>());
                         }
                     });
+                if (entry.operation == "entity.duplicate") {
+                    actions.entries.back().global_shortcut = true;
+                    actions.entries.back().default_keys = {ImGuiMod_Ctrl | ImGuiKey_D, 0};
+                }
             }
             add_action("rename", "Rename entity", "F2",
                        "Focus the selected entity name in Inspector.",
@@ -2529,8 +2564,8 @@ int main(int argc, char** argv) {
                            editor.add_component = true;
                            workspace.inspector = true;
                        });
-            add_action(
-                "play", "Play", "",
+            add_global_action(
+                "play", "Play", {},
                 "Start the isolated runtime and show Game. Wait for the initial source "
                 "scan and queued asset imports to finish. Authoring remains in Scene.",
                 content_imports.ready_for_play() &&
@@ -2721,7 +2756,12 @@ int main(int argc, char** argv) {
                     perform(save_preferences);
             };
             auto preferences_menu = [&] {
-                if (ImGui::BeginMenu("Preferences")) {
+                const bool preferences_open = ImGui::BeginMenu("Preferences");
+                FORGE_UI_PROBE("preferences:menu");
+                if (preferences_open) {
+                    if (ImGui::MenuItem("Editor shortcuts..."))
+                        editor_shortcuts.open = true;
+                    FORGE_UI_PROBE("preferences:shortcuts");
                     if (ImGui::Checkbox("Tooltips", &forge::ui::tooltips))
                         perform(save_preferences);
                     forge::ui::help("Persistent contextual help for editor controls.");
@@ -2734,6 +2774,7 @@ int main(int argc, char** argv) {
                     ImGui::EndMenu();
                 }
             };
+            editor_shortcuts.apply(actions);
             commands.actions = &actions;
 #ifdef FORGE_UI_FIXTURE
             // Legacy staged-capture timeout; bypass for SDK mode (the
@@ -4373,7 +4414,7 @@ int main(int argc, char** argv) {
                     ImGui::GetMainViewport()->WorkSize.x < 900 * forge::ui::interface_scale;
                 const bool menu_open = !narrow_menu || ImGui::BeginMenu("Menu");
                 if (menu_open) {
-                    files.menu([&] { actions.item("save"); }, scene_task && !edit_locked);
+                    files.menu(actions);
                     if (ImGui::BeginMenu("Edit")) {
                         actions.item("save");
                         actions.item("undo");
@@ -4521,21 +4562,22 @@ int main(int argc, char** argv) {
                     forge::test::fit_capture_window(target, forge::ui::interface_scale);
             }
 #endif
-            if (!edit_locked)
-                files.shortcuts(scene_task);
-            if (!edit_locked &&
-                !ImGui::IsPopupOpen(nullptr,
-                                    ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel) &&
-                !ImGui::GetIO().WantTextInput && !ImGui::IsAnyItemActive() &&
-                ImGui::GetIO().KeyCtrl) {
-                if (ImGui::IsKeyPressed(ImGuiKey_Z, false))
-                    actions.invoke(ImGui::GetIO().KeyShift ? "redo" : "undo");
-                if (ImGui::IsKeyPressed(ImGuiKey_Y, false))
-                    actions.invoke("redo");
-                if (ImGui::IsKeyPressed(ImGuiKey_D, false))
-                    actions.invoke("Entity / Duplicate subtree");
-            }
-            if (!ImGui::GetIO().WantTextInput && !ImGui::IsAnyItemActive() &&
+            editor_shortcuts.draw(actions, save_preferences,
+                                  !play.active() && !edit_locked && !game_input.captured());
+            const auto dispatched_shortcut = editor_shortcuts.dispatch(
+                actions, !cpp_sources.owns_keyboard() && !game_input.captured() && !files.busy() &&
+                             !content_files.busy() && !modal.active() && !scene_tools.active() &&
+                             !blockout.active());
+            const auto* save_action = actions.find("save");
+            cpp_sources.save_shortcut = [&editor_shortcuts, &game_input,
+                                         keys = editor_shortcuts.unique_keys(actions, "save"),
+                                         available = save_action->available &&
+                                                     dispatched_shortcut != "save"] {
+                return available && !editor_shortcuts.capturing() && !game_input.captured() &&
+                       std::any_of(keys.begin(), keys.end(), forge::ui::EditorShortcuts::pressed);
+            };
+            if (!editor_shortcuts.capturing() && !ImGui::GetIO().WantTextInput &&
+                !ImGui::IsAnyItemActive() &&
                 !ImGui::IsPopupOpen(nullptr,
                                     ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel)) {
                 if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Space, false) &&
@@ -4561,7 +4603,7 @@ int main(int argc, char** argv) {
                 perform(save_preferences);
 
             commands.draw(scene, selected, message, scene_tools.snap_step, camera.target,
-                          blockout.at_view_target, edit_locked);
+                          blockout.at_view_target, edit_locked, editor_shortcuts.capturing());
             files.draw_dialogs();
             animation_tools.poll(files.document, message);
             try {
@@ -4808,7 +4850,8 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
                     hierarchy_keyboard_focused = hierarchy_focused;
 #endif
-                    if (hierarchy_focused && ImGui::IsKeyPressed(ImGuiKey_F2, false))
+                    if (hierarchy_focused && !editor_shortcuts.capturing() &&
+                        ImGui::IsKeyPressed(ImGuiKey_F2, false))
                         actions.invoke("rename");
                     if (hierarchy_focused && !edit_locked && !ImGui::GetIO().WantTextInput &&
                         !ImGui::IsAnyItemActive() &&
@@ -6182,6 +6225,12 @@ int main(int argc, char** argv) {
                     {"ui_scale", forge::ui::interface_scale},
                     {"status", message}};
                 auto observed = state;
+                observed["editor_shortcuts"] = editor_shortcuts.settings();
+                observed["shortcut_capture"] = editor_shortcuts.capturing();
+                observed["shortcut_labels"] = forge::Json::object();
+                for (const auto& action : actions.entries)
+                    if (action.global_shortcut)
+                        observed["shortcut_labels"][action.id] = action.shortcut;
                 observed["sequence_preview"] = animation_timeline.sequence_mode() &&
                                                animation_timeline.preview_active() &&
                                                !play.active();

@@ -170,7 +170,8 @@ jobs:
   editor:
     if: github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && inputs.package_source_run == '' && !inputs.hlsl_profile
     runs-on: windows-2022
-    timeout-minutes: 90
+    # Match the source gate's measured cold-build/acceptance budget.
+    timeout-minutes: 150
     env:
       FORGE_BUILD_ID: ${{ inputs.build_id }}
       FORGE_SOURCE_COMMIT: ${{ github.sha }}

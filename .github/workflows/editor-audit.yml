@@ -53,7 +53,9 @@ jobs:
   editor:
     if: inputs.performance_source_run == ''
     runs-on: windows-2022
-    timeout-minutes: 90
+    # Cold configuration/build plus full acceptance measured almost 90 minutes
+    # before standalone and benchmark checks. Keep those checks in the same gate.
+    timeout-minutes: 150
     env:
       FORGE_BUILD_ID: unassigned
       FORGE_SOURCE_COMMIT: ${{ inputs.source_commit }}

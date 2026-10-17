@@ -33,6 +33,11 @@ test executables without maintaining a second list in the workflows. The early
 process-controller gate and explicitly focused shader/input audits retain their
 limited target selections.
 
+Both full editor jobs allow 150 minutes overall. A cold Windows source audit
+measured 6 minutes of configuration, 63 minutes of compilation and 20.5 minutes of
+acceptance before standalone/benchmark work, exhausting the previous 90-minute
+job limit. Individual test deadlines and acceptance selections are unchanged.
+
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new
 delivery number. Focused shader/input scopes remain explicitly separate. Numbered
@@ -193,6 +198,14 @@ The SDK reference workflow tolerates an unpublished scene snapshot while recordi
 startup diagnostics. It retries an unaccepted initial toolbar click at most twice,
 500ms apart, only with a stopped untouched session and an enabled visible button.
 Reported startup failures are retained; stage and overall deadlines are unchanged.
+
+The native editor workflow records a personal Duplicate shortcut through the
+ordinary Preferences route and exercises its effective command at 100/150/200%.
+Final SDK package acceptance retains only that fixture's private preference bytes,
+starts a fresh editor process with a new project and restricted system-only PATH,
+then checks the loaded binding, old-key suppression and Reset/default dispatch.
+It retains before/after captures. This uses the existing fixture/input workflow;
+production editor command-line arguments and project input remain unchanged.
 
 ## Content-verified incremental Windows inputs
 

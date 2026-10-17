@@ -2,17 +2,47 @@
 
 Commands that edit scenes are suppressed while typing or interacting with modal dialogs. Mouse navigation must begin over the Scene image.
 
-## Files and editing
+## Files and editing: defaults
 
 - Ctrl+N: new scene.
 - Ctrl+O: open a scene within the project.
-- Ctrl+S: save the active scene.
+- Ctrl+S: save the active task, including the active C++ source file.
 - Ctrl+Shift+S: Save scene As... (active Scene task).
 - Ctrl+Z: undo.
 - Ctrl+Shift+Z or Ctrl+Y: redo.
 - Ctrl+D: duplicate the selected subtree.
 - Delete: delete the selected subtree when Hierarchy has focus.
 - Enter in Inspector Name: commit the name.
+
+## Change editor shortcuts
+
+Open **Edit → Preferences → Editor shortcuts...**. In a narrow window, open
+**Menu** first. Search for a command, then choose **Change...** beside one of its
+two shortcut slots. Press the new combination. FORGE saves it immediately in
+your personal preferences and shows the same shortcut in menus and command search.
+
+Use Ctrl, Alt or Super with a supported key, or use F8–F24 alone. The recorder
+rejects a combination already assigned to another command and explains where it
+is used. Clear that command's binding first if you want to reuse it. Escape or
+**Cancel** keeps the previous binding. The recorded key is consumed; it does not
+also run the command.
+
+**Clear** unassigns one slot. **Reset** restores that command's defaults;
+**Reset all shortcuts** restores every default. A failed preferences save keeps
+the last working bindings. Changes survive restarting FORGE and apply to your
+editor, independently of the project or exported game.
+
+The configurable commands are New scene, Open scene, Save scene As, active-task
+Save, Undo, Redo, Duplicate subtree, Export Game and Play. Export Game and Play
+start unassigned. Stop Play and finish an active operation before changing keys.
+Commands still require their normal selection, task and runtime conditions.
+
+Typing, C++ source Undo/Redo and Find, Hierarchy F2/Delete, viewport tools,
+interface size, command search, workspace folding and gameplay safety controls
+keep their contextual keys. They are listed below and in the shortcuts window.
+The active C++ source uses your configured **Save** key; ordinary text editing
+continues to own its other keys. Global scene actions do not consume text input,
+active dialogs, viewport gestures or captured gameplay input.
 
 ## Interface size
 

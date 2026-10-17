@@ -26,6 +26,34 @@ Ctrl+S routes to the active Scene, Prefab source or Project Settings task. Scene
 
 Personal panel visibility and ImGui docking geometry persist independently of project settings. Stable hidden IDs retain Hierarchy/Build arrangements; existing Prefab source/Project Settings names migrate with docking references and a backup. New Game/Problems tabs attach on first use. Reset layout is explicit. Failed workspace replacement retains the original and disables session layout saving, as before.
 
+## Personal command shortcuts
+
+`EditorActions` owns eligible global command metadata, defaults, availability and
+execution. `EditorShortcuts` adapts personal overrides to that catalog; File actions
+still call `EditorFiles`, and Save/history still use the active document owner.
+Menus, tooltips and palette results use the effective shortcut label. The on-demand
+**Edit → Preferences → Editor shortcuts...** view offers search, two recorded
+chords per command, conflict feedback, Clear, per-command Reset and Reset all.
+It does not add a project input action, command registry or runtime capability.
+
+The existing atomic personal `settings.json` writer stores `editor_shortcuts`
+version1: a bounded object of at most128 action IDs, each with up to two null or
+key/modifier records. FORGE owns stable key tokens and explicit Ctrl/Shift/Alt/Super
+booleans; native numeric enums and debug key names are never persisted. Unknown
+action data survives unrelated edits. Invalid individual bindings use defaults;
+unsupported versions remain intact and use defaults until an explicit Reset all.
+Failed writes retain the prior data and effective bindings. This personal schema
+does not change authored Scene/Prefab/project identity or the C++ SDK.
+
+Dispatch matches exact modifiers without key repeat, consumes recorded input until
+release, and invokes the existing available action once. Conflicting hand-edited
+bindings execute nothing. Active text/widgets, popups, viewport gestures, builds
+and captured gameplay keep input ownership. C++ Sources owns its keyboard focus:
+its Save route uses the same unique configured key, suppressing the text widget's
+handler for that save frame to avoid a second edit or dispatch. Text Undo/Redo and
+Find remain local. Fixed navigation, text and gameplay safety keys are reserved;
+see [the complete user behavior](../manual/editor/shortcuts.md).
+
 ## Validation boundaries
 
 Portable tests exercise actual ImGui component/draft drawing, integer input, controller validation/history, process isolation and capture. `editor_redesign_render` builds a fixture variant of the actual editor entry point, attaches Diligent to D3D12 WARP, creates disposable project/preferences, drives real controllers and captures rendered windows. The fixture is not packaged as the editor. Evidence covers default/Scene/Inspector, Add Component, Content, Problems, prefab/settings, Play/paused capture, narrow 100%/200% and ultrawide layouts. It is automated rendering, not physical desktop acceptance. Existing shader, viewport, runtime UI and package relocation suites remain required.

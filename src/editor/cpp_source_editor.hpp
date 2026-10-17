@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 #include <TextEditor.h>
 #include <cstdint>
+#include <imgui_internal.h>
 #include <memory>
 
 namespace forge::ui {
@@ -64,8 +65,22 @@ class CppSourceEditor {
     bool build_enabled = false;
     std::uint64_t source_revision = 0;
     std::function<void()> request_build, request_new;
+    // Main supplies the effective shared Save binding, including duplicate-dispatch guards.
+    std::function<bool()> save_shortcut = [] {
+        return ImGui::GetIO().KeyMods == ImGuiMod_Ctrl && ImGui::IsKeyPressed(ImGuiKey_S, false);
+    };
     std::function<void(const std::string&)> request_reveal;
     bool is_open() const { return open_; }
+    bool owns_keyboard() const {
+        if (!open_ || !ImGui::GetCurrentContext())
+            return false;
+        const auto* owner = ImGui::FindWindowByName("###C++ Sources");
+        for (const auto* window = ImGui::GetCurrentContext()->NavWindow; window;
+             window = window->ParentWindow)
+            if (window == owner)
+                return true;
+        return false;
+    }
     std::string active_source() const { return active_ ? active_->locator : std::string{}; }
     bool dirty_source(const std::string& locator) const {
         for (const auto& tab : tabs_)
@@ -199,6 +214,8 @@ class CppSourceEditor {
         if (!visible)
             request_close();
         if (contents) {
+            const bool save_key = !locked && !save_locked && save_shortcut && save_shortcut() &&
+                                  ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
             controls(project, locked || save_locked);
             ImGui::BeginDisabled(locked || save_locked);
             const bool active_dirty = active_ && active_->dirty;
@@ -232,7 +249,7 @@ class CppSourceEditor {
                        "isolated compiler task. Stop Play first."))
                 attempt([&] { request_build(); });
             ImGui::EndDisabled();
-            if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F) &&
+            if (!save_key && ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F) &&
                 ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
                 ImGui::SetKeyboardFocusHere();
             if (ImGui::InputText("Find", query_, sizeof(query_),
@@ -286,9 +303,11 @@ class CppSourceEditor {
                             ImGui::TextWrapped("File changed outside FORGE. Reload explicitly; "
                                                "your draft is retained.");
                         tab->editor.SetReadOnly(locked);
+                        tab->editor.SetHandleKeyboardInputs(!save_key);
                         const auto available = ImGui::GetContentRegionAvail();
                         tab->editor.Render("C++ text",
                                            {available.x, std::max(80.0f, available.y - 35.0f)});
+                        tab->editor.SetHandleKeyboardInputs(true);
                         FORGE_UI_PROBE("cpp:editor");
                         if (tab->editor.IsTextChanged())
                             tab->changed();
@@ -312,13 +331,11 @@ class CppSourceEditor {
                 if (!closed.empty())
                     erase(closed);
             }
-            if (!locked && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift &&
+            if (!save_key && !locked && ImGui::GetIO().KeyCtrl && ImGui::GetIO().KeyShift &&
                 ImGui::IsKeyPressed(ImGuiKey_Z) &&
                 ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
                 undo(true);
-            if (!locked && !save_locked && ImGui::GetIO().KeyCtrl &&
-                ImGui::IsKeyPressed(ImGuiKey_S) &&
-                ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+            if (save_key)
                 attempt([&] { save(project); });
             if (!error_.empty())
                 ImGui::TextWrapped("%s", error_.c_str());

@@ -402,13 +402,45 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         'cpp-system-dirty', 'cpp-system-current', 'cpp-system-reversed',
         'cpp-rotator-inspector', 'gameplay-stale-play-offer',
         'gameplay-save-build-play-offer',
-        'starter-export-complete')
+        'starter-export-complete', 'editor-shortcut-100', 'editor-shortcut-150',
+        'editor-shortcut-200')
     for name in required_onboarding_captures:
         matching = [entry['step'] for entry in starter_trace['trace']
                     if entry.get('operation') == 'capture' and entry.get('value') == name]
         if not matching or any(not (onboarding / f'editor-{step}-{name}.ppm').is_file()
                                for step in matching):
             raise AssertionError('Missing C++ onboarding UI capture: ' + name)
+    # The first editor has exited and released its private project. A fresh
+    # process loads its real saved preference bytes into a new empty project.
+    # It must execute the edited binding, suppress the old one, then restore it.
+    shortcut_preferences = onboarding / 'shortcut-preferences'
+    if not (shortcut_preferences / 'settings.json').is_file():
+        raise AssertionError('Editor did not retain private shortcut settings for restart')
+    shortcut_reopen = evidence / 'shortcuts reopened'
+    shortcut_reopen.mkdir(parents=True, exist_ok=True)
+    shortcut_env = os.environ.copy()
+    shortcut_env['PATH'] = str(Path(os.environ.get('SystemRoot', 'C:/Windows')) / 'System32')
+    with (shortcut_reopen / 'fixture.log').open('w', encoding='utf-8') as stream:
+        child = subprocess.Popen([str(fixture_dst), str(shortcut_reopen), '--shortcuts-reopen',
+                                  str(shortcut_preferences)], cwd=extracted, env=shortcut_env,
+                                 stdout=stream, stderr=subprocess.STDOUT)
+        try:
+            shortcut_code = child.wait(timeout=180)
+        finally:
+            if child.poll() is None:
+                terminate_tree(child)
+    reopened_trace = shortcut_reopen / 'workflow.json'
+    if shortcut_code or not reopened_trace.is_file():
+        raise AssertionError('Fresh editor shortcut verification failed; see ' + str(shortcut_reopen))
+    shortcut_trace = json.loads(reopened_trace.read_text())
+    if not shortcut_trace.get('ok'):
+        raise AssertionError('Fresh editor shortcut assertions failed: ' + str(shortcut_trace.get('error')))
+    for name in ('editor-shortcut-reopened', 'editor-shortcut-reset'):
+        matching = [entry['step'] for entry in shortcut_trace['trace']
+                    if entry.get('operation') == 'capture' and entry.get('value') == name]
+        if not matching or any(not (shortcut_reopen / f'editor-{step}-{name}.ppm').is_file()
+                               for step in matching):
+            raise AssertionError('Missing restarted editor shortcut capture: ' + name)
     starter_export=Path(starter_trace['state']['export_output'])
     # The fixture has already removed its source project. PATH now exposes only
     # system DLLs, not the compiler. Execute after two moves.
