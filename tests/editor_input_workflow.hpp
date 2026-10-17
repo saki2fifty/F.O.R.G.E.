@@ -171,20 +171,10 @@ class EditorInputWorkflow {
         if (!ok)
             throw std::runtime_error(reason);
     }
-    void verify(const std::string& what, const Json& state) {
+    // Keep independent fixture domains below MSVC's nested-block limit.
+    bool verify_development(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
-        if (what == "character-world-binding") {
-            bool valid = false;
-            for (const auto& entity : entities)
-                if (entity.at("id") == state.at("selected"))
-                    valid = entity.at("components").contains("forge.character_controller") &&
-                            entity.at("spatial").at("mode") == "world" &&
-                            entity.at("components").at("forge.local_translation") ==
-                                Json{{"x", 10}, {"y", 3}, {"z", 0}};
-            require(valid, "Character fixture requires World binding and a clear spawn");
-            return;
-        }
         if (what == "gpu-default-off") {
             require(!state.at("gpu_profile").at("enabled").get<bool>() &&
                         state.at("gpu_profile").at("created") == 0,
@@ -294,7 +284,27 @@ class EditorInputWorkflow {
                         !state.at("game_input_captured").get<bool>() &&
                         !state.at("game_mouse_relative").get<bool>(),
                     "Camera preview changed authoring/gameplay time or captured game input");
-        } else if (what == "graph-created") {
+        } else
+            return false;
+        return true;
+    }
+    void verify(const std::string& what, const Json& state) {
+        const auto& doc = state.at("scene");
+        const auto& entities = doc.at("entities");
+        if (what == "character-world-binding") {
+            bool valid = false;
+            for (const auto& entity : entities)
+                if (entity.at("id") == state.at("selected"))
+                    valid = entity.at("components").contains("forge.character_controller") &&
+                            entity.at("spatial").at("mode") == "world" &&
+                            entity.at("components").at("forge.local_translation") ==
+                                Json{{"x", 10}, {"y", 3}, {"z", 0}};
+            require(valid, "Character fixture requires World binding and a clear spawn");
+            return;
+        }
+        if (verify_development(what, state))
+            return;
+        if (what == "graph-created") {
             const auto& g = state.at("graph_document");
             require(g.is_object(), "Graph creation did not open a source document");
             graph_before_ = g;
