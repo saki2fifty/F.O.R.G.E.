@@ -61,6 +61,24 @@ void inspect(const std::filesystem::path& root, const Json& source,
                   "Bloom Gallery emissive color differs");
     }
 }
+void inspect_color(const std::filesystem::path& root) {
+    const auto catalog = AssetCatalog::open_project(root);
+    const auto id = AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a");
+    const auto source = read(root / catalog.records().at(id).source);
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    RuntimeSimulation simulation(engine.world(), scene);
+    for (unsigned i = 0; i < 10; ++i)
+        simulation.tick(1.f / 60);
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    const auto cameras = prepare_game_cameras(frame, 384, 192);
+    check(scene.document() == source && frame.meshes.size() == 8 && cameras.cameras.size() == 1 &&
+              frame.diagnostics.empty() &&
+              frame.settings.color_adjustments ==
+                  SceneColorAdjustments{true, {1.1f, .85f, .7f}, .8f, 1.15f},
+          "Gallery69 runtime Scene, geometry, camera or authored grading changed");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -83,7 +101,9 @@ int main(int argc, char** argv) {
                   "Bloom Gallery selected wrong material target");
         }
         inspect(root, source, materials);
-        const std::array roots{source.at("asset_id").get<AssetId>()};
+        inspect_color(root);
+        const std::array roots{source.at("asset_id").get<AssetId>(),
+                               AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a")};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             prepare_runtime_content_catalog(*lease, roots, {});
@@ -93,15 +113,18 @@ int main(int argc, char** argv) {
         const auto moved = std::filesystem::path(package.string() + "-relocated");
         std::filesystem::rename(package, moved);
         const auto shipped = open_runtime_content(moved, {"windows", "d3d12"});
-        check(shipped.records().size() == 3, "Bloom export included unrelated assets");
+        check(shipped.records().size() == 5, "Bloom/color export included unrelated assets");
         for (const auto path : paths)
             check(!std::filesystem::exists(moved / path),
                   "Bloom material source leaked into export");
         const auto exported_source = read(moved / shipped.records().at(roots[0]).source);
         std::filesystem::rename(root, std::filesystem::path(root.string() + "-source-offline"));
         inspect(moved, exported_source, materials);
+        inspect_color(moved);
         std::cout
             << "Gallery48 runtime/cooked material/scene and relocated source-free export PASS\n";
+        std::cout << "Gallery69 color settings and relocated source-free export PASS: "
+                  << moved.string() << '\n';
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

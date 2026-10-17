@@ -4,14 +4,54 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_color_controls(const SceneColorAdjustments& settings, bool locked,
+                                 const std::function<void(const Json&)>& commit) {
+    IdScope scope("color_adjustments");
+    heading("Color adjustments",
+            "Scene-wide color grading. Scene Save and Undo include these values.");
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable color adjustments", &enabled))
+        commit({{"color_adjustments", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("color:enabled");
+    property_label_row(
+        "Color filter (linear RGB)",
+        "Multiply linear HDR light before tone mapping. White leaves colors unchanged.");
+    auto filter = settings.filter;
+    if (ImGui::InputFloat3("##filter", filter.data(), "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"color_adjustments", {{"filter", filter}}}});
+    FORGE_UI_PROBE("color:filter");
+    help("Red, green and blue multipliers from 0 to 4. White is 1,1,1; use values below 1 to tint. "
+         "Enter commits.");
+    auto field = [&](const char* label, const char* key, float value, const char* tip) {
+        IdScope id(key);
+        property_label_row(label, tip);
+        if (ImGui::InputFloat("##value", &value, 0, 0, "%.3f",
+                              ImGuiInputTextFlags_EnterReturnsTrue))
+            commit({{"color_adjustments", {{key, value}}}});
+        FORGE_UI_PROBE(std::string("color:") + key);
+        help(tip);
+    };
+    field("Saturation", "saturation", settings.saturation,
+          "0 makes the image grayscale, 1 preserves saturation, 2 strengthens it. Applied after "
+          "tone mapping; Enter commits.");
+    field("Contrast", "contrast", settings.contrast,
+          "0 makes a flat 18% linear gray; 1 preserves contrast; 2 increases contrast around that "
+          "gray. Enter commits.");
+    if (button("Reset color adjustments", "Disable grading and restore white filter, saturation 1 "
+                                          "and contrast 1 in one Undo step."))
+        commit({{"color_adjustments",
+                 {{"enabled", false}, {"filter", {1, 1, 1}}, {"saturation", 1}, {"contrast", 1}}}});
+    FORGE_UI_PROBE("color:reset");
+    ImGui::TextWrapped(
+        "Affects Scene and game images, including sky and bloom. Editor controls, overlays and the "
+        "game HUD keep their own colors. Display output is bounded to SDR.");
+}
 inline void scene_bloom_controls(const SceneBloom& settings, bool locked,
                                  const std::function<void(const Json&)>& commit) {
     IdScope scope("bloom");
     heading("Bloom", "Glow around bright surfaces. Runs before display exposure and tone mapping.");
-    struct Disabled {
-        explicit Disabled(bool value) { ImGui::BeginDisabled(value); }
-        ~Disabled() { ImGui::EndDisabled(); }
-    } disabled(locked);
+    DisabledScope disabled(locked);
     bool enabled = settings.enabled;
     if (ImGui::Checkbox("Enable bloom", &enabled))
         commit({{"bloom", {{"enabled", enabled}}}});
@@ -50,6 +90,8 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
             const auto settings = scene_render_settings(scene.document());
             auto commit = [&](const Json& patch) {
                 authoring_command(scene, "scene.rendering.set", patch);
+                if (editor_context)
+                    editor_context->problems.resolve("scene.lighting");
             };
             Json texture = settings.environment.texture.id ? Json(settings.environment.texture.id)
                                                            : Json(nullptr);
@@ -95,6 +137,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
             help("Game-camera exposure from -20 to +20 stops. +1 doubles linear light before tone "
                  "mapping. Enter commits.");
             scene_bloom_controls(settings.bloom, locked, commit);
+            scene_color_controls(settings.color_adjustments, locked, commit);
             heading("Shadows", "Scene-wide shadow quality. Individual lights and mesh renderers "
                                "control casting and receiving in the Inspector.");
             bool enabled = settings.shadows.enabled;

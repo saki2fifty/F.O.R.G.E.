@@ -27,16 +27,23 @@ float4 main(uint id:SV_VertexID):SV_Position {
 #define TONE_MAPPING_MODE TONE_MAPPING_MODE_PBR_NEUTRAL
 #include "ToneMapping.fxh"
 Texture2D<float4> g_HDR;
-cbuffer ForgeDisplay {float4 g_Display;};
+cbuffer ForgeDisplay {float4 g_Display;float4 g_Filter;};
 float4 main(float4 position:SV_Position):SV_Target0 {
     float4 source=g_HDR.Load(int3(int2(position.xy),0));
     float3 exposed=source.rgb*g_Display.x;
+    if(g_Display.y!=0)exposed*=g_Filter.rgb;
     if(!all(isfinite(source))||!all(isfinite(exposed)))return float4(1,0,1,1);
     ToneMappingAttribs settings=(ToneMappingAttribs)0;
     settings.fMiddleGray=.18;settings.fWhitePoint=3;settings.fLuminanceSaturation=1;
     // PBR Neutral uses .3/average luminance. Manual exposure is applied above;
     // .3 therefore leaves that exposure unchanged. No automatic eye adaptation.
     float3 mapped=ToneMap(exposed,settings,.3);
+    if(!all(isfinite(mapped)))return float4(1,0,1,1);
+    if(g_Display.y!=0) {
+        float luminance=dot(mapped,float3(.2126,.7152,.0722));
+        mapped=lerp(luminance.xxx,mapped,g_Display.z);
+        mapped=saturate((mapped-.18)*g_Display.w+.18);
+    }
     return float4(LinearToSRGB(mapped),saturate(source.a));
 })";
     presentation.shader(shader, &pixel);
@@ -59,8 +66,8 @@ float4 main(float4 position:SV_Position):SV_Target0 {
     presentation.graphics(ci, &pipeline_);
     pipeline_->CreateShaderResourceBinding(&binding_, true);
     BufferDesc desc;
-    desc.Name = "FORGE manual display exposure";
-    desc.Size = 16;
+    desc.Name = "FORGE scene display settings";
+    desc.Size = 32;
     desc.Usage = USAGE_DYNAMIC;
     desc.BindFlags = BIND_UNIFORM_BUFFER;
     desc.CPUAccessFlags = CPU_ACCESS_WRITE;
@@ -71,7 +78,8 @@ float4 main(float4 position:SV_Position):SV_Target0 {
     values->Set(values_);
 }
 ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* source,
-                                      float exposure_ev) {
+                                      float exposure_ev, const SceneColorAdjustments& color) {
+    validate_scene_color_adjustments(color);
     if (!context || !source || !std::isfinite(exposure_ev))
         throw std::runtime_error(
             "Display resolve requires a context, HDR source and finite exposure");
@@ -105,7 +113,14 @@ ITextureView* DisplayResolve::resolve(IDeviceContext* context, ITextureView* sou
     {
         MapHelper<float> values(context, values_, MAP_WRITE, MAP_FLAG_DISCARD);
         values[0] = float(exposure);
-        values[1] = values[2] = values[3] = 0;
+        // Skip the identity as well as disabled adjustments. Retain the existing
+        // arithmetic path/pixels without additional targets, passes or variants.
+        values[1] = color.enabled && (color.filter != std::array<float, 3>{1, 1, 1} ||
+                                      color.saturation != 1 || color.contrast != 1);
+        values[2] = color.saturation;
+        values[3] = color.contrast;
+        std::copy(color.filter.begin(), color.filter.end(), &values[4]);
+        values[7] = 0;
     }
     auto* target = output_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     context->SetRenderTargets(1, &target, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);

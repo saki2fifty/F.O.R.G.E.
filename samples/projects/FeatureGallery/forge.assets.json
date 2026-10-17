@@ -4619,6 +4619,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "7456ed81-3d3b-45a6-8c7d-6b50073ad01a",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/69-scene-color-adjustments.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "77189ce5-4e0f-4537-af5d-eebe8e28df76",
       "metadata": {
         "forge.import": {

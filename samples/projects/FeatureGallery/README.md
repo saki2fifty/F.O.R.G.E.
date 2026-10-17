@@ -1,5 +1,23 @@
 # FORGE Feature Gallery
 
+## Scene color adjustments
+
+Open **Scenes/69-scene-color-adjustments.scene.json**. Five colored columns and
+neutral steps share the existing Material path. Its saved warm preset affects
+Scene preview, Play and the exported game.
+
+Choose **Tools > Scene lighting...**, scroll to **Color adjustments**, and toggle
+**Enable color adjustments** to compare the original image with the preset. Set
+**Saturation** to 0 for grayscale. **Color filter (linear RGB)** multiplies channels
+before tone mapping; **Contrast** changes mapped linear light around 18% gray.
+Press Enter to commit. Save the Scene to keep changes; Undo restores an edit.
+**Reset color adjustments** restores all neutral defaults in one Undo step.
+
+Choose this Scene as startup before export. It includes prepared shared Material
+values and the Scene settings, with no source compiler or C++ module required.
+Editor overlays and the game HUD keep their own colors. Use the editor's Help menu
+to open the packaged manual and see its Lighting page.
+
 ## Sequence camera shots
 
 Open **Scenes/68-sequence-camera-shots.scene.json** and press Play. The front view

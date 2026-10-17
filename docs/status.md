@@ -1,3 +1,12 @@
+# Scene color adjustments — 2026-10-17
+
+Local source adds authored RGB filter, saturation and contrast in the existing
+Scene/Game display pass. Normal/sanitizer settings and six scale/window UI cases,
+software Vulkan pixels, actual Game/split-camera rendering and relocated source-free
+Gallery69 pass. Prior Gallery data/IDs remain intact. New native Windows source and
+package gates and capture review remain pending; physical testing is deferred.
+See [the contract](scene-color-adjustments.md).
+
 # Reviewed runtime tuning — 2026-10-17
 
 Local source adds an explicit frozen review of changed live-tunable values for one

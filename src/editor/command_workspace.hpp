@@ -94,6 +94,7 @@ class CommandWorkspace {
             }
             ImGui::EndMenu();
         }
+        FORGE_UI_PROBE("menu:Tools");
         help("Authoring command search, scene diagnostics, and reflected component information.");
     }
     void draw(Scene& scene, std::string& selected, std::string& message, float snap, Float3 target,

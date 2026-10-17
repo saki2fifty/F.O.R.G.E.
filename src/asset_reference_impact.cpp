@@ -149,10 +149,11 @@ struct Inspect {
                 for (const auto& [key, unused] : doc.at("rendering").items()) {
                     (void)unused;
                     if (key != "version" && key != "exposure" && key != "environment" &&
-                        key != "shadows" && key != "bloom")
+                        key != "shadows" && key != "bloom" && key != "color_adjustments")
                         unknown("rendering." + key);
                 }
-                for (const auto* section : {"environment", "shadows", "bloom"}) {
+                for (const auto* section :
+                     {"environment", "shadows", "bloom", "color_adjustments"}) {
                     if (!doc.at("rendering").contains(section))
                         continue;
                     const std::set<std::string> known =
@@ -161,7 +162,9 @@ struct Inspect {
                         : std::string_view(section) == "shadows"
                             ? std::set<std::string>{"enabled", "resolution", "cascades",
                                                     "max_lights", "distance"}
-                            : std::set<std::string>{"enabled", "threshold", "intensity", "radius"};
+                        : std::string_view(section) == "bloom"
+                            ? std::set<std::string>{"enabled", "threshold", "intensity", "radius"}
+                            : std::set<std::string>{"enabled", "filter", "saturation", "contrast"};
                     for (const auto& [key, unused] : doc.at("rendering").at(section).items()) {
                         (void)unused;
                         if (!known.contains(key))

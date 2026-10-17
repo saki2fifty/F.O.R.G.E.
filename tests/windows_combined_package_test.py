@@ -175,7 +175,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     gallery = root/'Gallery Copy'
     shutil.copytree(root/'Examples/FeatureGallery', gallery)
     assert {'01-transforms.scene.json', '02-lighting.scene.json',
-            '03-physics.scene.json', '04-cameras.scene.json'} <= {
+            '03-physics.scene.json', '04-cameras.scene.json',
+            '68-sequence-camera-shots.scene.json', '69-scene-color-adjustments.scene.json'} <= {
                 p.name for p in (gallery/'Scenes').glob('*.scene.json')}
     gallery_settings = json.loads((gallery/'forge.project.json').read_text())
     selected = json.loads((gallery/gallery_settings['startup_scene']['source']).read_text())
@@ -193,6 +194,31 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
                              cwd=gallery_export, env=env, text=True,
                              capture_output=True, timeout=180)
     assert started.returncode == 0, (started.stdout, started.stderr)
+    # Authored grading uses the shipped exporter/runtime with its sources offline.
+    color_scene = 'Scenes/69-scene-color-adjustments.scene.json'
+    color = json.loads((gallery/color_scene).read_text())
+    gallery_settings['startup_scene'] = dict(asset=color['asset_id'], source=color_scene)
+    (gallery/'forge.project.json').write_text(json.dumps(gallery_settings))
+    color_export = root/'Scene Color Standalone'
+    options['destination'] = str(color_export)
+    result = subprocess.run([str(tools), '--assets', 'export-game', str(gallery),
+                             json.dumps(options)], cwd=root, env=env, text=True,
+                            capture_output=True, timeout=180)
+    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+    color_catalog = json.loads((color_export/'content/forge.assets.json').read_text())['assets']
+    color_record = next(row for row in color_catalog if row['id'] == color['asset_id'])
+    color_saved = json.loads((color_export/'content'/color_record['source']).read_text())
+    assert color_saved['rendering']['color_adjustments'] == color['rendering']['color_adjustments']
+    assert not (color_export/'Assets/ObjectValues/SharedSurface.material.json').exists()
+    offline = gallery.with_name('Gallery Sources Offline')
+    gallery.rename(offline)
+    try:
+        started = subprocess.run([str(color_export/'forge_game.exe'), '--verify-startup'],
+                                 cwd=color_export, env=env, text=True,
+                                 capture_output=True, timeout=180)
+        assert started.returncode == 0, (started.stdout, started.stderr)
+    finally:
+        offline.rename(gallery)
     # The authored timeline clip must survive the same shipped export path.
     animated_scene = 'Scenes/08-transform-animation.scene.json'
     animated = json.loads((gallery/animated_scene).read_text())

@@ -56,6 +56,7 @@ void validate_value(const Json& value, const Json& schema, const std::string& pa
                  : type == "boolean" ? value.is_boolean()
                  : type == "null"    ? value.is_null()
                  : type == "integer" ? value.is_number_integer()
+                 : type == "array"   ? value.is_array()
                                      : value.is_number();
     if (!valid)
         throw CommandError("invalid_arguments", path + ": expected " + type);
@@ -73,6 +74,12 @@ void validate_value(const Json& value, const Json& schema, const std::string& pa
             else if (!schema.value("additionalProperties", false))
                 throw CommandError("invalid_arguments", path + ": unknown field " + key);
         }
+    } else if (type == "array") {
+        if (value.size() < schema.value("minItems", std::size_t{0}) ||
+            value.size() > schema.value("maxItems", std::numeric_limits<std::size_t>::max()))
+            throw CommandError("invalid_arguments", path + ": array length out of range");
+        for (std::size_t i = 0; i < value.size(); ++i)
+            validate_value(value[i], schema.at("items"), path + "[" + std::to_string(i) + "]");
     } else if (type == "string") {
         const auto& text = value.get_ref<const std::string&>();
         const auto length = std::count_if(text.begin(), text.end(),
@@ -244,7 +251,8 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
             rendering = {{"version", 1u}};
         // Patch known fields and retain unknown future/plugin metadata verbatim.
         for (const auto& [key, value] : a.items()) {
-            if (key == "environment" || key == "shadows" || key == "bloom") {
+            if (key == "environment" || key == "shadows" || key == "bloom" ||
+                key == "color_adjustments") {
                 auto& env = rendering[key];
                 if (env.is_null())
                     env = Json::object();
@@ -587,11 +595,18 @@ Json authoring_commands() {
                             {"input_schema", object(properties, required)}});
     };
     add("scene.rendering.set", "Scene lighting and display",
-        "Change scene lighting, shadows, bloom or game exposure in one undoable scene operation. "
+        "Change scene lighting, shadows, bloom, color adjustments or exposure in one undoable "
+        "operation. "
         "Missing "
         "fields "
         "remain unchanged.",
         {{"exposure", number(-20, 20)},
+         {"color_adjustments",
+          object({{"enabled", {{"type", "boolean"}}},
+                  {"filter",
+                   {{"type", "array"}, {"minItems", 3}, {"maxItems", 3}, {"items", number(0, 4)}}},
+                  {"saturation", number(0, 2)},
+                  {"contrast", number(0, 2)}})},
          {"bloom", object({{"enabled", {{"type", "boolean"}}},
                            {"threshold", number(0, 65504)},
                            {"intensity", number(0, 4)},

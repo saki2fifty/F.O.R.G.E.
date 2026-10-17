@@ -1,5 +1,6 @@
 #pragma once
 #include "display_resolve.hpp"
+#include "scene_color_pixels_tests.hpp"
 void check_display_resolve(forge::DiligentPresentation& presentation,
                            Diligent::IDeviceContext* context, const std::filesystem::path& images) {
     using namespace Diligent;
@@ -13,13 +14,14 @@ void check_display_resolve(forge::DiligentPresentation& presentation,
     RefCntAutoPtr<ITexture> hdr;
     presentation.device()->CreateTexture(desc, nullptr, &hdr);
     require(bool(hdr), "HDR fixture allocation failed");
-    auto render = [&](std::array<float, 4> value, float ev) {
+    auto render = [&](std::array<float, 4> value, float ev,
+                      const forge::SceneColorAdjustments& settings = {}) {
         auto* rtv = hdr->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         context->ClearRenderTarget(rtv, value.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        return readback(
-            presentation.device(), context,
-            display.resolve(context, hdr->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), ev));
+        return readback(presentation.device(), context,
+                        display.resolve(context, hdr->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+                                        ev, settings));
     };
     auto gray = render({.18f, .18f, .18f, 1}, 0);
     save(gray, 32, 32, images / "hdr-neutral-gray.ppm");
@@ -65,4 +67,15 @@ void check_display_resolve(forge::DiligentPresentation& presentation,
         rejected = true;
     }
     require(rejected && display.output() == previous, "Invalid exposure modified display output");
+    check_scene_color_pixels(render);
+    const auto last_good = render({.3f, .4f, .5f, 1}, 0);
+    rejected = false;
+    try {
+        display.resolve(context, hdr->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), 0,
+                        {true, {1, 1, 1}, 3, 1});
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    require(rejected && readback(presentation.device(), context, display.output()) == last_good,
+            "Invalid native color settings changed the previous output");
 }

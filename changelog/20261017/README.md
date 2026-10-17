@@ -1,5 +1,16 @@
 # 2026-10-17
 
+## Scene color adjustments
+
+- Add optional authored RGB filter, saturation and contrast to the existing Scene/Game display pass, with neutral defaults and no extra GPU pass or target.
+- Add Scene lighting controls, one-step Reset/Undo, strict value validation and ordinary Save/reopen/export. Preserve alpha, opaque data, existing exposure ownership and nonfinite diagnostics.
+- Clear a resolved Scene lighting Problem after a successful correction; preserve its timestamp while the error needs attention.
+- Include editable Gallery69 with colored and neutral geometry. Preserve all earlier Gallery assets and records.
+- Exercise normal/sanitizer controls, native software Vulkan pixels and Game/split-camera/source-free export; add the existing HDR settings/UI/Gallery tests to the shared Windows acceptance selection.
+
+Local checks pass; new native Windows execution, capture review and delivery remain
+pending. Physical user testing is deferred.
+
 ## Reviewed runtime tuning
 
 - Freeze changed live-tunable fields for one authored entity, compare before/after, choose fields and apply them after Stop. Keep ordinary Scene Save and one-step Undo/Redo; retain individual prefab overrides.

@@ -189,8 +189,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         }
     }
     ++frames;
-    return display_.resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
-                            exposure);
+    return display_.resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure,
+                            scene.settings.color_adjustments);
 }
 ITextureView* FrameRenderer::depth() const {
     return depth_ ? depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL) : nullptr;

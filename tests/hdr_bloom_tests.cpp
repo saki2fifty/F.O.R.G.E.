@@ -1,5 +1,6 @@
 #include "asset_reference_impact.hpp"
 #include "hdr_bloom_plan.hpp"
+#include "scene_color_tests.hpp"
 #include <forge/authoring.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <iostream>
@@ -96,6 +97,7 @@ int main() {
     try {
         plans();
         settings_and_history();
+        test_scene_color_settings();
         std::cout << "HDR bloom admission and Scene ownership PASS\n";
         return 0;
     } catch (const std::exception& error) {

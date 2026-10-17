@@ -1,7 +1,10 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "animation_playback_access.hpp"
+#include "display_resolve.hpp"
 #include "engine_render_resource.hpp"
+#include "frame_renderer.hpp"
 #include "mesh_render_host.hpp"
+#include "scene_color_pixels_tests.hpp"
 #include <bit>
 #include <forge/animation.hpp>
 #include <forge/engine_assets.hpp>
@@ -48,12 +51,136 @@ std::size_t dominant(const Pixels& pixels, unsigned channel) {
                value[channel] > value[(channel + 2) % 3] + 12;
     });
 }
+void display_colors(DiligentPresentation& presentation, IRenderDevice* device,
+                    IDeviceContext* context) {
+    DisplayResolve display(presentation);
+    TextureDesc desc;
+    desc.Name = "FORGE color adjustments native HDR input";
+    desc.Type = RESOURCE_DIM_TEX_2D;
+    desc.Width = 17;
+    desc.Height = 9;
+    desc.Format = TEX_FORMAT_RGBA16_FLOAT;
+    desc.BindFlags = BIND_RENDER_TARGET | BIND_SHADER_RESOURCE;
+    RefCntAutoPtr<ITexture> input;
+    device->CreateTexture(desc, nullptr, &input);
+    check(bool(input), "Color HDR input allocation failed");
+    const auto render = [&](std::array<float, 4> rgba, float exposure,
+                            const SceneColorAdjustments& settings) {
+        auto* target = input->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
+        context->SetRenderTargets(1, &target, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearRenderTarget(target, rgba.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        auto* output = display.resolve(context, input->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE),
+                                       exposure, settings);
+        return read(device, context, output->GetTexture());
+    };
+    check_scene_color_pixels(render);
+    const auto original = input;
+    const auto baseline = render({.5f, .25f, .125f, .375f}, 0, {});
+    desc.Width = 3;
+    desc.Height = 1;
+    device->CreateTexture(desc, nullptr, &input);
+    check(bool(input) && render({.5f, .25f, .125f, .375f}, 0, {}).size() == 3,
+          "Graded display resize/rebinding failed");
+    input = original;
+    check(render({.5f, .25f, .125f, .375f}, 0, {}) == baseline,
+          "Graded display did not restore the original view after resize");
+    bool rejected = false;
+    try {
+        display.resolve(context, input->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), 0,
+                        {true, {1, 1, 1}, 3, 1});
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    check(rejected && read(device, context, display.output()->GetTexture()) == baseline,
+          "Invalid native color settings replaced the previous pixels");
+    std::cout << "Actual DisplayResolve color ordering, quantized double reference, alpha, "
+                 "identity/disabled, diagnostics, resize and invalid retention PASS\n";
+}
 void image(const std::filesystem::path& path, const Pixels& pixels) {
     std::ofstream file(path, std::ios::binary);
     file << "P6\n384 192\n255\n";
     for (const auto& value : pixels)
         file.write(reinterpret_cast<const char*>(value.data()), 3);
     check(bool(file.flush()), "Material image write failed");
+}
+void color_gallery(DiligentPresentation& presentation, IRenderDevice* device,
+                   IDeviceContext* context, const std::filesystem::path& project,
+                   const std::filesystem::path& output) {
+    const auto id = AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a");
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene world_scene(engine.world());
+    world_scene.restore_snapshot(load_game_scene(project, {id}));
+    const auto source = world_scene.effective_document();
+    auto host = std::make_shared<MeshResourceHost>(presentation, context, project);
+    host->catalog(std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project)));
+    FrameRenderer frame(presentation);
+    frame.resources(host);
+    unsigned expected_cameras = 1;
+    const auto render = [&](const Json& scene) {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        ITextureView* result = nullptr;
+        do {
+            result = frame.game(context, scene, 384, 192);
+            check(std::chrono::steady_clock::now() < deadline,
+                  "Gallery69 color resource admission stalled");
+            if (frame.pending())
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (frame.pending());
+        std::string details;
+        for (const auto& error : frame.diagnostics())
+            details += error.text + "; ";
+        check(result && frame.diagnostics().empty() && frame.cameras().size() == expected_cameras,
+              "Gallery69 actual Game render: cameras=" + std::to_string(frame.cameras().size()) +
+                  "; " + details);
+        return read(device, context, result->GetTexture());
+    };
+    auto neutral_source = source;
+    neutral_source["rendering"]["color_adjustments"]["enabled"] = false;
+    const auto neutral = render(neutral_source);
+    check(dominant(neutral, 0) > 100 && dominant(neutral, 1) > 100 && dominant(neutral, 2) > 100,
+          "Gallery69 does not visibly present its colored geometry");
+    const auto warm = render(source);
+    const auto misses = presentation.cache_misses();
+    auto gray_source = source;
+    gray_source["rendering"]["color_adjustments"]["saturation"] = 0;
+    const auto gray = render(gray_source);
+    check(warm != neutral && gray != warm && gray != neutral,
+          "Authored Gallery69 color adjustments did not affect the shared Game frame");
+    check(
+        std::all_of(gray.begin(), gray.end(),
+                    [](const auto& pixel) { return pixel[0] == pixel[1] && pixel[1] == pixel[2]; }),
+        "Scene grading omitted some geometry or background pixels");
+    check(presentation.cache_misses() == misses && render(neutral_source) == neutral,
+          "Color edits created shader variants or failed to restore the neutral image");
+    auto split = gray_source;
+    Json second;
+    for (auto& row : split["entities"])
+        if (row["components"].contains("forge.camera")) {
+            row["components"]["forge.camera"]["viewport_width"] = .5;
+            second = row;
+            second["id"] = EntityId::generate();
+            second["components"]["forge.camera"]["viewport_x"] = .5;
+            second["components"]["forge.camera"]["background_r"] = .3;
+            break;
+        }
+    check(!second.is_null(), "Gallery69 split-view fixture lost its camera");
+    split["entities"].push_back(second);
+    expected_cameras = 2;
+    const auto split_gray = render(split);
+    check(
+        std::all_of(split_gray.begin(), split_gray.end(),
+                    [](const auto& pixel) { return pixel[0] == pixel[1] && pixel[1] == pixel[2]; }),
+        "Color adjustments did not cover the complete multi-camera composition");
+    split["rendering"]["color_adjustments"]["enabled"] = false;
+    check(render(split) != split_gray, "Split-camera grading test had no visible effect");
+    expected_cameras = 1;
+    check(render(neutral_source) == neutral, "Split-camera grading contaminated the next frame");
+    image(output / "gallery69-neutral.ppm", neutral);
+    image(output / "gallery69-warm.ppm", warm);
+    image(output / "gallery69-grayscale.ppm", gray);
+    image(output / "gallery69-split-grayscale.ppm", split_gray);
+    std::cout << "Gallery69 actual Game color/filter/grayscale geometry, background, "
+                 "neutral restoration and shader reuse PASS\n";
 }
 void animated_gallery(DiligentPresentation& presentation, IRenderDevice* device,
                       IDeviceContext* context, ITexture* color, ITexture* depth,
@@ -254,7 +381,7 @@ void camera_shot_gallery(DiligentPresentation& presentation, IRenderDevice* devi
                  "gap/recovery/loop and immutable native cameras PASS\n";
 }
 void execute(const std::filesystem::path& root, const std::filesystem::path& gallery = {},
-             bool animation_only = false, bool camera_shots_only = false) {
+             bool animation_only = false, bool camera_shots_only = false, bool color_only = false) {
     std::filesystem::create_directories(root);
     RefCntAutoPtr<IRenderDevice> device;
     RefCntAutoPtr<IDeviceContext> context;
@@ -264,6 +391,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
     check(device && context, "Material Vulkan device unavailable");
     std::cout << "Object material native adapter: " << device->GetAdapterInfo().Description << '\n';
     DiligentPresentation presentation(device);
+    display_colors(presentation, device, context);
     auto host = std::make_shared<MeshResourceHost>(presentation, context, root, true);
     host->catalog(std::make_shared<const AssetCatalog>(root));
     MeshSceneRenderer renderer(host);
@@ -280,6 +408,10 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
     desc.BindFlags = BIND_DEPTH_STENCIL;
     device->CreateTexture(desc, nullptr, &depth);
     check(color && depth, "Material targets unavailable");
+    if (color_only) {
+        color_gallery(presentation, device, context, gallery, root);
+        return;
+    }
     if (camera_shots_only) {
         camera_shot_gallery(presentation, device, context, color, depth, gallery, root);
         return;
@@ -499,6 +631,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
               depth_restored == depth_opaque,
           "Masked shadow pass ignored object alpha or failed to restore material defaults");
     if (!gallery.empty()) {
+        color_gallery(presentation, device, context, gallery, root);
         WorldContext gallery_world;
         Scene gallery_scene(gallery_world);
         gallery_scene.restore_snapshot(
@@ -559,12 +692,14 @@ int main(int argc, char** argv) {
     try {
         check(argc == 2 || argc == 3 ||
                   (argc == 4 && (std::string_view(argv[3]) == "--animation-only" ||
-                                 std::string_view(argv[3]) == "--camera-shots-only")),
+                                 std::string_view(argv[3]) == "--camera-shots-only" ||
+                                 std::string_view(argv[3]) == "--color-only")),
               "Need material native scratch root and optional Gallery/package");
         execute(std::filesystem::path(argv[1]) / AssetId::generate().str(),
                 argc >= 3 ? argv[2] : "",
                 argc == 4 && std::string_view(argv[3]) == "--animation-only",
-                argc == 4 && std::string_view(argv[3]) == "--camera-shots-only");
+                argc == 4 && std::string_view(argv[3]) == "--camera-shots-only",
+                argc == 4 && std::string_view(argv[3]) == "--color-only");
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

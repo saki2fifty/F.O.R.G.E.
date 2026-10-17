@@ -441,6 +441,12 @@ settings. It persists with the existing personal editor preferences and invalida
 the retained frame. Useful UI range is[-20,+20]EV; the backend separately validates
 finite representability. Automatic eye adaptation is not enabled.
 
+Optional [Scene color adjustments](scene-color-adjustments.md) extend this same
+display resolve with a linear HDR RGB filter, mapped-linear saturation/contrast and
+SDR clamping before the single sRGB transfer. Default/disabled/neutral output is
+unchanged; no new GPU pass or history is added. The composed Game frame and Scene
+View consume the same authored settings, before editor overlays/runtime UI.
+
 Optional [spatial HDR bloom](hdr-bloom.md) runs before display resolve in the same
 Scene/Game owners. Its view-local original filter, bounded cache and ordered overlap
 behavior are explicit; default remains disabled. No temporal effect inputs are added.

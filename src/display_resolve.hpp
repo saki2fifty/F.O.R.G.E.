@@ -1,5 +1,6 @@
 #pragma once
 #include "presentation_diligent.hpp"
+#include <forge/scene_render_settings.hpp>
 namespace forge {
 // Presentation-owned SDR output from a linear HDR target. The UNORM output stores
 // sRGB-encoded values and must be displayed without another gamma conversion.
@@ -7,7 +8,7 @@ class DisplayResolve {
   public:
     explicit DisplayResolve(DiligentPresentation&);
     Diligent::ITextureView* resolve(Diligent::IDeviceContext*, Diligent::ITextureView*,
-                                    float exposure_ev);
+                                    float exposure_ev, const SceneColorAdjustments& = {});
     Diligent::ITextureView* output() const;
     Diligent::ITextureView* target() const;
 

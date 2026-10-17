@@ -51,7 +51,7 @@ class EditorInputWorkflow {
         graph_function_, graph_call_;
     Json graph_before_;
     Json starter_modules_, apply_before_, apply_after_, shot_before_, shortcut_before_,
-        tuning_before_, tuning_after_;
+        tuning_before_, tuning_after_, color_before_, color_after_;
     std::string shot_camera_, shot_controller_, shot_entity_;
     std::uint64_t shot_tick_ = 0;
     std::string starter_source_, generated_input_;
@@ -434,6 +434,33 @@ class EditorInputWorkflow {
             for (const auto& c : state.at("component_schema").at("components"))
                 rotator |= c.at("id") == "project.rotator";
             require(admitted && rotator, "C++ gameplay components were not admitted");
+        } else if (what == "color-before") {
+            color_before_ = doc;
+        } else if (what == "color-applied") {
+            auto expected = color_before_;
+            expected["rendering"]["version"] = 1u;
+            expected["rendering"]["color_adjustments"].update({{"enabled", true},
+                                                               {"filter", {1.f, .6f, 1.f}},
+                                                               {"saturation", .35f},
+                                                               {"contrast", 1.2f}});
+            require(doc == expected, "Authored color controls changed unrelated Scene values");
+            color_after_ = doc;
+        } else if (what == "color-reset") {
+            auto expected = color_after_;
+            expected["rendering"]["color_adjustments"].update(
+                {{"enabled", false}, {"filter", {1, 1, 1}}, {"saturation", 1}, {"contrast", 1}});
+            require(doc == expected, "Color Reset changed unrelated values or missed a setting");
+        } else if (what == "color-restored" || what == "color-reopened") {
+            require(doc == color_after_, "Color Undo or Save/reopen lost authored values");
+            if (what == "color-reopened")
+                require(state.at("disk") == doc && !state.at("dirty").get<bool>(),
+                        "Color values did not survive ordinary Scene Save/reopen");
+        } else if (what == "color-play-locked") {
+            require(state.at("playing").get<bool>(), "Waiting for Play before color lock check");
+            for (const auto* key : {"color:enabled", "color:filter", "color:saturation",
+                                    "color:contrast", "color:reset"})
+                require(ui_targets.contains(key) && !ui_targets.at(key).enabled,
+                        "Authored Scene color control remained enabled during Play");
         } else if (what == "navigation-live-tuned" || what == "navigation-runtime-kept") {
             require(state.at("playing").get<bool>() && state.at("runtime_snapshot").is_object(),
                     "Waiting for the engine-only Play snapshot");
@@ -1759,6 +1786,42 @@ class EditorInputWorkflow {
         check("navigation-runtime-kept");
         click("icon:stop");
         check("stopped");
+        check("color-before");
+        click("menu:Tools");
+        click("action:scene.lighting");
+        click("color:enabled");
+        text("color:filter", "0.6");
+        text("color:saturation", "0.35");
+        text("color:contrast", "1.2");
+        check("color-applied");
+        capture("scene-color-adjustments-100");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        hover("color:saturation");
+        capture("scene-color-adjustments-150");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        hover("color:saturation");
+        capture("scene-color-adjustments-200");
+        key(ImGuiKey_0, true);
+        click("color:reset");
+        check("color-reset");
+        key(ImGuiKey_Z, true);
+        check("color-restored");
+        key(ImGuiKey_Y, true);
+        check("color-reset");
+        key(ImGuiKey_Z, true);
+        check("color-restored");
+        key(ImGuiKey_S, true);
+        check("saved");
+        click("menu:File");
+        click("file:Reload from disk");
+        check("color-reopened");
+        click("icon:play");
+        check("color-play-locked");
+        click("icon:stop");
+        check("stopped");
+        check("color-restored");
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {

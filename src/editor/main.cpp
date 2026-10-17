@@ -4436,6 +4436,7 @@ int main(int argc, char** argv) {
                         preferences_menu();
                         ImGui::EndMenu();
                     }
+                    FORGE_UI_PROBE("menu:Edit");
                     const bool entity_menu = ImGui::BeginMenu("Entity");
                     FORGE_UI_PROBE("menu:Entity");
                     if (entity_menu) {

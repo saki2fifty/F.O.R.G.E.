@@ -1,6 +1,15 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_color_adjustments(const SceneColorAdjustments& value) {
+    for (const auto channel : value.filter)
+        if (!std::isfinite(channel) || channel < 0 || channel > 4)
+            throw std::runtime_error(
+                "Color filter requires finite linear RGB channels from 0 to 4");
+    if (!std::isfinite(value.saturation) || value.saturation < 0 || value.saturation > 2 ||
+        !std::isfinite(value.contrast) || value.contrast < 0 || value.contrast > 2)
+        throw std::runtime_error("Color saturation and contrast must be finite from 0 to 2");
+}
 void validate_scene_bloom(const SceneBloom& value) {
     if (!std::isfinite(value.threshold) || value.threshold < 0 || value.threshold > 65504 ||
         !std::isfinite(value.intensity) || value.intensity < 0 || value.intensity > 4 ||
@@ -28,6 +37,33 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("color_adjustments")) {
+        const auto& color = settings.at("color_adjustments");
+        if (!color.is_object())
+            throw std::runtime_error("Scene color adjustments must be an object");
+        if (color.contains("enabled")) {
+            if (!color.at("enabled").is_boolean())
+                throw std::runtime_error("Color adjustments enabled must be boolean");
+            result.color_adjustments.enabled = color.at("enabled").get<bool>();
+        }
+        if (color.contains("filter")) {
+            const auto& filter = color.at("filter");
+            if (!filter.is_array() || filter.size() != 3)
+                throw std::runtime_error("Color filter requires three linear RGB channels");
+            for (unsigned i = 0; i < 3; ++i) {
+                if (!filter[i].is_number() || !std::isfinite(filter[i].get<double>()) ||
+                    filter[i].get<double>() < 0 || filter[i].get<double>() > 4)
+                    throw std::runtime_error("Color filter channels must be finite from 0 to 4");
+                result.color_adjustments.filter[i] = filter[i].get<float>();
+            }
+        }
+        const auto saturation = number(color, "saturation", 1);
+        const auto contrast = number(color, "contrast", 1);
+        if (saturation < 0 || saturation > 2 || contrast < 0 || contrast > 2)
+            throw std::runtime_error("Color saturation and contrast must be from 0 to 2");
+        result.color_adjustments.saturation = float(saturation);
+        result.color_adjustments.contrast = float(contrast);
+    }
     if (settings.contains("bloom")) {
         const auto& bloom = settings.at("bloom");
         if (!bloom.is_object())

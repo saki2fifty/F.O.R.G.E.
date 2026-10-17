@@ -47,6 +47,10 @@ source gate must exercise the same acceptance selection before allocating a new
 delivery number. Focused shader/input scopes remain explicitly separate. Numbered
 failures retain the full capture diagnostics and CTest logs, including the stalled
 state JSON, so a screenshot is not the only available readiness evidence.
+The shared selection includes `hdr_bloom` settings/control/Gallery checks and the
+`feature_gallery` CLI admission check. New display-color pixel checks also execute
+inside the existing native viewport fixtures. Final combined-package acceptance
+exports Gallery69 with the shipped tools and starts it with its working sources offline.
 
 `model_large_family` exercises the complete 260-mesh publication, cache reuse and
 520 durable member IDs in an independent project, through the existing model test

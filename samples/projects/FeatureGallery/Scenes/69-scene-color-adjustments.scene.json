@@ -1,0 +1,557 @@
+{
+  "asset_id": "7456ed81-3d3b-45a6-8c7d-6b50073ad01a",
+  "entities": [
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.4000000059604645,
+          "z": 7.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.20000000298023224,
+                  0.20000000298023224,
+                  0.20000000298023224,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "f96ce7b3-85a7-4ffe-b2d1-0e558502cdc8",
+      "name": "Neutral floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 2.0,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8500000238418579,
+                  0.02500000037252903,
+                  0.02500000037252903,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "098d6984-e41f-4be3-a6a5-19caa136aac5",
+      "name": "Red",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 2.0,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.800000011920929,
+                  0.6000000238418579,
+                  0.02500000037252903,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "76a2f678-9b94-487f-a5b2-2f5dbe3efcd3",
+      "name": "Yellow",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 2.0,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.699999988079071,
+                  0.05000000074505806,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "abce223c-f17f-41a7-b406-c6649cbe88b1",
+      "name": "Green",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 2.0,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": 2.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.05999999865889549,
+                  0.8500000238418579,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "c555a52e-f8f0-42fc-bc1f-e3b523be34ec",
+      "name": "Blue",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.2000000476837158,
+          "y": 2.0,
+          "z": 1.2000000476837158
+        },
+        "forge.local_translation": {
+          "x": 4.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.800000011920929,
+                  0.800000011920929,
+                  0.800000011920929,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "e81579e4-1bde-466f-aae9-e654e13754a3",
+      "name": "White",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.800000011920929,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": 0.4,
+          "z": -1.5
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.18000000715255737,
+                  0.18000000715255737,
+                  0.18000000715255737,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "4bac5efd-c3a3-4e68-b6ed-612f0be8b18e",
+      "name": "Gray step",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 0.800000011920929,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": 0.4,
+          "z": -1.5
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.02500000037252903,
+                  0.02500000037252903,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "baae85cf-5191-452e-9780-1cd6fe4ebf45",
+      "name": "Dark step",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.10000000149011612,
+          "background_g": 0.05999999865889549,
+          "background_r": 0.03999999910593033,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9971888065338135,
+          "x": 0.07492970675230026,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": -12.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "e552144a-ea88-4be0-8441-8b6607bc8f01",
+      "name": "Overview camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 2.5,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.939372718334198,
+          "x": 0.34289780259132385,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "65ca4307-7c2c-4867-b35a-852c2bed91f1",
+      "name": "Directional light",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "color_adjustments": {
+      "contrast": 1.15,
+      "enabled": true,
+      "filter": [
+        1.1,
+        0.85,
+        0.7
+      ],
+      "saturation": 0.8
+    },
+    "version": 1
+  },
+  "version": 3
+}

@@ -64,6 +64,27 @@ tone mapping; **-1** halves it. **0** restores normal exposure.
 The Scene preview has a separate personal **View > Exposure** setting. This lets you
 inspect your work without changing the game's authored exposure. See [Viewport](viewport.md).
 
+## Adjust Scene colors
+
+Open **Tools > Scene lighting...**, scroll to **Color adjustments**, and select
+**Enable color adjustments**.
+
+- **Color filter (linear RGB)** multiplies red, green and blue light before tone mapping. `1,1,1` leaves colors unchanged; each channel accepts 0–4. For a warmer image, try `1.1,0.85,0.7`.
+- **Saturation** accepts 0–2: 0 is grayscale, 1 retains the original saturation, and 2 strengthens it.
+- **Contrast** accepts 0–2: 1 retains contrast, higher values strengthen differences around 18% linear gray, and 0 produces a flat gray image. Strong settings can clip dark or bright detail.
+
+Press Enter to commit a typed value. Each edit uses Scene Undo; save the Scene to
+keep it. **Reset color adjustments** disables the effect and restores all default
+values in one Undo step. Disabling it retains your chosen values for later use.
+
+These are authored Scene settings shared by Scene preview, Play and exported games.
+They affect geometry, the background and bloom; editor controls/overlays and the game
+HUD keep their own colors. The Scene preview's personal exposure remains independent.
+Stop Play to change these authored controls. Open Gallery
+**69 — Scene color adjustments** to compare its warm preset with disabled, grayscale
+and neutral settings, then export and run the same Scene.
+
+
 ## Add shadows
 
 1. Select a Directional, Spot or Point light and enable **Cast shadows** in its Light component in the Inspector.
