@@ -1,4 +1,5 @@
 #include "editor/audio_preview.hpp"
+#include "editor_capture_input.hpp"
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -22,6 +23,53 @@ double power(AudioPreviewEditor& editor) {
         result += double(value) * value;
     return result / pcm.size();
 }
+void capture_waveform(const std::filesystem::path& root, const AssetRecord& record, float scale) {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {1920, 1080};
+    io.DeltaTime = 1.f / 60;
+    io.FontGlobalScale = scale;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    test::observe_ui = true;
+    {
+        AudioPreviewEditor preview(AudioOutput::Offline);
+        test::EditorCaptureInput input;
+        unsigned frames = 0;
+        bool shown = false;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (!shown && std::chrono::steady_clock::now() < deadline) {
+            io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+            input.after_platform_update(io, 235, frames);
+            test::ui_targets.clear();
+            ImGui::NewFrame();
+            // The first ready observation precedes a first-use window move.
+            // The capture must settle the actual geometry before one UI click.
+            ImGui::SetNextWindowPos(frames < 4 ? ImVec2{0, 0} : ImVec2{30, 55}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize({1400, 900}, ImGuiCond_Always);
+            ImGui::Begin("Audio clip");
+            preview.draw(root, &record, false);
+            ImGui::End();
+            ImGui::Render();
+            ++frames;
+            if (frames >= 4) {
+                const auto& target = test::ui_targets.at("audio-preview:waveform-load");
+                input.click_once(io, 235, frames,
+                                 {(target.minimum.x + target.maximum.x) * .5f,
+                                  (target.minimum.y + target.maximum.y) * .5f},
+                                 target.enabled && target.minimum.y >= target.clip_minimum.y &&
+                                     target.maximum.y <= target.clip_maximum.y);
+            }
+            shown = test::ui_targets.contains("audio-preview:waveform");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        require(shown && input.click_frame >= 7 && !io.MouseDown[0] && !preview.active(),
+                "Moved waveform control missed its settled fixture click or started playback");
+    }
+    ImGui::DestroyContext();
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -30,6 +78,8 @@ int main(int argc, char** argv) {
         const auto catalog = AssetCatalog::open_project(root);
         const auto record =
             catalog.records().at(AssetId::parse("327101c1-e496-4293-b830-4c25b978607a"));
+        for (float scale : {1.f, 1.5f, 2.f})
+            capture_waveform(root, record, scale);
         for (float scale : {.65f, 1.f, 1.5f, 2.f}) {
             ImGui::CreateContext();
             auto& io = ImGui::GetIO();
