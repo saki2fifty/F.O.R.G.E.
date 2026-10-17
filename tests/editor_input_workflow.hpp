@@ -179,8 +179,10 @@ class EditorInputWorkflow {
             for (const auto& entity : entities)
                 if (entity.at("id") == state.at("selected"))
                     valid = entity.at("components").contains("forge.character_controller") &&
-                            entity.at("spatial").at("mode") == "world";
-            require(valid, "Character fixture was not authored with required World binding");
+                            entity.at("spatial").at("mode") == "world" &&
+                            entity.at("components").at("forge.local_translation") ==
+                                Json{{"x", 10}, {"y", 3}, {"z", 0}};
+            require(valid, "Character fixture requires World binding and a clear spawn");
             return;
         }
         if (what == "gpu-default-off") {
@@ -499,6 +501,10 @@ class EditorInputWorkflow {
                                     "color:contrast", "color:reset"})
                 require(ui_targets.contains(key) && !ui_targets.at(key).enabled,
                         "Authored Scene color control remained enabled during Play");
+        } else if (what == "runtime-tuning-ready") {
+            require(
+                state.at("playing").get<bool>() && state.at("control_ready").get<bool>(),
+                ("Play startup not ready: " + state.at("play_status").get<std::string>()).c_str());
         } else if (what == "navigation-live-tuned" || what == "navigation-runtime-kept") {
             require(state.at("playing").get<bool>() && state.at("runtime_snapshot").is_object(),
                     "Waiting for the engine-only Play snapshot");
@@ -1692,9 +1698,13 @@ class EditorInputWorkflow {
         click("component-choice:forge.character_controller");
         key(ImGuiKey_Escape);
         // The earlier visual-only character now participates in later Play checks.
-        // Author its required World binding through the real Inspector control.
+        // Author World binding and a clear spawn away from the origin colliders.
         click("spatial:binding");
         click("spatial:choice:world");
+        text("transform:forge.position:0", "10", true);
+        text("transform:forge.position:1", "3", true);
+        click("scene:view-menu");
+        click("scene:frame");
         check("character-world-binding");
         check("collision-preview");
         capture("character-capsule-scene");
@@ -1802,6 +1812,7 @@ class EditorInputWorkflow {
         check("saved");
         check("runtime-tuning-before");
         click("icon:play");
+        check("runtime-tuning-ready");
         text("runtime-field:forge.navigation_avoidance:horizon", "4.5", true);
         check("navigation-live-tuned");
         click("runtime:keep_values");
