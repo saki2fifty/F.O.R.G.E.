@@ -49,7 +49,9 @@ Undo or **Revert to material** follows the same Scene history. Publishing a shar
 material change still affects objects without an explicit value for that parameter.
 
 Play uses the same values. Inspector's colored **Live gameplay** controls are
-temporary; stop Play, edit authored values and save before exporting. The amber
+temporary. To keep a tuned color or roughness, choose **Keep values after Stop...**,
+Stop, then open **Run → Review runtime tuning...**, choose the fields and **Apply
+to Scene**. Save before exporting; one Undo restores the previous intent. The amber
 cube retains its renderer from **Assets/ObjectValues/SharedCube.prefab.json** with
 only an instance material-value property override. Export uses one shared cooked
 material and saved Scene/Prefab intent, without this project's material sources.

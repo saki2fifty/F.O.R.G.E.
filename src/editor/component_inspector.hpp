@@ -85,6 +85,15 @@ class ComponentInspector {
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }
+    static bool runtime_field_available(const std::string& key, const Json& field,
+                                        const Json& components) {
+        const auto name = field.at("id").get<std::string>();
+        return components.at(key).contains(name) &&
+               (!RuntimePropertyTune::particle_type(key) ||
+                RuntimePropertyTune::particle_property(name)) &&
+               (!RuntimePropertyTune::material_type(key) ||
+                RuntimePropertyTune::material_property(name));
+    }
     static bool has_runtime_fields(const Json& effective, const Json& schema,
                                    const std::string& selected) {
         if (!effective.is_object() || !schema.is_object() || !effective.contains("entities") ||
@@ -149,7 +158,7 @@ class ComponentInspector {
         const Json& effective, const Json& schema, const std::filesystem::path& project_root,
         const std::string& selected,
         const std::function<bool(const std::string&, const std::string&, const Json&)>& submit,
-        bool show_playback = true) {
+        bool show_playback = true, const std::function<void()>& keep_values = {}) {
         if (!effective.is_object() || !schema.is_object() || !effective.contains("entities") ||
             !schema.contains("components"))
             return;
@@ -174,6 +183,13 @@ class ComponentInspector {
         ui::heading("Live gameplay", "Transient runtime values. Stop restores the authored "
                                      "scene and prefab state.");
         ImGui::TextColored({0.61f, 0.93f, 0.89f, 1.0f}, "PLAY — temporary values");
+        ImGui::BeginDisabled(!keep_values);
+        if (ui::button("Keep values after Stop...",
+                       "Review a frozen snapshot of changed tunable values for this authored "
+                       "entity. Apply selected fields after Stop; nothing is saved automatically."))
+            keep_values();
+        FORGE_UI_PROBE("runtime:keep_values");
+        ImGui::EndDisabled();
         if (show_playback && entity->contains("animation_playback"))
             draw_animation_playback(entity->at("animation_playback"));
         if (entity->contains("navigation_debug"))
@@ -189,13 +205,7 @@ class ComponentInspector {
                 continue;
             for (const auto& field : type.at("fields")) {
                 const auto name = field.at("id").get<std::string>();
-                if (RuntimePropertyTune::particle_type(key) &&
-                    !RuntimePropertyTune::particle_property(name))
-                    continue;
-                if (RuntimePropertyTune::material_type(key) &&
-                    !RuntimePropertyTune::material_property(name))
-                    continue;
-                if (!components.at(key).contains(name))
+                if (!runtime_field_available(key, field, components))
                     continue;
                 ui::IdScope field_scope(name.c_str());
                 auto value = components.at(key).at(name);

@@ -1,5 +1,15 @@
 # 2026-10-17
 
+## Reviewed runtime tuning
+
+- Freeze changed live-tunable fields for one authored entity, compare before/after, choose fields and apply them after Stop. Keep ordinary Scene Save and one-step Undo/Redo; retain individual prefab overrides.
+- Preserve pending reviews on invalid or stale Apply. Check the original project writer, Scene identity/generation/revision and admitted metadata. Exclude runtime-only entities, poses, private state and read-only fields.
+- Add bounded simultaneous reflected-field authoring through the existing native candidate writer, supporting interdependent fields without invalid intermediate publication.
+- Extend actual input, typed value, history, failure-retention and native C++ onboarding/export checks. This is editor-only; exported games receive ordinary authored values.
+
+Local implementation and focused normal/sanitizer checks pass. Native Windows
+execution/capture review and delivery remain pending; physical user testing is deferred.
+
 ## Personal editor shortcuts
 
 - Add searchable shortcut preferences for existing New/Open/Save As, active-task Save, Undo/Redo, Duplicate, Play and Export actions, with two bindings per command.

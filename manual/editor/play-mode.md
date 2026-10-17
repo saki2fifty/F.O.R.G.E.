@@ -19,6 +19,34 @@ Large scene updates are sent in bounded pieces while gameplay continues. If an u
 
 Stop Play before editing or saving the **authored scene**. Runtime movement is never automatically saved into the authored scene.
 
+## Keep selected tuning values
+
+Live gameplay values are temporary. To keep chosen values deliberately:
+
+1. During Play, select an entity that already exists in the authored Scene. Tune its supported **Live gameplay** fields.
+2. Choose **Keep values after Stop...** in Live gameplay. Wait for any pending live edit to finish first. FORGE freezes the currently displayed changed values for that entity.
+3. Close the review if you need to reach the toolbar, then **Stop**. Stop still returns to the authored Scene.
+4. Open **Run → Review runtime tuning...**. Use the **Keep** checkboxes to choose the properties you want. Compare **Scene value** and **Runtime value**; **Details...** shows complete long values.
+5. Choose **Apply to Scene**. This validates the selection and creates one Scene Undo step. Unchecked fields remain unchanged.
+6. Save the Scene normally. The kept values are ordinary authored data and travel with an exported game; no C++ rebuild is needed for a value-only edit.
+
+The review is a frozen snapshot; later gameplay changes do not update it. It supports
+the fields already exposed for live tuning, including admitted project C++ values
+and supported material, navigation, particle and rig settings. It does not copy
+runtime-created entities, movement/physics poses, structural changes or arbitrary
+C++ state. Prefab instances receive individual property overrides; prefab sources
+are not published by this action.
+
+A nested value or collection is one property; its checkbox includes the complete
+value.
+
+Only one entity review is staged at a time. **Close review** retains it for the
+current editor session; **Discard review** forgets it. Restarting FORGE does not
+retain an unapplied review. Reopening/changing the Scene, switching projects or
+refreshing component metadata can make a review stale. A rejected Apply keeps the
+review and authored values intact; discard it and capture fresh values from Play.
+Nothing is copied or saved automatically when Play stops.
+
 ## Change simulation speed
 
 During Play, use **Speed** beside the Play controls. In a narrow window, open

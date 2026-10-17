@@ -1,3 +1,12 @@
+# Reviewed runtime tuning — 2026-10-17
+
+Local source adds an explicit frozen review of changed live-tunable values for one
+authored entity. Stop preserves the authored Scene; a subsequent selected Apply
+uses existing validation and one Scene Undo step. Source/metadata/project guards,
+Prefab intent and focused normal/sanitizer validation pass locally. Native Windows
+execution and capture review are pending; no new delivery is claimed. See
+[the workflow](../manual/editor/play-mode.md).
+
 # Personal editor shortcuts — 2026-10-17
 
 Current source adds personal shortcut recording, conflict feedback, clear/reset

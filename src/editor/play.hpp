@@ -178,6 +178,9 @@ class PlaySession {
     const Json& ui_snapshot() const { return ui_snapshot_; }
     const Json& ui_ack() const { return ui_ack_; }
     const Json& property_tune_ack() const { return property_tune_ack_; }
+    bool property_tune_pending() const {
+        return !property_tune_command_.is_null() || (waiting_ && sent_command_ == "property_tune");
+    }
     bool submit_property_tune(const std::string& entity, const std::string& type,
                               const std::string& property, Json value) {
         const auto generation = sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;

@@ -12,7 +12,15 @@ try:
     r=request('scene.replace',target=target,expected_revision=rev,document=dict(version=1,entities=[]));assert r['ok']
     r=request('scene.apply',target=target,expected_revision=r['revision'],commands=[dict(operation='entity.create',arguments=dict(kind=1,name='CLI sphere'))]);assert r['ok']
     assert request('entity.query',target=target,text='sphere')['result']['total']==1
+    entity=request('scene.read',target=target)['result']['entities'][0]['id']
+    r=request('scene.apply',target=target,expected_revision=r['revision'],commands=[dict(
+        operation='property.set_many',arguments=dict(entity=entity,
+        component='forge.local_translation',values=dict(x=2.0,y=3.0)))]);assert r['ok']
+    position=request('scene.read',target=target)['result']['entities'][0]['components']['forge.local_translation']
+    assert position['x']==2 and position['y']==3
     assert not request('scene.apply',target=target,expected_revision=0,commands=[])['ok']
+    r=request('history.undo',target=target,expected_revision=r['revision']);assert r['ok']
+    assert len(request('scene.read',target=target)['result']['entities'])==1
     r=request('history.undo',target=target,expected_revision=r['revision']);assert r['ok']
     assert request('scene.read',target=target)['result']['entities']==[]
     assert not send('{broken')['ok']

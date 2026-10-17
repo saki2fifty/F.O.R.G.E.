@@ -71,6 +71,7 @@
 #include "project_settings.hpp"
 #include "resource_inspector.hpp"
 #include "runtime_dependencies.hpp"
+#include "runtime_tuning_review.hpp"
 #include "runtime_ui_host.hpp"
 #include "runtime_ui_tools.hpp"
 #include "scene_asset_drop.hpp"
@@ -414,6 +415,7 @@ int main(int argc, char** argv) {
         forge::ui::EditorUiContext editor;
         forge::ui::ContextScope editor_scope(editor);
         forge::ComponentInspector component_inspector;
+        forge::RuntimeTuningReview runtime_tuning_review;
         forge::ContentBrowser content;
         forge::ui::PhysicsOverlay physics_overlay;
         forge::ui::RuntimeDependenciesEditor runtime_dependencies;
@@ -2717,6 +2719,11 @@ int main(int argc, char** argv) {
                            workspace.game = true;
                            focus_game = true;
                        });
+            add_action("runtime.review_tuning", "Review runtime tuning...", "",
+                       "Reopen the frozen runtime values staged for the authored Scene.",
+                       runtime_tuning_review.pending(), [&] { runtime_tuning_review.open = true; });
+            actions.entries.back().unavailable_reason =
+                "Choose Keep values after Stop in Live gameplay to stage a review first.";
             for (auto [id, label, key] : {std::tuple{"tool.select", "Select", "Q"},
                                           {"tool.move", "Move", "W"},
                                           {"tool.rotate", "Rotate", "R"},
@@ -4461,6 +4468,7 @@ int main(int argc, char** argv) {
                         ImGui::Separator();
                         for (auto id : {"play", "pause", "step", "stop", "recover"})
                             actions.item(id);
+                        actions.item("runtime.review_tuning");
                         forge::simulation_speed_controls(
                             play.timing().value("time_scale", 1.), play.control_ready(),
                             play.time_scale_pending(),
@@ -4593,6 +4601,8 @@ int main(int argc, char** argv) {
             const auto lighting_catalog = mesh_resources ? mesh_resources->catalog() : nullptr;
             forge::ui::scene_lighting(scene_lighting_open, scene, lighting_catalog.get(),
                                       edit_locked);
+            if (runtime_tuning_review.draw(scene, files.document, edit_locked))
+                message = runtime_tuning_review.status();
             ecs_workspace.draw(scene, editor.problems);
             const bool profiler_was_open = workspace.cpu_profiler;
             play.watch_cpu_profile(cpu_profiler.draw(
@@ -4902,6 +4912,16 @@ int main(int argc, char** argv) {
                         // Play adds transient fields above the authored Inspector. Reveal
                         // them once per selected entity instead of retaining an old scroll
                         // offset that can leave the editable values out of view.
+                        std::function<void()> keep_runtime_values;
+                        if (play.control_ready() && !play.property_tune_pending() &&
+                            !sdk_build->busy() && !files.busy())
+                            keep_runtime_values = [&] {
+                                runtime_tuning_review.capture(
+                                    scene, files.document, play.effective_snapshot(),
+                                    play.runtime_schema(), selected,
+                                    play.timing().value("tick", std::uint64_t{}));
+                                message = runtime_tuning_review.status();
+                            };
                         component_inspector.draw_runtime(
                             play.effective_snapshot(), play.runtime_schema(),
                             files.document.project(), selected,
@@ -4909,7 +4929,7 @@ int main(int argc, char** argv) {
                                 const forge::Json& value) {
                                 return play.submit_property_tune(selected, type, property, value);
                             },
-                            !live_animation);
+                            !live_animation, keep_runtime_values);
                         const auto& tune = play.property_tune_ack();
                         if (tune.is_object())
                             ImGui::TextWrapped(
@@ -6226,6 +6246,14 @@ int main(int argc, char** argv) {
                     {"status", message}};
                 auto observed = state;
                 observed["editor_shortcuts"] = editor_shortcuts.settings();
+                observed["runtime_review_pending"] = runtime_tuning_review.pending();
+                observed["runtime_review_fields"] = forge::Json::array();
+                for (const auto& field : runtime_tuning_review.fields())
+                    observed["runtime_review_fields"].push_back({{"component", field.component},
+                                                                 {"property", field.property},
+                                                                 {"before", field.before},
+                                                                 {"after", field.after},
+                                                                 {"selected", field.selected}});
                 observed["shortcut_capture"] = editor_shortcuts.capturing();
                 observed["shortcut_labels"] = forge::Json::object();
                 for (const auto& action : actions.entries)

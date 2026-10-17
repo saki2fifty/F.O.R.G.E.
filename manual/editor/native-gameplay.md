@@ -45,8 +45,11 @@ in-place C++ reload.
 During Play, the Inspector has a **Live gameplay** section for admitted reflected
 properties. Select the runtime entity and change Rotator Speed from 90 to 360. The
 runtime validates the typed update at its owner-thread boundary and acknowledges
-it; behavior changes without compiling. **Stop** discards this transient tuning:
-the authored scene and prefab override intent stay at their saved values. A
+it; behavior changes without compiling. **Stop** returns to the authored scene
+and its prefab override intent. To keep selected values deliberately, choose
+**Keep values after Stop...**, then Stop and use **Run → Review runtime tuning...**.
+Apply selected fields as one Scene Undo step, then Save. See
+[the complete review workflow](play-mode.md). A
 read-only runtime field remains read-only. Code or schema edits still require a
 new build and fresh Play session.
 

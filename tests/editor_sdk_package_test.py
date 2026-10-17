@@ -27,6 +27,7 @@ Python stdlib only.
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -402,7 +403,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
         'cpp-system-dirty', 'cpp-system-current', 'cpp-system-reversed',
         'cpp-rotator-inspector', 'gameplay-stale-play-offer',
         'gameplay-save-build-play-offer',
-        'starter-export-complete', 'editor-shortcut-100', 'editor-shortcut-150',
+        'starter-export-complete', 'runtime-tuning-during-play',
+        'runtime-tuning-selected-100', 'runtime-tuning-selected-150',
+        'runtime-tuning-selected-200', 'editor-shortcut-100', 'editor-shortcut-150',
         'editor-shortcut-200')
     for name in required_onboarding_captures:
         matching = [entry['step'] for entry in starter_trace['trace']
@@ -460,6 +463,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE editor-sdk ') as temporary:
                    re.findall(r'FORGE_TEST_ROTATOR_HALF=([-+]?\d+(?:\.\d+)?)', output)]
         if not any(value < -0.0001 for value in rotations):
             raise AssertionError('Relocated game did not execute the edited RotationSystem')
+        if not any(math.isclose(value, -math.pi / 60, abs_tol=1e-5) for value in rotations):
+            raise AssertionError('Relocated game did not retain reviewed Rotator Speed 360')
         starter_export=relocated_starter
 
     if reference_failure is not None:

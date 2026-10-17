@@ -50,7 +50,8 @@ class EditorInputWorkflow {
     std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_,
         graph_function_, graph_call_;
     Json graph_before_;
-    Json starter_modules_, apply_before_, apply_after_, shot_before_, shortcut_before_;
+    Json starter_modules_, apply_before_, apply_after_, shot_before_, shortcut_before_,
+        tuning_before_, tuning_after_;
     std::string shot_camera_, shot_controller_, shot_entity_;
     std::uint64_t shot_tick_ = 0;
     std::string starter_source_, generated_input_;
@@ -433,6 +434,76 @@ class EditorInputWorkflow {
             for (const auto& c : state.at("component_schema").at("components"))
                 rotator |= c.at("id") == "project.rotator";
             require(admitted && rotator, "C++ gameplay components were not admitted");
+        } else if (what == "navigation-live-tuned" || what == "navigation-runtime-kept") {
+            require(state.at("playing").get<bool>() && state.at("runtime_snapshot").is_object(),
+                    "Waiting for the engine-only Play snapshot");
+            bool found = false;
+            for (const auto& row : state.at("runtime_snapshot").at("entities"))
+                if (row.at("id") == cube_ &&
+                    row.at("components").contains("forge.navigation_avoidance"))
+                    found =
+                        row.at("components").at("forge.navigation_avoidance").at("horizon") == 4.5;
+            require(found, "Navigation avoidance horizon did not reach the running world");
+            if (what == "navigation-live-tuned") {
+                const auto& ack = state.at("property_tune_ack");
+                require(ack.is_object() && ack.value("ok", true) &&
+                            ack.value("type", "") == "forge.navigation_avoidance" &&
+                            ack.value("property", "") == "horizon",
+                        "Waiting for the actual native property acknowledgement");
+            }
+        } else if (what == "navigation-tuning-captured") {
+            require(state.at("runtime_review_pending").get<bool>() && doc == tuning_before_,
+                    "Native runtime capture changed the authored Scene");
+            const auto& fields = state.at("runtime_review_fields");
+            require(fields.size() == 1 &&
+                        fields[0].at("component") == "forge.navigation_avoidance" &&
+                        fields[0].at("property") == "horizon" && fields[0].at("before") == 2 &&
+                        fields[0].at("after") == 4.5,
+                    "Native review did not freeze exactly the tuned Navigation avoidance horizon");
+        } else if (what == "navigation-tuning-applied" || what == "navigation-tuning-redone") {
+            auto expected = tuning_before_;
+            for (auto& row : expected["entities"])
+                if (row.at("id") == cube_)
+                    row["components"]["forge.navigation_avoidance"]["horizon"] = 4.5;
+            require(doc == expected && !state.at("runtime_review_pending").get<bool>(),
+                    "Native review changed unselected state or failed to apply the chosen horizon");
+            tuning_after_ = doc;
+        } else if (what == "runtime-tuning-before") {
+            tuning_before_ = doc;
+        } else if (what == "runtime-tuning-captured") {
+            require(state.at("runtime_review_pending").get<bool>() && doc == tuning_before_,
+                    "Runtime capture failed or changed the authored Scene");
+            bool speed = false, counter = false;
+            for (const auto& field : state.at("runtime_review_fields")) {
+                speed |= field.at("component") == "project.rotator" &&
+                         field.at("property") == "speed" && field.at("before") == 90 &&
+                         field.at("after") == 360;
+                counter |=
+                    field.at("component") == "project.counter" && field.at("property") == "value";
+            }
+            require(speed && counter, "Runtime review did not capture the actual changed fields");
+        } else if (what == "runtime-tuning-applied" || what == "runtime-tuning-redone") {
+            require(!state.at("runtime_review_pending").get<bool>(),
+                    "Applied review remained pending");
+            bool kept = false;
+            for (const auto& row : entities)
+                if (row.at("id") == cube_) {
+                    kept = row.at("components").at("project.rotator").at("speed") == 360;
+                    require(row.at("components").at("project.counter").at("value") == 0,
+                            "Unselected gameplay counter was copied into the authored Scene");
+                }
+            require(kept, "Reviewed Rotator Speed was not applied");
+            if (what == "runtime-tuning-applied")
+                tuning_after_ = doc;
+            else
+                require(doc == tuning_after_, "Runtime tuning Redo did not restore exact intent");
+        } else if (what == "runtime-tuning-undone") {
+            require(doc == tuning_before_,
+                    "Runtime tuning Undo did not restore exact authored Scene");
+        } else if (what == "runtime-tuning-reopened") {
+            require(doc == tuning_after_ && state.at("disk") == doc &&
+                        !state.at("dirty").get<bool>(),
+                    "Reviewed tuning did not survive ordinary Scene Save/reopen");
         } else if (what == "live-rotator-tuned") {
             bool tuned = false, authored_unchanged = false;
             for (const auto& row : state.at("runtime_snapshot").value("entities", Json::array()))
@@ -983,9 +1054,38 @@ class EditorInputWorkflow {
             check("spin-sample");
             check("spin-after");
             capture("cpp-rotator-live-tuned");
+            check("runtime-tuning-before");
+            click("runtime:keep_values");
+            check("runtime-tuning-captured");
+            capture("runtime-tuning-during-play");
+            click("runtime_review:close");
             click("icon:stop");
             check("stopped");
             check("authored-rotator");
+            click("menu:Run");
+            click("action:runtime.review_tuning");
+            click("runtime_review:field:project.counter:value");
+            capture("runtime-tuning-selected-100");
+            for (int i = 0; i < 5; ++i)
+                key(ImGuiKey_Equal, true);
+            hover("runtime_review:field:project.rotator:speed");
+            capture("runtime-tuning-selected-150");
+            for (int i = 0; i < 5; ++i)
+                key(ImGuiKey_Equal, true);
+            hover("runtime_review:field:project.rotator:speed");
+            capture("runtime-tuning-selected-200");
+            key(ImGuiKey_0, true);
+            click("runtime_review:apply");
+            check("runtime-tuning-applied");
+            key(ImGuiKey_Z, true);
+            check("runtime-tuning-undone");
+            key(ImGuiKey_Y, true);
+            check("runtime-tuning-redone");
+            key(ImGuiKey_S, true);
+            check("saved");
+            click("menu:File");
+            click("file:Reload from disk");
+            check("runtime-tuning-reopened");
             click("tab:Build");
             click("tab:Content");
             click("content:folder:Code");
@@ -1559,6 +1659,8 @@ class EditorInputWorkflow {
         key(ImGuiKey_Z, true);
         check("collision-convex-parts");
         capture("collision-compound-undo");
+        click("collision:save");
+        check("collision-published");
         click("tab:Scene");
         create("3D Primitive", "Cube");
         key(ImGuiKey_F);
@@ -1615,6 +1717,48 @@ class EditorInputWorkflow {
         capture("sequence-camera-preview-200");
         key(ImGuiKey_0, true);
         configure_shortcuts();
+        // Actual editor/Play route without a project module or compiler. This
+        // verifies value transfer; the unbound agent has no movement destination.
+        click("saved-cube-row");
+        click("button:+ Add Component");
+        text("component-search", "Navigation Agent");
+        click("component-choice:forge.navigation_agent");
+        key(ImGuiKey_Escape);
+        click("button:+ Add Component");
+        text("component-search", "Navigation Avoidance");
+        click("component-choice:forge.navigation_avoidance");
+        key(ImGuiKey_Escape);
+        key(ImGuiKey_S, true);
+        check("saved");
+        check("runtime-tuning-before");
+        click("icon:play");
+        text("runtime-field:forge.navigation_avoidance:horizon", "4.5", true);
+        check("navigation-live-tuned");
+        click("runtime:keep_values");
+        check("navigation-tuning-captured");
+        capture("runtime-tuning-native-play");
+        click("runtime_review:close");
+        click("icon:stop");
+        check("stopped");
+        check("runtime-tuning-undone");
+        click("menu:Run");
+        click("action:runtime.review_tuning");
+        capture("runtime-tuning-native-stopped");
+        click("runtime_review:apply");
+        check("navigation-tuning-applied");
+        key(ImGuiKey_Z, true);
+        check("runtime-tuning-undone");
+        key(ImGuiKey_Y, true);
+        check("navigation-tuning-redone");
+        key(ImGuiKey_S, true);
+        check("saved");
+        click("menu:File");
+        click("file:Reload from disk");
+        check("runtime-tuning-reopened");
+        click("icon:play");
+        check("navigation-runtime-kept");
+        click("icon:stop");
+        check("stopped");
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {

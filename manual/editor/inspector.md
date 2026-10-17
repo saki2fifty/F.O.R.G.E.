@@ -12,6 +12,11 @@ Position, Rotation and Scale have labeled X/Y/Z fields. Drag an axis or Ctrl-cli
 
 Inspector authoring controls are read-only during Play. Scene retains the authored view; Game displays runtime results.
 
+**Live gameplay** contains supported temporary tuning fields. **Keep values after
+Stop...** freezes changed values for review; after Stop, **Run → Review runtime
+tuning...** lets you choose fields and apply one Scene Undo step. This never saves
+automatically or copies runtime-created entities. See [Play mode](play-mode.md).
+
 ## Add and find components
 
 Click **+ Add Component** and search a component name or category. The list comes from FORGE's registered schema. Results have category headings. Already attached components are marked **Added**, including inherited components.

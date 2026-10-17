@@ -37,6 +37,10 @@ Both full editor jobs allow 150 minutes overall. A cold Windows source audit
 measured 6 minutes of configuration, 63 minutes of compilation and 20.5 minutes of
 acceptance before standalone/benchmark work, exhausting the previous 90-minute
 job limit. Individual test deadlines and acceptance selections are unchanged.
+Core/SDK matrix jobs allow 75 minutes: a cold Windows core run completed all 145
+tests and Runtime installation just before its former 45-minute cleanup deadline,
+but the overall job was still cancelled. The additional budget covers complete
+cold compilation, testing, installation and cleanup without relaxing any test.
 
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new

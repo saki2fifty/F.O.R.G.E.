@@ -54,6 +54,30 @@ handler for that save frame to avoid a second edit or dispatch. Text Undo/Redo a
 Find remain local. Fixed navigation, text and gameplay safety keys are reserved;
 see [the complete user behavior](../manual/editor/shortcuts.md).
 
+## Reviewed runtime tuning
+
+`RuntimeTuningReview` is a bounded session-only review borrowing the existing Scene
+owner. ComponentInspector exposes **Keep values after Stop...** for the selected
+existing authored entity. Capture waits for live property commands to finish and
+copies only changed fields admitted by the current live-tuning policy and both
+runtime/authored metadata. Read-only or runtime-only values are excluded. Runtime
+snapshots are never loaded as authored documents or copied as C++ layout bytes.
+
+The frozen review holds at most128 changed fields and1MiB of combined before/after
+JSON. Exact typed equality preserves wide integers. Values stop changing after
+capture; checkboxes select a subset, full details remain available, and Close keeps
+the pending review for the current session. Run/command search can reopen it.
+Discard or editor exit releases it; it does not create a persistent draft/asset.
+
+Apply requires stopped/unlocked authoring, the original writer/project, Scene
+AssetId, SceneDocument generation, authored revision and captured admitted metadata.
+Selected fields group by component through `property.set_many` in one normal
+authoring batch. Existing native candidate validation, Scene history and Prefab
+field-mask semantics own publication. Failure retains the frozen review/selection
+and authored Scene. Apply focuses the borrowed Scene task; Save remains explicit.
+No automatic copy-back, transform/physics pose transfer, runtime entity creation,
+schema migration, prefab-source publication, exported editor or SDK ABI is added.
+
 ## Validation boundaries
 
 Portable tests exercise actual ImGui component/draft drawing, integer input, controller validation/history, process isolation and capture. `editor_redesign_render` builds a fixture variant of the actual editor entry point, attaches Diligent to D3D12 WARP, creates disposable project/preferences, drives real controllers and captures rendered windows. The fixture is not packaged as the editor. Evidence covers default/Scene/Inspector, Add Component, Content, Problems, prefab/settings, Play/paused capture, narrow 100%/200% and ultrawide layouts. It is automated rendering, not physical desktop acceptance. Existing shader, viewport, runtime UI and package relocation suites remain required.

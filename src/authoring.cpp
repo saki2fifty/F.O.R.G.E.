@@ -11,6 +11,7 @@
 #include <forge/entity_recipes.hpp>
 #include <forge/geometry.hpp>
 #include <forge/scene_render_settings.hpp>
+#include <limits>
 #include <set>
 namespace forge {
 namespace {
@@ -59,14 +60,18 @@ void validate_value(const Json& value, const Json& schema, const std::string& pa
     if (!valid)
         throw CommandError("invalid_arguments", path + ": expected " + type);
     if (type == "object") {
+        if (value.size() < schema.value("minProperties", std::size_t{0}) ||
+            value.size() > schema.value("maxProperties", std::numeric_limits<std::size_t>::max()))
+            throw CommandError("invalid_arguments", path + ": object property count out of range");
         for (const auto& field : schema.at("required"))
             if (!value.contains(field.get<std::string>()))
                 throw CommandError("invalid_arguments",
                                    path + ": missing " + field.get<std::string>());
         for (const auto& [key, item] : value.items()) {
-            if (!schema.at("properties").contains(key))
+            if (schema.at("properties").contains(key))
+                validate_value(item, schema.at("properties").at(key), path + "." + key);
+            else if (!schema.value("additionalProperties", false))
                 throw CommandError("invalid_arguments", path + ": unknown field " + key);
-            validate_value(item, schema.at("properties").at(key), path + "." + key);
         }
     } else if (type == "string") {
         const auto& text = value.get_ref<const std::string&>();
@@ -435,6 +440,8 @@ Json execute(detail::SceneDraft& scene, const std::string& op, const Json& a) {
     } else if (op == "property.set")
         set_fields(scene, id, a.at("component"),
                    {{a.at("field").get<std::string>(), a.at("value")}});
+    else if (op == "property.set_many")
+        set_fields(scene, id, a.at("component"), a.at("values"));
     else if (op == "transform.position" || op == "transform.rotation" || op == "transform.scale")
         set_fields(scene, id, "forge." + op.substr(10), a.at("value"));
     else if (op == "appearance.color" || op == "appearance.shape") {
@@ -714,6 +721,14 @@ Json authoring_commands() {
     add("property.set", "Set reflected property",
         "Validate against the supported reflected property schema.", field,
         {"entity", "component", "field", "value"});
+    auto values = object();
+    values["additionalProperties"] = true;
+    values["minProperties"] = 1;
+    values["maxProperties"] = 128;
+    add("property.set_many", "Set reflected component fields",
+        "Set 1–128 named fields on one component and validate the complete candidate together.",
+        {{"entity", text_type()}, {"component", text_type()}, {"values", values}},
+        {"entity", "component", "values"});
     field.erase("value");
     add("property.revert", "Revert property",
         "Remove explicit property override intent; a collection is one property.", field,

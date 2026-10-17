@@ -94,7 +94,9 @@ jobs:
         profile: [core, native-sdk]
     runs-on: ${{ matrix.os }}
     # Clean core and SDK builds need room for the complete suite after compilation.
-    timeout-minutes: 45
+    # Cold Windows core build/test/install measured45 minutes before cleanup.
+    # Keep the full selection and test deadlines with bounded job headroom.
+    timeout-minutes: 75
     env:
       PYTHONDONTWRITEBYTECODE: "1"
       CC: ${{ matrix.os == 'ubuntu-22.04' && 'gcc-12' || 'cl' }}

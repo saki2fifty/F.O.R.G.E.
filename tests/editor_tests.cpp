@@ -24,6 +24,7 @@
 #include "prefab_editor_tests.hpp"
 #include "project_settings.hpp"
 #include "property_drawer_tests.hpp"
+#include "runtime_tuning_review_tests.hpp"
 #include "scene_cache_tests.hpp"
 #include "sdl_input_tests.hpp"
 #include "spatial_helpers_tests.hpp"
@@ -328,6 +329,7 @@ int main(int argc, char** argv) {
         test_reflected_value_inputs();
         test_editor_selection_and_actions();
         test_editor_shortcuts();
+        forge::test::test_runtime_tuning_review();
         test_batch_authoring();
         test_spatial_helpers();
         test_asset_action_routes();

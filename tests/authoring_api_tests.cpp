@@ -3,6 +3,7 @@
 #include "node_policy_tests.hpp"
 #include "ordered_hierarchy_tests.hpp"
 #include "primitive_compatibility_tests.hpp"
+#include "property_batch_tests.hpp"
 #include "relationship_tests.hpp"
 #include "render_scene_tests.hpp"
 #include "render_view_tests.hpp"
@@ -47,6 +48,7 @@ int main(int argc, char** argv) {
         test_entity_recipes();
         test_primitive_compatibility();
         test_ordered_hierarchy();
+        test_property_batch();
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
         scene.reset({{"version", 1}, {"entities", Json::array()}});
@@ -60,7 +62,7 @@ int main(int argc, char** argv) {
         };
         const auto discovery = invoke("discover");
         check(discovery.at("ok"), "Discovery failed");
-        check(discovery["result"]["commands"].size() == 28, "Command catalog incomplete");
+        check(discovery["result"]["commands"].size() == 29, "Command catalog incomplete");
         const auto schema = discovery["result"]["schema"];
         check(schema["components"][0]["fields"][0]["property_id"] == "forge.local_translation.x",
               "Stable property identity missing");

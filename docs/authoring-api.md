@@ -25,6 +25,15 @@ Begin with `{"api":1,"method":"discover"}`. It returns the target, current revis
 - `scene.apply`: `commands` array; each entry contains `operation` and `arguments` matching discovery.
 - `history.undo` / `history.redo`: one history step; response says whether anything changed.
 
+`property.set_many` takes `entity`, `component`, and a `values` object of 1–128
+stable field IDs. It calls the same native-reflected field writer as `property.set`,
+then validates the complete same-component candidate together. Unknown fields,
+invalid values or incompatible component data reject the entire command. This
+supports interdependent values such as moving a camera-shot interval from `[0,1]`
+to `[2,3]` without publishing an invalid intermediate interval. It retains opaque
+data and individual prefab property masks. Group commands in the existing
+revision-aware `scene.apply` batch to publish one Undo entry across components.
+
 Successful responses contain `api`, `ok`, `revision`, and `result`. Failures contain `api`, `ok:false`, and `error.code/message`. Codes include `unsupported_version`, `wrong_target`, `wrong_thread`, `stale_revision`, `invalid_arguments`, `not_found`, `unsupported_property`, `unknown_operation`, `limit_exceeded`, `unavailable` and `invalid_request`. The stdio adapter is synchronous and has no subscriptions, request replay cache, cross-document transactions or automatic retry. The live adapter adds separate numbered replay receipts. Reread state after a stale response and decide explicitly whether to submit again.
 
 ## Transaction behavior
