@@ -26,7 +26,8 @@ with tempfile.TemporaryDirectory(prefix='forge-sequence-sdk-', dir=runtime.paren
                                                        text=True))['components']
     stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
                  schema_version=declaration['schema_version'], digest=declaration['digest'])
-    for scene_name in ('62-coordinated-animation.scene.json', '68-sequence-camera-shots.scene.json'):
+    for scene_name in ('62-coordinated-animation.scene.json', '68-sequence-camera-shots.scene.json',
+                       '70-sequence-audio-cues.scene.json'):
         source_path = root / 'Scenes' / scene_name
         original = source_path.read_bytes()
         source = json.loads(original)

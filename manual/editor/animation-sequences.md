@@ -53,6 +53,30 @@ controller and cameras in a Prefab. The links use IDs, so equal camera names sta
 independent. **Remove shot from sequence** clears its controller link and retains
 the shot entity and camera reference.
 
+## Sound cues
+
+Open **FeatureGallery / Scenes / 70-sequence-audio-cues.scene.json** and press
+**Play → Game**. A lower tone sounds at the start, a middle tone at two seconds,
+and a higher tone at four seconds. The sequence repeats every six seconds while
+the gold panel moves and the camera changes view.
+
+To add a sound to your own sequence:
+
+1. Create an **Audio Source** and assign an Audio Clip. Turn **Play on start** off if this sound should start only from cues. The source owns volume, pitch, looping and mixer settings; cue playback requests a one-shot effect.
+2. Open the controller's sequence Timeline. Select the source in Hierarchy and choose **Add cue from selected Audio Source**. It creates a cue at the playhead.
+3. Select the cue under **Audio cues**. Choose **Cue source**, enter **Cue time**, then choose **Apply cue fields**. Source and time use one Scene Undo step. Apply or reset pending fields before changing selection.
+4. Choose **Save scene**, then use Game Play to hear it. Timeline preview and scrubbing stay silent. Export includes the saved cues and their prepared sounds.
+
+The diamond marks when the sound is requested. Cues fire when forward playback
+crosses them; a cue at zero also fires when the sequence starts or restarts. Pause
+holds the sequence. Seeking does not play skipped sounds or stop sounds that have
+already started. Audio Source Stop still stops its effects.
+
+**Remove cue from sequence** keeps the entity, source and time for later reuse.
+Copy a whole controller/source/cue group to keep its links independent, including
+inside Prefabs. This feature places sound events on the fixed game clock; it does
+not provide audio trimming, waveforms or sample-accurate music synchronization.
+
 ## Playback rules
 
 Before a track starts, its clip holds its first value. After it ends, it holds its

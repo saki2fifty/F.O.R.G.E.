@@ -176,7 +176,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     shutil.copytree(root/'Examples/FeatureGallery', gallery)
     assert {'01-transforms.scene.json', '02-lighting.scene.json',
             '03-physics.scene.json', '04-cameras.scene.json',
-            '68-sequence-camera-shots.scene.json', '69-scene-color-adjustments.scene.json'} <= {
+            '68-sequence-camera-shots.scene.json', '69-scene-color-adjustments.scene.json',
+            '70-sequence-audio-cues.scene.json'} <= {
                 p.name for p in (gallery/'Scenes').glob('*.scene.json')}
     gallery_settings = json.loads((gallery/'forge.project.json').read_text())
     selected = json.loads((gallery/gallery_settings['startup_scene']['source']).read_text())
@@ -427,7 +428,8 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         ('Audio Falloff', 'Scenes/31-audio-falloff.scene.json', None, None),
         ('Directional Audio', 'Scenes/32-directional-audio.scene.json', None, None),
         ('Audio Mixer', 'Scenes/33-audio-mixer.scene.json', None, None),
-        ('Sequence Camera Shots', 'Scenes/68-sequence-camera-shots.scene.json', None, None)):
+        ('Sequence Camera Shots', 'Scenes/68-sequence-camera-shots.scene.json', None, None),
+        ('Sequence Audio Cues', 'Scenes/70-sequence-audio-cues.scene.json', None, None)):
         slider_source = root / (label + ' Gallery Copy')
         shutil.copytree(gallery, slider_source)
         slider_scene = scene_path

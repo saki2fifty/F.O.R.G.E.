@@ -79,6 +79,30 @@ boundary. This adds cuts, not shot blending, nested sequences or offline capture
 The new native component changes the exact installed SDK fingerprint. Existing
 controller/player layouts and ABI1 function tables remain unchanged.
 
+## Point audio-cue extension — 2026-10-17
+
+AudioCue extends the same Scene/controller arrangement with a source EntityRef and
+one time in seconds. It requests the existing AudioService OneShot after the
+complete animation candidate commits on a forward fixed tick. AudioSource and
+AudioRuntime retain clip, gain, pitch, routing, asynchronous loading, command and
+voice ownership. There is no second clock, native audio pointer, event language or
+audio track resource in the animation provider. Seeking and stopped preview make
+no new requests; previously requested effects retain ordinary audio lifetime.
+
+Reuse typed Scene/Prefab member links and existing Timeline/Scene history. Bound
+sources must belong to the same loaded Scene membership. A private entry flag
+distinguishes an unplayed sequence start from seeking or wrapping to zero; visual
+presentation resets cannot rearm it. Checkpoint5 adds exact cue configuration and
+this entry intent. Versions1–4 remain valid only without cue configuration.
+
+Collection and dispatch are bounded before command submission. Per-cue binding or
+audio admission failures produce diagnostics without undoing a committed pose or
+stopping unrelated cues. The existing audio owner keeps its final voice/command
+limits. This adds point events at fixed-tick boundaries, with no continuous clips,
+trimming, sample-accurate synchronization or sound rollback. The native component
+changes the matching SDK fingerprint; ABI1 function tables remain unchanged.
+See [sequence audio cues](../transform-animation.md#sequence-audio-cues).
+
 ## Compatibility and completion boundary
 
 Default-null sequence bindings preserve existing standalone clips. Backfill new

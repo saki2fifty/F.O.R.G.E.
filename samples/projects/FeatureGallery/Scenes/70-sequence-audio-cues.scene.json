@@ -1,0 +1,804 @@
+{
+  "asset_id": "621cbf74-7267-4772-bd93-40c4896fab53",
+  "entities": [
+    {
+      "components": {
+        "forge.animation_sequence": {
+          "duration": 6.0,
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "name": "Six-second sequence - three sound points",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 14.0,
+          "y": 0.4000000059604645,
+          "z": 9.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.1599999964237213,
+                  0.18000000715255737,
+                  0.2199999988079071,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "27253421-a18d-48ab-ba80-349d321cd4b9",
+      "name": "Floor",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 0,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "doppler": 0.0,
+          "gain": 0.25,
+          "inner_angle": 60.0,
+          "loop": false,
+          "maximum_distance": 100.0,
+          "minimum_distance": 1.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pitch": 0.75,
+          "play_on_start": false,
+          "rolloff": 1.0,
+          "spatialized": false
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 2.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8500000238418579,
+                  0.03500000014901161,
+                  0.02500000037252903,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "7657f8e1-712a-4924-b66c-d82a941da88f",
+      "name": "Red - lower tone at 0 seconds",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 0,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "doppler": 0.0,
+          "gain": 0.25,
+          "inner_angle": 60.0,
+          "loop": false,
+          "maximum_distance": 100.0,
+          "minimum_distance": 1.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pitch": 1.0,
+          "play_on_start": false,
+          "rolloff": 1.0,
+          "spatialized": false
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 2.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.699999988079071,
+                  0.05000000074505806,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "c4b5153d-1f28-48b2-8cbf-88c4f3a4c4d7",
+      "name": "Green - middle tone at 2 seconds",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_source": {
+          "attenuation": 0,
+          "bus": 0,
+          "clip": "327101c1-e496-4293-b830-4c25b978607a",
+          "cone_enabled": false,
+          "doppler": 0.0,
+          "gain": 0.25,
+          "inner_angle": 60.0,
+          "loop": false,
+          "maximum_distance": 100.0,
+          "minimum_distance": 1.0,
+          "outer_angle": 120.0,
+          "outer_gain": 0.25,
+          "pitch": 1.5,
+          "play_on_start": false,
+          "rolloff": 1.0,
+          "spatialized": false
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 2.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.02500000037252903,
+                  0.10000000149011612,
+                  0.8500000238418579,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "e212486f-2700-480f-bc90-57ef2d190714",
+      "name": "Blue - higher tone at 4 seconds",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 3.0,
+          "z": 0.5
+        },
+        "forge.local_translation": {
+          "x": -2.0,
+          "y": 1.5,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8999999761581421,
+                  0.6000000238418579,
+                  0.02500000037252903,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        },
+        "forge.transform_animator": {
+          "clip": "a5fa9266-52e5-48da-9771-86cb37294118",
+          "enabled": true,
+          "loop": false,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": {
+            "entity": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "sequence_start_seconds": 0.5
+        }
+      },
+      "id": "7bd71d2c-b570-4b19-a2b1-5a392d63eecd",
+      "name": "Moving gold panel - shared sequence",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_cue": {
+          "enabled": true,
+          "sequence": {
+            "entity": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "source": {
+            "entity": "7657f8e1-712a-4924-b66c-d82a941da88f",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "time_seconds": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "23c6ba9e-2202-4a74-bda7-d9d21c9c47a6",
+      "name": "Cue 0s - red",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_cue": {
+          "enabled": true,
+          "sequence": {
+            "entity": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "source": {
+            "entity": "c4b5153d-1f28-48b2-8cbf-88c4f3a4c4d7",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "time_seconds": 2.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "c295605d-1aa7-486a-9511-707ae0b519fa",
+      "name": "Cue 2s - green",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.audio_cue": {
+          "enabled": true,
+          "sequence": {
+            "entity": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "source": {
+            "entity": "e212486f-2700-480f-bc90-57ef2d190714",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "time_seconds": 4.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a0414446-2904-4249-90a5-af3688e1f240",
+      "name": "Cue 4s - blue",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": false,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9959527254104614,
+          "x": 0.08987855166196823,
+          "y": 0.0,
+          "z": -0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": -11.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "7f79e908-e8e4-422f-a3cd-d7b16b9546d1",
+      "name": "Front camera - first three seconds",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": false,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9212823510169983,
+          "x": 0.06922602653503418,
+          "y": -0.38160765171051025,
+          "z": 0.028674356639385223
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 8.0,
+          "y": 3.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a3a7de65-e041-46be-b342-3d7f34096b78",
+      "name": "Side camera - final three seconds",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9872272610664368,
+          "x": 0.159318208694458,
+          "y": 0.0,
+          "z": -0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 6.0,
+          "z": -14.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "736abac4-a621-4a47-bd47-97991acc2685",
+      "name": "Normal overview",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera_shot": {
+          "camera": {
+            "entity": "7f79e908-e8e4-422f-a3cd-d7b16b9546d1",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "enabled": true,
+          "end_seconds": 3.0,
+          "sequence": {
+            "entity": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "start_seconds": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "9c0a162d-b109-477e-8f95-bdb70b08de55",
+      "name": "Front shot",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.camera_shot": {
+          "camera": {
+            "entity": "a3a7de65-e041-46be-b342-3d7f34096b78",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "enabled": true,
+          "end_seconds": 6.0,
+          "sequence": {
+            "entity": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+            "scene": "621cbf74-7267-4772-bd93-40c4896fab53"
+          },
+          "start_seconds": 3.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5d1d50bb-bc03-4216-ab00-49776db531a4",
+      "name": "Side shot",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 2.5,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.9027010798454285,
+          "x": 0.38165590167045593,
+          "y": 0.1829865723848343,
+          "z": -0.07736548036336899
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "66ac71db-5e53-4d23-b7d8-9d0a821af170",
+      "name": "Sun",
+      "parent": "1aa831bb-6972-4bad-92f6-3cf3f2799be9",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

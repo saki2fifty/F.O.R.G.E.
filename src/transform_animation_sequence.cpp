@@ -1,8 +1,11 @@
+#include "animation_event_range.hpp"
 #include "transform_animation_runtime.hpp"
 #include <algorithm>
 #include <cmath>
+#include <forge/audio_components.hpp>
 #include <forge/render_components.hpp>
 #include <stdexcept>
+#include <tuple>
 namespace forge {
 void TransformAnimationPlayback::synchronize_sequences() {
     std::set<flecs::entity_t> alive;
@@ -123,6 +126,7 @@ bool TransformAnimationPlayback::seek(EntityRef ref, double seconds) {
         sequence.time = sequence.previous = time;
         sequence.advance = 0;
         sequence.discontinuous = true;
+        sequence.entry_pending = false;
         for (auto& [target, state] : states_)
             if (state.sequence == id && state.clip) {
                 state.time = state.previous = times.at(target);
@@ -156,13 +160,15 @@ bool TransformAnimationPlayback::control(EntityRef ref, AnimationControl command
         return false;
     const auto id = context_.resolve(ref).entity;
     const bool playing = command != AnimationControl::Pause;
-    if (auto group = sequence_states_.find(id); group != sequence_states_.end())
+    if (auto group = sequence_states_.find(id); group != sequence_states_.end()) {
         group->second.playing = playing;
-    else
+        if (command == AnimationControl::Restart)
+            group->second.entry_pending = true;
+    } else
         states_.at(id).playing = playing;
     return true;
 }
-Json TransformAnimationPlayback::sequence_checkpoint() const {
+Json TransformAnimationPlayback::sequence_checkpoint(bool audio_entries) const {
     auto result = Json::array();
     for (const auto& [id, state] : sequence_states_) {
         (void)id;
@@ -173,6 +179,8 @@ Json TransformAnimationPlayback::sequence_checkpoint() const {
                           {"play_on_start", state.config.play_on_start},
                           {"time_us", state.time},
                           {"playing", state.playing}});
+        if (audio_entries)
+            result.back()["entry_pending"] = state.entry_pending;
     }
     return result;
 }
@@ -290,6 +298,188 @@ Json TransformAnimationPlayback::camera_shots_checkpoint() const {
                               {"end_seconds", shot.config.end_seconds}});
     }
     // Native entity/membership allocation order is not persistent identity.
+    std::sort(result.begin(), result.end(), [](const Json& a, const Json& b) {
+        return a.at("entity").dump() < b.at("entity").dump();
+    });
+    return result;
+}
+void TransformAnimationPlayback::cue_error(Cue& cue, const std::string& text, bool binding) {
+    if (cue.error == text && cue.binding_error == binding)
+        return;
+    cue.error = text;
+    cue.binding_error = binding;
+    Diagnostic diagnostic{Severity::Error, "animation.audio_cue", text, {}};
+    diagnostic.context.entity = cue.entity.entity;
+    if (cue.config.source.scene && cue.config.source.entity)
+        diagnostic.context.related_entity = cue.config.source;
+    diagnostic.context.module = "forge.animation";
+    diagnostic.context.property = "forge.audio_cue";
+    context_.services().emit(std::move(diagnostic));
+}
+void TransformAnimationPlayback::synchronize_audio_cues() {
+    // This is a total component budget, including unbound/disabled authored cues.
+    if (audio_cues_.count() > 256) {
+        cue_states_.clear();
+        if (!cue_over_capacity_) {
+            cue_over_capacity_ = true;
+            context_.services().emit({Severity::Error,
+                                      "animation.audio_cue",
+                                      "Audio Cue component limit (256) exceeded; cues are inactive",
+                                      {}});
+        }
+        return;
+    }
+    cue_over_capacity_ = false;
+    std::set<flecs::entity_t> alive;
+    audio_cues_.each([&](flecs::entity entity, const AudioCue& config) {
+        const auto reference = context_.reference(entity.id());
+        if (entity.has(flecs::Prefab) || !reference)
+            return;
+        alive.insert(entity.id());
+        auto& cue = cue_states_[entity.id()];
+        const bool same_time =
+            cue.config.time_seconds == config.time_seconds ||
+            (std::isnan(cue.config.time_seconds) && std::isnan(config.time_seconds));
+        if (cue.entity != *reference || cue.config.sequence != config.sequence ||
+            cue.config.source != config.source || cue.config.enabled != config.enabled ||
+            !same_time) {
+            cue.error.clear();
+            cue.binding_error = false;
+        }
+        cue.entity = *reference;
+        cue.config = config;
+        cue.ready = false;
+        cue.sequence = 0;
+        if (!config.enabled || !config.sequence.entity) {
+            cue.error.clear();
+            cue.binding_error = false;
+            return;
+        }
+        try {
+            if (!std::isfinite(config.time_seconds) || config.time_seconds < 0 ||
+                config.time_seconds > 3600)
+                throw std::runtime_error(
+                    "Audio Cue time must be finite and between 0 and 3600 seconds");
+            const auto sequence = context_.resolve(config.sequence);
+            const auto source = context_.resolve(config.source);
+            if (sequence.state != WorldContext::ResolveState::Available ||
+                source.state != WorldContext::ResolveState::Available)
+                throw std::runtime_error(
+                    "Audio Cue sequence/source is missing, ambiguous or unloaded");
+            const auto controller = context_.world().entity(sequence.entity);
+            const auto actor = context_.world().entity(source.entity);
+            const auto membership = scene_membership(entity);
+            if (!membership || scene_membership(controller) != membership ||
+                scene_membership(actor) != membership)
+                throw std::runtime_error(
+                    "Audio Cue sequence and source must belong to the same loaded Scene");
+            if (!controller.has<AnimationSequence>() || !actor.has<AudioSource>())
+                throw std::runtime_error(
+                    "Audio Cue requires an Animation Sequence and an Audio Source");
+            if (!sequence_states_.contains(controller.id()) ||
+                sequence_errors_.contains(controller.id())) {
+                if (cue.binding_error)
+                    cue.error.clear();
+                cue.binding_error = false;
+                return; // Disabled/invalid controllers already own their state/diagnostic.
+            }
+            if (config.time_seconds > sequence_states_.at(controller.id()).config.duration)
+                throw std::runtime_error("Audio Cue time exceeds its sequence duration");
+            if (!actor.get<AudioSource>().clip.id)
+                throw std::runtime_error("Audio Cue's Audio Source requires a clip");
+            cue.sequence = controller.id();
+            cue.ready = true;
+            if (cue.binding_error)
+                cue.error.clear();
+            cue.binding_error = false;
+        } catch (const std::exception& error) {
+            cue_error(cue, error.what(), true);
+        }
+    });
+    std::erase_if(cue_states_, [&](const auto& entry) { return !alive.contains(entry.first); });
+}
+void TransformAnimationPlayback::dispatch_audio_cues() {
+    if (cue_states_.empty())
+        return;
+    const auto services = context_.services();
+    if (!services.available(Capability::Audio))
+        return;
+    struct Occurrence {
+        Cue* cue{};
+        double offset{};
+    };
+    std::array<Occurrence, 128> events{};
+    std::size_t count = 0;
+    for (auto& [id, cue] : cue_states_) {
+        (void)id;
+        if (!cue.ready)
+            continue;
+        const auto& sequence = sequence_states_.at(cue.sequence);
+        if (sequence.advance <= 0)
+            continue;
+        const auto point = cue.config.time_seconds * animation_timebase;
+        const auto end = sequence.previous + sequence.advance;
+        const auto duration = sequence.config.duration * animation_timebase;
+        const bool entry = sequence.entry_pending && sequence.previous == 0 && point == 0;
+        double first = 0, occurrences = point > sequence.previous && point <= end ? 1 : 0;
+        if (sequence.config.loop)
+            std::tie(first, occurrences) =
+                animation_periodic_range(sequence.previous, end, point, duration);
+        if (!std::isfinite(occurrences) || occurrences + unsigned(entry) > events.size() - count) {
+            cue_error(cue, "Audio Cue batch exceeds 128 occurrences; no cues queued this tick",
+                      false);
+            return;
+        }
+        if (entry)
+            events[count++] = {&cue, 0};
+        for (std::size_t i = 0; i < static_cast<std::size_t>(occurrences); ++i) {
+            const auto time = sequence.config.loop ? point + (first + i) * duration : point;
+            events[count++] = {&cue,
+                               std::clamp((time - sequence.previous) / sequence.advance, 0., 1.)};
+        }
+    }
+    std::sort(events.begin(), events.begin() + count, [](const auto& a, const auto& b) {
+        if (a.offset != b.offset)
+            return a.offset < b.offset;
+        return a.cue->entity < b.cue->entity;
+    });
+    const auto audio = services.audio();
+    for (std::size_t i = 0; i < count; ++i) {
+        auto& cue = *events[i].cue;
+        try {
+            audio->play_one_shot(cue.config.source);
+            cue.error.clear();
+            cue.binding_error = false;
+        } catch (const std::exception& error) {
+            cue_error(cue, error.what(), false);
+        }
+    }
+}
+bool TransformAnimationPlayback::audio_cues_checkpoint_ready() const {
+    return !cue_over_capacity_ &&
+           std::all_of(cue_states_.begin(), cue_states_.end(), [](const auto& entry) {
+               const auto& cue = entry.second.config;
+               return std::isfinite(cue.time_seconds) && cue.time_seconds >= 0 &&
+                      cue.time_seconds <= 3600 &&
+                      bool(cue.sequence.scene) == bool(cue.sequence.entity) &&
+                      bool(cue.source.scene) == bool(cue.source.entity);
+           });
+}
+Json TransformAnimationPlayback::audio_cues_checkpoint() const {
+    // Recovery comparison must not mistake an overfull collection or a partial
+    // native EntityRef for an empty/null authored configuration.
+    if (!audio_cues_checkpoint_ready())
+        throw std::runtime_error("Invalid Audio Cue recovery configuration");
+    auto result = Json::array();
+    for (const auto& [id, cue] : cue_states_) {
+        (void)id;
+        result.push_back(
+            {{"entity", cue.entity},
+             {"sequence", cue.config.sequence.entity ? Json(cue.config.sequence) : Json()},
+             {"source", cue.config.source.entity ? Json(cue.config.source) : Json()},
+             {"time_seconds", cue.config.time_seconds},
+             {"enabled", cue.config.enabled}});
+    }
     std::sort(result.begin(), result.end(), [](const Json& a, const Json& b) {
         return a.at("entity").dump() < b.at("entity").dump();
     });

@@ -12,7 +12,7 @@ struct EditorCaptureInput {
     bool active(unsigned stage, unsigned frames) const {
         return valid && (((stage == 121 || stage == 124) && frames >= 4 && frames <= 25) ||
                          (stage == 142 && frames >= 4 && frames <= 22) ||
-                         ((stage == 235 || stage == 238) && stage == click_stage &&
+                         ((stage == 235 || stage == 238 || stage == 293) && stage == click_stage &&
                           frames >= click_frame && frames <= click_frame + 4));
     }
     static bool document_focus_allowed(unsigned stage, bool popup_open) {

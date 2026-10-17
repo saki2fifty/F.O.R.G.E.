@@ -18,6 +18,14 @@ with another startup scene to export a different demonstration.
 The gallery contains ordinary saved project content. Most scenes need no C++ compiler; optional C++ examples require the matching development tools to build. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
 
+## Sequence sound cues
+
+Scene **70-sequence-audio-cues** plays three original tones at zero, two and four
+seconds while a gold panel moves and the camera cuts between views. Select its
+sequence controller and open Timeline to edit the sound points. Sources own pitch,
+volume and mixer routing. Timeline preview is silent; use Play to hear changes.
+Save the Scene before exporting. See [Animation sequences](../editor/animation-sequences.md).
+
 ## Create Prefabs from C++
 
 Scene **64-runtime-prefab-creation** starts with a floor, camera and light.

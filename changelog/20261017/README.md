@@ -1,5 +1,16 @@
 # 2026-10-17
 
+## Sequence sound cues (source implementation; complete gate pending)
+
+- Add typed Scene/Prefab Audio Cue points to the existing sequence clock and Timeline. Source/time edits use ordinary Scene Save, one-step Undo and existing pending/Play locks.
+- Request existing Audio Source one-shots at bounded forward crossings. Keep clip/loading/routing/voice ownership in AudioRuntime; seek and stopped preview stay silent.
+- Preserve entry intent and exact cue configuration in private animation recovery5, without replaying previous sounds. Retain ABI1 function tables; native C++ modules require the matching SDK fingerprint.
+- Include editable Gallery70 with three original tones, two camera views and a moving panel. Preserve all previous Gallery IDs and content.
+
+Local normal/sanitizer runtime/audio PCM, actual Timeline controls at three scales,
+installed-only SDK and source-free export checks pass. Native Windows capture and
+delivery gates remain pending. Physical listening is deferred.
+
 ## Scene color adjustments
 
 - Add optional authored RGB filter, saturation and contrast to the existing Scene/Game display pass, with neutral defaults and no extra GPU pass or target.

@@ -31,6 +31,7 @@ inline const std::vector<EntityRecipe>& entity_recipes() {
                "forge.animation_sequence"},
               {"animation.camera_shot", "Camera Shot", "Animation", no_primitive,
                "forge.camera_shot"},
+              {"animation.audio_cue", "Audio Cue", "Animation", no_primitive, "forge.audio_cue"},
               {"navigation.surface", "Navigation Surface", "Navigation", 3,
                "forge.navigation_surface"},
               {"navigation.agent", "Navigation Agent", "Navigation", no_primitive,

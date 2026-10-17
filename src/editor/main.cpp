@@ -4097,6 +4097,7 @@ int main(int argc, char** argv) {
                 case 283:
                 case 287:
                 case 291:
+                case 294:
                     forge::ui::style(1.5f);
                     break;
                 case 219:
@@ -4123,6 +4124,7 @@ int main(int argc, char** argv) {
                 case 284:
                 case 288:
                 case 292:
+                case 295:
                     forge::ui::style(2);
                     break;
                 case 220:
@@ -4170,6 +4172,20 @@ int main(int argc, char** argv) {
                         forge::ui::style(1);
                         SDL_SetWindowSize(window.get(), 1920, 1080);
                         audio_imports.open(files.document, "Assets/FalloffTone.wav");
+                    }
+                    break;
+                case 293:
+                    if (fixture.audio_cues) {
+                        forge::test::observe_ui = true;
+                        forge::ui::style(1);
+                        SDL_SetWindowSize(window.get(), 1920, 1080);
+                        files.document.open_scene("Scenes/70-sequence-audio-cues.scene.json");
+                        const auto snapshot = scene.snapshot();
+                        for (const auto& row : snapshot.at("entities"))
+                            if (row.at("components").contains("forge.animation_sequence"))
+                                animation_timeline.open_sequence(
+                                    files.document, scene,
+                                    {scene.asset_id(), row.at("id").get<forge::EntityId>()});
                     }
                     break;
                 case 238:
@@ -7234,10 +7250,71 @@ int main(int argc, char** argv) {
                         }
                     }
                 }
+                if (fixture.audio_cues && fixture.stage >= 293 && fixture.stage <= 295) {
+                    auto* w = ImGui::FindWindowByName("###Animation Timeline");
+                    captured_document_visible &= w && animation_timeline.sequence_mode();
+                    const auto preview = forge::test::ui_targets.find("sequence:preview");
+                    captured_document_visible &=
+                        preview != forge::test::ui_targets.end() && preview->second.enabled;
+                    if (w) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowPos(w, {30, 55}, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        const auto visible = [](const auto& box) {
+                            return box.enabled && box.minimum.x >= box.clip_minimum.x &&
+                                   box.maximum.x <= box.clip_maximum.x &&
+                                   box.minimum.y >= box.clip_minimum.y &&
+                                   box.maximum.y <= box.clip_maximum.y;
+                        };
+                        const auto scroll_to = [&](const auto& box) {
+                            if (box.maximum.y > box.clip_maximum.y)
+                                ImGui::SetScrollY(w, w->Scroll.y + box.maximum.y -
+                                                         box.clip_maximum.y + 12);
+                            else if (box.minimum.y < box.clip_minimum.y)
+                                ImGui::SetScrollY(w, w->Scroll.y + box.minimum.y -
+                                                         box.clip_minimum.y - 12);
+                        };
+                        const auto field = forge::test::ui_targets.find("sequence:apply_cue");
+                        if (field == forge::test::ui_targets.end()) {
+                            const auto snapshot = scene.snapshot();
+                            for (const auto& row : snapshot.at("entities")) {
+                                const auto& values = row.at("components");
+                                if (!values.contains("forge.audio_cue") ||
+                                    values.at("forge.audio_cue").at("time_seconds") != 4)
+                                    continue;
+                                const auto target = forge::test::ui_targets.find(
+                                    "sequence:cue:" + row.at("id").get<std::string>());
+                                if (target != forge::test::ui_targets.end()) {
+                                    scroll_to(target->second);
+                                    const auto& box = target->second;
+                                    const ImVec2 center{(box.minimum.x + box.maximum.x) / 2,
+                                                        (box.minimum.y + box.maximum.y) / 2};
+                                    fixture.capture_input.click_once(
+                                        ImGui::GetIO(), fixture.stage, fixture.frames, center,
+                                        box.enabled && center.x >= box.clip_minimum.x &&
+                                            center.x <= box.clip_maximum.x &&
+                                            center.y >= box.clip_minimum.y &&
+                                            center.y <= box.clip_maximum.y);
+                                }
+                            }
+                            captured_document_visible = false;
+                        } else {
+                            scroll_to(field->second);
+                            for (const auto* id : {"sequence:cue_source", "sequence:cue_time",
+                                                   "sequence:apply_cue"}) {
+                                const auto control = forge::test::ui_targets.find(id);
+                                captured_document_visible &=
+                                    control != forge::test::ui_targets.end() &&
+                                    visible(control->second);
+                            }
+                        }
+                    }
+                }
                 const bool root_controls =
-                    fixture.root_motion && ((fixture.stage >= 250 && fixture.stage <= 273) ||
-                                            (fixture.stage >= 282 && fixture.stage <= 292 &&
-                                             fixture.stage != 285 && fixture.stage != 289));
+                    fixture.audio_cues ||
+                    (fixture.root_motion && ((fixture.stage >= 250 && fixture.stage <= 273) ||
+                                             (fixture.stage >= 282 && fixture.stage <= 292 &&
+                                              fixture.stage != 285 && fixture.stage != 289)));
                 const bool root_marker =
                     fixture.root_motion && fixture.stage >= 274 && fixture.stage <= 281;
                 bool capture_settled = fixture.frames > 12;
@@ -7336,7 +7413,7 @@ int main(int argc, char** argv) {
                                                {"content_y", w->DC.CursorStartPos.y}};
                         metrics["scale"] = forge::ui::interface_scale;
                         metrics["scene_image_y"] = fixture.scene_image_y;
-                        if (fixture.root_motion) {
+                        if (fixture.root_motion || fixture.audio_cues) {
                             metrics["build_id"] = forge::build_id;
                             metrics["source_commit"] = forge::source_commit;
                             metrics["fixture_play_frame_pause_ms"] = root_play_frame_pause_ms;
@@ -7379,16 +7456,17 @@ int main(int argc, char** argv) {
                     fixture.capture(device, context, rtv);
                     if ((!fixture.animation_exits && !fixture.audio_falloff &&
                          !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview &&
-                         !fixture.root_motion && fixture.stage == 217) ||
+                         !fixture.root_motion && !fixture.audio_cues && fixture.stage == 217) ||
                         (fixture.animation_exits && fixture.stage == 220) ||
                         (fixture.audio_falloff && fixture.stage == 223) ||
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
-                        (fixture.root_motion && fixture.stage == 293)) {
+                        (fixture.root_motion && fixture.stage == 293) ||
+                        (fixture.audio_cues && fixture.stage == 296)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
-                            !fixture.audio_preview && !fixture.root_motion)
+                            !fixture.audio_preview && !fixture.root_motion && !fixture.audio_cues)
                             check_thumbnail_cache(presentation, context, files.document.project(),
                                                   mesh_resources);
                         play.stop();

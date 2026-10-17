@@ -28,7 +28,8 @@ struct EditorFixture {
     bool prepared = false, workflow = false, physics = false, sdk_play = false,
          sdk_onboarding = false, animation_exits = false, audio_falloff = false,
          audio_cones = false, audio_mixer = false, audio_preview = false, root_motion = false;
-    bool scene_create = false, hierarchy_create = false, shortcut_reopen = false;
+    bool scene_create = false, hierarchy_create = false, shortcut_reopen = false,
+         audio_cues = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
     bool rig_scene_marker_visible = false, rig_game_marker_visible = false;
@@ -44,6 +45,9 @@ struct EditorFixture {
     std::string joint_entity;
     explicit EditorFixture(int argc, char** argv) {
         shortcut_reopen = argc == 4 && std::string(argv[2]) == "--shortcuts-reopen";
+        audio_cues = argc == 4 && std::string(argv[2]) == "--audio-cues";
+        if (audio_cues)
+            stage = 293;
         root_motion = argc == 4 && std::string(argv[2]) == "--root-motion";
         if (root_motion)
             stage = 250;
@@ -70,7 +74,7 @@ struct EditorFixture {
         sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
         if (!physics && !sdk_play && !sdk_onboarding && !animation_exits && !audio_falloff &&
             !audio_cones && !audio_mixer && !audio_preview && !root_motion && !shortcut_reopen &&
-            argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
+            !audio_cues && argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
                 "Expected fixture output directory [--workflow | --physics PROJECT | "
                 "--sdk-play PROJECT SDK USERDATA]");
@@ -87,14 +91,14 @@ struct EditorFixture {
             config = output / ".fixture-preferences";
         } else {
             project = physics || animation_exits || audio_falloff || audio_cones || audio_mixer ||
-                              audio_preview || root_motion
+                              audio_preview || root_motion || audio_cues
                           ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                           : output / ("project-" + AssetId::generate().str());
             config = shortcut_reopen ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                      : physics       ? output / ".fixture-preferences"
                                      : project / ".fixture-preferences";
             if (!physics && !animation_exits && !audio_falloff && !audio_cones && !audio_mixer &&
-                !audio_preview && !root_motion)
+                !audio_preview && !root_motion && !audio_cues)
                 SceneDocument::create_project(project, "UX fixture");
         }
         std::filesystem::create_directories(config);
@@ -111,12 +115,14 @@ struct EditorFixture {
                                            std::filesystem::copy_options::overwrite_existing, ec);
         }
         if (!physics && !sdk_play && !animation_exits && !audio_falloff && !audio_cones &&
-            !audio_mixer && !audio_preview && !root_motion)
+            !audio_mixer && !audio_preview && !root_motion && !audio_cues)
             std::filesystem::remove_all(project, ec);
         if (sdk_play)
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
+        if (audio_cues && stage >= 293 && stage <= 295)
+            return "###Animation Timeline";
         if (root_motion && stage >= 250 && stage <= 273)
             return "Inspector";
         if (root_motion && stage >= 274 && stage <= 281)
@@ -703,7 +709,10 @@ struct EditorFixture {
                                "blend-space-game",
                                "animation-state-graph",
                                "animation-state-graph-150",
-                               "animation-state-graph-200"};
+                               "animation-state-graph-200",
+                               "sequence-audio-cues",
+                               "sequence-audio-cues-150",
+                               "sequence-audio-cues-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

@@ -1,3 +1,4 @@
+#include "animation_playback_access.hpp"
 #include "audio_source_access.hpp"
 #include "runtime_package.hpp"
 #include "transform_animation_authoring.hpp"
@@ -352,6 +353,8 @@ void gallery(const std::filesystem::path& original, const std::filesystem::path&
     gallery_exercise(relocated, read(std::filesystem::path(relocated) / scene.record->source),
                      scene.record->source);
 }
+#include "audio_cue_gallery_tests.hpp"
+#include "audio_cue_pcm_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -359,8 +362,14 @@ int main(int argc, char** argv) {
             gallery(argv[2], argv[3]);
             return 0;
         }
+        if (argc == 4 && std::string_view(argv[1]) == "--cue-gallery") {
+            audio_cue_gallery(argv[2], argv[3]);
+            return 0;
+        }
         check(argc == 2, "Need animated audio scratch root");
-        exercise(std::filesystem::absolute(argv[1]) / AssetId::generate().str());
+        const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
+        exercise(root);
+        audio_cue_pcm(root);
         std::cout << "Animated audio tests passed\n";
         return 0;
     } catch (const std::exception& error) {

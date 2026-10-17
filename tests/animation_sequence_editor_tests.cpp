@@ -95,7 +95,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
         auto box = test::ui_targets.at(id);
         const bool selectable =
             id.starts_with("picker-option:") || id.starts_with("sequence:track:") ||
-            id.starts_with("sequence:shot:") || id.starts_with("entity-picker-row:");
+            id.starts_with("sequence:shot:") || id.starts_with("sequence:cue:") ||
+            id.starts_with("entity-picker-row:");
         auto inside = [&] {
             const ImVec2 center{(box.minimum.x + box.maximum.x) / 2,
                                 (box.minimum.y + box.maximum.y) / 2};
@@ -369,6 +370,96 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     click("sequence:track:" + actor);
     // One central workspace keeps the two document owners' pending choices distinct.
     progress("camera shots passed");
+    const auto speaker =
+        authoring_command(
+            scene, "entity.create",
+            {{"name", "Equal speaker name"},
+             {"recipe", "audio.source"},
+             {"component_values", {{"clip", AssetId::generate()}, {"play_on_start", false}}}})
+            .at("selected")
+            .get<std::string>();
+    const auto other_speaker =
+        authoring_command(
+            scene, "entity.create",
+            {{"name", "Equal speaker name"},
+             {"recipe", "audio.source"},
+             {"component_values", {{"clip", AssetId::generate()}, {"play_on_start", false}}}})
+            .at("selected")
+            .get<std::string>();
+    context.selection.select_entity(speaker);
+    const auto before_cue = scene.document();
+    click("sequence:add_cue");
+    std::string cue;
+    const auto with_cue = scene.document();
+    for (const auto& row : with_cue.at("entities"))
+        if (row.at("components").contains("forge.audio_cue"))
+            cue = row.at("id").get<std::string>();
+    check(!cue.empty() &&
+              scene.entity(cue).get<AudioCue>().source.entity == EntityId::parse(speaker),
+          "Timeline did not create a cue bound to the selected source");
+    const auto original_cue = scene.entity(cue).get<AudioCue>();
+    editor.undo();
+    frame();
+    check(scene.document() == before_cue, "Cue creation did not undo in one Scene step");
+    editor.redo();
+    frame();
+    click("sequence:cue:" + cue);
+    type("sequence:cue_time", "4");
+    check(scene.entity(cue).get<AudioCue>() == original_cue &&
+              !test::ui_targets.at("sequence:add_cue").enabled &&
+              !test::ui_targets.at("sequence:remove_cue").enabled,
+          "Pending cue fields changed Scene intent or could be silently discarded");
+    click("sequence:apply_cue");
+    near(scene.entity(cue).get<AudioCue>().time_seconds, 4);
+    editor.undo();
+    frame();
+    check(scene.entity(cue).get<AudioCue>() == original_cue,
+          "Cue field edit did not undo atomically");
+    editor.redo();
+    frame();
+    type("sequence:cue_time", "3");
+    authoring_command(scene, "entity.rename", {{"entity", actor}, {"name", "Cue stale door"}});
+    frame();
+    click("sequence:apply_cue");
+    near(scene.entity(cue).get<AudioCue>().time_seconds, 4);
+    click("sequence:reset_cue");
+    type("sequence:cue_time", "7");
+    click("sequence:apply_cue");
+    near(scene.entity(cue).get<AudioCue>().time_seconds, 4);
+    click("sequence:reset_cue");
+    click("sequence:cue_source");
+    check(!test::ui_targets.contains("entity-picker-row:" + actor),
+          "Cue source picker offered a non-Audio Source");
+    click("entity-picker-row:" + other_speaker);
+    click("sequence:apply_cue");
+    check(scene.entity(cue).get<AudioCue>().source.entity == EntityId::parse(other_speaker),
+          "Same-name source picker rebound by label instead of ID");
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("sequence:add_cue").enabled &&
+              !test::ui_targets.at("sequence:cue_time").enabled &&
+              !test::ui_targets.at("sequence:apply_cue").enabled,
+          "Audio Cue editing stayed enabled during Play");
+    locked = false;
+    frame();
+    click("sequence:remove_cue");
+    check(!scene.entity(cue).get<AudioCue>().sequence.entity &&
+              scene.entity(cue).get<AudioCue>().source.entity == EntityId::parse(other_speaker),
+          "Removing cue discarded source intent");
+    editor.undo();
+    frame();
+    click("sequence:cue:" + cue);
+    type("sequence:cue_time", "3.5");
+    editor.request_close();
+    frame();
+    click("button:Keep editing");
+    check(editor.sequence_mode(), "Cancelling cue close lost its pending draft");
+    editor.request_save();
+    frame();
+    near(scene.entity(cue).get<AudioCue>().time_seconds, 3.5);
+    check(!project.dirty(), "Cue Save did not use Scene persistence");
+    click("sequence:track:" + actor);
+    progress("audio cues passed");
     editor.open(project, "Assets/EasedPlatform.animation.json");
     frame();
     check(editor.document() && !editor.sequence_mode(), "Sequence did not switch to clip mode");

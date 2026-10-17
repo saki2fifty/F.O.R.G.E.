@@ -1,6 +1,6 @@
 # Optional C++ behaviors
 
-## Sequence and camera-shot speed
+## Sequence, camera-shot and sound-cue speed
 
 Scene68 runs its saved shots without a C++ module. From an ordinary owner-thread
 C++ system before Animation, include `SequenceControl.hpp` and call:
@@ -14,6 +14,14 @@ time. Object clips and camera shots keep sharing that controller's clock. This
 does not edit authored files or Camera enabled flags. Use the matching installed
 SDK. The existing animation service controls pause, seek and restart on that same
 controller; bound clip clocks remain controlled by the sequence.
+
+Gallery70's Audio Cue points use that same sequence time. Slower playback delays
+future cue crossings; speed zero or Pause holds them. Already requested effects
+keep playing under their Audio Source controls. Seeking does not play skipped
+sounds; Restart rearms the zero-time cue for the next advancing tick. Native C++
+can inspect `forge::AudioCue` from `<forge/animation_components.hpp>` using the
+matching SDK. The cue stores its sequence/source EntityRefs and time in seconds;
+the Audio Source still owns the clip, gain, pitch and routing.
 
 ## Material animation
 

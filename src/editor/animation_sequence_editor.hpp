@@ -44,6 +44,8 @@ class AnimationSequenceEditor {
         track_.clear();
         shot_.clear();
         shot_camera_ = nullptr;
+        cue_.clear();
+        cue_source_ = nullptr;
         pending_ = false;
         save_requested = false;
         close_cancelled = false;
@@ -263,6 +265,7 @@ class AnimationSequenceEditor {
                 apply_authoring(*scene_, commands, scene_->revision());
                 track_ = selected;
                 shot_.clear();
+                cue_.clear();
                 pending_ = false;
                 stop_preview();
             } catch (const std::exception& e) {
@@ -285,6 +288,7 @@ class AnimationSequenceEditor {
             if (ImGui::Selectable(row.value("name", id).c_str(), track_ == id)) {
                 track_ = id;
                 shot_.clear();
+                cue_.clear();
             }
             FORGE_UI_PROBE("sequence:track:" + id);
             ImGui::EndDisabled();
@@ -371,6 +375,7 @@ class AnimationSequenceEditor {
                                         Json::array({property(track_, "sequence", nullptr)}),
                                         scene_->revision());
                         track_.clear();
+                        cue_.clear();
                         pending_ = false;
                         stop_preview();
                     } catch (const std::exception& e) {
@@ -382,6 +387,7 @@ class AnimationSequenceEditor {
             }
         }
         draw_camera_shots(snapshot, config, selected);
+        draw_audio_cues(snapshot, config, selected);
         if (!error_.empty())
             ImGui::TextWrapped("%s", error_.c_str());
         ImGui::EndDisabled();
@@ -461,9 +467,9 @@ class AnimationSequenceEditor {
     std::unique_ptr<Context> context_;
     std::shared_ptr<const AssetCatalog> catalog_;
     std::set<std::string> targets_;
-    std::string track_, shot_, error_;
-    Json shot_camera_ = nullptr;
-    double shot_start_ = 0, shot_end_ = 1;
+    std::string track_, shot_, cue_, error_;
+    Json shot_camera_ = nullptr, cue_source_ = nullptr;
+    double shot_start_ = 0, shot_end_ = 1, cue_time_ = 0;
     AnimationTimelineView view_;
     std::uint64_t revision_ = 0, pending_revision_ = 0;
     double time_ = 0, offset_ = 0;
@@ -580,6 +586,7 @@ class AnimationSequenceEditor {
                                                          {"end_seconds", end}}}});
                 shot_ = result.at("selected");
                 track_.clear();
+                cue_.clear();
                 stop_preview();
                 error_.clear();
             } catch (const std::exception& e) {
@@ -603,6 +610,7 @@ class AnimationSequenceEditor {
             if (ImGui::Selectable(row.value("name", id).c_str(), shot_ == id)) {
                 shot_ = id;
                 track_.clear();
+                cue_.clear();
             }
             FORGE_UI_PROBE("sequence:shot:" + id);
             ImGui::EndDisabled();
@@ -682,12 +690,172 @@ class AnimationSequenceEditor {
                     Json::array({property(shot_, "sequence", nullptr, "forge.camera_shot")}),
                     scene_->revision());
                 shot_.clear();
+                cue_.clear();
                 stop_preview();
             } catch (const std::exception& e) {
                 error_ = e.what();
             }
         }
         FORGE_UI_PROBE("sequence:remove_shot");
+        ImGui::EndDisabled();
+    }
+    void validate_cue(const Json& source, double time) const {
+        const auto controller = scene_->entity(controller_.entity.str());
+        if (!controller || !controller.has<AnimationSequence>() || !std::isfinite(time) ||
+            time < 0 || time > controller.get<AnimationSequence>().duration)
+            throw std::runtime_error("Cue time must be inside the current sequence duration");
+        if (source.is_null())
+            throw std::runtime_error("Choose an Audio Source in this Scene");
+        const auto reference = source.get<EntityRef>();
+        const auto actor = scene_->entity(reference.entity.str());
+        if (reference.scene != scene_->asset_id() || !actor || !actor.has<AudioSource>() ||
+            !actor.get<AudioSource>().clip.id)
+            throw std::runtime_error(
+                "Cue source must be an Audio Source with a clip in this Scene");
+    }
+    void apply_cue() {
+        if (pending_ && scene_->revision() != pending_revision_)
+            throw std::runtime_error(
+                "Scene changed. Reset pending cue fields before applying them.");
+        const auto actor = scene_->entity(cue_);
+        if (!actor || !actor.has<AudioCue>() || actor.get<AudioCue>().sequence != controller_)
+            throw std::runtime_error("Audio Cue is no longer bound to this sequence");
+        validate_cue(cue_source_, cue_time_);
+        authoring_command(*scene_, "property.set_many",
+                          {{"entity", cue_},
+                           {"component", "forge.audio_cue"},
+                           {"values", {{"source", cue_source_}, {"time_seconds", cue_time_}}}});
+    }
+    void draw_audio_cues(const Json& snapshot, const AnimationSequence& config,
+                         const std::string& selected) {
+        ImGui::SeparatorText("Audio cues");
+        ImGui::TextWrapped(
+            "One-shot events during forward Play. Audio Source owns the clip and gain. "
+            "Preview here is silent; sources keep their normal audio controls.");
+        const auto source_actor = selected.empty() ? flecs::entity{} : scene_->entity(selected);
+        ImGui::BeginDisabled(pending_ || !source_actor || !source_actor.has<AudioSource>() ||
+                             !source_actor.get<AudioSource>().clip.id);
+        if (ui::button("Add cue from selected Audio Source",
+                       "Create a cue at the playhead in one Scene Undo step.")) {
+            try {
+                const Json source = EntityRef{scene_->asset_id(), EntityId::parse(selected)};
+                const auto time = std::clamp(time_, 0., config.duration);
+                validate_cue(source, time);
+                if (scene_->world().query<const AudioCue>().count() >= 256)
+                    throw std::runtime_error("Audio Cue component limit (256) exceeded");
+                const auto result = authoring_command(
+                    *scene_, "entity.create",
+                    {{"recipe", "animation.audio_cue"},
+                     {"component_values",
+                      {{"sequence", controller_}, {"source", source}, {"time_seconds", time}}}});
+                cue_ = result.at("selected");
+                shot_.clear();
+                track_.clear();
+                stop_preview();
+                error_.clear();
+            } catch (const std::exception& error) {
+                error_ = error.what();
+            }
+        }
+        FORGE_UI_PROBE("sequence:add_cue");
+        ImGui::EndDisabled();
+        for (const auto& row : snapshot.at("entities")) {
+            if (!row.at("components").contains("forge.audio_cue"))
+                continue;
+            const auto id = row.at("id").get<std::string>();
+            const auto actor = scene_->entity(id);
+            if (!actor || !actor.has<AudioCue>() || actor.get<AudioCue>().sequence != controller_)
+                continue;
+            const auto value = actor.get<AudioCue>();
+            ImGui::PushID(id.c_str());
+            ImGui::BeginDisabled(pending_);
+            if (ImGui::Selectable(row.value("name", id).c_str(), cue_ == id)) {
+                cue_ = id;
+                shot_.clear();
+                track_.clear();
+            }
+            FORGE_UI_PROBE("sequence:cue:" + id);
+            ImGui::EndDisabled();
+            const auto source =
+                entity_ref_label(*scene_, value.source.entity ? Json(value.source) : Json());
+            ImGui::TextDisabled("%s | %.3f s%s", source.c_str(), value.time_seconds,
+                                value.enabled ? "" : " | Disabled");
+            const auto origin = ImGui::GetCursorScreenPos();
+            const ImVec2 size{std::max(40.f, ImGui::GetContentRegionAvail().x),
+                              24 * ui::interface_scale};
+            ImGui::InvisibleButton("##cue point", size);
+            FORGE_UI_PROBE("sequence:cue_point:" + id);
+            auto* draw = ImGui::GetWindowDrawList();
+            draw->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
+                                IM_COL32(32, 42, 52, 255));
+            const auto x = [&](double seconds) {
+                return origin.x +
+                       float(std::clamp(view_.fraction(seconds * animation_timebase), 0., 1.)) *
+                           size.x;
+            };
+            const auto fraction = view_.fraction(value.time_seconds * animation_timebase);
+            if (fraction >= 0 && fraction <= 1) {
+                const float point = x(value.time_seconds), mid = origin.y + size.y / 2;
+                const float r = 5 * ui::interface_scale;
+                const auto color =
+                    value.enabled ? IM_COL32(74, 180, 155, 255) : IM_COL32(72, 76, 82, 255);
+                draw->AddQuadFilled({point, mid - r}, {point + r, mid}, {point, mid + r},
+                                    {point - r, mid}, color);
+            }
+            draw->AddLine({x(time_), origin.y}, {x(time_), origin.y + size.y},
+                          IM_COL32(255, 203, 78, 255), 2);
+            if (ImGui::IsItemActive() && ImGui::IsMouseDown(0)) {
+                time_ = view_.time((ImGui::GetIO().MousePos.x - origin.x) / size.x) /
+                        animation_timebase;
+                playing_ = false;
+                if (ready_ && !stale_)
+                    seek_preview();
+            }
+            ImGui::PopID();
+        }
+        const auto actor = cue_.empty() ? flecs::entity{} : scene_->entity(cue_);
+        if (!actor || !actor.has<AudioCue>() || actor.get<AudioCue>().sequence != controller_)
+            return;
+        const auto value = actor.get<AudioCue>();
+        if (!pending_) {
+            cue_source_ = value.source.entity ? Json(value.source) : Json();
+            cue_time_ = value.time_seconds;
+        }
+        const auto changed = [&] {
+            if (!pending_)
+                pending_revision_ = scene_->revision();
+            pending_ = true;
+        };
+        if (entity_ref_picker(*scene_, cue_source_, "Cue source", false,
+                              scene_->world().id<AudioSource>()))
+            changed();
+        FORGE_UI_PROBE("sequence:cue_source");
+        if (ImGui::InputDouble("Cue time", &cue_time_, 0, 0, "%.3f s"))
+            changed();
+        FORGE_UI_PROBE("sequence:cue_time");
+        if (ui::button("Apply cue fields", "Commit source/time together in one Scene Undo step."))
+            apply_pending();
+        FORGE_UI_PROBE("sequence:apply_cue");
+        if (ui::button("Reset pending cue fields", "Reload the current Scene draft values."))
+            pending_ = false;
+        FORGE_UI_PROBE("sequence:reset_cue");
+        ImGui::BeginDisabled(pending_);
+        if (ui::button("Select cue", "Show this cue in Inspector.") && ui::editor_context)
+            ui::editor_context->selection.select_entity(cue_);
+        FORGE_UI_PROBE("sequence:select_cue");
+        if (ui::button("Remove cue from sequence",
+                       "Retain the entity, source and time; clear its controller.")) {
+            try {
+                apply_authoring(
+                    *scene_, Json::array({property(cue_, "sequence", nullptr, "forge.audio_cue")}),
+                    scene_->revision());
+                cue_.clear();
+                stop_preview();
+            } catch (const std::exception& error) {
+                error_ = error.what();
+            }
+        }
+        FORGE_UI_PROBE("sequence:remove_cue");
         ImGui::EndDisabled();
     }
     void seek_preview() {
@@ -703,6 +871,13 @@ class AnimationSequenceEditor {
     }
     bool apply_pending() {
         try {
+            if (!cue_.empty()) {
+                apply_cue();
+                pending_ = false;
+                stop_preview();
+                error_.clear();
+                return true;
+            }
             if (!shot_.empty()) {
                 apply_shot();
                 pending_ = false;

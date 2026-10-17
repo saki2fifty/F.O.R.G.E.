@@ -1,3 +1,16 @@
+# Sequence sound cues — 2026-10-17
+
+Current source adds typed Audio Cue points to the existing Scene sequence Timeline
+and clock. Existing Audio Sources own clips, loading, routing and voices; forward
+crossings request bounded one-shots. Seek and stopped preview stay silent.
+Normal/sanitizer sequence, real offline PCM, recovery, typed Scene/Prefab links,
+Timeline controls at three scales, matching installed-only C++ SDK consumers and
+old-module rejection pass locally. Editable Gallery70 and its relocated source-free
+export produce matching sound samples with coordinated camera cuts and motion.
+Native Windows capture/full-package gates remain pending; physical listening and
+desktop acceptance are deferred. See [the contract](transform-animation.md#sequence-audio-cues)
+and [the user guide](../manual/editor/animation-sequences.md#sound-cues).
+
 # GPU profiling — 2026-10-17
 
 Source implementation adds default-off GPU pass durations to the existing Profiler,

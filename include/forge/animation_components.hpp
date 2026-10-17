@@ -35,6 +35,14 @@ struct CameraShot {
     bool enabled = true;
     bool operator==(const CameraShot&) const = default;
 };
+// A point event on the existing sequence clock. AudioSource owns the sound;
+// forward playback requests one independent one-shot through AudioService.
+struct AudioCue {
+    EntityRef sequence{}, source{};
+    double time_seconds = 0;
+    bool enabled = true;
+    bool operator==(const AudioCue&) const = default;
+};
 struct TransformAnimator {
     AssetRef<TransformAnimationAsset> clip{};
     bool enabled = true, play_on_start = true, loop = true;
