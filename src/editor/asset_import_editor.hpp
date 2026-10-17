@@ -62,6 +62,10 @@ class AssetImportEditor {
         focus_ = focus; // Background reimport must not steal document focus.
     }
     const std::vector<SubassetIdentityConflict>& identity_conflicts() const { return conflicts_; }
+    std::string identity_option_label(AssetId id) const {
+        const auto found = conflict_labels_.find(id);
+        return found == conflict_labels_.end() ? id.str() : found->second;
+    }
     void decide_identity(const std::string& address, std::optional<AssetId> previous) {
         if (pending())
             throw std::runtime_error("Cannot change identity decisions during an import.");
@@ -146,6 +150,7 @@ class AssetImportEditor {
             service_.reset(); // Cancels/joins old work before releasing its writer lease.
             draft_.reset();
             conflicts_.clear();
+            conflict_labels_.clear();
             decisions_.clear();
             conflict_key_.clear();
             ++selection_generation_;
@@ -167,6 +172,7 @@ class AssetImportEditor {
                     std::make_shared<const AssetCatalog>(result.publication->catalog);
                 baseline_ = draft_->request.settings;
                 conflicts_.clear();
+                conflict_labels_.clear();
                 decisions_.clear();
                 saved_ = true;
                 error_.clear();
@@ -187,6 +193,19 @@ class AssetImportEditor {
                 if (conflict_key_ != result.job.build_key || result.identity_conflicts.empty())
                     decisions_.clear();
                 conflicts_ = result.identity_conflicts;
+                conflict_labels_.clear();
+                // Display-only projection of the captured review snapshot, not
+                // another identity authority or a per-frame project file read.
+                if (!conflicts_.empty() && draft_->ticket.sidecar_bytes) {
+                    const auto sidecar = AssetImportSidecar::parse(*draft_->ticket.sidecar_bytes);
+                    for (const auto& entry : sidecar.identity.entries) {
+                        const auto name =
+                            entry.display_name.empty() ? entry.key : entry.display_name;
+                        conflict_labels_.emplace(entry.id, name + " | " + entry.type + " | " +
+                                                               entry.id.str() +
+                                                               (entry.removed ? " [removed]" : ""));
+                    }
+                }
                 conflict_key_ = conflicts_.empty() ? std::string{} : result.job.build_key;
                 message = error_ = result.diagnostic;
                 report(error_);
@@ -198,6 +217,7 @@ class AssetImportEditor {
             draft_.reset();
             decisions_.clear();
             conflicts_.clear();
+            conflict_labels_.clear();
             conflict_key_.clear();
             if (close_)
                 finish_close();
@@ -397,6 +417,7 @@ class AssetImportEditor {
     ImportEditorProfile profile_;
     std::filesystem::path project_;
     std::vector<SubassetIdentityConflict> conflicts_;
+    std::map<AssetId, std::string> conflict_labels_;
     std::vector<SubassetIdentityDecision> decisions_;
     std::string conflict_key_;
     std::uint64_t selection_generation_ = 0;
@@ -429,7 +450,7 @@ class AssetImportEditor {
                                             [&](const auto& d) { return d.address == address; });
                 const auto preview = current == decisions_.end()
                                          ? std::string("Choose correspondence")
-                                     : current->previous ? current->previous->str()
+                                     : current->previous ? identity_option_label(*current->previous)
                                                          : std::string("New logical asset");
                 ui::property_label_row(
                     address.c_str(),
@@ -444,14 +465,17 @@ class AssetImportEditor {
                                           current != decisions_.end() && !current->previous))
                         choose({});
                     for (const auto id : conflict.previous) {
-                        if (ImGui::Selectable(id.str().c_str(), current != decisions_.end() &&
-                                                                    current->previous == id))
+                        const auto label = identity_option_label(id);
+                        if (ImGui::Selectable(label.c_str(), current != decisions_.end() &&
+                                                                 current->previous == id))
                             choose(id);
+                        FORGE_UI_PROBE("import-identity-option:" + id.str());
                         ui::help("Reuse this previous same-type identity. Publication rejects "
                                  "duplicate claims or a changed source revision.");
                     }
                     ImGui::EndCombo();
-                }
+                } else
+                    FORGE_UI_PROBE("import-identity:" + address);
                 ui::help("Choose New logical asset only when this member should receive a new "
                          "AssetId. Existing references are never redirected by name.");
                 ImGui::PopID();
@@ -485,6 +509,7 @@ class AssetImportEditor {
         save_ = false;
         error_.clear();
         conflicts_.clear();
+        conflict_labels_.clear();
         decisions_.clear();
         conflict_key_.clear();
     }
@@ -494,6 +519,7 @@ class AssetImportEditor {
         save_ = false;
         draft_.reset();
         conflicts_.clear();
+        conflict_labels_.clear();
         decisions_.clear();
         conflict_key_.clear();
         if (pending_source_) {

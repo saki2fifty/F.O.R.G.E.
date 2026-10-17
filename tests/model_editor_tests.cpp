@@ -143,6 +143,13 @@ int main(int argc, char** argv) {
         require(editor.identity_conflicts().size() == 1 &&
                     read_json(root / "forge.assets.json") == baseline,
                 "Ambiguous model source changed selected identity without review");
+        for (const auto id : editor.identity_conflicts().front().previous) {
+            const auto label = editor.identity_option_label(id);
+            require(label.find("Duplicate") != std::string::npos &&
+                        label.find("model_node") != std::string::npos &&
+                        label.find(id.str()) != std::string::npos,
+                    "Identity review lost the captured member name, type or stable ID");
+        }
         auto decide = [&] {
             const auto conflicts = editor.identity_conflicts();
             for (const auto& c : conflicts) {

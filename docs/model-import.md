@@ -544,12 +544,25 @@ Save focus and dirty/close/project-switch guards. Profiles supply exact importer
 registries and family publication functions; no parallel asset catalog is introduced.
 
 Ambiguous family publication exposes candidate addresses and permitted previous
-identities. Explicit decisions are captured by value for the next job and tied to
+identities. Previous choices show the captured member display name, logical type,
+full AssetId and removed-member marker. Duplicate names remain separate choices;
+unnamed members show their durable mapping key. These labels are a disposable
+projection of the draft's captured sidecar, prepared after a conflict rather than
+rereading project files each frame. Publication, reload, close and project switch
+clear that projection. Names do not participate in reconciliation.
+Explicit decisions are captured by value for the next job and tied to
 the reviewed build-input key. A changed source/settings/tool input rejects those
 decisions before publication. Catalog/sidecar concurrency checks remain enforced by
 AssetPublisher. Decisions are a dirty draft; unresolved validation never becomes a
 partially published family. Texture behavior remains covered by its real-worker
 editor regression.
+
+Current cross-platform limitation: node content evidence includes calculated
+double-precision transforms. Windows and Linux math-library rounding can change
+that evidence for unchanged source rotations; symmetric members can then require
+explicit identity review after a tool/profile change. The rejected candidate retains
+the complete previously selected catalog and sidecar. Stable source evidence and
+its compatibility migration are not implemented by the display-label improvement.
 
 The Model document asynchronously validates selected immutable metadata and
 releases cooked blob storage before retaining placement metadata. One cancellable

@@ -125,6 +125,10 @@ Its `identity_conflicts` list shows candidate addresses and previous same-type I
 
 In the editor, **Subasset identity needs review** lists the ambiguous candidate
 members. For each one, choose a previous same-type identity or **New logical asset**.
+Previous choices show the part's saved name, type and full asset ID. Parts with the
+same name remain separate choices. An unnamed part shows its saved mapping key;
+**[removed]** marks a part removed by an earlier import. Names help you read the
+choices; FORGE does not automatically match parts by name.
 Then choose **Import / Reimport** again. Decisions apply only to the exact reviewed
 source and settings. If either changes, review the new conflict before publishing.
 A previous identity cannot be claimed twice. Failed review leaves the earlier model
