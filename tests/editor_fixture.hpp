@@ -13,6 +13,7 @@
 #include "Graphics/GraphicsEngineD3D12/interface/CommandQueueD3D12.h"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "document.hpp"
+#include "view_image_capture_reference.hpp"
 #include <SDL3/SDL.h>
 #include <dxgi1_4.h>
 #include <fstream>
@@ -29,7 +30,12 @@ struct EditorFixture {
          sdk_onboarding = false, animation_exits = false, audio_falloff = false,
          audio_cones = false, audio_mixer = false, audio_preview = false, root_motion = false;
     bool scene_create = false, hierarchy_create = false, shortcut_reopen = false,
-         audio_cues = false;
+         audio_cues = false, view_images = false;
+    Diligent::RefCntAutoPtr<Diligent::ITextureView> view_image_target;
+    ViewImageReference view_image_background;
+    Json view_image_report;
+    std::filesystem::path view_image_path;
+    unsigned view_image_ready_frames = 0;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
     bool rig_scene_marker_visible = false, rig_game_marker_visible = false;
@@ -44,6 +50,9 @@ struct EditorFixture {
     std::filesystem::path sdk_root, user_data;
     std::string joint_entity;
     explicit EditorFixture(int argc, char** argv) {
+        view_images = argc == 4 && std::string(argv[2]) == "--view-images";
+        if (view_images)
+            stage = 296;
         shortcut_reopen = argc == 4 && std::string(argv[2]) == "--shortcuts-reopen";
         audio_cues = argc == 4 && std::string(argv[2]) == "--audio-cues";
         if (audio_cues)
@@ -74,7 +83,8 @@ struct EditorFixture {
         sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
         if (!physics && !sdk_play && !sdk_onboarding && !animation_exits && !audio_falloff &&
             !audio_cones && !audio_mixer && !audio_preview && !root_motion && !shortcut_reopen &&
-            !audio_cues && argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
+            !audio_cues && !view_images && argc != 2 &&
+            (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
                 "Expected fixture output directory [--workflow | --physics PROJECT | "
                 "--sdk-play PROJECT SDK USERDATA]");
@@ -91,17 +101,21 @@ struct EditorFixture {
             config = output / ".fixture-preferences";
         } else {
             project = physics || animation_exits || audio_falloff || audio_cones || audio_mixer ||
-                              audio_preview || root_motion || audio_cues
+                              audio_preview || root_motion || audio_cues || view_images
                           ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                           : output / ("project-" + AssetId::generate().str());
             config = shortcut_reopen ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                      : physics       ? output / ".fixture-preferences"
                                      : project / ".fixture-preferences";
             if (!physics && !animation_exits && !audio_falloff && !audio_cones && !audio_mixer &&
-                !audio_preview && !root_motion && !audio_cues)
+                !audio_preview && !root_motion && !audio_cues && !view_images)
                 SceneDocument::create_project(project, "UX fixture");
         }
         std::filesystem::create_directories(config);
+        if (view_images) {
+            user_data = output / ".image-user-data";
+            std::filesystem::create_directories(user_data);
+        }
     }
     ~EditorFixture() {
         active_wait_probe = nullptr;
@@ -115,12 +129,14 @@ struct EditorFixture {
                                            std::filesystem::copy_options::overwrite_existing, ec);
         }
         if (!physics && !sdk_play && !animation_exits && !audio_falloff && !audio_cones &&
-            !audio_mixer && !audio_preview && !root_motion && !audio_cues)
+            !audio_mixer && !audio_preview && !root_motion && !audio_cues && !view_images)
             std::filesystem::remove_all(project, ec);
-        if (sdk_play)
+        if (sdk_play || view_images)
             std::filesystem::remove_all(user_data, ec);
     }
     const char* focused_document() const {
+        if (view_images && stage >= 296 && stage <= 304)
+            return (stage - 296) % 3 == 2 ? "Game" : "###Scene";
         if (audio_cues && stage >= 293 && stage <= 295)
             return "###Animation Timeline";
         if (root_motion && stage >= 250 && stage <= 273)
@@ -712,7 +728,16 @@ struct EditorFixture {
                                "animation-state-graph-200",
                                "sequence-audio-cues",
                                "sequence-audio-cues-150",
-                               "sequence-audio-cues-200"};
+                               "sequence-audio-cues-200",
+                               "view-image-scene-menu",
+                               "view-image-scene-saved",
+                               "view-image-game-ui",
+                               "view-image-scene-menu-150",
+                               "view-image-scene-saved-150",
+                               "view-image-game-ui-150",
+                               "view-image-scene-menu-200",
+                               "view-image-scene-saved-200",
+                               "view-image-game-ui-200"};
         auto* texture = view->GetTexture();
         auto desc = texture->GetDesc();
         desc.Usage = USAGE_STAGING;

@@ -2627,7 +2627,7 @@ int main(int argc, char** argv) {
                     // touches the real user's saves. Normal
                     // production callers leave the default
                     // (game_user_data_base()).
-                    if (fixture.sdk_play) {
+                    if (fixture.sdk_play || fixture.view_images) {
                         play.set_user_data_override(fixture.user_data);
                     }
                     // Native UI fixtures run on headless WARP workers without an
@@ -4178,6 +4178,73 @@ int main(int argc, char** argv) {
                         audio_imports.open(files.document, "Assets/FalloffTone.wav");
                     }
                     break;
+                case 296:
+                case 299:
+                case 302:
+                    if (fixture.view_images) {
+                        forge::test::observe_ui = true;
+                        forge::ui::style(1.f + .5f * ((fixture.stage - 296) / 3));
+                        SDL_SetWindowSize(window.get(), 1920, 1080);
+                        actions.invoke("stop");
+                        files.document.open_scene("Scenes/70-sequence-audio-cues.scene.json");
+                        selected.clear();
+                        workspace.scene = workspace.game = true;
+                        fixture.view_image_target.Release();
+                        fixture.view_image_background = {};
+                        fixture.view_image_report = forge::Json::object();
+                        fixture.view_image_ready_frames = 0;
+                        if (auto* w = ImGui::FindWindowByName("###Scene")) {
+                            ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                            ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                        }
+                    }
+                    break;
+                case 297:
+                case 300:
+                case 303:
+                    if (fixture.view_images) {
+                        fixture.view_image_path =
+                            fixture.output /
+                            ("scene-" + std::to_string(100 + 50 * ((fixture.stage - 296) / 3)) +
+                             ".png");
+                        forge::FileDialog::fixture_selection =
+                            forge::FileDialog::Result{forge::FileDialog::Kind::SaveImage,
+                                                      forge::path_utf8(fixture.view_image_path),
+                                                      {},
+                                                      {}};
+                        fixture.view_image_report = forge::Json::object();
+                        fixture.view_image_ready_frames = 0;
+                    }
+                    break;
+                case 298:
+                case 301:
+                case 304:
+                    if (fixture.view_images) {
+                        if (fixture.frames == 0) {
+                            actions.invoke("stop");
+                            files.document.open_scene("Scenes/59-ui-png-jpeg.scene.json");
+                            selected.clear();
+                            fixture.view_image_target.Release();
+                            fixture.view_image_background = {};
+                            fixture.view_image_report = forge::Json::object();
+                            fixture.view_image_ready_frames = 0;
+                            fixture.view_image_path =
+                                fixture.output /
+                                ("game-ui-" +
+                                 std::to_string(100 + 50 * ((fixture.stage - 296) / 3)) + ".png");
+                            forge::FileDialog::fixture_selection =
+                                forge::FileDialog::Result{forge::FileDialog::Kind::SaveImage,
+                                                          forge::path_utf8(fixture.view_image_path),
+                                                          {},
+                                                          {}};
+                            if (auto* w = ImGui::FindWindowByName("Game")) {
+                                ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                                ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                            }
+                        }
+                        ready = actions.invoke("play");
+                    }
+                    break;
                 case 293:
                     if (fixture.audio_cues) {
                         forge::test::observe_ui = true;
@@ -5551,6 +5618,15 @@ int main(int argc, char** argv) {
                                                   {scene_tools.grid, scene_tools.grid_step});
                         performance.scene_ms = forge::ui::Performance::milliseconds(
                             scene_submit, forge::ui::Performance::Clock::now());
+#ifdef FORGE_UI_FIXTURE
+                        if (fixture.view_images && fixture.stage >= 296 && fixture.stage <= 304 &&
+                            game_view == ((fixture.stage - 296) % 3 == 2)) {
+                            fixture.view_image_target = texture;
+                            if (game_view && view_image.busy() &&
+                                !fixture.view_image_background.staging)
+                                fixture.view_image_background.queue(device, context, texture);
+                        }
+#endif
                         if (game_view && !sequence_camera_preview)
                             runtime_ui.draw(play, context, texture, image_origin, size,
                                             unsigned(std::max(1.0f, size.x * render_scale)),
@@ -6175,7 +6251,8 @@ int main(int argc, char** argv) {
                         (fixture.stage >= 85 && fixture.stage <= 96) ||
                         (fixture.stage >= 103 && fixture.stage <= 141) ||
                         (fixture.stage >= 145 && fixture.stage <= 168) ||
-                        (fixture.stage >= 217 && fixture.stage <= 252) || fixture.root_motion)
+                        (fixture.stage >= 217 && fixture.stage <= 252) || fixture.root_motion ||
+                        fixture.view_images)
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
@@ -7287,6 +7364,85 @@ int main(int argc, char** argv) {
                         }
                     }
                 }
+                if (fixture.view_images && fixture.stage >= 296 && fixture.stage <= 304) {
+                    const auto mode = (fixture.stage - 296) % 3;
+                    auto* w = ImGui::FindWindowByName(fixture.focused_document());
+                    if (w && w->DockIsActive) {
+                        ImGui::SetWindowDock(w, 0, ImGuiCond_Always);
+                        ImGui::SetWindowSize(w, {1860, 990}, ImGuiCond_Always);
+                    }
+                    forge::test::fit_capture_window(fixture.focused_document(),
+                                                    forge::ui::interface_scale);
+                    const auto visible = [](const auto& box) {
+                        return box.enabled && box.minimum.x >= box.clip_minimum.x &&
+                               box.maximum.x <= box.clip_maximum.x &&
+                               box.minimum.y >= box.clip_minimum.y &&
+                               box.maximum.y <= box.clip_maximum.y;
+                    };
+                    bool render_ready =
+                        fixture.view_image_target &&
+                        (mode == 2 ? !game_viewport->pending()
+                                   : viewport.meshes() && !viewport.meshes()->pending() &&
+                                         viewport.meshes()->diagnostics().empty());
+                    unsigned png_sources = 0, jpeg_sources = 0;
+                    if (mode == 2) {
+                        if (play.control_ready() && !play.paused())
+                            actions.invoke("pause");
+                        if (const auto* assets = runtime_ui.asset_snapshot())
+                            for (const auto& source : assets->sources) {
+                                const auto extension = source.source.extension();
+                                png_sources += source.bytes && extension == ".png";
+                                jpeg_sources +=
+                                    source.bytes && (extension == ".jpg" || extension == ".jpeg");
+                            }
+                        render_ready &=
+                            play.paused() && play.control_ready() && runtime_ui.presenter_alive() &&
+                            runtime_ui.diagnostic().empty() && png_sources && jpeg_sources;
+                    }
+                    const char* id = mode == 0   ? "scene:view-menu"
+                                     : mode == 1 ? "scene:save-image"
+                                                 : "game:save-image";
+                    fixture.view_image_ready_frames =
+                        render_ready ? fixture.view_image_ready_frames + 1 : 0;
+                    const auto control = forge::test::ui_targets.find(id);
+                    ImVec2 point{fixture.capture_input.x, fixture.capture_input.y};
+                    bool clickable = false;
+                    if (control != forge::test::ui_targets.end()) {
+                        const auto& box = control->second;
+                        point = {(box.minimum.x + box.maximum.x) / 2,
+                                 (box.minimum.y + box.maximum.y) / 2};
+                        clickable = fixture.view_image_ready_frames >= 3 && fixture.frames >= 4 &&
+                                    visible(box);
+                    }
+                    // A menu can disappear on mouse-down. Still deliver its release.
+                    fixture.capture_input.click_once(ImGui::GetIO(), fixture.stage, fixture.frames,
+                                                     point, clickable);
+                    if (mode == 0) {
+                        const auto command = forge::test::ui_targets.find("scene:save-image");
+                        const auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
+                        const auto* focused = ImGui::GetCurrentContext()->NavWindow;
+                        captured_document_visible &=
+                            render_ready && command != forge::test::ui_targets.end() &&
+                            visible(command->second) && !popups.empty() && popups.back().Window &&
+                            focused && popups.back().Window->RootWindow == focused->RootWindow;
+                    } else {
+                        if (view_image.status().starts_with("Image save failed:"))
+                            throw std::runtime_error(view_image.status());
+                        const bool saved =
+                            render_ready && !view_image.busy() &&
+                            view_image.status() ==
+                                "Image saved: " + forge::path_utf8(fixture.view_image_path) &&
+                            std::filesystem::is_regular_file(fixture.view_image_path);
+                        captured_document_visible &= saved;
+                        if (saved && fixture.view_image_report.empty()) {
+                            fixture.view_image_report = forge::test::verify_saved_view(
+                                device, context, fixture.view_image_target, fixture.view_image_path,
+                                mode == 2 ? &fixture.view_image_background : nullptr);
+                            fixture.view_image_report["png_sources"] = png_sources;
+                            fixture.view_image_report["jpeg_sources"] = jpeg_sources;
+                        }
+                    }
+                }
                 if (fixture.audio_cues && fixture.stage >= 293 && fixture.stage <= 295) {
                     auto* w = ImGui::FindWindowByName("###Animation Timeline");
                     captured_document_visible &= w && animation_timeline.sequence_mode();
@@ -7348,7 +7504,7 @@ int main(int argc, char** argv) {
                     }
                 }
                 const bool root_controls =
-                    fixture.audio_cues ||
+                    fixture.audio_cues || fixture.view_images ||
                     (fixture.root_motion && ((fixture.stage >= 250 && fixture.stage <= 273) ||
                                              (fixture.stage >= 282 && fixture.stage <= 292 &&
                                               fixture.stage != 285 && fixture.stage != 289)));
@@ -7450,7 +7606,7 @@ int main(int argc, char** argv) {
                                                {"content_y", w->DC.CursorStartPos.y}};
                         metrics["scale"] = forge::ui::interface_scale;
                         metrics["scene_image_y"] = fixture.scene_image_y;
-                        if (fixture.root_motion || fixture.audio_cues) {
+                        if (fixture.root_motion || fixture.audio_cues || fixture.view_images) {
                             metrics["build_id"] = forge::build_id;
                             metrics["source_commit"] = forge::source_commit;
                             metrics["fixture_play_frame_pause_ms"] = root_play_frame_pause_ms;
@@ -7480,6 +7636,20 @@ int main(int argc, char** argv) {
                                 ImGui::FindWindowByName(fixture.focused_document());
                             metrics["document_in_front"] =
                                 target && focused && focused->RootWindow == target->RootWindow;
+                            if (fixture.view_images) {
+                                const bool menu = (fixture.stage - 296) % 3 == 0;
+                                if (menu) {
+                                    const auto& popups = ImGui::GetCurrentContext()->OpenPopupStack;
+                                    metrics["document_in_front"] =
+                                        focused && !popups.empty() && popups.back().Window &&
+                                        focused->RootWindow == popups.back().Window->RootWindow;
+                                }
+                                metrics["file_picker_injected"] = true;
+                                metrics["native_file_picker_executed"] = false;
+                                metrics["file_picker_deliveries"] =
+                                    forge::FileDialog::fixture_deliveries;
+                                metrics["saved_view"] = fixture.view_image_report;
+                            }
                             metrics["problems"] = forge::Json::array();
                             for (const auto& problem : editor.problems.items())
                                 metrics["problems"].push_back({{"severity", problem.severity},
@@ -7493,17 +7663,20 @@ int main(int argc, char** argv) {
                     fixture.capture(device, context, rtv);
                     if ((!fixture.animation_exits && !fixture.audio_falloff &&
                          !fixture.audio_cones && !fixture.audio_mixer && !fixture.audio_preview &&
-                         !fixture.root_motion && !fixture.audio_cues && fixture.stage == 217) ||
+                         !fixture.root_motion && !fixture.audio_cues && !fixture.view_images &&
+                         fixture.stage == 217) ||
                         (fixture.animation_exits && fixture.stage == 220) ||
                         (fixture.audio_falloff && fixture.stage == 223) ||
                         (fixture.audio_cones && fixture.stage == 229) ||
                         (fixture.audio_mixer && fixture.stage == 250) ||
                         (fixture.audio_preview && fixture.stage == 241) ||
                         (fixture.root_motion && fixture.stage == 293) ||
-                        (fixture.audio_cues && fixture.stage == 296)) {
+                        (fixture.audio_cues && fixture.stage == 296) ||
+                        (fixture.view_images && fixture.stage == 305)) {
                         if (!fixture.animation_exits && !fixture.audio_falloff &&
                             !fixture.audio_cones && !fixture.audio_mixer &&
-                            !fixture.audio_preview && !fixture.root_motion && !fixture.audio_cues)
+                            !fixture.audio_preview && !fixture.root_motion && !fixture.audio_cues &&
+                            !fixture.view_images)
                             check_thumbnail_cache(presentation, context, files.document.project(),
                                                   mesh_resources);
                         play.stop();

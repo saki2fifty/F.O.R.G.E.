@@ -1,6 +1,7 @@
 #pragma once
 #include "editor/view_image.hpp"
 #include "texture_decode.h"
+#include "view_image_capture_reference.hpp"
 #include <cstring>
 #include <fstream>
 #include <thread>
@@ -118,8 +119,26 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     check(!task.selected_path(View::Scene, project / "bad.jpg", project, scene, message) &&
               !task.busy() && message.find("failed") != std::string::npos,
           "Image task accepted a misleading file extension");
-    check(task.selected_path(View::Scene, output, project, scene, message),
-          "Image task did not accept PNG destination");
+    const auto deliveries = FileDialog::fixture_deliveries;
+    FileDialog::fixture_selection = FileDialog::Result{FileDialog::Kind::SaveImage, {}, {}, {}};
+    task.choose(View::Scene, nullptr, project, scene);
+    task.poll(presentation, graphics, project, scene, message);
+    check(!task.busy() && message == "Image save cancelled" &&
+              FileDialog::fixture_deliveries == deliveries + 1,
+          "Cancelled native selection left image task busy");
+    FileDialog::fixture_selection =
+        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(output), {}, {}};
+    task.choose(View::Scene, nullptr, project, scene);
+    task.poll(presentation, graphics, project, other_scene, message);
+    check(!task.busy() && message.find("Scene changed") != std::string::npos &&
+              !std::filesystem::exists(output),
+          "Native selection was accepted after the Scene changed");
+    FileDialog::fixture_selection =
+        FileDialog::Result{FileDialog::Kind::SaveImage, path_utf8(output), {}, {}};
+    task.choose(View::Scene, nullptr, project, scene);
+    task.poll(presentation, graphics, project, scene, message);
+    check(task.busy() && FileDialog::fixture_deliveries == deliveries + 3,
+          "Image task did not accept the native picker adapter's PNG destination");
     check(!task.selected_path(View::Game, project / "other.png", project, scene, message),
           "Busy image task replaced its destination");
     task.capture(View::Game, presentation, graphics, view, message);
@@ -133,6 +152,10 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     check(task.busy() && presentation.readback_pending(), "Image task did not queue a GPU copy");
     finish(); // Already captured pixels finish independently of later Scene selection.
     exact_image(output);
+    const auto reference = test::verify_saved_view(presentation.device(), graphics, view, output);
+    check(reference.at("matches_view").get<bool>() && reference.at("width") == 2 &&
+              reference.at("height") == 2,
+          "Independent GPU reference differs from the saved image");
     check(message.starts_with("Image saved:") && !editor.log.empty() &&
               editor.log.back().find("  Image export: Image saved:") != std::string::npos,
           "Image completion did not use the timestamped editor log");

@@ -54,18 +54,20 @@ int main() {
         require(hover, "Vertex capture pointer not applied");
         frame(142, 23);
         require(!hover, "Vertex setup did not end at finite bound");
-        for (unsigned stage : {235u, 238u}) {
+        for (unsigned stage : {235u, 238u, 293u, 296u, 297u, 304u}) {
             input.click_once(io, stage, 4, {50, 50}, false);
             frame(stage, 4);
-            require(!hover, "Audio capture clicked before its widget became ready");
+            require(!hover, "Capture clicked before its widget became ready");
             input.click_once(io, stage, 40, {50, 50}, true);
             frame(stage, 41);
-            input.click_once(io, stage, 41, {50, 50}, true);
+            // A menu item may disappear on press; the transport must release
+            // even when its next-frame readiness is false.
+            input.click_once(io, stage, 41, {50, 50}, stage < 296);
             frame(stage, 42);
-            require(clicked, "Audio capture did not receive actual click/release");
+            require(clicked, "Capture did not receive actual click/release");
             input.click_once(io, stage, 43, {50, 50}, true);
             frame(stage, 45);
-            require(!hover, "Audio setup leaked pointer past its finite bound");
+            require(!hover, "Capture setup leaked pointer past its finite bound");
         }
         input.queue(io, {std::numeric_limits<float>::quiet_NaN(), 50}, 0);
         frame(124, 5);
@@ -73,6 +75,10 @@ int main() {
         require(EditorCaptureInput::document_focus_allowed(121, false) &&
                     !EditorCaptureInput::document_focus_allowed(121, true) &&
                     !EditorCaptureInput::document_focus_allowed(124, true) &&
+                    !EditorCaptureInput::document_focus_allowed(296, true) &&
+                    !EditorCaptureInput::document_focus_allowed(297, true) &&
+                    EditorCaptureInput::document_focus_allowed(297, false) &&
+                    EditorCaptureInput::document_focus_allowed(305, true) &&
                     EditorCaptureInput::document_focus_allowed(122, true),
                 "Finite setup popup focus policy differs");
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
