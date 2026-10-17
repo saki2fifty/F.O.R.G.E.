@@ -60,6 +60,8 @@ int main(int argc, char** argv) {
                 std::reverse(two.document["animations"].begin(), two.document["animations"].end());
                 two.document["animations"][0]["name"] = "Renamed clip";
                 two.document["animations"][1]["name"] = "Renamed clip";
+                for (auto& node : two.document["nodes"])
+                    node["name"] = "Renamed joint";
                 const auto reordered = prepare_gltf_ozz_transport(NativeGltfDocument(two));
                 for (unsigned i = 0; i < 2; ++i) {
                     require(first.metadata["clips"][i]["content_evidence"] ==

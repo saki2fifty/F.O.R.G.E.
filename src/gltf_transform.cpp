@@ -68,6 +68,13 @@ std::array<double, 16> gltf_node_matrix(const Json& node) {
         }
     return result;
 }
+Json gltf_source_transform_evidence(const Json& source) {
+    if (source.contains("matrix"))
+        return {{"matrix", numbers<16>(source, "matrix", {})}};
+    return {{"translation", numbers<3>(source, "translation", {0, 0, 0})},
+            {"rotation", numbers<4>(source, "rotation", {0, 0, 0, 1})},
+            {"scale", numbers<3>(source, "scale", {1, 1, 1})}};
+}
 Json canonical_gltf_trs(const Json& source) {
     const auto admitted = gltf_node_matrix(source);
     auto t = numbers<3>(source, "translation", {0, 0, 0});

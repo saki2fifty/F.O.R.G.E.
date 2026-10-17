@@ -119,3 +119,72 @@ with tempfile.TemporaryDirectory(dir=scratch) as temp:
     assert call(project)['cache_hit']
     assert not list((project / '.forge/jobs').iterdir())
 print('Animated CLI settings, tool-key provenance, cache and missing-converter retention passed')
+
+# The curated Gallery is cooked on another host. Tool/recipe changes must retain
+# its real animated families, including symmetric joints, without identity guesses.
+with tempfile.TemporaryDirectory(dir=scratch) as temp:
+    project = Path(temp) / 'Gallery reimport with spaces'
+    shutil.copytree(Path(sys.argv[3]).resolve(), project)
+    catalog_path = project / 'forge.assets.json'
+    before = json.loads(catalog_path.read_bytes())
+    records = {row['id']: row for row in before['assets']}
+    authored = {p.relative_to(project): p.read_bytes() for p in project.rglob('*')
+                if p.is_file() and '.forge' not in p.relative_to(project).parts
+                and p != catalog_path and not p.name.endswith('.forge-import.json')}
+    models = [(p, json.loads(p.read_bytes()))
+              for p in (project / 'Assets').glob('*.forge-import.json')
+              if json.loads(p.read_bytes()).get('identity', {}).get('evidence_schema')
+              == 'forge.gltf-model.v2']
+    assert len(models) == 5, 'Curated model regression lost its five animated families'
+    model_sources = {str(p.relative_to(project)).replace(os.sep, '/').removesuffix(
+        '.forge-import.json') for p, _ in models}
+
+    def selected_bindings(catalog, owner):
+        row = next(r for r in catalog['assets'] if r['id'] == owner)
+        return {e['role']: e['target'] for e in row['dependency_edges']
+                if e['role'].startswith('model.member:')}
+
+    def import_gallery(source, target):
+        result = subprocess.run([str(exe), '--assets', 'import-target', str(project),
+                                 source, json.dumps(target)],
+                                capture_output=True, text=True, timeout=120)
+        receipt = json.loads(result.stdout)
+        assert result.returncode == 0 and receipt.get('ok'), (source, receipt, result.stderr)
+        return json.loads(catalog_path.read_bytes())
+
+    for path, original in models:
+        source = str(path.relative_to(project)).replace(os.sep, '/').removesuffix(
+            '.forge-import.json')
+        owner = original['identity']['owner']
+        target = {k: original['build_inputs'][k] for k in ('platform', 'backend', 'profile')}
+        for _ in range(2):
+            current = import_gallery(source, target)
+            assert selected_bindings(current, owner) == selected_bindings(before, owner)
+            actual = json.loads(path.read_bytes())['identity']
+            assert actual['evidence_schema'] == 'forge.gltf-model.v2'
+            assert {e['id']: (e['key'], e['removed']) for e in actual['entries']} == {
+                e['id']: (e['key'], e['removed']) for e in original['identity']['entries']}
+    # Dependent authored animation assets deliberately pin model revisions. Rebuild
+    # those through their existing importers instead of weakening export checks.
+    after = {row['id']: row for row in current['assets']}
+    dependent_sources = {r['source'] for r in after.values() for e in r['dependency_edges']
+                         if e['kind'] == 'runtime' and e['revision'] and e['target'] in after
+                         and after[e['target']].get('metadata', {}).get('forge.import', {}).get('key')
+                         and e['revision'] != after[e['target']]['metadata']['forge.import']['key']}
+    for source in sorted(dependent_sources):
+        original = json.loads((project / (source + '.forge-import.json')).read_bytes())
+        current = import_gallery(source, {k: original['build_inputs'][k]
+                                           for k in ('platform', 'backend', 'profile')})
+    after = {row['id']: row for row in current['assets']}
+    assert all(e['revision'] == after[e['target']]['metadata']['forge.import']['key']
+               for r in after.values() for e in r['dependency_edges']
+               if e['kind'] == 'runtime' and e['revision'] and e['target'] in after
+               and after[e['target']].get('metadata', {}).get('forge.import', {}).get('key'))
+    assert set(after) == set(records)
+    for key, original in records.items():
+        if original['source'] not in model_sources | dependent_sources:
+            assert after[key] == original
+        for field in ('type', 'source', 'schema_version', 'subasset'):
+            assert after[key].get(field) == original.get(field)
+    assert all((project / path).read_bytes() == data for path, data in authored.items())
+print('Five curated animated Gallery families reimported twice with durable IDs and authored content intact')

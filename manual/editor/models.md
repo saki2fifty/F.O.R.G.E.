@@ -129,6 +129,19 @@ Previous choices show the part's saved name, type and full asset ID. Parts with 
 same name remain separate choices. An unnamed part shows its saved mapping key;
 **[removed]** marks a part removed by an earlier import. Names help you read the
 choices; FORGE does not automatically match parts by name.
+
+Older model imports now migrate their matching information when FORGE can verify
+the original source, settings and saved import. Existing part IDs remain intact.
+This avoids unnecessary conflicts caused by tiny Windows/Linux math differences.
+If the source/settings changed or the old import cannot be verified, review the
+choices explicitly. Failed migration keeps the previous import usable.
+If an existing model's identity sidecar is missing, restore it from your backup
+or version control before reimporting. FORGE reports this instead of replacing
+the model's part IDs.
+If an animation mask, blend space or state graph reports an outdated model
+revision, reimport that asset after the model. Its authored settings and asset ID
+remain intact.
+
 Then choose **Import / Reimport** again. Decisions apply only to the exact reviewed
 source and settings. If either changes, review the new conflict before publishing.
 A previous identity cannot be claimed twice. Failed review leaves the earlier model

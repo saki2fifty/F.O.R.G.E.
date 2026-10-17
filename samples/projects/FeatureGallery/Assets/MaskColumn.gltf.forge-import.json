@@ -3,10 +3,10 @@
     "backend": "d3d12",
     "dependencies": [],
     "importer": "forge.model.gltf",
-    "importer_revision": "d6a6a1dbb2e538d65b726b3b79cba2ecace278695d2dfd0e61af20dcb1a54dcf",
+    "importer_revision": "3a7422d06d2b7f32fd6257c47ccf27b63a941e2808ba1b00edfa5d46357fd71c",
     "key_version": 2,
     "output_format": "forge.model-bundle",
-    "output_version": 4,
+    "output_version": 5,
     "platform": "windows",
     "profile": "desktop",
     "settings": {
@@ -31,7 +31,7 @@
   "identity": {
     "entries": [
       {
-        "content_digest": "4c00fddc93bdf6451d38142c5ca1285ae85e7b49c9fa4c2455f6cd3a93e4bc6b",
+        "content_digest": "4a3b8faf769ed752120d19850a9bff093849884be6644af0eea8e2029695dbec",
         "display_name": "Model skeleton",
         "exporter_key": "",
         "id": "075384e2-87fc-4f53-8f83-672992c4453d",
@@ -87,7 +87,7 @@
         "id": "d16232b5-f883-4ca0-8ff6-5d8e87b3149c",
         "key": "member/d16232b5-f883-4ca0-8ff6-5d8e87b3149c",
         "removed": false,
-        "semantic_digest": "dde86a3c7e7d5d6a98bd5729d9b647b3e063affb2c53c217cecd199b610604b7",
+        "semantic_digest": "e22a97a199e3767d564bdaa421910523e14809191267e1b0214c04e6cdda132f",
         "type": "animation_clip"
       },
       {
@@ -107,7 +107,7 @@
         "id": "f440eff5-0533-48d2-8698-15ec7f0ed3e9",
         "key": "member/f440eff5-0533-48d2-8698-15ec7f0ed3e9",
         "removed": false,
-        "semantic_digest": "e6488f6713f960f3d27f3c1554612856859399133cdb35627e3d8901ad61c3e9",
+        "semantic_digest": "630f31c6300ddb0e6202ed32f42b0574913c7e1b7f93194b4a9b14344b37b939",
         "type": "mesh"
       },
       {
@@ -127,11 +127,11 @@
         "id": "fef43048-2c08-443f-b7f3-f4746f944b9d",
         "key": "member/fef43048-2c08-443f-b7f3-f4746f944b9d",
         "removed": false,
-        "semantic_digest": "cdcbeefeb87555adfd1d70d2d8a82493ec95f28d3f82f2bafc9653905a6fb70a",
+        "semantic_digest": "74d9ca37d5aa18cb9b16a053916da743951e1c83884a7fd2154250e46f951c72",
         "type": "animation_clip"
       }
     ],
-    "evidence_schema": "forge.gltf-model.v1",
+    "evidence_schema": "forge.gltf-model.v2",
     "format": "forge.subasset-identity",
     "owner": "68396b2f-7051-4a23-95ec-958c9c7a3c51",
     "source": "Assets/MaskColumn.gltf",

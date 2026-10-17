@@ -148,6 +148,8 @@ int main(int argc, char** argv) {
             rejects([&] { validate_model_bundle(bad); });
         };
         invalid([](auto& j) { j["hierarchy"]["nodes"][0]["parent"] = 0; });
+        invalid([](auto& j) { j["evidence_schema"] = "forge.gltf-model.future"; });
+        invalid([](auto& j) { j.erase("evidence_schema"); });
         invalid([](auto& j) { j["hierarchy"]["nodes"][0]["mesh"] = "/images/0"; });
         invalid([](auto& j) { j["hierarchy"]["nodes"][0]["local"] = {1, 2, 3}; });
         invalid([](auto& j) { j["hierarchy"]["default_scene"] = 999; });
@@ -203,9 +205,37 @@ int main(int argc, char** argv) {
         zero_source.source_digest = asset_build_digest(zero_source.document);
         const auto zero_files = cook_static_gltf_bundle(NativeGltfDocument(zero_source));
         const auto zero_index = validate_model_bundle(zero_files);
-        require(zero_index.version == 4 &&
+        require(zero_index.version == 5 &&
                     zero_index.hierarchy.at("nodes")[0].at("trs") == canonical_gltf_trs(zero_node),
                 "Cooked model lost original singular signed/tiny TRS");
+        GltfSourceBundle named;
+        named.source = "OriginalNamed.gltf";
+        named.document = {
+            {"asset", {{"version", "2.0"}}},
+            {"extensionsUsed", {"KHR_lights_punctual"}},
+            {"nodes", Json::array({{{"name", "First object"},
+                                    {"camera", 0},
+                                    {"extensions", {{"KHR_lights_punctual", {{"light", 0}}}}}}})},
+            {"cameras", Json::array({{{"name", "First camera"},
+                                      {"type", "perspective"},
+                                      {"perspective", {{"yfov", 1.0}, {"znear", .1}}}}})},
+            {"extensions",
+             {{"KHR_lights_punctual",
+               {{"lights", Json::array({{{"name", "First light"}, {"type", "point"}}})}}}}},
+            {"scenes", Json::array({{{"nodes", {0}}}})},
+            {"scene", 0}};
+        named.source_digest = asset_build_digest(named.document);
+        const auto named_index =
+            validate_model_bundle(cook_static_gltf_bundle(NativeGltfDocument(named)));
+        named.document["nodes"][0]["name"] = "Renamed object";
+        named.document["cameras"][0]["name"] = "Renamed camera";
+        named.document["extensions"]["KHR_lights_punctual"]["lights"][0]["name"] = "Renamed light";
+        named.source_digest = asset_build_digest(named.document);
+        const auto renamed_index =
+            validate_model_bundle(cook_static_gltf_bundle(NativeGltfDocument(named)));
+        require(named_index.members.front().identity.evidence ==
+                    renamed_index.members.front().identity.evidence,
+                "Object/camera/light display names became model identity evidence");
         auto damaged_zero = zero_files;
         change(damaged_zero, [](auto& j) { j["hierarchy"]["nodes"][0]["local"][2] = 0; });
         rejects([&] { validate_model_bundle(damaged_zero); });

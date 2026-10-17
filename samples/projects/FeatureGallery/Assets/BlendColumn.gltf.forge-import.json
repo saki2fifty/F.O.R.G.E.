@@ -3,10 +3,10 @@
     "backend": "d3d12",
     "dependencies": [],
     "importer": "forge.model.gltf",
-    "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+    "importer_revision": "3a7422d06d2b7f32fd6257c47ccf27b63a941e2808ba1b00edfa5d46357fd71c",
     "key_version": 2,
     "output_format": "forge.model-bundle",
-    "output_version": 4,
+    "output_version": 5,
     "platform": "windows",
     "profile": "desktop",
     "settings": {
@@ -37,11 +37,11 @@
         "id": "074437cd-293c-49b8-81c3-b64d8cc18ad1",
         "key": "member/074437cd-293c-49b8-81c3-b64d8cc18ad1",
         "removed": false,
-        "semantic_digest": "dde86a3c7e7d5d6a98bd5729d9b647b3e063affb2c53c217cecd199b610604b7",
+        "semantic_digest": "e22a97a199e3767d564bdaa421910523e14809191267e1b0214c04e6cdda132f",
         "type": "animation_clip"
       },
       {
-        "content_digest": "8f75ab1135cef85289792158b1f9650c71d93dd71f766de45d8c635b0174a5ab",
+        "content_digest": "bc3ad7e643627bfbf5997f12f7655dd128956d9ede9c75d402b2f6782d03f094",
         "display_name": "Model skeleton",
         "exporter_key": "",
         "id": "08e7e8fb-e562-43eb-84e2-da2617a5a983",
@@ -57,7 +57,7 @@
         "id": "3f70d142-9db3-40fc-8b1b-034179dcdddd",
         "key": "member/3f70d142-9db3-40fc-8b1b-034179dcdddd",
         "removed": false,
-        "semantic_digest": "1a9f17f5b0992a9728bae6b77d0b86488d2c007b32d7d4c7b398dd8d96bd7fd5",
+        "semantic_digest": "b2228b736e3831fa8340a72e76a1e473208f2e42018a17d1e83cd5353150445a",
         "type": "animation_clip"
       },
       {
@@ -87,7 +87,7 @@
         "id": "91597580-a799-4671-bd2f-3a3e350b68e4",
         "key": "member/91597580-a799-4671-bd2f-3a3e350b68e4",
         "removed": false,
-        "semantic_digest": "e6488f6713f960f3d27f3c1554612856859399133cdb35627e3d8901ad61c3e9",
+        "semantic_digest": "630f31c6300ddb0e6202ed32f42b0574913c7e1b7f93194b4a9b14344b37b939",
         "type": "mesh"
       },
       {
@@ -111,7 +111,7 @@
         "type": "model_node"
       }
     ],
-    "evidence_schema": "forge.gltf-model.v1",
+    "evidence_schema": "forge.gltf-model.v2",
     "format": "forge.subasset-identity",
     "owner": "22987994-51d7-4942-80bf-a4adb7adc34b",
     "source": "Assets/BlendColumn.gltf",

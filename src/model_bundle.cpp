@@ -178,7 +178,9 @@ void hierarchy(const Json& h, const std::map<std::string, const ModelImportMembe
     }
 }
 void validate(const ModelBundleIndex& index) {
-    require(index.version >= 1 && index.version <= 4, "Unsupported model bundle version");
+    require(index.version >= 1 && index.version <= 5, "Unsupported model bundle version");
+    require(index.version < 5 || index.evidence_schema == "forge.gltf-model.v2",
+            "Unsupported model evidence schema");
     require(valid_content_digest(index.source_digest) && index.members.size() <= 100000 &&
                 index.diagnostics.size() <= 4096,
             "Invalid model index source/counts");
@@ -291,11 +293,13 @@ std::vector<std::byte> encode_model_bundle_index(const ModelBundleIndex& index) 
                         {"bytes", m.artifact.bytes}});
         members.push_back(std::move(row));
     }
-    const auto text =
+    auto document =
         Json{{"format", "forge.model-bundle"},       {"version", index.version},
              {"source_digest", index.source_digest}, {"members", members},
-             {"hierarchy", index.hierarchy},         {"diagnostics", index.diagnostics}}
-            .dump();
+             {"hierarchy", index.hierarchy},         {"diagnostics", index.diagnostics}};
+    if (index.version >= 5)
+        document["evidence_schema"] = index.evidence_schema;
+    const auto text = document.dump();
     require(text.size() <= index_bytes, "Model index exceeds byte limit");
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
@@ -304,7 +308,9 @@ ModelBundleIndex decode_model_bundle_index(std::span<const std::byte> bytes) {
     const auto j = parse_bounded_json(bytes, index_bytes);
     require(j.at("format") == "forge.model-bundle", "Unsupported model bundle format");
     ModelBundleIndex result;
-    result.version = unsigned(number(j.at("version"), 4));
+    result.version = unsigned(number(j.at("version"), 5));
+    result.evidence_schema =
+        result.version >= 5 ? text(j.at("evidence_schema"), 256) : "forge.gltf-model.v1";
     result.source_digest = text(j.at("source_digest"), 64);
     for (const auto& m : array(j.at("members"), 100000)) {
         ModelImportMember member;

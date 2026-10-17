@@ -28,7 +28,7 @@ AssetImporterDescriptor descriptor() {
     d.output_types = {"model",    "mesh",           "material",   "texture",
                       "skeleton", "animation_clip", "model_node", "material_variant"};
     d.output_format = "forge.model-bundle";
-    d.output_version = 4;
+    d.output_version = 5;
     const auto limits = model_worker_limits();
     d.limits.memory_bytes = limits.memory_bytes;
     d.limits.output_bytes = 512ull * 1024 * 1024;

@@ -557,12 +557,36 @@ AssetPublisher. Decisions are a dirty draft; unresolved validation never becomes
 partially published family. Texture behavior remains covered by its real-worker
 editor regression.
 
-Current cross-platform limitation: node content evidence includes calculated
-double-precision transforms. Windows and Linux math-library rounding can change
-that evidence for unchanged source rotations; symmetric members can then require
-explicit identity review after a tool/profile change. The rejected candidate retains
-the complete previously selected catalog and sidecar. Stable source evidence and
-its compatibility migration are not implemented by the display-label improvement.
+Model format5 declares evidencev2. Node, mesh-use, rig and clip-target evidence
+uses admitted source transform numbers, avoiding platform normalization,
+decomposition and matrix-product rounding. Runtime transforms and archives keep
+their existing evaluation and validation. Display names are excluded from evidence.
+Formats1–4 remain readable with their legacy evidence interpretation.
+
+The publisher migrates v1 maps without allocating replacement IDs when validated
+format3/4 selected cooks, sidecar and catalog prove the identical source/include,
+effective settings, build-dependency and target revision and unchanged member/
+hierarchy/channel structure. Non-transform content and clip curves must agree.
+Unchanged v2 revisions can similarly retain duplicate members across tool changes
+when every member's evidence agrees. Complete input/index matches keep their
+existing fast path. This reuses authenticated bindings for one identical source
+revision; it does not infer correspondence by order across changed sources.
+
+Missing or corrupt old cooks, changed inputs, older shapes or changed member
+structure disable automatic migration. Explicit complete same-type review remains
+available. The detached migration clears legacy generated hashes; selected disk
+metadata changes only after full family validation and compatibility succeeds.
+Logical IDs, durable keys, removed members and opaque sidecar/entry data survive.
+Obsolete tombstone hashes are discarded; stable exporter keys survive and
+restoration remains explicit. A published model with a missing identity sidecar
+rejects reimport until the sidecar is restored, avoiding replacement part IDs.
+Unknown evidence versions reject. See [ADR005](decisions/005-asset-identity.md).
+
+Dependent animation masks, blend spaces and state graphs still pin the selected
+model revision. Rebuild invalidated imports through their existing importers before
+exporting; migration does not rewrite their authored sources or bypass runtime
+dependency checks. The curated Gallery includes these rebuilt dependencies, and
+the real CLI regression repeats its five model families and dependent imports.
 
 The Model document asynchronously validates selected immutable metadata and
 releases cooked blob storage before retaining placement metadata. One cancellable

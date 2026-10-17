@@ -3,10 +3,10 @@
     "backend": "d3d12",
     "dependencies": [],
     "importer": "forge.model.gltf",
-    "importer_revision": "9dd0e4e4ac31b9b9d2dd97ea6707f9c8e497f0561148ba628c37e0d83998c97b",
+    "importer_revision": "3a7422d06d2b7f32fd6257c47ccf27b63a941e2808ba1b00edfa5d46357fd71c",
     "key_version": 2,
     "output_format": "forge.model-bundle",
-    "output_version": 4,
+    "output_version": 5,
     "platform": "windows",
     "profile": "desktop",
     "settings": {
@@ -37,7 +37,7 @@
         "id": "0947854d-1726-4613-89e8-74dcd2e31d79",
         "key": "member/0947854d-1726-4613-89e8-74dcd2e31d79",
         "removed": false,
-        "semantic_digest": "3f507e13a5386fd586e488f73adac52278fcd66e4d045d69de10ffb64c0c7b35",
+        "semantic_digest": "fd9778f5e5ef9687b3ffc01d717a07d88da3abfe4d143233d99f11c523c9c73d",
         "type": "animation_clip"
       },
       {
@@ -77,7 +77,7 @@
         "id": "5193ee5b-5103-40dd-b534-eb11a9562fa6",
         "key": "member/5193ee5b-5103-40dd-b534-eb11a9562fa6",
         "removed": false,
-        "semantic_digest": "3f507e13a5386fd586e488f73adac52278fcd66e4d045d69de10ffb64c0c7b35",
+        "semantic_digest": "fd9778f5e5ef9687b3ffc01d717a07d88da3abfe4d143233d99f11c523c9c73d",
         "type": "animation_clip"
       },
       {
@@ -87,7 +87,7 @@
         "id": "58016fe7-afc2-4b66-82c1-157992deda53",
         "key": "member/58016fe7-afc2-4b66-82c1-157992deda53",
         "removed": false,
-        "semantic_digest": "3f507e13a5386fd586e488f73adac52278fcd66e4d045d69de10ffb64c0c7b35",
+        "semantic_digest": "fd9778f5e5ef9687b3ffc01d717a07d88da3abfe4d143233d99f11c523c9c73d",
         "type": "animation_clip"
       },
       {
@@ -97,11 +97,11 @@
         "id": "596a5889-62a9-4155-9099-4691125e1bbe",
         "key": "member/596a5889-62a9-4155-9099-4691125e1bbe",
         "removed": false,
-        "semantic_digest": "3f507e13a5386fd586e488f73adac52278fcd66e4d045d69de10ffb64c0c7b35",
+        "semantic_digest": "fd9778f5e5ef9687b3ffc01d717a07d88da3abfe4d143233d99f11c523c9c73d",
         "type": "animation_clip"
       },
       {
-        "content_digest": "8f75ab1135cef85289792158b1f9650c71d93dd71f766de45d8c635b0174a5ab",
+        "content_digest": "bc3ad7e643627bfbf5997f12f7655dd128956d9ede9c75d402b2f6782d03f094",
         "display_name": "Model skeleton",
         "exporter_key": "",
         "id": "5e31d01c-8a17-4086-8c1c-f95f03421174",
@@ -117,7 +117,7 @@
         "id": "72f03f89-704d-437f-a6cc-97322796a249",
         "key": "member/72f03f89-704d-437f-a6cc-97322796a249",
         "removed": false,
-        "semantic_digest": "e6488f6713f960f3d27f3c1554612856859399133cdb35627e3d8901ad61c3e9",
+        "semantic_digest": "630f31c6300ddb0e6202ed32f42b0574913c7e1b7f93194b4a9b14344b37b939",
         "type": "mesh"
       },
       {
@@ -131,7 +131,7 @@
         "type": "material"
       }
     ],
-    "evidence_schema": "forge.gltf-model.v1",
+    "evidence_schema": "forge.gltf-model.v2",
     "format": "forge.subasset-identity",
     "owner": "255957ec-6dc7-45b8-86d5-2440f36c8134",
     "source": "Assets/LocomotionColumn.gltf",

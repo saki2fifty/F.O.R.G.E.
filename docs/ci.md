@@ -39,6 +39,13 @@ delivery number. Focused shader/input scopes remain explicitly separate. Numbere
 failures retain the full capture diagnostics and CTest logs, including the stalled
 state JSON, so a screenshot is not the only available readiness evidence.
 
+`model_large_family` exercises the complete 260-mesh publication, cache reuse and
+520 durable member IDs in an independent project, through the existing model test
+executable. The normal profile uses the real worker; sanitizer tests use the direct
+recipe and configured unsanitized converter. Keeping that scale catalog separate
+prevents unrelated animation reload fixtures from repeatedly validating its records.
+Both full native selections retain this stress case and the model migration test.
+
 The isolated optics fixture compares the same bloom pass against its independent
 pixel oracle with FXC and DXC, each with default and disabled optimization. Every
 profile must pass; failures include the selected radius and intensity. Audit

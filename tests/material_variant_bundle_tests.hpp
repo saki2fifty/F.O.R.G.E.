@@ -4,7 +4,7 @@ inline void check_material_variant_bundle() {
     auto source = gltf_variant_fixture();
     auto files = cook_static_gltf_bundle(NativeGltfDocument(source));
     const auto index = validate_model_bundle(files);
-    require(index.version == 4 && index.hierarchy.at("material_variants").size() == 2,
+    require(index.version == 5 && index.hierarchy.at("material_variants").size() == 2,
             "Material variant bundle version/metadata missing");
     unsigned count = 0;
     for (const auto& member : index.members)

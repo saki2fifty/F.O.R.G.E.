@@ -1,0 +1,66 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.model.gltf",
+    "importer_revision": "080c2e99b8f63d26dc097a70b278468423fe8a1808e62a3e5deb5ef04782295d",
+    "key_version": 1,
+    "output_format": "forge.model-bundle",
+    "output_version": 4,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "animation_optimize": true,
+      "animation_sampling_rate": 30,
+      "compression": "none",
+      "max_texture_size": 16384,
+      "normals": "missing",
+      "skin_influences": "reject",
+      "tangents": "missing",
+      "vertex_fetch": true,
+      "weld_exact": true
+    },
+    "settings_version": 1,
+    "source": "1c0be0056df0e2a91bbccd27e65c502088e7705720c8c1bbc67203ae34bcb9c3",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [
+      {
+        "content_digest": "eaf92d45c1a7970632b977bed4dfbfe7b59f1c73bd9f04fb49451b623da70e04",
+        "display_name": "Part",
+        "exporter_key": "",
+        "id": "38395e83-6fa1-473a-889c-6f0b61adeb66",
+        "key": "member/38395e83-6fa1-473a-889c-6f0b61adeb66",
+        "removed": false,
+        "semantic_digest": "6d48cfd11cd3451f86ede1809a273e1a26ea4a8ad7c353b64d361f09ed7493fa",
+        "type": "model_node"
+      },
+      {
+        "content_digest": "181274851efccc12130551c5ed7aca211a490e4df7f7493d9f4af56ef4f4c810",
+        "display_name": "Part",
+        "exporter_key": "",
+        "id": "877e09c3-4ba2-4a38-bfbe-9c8447f756f9",
+        "key": "member/877e09c3-4ba2-4a38-bfbe-9c8447f756f9",
+        "removed": false,
+        "semantic_digest": "6d48cfd11cd3451f86ede1809a273e1a26ea4a8ad7c353b64d361f09ed7493fa",
+        "type": "model_node"
+      }
+    ],
+    "evidence_schema": "forge.gltf-model.v1",
+    "format": "forge.subasset-identity",
+    "owner": "5569f307-adf4-4d38-b781-4eaca22f80b5",
+    "source": "Assets/Parts.glb",
+    "source_digest": "1c0be0056df0e2a91bbccd27e65c502088e7705720c8c1bbc67203ae34bcb9c3",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.model.gltf",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

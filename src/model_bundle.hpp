@@ -20,8 +20,10 @@ struct ModelImportMember {
 };
 struct ModelBundleIndex {
     // Version1 lacks explicit TRS; version2 lacks durable node-member bindings.
-    // Version4 adds stable material-variant members. Versions1–3 remain readable.
-    unsigned version = 4;
+    // Version5 declares platform-independent source-transform identity evidence.
+    // Versions1–4 remain readable with their legacy evidence interpretation.
+    unsigned version = 5;
+    std::string evidence_schema = "forge.gltf-model.v2";
     std::string source_digest;
     std::vector<ModelImportMember> members;
     // Immutable asset hierarchy, never a second mutable gameplay hierarchy.

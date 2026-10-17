@@ -4,38 +4,38 @@
     "dependencies": [
       {
         "kind": "runtime",
-        "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+        "revision": "8303665a99331152004bf0cb5d9bdb19aafa5625b03a5a75e7f7d08fcb927d0d",
         "role": "states.clip:1",
         "target": "43130b86-b8b0-4fb7-b078-0d02ef689644",
         "type": "animation_clip"
       },
       {
         "kind": "runtime",
-        "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+        "revision": "8303665a99331152004bf0cb5d9bdb19aafa5625b03a5a75e7f7d08fcb927d0d",
         "role": "states.clip:3",
         "target": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
         "type": "animation_clip"
       },
       {
         "kind": "runtime",
-        "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+        "revision": "8303665a99331152004bf0cb5d9bdb19aafa5625b03a5a75e7f7d08fcb927d0d",
         "role": "states.clip:2",
         "target": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
         "type": "animation_clip"
       },
       {
         "kind": "runtime",
-        "revision": "475a4714706cdf8409688a2d93902e3c3c8f5a8f2475994502d2f8dc9e860a28",
+        "revision": "8303665a99331152004bf0cb5d9bdb19aafa5625b03a5a75e7f7d08fcb927d0d",
         "role": "states.skeleton",
         "target": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
         "type": "skeleton"
       }
     ],
     "importer": "forge.animation.states",
-    "importer_revision": "forge.animation.states.v1",
+    "importer_revision": "forge.animation.states.v5",
     "key_version": 1,
     "output_format": "forge.animation-states",
-    "output_version": 1,
+    "output_version": 2,
     "platform": "windows",
     "profile": "desktop",
     "settings": {},

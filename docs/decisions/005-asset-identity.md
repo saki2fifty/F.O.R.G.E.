@@ -30,3 +30,33 @@ Phase 7 implements sidecar reconciliation and importer dependency edges. Retain
 removed subasset tombstones until explicit cleanup so existing references diagnose
 missing targets. No persistent DocumentId or SceneInstanceId is added now; concurrent
 runtime scene copies later need a transient world-local instance scope.
+
+## Accepted source-evidence migration —2026-10-17
+
+The user approved stable source evidence and an AssetId-preserving migration after
+actual Windows reimport showed two-double-ULP transform rounding changes for
+unchanged source. Model evidencev2 hashes admitted source transform numbers without
+normalizing quaternions, decomposing matrices or multiplying evaluated transforms.
+Names remain display data. Cooked Model format5 declares the evidence schema;
+formats1–4 remain readable without reinterpreting their legacy evidence.
+
+The existing Model publisher owns the bounded migration. Automatic reuse of a
+selected binding requires identical source/include bytes, effective settings,
+build dependencies and target; validated selected cooked files/catalog/sidecar;
+and the same typed member selectors, bindings, hierarchy and animation channel
+structure. Legacy automatic migration is limited to formats3–4 with their existing
+node-member contract. Non-transform content/clip curves must agree. For unchanged
+v2 reimports across tool revisions, all evidence must agree as well. Only this
+verified identical-source revision can reuse its selected candidate-local bindings;
+there is no index/name matching across changed source revisions.
+
+Unproven legacy migrations use the ordinary explicit same-type review. Legacy
+hashes are cleared only in a detached migration candidate, never interpreted as
+v2 evidence. Publication preserves logical IDs, durable keys, removed tombstones
+and opaque root/entry data; tombstones discard obsolete generated digests while
+retaining stable exporter keys and remain restorable only by explicit choice.
+An already published model with a missing identity sidecar rejects reimport until
+that sidecar is restored. Unknown evidence versions reject.
+The existing complete-family validation, compatibility check, concurrency checks,
+recoverable writer and last-good retention remain mandatory. No second registry,
+identity database or generic migration manager is introduced.

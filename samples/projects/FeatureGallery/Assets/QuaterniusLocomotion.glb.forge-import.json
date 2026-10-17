@@ -3,10 +3,10 @@
     "backend": "d3d12",
     "dependencies": [],
     "importer": "forge.model.gltf",
-    "importer_revision": "f9113efab7f83116ae996d42d3025088e57b616ce2b19cb147ae0cc4d4544a71",
+    "importer_revision": "3a7422d06d2b7f32fd6257c47ccf27b63a941e2808ba1b00edfa5d46357fd71c",
     "key_version": 2,
     "output_format": "forge.model-bundle",
-    "output_version": 4,
+    "output_version": 5,
     "platform": "windows",
     "profile": "desktop",
     "settings": {
@@ -31,7 +31,7 @@
   "identity": {
     "entries": [
       {
-        "content_digest": "e00773981999c78804d1df6f65982000cfc76e454aab482782b218112ff11f9e",
+        "content_digest": "934fc5b331278f90f8bd6670685107fa541c297c907826ebb31ed0bf1717c834",
         "display_name": "calf_r",
         "exporter_key": "",
         "id": "00241fc4-e671-4181-8d19-dadfac1b6ae5",
@@ -41,7 +41,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "fb8b2df37ea8ba991530e0087a61771dce09263b6674b286662529e4d219cfe1",
+        "content_digest": "a5b41d7438c1f0acc23e917081dbe82ce885d60d374863d271bfacb4fe81d8b6",
         "display_name": "lowerarm_r",
         "exporter_key": "",
         "id": "01e3e039-7714-48e1-a367-95be956ea174",
@@ -51,7 +51,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "afc11e082ecfc8eaa94ffe50f6995fe6f602eb6a552a0da2548c9102bbaf9e43",
+        "content_digest": "c17f884d6f0084bf3d8a3b03187346dda0c60c63d302beb5e1dcae7f9a6a94a0",
         "display_name": "ring_03_r",
         "exporter_key": "",
         "id": "03bc559f-b92d-450f-9771-78a5b074322e",
@@ -61,7 +61,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "b00a8a78fa1536c1c1bc3fd06ed330060df778fcc90fe5c91aec64962665d142",
+        "content_digest": "5c2304e4d93cde39627f856cf5ae240a3871e09f1cba45f5c14cb9999cad938c",
         "display_name": "middle_04_leaf_r",
         "exporter_key": "",
         "id": "08c9fa8f-b115-408c-888c-b6ddfde26ad9",
@@ -71,7 +71,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "3a8993c15c6a38b6bb54cd36c075e6c4d9aa017269a2208fbb2db2d7831a38c7",
+        "content_digest": "65a9052f48bd9b0687d0cd0e9b6ee2b6db15f421ee08909140b93ee5cdced6df",
         "display_name": "middle_02_l",
         "exporter_key": "",
         "id": "0b147dd2-5141-4999-ae7c-09e1c21c039a",
@@ -81,7 +81,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "991002df5e18da9746e03b22e8ef085fee7dafdefc59fbddcc4dee6701d869f4",
+        "content_digest": "3762a6625b4502ebbc313a86951173fc07bebf649f78cd1d3ed3aa9a4ffdbe30",
         "display_name": "hand_l",
         "exporter_key": "",
         "id": "0cc18cd9-e1ed-41b6-8823-052a442b52a8",
@@ -91,7 +91,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "d7dd1d5e99a03b69f15a7c819d2c25a17aaf3107d192784283634b6e0738b659",
+        "content_digest": "f297fb08e0cee5b59917265aba162feefb3793b0ad560f34aac76c408886c63c",
         "display_name": "pinky_01_r",
         "exporter_key": "",
         "id": "0d2d4a82-e1fa-4f64-845f-f75185018cfd",
@@ -101,7 +101,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "1856c654579ffb2f8e51e60d4d77aaad0243996f71f21c90032781bf4bb215de",
+        "content_digest": "c6ec60036d3d40dfa5a084da7f9c1a76de301cc764caa68fc31e95d0418d8b60",
         "display_name": "thumb_01_r",
         "exporter_key": "",
         "id": "0db5bc78-56d6-48d1-9f21-c8d551e5ae39",
@@ -111,7 +111,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "01f398d92668d99fb88bc742b860f2cc5bb3f71310a4835a6a539f5237e3d492",
+        "content_digest": "791931b3de5affa57f1068ac37652d27c3acc9fd2da7710ee20fdcf7301af49e",
         "display_name": "Armature",
         "exporter_key": "",
         "id": "0f6c5948-5f03-429d-a965-3afb69849a67",
@@ -131,7 +131,7 @@
         "type": "material"
       },
       {
-        "content_digest": "fb4b63ab37ffeb285c8520ff4b913587f7d44a0dd2b04d5edf443b4d6a7fc78c",
+        "content_digest": "81fbd6d6b000cc9394c8e03f37e270f0f900d830bef9ed00f3e72bc342a3ef47",
         "display_name": "index_01_r",
         "exporter_key": "",
         "id": "129897d6-caec-4c9e-84b2-4586b9f5afb8",
@@ -141,7 +141,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "aefd15b7498686a64a8a7ed4eb3f63c645dc0402752d2e62b46b7c3bd725b320",
+        "content_digest": "165b7e31ab515fa22190a071009a4432f2f78102915f97fd340036a3d7c7d38d",
         "display_name": "thigh_l",
         "exporter_key": "",
         "id": "136a5419-75cb-4240-aeca-2467b149089a",
@@ -151,7 +151,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "65d8a4b31b493bbcd2777b4b7c49ed9c823a66cd73df88a20b1db9697c820b8d",
+        "content_digest": "cf7603db9ba18e70ade7b684fdd6ac4f902736b9d57e176d9f696a65cd9808ac",
         "display_name": "ball_l",
         "exporter_key": "",
         "id": "16566c91-7ea8-442b-9738-9181a84ddfd7",
@@ -161,7 +161,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "1a2ce988cefb55d10936b562b8de881682ca739dcfa6afacb77d1fdad21f81a7",
+        "content_digest": "c078b2f2adef9c95d5a0e5226684445e008e5a69ac6c79998c1631a94aa12970",
         "display_name": "thumb_02_l",
         "exporter_key": "",
         "id": "20ceda6f-2d6c-4299-a4dd-71a6cdd0516a",
@@ -171,7 +171,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "8403c5f3bb36e3df7ee201a5e5b2a683c7f9c83da3b586104e8d1588b6a15321",
+        "content_digest": "68dba877c87d68f817ab993229314f3bf58a9a315925a7f38c5254aeb9d91c91",
         "display_name": "pinky_02_r",
         "exporter_key": "",
         "id": "25cf4078-3c50-4877-84a7-59901a59a3eb",
@@ -181,7 +181,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "83dc7df459c1dbcffd78d38d874b4b8a29f017b6053b637965a0d5068cc140e3",
+        "content_digest": "def36e7a76419e593b4ef620327a478bb1f0e5e75cd52ef6035098769578228f",
         "display_name": "ball_leaf_l",
         "exporter_key": "",
         "id": "25e9a8d8-f6b7-4f14-891d-a25ed7fa4dd8",
@@ -191,7 +191,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "50a2a6eed4970ec5aff0a28fb568b9eafbd9253ef386b9d043494b019d75d610",
+        "content_digest": "ff2a70f78b0a3a81d693b1ace992428b3a225fadec4d207d51a40a815a5572e8",
         "display_name": "foot_l",
         "exporter_key": "",
         "id": "2a74e25e-8622-4f05-9fc9-3c76bdec7c82",
@@ -201,7 +201,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "472b5dfac26f26e39829e381811fd099ef6b415263c71bf0111a0bf23911dc9a",
+        "content_digest": "304750da90eb8829ab1571995c2f2a23b7ca3a653ee1719a7cc23b9ad2c8c590",
         "display_name": "middle_03_r",
         "exporter_key": "",
         "id": "2a964b7e-db29-4e5a-9448-7270b8234548",
@@ -211,7 +211,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "9099b3c0b5eaa64a733687f4eff950199bc9d91b156bbc927d5e3d5932f6b5a9",
+        "content_digest": "a40549dff39fa1711f305a95e002fe61d63a85e5ff1372e7d7557446fb19421d",
         "display_name": "ring_04_leaf_r",
         "exporter_key": "",
         "id": "335b042d-c9a3-4aa2-8f33-dd91f40a60ae",
@@ -221,7 +221,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "067d9c3982ea89199283e449e84481cea046d7ca3aa458d95176bdeb2a88a99c",
+        "content_digest": "1c2a2cd7df74d1956d6aad7c6fe26bec5063beac89301bc2ef329ce2153e0543",
         "display_name": "index_03_l",
         "exporter_key": "",
         "id": "38f4ac10-6a11-42c5-bd40-95f13abe56d4",
@@ -231,7 +231,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "bc04946d4aa2335638956ecbdede958e80b6aaeec4301bdc13abc3699d2622b1",
+        "content_digest": "ccc9ffda12a0eacb430469f67d7e4279cb7a4d3afd466ef1450ee0b2236a51c0",
         "display_name": "calf_l",
         "exporter_key": "",
         "id": "3b20aa2f-9ec7-4472-ace2-3db62f0b3341",
@@ -241,7 +241,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "9c94990d39c7b14510cd4b5f1e51f43e326bb7f521bd950c1cfef684e27ec9a3",
+        "content_digest": "718e45a341c89900d92129609122b988333db05a3c774101d4b44234a9c80028",
         "display_name": "index_04_leaf_r",
         "exporter_key": "",
         "id": "3b413040-a136-4a40-81bd-e740cd23c75c",
@@ -251,7 +251,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "5719b8d0a94e933308efdaec1273021efa9f524ae2913887df7624d8ba125a7e",
+        "content_digest": "607dec7a2c249c3019b98ad5bb411fdb7a18ea4a9e08b123a4cfea7627de93cb",
         "display_name": "thumb_01_l",
         "exporter_key": "",
         "id": "3dbf84f7-26c3-423d-a6cd-8203b3622fb1",
@@ -267,11 +267,11 @@
         "id": "43130b86-b8b0-4fb7-b078-0d02ef689644",
         "key": "member/43130b86-b8b0-4fb7-b078-0d02ef689644",
         "removed": false,
-        "semantic_digest": "582cce8f79226ddf7f26aa66586fcf76f4b5719609171a26d9b73609fe78f203",
+        "semantic_digest": "53f0c903ec4d8d2cc7d7320ada5aae84fdab16698fb73b090406809c41f677fc",
         "type": "animation_clip"
       },
       {
-        "content_digest": "7a785a1894dac470b0988eaf985bf6c2a373fe02c78ae79d4feb478a2c1d74c5",
+        "content_digest": "1d99eedaee6926a5e019f5dca2579ea499135ba1fe494b154e9f154d80b39ce3",
         "display_name": "thumb_04_leaf_r",
         "exporter_key": "",
         "id": "4708ebf5-cb8f-44d1-8bed-e3d89737c1cf",
@@ -281,7 +281,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "1d6edef34292b3ba81d1917bfbd382181a2760291b65805458d642d8bf53d4cc",
+        "content_digest": "c8f7060a24f3dc541873b6a68f2a1b6f11e471002b7a8cc824062e80b9958b93",
         "display_name": "foot_r",
         "exporter_key": "",
         "id": "5515a646-7b78-4ff4-adfe-2796db4384c3",
@@ -291,7 +291,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "2184d4d17e6aef31efa86e1545b3a6c0e13d23602e7af9bb5aecc96f053fe497",
+        "content_digest": "aa426888cd30d168c5c1367d54358e5a5090b7ce54efd8ec8b52a625daf71393",
         "display_name": "hand_r",
         "exporter_key": "",
         "id": "570cbfe8-2d87-4e94-aa10-3b24a16e6c14",
@@ -311,7 +311,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "3c13535d26bd170e070d91d60341aba2bf322f530aedb693416f888bd3c7c498",
+        "content_digest": "9bbe92d9986ffd1e20ed421b36f19357fd5ab65c46d61ee5f28bcadb108b717c",
         "display_name": "ball_r",
         "exporter_key": "",
         "id": "5a452923-a9ba-419b-ae20-6c377525e559",
@@ -321,7 +321,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "148e8baa23dd6fdd7011983e030f93e53f3e27f4fb24e4cc0369748186268b8f",
+        "content_digest": "90c5945ddcdca08f5dcd23d29828ea35c64e8ed626524c41eefc8d8d2b9fd151",
         "display_name": "upperarm_l",
         "exporter_key": "",
         "id": "6801ff15-2193-4b6b-873c-b9b904fd7883",
@@ -331,7 +331,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "26d3a3726798a6d5262415b1391839b50859e37cc3041178d663295c3a834b62",
+        "content_digest": "8344a5570a495eeeb188baa86d8261fb4ef0c8b897aa5ec2c7baba9196833b16",
         "display_name": "spine_03",
         "exporter_key": "",
         "id": "689efd7e-f55a-4a52-ac67-7bf56b446fb1",
@@ -341,7 +341,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "446b65ca90882747219e6ae2f8101394877ac3be06b0cea45898e7da26dc7f78",
+        "content_digest": "dd727042c9c356bbd3f996bf13903fc38b4bb063903e84dcc10d48124f9a4423",
         "display_name": "thumb_03_r",
         "exporter_key": "",
         "id": "6912d355-eff0-4614-91d1-2548bc94582f",
@@ -351,7 +351,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "7e1023503e0fa1a70a4178c9cf09b35d25bbf4461c0ba92cb41b58d79ea067a4",
+        "content_digest": "495fc9de313fda31394689fc37c2032c62785f52f49e6f99654b357c0aeb5917",
         "display_name": "clavicle_r",
         "exporter_key": "",
         "id": "6b14a22c-e4f4-4b36-9718-fec34439d379",
@@ -361,7 +361,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "e49c025f1901d81e5f345582b07f57ee9ac8e921e932a845c0cee09c4d2dab79",
+        "content_digest": "289401c82a99abaf2ae40a3bc59cc5c9048aca9370492faf40e0461cedd21ecf",
         "display_name": "middle_01_l",
         "exporter_key": "",
         "id": "6e2014ba-fe22-47d7-86db-42c88c391ea6",
@@ -371,7 +371,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "2180817ca33715ed8645a2f10a1683047ba53b8bd62cfb0c0d4ad5113956b2e8",
+        "content_digest": "a4f03cbe9cbc7ed84642bf5b112c24d4f0784a5061bd644be9bcef63490bfdf9",
         "display_name": "root",
         "exporter_key": "",
         "id": "6fbe604b-3302-400b-8790-5bd2cab2c6a1",
@@ -381,7 +381,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "77c5bada1cb21a83bb2a3a7e48892e208f945652069c8d9ab671e6672b22fc87",
+        "content_digest": "c72773f6e88f956948a3df03a08e0ad3c2eef17be37119a4617a325ddc17ec5c",
         "display_name": "ring_03_l",
         "exporter_key": "",
         "id": "81514a97-ac44-4020-b28f-01cb9553ec97",
@@ -391,7 +391,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "70ba3ac675ba84af997ab210cc15366dd159af0533795c837c07646871c69ebb",
+        "content_digest": "514a0cfb27932aab0ee79c87a223485acefa7ba4175daafa199fff888bcbb5c4",
         "display_name": "spine_01",
         "exporter_key": "",
         "id": "8440536b-d3ff-4591-ae49-a878ffbcaff6",
@@ -401,7 +401,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "87108f8db180c084b07f1b6f06fd725ef5c2f4525adc8477baa9619d0d5d15d5",
+        "content_digest": "696b3261d322a6176d22e76fbeb7a7048f998237fd54b3187807cc5cbfb4806d",
         "display_name": "thumb_03_l",
         "exporter_key": "",
         "id": "84848779-0291-4744-8ea6-565e16be5b5a",
@@ -411,7 +411,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "ef2cfdf59d8949acf0ef28a13bd757a6248104bf12fc02089c5844c9e491fe41",
+        "content_digest": "3dfd07378ddf59c344c1aaec76d6f5cc82d64b127d013d929308927e11fe9139",
         "display_name": "index_01_l",
         "exporter_key": "",
         "id": "86349f74-d462-47b1-91dd-257707503c90",
@@ -421,7 +421,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "877b1f1053e7ba72af115d742fc63ed2a6015053c4f54deba5813af80d133c25",
+        "content_digest": "22bd96dab7b8e28e95ea685ccad6920d886dbf3bb4086f8f29c32e6ddcf3ac35",
         "display_name": "middle_02_r",
         "exporter_key": "",
         "id": "866393ab-6952-4aee-8674-a6a188d3117a",
@@ -437,11 +437,11 @@
         "id": "87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
         "key": "member/87329ca9-f8e5-4cfa-8c0a-94b6d3e24cb8",
         "removed": false,
-        "semantic_digest": "582cce8f79226ddf7f26aa66586fcf76f4b5719609171a26d9b73609fe78f203",
+        "semantic_digest": "53f0c903ec4d8d2cc7d7320ada5aae84fdab16698fb73b090406809c41f677fc",
         "type": "animation_clip"
       },
       {
-        "content_digest": "44c9a22a653fc5c8c7b22096d68c378b369b07f32930749517db8e5bf3e6ddb4",
+        "content_digest": "fce4b4e10a18ae9a4e48a0f4b58b83dd61e45f6dc38c3b5b335d99f7d252b672",
         "display_name": "ring_02_r",
         "exporter_key": "",
         "id": "8ce743c7-17e5-4148-9404-e69b23a3b961",
@@ -451,7 +451,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "9bbd820ce53ee40db0357a9b96902c25d266616a7a2622ac2bee434da06ff28e",
+        "content_digest": "6b8300db838a84f8ea34c5432e3148afc34894e61a13142048ed40705e0e4591",
         "display_name": "Head",
         "exporter_key": "",
         "id": "9379ad87-06aa-46fe-81b6-541fc7952b1e",
@@ -461,7 +461,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "c2d3099c6a78f10003706d8ba8d2ae8a36d67ed60070cb7a90880e8d5c9fd656",
+        "content_digest": "5aed6f3e0f84faabc1c94fe84ce44f7b94e74b2a4ef9b3e942bfd57c5f5d98c1",
         "display_name": "lowerarm_l",
         "exporter_key": "",
         "id": "9916bb5a-3d79-4f66-a719-d519f520db8f",
@@ -471,7 +471,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "592097a355eeb3acb1689d023f539a4ebc7d6eb41de8b13ba1dff6ba39b6ef18",
+        "content_digest": "911e9c3136103d84eba38b3504083216b5d5d49636d936ae1661723524886245",
         "display_name": "thumb_04_leaf_l",
         "exporter_key": "",
         "id": "a2d19777-70d1-4e00-b1c0-89e0f544fafb",
@@ -487,11 +487,11 @@
         "id": "a3dbb4c7-393f-4f04-b20b-911a797e9c93",
         "key": "member/a3dbb4c7-393f-4f04-b20b-911a797e9c93",
         "removed": false,
-        "semantic_digest": "daa8b152cd1a1bc49ea53e73af039b7ab2a016ddd96e7e3a9dd40915b147e6b0",
+        "semantic_digest": "630f31c6300ddb0e6202ed32f42b0574913c7e1b7f93194b4a9b14344b37b939",
         "type": "mesh"
       },
       {
-        "content_digest": "ef3c8ae76337556e9bf48771708f1698777098a1f2b1056360f61df08f32e7dc",
+        "content_digest": "8bc7637f1890eddd5b1828176b7c3acbb96f8d1d60898f8c1a4a7ce4e2a461de",
         "display_name": "pinky_04_leaf_r",
         "exporter_key": "",
         "id": "a3e15cc2-fe9d-46b1-b67e-3ffc6b7a08c6",
@@ -501,7 +501,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "d2790bb5f530528d0196ca4d1fa9ae1e5dd5ecba71aec02d6c499b8dbd743374",
+        "content_digest": "b1db471d890ee02399261ec89eba4ea4b38ed52252df3248102609a536a45ebe",
         "display_name": "index_02_r",
         "exporter_key": "",
         "id": "a8a3cc82-6045-456a-a65c-c4662edb6f56",
@@ -511,7 +511,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "278b6f703ec6cc0b6852f4c6f6bd1f716c32f1e65f7932b5c89de97aaeeec469",
+        "content_digest": "6913ae0781bf7cb495317f2999b7be325932002ead204d7f86089888c138369b",
         "display_name": "pelvis",
         "exporter_key": "",
         "id": "af64d6ab-bc61-4000-861e-065712610ac8",
@@ -521,7 +521,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "21f220daaa31862652c8b76d9910639994b8ea4669bb180321b287de6d2d0bf2",
+        "content_digest": "5d32d92d95b1986a2c10f6f2fb0d3337d0e6185daa4fc4e24addfc912d5e34f9",
         "display_name": "middle_01_r",
         "exporter_key": "",
         "id": "b20867f0-d20d-4d86-8f16-7d4e7f301b90",
@@ -531,7 +531,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "7eae7a7e10614d863f4a84d9487d787ac2f4fdceb520515e250b93bf184a7fcd",
+        "content_digest": "b5418f91568bf2fe4e1c6e791a53bc41d49d09caf5d52a7f96a01b82606f7fc0",
         "display_name": "thumb_02_r",
         "exporter_key": "",
         "id": "b313c0e8-42fb-4fcf-af5b-5b07a0a4342f",
@@ -541,7 +541,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "27fb9274219035b3363cfd096e355ba480f3865e83782e6e64a4e914cdcdbf6e",
+        "content_digest": "478002e1a4921167329e5aaad288dfff9ca9c889e1a4ae8c6a60b7a3d61765e0",
         "display_name": "middle_03_l",
         "exporter_key": "",
         "id": "b35ef66a-9458-47ef-b6bb-3e5e5588e47e",
@@ -551,7 +551,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "3c91766e776b221cc9a2edafbf3c51dbed4f59fca945f4b31c02893f37b08f77",
+        "content_digest": "1aad5f2f1b2ef702248e2e0dc54f648f2896eac4f46ebc505589594404da68ea",
         "display_name": "index_02_l",
         "exporter_key": "",
         "id": "b5fef7c3-667d-4a4d-bf63-f0335a8b7568",
@@ -561,7 +561,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "95c0570f02030b3ec3bc93f7e0a2c0cab328e8c0d095af3635bbe89c21062c6d",
+        "content_digest": "75bb258c6b443c7c903cc09d78da34320357ca3dbd2e5c7fe0d0a1283d0001a3",
         "display_name": "index_03_r",
         "exporter_key": "",
         "id": "b6cb4d19-c29f-4c72-9260-94ce73733118",
@@ -571,7 +571,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "086afb69290dca672a65240f2530f9722eb66ad71e9dc7b574db0a33f2f0ee43",
+        "content_digest": "307e59b41c2bed150a15ebe1aaf4e4161263d1903e26bce7c7dd9f06a6f7dca3",
         "display_name": "spine_02",
         "exporter_key": "",
         "id": "bb10601b-3d4c-43fd-a9c6-02015f966fc9",
@@ -581,7 +581,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "a2db8adec891fc6dddc53c484ef70dd27325098f7b88ad55c06e54384eb6098e",
+        "content_digest": "ecaf61e09e4ccdc0f35e820d1999ff96ffedd074ff8332aa6152f1e1c9f85c3e",
         "display_name": "ring_01_r",
         "exporter_key": "",
         "id": "bb76d0f0-4b75-4cc1-afbc-a1df43aecff5",
@@ -591,7 +591,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "de9f72030502a4f1da7a796f1b02d7b1c7ba7b3965c7ca6cc51a621b68983a56",
+        "content_digest": "3f28758c2a50cf70e5f1b393dd8ebd72612bb9e20d2bdbf943c7580ea192a4bf",
         "display_name": "middle_04_leaf_l",
         "exporter_key": "",
         "id": "bd0ef129-9444-49a7-9bcd-f1362399e5d3",
@@ -601,7 +601,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "3c708785c6ac87c974bedcda2762c6cc1ff2883c159cb256f3e96cbaafac9915",
+        "content_digest": "5fcbdd23332ed5c45806e24955f87127e859358cb4ae5c5ab554fc40fe6af6fa",
         "display_name": "neck_01",
         "exporter_key": "",
         "id": "c09a38eb-cb8d-49c7-ad67-4887a2ef2c57",
@@ -611,7 +611,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "1eae4946781c537045375e68cb63f065ca35a139de9a02bcd284b240a5e2c084",
+        "content_digest": "600147cfa41796e0cf9573c8a5c94a584f41122bd07bccc61bd27e32195d870e",
         "display_name": "ring_01_l",
         "exporter_key": "",
         "id": "c5d0c60d-0c72-4a15-b6e8-be442f617a17",
@@ -631,7 +631,7 @@
         "type": "material"
       },
       {
-        "content_digest": "e3cc123115ffd732700076818b2bac1ef81972063bb04c0db104b88fe8fcc67d",
+        "content_digest": "469b097f4d9b0671c8f21fb5e960d031583bb87840c1f2b05b5dd88788e8f3a9",
         "display_name": "ring_02_l",
         "exporter_key": "",
         "id": "c9681bd4-c401-467c-b0b1-dc4aed53f5d0",
@@ -641,7 +641,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "8a9d3977192027c0531e842873c79076e5529fb3dada2d75e8f115cf1233622a",
+        "content_digest": "24ba5f5bec826231243238210f603ea053393033af7e1c57f36e674654eb2e37",
         "display_name": "ring_04_leaf_l",
         "exporter_key": "",
         "id": "d037a68b-dfe2-4c2a-9526-ad322e64f0cb",
@@ -657,11 +657,11 @@
         "id": "d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
         "key": "member/d54050fe-57b9-49c5-a157-4fffb7a2f2a1",
         "removed": false,
-        "semantic_digest": "582cce8f79226ddf7f26aa66586fcf76f4b5719609171a26d9b73609fe78f203",
+        "semantic_digest": "53f0c903ec4d8d2cc7d7320ada5aae84fdab16698fb73b090406809c41f677fc",
         "type": "animation_clip"
       },
       {
-        "content_digest": "de727473954a4371d0ff3589d58b8b137199b089811999017972d5908f35b54e",
+        "content_digest": "437397dfd6e1ec779a5d79d235e1574a6bd483874f181d1a70b9cd633520e876",
         "display_name": "pinky_03_r",
         "exporter_key": "",
         "id": "d54dd793-0ecb-47e2-8b3c-9a8cc74f471c",
@@ -671,7 +671,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "9539cc9c948deac1c1427d7ff7fe2bf27938821779d2f0c2964dbf24e4c919aa",
+        "content_digest": "8a9d5d2b2729a3546a20fb7d2c8cf197db9334800bae6ae5d7d1134a7a64ecc2",
         "display_name": "ball_leaf_r",
         "exporter_key": "",
         "id": "d63f500a-54e2-4b1a-924a-034ac3ee7924",
@@ -681,7 +681,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "3d23be7043ef0392adb16440555ee2807fa6dd9eb9fff604781ef0da29b1cf00",
+        "content_digest": "232cf51c7057b39b3907b4134c9a783c6be9a168c68e7431113e27e8489e2bdd",
         "display_name": "pinky_03_l",
         "exporter_key": "",
         "id": "d7e017e1-47e6-4d0d-a3a8-0b7950bd99a7",
@@ -691,7 +691,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "71fc6db35ed35ea3e9f8c20b7730268cbd04d65f839923a37d69d783efaf6e3d",
+        "content_digest": "51988ab9cd486a16470f32a986ea3c76d68c8038068cd836d12b6752febf045a",
         "display_name": "upperarm_r",
         "exporter_key": "",
         "id": "db5e6c73-94df-4051-b66f-4b2627c5f249",
@@ -701,7 +701,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "63f06c5404016df47f1e9ae0de396bf964b921510c5701c4c430e6b53811aa8a",
+        "content_digest": "ca3a05ad22e85004d7aa5281de5e8448ab9c0049f28b53f072b6bdb85d1dea4d",
         "display_name": "index_04_leaf_l",
         "exporter_key": "",
         "id": "ded08da4-ba40-45bc-9b42-71297bea1d31",
@@ -711,7 +711,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "fc644ef3eaa0cfcce90b5007062c81bab8143abac4b45b2c12ab880d86519a2b",
+        "content_digest": "8e62c31dc53358bcbc6daed0c46014f376a4d3a59442c3dcf82f745d7eae7017",
         "display_name": "thigh_r",
         "exporter_key": "",
         "id": "e00edc21-2c6b-4613-9c35-29fecc6b8147",
@@ -721,7 +721,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "09a8f5aa1727252037899fad0e6f9a0d91c9bd9244ab60b4ad7ec5f7f0d4e592",
+        "content_digest": "69630b6262bd66c99ab263e91683d04bebfc69bada5ab1cdbbe85acaeac37b77",
         "display_name": "clavicle_l",
         "exporter_key": "",
         "id": "e37e1ca3-8685-4639-a158-085b36435f9e",
@@ -731,7 +731,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "defc9af9d0e150645368dc1923d51564fe248a2c72a44d08a09192c3cd454a5b",
+        "content_digest": "ffffda49aaa1b762bc71d56336ebf23b943061fd8edf136057551ee606a90f4f",
         "display_name": "pinky_04_leaf_l",
         "exporter_key": "",
         "id": "e92c5aa3-1dd6-4cd5-a177-d50951a3f87b",
@@ -741,7 +741,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "707dcd1dddfd652b31a9dd720cba13b14ba37290fac7059c28920aefcd0c1462",
+        "content_digest": "e17f18ca1c6d8242b5cf6e82d35940a12e14a7d3c636835753f195307fa21bd5",
         "display_name": "pinky_02_l",
         "exporter_key": "",
         "id": "f3d49347-2448-4491-8466-e8b5cd28bdf6",
@@ -751,7 +751,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "5858856e9d3886b9a99174ad0123217930f2a4896b2f092b5da9ed857e4d6de4",
+        "content_digest": "2b7e1f1b601ed7ba581ffea6836c3405aabf6eca5f4cdb435f20696aec68018b",
         "display_name": "pinky_01_l",
         "exporter_key": "",
         "id": "f6d23562-da1e-4265-9af5-c1cbe6e163b9",
@@ -761,7 +761,7 @@
         "type": "model_node"
       },
       {
-        "content_digest": "39d7e1d72e0bc7543e3e84a4fa47cd6f2741df2b660a7123bb14b19b7fe2af58",
+        "content_digest": "4b32212bb9bb8aef0bafa3cde575a13fdefef8cef8b18a0e3dea368e1fc80bcb",
         "display_name": "Model skeleton",
         "exporter_key": "",
         "id": "f86cd4cb-fa9a-4c90-8d8e-32551094b664",
@@ -771,7 +771,7 @@
         "type": "skeleton"
       }
     ],
-    "evidence_schema": "forge.gltf-model.v1",
+    "evidence_schema": "forge.gltf-model.v2",
     "format": "forge.subasset-identity",
     "owner": "7d8f4b01-8f5a-4b40-87f2-a41584435e2f",
     "source": "Assets/QuaterniusLocomotion.glb",

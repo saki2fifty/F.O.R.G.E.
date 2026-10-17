@@ -1,0 +1,14 @@
+[
+  {
+    "address": "/nodes/0",
+    "type": "model_node",
+    "content_digest": "68e868f3b00964ae6cf4b4cbbaf7379d1573d2a85c0ec74d23caffe5010d4c18",
+    "semantic_digest": "6d48cfd11cd3451f86ede1809a273e1a26ea4a8ad7c353b64d361f09ed7493fa"
+  },
+  {
+    "address": "/nodes/1",
+    "type": "model_node",
+    "content_digest": "2dd32c1ece2a4194491e4977e7f7539eb43d2266fa6fb17af17065eab6d192f6",
+    "semantic_digest": "6d48cfd11cd3451f86ede1809a273e1a26ea4a8ad7c353b64d361f09ed7493fa"
+  }
+]

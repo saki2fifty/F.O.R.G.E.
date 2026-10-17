@@ -21,6 +21,13 @@ proposals do not conflict or compete for one old entry. Different nonempty expor
 IDs never fall back to matching identical content. A schema change requires an
 explicit migration; old evidence is not reinterpreted under new rules.
 
+Model evidencev2 and cooked format5 implement the approved bounded migration in
+the existing Model publisher. A verified unchanged source/settings/target revision
+can retain its selected typed bindings across the format/tool change. Changed or
+unverifiable revisions require explicit review; the generic resolver's schema
+equality rule remains unchanged. IDs, keys, tombstones and opaque data survive.
+See [ADR005](decisions/005-asset-identity.md) for the exact proof and migration bounds.
+
 Unresolved correspondence reports `subasset.identity-ambiguous`, candidate addresses
 and previous same-type IDs. The result contains no publishable document or partial
 assignments. The previous map remains unchanged. This prevents a guessed match from

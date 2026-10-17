@@ -39,7 +39,8 @@ ModelSelection load_model_selection(const std::filesystem::path& project,
     const auto& selected = record.metadata.at("forge.import");
     require(selected.at("version") == 1 && selected.at("output_format") == "forge.model-bundle" &&
                 (selected.at("output_version") == 1 || selected.at("output_version") == 2 ||
-                 selected.at("output_version") == 3 || selected.at("output_version") == 4),
+                 selected.at("output_version") == 3 || selected.at("output_version") == 4 ||
+                 selected.at("output_version") == 5),
             "Unsupported selected model artifact profile");
     ModelSelection result;
     result.owner = model;

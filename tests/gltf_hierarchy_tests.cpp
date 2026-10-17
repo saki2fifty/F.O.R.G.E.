@@ -59,6 +59,20 @@ int main() {
                                 {"rotation", {0.0, 0.0, std::sqrt(.5), std::sqrt(.5)}},
                                 {"scale", {-1e-100, 0.0, 2e100}}};
         const auto canonical = canonical_gltf_trs(exact_trs);
+        auto named_trs = exact_trs;
+        named_trs["name"] = "Display only";
+        const auto source_evidence = gltf_source_transform_evidence(named_trs);
+        require(source_evidence == exact_trs &&
+                    gltf_source_transform_evidence(Json::object()) ==
+                        gltf_source_transform_evidence({{"translation", {0, 0, 0}},
+                                                        {"rotation", {0, 0, 0, 1}},
+                                                        {"scale", {1, 1, 1}}}),
+                "Source evidence normalized source numbers or used display labels");
+        const Json almost_unit{{"rotation", {.20000002, .40000004, .40000004, .80000008}}};
+        require(gltf_source_transform_evidence(almost_unit).at("rotation") ==
+                        almost_unit.at("rotation") &&
+                    canonical_gltf_trs(almost_unit).at("rotation") != almost_unit.at("rotation"),
+                "Identity evidence adopted evaluated quaternion normalization");
         require(canonical.at("translation") == exact_trs.at("translation") &&
                     canonical.at("scale") == exact_trs.at("scale") &&
                     std::abs(canonical.at("rotation")[2].get<double>() - std::sqrt(.5)) < 1e-15,
@@ -69,6 +83,9 @@ int main() {
         auto matrix_trs = exact_trs;
         matrix_trs["scale"][1] = -3e-100;
         const auto source_matrix = gltf_node_matrix(matrix_trs);
+        require(gltf_source_transform_evidence({{"matrix", source_matrix}}) ==
+                    Json{{"matrix", source_matrix}},
+                "Source matrix evidence used decomposition or evaluated products");
         const auto decomposed = canonical_gltf_trs({{"matrix", source_matrix}});
         const auto rebuilt = gltf_node_matrix(decomposed);
         for (unsigned c = 0; c < 3; ++c) {

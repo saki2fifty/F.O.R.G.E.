@@ -2,6 +2,7 @@
 /samples/gltf/NegativeScaleTest/* -text
 # Curated project sources and cooks must retain their recorded artifact hashes.
 /samples/projects/** -text
+/tests/fixtures/model-evidence-v1/** -text
 # Official corpus and notices contain upstream whitespace. Preserve their bytes
 # on Windows too; provenance.json verifies them instead of reformatting them.
 /tests/fixtures/gltf-official/** -text -whitespace

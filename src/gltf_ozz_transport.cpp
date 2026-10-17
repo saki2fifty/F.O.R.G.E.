@@ -154,8 +154,7 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
     for (const auto original : result.joint_nodes) {
         const auto& node = hierarchy.nodes[original];
         node_context[original] = asset_build_digest(
-            {{"name", source.at("nodes").at(original).value("name", std::string{})},
-             {"local", node.matrix},
+            {{"local", gltf_source_transform_evidence(source.at("nodes").at(original))},
              {"parent",
               node.parent == gltf_no_index ? std::string{} : node_context.at(node.parent)}});
     }
@@ -374,8 +373,9 @@ GltfOzzTransport prepare_gltf_ozz_transport(const NativeGltfDocument& native,
             if (needed.contains(node))
                 children.push_back(subtree.at(node));
         }
-        subtree[original] = asset_build_digest({{"local", hierarchy.nodes[original].matrix},
-                                                {"children", digest_sorted(std::move(children))}});
+        subtree[original] = asset_build_digest(
+            {{"local", gltf_source_transform_evidence(source.at("nodes").at(original))},
+             {"children", digest_sorted(std::move(children))}});
         if (hierarchy.nodes[original].parent == gltf_no_index)
             rig_roots.push_back(subtree.at(original));
     }

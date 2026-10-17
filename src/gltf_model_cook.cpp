@@ -133,8 +133,7 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         const auto& node = hierarchy.nodes[node_index];
         const auto& authored = doc.at("nodes").at(node_index);
         node_context[node_index] = asset_build_digest(
-            {{"name", label(authored)},
-             {"local", node.matrix},
+            {{"local", gltf_source_transform_evidence(authored)},
              {"parent", node.parent == gltf_no_index ? std::string{} : node_context[node.parent]}});
         if (node.mesh != gltf_no_index)
             mesh_roles.at(node.mesh).push_back(node_context[node_index]);
@@ -467,6 +466,7 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         value.erase("name");
         value.erase("parent");
         value.erase("local");
+        value["trs"] = gltf_source_transform_evidence(doc.at("nodes").at(i));
         value["skin_bound"] = node.skin != gltf_no_index;
         value["mesh"] =
             node_mesh[i].empty() ? Json(nullptr) : Json(member_content.at(node_mesh[i]));
@@ -475,6 +475,9 @@ std::vector<ArtifactFile> cook_gltf_geometry_bundle(const NativeGltfDocument& na
         value["light"] = nodes[i].at("light").is_null()
                              ? Json(nullptr)
                              : scene_values.lights.at(nodes[i].at("light").get<std::size_t>());
+        for (const auto* kind : {"camera", "light"})
+            if (value[kind].is_object())
+                value[kind].erase("name");
         std::vector<std::string> material_content;
         if (!node_mesh[i].empty())
             for (const auto& [binding, target] : mesh_members.at(node_mesh[i])->bindings) {

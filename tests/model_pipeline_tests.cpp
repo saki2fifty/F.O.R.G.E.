@@ -45,6 +45,24 @@ void save(const std::filesystem::path& path, const Json& doc) {
     const auto text = doc.dump();
     write(path, std::as_bytes(std::span(text)));
 }
+Json triangle_source(const std::filesystem::path& root) {
+    std::array<float, 9> positions{0, 0, 0, 1, 0, 0, 0, 1, 0};
+    write(root / "Assets/triangle.bin", std::as_bytes(std::span(positions)));
+    return {{"asset", {{"version", "2.0"}}},
+            {"buffers", Json::array({{{"byteLength", 36}, {"uri", "triangle.bin"}}})},
+            {"bufferViews", Json::array({{{"buffer", 0}, {"byteLength", 36}}})},
+            {"accessors", Json::array({{{"bufferView", 0},
+                                        {"componentType", 5126},
+                                        {"type", "VEC3"},
+                                        {"count", 3},
+                                        {"min", {0, 0, 0}},
+                                        {"max", {1, 1, 0}}}})},
+            {"meshes",
+             Json::array({{{"primitives", Json::array({{{"attributes", {{"POSITION", 0}}}}})}}})},
+            {"nodes", Json::array({{{"mesh", 0}, {"name", "Used mesh"}}})},
+            {"scenes", Json::array({{{"nodes", {0}}}})},
+            {"scene", 0}};
+}
 std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId root) {
     std::map<std::string, AssetId> result;
     for (const auto& edge : catalog.records().at(root).dependency_edges)
@@ -62,13 +80,18 @@ std::map<std::string, AssetId> bindings(const AssetCatalog& catalog, AssetId roo
 int main(int argc, char** argv) {
     try {
         require(argc == 6, "Need mode worker fixture output-root converter");
-        const bool direct = std::string_view(argv[1]) == "--direct";
-        require(direct || std::string_view(argv[1]) == "--worker", "Invalid model test mode");
+        const auto mode = std::string_view(argv[1]);
+        const bool large_only = mode == "--large-direct" || mode == "--large-worker";
+        const bool direct = mode == "--direct" || mode == "--large-direct";
+        require(direct || mode == "--worker" || mode == "--large-worker",
+                "Invalid model test mode");
         const auto root = std::filesystem::absolute(argv[4]) / AssetId::generate().str();
         std::filesystem::create_directories(root / "Assets");
-        std::filesystem::copy(argv[3], root / "Assets/Model",
-                              std::filesystem::copy_options::recursive);
-        check_engine_resources(root);
+        if (!large_only) {
+            std::filesystem::copy(argv[3], root / "Assets/Model",
+                                  std::filesystem::copy_options::recursive);
+            check_engine_resources(root);
+        }
         const auto converter = std::filesystem::absolute(argv[5]);
         auto importer = model_importer(std::filesystem::absolute(argv[2]), converter);
         if (direct)
@@ -81,6 +104,8 @@ int main(int argc, char** argv) {
         auto run = [&](const std::filesystem::path& source,
                        std::vector<SubassetIdentityDecision> decisions = {},
                        bool reject_compatibility = false) {
+            const auto started = std::chrono::steady_clock::now();
+            std::clog << "Importing " << source << std::endl;
             auto draft = service.prepare(source);
             service.submit(
                 draft,
@@ -95,8 +120,40 @@ int main(int argc, char** argv) {
             require(service.wait_idle(60s), "Model service timed out");
             auto result = service.poll();
             require(result.size() == 1, "Missing import receipt");
+            std::clog
+                << "Import completed in "
+                << std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count()
+                << " seconds: " << result.front().diagnostic << std::endl;
             return std::move(result.front());
         };
+        if (large_only) {
+            // Keep the full 260-mesh publication/cache stress in its own project.
+            auto doc = triangle_source(root);
+            const auto mesh = doc["meshes"][0];
+            doc["meshes"] = Json::array();
+            doc["nodes"] = Json::array();
+            doc["scenes"][0]["nodes"] = Json::array();
+            for (unsigned i = 0; i < 260; ++i) {
+                doc["meshes"].push_back(mesh);
+                doc["nodes"].push_back({{"mesh", i}, {"name", "Unique use " + std::to_string(i)}});
+                doc["scenes"][0]["nodes"].push_back(i);
+            }
+            const auto many = std::filesystem::path("Assets/many.gltf");
+            save(root / many, doc);
+            auto large = run(many);
+            require(large.published && large.publication->artifact.files.size() > 256,
+                    large.diagnostic.c_str());
+            auto large_hit = run(many);
+            require(large_hit.published && large_hit.cache_hit,
+                    "Large model family cache reimport failed");
+            require(large.publication->catalog.records().size() == 521,
+                    "Large family lost its owner or 520 mesh/node members");
+            require(bindings(large.publication->catalog, large.job.asset) ==
+                        bindings(large_hit.publication->catalog, large_hit.job.asset),
+                    "Large cache reimport changed member identities");
+            std::cout << "260-mesh publication, complete cache and 520 stable member IDs passed\n";
+            return 0;
+        }
         const auto source = std::filesystem::path("Assets/Model/NegativeScaleTest.gltf");
         auto first = run(source);
         require(first.published && !first.cache_hit, first.diagnostic.c_str());
@@ -473,23 +530,7 @@ int main(int argc, char** argv) {
         save(root / source, reordered);
         // Minimal authored triangle with initially one uniquely used mesh.
         const auto small = std::filesystem::path("Assets/small.gltf");
-        std::array<float, 9> positions{0, 0, 0, 1, 0, 0, 0, 1, 0};
-        write(root / "Assets/triangle.bin", std::as_bytes(std::span(positions)));
-        Json doc = {
-            {"asset", {{"version", "2.0"}}},
-            {"buffers", Json::array({{{"byteLength", 36}, {"uri", "triangle.bin"}}})},
-            {"bufferViews", Json::array({{{"buffer", 0}, {"byteLength", 36}}})},
-            {"accessors", Json::array({{{"bufferView", 0},
-                                        {"componentType", 5126},
-                                        {"type", "VEC3"},
-                                        {"count", 3},
-                                        {"min", {0, 0, 0}},
-                                        {"max", {1, 1, 0}}}})},
-            {"meshes",
-             Json::array({{{"primitives", Json::array({{{"attributes", {{"POSITION", 0}}}}})}}})},
-            {"nodes", Json::array({{{"mesh", 0}, {"name", "Used mesh"}}})},
-            {"scenes", Json::array({{{"nodes", {0}}}})},
-            {"scene", 0}};
+        Json doc = triangle_source(root);
         save(root / small, doc);
         auto one = run(small);
         require(one.published, one.diagnostic.c_str());
@@ -623,23 +664,6 @@ int main(int argc, char** argv) {
                     bindings(node_resolved.publication->catalog, duplicate_owner).at("/nodes/0") ==
                         duplicate_ids.at("/nodes/1"),
                 "Explicit node correspondence was ignored");
-        // Complete families larger than the old 256-file cache default must work.
-        doc["meshes"] = Json::array();
-        doc["nodes"] = Json::array();
-        doc["scenes"][0]["nodes"] = Json::array();
-        for (unsigned i = 0; i < 260; ++i) {
-            doc["meshes"].push_back(mesh);
-            doc["nodes"].push_back({{"mesh", i}, {"name", "Unique use " + std::to_string(i)}});
-            doc["scenes"][0]["nodes"].push_back(i);
-        }
-        const auto many = std::filesystem::path("Assets/many.gltf");
-        save(root / many, doc);
-        auto large = run(many);
-        require(large.published && large.publication->artifact.files.size() > 256,
-                large.diagnostic.c_str());
-        auto large_hit = run(many);
-        require(large_hit.published && large_hit.cache_hit,
-                "Large model family cache reimport failed");
         // One complete animated family through the same service/publication path.
         // Skin-bound geometry exercises ordered skin.joints -> Ozz palette binding.
         std::vector<float> animation_data{0, 1, 0, 0, 0, 1, 2, 3};

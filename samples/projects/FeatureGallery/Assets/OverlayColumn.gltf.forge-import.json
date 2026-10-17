@@ -3,10 +3,10 @@
     "backend": "d3d12",
     "dependencies": [],
     "importer": "forge.model.gltf",
-    "importer_revision": "2f1b3d89cccc601a41404fcb337357b0170a47c6af88ade50680890b5dfb1eb3",
+    "importer_revision": "3a7422d06d2b7f32fd6257c47ccf27b63a941e2808ba1b00edfa5d46357fd71c",
     "key_version": 2,
     "output_format": "forge.model-bundle",
-    "output_version": 4,
+    "output_version": 5,
     "platform": "windows",
     "profile": "desktop",
     "settings": {
@@ -31,7 +31,7 @@
   "identity": {
     "entries": [
       {
-        "content_digest": "55f69a451085afb712c21f4f403a54b18df2756b59285323ccded41e1426958d",
+        "content_digest": "7cc15c82b82fe752d23e224f42cf05948532f4b855679c7c5d0ac5961fa67b4d",
         "display_name": "Model skeleton",
         "exporter_key": "",
         "id": "03f314d8-69d9-4650-9683-4c9a1ae0b87d",
@@ -87,7 +87,7 @@
         "id": "2870d6c4-5745-438a-bb88-21b45e1ec2da",
         "key": "member/2870d6c4-5745-438a-bb88-21b45e1ec2da",
         "removed": false,
-        "semantic_digest": "c90567b9f6bfefe63cbdafcfe55e2150911d86dd118d28347b1e4b1e47ead8c2",
+        "semantic_digest": "fe7acc11ebf6bfee7e6bc9d91d97e08b182b605556f787b87bd8f81ecdab640f",
         "type": "animation_clip"
       },
       {
@@ -107,7 +107,7 @@
         "id": "94fde9b9-b533-4079-95f3-d9ab5d2ebe81",
         "key": "member/94fde9b9-b533-4079-95f3-d9ab5d2ebe81",
         "removed": false,
-        "semantic_digest": "e496b51d9948745fa1a3b4ba1e1f689e664fa3bda5113e761589c1e22529b92c",
+        "semantic_digest": "d99f1d005288103e635363625ee3915e3d97c0fdb2bcf2e869bd47436acdd5fb",
         "type": "animation_clip"
       },
       {
@@ -117,7 +117,7 @@
         "id": "a66f4aff-6465-4be0-b596-887a92cbe3cf",
         "key": "member/a66f4aff-6465-4be0-b596-887a92cbe3cf",
         "removed": false,
-        "semantic_digest": "1e7fb9a19946d526660aa229579d8eba15a0b0535628ba51e8a2872b92075bac",
+        "semantic_digest": "5b35095bc572fbece4cd70a8d05f6abf6b5f0b990d6f6cb69334d68afdf4c3aa",
         "type": "animation_clip"
       },
       {
@@ -137,11 +137,11 @@
         "id": "ba211baa-94a2-4383-8e5c-efba91783d90",
         "key": "member/ba211baa-94a2-4383-8e5c-efba91783d90",
         "removed": false,
-        "semantic_digest": "e6488f6713f960f3d27f3c1554612856859399133cdb35627e3d8901ad61c3e9",
+        "semantic_digest": "630f31c6300ddb0e6202ed32f42b0574913c7e1b7f93194b4a9b14344b37b939",
         "type": "mesh"
       }
     ],
-    "evidence_schema": "forge.gltf-model.v1",
+    "evidence_schema": "forge.gltf-model.v2",
     "format": "forge.subasset-identity",
     "owner": "0df4bee7-11b2-4411-ab6f-417838bab27d",
     "source": "Assets/OverlayColumn.gltf",
