@@ -100,6 +100,10 @@ Gallery copy with a restricted PATH. It verifies the original package manifest a
 source identity, retains selected/candidate indexes and structured conflicts, and
 checks stable member identities or last-good metadata retention on failure. It
 does not rebuild the engine, change the accepted package, or replace delivery gates.
+Set `model_reimport_legacy_run` to an older successful package run to use its Gallery
+with the current package's shipped tools. Both original manifests and source identities
+are verified independently; neither archive is modified or relabeled. This checks the
+real format3/4-to5 migration, durable member keys and all original Gallery asset IDs.
 
 ## Measured results
 

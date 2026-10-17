@@ -5,6 +5,9 @@ on:
       source_run:
         required: true
         type: string
+      legacy_run:
+        type: string
+        default: ""
 permissions:
   contents: read
   actions: read
@@ -37,33 +40,51 @@ jobs:
         shell: pwsh
         env:
           FORGE_SOURCE_RUN: ${{ inputs.source_run }}
+          FORGE_LEGACY_RUN: ${{ inputs.legacy_run }}
           FORGE_TOKEN: ${{ github.token }}
         run: |
-          if ($env:FORGE_SOURCE_RUN -notmatch '^\d+$') { throw 'Invalid package run identifier' }
           $headers = @{ Authorization = "Bearer $env:FORGE_TOKEN"; Accept = 'application/vnd.github+json' }
-          $uri = '${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/' + $env:FORGE_SOURCE_RUN
-          $run = Invoke-RestMethod -Uri $uri -Headers $headers
-          if ($run.status -ne 'completed' -or $run.conclusion -ne 'success') { throw 'Package run is not successful' }
-          $jobs = (Invoke-RestMethod -Uri "$uri/jobs?per_page=100" -Headers $headers).jobs
-          $package = @($jobs | Where-Object { $_.name -eq 'package' })
-          if ($package.Count -ne 1 -or $package[0].conclusion -ne 'success') { throw 'Missing accepted package job' }
-          "sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
+          foreach ($request in @(@{run=$env:FORGE_SOURCE_RUN;key='sha'}, @{run=$env:FORGE_LEGACY_RUN;key='legacy_sha'})) {
+            if (!$request.run -and $request.key -eq 'legacy_sha') { continue }
+            if ($request.run -notmatch '^\d+$') { throw 'Invalid package run identifier' }
+            $uri = '${{ github.api_url }}/repos/${{ github.repository }}/actions/runs/' + $request.run
+            $run = Invoke-RestMethod -Uri $uri -Headers $headers
+            if ($run.status -ne 'completed' -or $run.conclusion -ne 'success') { throw 'Package run is not successful' }
+            $jobs = (Invoke-RestMethod -Uri "$uri/jobs?per_page=100" -Headers $headers).jobs
+            $package = @($jobs | Where-Object { $_.name -eq 'package' })
+            if ($package.Count -ne 1 -or $package[0].conclusion -ne 'success') { throw 'Missing accepted package job' }
+            "$($request.key)=$($run.head_sha)" >> $env:GITHUB_OUTPUT
+          }
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: FORGE-Windows-x64
           run-id: ${{ inputs.source_run }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/forge-model-package
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        if: inputs.legacy_run != ''
+        with:
+          name: FORGE-Windows-x64
+          run-id: ${{ inputs.legacy_run }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/forge-model-legacy-package
       - name: Reimport using only the shipped tools and DLLs
         shell: pwsh
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         env:
           FORGE_PACKAGE_SOURCE: ${{ steps.package.outputs.sha }}
+          FORGE_LEGACY_SOURCE: ${{ steps.package.outputs.legacy_sha }}
         run: |
           $zip = @(Get-ChildItem -LiteralPath '${{ runner.temp }}/forge-model-package' -Filter '*.zip')
           if ($zip.Count -ne 1) { throw 'Expected exactly one packaged Windows ZIP' }
           $archive = $zip[0].FullName
-          python tests/windows_model_reimport_test.py $archive $env:FORGE_PACKAGE_SOURCE '${{ runner.temp }}/forge-model-evidence'
+          $arguments = @($archive, $env:FORGE_PACKAGE_SOURCE, '${{ runner.temp }}/forge-model-evidence')
+          if ($env:FORGE_LEGACY_SOURCE) {
+            $legacy = @(Get-ChildItem -LiteralPath '${{ runner.temp }}/forge-model-legacy-package' -Filter '*.zip')
+            if ($legacy.Count -ne 1) { throw 'Expected exactly one legacy Windows ZIP' }
+            $arguments += @('--legacy-package', $legacy[0].FullName, '--legacy-source', $env:FORGE_LEGACY_SOURCE)
+          }
+          python tests/windows_model_reimport_test.py @arguments
           if ($LASTEXITCODE) { throw 'Packaged model reimport failed; see structured evidence' }
       - name: Preserve selected and candidate evidence
         if: always()
