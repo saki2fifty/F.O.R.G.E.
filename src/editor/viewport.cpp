@@ -93,7 +93,8 @@ bool Viewport::frame_selection(const Json& source, const std::vector<std::string
     return !selected.empty() && fallback();
 }
 Viewport::Viewport(DiligentPresentation& presentation, bool hdr)
-    : color_format_(hdr ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM),
+    : presentation_(presentation),
+      color_format_(hdr ? TEX_FORMAT_RGBA16_FLOAT : TEX_FORMAT_RGBA8_UNORM),
       display_(hdr ? std::make_unique<DisplayResolve>(presentation) : nullptr),
       bloom_(presentation), sky_(presentation, color_format_), device_(presentation.device()) {
     const char* vs = R"(
@@ -283,83 +284,89 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
     }
     auto* rtv = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     auto* dsv = depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-    context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    const float clear[] = {0.025f, 0.04f, 0.055f, 1};
-    context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
-                               RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    IBuffer* buffers[] = {vertices_};
-    Uint64 offset = 0;
-    context->SetVertexBuffers(0, 1, buffers, &offset, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
-                              SET_VERTEX_BUFFERS_FLAG_RESET);
-    const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
-               forward = camera.forward();
-    const auto policies = meshes_ ? NodePolicies{} : extract_node_policies(scene);
-    for (const auto& entity : scene.at("entities")) {
-        if (meshes_)
-            continue;
-        if (entity.value("prefab", false) || !entity.at("components").contains("forge.position") ||
-            primitive_kind(entity) == no_primitive)
-            continue;
-        if (!entity.value("spatial_resolved", true))
-            continue;
-        const auto policy =
-            policies.entities.find(EntityId::parse(entity.at("id").get<std::string>()));
-        if (policy == policies.entities.end() || !policy->second.valid || !policy->second.visible)
-            continue;
-        const ObjectTransform world_transform(entity);
-        const auto draw_affine = world_transform.matrix();
-        const auto parity = transform_parity(draw_affine);
-        const auto primitive = primitive_kind(entity);
-        // Planar primitives and rank-deficient surfaces are explicitly two-sided.
-        const bool two_sided = parity == TransformParity::Singular || primitive == 3 ||
-                               primitive == 8 || primitive == 9 || primitive == 10;
-        const unsigned pipeline = two_sided ? 2 : parity == TransformParity::Negative ? 1 : 0;
-        context->SetPipelineState(pipelines_[pipeline]);
-        {
-            MapHelper<float> data(context, constants_, MAP_WRITE, MAP_FLAG_DISCARD);
-            data[0] = world_transform.position[0];
-            data[1] = world_transform.position[1];
-            data[2] = world_transform.position[2];
-            data[3] = float(width) / float(height);
-            for (unsigned i = 0; i < 3; ++i) {
-                data[4 + i] = eye[i];
-                data[8 + i] = right[i];
-                data[12 + i] = up[i];
-                data[16 + i] = forward[i];
+    {
+        auto timing = presentation_.gpu_scope(context, "Scene", "Blockout geometry");
+        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const float clear[] = {0.025f, 0.04f, 0.055f, 1};
+        context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        IBuffer* buffers[] = {vertices_};
+        Uint64 offset = 0;
+        context->SetVertexBuffers(0, 1, buffers, &offset, RESOURCE_STATE_TRANSITION_MODE_TRANSITION,
+                                  SET_VERTEX_BUFFERS_FLAG_RESET);
+        const auto eye = camera.eye(), right = camera.right(), up = camera.up(),
+                   forward = camera.forward();
+        const auto policies = meshes_ ? NodePolicies{} : extract_node_policies(scene);
+        for (const auto& entity : scene.at("entities")) {
+            if (meshes_)
+                continue;
+            if (entity.value("prefab", false) ||
+                !entity.at("components").contains("forge.position") ||
+                primitive_kind(entity) == no_primitive)
+                continue;
+            if (!entity.value("spatial_resolved", true))
+                continue;
+            const auto policy =
+                policies.entities.find(EntityId::parse(entity.at("id").get<std::string>()));
+            if (policy == policies.entities.end() || !policy->second.valid ||
+                !policy->second.visible)
+                continue;
+            const ObjectTransform world_transform(entity);
+            const auto draw_affine = world_transform.matrix();
+            const auto parity = transform_parity(draw_affine);
+            const auto primitive = primitive_kind(entity);
+            // Planar primitives and rank-deficient surfaces are explicitly two-sided.
+            const bool two_sided = parity == TransformParity::Singular || primitive == 3 ||
+                                   primitive == 8 || primitive == 9 || primitive == 10;
+            const unsigned pipeline = two_sided ? 2 : parity == TransformParity::Negative ? 1 : 0;
+            context->SetPipelineState(pipelines_[pipeline]);
+            {
+                MapHelper<float> data(context, constants_, MAP_WRITE, MAP_FLAG_DISCARD);
+                data[0] = world_transform.position[0];
+                data[1] = world_transform.position[1];
+                data[2] = world_transform.position[2];
+                data[3] = float(width) / float(height);
+                for (unsigned i = 0; i < 3; ++i) {
+                    data[4 + i] = eye[i];
+                    data[8 + i] = right[i];
+                    data[12 + i] = up[i];
+                    data[16 + i] = forward[i];
+                }
+                data[7] = EditorCamera::near_plane;
+                data[11] = EditorCamera::focal;
+                data[15] = EditorCamera::far_plane;
+                data[19] = 0;
+                const ObjectTransform transform(entity);
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
+                        data[20 + axis * 4 + coordinate] =
+                            transform.axes[axis][coordinate] * transform.scale[axis];
+                    data[23 + axis * 4] = 0;
+                }
+                const auto normals = normal_transform(draw_affine);
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
+                        data[36 + axis * 4 + coordinate] = float(normals.m[4 * coordinate + axis]);
+                    data[39 + axis * 4] = 0;
+                }
+                const auto& c = entity.at("components");
+                const auto tint =
+                    c.value("forge.tint", Json{{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}});
+                data[32] = tint.at("r");
+                data[33] = tint.at("g");
+                data[34] = tint.at("b");
+                data[35] = 1;
             }
-            data[7] = EditorCamera::near_plane;
-            data[11] = EditorCamera::focal;
-            data[15] = EditorCamera::far_plane;
-            data[19] = 0;
-            const ObjectTransform transform(entity);
-            for (unsigned axis = 0; axis < 3; ++axis) {
-                for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
-                    data[20 + axis * 4 + coordinate] =
-                        transform.axes[axis][coordinate] * transform.scale[axis];
-                data[23 + axis * 4] = 0;
-            }
-            const auto normals = normal_transform(draw_affine);
-            for (unsigned axis = 0; axis < 3; ++axis) {
-                for (unsigned coordinate = 0; coordinate < 3; ++coordinate)
-                    data[36 + axis * 4 + coordinate] = float(normals.m[4 * coordinate + axis]);
-                data[39 + axis * 4] = 0;
-            }
-            const auto& c = entity.at("components");
-            const auto tint = c.value("forge.tint", Json{{"r", 0.2f}, {"g", 0.6f}, {"b", 0.7f}});
-            data[32] = tint.at("r");
-            data[33] = tint.at("g");
-            data[34] = tint.at("b");
-            data[35] = 1;
+            context->CommitShaderResources(resources_[pipeline],
+                                           RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            DrawAttribs draw;
+            const auto kind = primitive_kind(entity);
+            draw.NumVertices = counts_.at(kind);
+            draw.StartVertexLocation = starts_.at(kind);
+            draw.Flags = DRAW_FLAG_VERIFY_ALL;
+            context->Draw(draw);
         }
-        context->CommitShaderResources(resources_[pipeline],
-                                       RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        DrawAttribs draw;
-        const auto kind = primitive_kind(entity);
-        draw.NumVertices = counts_.at(kind);
-        draw.StartVertexLocation = starts_.at(kind);
-        draw.Flags = DRAW_FLAG_VERIFY_ALL;
-        context->Draw(draw);
     }
     if (meshes_ && mesh_scene_) {
         const auto view = scene_camera(camera, width, height);
@@ -400,7 +407,12 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                 }
             }
         } lighting(*mesh_scene_, view, preview_lighting_);
-        meshes_->shadows(*mesh_scene_, view, UINT32_MAX);
+        {
+            auto timing = presentation_.gpu_scope(context, "Scene", "Shadows",
+                                                  mesh_scene_->settings.shadows.enabled);
+            meshes_->shadows(*mesh_scene_, view, UINT32_MAX);
+        }
+        auto timing = presentation_.gpu_scope(context, "Scene", "Lit geometry");
         auto* scene_target = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         context->SetRenderTargets(1, &scene_target,
                                   depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL),
@@ -412,16 +424,24 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                       depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL));
     }
     if (display_) {
-        if (mesh_scene_)
+        if (mesh_scene_) {
+            auto timing = presentation_.gpu_scope(context, "Scene", "Bloom",
+                                                  mesh_scene_->settings.bloom.enabled &&
+                                                      mesh_scene_->settings.bloom.intensity != 0);
             bloom_.apply(context, color_, {0, 0, width, height}, mesh_scene_->settings.bloom);
-        display_->resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure_,
-                          mesh_scene_ ? mesh_scene_->settings.color_adjustments
-                                      : SceneColorAdjustments{});
+        }
+        {
+            auto timing = presentation_.gpu_scope(context, "Scene", "Display resolve");
+            display_->resolve(
+                context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure_,
+                mesh_scene_ ? mesh_scene_->settings.color_adjustments : SceneColorAdjustments{});
+        }
         auto* display_target = display_->target();
         context->SetRenderTargets(1, &display_target, dsv,
                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
     }
     if (grid.visible) {
+        auto timing = presentation_.gpu_scope(context, "Scene", "Grid");
         {
             MapHelper<GridConstants> data(context, grid_constants_, MAP_WRITE, MAP_FLAG_DISCARD);
             *data = grid_constants(camera, width, height, grid);

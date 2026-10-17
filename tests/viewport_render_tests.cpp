@@ -177,6 +177,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "diligentfx_patch_gpu_tests.hpp"
 #include "display_resolve_tests.hpp"
 #include "frame_renderer_tests.hpp"
+#include "gpu_profile_tests.hpp"
 #include "gpu_residency_tests.hpp"
 #include "hdr_bloom_gpu_tests.hpp"
 #include "mesh_draw_tests.hpp"
@@ -225,6 +226,7 @@ int main(int argc, char** argv) {
         ICommandQueueD3D12* queues[] = {queue};
         EngineD3D12CreateInfo engine;
         engine.Features.ComputeShaders = DEVICE_FEATURE_STATE_ENABLED;
+        engine.Features.DurationQueries = DEVICE_FEATURE_STATE_OPTIONAL;
         engine.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
         engine.Features.Tessellation = DEVICE_FEATURE_STATE_ENABLED;
         RefCntAutoPtr<IRenderDevice> device;
@@ -353,6 +355,9 @@ int main(int argc, char** argv) {
         check_surface_draw(presentation, context, images);
         check_morph_render(presentation, context, images);
         check_display_resolve(presentation, context, images);
+        check_gpu_profiles(presentation, context, [&](ITexture* texture) {
+            return readback(device, context, texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+        });
         forge::HdrBloom bloom(presentation);
         forge::test_bloom::exercise(device, context, bloom);
         check_transmission_background(presentation, context);

@@ -13,7 +13,7 @@ class AssetScenePreview {
     AssetScenePreview(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
                       std::filesystem::path project, std::shared_ptr<MeshResourceHost> host)
         : presentation_(presentation), context_(context), project_(std::move(project)),
-          host_(std::move(host)), frame_(presentation) {
+          host_(std::move(host)), frame_(presentation, "Asset preview") {
         frame_.resources(host_);
         camera.target = {0, 0, 0};
         camera.yaw = -.5f;

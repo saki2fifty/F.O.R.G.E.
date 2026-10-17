@@ -12,7 +12,7 @@ class TerrainPreview {
                    std::filesystem::path project, AssetId asset)
         : context_(context), project_(std::move(project)), asset_(asset),
           host_(std::make_shared<MeshResourceHost>(presentation, context, project_, true)),
-          frame_(presentation) {
+          frame_(presentation, "Terrain preview") {
         frame_.resources(host_);
         scene_.scene = AssetId::generate();
         scene_.settings.shadows.enabled = false;

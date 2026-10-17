@@ -33,6 +33,12 @@ test executables without maintaining a second list in the workflows. The early
 process-controller gate and explicitly focused shader/input audits retain their
 limited target selections.
 
+The shared full-editor acceptance selection includes existing `cpu_profile`
+collector/process/transport/editor checks. GPU duration lifecycle and actual Game
+on/off image checks run inside the existing D3D12 viewport acceptance. The input
+walkthrough exercises default-off GPU collection, Start/Stop/Clear and captures
+at100/150/200%. Software WARP results do not establish physical GPU performance.
+
 Both full editor jobs allow 150 minutes overall. A cold Windows source audit
 measured 6 minutes of configuration, 63 minutes of compilation and 20.5 minutes of
 acceptance before standalone/benchmark work, exhausting the previous 90-minute

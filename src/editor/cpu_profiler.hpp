@@ -11,15 +11,17 @@ struct CpuProfileRow {
     double total = 0, maximum = 0, latest = 0;
     std::uint64_t tick = 0;
 };
-inline std::vector<CpuProfileRow> summarize_cpu_profiles(const nlohmann::json& samples) {
+inline std::vector<CpuProfileRow> summarize_cpu_profiles(const nlohmann::json& samples,
+                                                         bool gpu = false) {
     if (!samples.is_array() || samples.size() > 512)
         throw std::runtime_error("CPU profile snapshot exceeds its record bound");
     std::map<std::pair<std::string, std::string>, CpuProfileRow> groups;
     for (const auto& sample : samples) {
-        if (!sample.is_object() || !sample.at("category").is_string() ||
-            !sample.at("name").is_string() || !sample.at("seconds").is_number() ||
-            !sample.at("tick").is_number_integer() || sample.at("tick") < 0 ||
-            sample.at("count") != 1)
+        const char* position = gpu ? "frame" : "tick";
+        if (!sample.is_object() || sample.value("clock", "cpu") != (gpu ? "gpu" : "cpu") ||
+            !sample.at("category").is_string() || !sample.at("name").is_string() ||
+            !sample.at("seconds").is_number() || !sample.at(position).is_number_integer() ||
+            sample.at(position) < (gpu ? 1 : 0) || sample.at("count") != 1)
             throw std::runtime_error("Invalid CPU profile snapshot record");
         const auto category = sample.at("category").get<std::string>();
         const auto name = sample.at("name").get<std::string>();
@@ -34,7 +36,7 @@ inline std::vector<CpuProfileRow> summarize_cpu_profiles(const nlohmann::json& s
         row.total += seconds;
         row.maximum = std::max(row.maximum, seconds);
         row.latest = seconds;
-        row.tick = sample.at("tick").get<std::uint64_t>();
+        row.tick = sample.at(position).get<std::uint64_t>();
     }
     std::vector<CpuProfileRow> result;
     for (auto& [key, row] : groups)
@@ -51,7 +53,9 @@ class CpuProfiler {
     // Returns whether the Game tab needs optional transport observations this frame.
     bool draw(bool& open, ServiceAccess editor, const Telemetry& telemetry,
               const nlohmann::json& game, bool game_ready, bool pending, const std::string& error,
-              const std::function<bool(bool, bool)>& submit) {
+              const std::function<bool(bool, bool)>& submit,
+              const nlohmann::json& gpu = nlohmann::json::object(),
+              const std::function<bool(bool, bool)>& submit_gpu = {}) {
         if (!open)
             return false;
         bool watch = false;
@@ -59,9 +63,8 @@ class CpuProfiler {
         ImGui::SetNextWindowSize({std::max(1.f, std::min(820 * interface_scale, available.x - 20)),
                                   std::max(1.f, std::min(500 * interface_scale, available.y - 20))},
                                  ImGuiCond_FirstUseEver);
-        if (ImGui::Begin("CPU Profiler###CpuProfiler", &open)) {
-            ImGui::TextWrapped("CPU wall time only. Nested scopes overlap. The most recent 512 "
-                               "completed scopes are retained; collection adds overhead.");
+        if (ImGui::Begin("Profiler###CpuProfiler", &open)) {
+            ImGui::TextWrapped("CPU and GPU use separate clocks; collection adds overhead.");
             if (ImGui::BeginTabBar("CPU owners")) {
                 if (ImGui::BeginTabItem("Editor")) {
                     FORGE_UI_PROBE("profiler:editor-tab");
@@ -94,6 +97,30 @@ class CpuProfiler {
                     ImGui::EndTabItem();
                 } else
                     FORGE_UI_PROBE("profiler:game-tab");
+                if (ImGui::BeginTabItem("Graphics GPU")) {
+                    FORGE_UI_PROBE("profiler:gpu-tab");
+                    ImGui::TextWrapped(
+                        "GPU pass durations from this editor. Results arrive on later frames.");
+                    help("Scene, Game, previews and UI share the graphics device. Cached Scene "
+                         "images do not redraw. These timings do not measure standalone game FPS "
+                         "or total GPU utilization. CPU and GPU share 512 editor records.");
+                    if (gpu.contains("samples")) {
+                        ImGui::TextWrapped(
+                            "Pending: %u / %u | Skipped: %llu", gpu.value("pending", 0u),
+                            gpu.value("query_capacity", 0u),
+                            static_cast<unsigned long long>(gpu.value("skipped", std::uint64_t{})));
+                        ImGui::TextWrapped(
+                            "Discarded old results: %llu | Latest delay: %llu frames",
+                            static_cast<unsigned long long>(gpu.value("stale", std::uint64_t{})),
+                            static_cast<unsigned long long>(
+                                gpu.value("latency_frames", std::uint64_t{})));
+                        draw_records("gpu", gpu, gpu.value("available", false), false,
+                                     gpu.value("reason", ""), submit_gpu, true);
+                    } else
+                        ImGui::TextWrapped("GPU duration queries are unavailable.");
+                    ImGui::EndTabItem();
+                } else
+                    FORGE_UI_PROBE("profiler:gpu-tab");
                 ImGui::EndTabBar();
             }
         }
@@ -105,12 +132,13 @@ class CpuProfiler {
     char filter_[128]{};
     std::map<std::string, std::string> local_errors_;
     void draw_records(const char* owner, const nlohmann::json& status, bool ready, bool pending,
-                      const std::string& error, const std::function<bool(bool, bool)>& submit) {
+                      const std::string& error, const std::function<bool(bool, bool)>& submit,
+                      bool gpu = false) {
         ImGui::PushID(owner);
         auto& local_error = local_errors_[owner];
         if (!status.value("compiled", false)) {
             ImGui::TextWrapped(status.contains("compiled")
-                                   ? "CPU collection was disabled in this build."
+                                   ? "Profiling was disabled in this build."
                                    : "Waiting for a CPU profile snapshot from the runtime.");
             if (!error.empty())
                 ImGui::TextWrapped("%s", error.c_str());
@@ -119,15 +147,36 @@ class CpuProfiler {
         }
         const bool enabled = status.value("enabled", false);
         ImGui::TextUnformatted(enabled ? "COLLECTING" : "STOPPED - samples retained");
-        ImGui::BeginDisabled(!ready || pending);
-        if (ImGui::Button(enabled ? "Stop collection" : "Start collection"))
-            local_error = submit(!enabled, false) ? "" : "Runtime is busy; try again.";
+        ImGui::TextWrapped(
+            gpu ? "GPU pass durations; separate rows must not be summed into a frame time."
+                : "CPU wall time only. Nested scopes overlap.");
+        ImGui::BeginDisabled(pending);
+        ImGui::BeginDisabled(!ready || !submit);
+        if (ImGui::Button(enabled ? "Stop collection" : "Start collection")) {
+            try {
+                local_error =
+                    submit(!enabled, false) ? "" : "Collection control is busy; try again.";
+            } catch (const std::exception& exception) {
+                local_error = exception.what();
+            }
+        }
         FORGE_UI_PROBE(std::string("profiler:") + owner + ":collection");
+        ImGui::EndDisabled();
         ImGui::SameLine();
-        if (ImGui::Button("Clear samples"))
-            local_error = submit(enabled, true) ? "" : "Runtime is busy; try again.";
+        ImGui::BeginDisabled(!submit);
+        if (ImGui::Button(gpu ? "Clear editor samples" : "Clear samples")) {
+            try {
+                local_error = submit(enabled, true) ? "" : "Collection control is busy; try again.";
+            } catch (const std::exception& exception) {
+                local_error = exception.what();
+            }
+        }
         FORGE_UI_PROBE(std::string("profiler:") + owner + ":clear");
         ImGui::EndDisabled();
+        ImGui::EndDisabled();
+        if (gpu || std::string(owner) == "editor")
+            help("Clear removes both editor CPU and GPU records and discards their unfinished "
+                 "samples.");
         if (pending)
             ImGui::TextUnformatted("Waiting for runtime acknowledgement...");
         if (!error.empty() || !local_error.empty())
@@ -137,7 +186,7 @@ class CpuProfiler {
                                  sizeof(filter_));
         FORGE_UI_PROBE(std::string("profiler:") + owner + ":filter");
         try {
-            const auto rows = summarize_cpu_profiles(status.at("samples"));
+            const auto rows = summarize_cpu_profiles(status.at("samples"), gpu);
             ImGui::Text("Recent records: %zu / 512 | Scope groups: %zu",
                         status.at("samples").size(), rows.size());
             if (rows.empty())
@@ -148,8 +197,8 @@ class CpuProfiler {
                     ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
                         ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY,
                     {0, std::max(80.f * interface_scale, ImGui::GetContentRegionAvail().y)})) {
-                for (const char* column :
-                     {"Category", "Scope", "Count", "Average ms", "Max ms", "Latest ms", "Tick"})
+                for (const char* column : {"Category", "Scope", "Count", "Average ms", "Max ms",
+                                           "Latest ms", gpu ? "Frame" : "Tick"})
                     ImGui::TableSetupColumn(column, ImGuiTableColumnFlags_WidthFixed,
                                             (std::string(column) == "Scope" ? 220.f : 105.f) *
                                                 interface_scale);
@@ -179,7 +228,7 @@ class CpuProfiler {
                 ImGui::EndTable();
             }
         } catch (const std::exception& exception) {
-            ImGui::TextWrapped("CPU profile data rejected: %s", exception.what());
+            ImGui::TextWrapped("Profile data rejected: %s", exception.what());
         }
         ImGui::PopID();
     }

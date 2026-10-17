@@ -35,7 +35,7 @@ For perspective, 2500 FPS is 0.40 ms per frame, 2000 FPS is 0.50 ms and 900 FPS 
 
 ## Inspect Play CPU costs
 
-Open **Window → CPU Profiler**, choose **Play runtime**, and start collection.
+Open **Window → Profiler**, choose **Play runtime**, and start collection.
 Use **RuntimeEntityPublication** to see time spent creating queued objects and
 Prefab groups. **ResourceSynchronization** shows resource synchronization;
 **PresentationPoseCapture** shows the work that prepares smooth presentation poses.
@@ -69,3 +69,20 @@ FORGE limits queued rendering to two frames, even with VSync off. A slow GPU mak
 the editor wait for completed work instead of continually allocating more graphics
 resources. If frame completion stalls for five seconds, FORGE reports a rendering
 error. This does not limit FPS to your display’s refresh rate.
+
+## GPU pass timing
+
+Open **Window → Profiler → Graphics GPU** and click **Start collection**. Use the
+Scene or Game view, then stop collection to inspect recent pass durations. This
+includes editor UI and asset previews. Collection starts off each time FORGE opens.
+
+Results arrive after rendering is submitted. **Frame** identifies the submitted
+editor frame; pending, skipped and discarded counts explain incomplete samples.
+A retained Scene image does no new drawing. Use the existing redraw comparison
+when you need continuous Scene work. These rows do not measure standalone game FPS
+or total graphics card usage. GPU profiling can add overhead.
+
+CPU and GPU collection are independent. Clearing editor samples clears both views;
+closing the panel keeps collection running. Switching projects stops GPU
+collection and keeps completed records until you clear them. A device without
+supported GPU timing shows an explanation and continues rendering normally.

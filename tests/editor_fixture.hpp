@@ -314,7 +314,9 @@ struct EditorFixture {
         if (!queue)
             throw std::runtime_error("WARP fixture queue failed");
         Diligent::ICommandQueueD3D12* queues[] = {queue};
-        factory->AttachToD3D12Device(native.Get(), 1, queues, {}, device, context);
+        Diligent::EngineD3D12CreateInfo info;
+        info.Features.DurationQueries = Diligent::DEVICE_FEATURE_STATE_OPTIONAL;
+        factory->AttachToD3D12Device(native.Get(), 1, queues, info, device, context);
     }
     inline static std::atomic<unsigned long long> diagnostic_frame{0}, diagnostic_flags{0};
     inline static std::atomic<int> diagnostic_phase{0};

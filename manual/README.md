@@ -87,13 +87,14 @@ gameplay code still supplies movement keys and camera behavior.
 
 - [Live automation](editor/live-automation.md): let a trusted local script inspect or edit the open scene.
 
-## CPU Profiler
+## Profiler
 
-Open **Window > CPU Profiler**, or use **Details > Open CPU Profiler** in the status bar.
+Open **Window > Profiler**, or use **Details > Open Profiler** in the status bar.
 
-- The **Editor** tab shows editor work; **Play runtime** shows the separate game worker after Play has an active world.
+- **Editor** and **Play runtime** show CPU work. **Graphics GPU** shows rendering work submitted by this editor.
 - Click **Start collection**, use the editor or run the game, then **Stop collection** to keep the recent samples on screen.
-- **Clear samples** starts a fresh observation window. The filter searches category and scope names. Closing the panel keeps collection running until stopped.
-- Compare **Average ms**, **Max ms** and **Latest ms**, with their sample count and fixed tick. Only the most recent512 completed measurements are retained.
-- CPU measurements include elapsed waits, and nested rows can overlap. They are not GPU timings. The displayed FPS measures the editor loop.
+- **Clear samples** starts a fresh observation window. Clearing editor records clears both its CPU and GPU views. The filter searches category and scope names. Closing the panel keeps collection running until stopped.
+- Compare **Average ms**, **Max ms** and **Latest ms**, with sample count and latest CPU tick or GPU frame. The editor retains512 completed records shared by its CPU and GPU views.
+- GPU results arrive after submission. Pending and skipped counts show gaps; a cached Scene image does no new rendering work. Unsupported devices explain why GPU collection is unavailable.
+- CPU measurements include elapsed waits, and nested rows can overlap. The displayed FPS measures the editor loop. Do not add CPU and GPU rows together.
 - The existing **Performance** panel keeps its redraw comparison controls and frame averages. Exported games do not contain the editor profiler.

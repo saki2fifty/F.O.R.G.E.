@@ -326,6 +326,7 @@ int main(int argc, char** argv) {
         RefCntAutoPtr<IDeviceContext> context;
         RefCntAutoPtr<ISwapChain> swap;
         EngineD3D12CreateInfo engine;
+        engine.Features.DurationQueries = DEVICE_FEATURE_STATE_OPTIONAL;
 #ifdef FORGE_UI_FIXTURE
         factory->SetMessageCallback(&forge::test::EditorFixture::message);
         fixture.device(factory, &device, &context);
@@ -674,6 +675,7 @@ int main(int argc, char** argv) {
         auto active_project = files.document.project();
         bool initialize_layout = startup_layout.text.empty();
         forge::DiligentPresentation presentation(device);
+        presentation.gpu_services(scene_engine.services());
         forge::Viewport viewport(presentation, true);
         auto game_viewport_owner = std::make_unique<forge::FrameRenderer>(presentation);
         forge::FrameRenderer* game_viewport = game_viewport_owner.get();
@@ -2096,6 +2098,7 @@ int main(int argc, char** argv) {
                     message = e.what();
                 }
                 if (active_project != files.document.project()) {
+                    presentation.gpu_services(scene_engine.services());
                     active_project = files.document.project();
                     perform([&] { authored_components.project_changed(scene, files.document); });
                     reset_mesh_resources();
@@ -4609,7 +4612,14 @@ int main(int argc, char** argv) {
             play.watch_cpu_profile(cpu_profiler.draw(
                 workspace.cpu_profiler, scene_engine.services(), telemetry, play.cpu_profile(),
                 play.ready(), play.cpu_profile_pending(), play.cpu_profile_error(),
-                [&](bool enabled, bool clear) { return play.submit_cpu_profile(enabled, clear); }));
+                [&](bool enabled, bool clear) { return play.submit_cpu_profile(enabled, clear); },
+                workspace.cpu_profiler ? presentation.gpu_profile_status() : forge::Json{},
+                [&](bool enabled, bool clear) {
+                    if (clear)
+                        scene_engine.services().clear_profiles();
+                    presentation.gpu_profiling(enabled);
+                    return true;
+                }));
             if (profiler_was_open != workspace.cpu_profiler)
                 perform(save_preferences);
 
@@ -6132,7 +6142,10 @@ int main(int argc, char** argv) {
             const float clear[] = {0.04f, 0.05f, 0.06f, 1};
             context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             ImGui::PopItemFlag();
-            gui->Render(context);
+            {
+                auto timing = presentation.gpu_scope(context, "Editor", "UI composition");
+                gui->Render(context);
+            }
 #ifdef FORGE_UI_FIXTURE
             // SDK Play: drain the bounded queue of capture requests
             // queued by sdk_workflow's set_capture / set_failure_capture
@@ -6247,6 +6260,8 @@ int main(int argc, char** argv) {
                     {"status", message}};
                 auto observed = state;
                 observed["editor_shortcuts"] = editor_shortcuts.settings();
+                observed["gpu_profile"] = presentation.gpu_profile_status();
+                observed["editor_cpu_profile"] = scene_engine.services().profile_status();
                 observed["runtime_review_pending"] = runtime_tuning_review.pending();
                 observed["runtime_review_fields"] = forge::Json::array();
                 for (const auto& field : runtime_tuning_review.fields())

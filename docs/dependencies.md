@@ -44,6 +44,15 @@ Official release review found Flecs 4.1.6, SDL 3.4.16, ImGui 1.92.9b, JSON 3.12.
 
 ## Coordinated Diligent snapshot
 
+GPU duration integration, 2026-10-17: the same pinned Core supplies optional
+`DurationQueries`, `QUERY_TYPE_DURATION`, `QueryDataDuration` and nonblocking
+`IQuery::GetData`. The editor requests optional support; FORGE's existing
+presentation owner creates at most64 lazy query objects after opt-in. Vulkan and
+D3D12 implementations fence-gate results and return duration/frequency; zero
+frequency is invalid. No native backend implementation is copied or replaced.
+FORGE adds view/pass labels and lifecycle admission in its existing collector.
+[Profiler ownership and limits](cpu-profiling.md#graphics-gpu).
+
 The latest numbered release is 2.5.6; FORGE intentionally uses a later coordinated superproject snapshot. On 2026-09-16 upstream master resolved to `dccb5a9795ab5ee85caca5b9710b99b3106151b4`, with the **same Core and Tools** as the retained `a279e5fa8593cbc758ec46ea1eba0b435cbc2f06`. New FX/Samples changes are unused, so no renderer upgrade is warranted. Core API remains **256020**.
 
 | Submodule | Revision owned by retained superproject | Enabled use |

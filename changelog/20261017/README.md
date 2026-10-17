@@ -60,3 +60,12 @@ Linux, SDK, editor, Gallery and standalone gates passed. The shipped Windows too
 also migrated Build187's original animated Gallery model twice, preserving all
 74 model-member IDs and all 227 Gallery asset IDs. Physical user testing remains
 pending.
+
+## GPU profiling (source implementation; native Windows gate pending)
+
+- Profiler adds separate Graphics GPU durations for editor Scene/Game views,
+  previews and UI, with frame provenance and delayed-result/pool status.
+- Collection starts off; bounded native duration queries reuse the existing
+  presentation owner and512-record profile collector without new GPU waits.
+- CPU collection and Play transport remain separate; unsupported timing leaves
+  rendering available. Physical graphics card measurements remain deferred.

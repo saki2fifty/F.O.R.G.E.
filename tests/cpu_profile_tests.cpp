@@ -159,6 +159,70 @@ void service_tests() {
     }
     reject([&] { expired.profile_status(); });
 }
+void gpu_service_tests() {
+    unsigned clock_reads = 0;
+    EngineServices owner(false, [&] {
+        ++clock_reads;
+        return 1.;
+    });
+    const auto service = owner.access(capability(Capability::Profiling));
+    const auto epoch = service.profile_epoch();
+    service.record_gpu_profile(epoch, "Scene", "Geometry", .002, 7);
+    check(clock_reads == 0 && service.profiles().empty() &&
+              service.profile_status().at("samples").empty(),
+          "GPU recording read CPU clock or entered CPU transport");
+#ifdef FORGE_DISABLE_PROFILING
+    check(service.gpu_profiles().empty(), "Compile-out GPU recording retained samples");
+#else
+    const auto sample = service.gpu_profiles().at(0);
+    check(sample.at("clock") == "gpu" && sample.at("frame") == 7 && sample.at("seconds") == .002 &&
+              !sample.contains("tick") && sample.at("count") == 1,
+          "GPU provenance changed");
+    service.profiling(true);
+    service.record_gpu_profile(epoch, "Scene", "Geometry", .003, 8);
+    service.record_profile("work", "CPU", .001, 9);
+    check(service.gpu_profiles().size() == 2 && service.profiles().size() == 1,
+          "CPU collection transition invalidated independent GPU collection");
+    for (unsigned i = 0; i < 600; ++i)
+        if (i % 2)
+            service.record_profile("work", "CPU", .001, i);
+        else
+            service.record_gpu_profile(epoch, "Game", "Geometry", .002, i + 1);
+    check(service.profiles().size() == 256 && service.gpu_profiles().size() == 256 &&
+              service.gpu_profiles().front().at("frame") == 89,
+          "GPU and CPU did not share the existing 512-record bound");
+#endif
+    service.clear_profiles();
+    service.record_gpu_profile(epoch, "Scene", "Old", .001, 10);
+    check(service.gpu_profiles().empty() && service.profile_epoch() != epoch,
+          "Clear accepted an unfinished GPU sample");
+    for (double value : {-1., 3601., std::numeric_limits<double>::infinity(),
+                         std::numeric_limits<double>::quiet_NaN()})
+        reject(
+            [&] { service.record_gpu_profile(service.profile_epoch(), "Game", "bad", value, 1); });
+    reject([&] { service.record_gpu_profile(epoch, "", "bad", 0, 1); });
+    reject([&] { service.record_gpu_profile(epoch, "Game", std::string(129, 'x'), 0, 1); });
+    reject([&] { service.record_gpu_profile(epoch, "Game", "bad", 0, 0); });
+    reject([&] { owner.access(0).gpu_profiles(); });
+    bool foreign_rejected = false;
+    std::thread foreign([&] {
+        try {
+            service.record_gpu_profile(epoch, "Game", "bad", 0, 1);
+        } catch (...) {
+            foreign_rejected = true;
+        }
+    });
+    foreign.join();
+    check(foreign_rejected && clock_reads == 0,
+          "GPU recording ignored owner thread or read CPU clock");
+    ServiceAccess expired;
+    {
+        EngineServices retired;
+        expired = retired.access();
+    }
+    reject([&] { expired.gpu_profiles(); });
+    reject([&] { expired.record_gpu_profile(0, "Game", "old", 0, 1); });
+}
 void runtime_workload() {
     for (unsigned count : {0u, 256u, 1024u}) {
         EngineContext engine(WorldRole::Runtime);
@@ -268,6 +332,7 @@ void runtime_publication_workload() {
 int main() {
     try {
         service_tests();
+        gpu_service_tests();
         runtime_workload();
         runtime_publication_workload();
         std::cout << "CPU profiling tests passed\n";

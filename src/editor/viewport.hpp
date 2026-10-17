@@ -46,6 +46,7 @@ class Viewport {
                                    std::uint64_t generation, bool live, GridSettings grid = {});
 
   private:
+    DiligentPresentation& presentation_;
     Diligent::TEXTURE_FORMAT color_format_;
     std::unique_ptr<DisplayResolve> display_;
     HdrBloom bloom_;

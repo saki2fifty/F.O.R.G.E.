@@ -98,6 +98,11 @@ class ServiceAccess {
     std::vector<nlohmann::json> diagnostics() const;
     std::vector<nlohmann::json> profiles() const;
     nlohmann::json profile_status() const;
+    // Completed GPU durations share the bounded collector, but never enter CPU snapshots.
+    std::vector<nlohmann::json> gpu_profiles() const;
+    std::uint64_t profile_epoch() const;
+    void record_gpu_profile(std::uint64_t epoch, const std::string& category,
+                            const std::string& name, double seconds, std::uint64_t frame) const;
     bool profiling_enabled() const;
     void clear_profiles() const;
     ProfileScope profile(const char* category, const char* name, std::uint64_t tick = 0) const;

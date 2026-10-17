@@ -1,6 +1,7 @@
 #pragma once
 #include "builtins.hpp"
 #include "frame_renderer.hpp"
+#include "gpu_profile_tests.hpp"
 #include "render_values.hpp"
 #include "viewport.hpp"
 #include <forge/engine_assets.hpp>
@@ -53,6 +54,7 @@ void check_frame_renderer(forge::DiligentPresentation& presentation,
         {"version", 1u},
         {"bloom", {{"enabled", true}, {"threshold", .25}, {"intensity", 1}, {"radius", 2}}}};
     const auto glowing = render();
+    check_gpu_profile_draw(presentation, context, render, true);
     save(glowing, 64, 32, images / "game-camera-bloom.ppm");
     std::cout << "Camera bloom pixels: before " << int(split[16 * 64 + 16][0]) << ','
               << int(split[16 * 64 + 16][2]) << '/' << int(split[16 * 64 + 48][2]) << " after "

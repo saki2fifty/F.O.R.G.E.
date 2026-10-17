@@ -93,7 +93,7 @@ inline void status_bar(const Telemetry& stats, bool playing, std::size_t entitie
                 ImGui::TextUnformatted(f.text.c_str());
                 help(f.help);
             }
-            if (open_profiler && ImGui::Button("Open CPU Profiler"))
+            if (open_profiler && ImGui::Button("Open Profiler"))
                 open_profiler();
             ImGui::EndPopup();
         }

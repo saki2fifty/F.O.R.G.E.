@@ -1,3 +1,11 @@
+# GPU profiling — 2026-10-17
+
+Source implementation adds default-off GPU pass durations to the existing Profiler,
+separate from CPU clocks, with bounded asynchronous queries and frame provenance.
+Local collector, compile-out, actual UI, CPU protocol regression and native
+software Vulkan checks pass. Native Windows/D3D12 captures, full package validation and physical testing remain pending.
+See [Profiler ownership and limits](cpu-profiling.md).
+
 # Scene color adjustments — 2026-10-17
 
 Local source adds authored RGB filter, saturation and contrast in the existing

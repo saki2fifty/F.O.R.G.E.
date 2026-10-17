@@ -1,6 +1,6 @@
-# CPU profiling
+# CPU and GPU profiling
 
-Window > CPU Profiler opens a dock with separate Editor and Play runtime tabs.
+Window > Profiler opens one dock with Editor CPU, Play runtime CPU and Graphics GPU tabs.
 Status Details also opens it. Visibility is a machine workspace preference; it
 does not change a project, Scene, saved game or exported runtime UI.
 
@@ -13,7 +13,7 @@ An older scope cannot appear after Stop/Restart/Clear. Closing the dock stops it
 optional Play observations; collection continues until explicitly stopped or that
 owner is retired. A new editor process starts with collection off.
 
-The512-record ring contains category, scope name, duration in seconds, count1,
+CPU records contain category, scope name, duration in seconds, count1,
 fixed tick and monotonically increasing owner-local sequence. Rows group by category
 and name, order by total retained duration, and show count, arithmetic mean, maximum,
 latest duration and latest tick. Filtering changes only the view. Eviction follows
@@ -78,10 +78,49 @@ Core tests inject clocks for collection/lifetime/boundary cases and exercise act
 fixed runtime workloads. UI tests drive actual ImGui input at100/150/200%; production
 pipe and SDK-host tests verify optional responses, rejected controls, paused stepping
 and replacement isolation. These CPU checks do not prove Windows/GPU performance,
-visual review or physical desktop acceptance. No GPU counters, allocation profiler,
+visual review or physical desktop acceptance. No hardware counters, allocation profiler,
 flame graph, remote tracing or exported in-game editor is implemented here.
 
 The profiling service is internal to the host and is outside the installed SDK
 header/value boundary. This batch changes no installed SDK values, fingerprint
 inputs or versioned C entry; ABI1 remains unchanged. See
 [native modules](native-modules.md) and [runtime timing](runtime-timing.md).
+
+## Graphics GPU
+
+Graphics GPU is default-off, editor-local duration acquisition. It includes the
+editor's Scene, Game, asset/material/terrain/particle previews and UI composition.
+It does not collect remote standalone GPU data. Optional duration-query support is
+requested from the pinned Diligent device; unsupported devices keep rendering and
+explain why collection is unavailable. There is no CPU-clock fallback.
+
+DiligentPresentation owns at most64 lazily created duration-query objects. Flat,
+non-overlapping scopes surround frame clears, shadows, camera geometry, enabled
+Bloom, display resolve and Scene grid work. Query results use native Duration /
+Frequency, with zero frequency rejected. Results arrive on later editor frames;
+the dock shows latest frame delay, pending capacity, skipped scopes and discarded
+old results. Frame is the presentation submission index, not the simulation tick.
+Rows aggregate pass observations; multiple cameras can contribute several samples
+in one frame. GPU queue elapsed time does not establish total device utilization,
+and summing rows does not establish complete frame time.
+
+Beginning a frame polls completed queries with nonblocking GetData, using the
+existing frame fence to detect failed completed results. Acquisition adds no Flush,
+WaitForIdle, fence or busy wait. In-flight queries remain retained through Stop,
+Clear, owner retirement and rebind; only completed objects can be reused. Failed
+query objects remain bounded and retained until presentation teardown, with no repeated polling/submission. Capture
+and collector epochs reject delayed data from older captures or cleared records.
+Switching projects stops GPU acquisition and invalidates unfinished results;
+completed records remain until Clear. CPU Start/Stop is independent. Clear in
+either editor view clears both editor clocks and invalidates their unfinished records. Closing the dock keeps collection
+running; a new process starts off. Cached Scene frames remain cached. Use normal
+Scene interaction or the existing Performance redraw comparison when measuring it.
+
+GPU-tagged records share the existing512 total editor history with CPU records;
+there is no second profile database. CPU profiles()/profile_status() and protocol2
+cpu_profile remain CPU-only. Host-only gpu_profiles(), profile_epoch() and
+record_gpu_profile() preserve weak owner-thread access and validate completed
+samples without reading a CPU clock. No installed SDK header, versioned native
+function table or ABI fingerprint changes. FORGE_DISABLE_PROFILING removes both
+collectors. Native backend query heaps may be allocated when the device is created;
+FORGE creates no query objects or timing submissions until GPU collection starts.

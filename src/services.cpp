@@ -14,17 +14,18 @@ struct ServiceState {
     EngineServices::Now now;
     std::deque<Json> diagnostics, profiles;
     std::uint64_t diagnostic_sequence = 0;
-    std::uint64_t profile_generation = 0, profile_sequence = 0;
+    std::uint64_t profile_generation = 0, profile_sequence = 0, profile_epoch = 0;
     void append_profile(const std::string& category, const std::string& name, double seconds,
-                        std::uint64_t tick) {
-        if (profiles.size() == 512)
+                        std::uint64_t tick, bool gpu = false) {
+        Json sample{{"category", category},         {"name", name},
+                    {"seconds", seconds},           {"count", 1},
+                    {gpu ? "frame" : "tick", tick}, {"sequence", profile_sequence + 1}};
+        if (gpu)
+            sample["clock"] = "gpu";
+        profiles.push_back(std::move(sample));
+        if (profiles.size() > 512)
             profiles.pop_front();
-        profiles.push_back({{"category", category},
-                            {"name", name},
-                            {"seconds", seconds},
-                            {"count", 1},
-                            {"tick", tick},
-                            {"sequence", ++profile_sequence}});
+        ++profile_sequence;
     }
     void check() const {
         if (owner != std::this_thread::get_id() || !alive)
@@ -202,7 +203,37 @@ std::vector<Json> ServiceAccess::diagnostics() const {
 std::vector<Json> ServiceAccess::profiles() const {
     require(Capability::Profiling);
     const auto s = state_.lock();
-    return {s->profiles.begin(), s->profiles.end()};
+    std::vector<Json> result;
+    for (const auto& sample : s->profiles)
+        if (!sample.contains("clock"))
+            result.push_back(sample);
+    return result;
+}
+std::vector<Json> ServiceAccess::gpu_profiles() const {
+    require(Capability::Profiling);
+    std::vector<Json> result;
+    for (const auto& sample : state_.lock()->profiles)
+        if (sample.value("clock", "cpu") == "gpu")
+            result.push_back(sample);
+    return result;
+}
+std::uint64_t ServiceAccess::profile_epoch() const {
+    require(Capability::Profiling);
+    return state_.lock()->profile_epoch;
+}
+void ServiceAccess::record_gpu_profile(std::uint64_t epoch, const std::string& category,
+                                       const std::string& name, double seconds,
+                                       std::uint64_t frame) const {
+    require(Capability::Profiling);
+    if (category.empty() || category.size() > 128 || name.empty() || name.size() > 128 ||
+        !std::isfinite(seconds) || seconds < 0 || seconds > 3600 || !frame)
+        throw std::runtime_error("Invalid GPU profile sample");
+#ifndef FORGE_DISABLE_PROFILING
+    auto state = state_.lock();
+    if (epoch != state->profile_epoch)
+        return;
+    state->append_profile(category, name, seconds, frame, true);
+#endif
 }
 Json ServiceAccess::profile_status() const {
     require(Capability::Profiling);
@@ -216,7 +247,7 @@ Json ServiceAccess::profile_status() const {
             {"enabled", compiled && state->profiling},
             {"capacity", 512},
             {"sequence", state->profile_sequence},
-            {"samples", state->profiles}};
+            {"samples", profiles()}};
 }
 bool ServiceAccess::profiling_enabled() const {
     require(Capability::Profiling);
@@ -231,6 +262,7 @@ void ServiceAccess::clear_profiles() const {
     const auto state = state_.lock();
     state->profiles.clear();
     ++state->profile_generation;
+    ++state->profile_epoch;
 }
 void ServiceAccess::profiling(bool enabled) const {
     require(Capability::Profiling);

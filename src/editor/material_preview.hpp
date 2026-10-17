@@ -13,7 +13,7 @@ class MaterialPreview {
                     std::shared_ptr<const AssetCatalog> catalog)
         : context_(context),
           host_(std::make_shared<MeshResourceHost>(presentation, context, project, true)),
-          frame_(presentation) {
+          frame_(presentation, "Material preview") {
         host_->catalog(std::move(catalog));
         frame_.resources(host_);
         camera.target = {0, 0, 0};

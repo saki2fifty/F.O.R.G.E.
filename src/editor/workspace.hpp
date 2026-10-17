@@ -129,7 +129,7 @@ struct Workspace {
                            {"Content", &content},
                            {"Console", &console},
                            {"Build", &build},
-                           {"CPU Profiler", &cpu_profiler}}) {
+                           {"Profiler", &cpu_profiler}}) {
                 const bool bottom = p.value == &content || p.value == &problems ||
                                     p.value == &console || p.value == &build;
                 bool visible = *p.value && !(bottom && bottom_folded);

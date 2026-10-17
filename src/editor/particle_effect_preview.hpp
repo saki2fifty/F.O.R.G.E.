@@ -12,7 +12,7 @@ class ParticleEffectPreview {
                           std::filesystem::path project, AssetId effect)
         : context_(context), project_(std::move(project)), effect_(effect),
           host_(std::make_shared<MeshResourceHost>(presentation, context, project_, true)),
-          frame_(presentation) {
+          frame_(presentation, "Particle preview") {
         frame_.resources(host_);
         scene_.scene = AssetId::generate();
         scene_.settings.shadows.enabled = false;

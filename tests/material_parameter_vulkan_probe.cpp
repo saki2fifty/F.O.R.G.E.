@@ -3,6 +3,7 @@
 #include "display_resolve.hpp"
 #include "engine_render_resource.hpp"
 #include "frame_renderer.hpp"
+#include "gpu_profile_tests.hpp"
 #include "mesh_render_host.hpp"
 #include "scene_color_pixels_tests.hpp"
 #include <bit>
@@ -140,6 +141,7 @@ void color_gallery(DiligentPresentation& presentation, IRenderDevice* device,
     check(dominant(neutral, 0) > 100 && dominant(neutral, 1) > 100 && dominant(neutral, 2) > 100,
           "Gallery69 does not visibly present its colored geometry");
     const auto warm = render(source);
+    check_gpu_profile_draw(presentation, context, [&] { return render(source); }, false);
     const auto misses = presentation.cache_misses();
     auto gray_source = source;
     gray_source["rendering"]["color_adjustments"]["saturation"] = 0;
@@ -387,10 +389,13 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
     RefCntAutoPtr<IDeviceContext> context;
     EngineVkCreateInfo create;
     create.Features.GeometryShaders = DEVICE_FEATURE_STATE_ENABLED;
+    create.Features.DurationQueries = DEVICE_FEATURE_STATE_OPTIONAL;
     GetEngineFactoryVk()->CreateDeviceAndContextsVk(create, &device, &context);
     check(device && context, "Material Vulkan device unavailable");
     std::cout << "Object material native adapter: " << device->GetAdapterInfo().Description << '\n';
     DiligentPresentation presentation(device);
+    check_gpu_profiles(presentation, context,
+                       [&](ITexture* texture) { return read(device, context, texture); });
     display_colors(presentation, device, context);
     auto host = std::make_shared<MeshResourceHost>(presentation, context, root, true);
     host->catalog(std::make_shared<const AssetCatalog>(root));

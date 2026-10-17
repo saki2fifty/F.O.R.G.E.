@@ -8,7 +8,7 @@ namespace forge {
 // authoring service; both editor views and a future standalone host can call it.
 class FrameRenderer {
   public:
-    explicit FrameRenderer(DiligentPresentation&);
+    explicit FrameRenderer(DiligentPresentation&, std::string profile_view = "Game");
     void resources(std::shared_ptr<MeshResourceHost>);
     Diligent::ITextureView* game(Diligent::IDeviceContext*, const nlohmann::json&, unsigned width,
                                  unsigned height);
@@ -36,6 +36,7 @@ class FrameRenderer {
     void report(const Diagnostic&);
     const std::thread::id thread_ = std::this_thread::get_id();
     DiligentPresentation& presentation_;
+    const std::string profile_view_;
     DisplayResolve display_;
     HdrBloom bloom_;
     EnvironmentSky sky_;

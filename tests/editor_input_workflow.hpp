@@ -183,7 +183,36 @@ class EditorInputWorkflow {
             require(valid, "Character fixture was not authored with required World binding");
             return;
         }
-        if (what == "shortcut-bound") {
+        if (what == "gpu-default-off") {
+            require(!state.at("gpu_profile").at("enabled").get<bool>() &&
+                        state.at("gpu_profile").at("created") == 0,
+                    "Default-off GPU collection allocated FORGE query objects");
+        } else if (what == "gpu-collected") {
+            const auto& profile = state.at("gpu_profile");
+            require(profile.at("available").get<bool>() && profile.at("enabled").get<bool>() &&
+                        !profile.at("samples").empty() && profile.at("created") <= 64 &&
+                        profile.at("pending") <= 64 && profile.at("latency_frames") >= 1,
+                    "Native editor GPU samples are not ready or exceed their bound");
+            bool ui = false;
+            for (const auto& sample : profile.at("samples")) {
+                require(sample.at("clock") == "gpu" && sample.at("frame") > 0 &&
+                            sample.at("seconds") >= 0 && !sample.contains("tick"),
+                        "Native editor GPU sample has invalid clock/frame provenance");
+                ui = ui ||
+                     (sample.at("category") == "Editor" && sample.at("name") == "UI composition");
+            }
+            require(ui && !state.at("editor_cpu_profile").at("enabled").get<bool>(),
+                    "GPU collection omitted actual editor UI or started CPU collection");
+        } else if (what == "gpu-stopped") {
+            require(!state.at("gpu_profile").at("enabled").get<bool>() &&
+                        !state.at("gpu_profile").at("samples").empty(),
+                    "GPU Stop erased completed records");
+        } else if (what == "gpu-cleared") {
+            require(!state.at("gpu_profile").at("enabled").get<bool>() &&
+                        state.at("gpu_profile").at("samples").empty() &&
+                        state.at("editor_cpu_profile").at("samples").empty(),
+                    "GPU Clear retained old editor records");
+        } else if (what == "shortcut-bound") {
             const auto& binding =
                 state.at("editor_shortcuts").at("bindings").at("Entity / Duplicate subtree").at(0);
             require(binding.at("key") == "D" && binding.at("Ctrl") == true &&
@@ -1836,6 +1865,24 @@ class EditorInputWorkflow {
         click("icon:stop");
         check("stopped");
         check("color-restored");
+        check("gpu-default-off");
+        click("workspace:window-menu");
+        click("workspace:panel:Profiler");
+        click("profiler:gpu-tab");
+        click("profiler:gpu:collection");
+        check("gpu-collected");
+        capture("gpu-profiler-100");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        capture("gpu-profiler-150");
+        for (int i = 0; i < 5; ++i)
+            key(ImGuiKey_Equal, true);
+        capture("gpu-profiler-200");
+        key(ImGuiKey_0, true);
+        click("profiler:gpu:collection");
+        check("gpu-stopped");
+        click("profiler:gpu:clear");
+        check("gpu-cleared");
     }
     bool done() const { return index_ == steps_.size(); }
     void platform_input(SDL_WindowID window) {

@@ -38,6 +38,7 @@ void DiligentPresentation::begin_frame() {
                                      "allocating more in-flight resources");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    poll_gpu();
 }
 void DiligentPresentation::end_frame(IDeviceContext* context) {
     if (!context || submitted_frames_ == std::numeric_limits<std::uint64_t>::max())
@@ -45,6 +46,165 @@ void DiligentPresentation::end_frame(IDeviceContext* context) {
     context->EnqueueSignal(frame_fence_, ++submitted_frames_);
     // The host's Present (or offscreen Flush) submits this marker after all
     // frame commands. No raw backend handles or device-wide idle wait.
+}
+void DiligentPresentation::gpu_thread() const {
+    if (thread_ != std::this_thread::get_id())
+        throw std::runtime_error("GPU profiling requires the presentation thread");
+}
+void DiligentPresentation::gpu_services(ServiceAccess services) {
+    gpu_thread();
+    if (gpu_active_ != gpu_capacity)
+        throw std::runtime_error("Cannot rebind profiling during a GPU scope");
+    ++gpu_capture_;
+    gpu_enabled_ = false;
+    gpu_services_ = std::move(services);
+}
+void DiligentPresentation::gpu_profiling(bool enabled) {
+    gpu_thread();
+    if (enabled &&
+        (!gpu_services_.available(Capability::Profiling) || gpu_failed_ ||
+         device_->GetDeviceInfo().Features.DurationQueries != DEVICE_FEATURE_STATE_ENABLED))
+        throw std::runtime_error("GPU duration profiling is unavailable on this device");
+#ifdef FORGE_DISABLE_PROFILING
+    if (enabled)
+        throw std::runtime_error("Profiling was disabled in this build");
+#endif
+    if (enabled != gpu_enabled_) {
+        gpu_enabled_ = enabled;
+        ++gpu_capture_;
+    }
+}
+nlohmann::json DiligentPresentation::gpu_profile_status() const {
+    gpu_thread();
+#ifdef FORGE_DISABLE_PROFILING
+    constexpr bool compiled = false;
+#else
+    constexpr bool compiled = true;
+#endif
+    const bool owner = gpu_services_.available(Capability::Profiling);
+    const bool supported =
+        device_->GetDeviceInfo().Features.DurationQueries == DEVICE_FEATURE_STATE_ENABLED;
+    return {{"compiled", compiled},
+            {"available", compiled && supported && owner && !gpu_failed_},
+            {"enabled", gpu_enabled_ && owner && !gpu_failed_},
+            {"pending", gpu_count_},
+            {"query_capacity", gpu_capacity},
+            {"created", gpu_created_},
+            {"skipped", gpu_skipped_},
+            {"stale", gpu_stale_},
+            {"latency_frames", gpu_latency_},
+            {"submitted_frame", submitted_frames_},
+            {"reason", !compiled     ? "Profiling was disabled in this build."
+                       : !supported  ? "This device does not support GPU duration queries."
+                       : !owner      ? "The profiling service is unavailable."
+                       : gpu_failed_ ? "GPU timing failed; rendering remains available."
+                                     : ""},
+            {"samples",
+             owner ? nlohmann::json(gpu_services_.gpu_profiles()) : nlohmann::json::array()}};
+}
+DiligentPresentation::GpuScope DiligentPresentation::gpu_scope(IDeviceContext* context,
+                                                               const char* view, const char* stage,
+                                                               bool enabled) {
+    if (thread_ != std::this_thread::get_id() || !enabled || !gpu_enabled_ || gpu_failed_ ||
+        !gpu_services_.available(Capability::Profiling))
+        return {nullptr, nullptr, gpu_capacity};
+    if (!context || context->GetDesc().IsDeferred || !view || !stage || !*view || !*stage ||
+        std::char_traits<char>::length(view) > 128 || std::char_traits<char>::length(stage) > 128 ||
+        gpu_active_ != gpu_capacity || gpu_count_ == gpu_capacity ||
+        submitted_frames_ == std::numeric_limits<std::uint64_t>::max()) {
+        ++gpu_skipped_;
+        return {nullptr, nullptr, gpu_capacity};
+    }
+    try {
+        unsigned slot = 0;
+        while (slot < gpu_capacity && gpu_queries_[slot].occupied)
+            ++slot;
+        auto& entry = gpu_queries_.at(slot);
+        entry.view = view;
+        entry.stage = stage;
+        entry.frame = submitted_frames_ + 1;
+        entry.epoch = gpu_services_.profile_epoch();
+        entry.capture = gpu_capture_;
+        if (!entry.query) {
+            QueryDesc desc;
+            desc.Name = "FORGE GPU pass duration";
+            desc.Type = QUERY_TYPE_DURATION;
+            device_->CreateQuery(desc, &entry.query);
+            if (!entry.query)
+                throw std::runtime_error("GPU duration query creation failed");
+            ++gpu_created_;
+        }
+        entry.occupied = true;
+        context->BeginQuery(entry.query);
+        gpu_active_ = slot;
+        return {this, context, slot};
+    } catch (...) {
+        gpu_failed_ = true;
+        gpu_enabled_ = false;
+        return {nullptr, nullptr, gpu_capacity};
+    }
+}
+DiligentPresentation::GpuScope::~GpuScope() {
+    if (!owner_)
+        return;
+    try {
+        context_->EndQuery(owner_->gpu_queries_[slot_].query);
+        owner_->gpu_pending_[(owner_->gpu_head_ + owner_->gpu_count_) % gpu_capacity] = slot_;
+        ++owner_->gpu_count_;
+    } catch (...) {
+        owner_->gpu_failed_ = true;
+        owner_->gpu_enabled_ = false;
+    }
+    owner_->gpu_active_ = gpu_capacity;
+}
+void DiligentPresentation::poll_gpu() {
+    gpu_thread();
+    if (gpu_failed_)
+        return; // Keep failed query objects until device-owner teardown; never resubmit them.
+    // GetData does not submit or wait. Queries remain owned until the backend
+    // reports completion, even after Stop, Clear, service retirement or rebinding.
+    while (gpu_count_) {
+        auto& entry = gpu_queries_[gpu_pending_[gpu_head_]];
+        QueryDataDuration result;
+        try {
+            if (!entry.query->GetData(&result, sizeof(result))) {
+                if (frame_fence_->GetCompletedValue() >= entry.frame) {
+                    gpu_failed_ = true;
+                    gpu_enabled_ = false;
+                }
+                break;
+            }
+        } catch (...) {
+            gpu_failed_ = true;
+            gpu_enabled_ = false;
+            break;
+        }
+        --gpu_count_;
+        gpu_head_ = (gpu_head_ + 1) % gpu_capacity;
+        entry.occupied = false;
+        if (!gpu_enabled_ || entry.capture != gpu_capture_ ||
+            !gpu_services_.available(Capability::Profiling) ||
+            entry.epoch != gpu_services_.profile_epoch()) {
+            ++gpu_stale_;
+            continue;
+        }
+        if (!result.Frequency) {
+            gpu_failed_ = true;
+            gpu_enabled_ = false;
+            continue;
+        }
+        try {
+            gpu_services_.record_gpu_profile(entry.epoch, entry.view, entry.stage,
+                                             double(result.Duration) / double(result.Frequency),
+                                             entry.frame);
+            gpu_latency_ =
+                submitted_frames_ >= entry.frame ? submitted_frames_ - entry.frame + 1 : 0;
+        } catch (...) {
+            // Optional instrumentation must never change rendering control flow.
+            gpu_failed_ = true;
+            gpu_enabled_ = false;
+        }
+    }
 }
 void DiligentPresentation::clear_cache() {
     cache_->Reset();

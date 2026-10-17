@@ -10,9 +10,9 @@ std::optional<Double3> FrameRenderer::pick_point(const RenderScene& scene, const
     const auto hit = meshes_->pick_depth(scene, view, x, y, UINT32_MAX, 0);
     return hit ? unproject_render_point(view, x, y, hit->second) : std::nullopt;
 }
-FrameRenderer::FrameRenderer(DiligentPresentation& presentation)
-    : presentation_(presentation), display_(presentation), bloom_(presentation),
-      sky_(presentation, TEX_FORMAT_RGBA16_FLOAT) {
+FrameRenderer::FrameRenderer(DiligentPresentation& presentation, std::string profile_view)
+    : presentation_(presentation), profile_view_(std::move(profile_view)), display_(presentation),
+      bloom_(presentation), sky_(presentation, TEX_FORMAT_RGBA16_FLOAT) {
     ShaderCreateInfo ci;
     ci.SourceLanguage = SHADER_SOURCE_LANGUAGE_HLSL;
     ci.EntryPoint = "main";
@@ -144,31 +144,46 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
     }
     auto* rtv = color_->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
     auto* dsv = depth_->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
-    context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    const float black[]{0, 0, 0, 1};
-    context->ClearRenderTarget(rtv, black, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-    context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
-                               RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    {
+        auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Frame clear");
+        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        const float black[]{0, 0, 0, 1};
+        context->ClearRenderTarget(rtv, black, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
+                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+    }
     for (const auto& camera : cameras) {
         const auto& area = camera.view.viewport;
         if (!area.width || !area.height || area.x >= width || area.y >= height ||
             area.width > width - area.x || area.height > height - area.y)
             throw std::runtime_error("Prepared camera viewport is outside its target");
         validate_camera(camera.settings);
-        if (meshes_)
+        if (meshes_) {
+            auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Shadows",
+                                                  scene.settings.shadows.enabled);
             meshes_->shadows(scene, camera.view, camera.settings.layers);
-        context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        Diligent::Viewport viewport{
-            float(area.x), float(area.y), float(area.width), float(area.height), 0, 1};
-        context->SetViewports(1, &viewport, width, height);
-        // Native ClearRenderTarget/ClearDepthStencil always clear the whole view.
-        // A clear draw uses this camera rectangle, preserving earlier cameras.
-        clear_camera(context, camera.settings);
-        if (camera.settings.clear_color)
-            sky_.draw(context, camera.view, scene.settings.environment);
-        if (meshes_)
-            meshes_->draw(scene, camera.view, camera.settings.layers, color_, dsv);
-        bloom_.apply(context, color_, area, scene.settings.bloom);
+        }
+        {
+            auto timing =
+                presentation_.gpu_scope(context, profile_view_.c_str(), "Camera geometry");
+            context->SetRenderTargets(1, &rtv, dsv, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            Diligent::Viewport viewport{
+                float(area.x), float(area.y), float(area.width), float(area.height), 0, 1};
+            context->SetViewports(1, &viewport, width, height);
+            // Native ClearRenderTarget/ClearDepthStencil always clear the whole view.
+            // A clear draw uses this camera rectangle, preserving earlier cameras.
+            clear_camera(context, camera.settings);
+            if (camera.settings.clear_color)
+                sky_.draw(context, camera.view, scene.settings.environment);
+            if (meshes_)
+                meshes_->draw(scene, camera.view, camera.settings.layers, color_, dsv);
+        }
+        {
+            auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Bloom",
+                                                  scene.settings.bloom.enabled &&
+                                                      scene.settings.bloom.intensity != 0);
+            bloom_.apply(context, color_, area, scene.settings.bloom);
+        }
     }
     if (meshes_) {
         for (const auto& error : meshes_->diagnostics())
@@ -189,6 +204,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         }
     }
     ++frames;
+    auto timing = presentation_.gpu_scope(context, profile_view_.c_str(), "Display resolve");
     return display_.resolve(context, color_->GetDefaultView(TEXTURE_VIEW_SHADER_RESOURCE), exposure,
                             scene.settings.color_adjustments);
 }
