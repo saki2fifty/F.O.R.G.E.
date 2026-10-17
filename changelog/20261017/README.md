@@ -1,5 +1,16 @@
 # 2026-10-17
 
+## Save rendered view images (source implementation; complete gate pending)
+
+- Add Scene View and Game commands to save the current rendered image as PNG.
+- Preserve display colors and transparency; include the Scene grid and Game runtime UI while excluding editor overlays and panels.
+- Reuse the existing GPU frame fence for one bounded readback, then encode and atomically save away from the editor frame loop.
+- Keep the existing image until a complete PNG is ready for atomic replacement, reject overlapping requests and stale Scene selections, and report progress/errors through timestamped editor feedback.
+
+Local normal/sanitizer codec/file checks, actual overwrite controls at three scales
+and two window sizes, and software Vulkan GPU readback pass. Native Windows picker,
+full editor image review and package gates remain pending.
+
 ## Sequence sound cues (source implementation; complete gate pending)
 
 - Add typed Scene/Prefab Audio Cue points to the existing sequence clock and Timeline. Source/time edits use ordinary Scene Save, one-step Undo and existing pending/Play locks.

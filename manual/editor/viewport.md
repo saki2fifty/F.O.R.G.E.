@@ -49,6 +49,22 @@ Open **View** to change **Grid spacing** and **Fly speed**. Grid spacing is the 
 
 Flight speed applies to RMB+WASD, Space and Shift. Tool choice, grid visibility/base spacing, snapping/step and flight speed persist between editor launches. Selection outlines and move handles remain editor overlays, so they can remain visible through other objects.
 
+## Save an image
+
+In the Scene toolbar, open **View → Save image…**. In Game, click **Save image…**
+above the image. Choose a PNG filename and wait for **Image saved** in the status
+bar or Console. Keep the requested view open; Game needs an active camera.
+
+The PNG uses the view's current render size. Scene includes the visible grid;
+Game includes runtime UI drawn into its image. Selection handles, debug overlays
+and editor panels are excluded. Colors and transparency are preserved.
+
+One image saves at a time. Changing Scene before capture cancels the request.
+Once the image is captured, saving can finish in the background while you continue
+working. The existing image is replaced only after a complete PNG has been written.
+Saving an image does not mark
+the Scene as changed or add an Undo step. This command saves a single image.
+
 ## Save a camera bookmark
 
 Choose **View → Save view** to store one camera bookmark for the current scene. **View → Restore view** returns to it. The bookmark also restores automatically when that scene opens again, including after an editor restart. A scene without a bookmark opens with the default camera.

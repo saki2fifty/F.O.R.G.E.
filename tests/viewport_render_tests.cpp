@@ -195,6 +195,8 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "texture_preview_tests.hpp"
 #include "transmission_background_tests.hpp"
 #include "transmission_render_tests.hpp"
+#include "view_image_editor_tests.hpp"
+#include "view_image_readback_tests.hpp"
 int main(int argc, char** argv) {
     ComPtr<ID3D12InfoQueue> diagnostics;
     try {
@@ -355,6 +357,11 @@ int main(int argc, char** argv) {
         check_surface_draw(presentation, context, images);
         check_morph_render(presentation, context, images);
         check_display_resolve(presentation, context, images);
+        forge::test_view_image::exercise(presentation, context, images);
+        for (float scale : {1.f, 1.5f, 2.f})
+            for (const auto size : {ImVec2{1400, 900}, ImVec2{960, 640}})
+                forge::test_view_image_ui::exercise(presentation, context, images / "image-task",
+                                                    scale, size);
         check_gpu_profiles(presentation, context, [&](ITexture* texture) {
             return readback(device, context, texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
         });

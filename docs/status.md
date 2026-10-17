@@ -1,3 +1,14 @@
+# Save rendered view images — 2026-10-17
+
+Current source adds Scene/Game PNG export through the existing display target,
+frame fence, file picker and atomic storage. A bounded asynchronous readback
+preserves display colors, alpha and row order; PNG compression/file writing runs
+off the editor thread. Local normal/sanitizer pixel/IO tests, software Vulkan
+readback and actual overwrite controls at three scales and two window sizes pass.
+The native Windows file picker, complete editor captures and full package gate
+remain pending; physical Windows acceptance is deferred. See [the image export
+contract](editor-ui.md#rendered-view-image-export) and [the guide](../manual/editor/viewport.md#save-an-image).
+
 # Sequence sound cues — 2026-10-17
 
 Current source adds typed Audio Cue points to the existing Scene sequence Timeline

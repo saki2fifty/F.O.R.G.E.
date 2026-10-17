@@ -8,7 +8,7 @@
 namespace forge {
 class FileDialog {
   public:
-    enum class Kind { OpenScene, SaveScene, OpenProject, ProjectParent, ImportFiles };
+    enum class Kind { OpenScene, SaveScene, OpenProject, ProjectParent, ImportFiles, SaveImage };
     struct Result {
         Kind kind;
         std::string path, error;
@@ -23,6 +23,7 @@ class FileDialog {
         state_->kind = kind;
         auto* owned = new std::shared_ptr<State>(state_);
         static const SDL_DialogFileFilter filter{"FORGE scene", "json"};
+        static const SDL_DialogFileFilter image_filter{"PNG image", "png"};
         if (kind == Kind::ImportFiles)
             SDL_ShowOpenFileDialog(callback, owned, window, nullptr, 0, state_->location.c_str(),
                                    true);
@@ -31,6 +32,9 @@ class FileDialog {
                                    false);
         else if (kind == Kind::SaveScene)
             SDL_ShowSaveFileDialog(callback, owned, window, &filter, 1, state_->location.c_str());
+        else if (kind == Kind::SaveImage)
+            SDL_ShowSaveFileDialog(callback, owned, window, &image_filter, 1,
+                                   state_->location.c_str());
         else
             SDL_ShowOpenFolderDialog(callback, owned, window, state_->location.c_str(), false);
     }

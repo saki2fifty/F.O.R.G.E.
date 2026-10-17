@@ -1,6 +1,7 @@
 # Shared renderer compilation units. Platform hosts and backend shader cooks are separate.
 set(forge_presentation_sources
  src/presentation_diligent.cpp
+ src/presentation_readback.cpp
  src/render_backend.cpp
  src/shader_runtime_backend.cpp
  src/environment_gpu.cpp

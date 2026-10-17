@@ -92,6 +92,7 @@
 #include "texture_imports.hpp"
 #include "texture_viewer.hpp"
 #include "transform_gesture.hpp"
+#include "view_image.hpp"
 #include "view_state.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
@@ -421,6 +422,7 @@ int main(int argc, char** argv) {
         forge::ui::PhysicsOverlay physics_overlay;
         forge::ui::RuntimeDependenciesEditor runtime_dependencies;
         forge::ui::GameExportTask game_export;
+        forge::ui::ViewImageTask view_image;
         forge::ui::DocumentWorkspace documents;
         forge::ui::AssetEditors asset_editors;
         content.editors = &asset_editors;
@@ -2112,6 +2114,8 @@ int main(int argc, char** argv) {
                 }
                 files.changed = false;
             }
+            view_image.poll(presentation, context, files.document.project(), scene.asset_id(),
+                            message);
             if (files.preferences_changed) {
                 last_project = forge::path_text(files.document.project());
                 try {
@@ -4642,6 +4646,7 @@ int main(int argc, char** argv) {
             commands.draw(scene, selected, message, scene_tools.snap_step, camera.target,
                           blockout.at_view_target, edit_locked, editor_shortcuts.capturing());
             files.draw_dialogs();
+            view_image.draw(message);
             animation_tools.poll(files.document, message);
             try {
                 collision_editor.poll(files.document, message);
@@ -5127,6 +5132,7 @@ int main(int argc, char** argv) {
             // hidden Game panel always reports game_focused=false to
             // the adapter until Begin() re-samples it.
             game_focused = false;
+            bool scene_image_available = false, game_image_available = false;
             for (const bool game_view : {false, true}) {
                 auto& view_open = game_view ? workspace.game : workspace.scene;
                 auto& view_camera = camera;
@@ -5173,6 +5179,17 @@ int main(int argc, char** argv) {
                     if (game_view && play.active()) {
                         game_input.controls(play);
                         runtime_ui.controls(play);
+                    }
+                    if (game_view) {
+                        ImGui::BeginDisabled(view_image.busy() || files.busy() ||
+                                             content_files.busy());
+                        if (forge::ui::button("Save image…", "Save the current Game render as a "
+                                                             "PNG, including runtime UI. Editor "
+                                                             "overlays are excluded."))
+                            view_image.choose(forge::ui::ViewImageTask::View::Game, window.get(),
+                                              files.document.project(), scene.asset_id());
+                        FORGE_UI_PROBE("game:save-image");
+                        ImGui::EndDisabled();
                     }
                     bool frame_selected = false, fit_scene = false;
                     if (!game_view) {
@@ -5256,6 +5273,16 @@ int main(int argc, char** argv) {
                                                       : "No saved view";
                                     });
                                 forge::ui::help("Return to the saved camera bookmark.");
+                                if (ImGui::MenuItem("Save image…", nullptr, false,
+                                                    !view_image.busy() && !files.busy() &&
+                                                        !content_files.busy()))
+                                    view_image.choose(forge::ui::ViewImageTask::View::Scene,
+                                                      window.get(), files.document.project(),
+                                                      scene.asset_id());
+                                FORGE_UI_PROBE("scene:save-image");
+                                forge::ui::help("Save the current Scene render as a PNG, including "
+                                                "the grid. Selection handles and editor overlays "
+                                                "are excluded. Uses the current render size.");
                                 ImGui::Separator();
                                 bool changed =
                                     ImGui::Checkbox("Orientation gizmo", &orientation.visible);
@@ -5528,6 +5555,12 @@ int main(int argc, char** argv) {
                             runtime_ui.draw(play, context, texture, image_origin, size,
                                             unsigned(std::max(1.0f, size.x * render_scale)),
                                             unsigned(std::max(1.0f, size.y * render_scale)));
+                        if (texture && (!game_view || !game_viewport->cameras().empty())) {
+                            (game_view ? game_image_available : scene_image_available) = true;
+                            view_image.capture(game_view ? forge::ui::ViewImageTask::View::Game
+                                                         : forge::ui::ViewImageTask::View::Scene,
+                                               presentation, context, texture, message);
+                        }
                         ImGui::GetWindowDrawList()->AddImage(
                             ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,
                             {image_origin.x + size.x, image_origin.y + size.y});
@@ -5615,6 +5648,10 @@ int main(int argc, char** argv) {
                 }
                 ImGui::End();
             }
+            if (!scene_image_available)
+                view_image.unavailable(forge::ui::ViewImageTask::View::Scene, message);
+            if (!game_image_available)
+                view_image.unavailable(forge::ui::ViewImageTask::View::Game, message);
             // SDK platform effects pump — moved from the early-frame
             // section so the adapter sees the CURRENT frame's focus
             // and visibility flags, not the previous frame's stale

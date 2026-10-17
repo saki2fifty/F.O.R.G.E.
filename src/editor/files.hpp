@@ -111,6 +111,8 @@ class EditorFiles {
                     switch (result->kind) {
                     case FileDialog::Kind::ImportFiles:
                         throw std::runtime_error("Source imports belong to the Content workflow");
+                    case FileDialog::Kind::SaveImage:
+                        throw std::runtime_error("View images belong to the image export workflow");
                     case FileDialog::Kind::OpenScene:
                         request({Command::OpenScene, path, {}});
                         break;
