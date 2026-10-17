@@ -70,7 +70,7 @@ def run(package, source, output):
     save(output / 'package-identity.json', {key: manifest[key]
                                           for key in ('source_commit', 'build_id')})
     env = os.environ.copy()
-    env['PATH'] = str(Path(env['SystemRoot']) / 'System32')
+    env['PATH'] = str(Path(os.environ['SystemRoot']) / 'System32')
     command = [str(root / 'bin/forge_tools.exe'), '--assets', 'import-target',
                str(project), SOURCE,
                json.dumps(dict(platform='windows', backend='d3d12', profile='desktop'))]
