@@ -1481,7 +1481,8 @@ class EditorInputWorkflow {
         create("Rendering", "Camera");
         check("shot-camera-created");
         text("transform:forge.position:0", "3", true);
-        key(ImGuiKey_Enter);
+        text("transform:forge.position:1", "1", true);
+        text("transform:forge.position:2", "-5", true);
         create("Animation", "Animation Sequence");
         check("shot-controller-created");
         click("tab:Content");
