@@ -288,6 +288,10 @@ sequence sound-cue, Scene/Game image-export and standalone workflows. Image-expo
 failures retain changed files and a hash receipt that detects additions/removals.
 The image fixture waits for the normal startup import owner to settle before
 freezing its complete source/catalog baseline and issuing any Save image input.
+That initial source-preparation phase has a 90-second deadline and records its
+elapsed time. Once the baseline is frozen, the ordinary 45-second control-stage
+budget starts afresh; readiness, exact pixels and preservation checks are unchanged.
+The existing 180-second process and 210-second CTest budgets remain in force.
 Original scenes, project settings and raw asset sources must remain byte-identical
 through startup and capture; only importer-owned sidecars/catalog may refresh
 before that baseline, preserving every asset ID/source/type. No source/catalog
