@@ -186,6 +186,8 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "morph_render_tests.hpp"
 #include "presentation_diligent_tests.hpp"
 #include "punctual_light_tests.hpp"
+#include "sequence_frame_image_tests.hpp"
+#include "sequence_frame_render_tests.hpp"
 #include "shadow_render_tests.hpp"
 #include "shadow_view_tests.hpp"
 #include "skin_render_tests.hpp"
@@ -254,6 +256,9 @@ int main(int argc, char** argv) {
                 check_skin_draw(isolated, context, images);
             else if (selected == "frame")
                 check_frame_renderer(isolated, context, images);
+            else if (selected == "sequence-frames")
+                forge::test_sequence_frame_render::exercise(isolated, context, FORGE_TEST_GALLERY,
+                                                            images);
             else if (selected == "optics") {
                 std::string bloom_failures;
                 for (const auto compiler : {SHADER_COMPILER_DXC, SHADER_COMPILER_FXC}) {
@@ -358,10 +363,14 @@ int main(int argc, char** argv) {
         check_morph_render(presentation, context, images);
         check_display_resolve(presentation, context, images);
         forge::test_view_image::exercise(presentation, context, images);
+        forge::test_sequence_frame_image::exercise(presentation, context, images / "frame-task");
         for (float scale : {1.f, 1.5f, 2.f})
-            for (const auto size : {ImVec2{1400, 900}, ImVec2{960, 640}})
+            for (const auto size : {ImVec2{1400, 900}, ImVec2{960, 640}}) {
                 forge::test_view_image_ui::exercise(presentation, context, images / "image-task",
                                                     scale, size);
+                forge::test_sequence_frame_image::exercise_ui(presentation, context,
+                                                              images / "frame-task", scale, size);
+            }
         check_gpu_profiles(presentation, context, [&](ITexture* texture) {
             return readback(device, context, texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
         });

@@ -42,8 +42,49 @@ existing atomic file storage. The selected libpng C boundary contains longjmp,
 caps output at 68 MiB, writes sRGB intent and preserves display-encoded RGBA bytes.
 Compression and disk writes do not run in the frame loop. Failure preserves the
 previous file before publication; no asset registration, Scene history, persisted component, SDK API,
-runtime editor or separate capture clock is introduced. This is a current-size
-single image, with no frame range, custom resolution, movie or offline stepping.
+runtime editor or separate capture clock is introduced. These view commands save
+one current-size image. Timeline has a separate sequence-frame operation below.
+
+### Sequence preview frames
+
+The ready scene-sequence Timeline's **Export frames…** action uses the same image
+task, native folder picker, readback fence, encoder and atomic file publication.
+Stop Play, finish pending sequence fields and refresh published clips first. The
+action opens Game and holds the existing isolated, silent sequence preview while
+settings are chosen. The on-demand modal has scrollable settings and persistent
+Start/Cancel controls, with current dimensions and an explicit sampled range.
+
+Each time is `start + index / FPS`, with 1–4096 frames, finite FPS above zero up
+to 240, nonnegative start and every sample strictly before sequence duration. This
+avoids the runtime's intentional exact-endpoint loop wrap. Sequence playback speed
+and ordinary GUI elapsed time do not alter those explicit sample positions.
+AnimationRuntime's existing seek/candidate/camera owner supplies the preview;
+Scene resolves its copied transforms before the normal Game renderer consumes it.
+No replacement animation world or time authority is introduced.
+
+A private generation-checked preview lease preserves the previous cursor, preview
+and playing flags. Source/Scene/project/catalog changes or close/reopen invalidate
+it; restoration only applies to the same surviving owner. Capture adds no Scene
+history entry or source/catalog write. Three consecutive ready Game renders are
+required for each held sample; resource errors or a missing camera prevent admission.
+The current renderer has no temporal accumulation to reset. A pending frame has a
+60-second resource-readiness deadline. Changing dimensions or losing Game cancels
+or fails explicitly rather than mixing output sizes.
+
+Choose one new output folder. Its creation precedes capture; an existing folder is
+rejected without changing it. One PNG/readback/file worker is active at a time.
+Files are named `frame-000000.png` onward. Each is atomic individually; the whole
+folder is not an atomic transaction. Cancel stops admitting more frames, allows an
+already accepted file operation to finish, retires native copies through their
+existing fence and keeps completed files. The task restores preview before writing
+the detached final `frames.json` receipt. The receipt records completed filenames,
+exact times, dimensions, source/catalog digests and complete/cancelled/failed state.
+Shutdown attempts the same receipt after its accepted file task has retired.
+
+This captures current-size sequence preview, without gameplay C++, physics,
+advancing particle simulation, runtime UI or sound. Custom resolution, movies,
+audio encoding and nested sequences remain separate consumers. This private editor
+operation changes no component, asset format, public SDK, runtime ABI or dependency.
 
 ## Draft/history boundaries
 

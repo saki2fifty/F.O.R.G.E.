@@ -229,6 +229,22 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
     editor.end_frame_export(held);
     check(editor.preview_active() && editor.preview(scene.effective_document()) == preview,
           "Frame export failed to restore the prior scrubbed preview");
+    click("sequence:play");
+    const auto before_hold = editor.preview(scene.effective_document());
+    const auto playing_hold = editor.begin_frame_export();
+    editor.sample_frame_export(playing_hold, 2);
+    const auto held_preview = editor.preview(scene.effective_document());
+    frame();
+    frame();
+    check(editor.preview(scene.effective_document()) == held_preview,
+          "Running preview advanced during frame sampling");
+    editor.end_frame_export(playing_hold);
+    check(editor.preview(scene.effective_document()) == before_hold,
+          "Frame sampling failed to restore the running preview cursor");
+    frame();
+    check(editor.preview(scene.effective_document()) != before_hold &&
+              scene.document() == authored && scene.revision() == revision,
+          "Frame sampling failed to resume preview playback without authored edits");
     editor.stop_preview();
     check(editor.preview(scene.effective_document()) == scene.effective_document(),
           "Stopping preview did not restore authored view");

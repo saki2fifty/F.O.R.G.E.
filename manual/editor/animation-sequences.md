@@ -26,6 +26,30 @@ Open **Game** while sequence preview is active to see the camera image without
 starting gameplay. The **SEQUENCE PREVIEW** label identifies this temporary view.
 Use Game Play to hear sound and run gameplay.
 
+## Export preview frames
+
+1. Stop Game Play. Finish any pending Timeline fields, then choose **Refresh clips**.
+2. Choose **Export frames…** in the sequence Timeline. Game opens to show the
+   sequence preview. Set **Start time**, **Frames per second** and **Frame count**.
+3. Choose a parent folder and a new folder name. Check the output dimensions and
+   sampled time range. Keep Game open at the same size, then choose **Start export**.
+4. Wait for **Sequence frames saved** in the status bar or Console. Open the new
+   folder to find the numbered PNGs and `frames.json` listing completed frames.
+
+Every sampled time must be before the sequence's end. For a six-second sequence,
+30 FPS and 180 frames sample 0 through 5.966667 seconds. Playback speed does not
+change these chosen times. The current Game image size determines output size.
+The settings area scrolls in small windows; Start and Cancel remain below it.
+
+**Cancel export** keeps completed images and stops further frames after any
+already accepted file finishes. Your previous preview position and playing state
+return afterward. Changing the Scene, sequence, assets or Game size stops the
+export. An existing output folder is preserved; choose a new name for each run.
+
+These frames contain the silent sequence camera image. Gameplay C++, physics,
+runtime UI and sound do not run during this preview. For a single image while
+playing, use [Game → Save image](viewport.md#save-an-image).
+
 ## Camera shots
 
 Open **FeatureGallery / Scenes / 68-sequence-camera-shots.scene.json**. Play shows

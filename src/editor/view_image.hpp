@@ -16,7 +16,8 @@
 #include <optional>
 #include <utility>
 namespace forge::ui {
-// One explicit image export. No authored state or persistent panel.
+// One explicit image operation: a single view or sequential sequence frames.
+// No authored state or persistent panel.
 class ViewImageTask {
     enum class FileWork { Image, PrepareFrames, FrameReceipt };
     struct FrameReceipt {
@@ -396,15 +397,20 @@ class ViewImageTask {
                     {std::max(220.f, std::min(620.f * scale, available.x - 96.f * scale)),
                      std::max(80.f, std::min(420.f * scale, available.y - 300.f * scale))},
                     ImGuiChildFlags_Borders);
-                bool changed = ImGui::InputDouble("Start time (s)", &frames_->plan.start_seconds, 0,
-                                                  0, "%.6f");
+                ImGui::PushItemWidth(-FLT_MIN);
+                ImGui::TextUnformatted("Start time (s)");
+                bool changed =
+                    ImGui::InputDouble("##frame-start", &frames_->plan.start_seconds, 0, 0, "%.6f");
                 FORGE_UI_PROBE("frame-export:start-time");
-                changed |= ImGui::InputDouble("Frames per second", &frames_->plan.frames_per_second,
-                                              0, 0, "%.6f");
+                ImGui::TextUnformatted("Frames per second");
+                changed |= ImGui::InputDouble("##frame-fps", &frames_->plan.frames_per_second, 0, 0,
+                                              "%.6f");
                 FORGE_UI_PROBE("frame-export:fps");
-                changed |= ImGui::InputInt("Frame count", &frames_->plan.frame_count);
+                ImGui::TextUnformatted("Frame count");
+                changed |= ImGui::InputInt("##frame-count", &frames_->plan.frame_count);
                 FORGE_UI_PROBE("frame-export:count");
-                if (ImGui::InputText("Parent folder", frames_->parent, sizeof(frames_->parent)))
+                ImGui::TextUnformatted("Parent folder");
+                if (ImGui::InputText("##frame-parent", frames_->parent, sizeof(frames_->parent)))
                     frames_->validation.clear();
                 FORGE_UI_PROBE("frame-export:parent");
                 ImGui::BeginDisabled(dialog_.busy());
@@ -413,8 +419,10 @@ class ViewImageTask {
                                  frames_->parent);
                 FORGE_UI_PROBE("frame-export:browse");
                 ImGui::EndDisabled();
-                ImGui::InputText("New folder name", frames_->name, sizeof(frames_->name));
+                ImGui::TextUnformatted("New folder name");
+                ImGui::InputText("##frame-name", frames_->name, sizeof(frames_->name));
                 FORGE_UI_PROBE("frame-export:name");
+                ImGui::PopItemWidth();
                 bool valid = true;
                 std::filesystem::path folder;
                 std::string validation;
@@ -440,6 +448,11 @@ class ViewImageTask {
                     ImGui::TextWrapped("%s", validation.c_str());
                 if (!frames_->validation.empty())
                     ImGui::TextWrapped("%s", frames_->validation.c_str());
+                if (valid)
+                    ImGui::TextWrapped("Samples %.6f–%.6f s | Sequence duration %.6f s",
+                                       frames_->plan.sample(0),
+                                       frames_->plan.sample(frames_->plan.frame_count - 1),
+                                       frames_->source.duration);
                 if (frames_->ready_frames < 3)
                     ImGui::TextWrapped("Waiting for a ready Game preview with an enabled camera. "
                                        "Check Problems for rendering errors.");

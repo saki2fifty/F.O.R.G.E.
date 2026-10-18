@@ -75,7 +75,9 @@ The exact timing, invalid-input policy and recovery4 boundary are specified in
 
 The existing Game viewport also consumes stopped sequence preview. Its explicit
 preview label and absent gameplay/runtime-UI execution preserve the authoring/Play
-boundary. This adds cuts, not shot blending, nested sequences or offline capture.
+boundary. The camera-shot extension adds cuts; the preview-frame consumer below
+subsequently adds bounded offline image sampling. Shot blending and nested
+sequences remain separate work.
 The new native component changes the exact installed SDK fingerprint. Existing
 controller/player layouts and ABI1 function tables remain unchanged.
 
@@ -102,6 +104,23 @@ limits. This adds point events at fixed-tick boundaries, with no continuous clip
 trimming, sample-accurate synchronization or sound rollback. The native component
 changes the matching SDK fingerprint; ABI1 function tables remain unchanged.
 See [sequence audio cues](../transform-animation.md#sequence-audio-cues).
+
+## Sequence preview-frame consumer — 2026-10-18
+
+Timeline retains its existing isolated preview world, cursor and play state. A
+private exclusive generation-checked lease holds elapsed playback, seeks explicit
+finite sequence times through AnimationService and restores only into the same
+surviving context. Scene/project/revision/catalog changes and close/reopen retire
+the lease; no authored snapshot is written back as a restored pose.
+
+The existing image task sequentially consumes the normal Game renderer's current
+display target. Its existing frame fence and one asynchronous file worker own
+readback, PNG publication and the final detached receipt. No sequence renderer,
+new animation clock, gameplay execution, sound dispatch, persistent asset kind or
+public SDK boundary is added. Samples are end-exclusive because existing looping
+seek intentionally maps an exact duration to zero. See
+[editor image export](../editor-ui.md#sequence-preview-frames) for finite bounds,
+new-folder ownership, cancellation and per-file publication semantics.
 
 ## Compatibility and completion boundary
 

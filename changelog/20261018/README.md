@@ -36,3 +36,19 @@ threshold. Representative hardware/smoothness testing remains outstanding.
 Sequence sound cues and rendered-view PNG export have local implementations and
 focused validation; their native Windows and delivery gates are still pending.
 They are absent from Build190.
+
+## Local implementation — Sequence preview frames
+
+The ready sequence Timeline can export a bounded range of its silent Game preview
+to numbered PNGs in a new folder. Start/FPS/count settings, current dimensions,
+progress, Cancel and a final frame receipt use the existing image task. The
+previous preview cursor and playing state return afterward; source changes or
+resizing stop the operation. No gameplay, sound, movie encoder or SDK change is
+part of this editor operation.
+
+Focused Linux software-Vulkan checks pass for exact sample pixels/order, actual
+Gallery 70 animation/camera images, source preservation, cancellation, failures,
+shutdown and real settings controls at 100/150/200% in two window sizes. Normal
+and sanitizer owner/lifecycle checks pass. Native Windows compilation, full editor
+visual review and a delivered package for this addition remain pending. It is
+absent from Build190 and the separately frozen Build192 candidate.

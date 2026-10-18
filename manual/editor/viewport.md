@@ -64,6 +64,8 @@ Once the image is captured, saving can finish in the background while you contin
 working. The existing image is replaced only after a complete PNG has been written.
 Saving an image does not mark
 the Scene as changed or add an Undo step. This command saves a single image.
+For numbered sequence preview frames, use
+[Timeline → Export frames](animation-sequences.md#export-preview-frames).
 
 ## Save a camera bookmark
 
