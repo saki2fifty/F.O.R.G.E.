@@ -1,9 +1,21 @@
+# Windows delivery — 2026-10-18
+
+**Build261018-000190** delivers sequence camera shots, personal editor shortcuts,
+reviewed runtime tuning, Scene color adjustments and optional GPU profiling.
+The complete Windows/Linux, exact SDK, native editor, fresh shortcut restart and
+final exported-game gates passed for compiled source
+`84553c800d3a6dbf636532a9fad99d840b3dc1f3`. Changed native captures were reviewed;
+physical Windows testing remains deferred. See the [delivery evidence and
+performance limits](../changelog/20261018/README.md). Later local sound-cue/PNG work
+has separate pending gates and is absent from this ZIP.
+
 # GPU profiling — 2026-10-17
 
 Source implementation adds default-off GPU pass durations to the existing Profiler,
 separate from CPU clocks, with bounded asynchronous queries and frame provenance.
 Local collector, compile-out, actual UI, CPU protocol regression and native
-software Vulkan checks pass. Native Windows/D3D12 captures, full package validation and physical testing remain pending.
+software Vulkan checks pass. Native Windows/D3D12 captures, full editor acceptance
+and final package validation passed for Build190. Physical testing remains deferred.
 See [Profiler ownership and limits](cpu-profiling.md).
 
 # Scene color adjustments — 2026-10-17
@@ -11,8 +23,8 @@ See [Profiler ownership and limits](cpu-profiling.md).
 Local source adds authored RGB filter, saturation and contrast in the existing
 Scene/Game display pass. Normal/sanitizer settings and six scale/window UI cases,
 software Vulkan pixels, actual Game/split-camera rendering and relocated source-free
-Gallery69 pass. Prior Gallery data/IDs remain intact. New native Windows source and
-package gates and capture review remain pending; physical testing is deferred.
+Gallery69 pass. Prior Gallery data/IDs remain intact. Native Windows source/package
+gates and capture review passed for Build190; physical testing is deferred.
 See [the contract](scene-color-adjustments.md).
 
 # Reviewed runtime tuning — 2026-10-17
@@ -21,7 +33,7 @@ Local source adds an explicit frozen review of changed live-tunable values for o
 authored entity. Stop preserves the authored Scene; a subsequent selected Apply
 uses existing validation and one Scene Undo step. Source/metadata/project guards,
 Prefab intent and focused normal/sanitizer validation pass locally. Native Windows
-execution and capture review are pending; no new delivery is claimed. See
+execution, capture review and final C++ onboarding/export passed for Build190. See
 [the workflow](../manual/editor/play-mode.md).
 
 # Personal editor shortcuts — 2026-10-17
@@ -29,8 +41,8 @@ execution and capture review are pending; no new delivery is claimed. See
 Current source adds personal shortcut recording, conflict feedback, clear/reset
 and persistence for the existing global command catalog. The active C++ source
 uses the configured Save key while retaining its own text editing controls.
-Normal and sanitizer checks pass locally. Native Windows recording/restart and
-visual review remain pending; this is not a numbered delivery. See
+Normal and sanitizer checks pass locally. Native Windows recording, fresh-process
+restart/reset, visual review and final packaging passed for Build190. See
 [Keyboard shortcuts](../manual/editor/shortcuts.md).
 
 # Sequence camera shots — 2026-10-17
@@ -38,10 +50,9 @@ visual review remain pending; this is not a numbered delivery. See
 Current source extends the existing Scene sequence Timeline with timed camera
 shots, typed camera selection, atomic Scene history, stopped Game preview and
 editable Gallery68. Runtime, source-free export, matching C++ SDK and native
-Vulkan camera checks pass locally. Windows core/SDK checks and the full editor
-acceptance step passed for source90495c9. The source audit then hit its overall
-job time limit. Remaining source-audit steps, package validation and physical user testing remain pending; Build188 remains
-the latest delivery.
+Vulkan camera checks pass locally. The complete source audit, Windows/Linux
+core/SDK checks, native editor/capture review and final source-free package exports
+passed for Build190. Physical user testing remains deferred.
 See [the user guide](../manual/editor/animation-sequences.md) and
 [daily changes](../changelog/20261017/README.md).
 

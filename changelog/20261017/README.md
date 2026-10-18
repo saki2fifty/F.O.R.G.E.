@@ -8,8 +8,8 @@
 - Include editable Gallery69 with colored and neutral geometry. Preserve all earlier Gallery assets and records.
 - Exercise normal/sanitizer controls, native software Vulkan pixels and Game/split-camera/source-free export; add the existing HDR settings/UI/Gallery tests to the shared Windows acceptance selection.
 
-Local checks pass; new native Windows execution, capture review and delivery remain
-pending. Physical user testing is deferred.
+Native Windows execution, capture review and final packaging passed; delivered
+in [Build190](../20261018/README.md). Physical user testing is deferred.
 
 ## Reviewed runtime tuning
 
@@ -18,8 +18,8 @@ pending. Physical user testing is deferred.
 - Add bounded simultaneous reflected-field authoring through the existing native candidate writer, supporting interdependent fields without invalid intermediate publication.
 - Extend actual input, typed value, history, failure-retention and native C++ onboarding/export checks. This is editor-only; exported games receive ordinary authored values.
 
-Local implementation and focused normal/sanitizer checks pass. Native Windows
-execution/capture review and delivery remain pending; physical user testing is deferred.
+Focused normal/sanitizer checks and native Windows execution/capture review pass;
+delivered in [Build190](../20261018/README.md). Physical user testing is deferred.
 
 ## Personal editor shortcuts
 
@@ -28,9 +28,9 @@ execution/capture review and delivery remain pending; physical user testing is d
 - Show effective shortcuts in menus, tooltips and command search. Match exact modifiers without repeat, preserve text/viewport/gameplay input ownership, and use the configured Save key in C++ Sources.
 - Extend actual recorder and C++ typing/save tests, plus native editor recording and fresh-process persistence checks. No project input, runtime editor, SDK ABI or dependency change.
 
-Normal and sanitizer checks pass locally. Native Windows shortcut/restart tests,
-capture review and a combined numbered delivery remain pending. User Windows
-testing is deferred.
+Normal/sanitizer and native Windows recording/fresh-process reset checks pass.
+Captures were reviewed; delivered in [Build190](../20261018/README.md). Physical
+user Windows testing is deferred.
 
 ## Sequence camera shots
 
@@ -40,10 +40,9 @@ testing is deferred.
 - Include editable Gallery68 with three shots, a normal-camera gap and a moving panel. Preserve all existing Gallery assets and scenes.
 - Extend exact private recovery for shot arrangements, typed Scene/Prefab reference remapping and C++ SDK coverage. Install the sequence-speed example with the SDK. Existing C++ modules require a rebuild against the matching SDK; ABI1 function tables and dependency pins are unchanged.
 
-Local runtime, source-free export, C++ SDK and native Vulkan camera checks pass.
-Windows core/SDK checks and the full editor acceptance step passed for source90495c9.
-The audit then hit its overall job time limit during standalone-only configuration.
-Remaining source-audit and package gates and physical user testing remain pending.
+Runtime, source-free export, C++ SDK and native Vulkan camera checks pass. Complete
+Windows/Linux and final package gates passed, and changed captures were reviewed;
+delivered in [Build190](../20261018/README.md). Physical user testing is deferred.
 
 ## Model import review
 
@@ -61,7 +60,7 @@ also migrated Build187's original animated Gallery model twice, preserving all
 74 model-member IDs and all 227 Gallery asset IDs. Physical user testing remains
 pending.
 
-## GPU profiling (source implementation; native Windows gate pending)
+## GPU profiling (delivered in Build190)
 
 - Profiler adds separate Graphics GPU durations for editor Scene/Game views,
   previews and UI, with frame provenance and delayed-result/pool status.
@@ -69,3 +68,7 @@ pending.
   presentation owner and512-record profile collector without new GPU waits.
 - CPU collection and Play transport remain separate; unsupported timing leaves
   rendering available. Physical graphics card measurements remain deferred.
+
+Native Windows/D3D12 tests, full editor acceptance, capture review and final package
+validation passed; see [Build190](../20261018/README.md). Hardware measurements and
+physical user testing remain deferred.
