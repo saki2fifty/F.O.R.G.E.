@@ -1,5 +1,6 @@
 # Changelog
 
+- [2026-10-18](20261018/README.md) — Build190 delivers sequence cameras, shortcuts, reviewed runtime tuning, Scene color and GPU profiling; physical testing pending.
 - [2026-10-17](20261017/README.md) — Stable model reimport evidence, ID-preserving migration and clearer import review; Build188 delivered, physical testing pending.
 - [2026-10-16](20261016/README.md) — Windows animation capture and complete Gallery packaging repairs; Windows delivery pending.
 - [2026-10-15](20261015/README.md) — Per-object material values and Gallery66, two-axis animation blend spaces, runtime Prefab creation and portable links, Prefab preparation improvements and Play CPU stages; local validation, Windows delivery pending.
@@ -20,6 +21,7 @@ Browse FORGE changes by **UTC day**, newest first. Each day has one continuously
 
 | Day | Changes |
 | --- | --- |
+| [2026-10-18](20261018/README.md) | Build190 verified Windows/Linux, SDK, native editor, fresh shortcuts and exported C++ game;69 editable Gallery scenes. |
 | [2026-10-13](20261013/README.md) | Animation key value transforms, timeline navigation and timing, material graph vector geometry, selection/layout and thresholds/rounding, Model topology refinement and duplication/grid placement, topology cleanup and face groups, UV selection/arrangement/packing, transform tangent editing, connected animation states, blend spaces, bone masks and model-space rig target controls. |
 | [2026-10-12](20261012/README.md) | Joint drives, collision policy, swing/twist limits and source-free Gallery25–28 gates. |
 | [2026-10-11](20261011/README.md) | Animation runtime/UI/Gallery and C++ timing-marker checks passed locally. |
