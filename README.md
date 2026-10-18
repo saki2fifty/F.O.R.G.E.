@@ -6,6 +6,31 @@
 
 Native ECS game editor under development. Windows/D3D12 is the first editor target; the portable core can be built and tested on Linux.
 
+## Technology stack
+
+| Layer | Technology | Role in FORGE |
+| --- | --- | --- |
+| Engine and gameplay | C++20 | Native engine, editor, and project Components and Systems through the matching FORGE SDK. |
+| Internal codec adapters | C17 | Private image codec boundaries. |
+| Entity component system | Flecs | Entities, components, queries, reflection, relationships and scheduling. |
+| Platform | SDL3 | Windows, input events, dialogs, process pipes and application paths. |
+| Editor interface | Dear ImGui docking | Editor panels, inspectors, workspaces and controls. |
+| Rendering | Diligent Engine and selected DiligentFX utilities | Shared Scene/Game renderer, PBR materials and GPU resources; D3D12 editor with Vulkan validation probes. |
+| Shaders | HLSL | Surface shaders and shader generation from FORGE material graphs. |
+| Game interface and fonts | RmlUi and FreeType | Runtime HUD documents, input, text and bundled-font rendering. |
+| Physics | Jolt Physics | 3D rigid bodies, colliders, queries, constraints and character movement. |
+| Skeletal animation | Ozz Animation | Animation sampling, blending and glTF animation conversion. |
+| Navigation | Recast and Detour | Static navigation mesh generation, path queries and local steering. |
+| Audio | miniaudio | WAV decoding, playback, spatial sound and mixing. |
+| Serialization | nlohmann/json | Authored JSON documents and process messages. |
+| Mesh processing | meshoptimizer and Draco | Geometry processing and glTF compression decoding. |
+| Texture processing | KTX Software/Basis, libpng, libwebp and stb | Texture import, image decoding and cooked texture processing. |
+| Build tools | CMake and Ninja | Dependency configuration, incremental builds and packaging. |
+| Compilers | MSVC and GCC | Windows builds and portable core validation. |
+| Tests and automation | CTest, Python and GitHub Actions | Build automation, runtime checks, native editor validation and delivery gates. |
+
+Exact revisions, enabled dependency features and license details are recorded in the [dependency baselines](docs/dependencies.md).
+
 ## Editor screenshots
 
 Real Windows editor captures using small validation scenes. Click an image to open it at full size.
