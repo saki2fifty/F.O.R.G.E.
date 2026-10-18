@@ -1,4 +1,5 @@
 #include "presentation_diligent.hpp"
+#include "view_image_limits.h"
 #include <algorithm>
 #include <cstring>
 #include <limits>
@@ -17,9 +18,10 @@ void DiligentPresentation::readback(IDeviceContext* context, ITextureView* view)
     const auto& subresource = view->GetDesc();
     if (input.Type != RESOURCE_DIM_TEX_2D || input.SampleCount != 1 || input.MipLevels != 1 ||
         input.ArraySize != 1 || input.Format != TEX_FORMAT_RGBA8_UNORM || !input.Width ||
-        !input.Height || input.Width > 4096 || input.Height > 4096 ||
-        subresource.MostDetailedMip != 0 || subresource.FirstArraySlice != 0 ||
-        subresource.NumMipLevels != 1 || subresource.NumArraySlices != 1)
+        !input.Height || input.Width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
+        input.Height > FORGE_VIEW_IMAGE_MAX_EXTENT || subresource.MostDetailedMip != 0 ||
+        subresource.FirstArraySlice != 0 || subresource.NumMipLevels != 1 ||
+        subresource.NumArraySlices != 1)
         throw std::runtime_error("View image capture requires a complete RGBA8 display target");
     auto desc = input;
     desc.Name = "FORGE view image readback";

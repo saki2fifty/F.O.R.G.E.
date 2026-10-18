@@ -113,9 +113,14 @@ finite sequence times through AnimationService and restores only into the same
 surviving context. Scene/project/revision/catalog changes and close/reopen retire
 the lease; no authored snapshot is written back as a restored pose.
 
-The existing image task sequentially consumes the normal Game renderer's current
-display target. Its existing frame fence and one asynchronous file worker own
-readback, PNG publication and the final detached receipt. No sequence renderer,
+The existing image task sequentially consumes the normal Game renderer's display
+target. Current-view dimensions are the default; an optional fixed extent asks
+that same renderer to draw at bounded export dimensions while the preview lease
+is held. Game fits the resulting image into its panel, preserving aspect ratio;
+the request ends with the task and ordinary rendering resumes at panel size.
+This creates no second rendering or target-retirement owner. Its existing frame
+fence and one asynchronous file worker own readback, PNG publication and the final
+detached receipt. No sequence renderer,
 new animation clock, gameplay execution, sound dispatch, persistent asset kind or
 public SDK boundary is added. Samples are end-exclusive because existing looping
 seek intentionally maps an exact duration to zero. See

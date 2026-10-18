@@ -72,11 +72,14 @@ above delivers them after their native and final-package gates.
 ## Local implementation — Sequence preview frames
 
 The ready sequence Timeline can export a bounded range of its silent Game preview
-to numbered PNGs in a new folder. Start/FPS/count settings, current dimensions,
-progress, Cancel and a final frame receipt use the existing image task. The
-previous preview cursor and playing state return afterward; source changes or
-resizing stop the operation. No gameplay, sound, movie encoder or SDK change is
-part of this editor operation.
+to numbered PNGs in a new folder. Start/FPS/count settings, current-view or fixed
+output dimensions, 720p/1080p/square presets, custom sizes, progress, Cancel and a
+final frame receipt use the existing image task. Fixed output uses the normal Game
+renderer at the chosen resolution and fits its image into the panel; editor
+resizing preserves that output resolution. The previous preview cursor and playing
+state return afterward; source changes or resizing in current-size mode stop the
+operation. No gameplay, sound, movie encoder or SDK change is part of this editor
+operation.
 
 Focused Linux software-Vulkan checks pass for exact sample pixels/order, actual
 Gallery 70 animation/camera images, source preservation, cancellation, failures,

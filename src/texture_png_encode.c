@@ -1,4 +1,5 @@
 #include "texture_encode.h"
+#include "view_image_limits.h"
 #include <png.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -56,9 +57,10 @@ int forge_png_encode_rgba8(const void* pixels, size_t extent, unsigned width, un
         return 0;
     memset(result, 0, sizeof(*result));
     // Bounds match current editor render targets and include worst-case PNG overhead.
-    if (!pixels || !width || !height || width > 4096 || height > 4096 ||
-        stride < (size_t)width * 4 || extent > (size_t)64 * 1024 * 1024 || !byte_limit ||
-        byte_limit > (size_t)68 * 1024 * 1024 ||
+    if (!pixels || !width || !height || width > FORGE_VIEW_IMAGE_MAX_EXTENT ||
+        height > FORGE_VIEW_IMAGE_MAX_EXTENT || stride < (size_t)width * 4 ||
+        extent > FORGE_VIEW_IMAGE_PIXEL_LIMIT || !byte_limit ||
+        byte_limit > FORGE_VIEW_IMAGE_ENCODED_LIMIT ||
         (height > 1 && stride > (SIZE_MAX - (size_t)width * 4) / (height - 1)) ||
         (size_t)(height - 1) * stride + (size_t)width * 4 > extent) {
         strcpy(result->error, "Invalid RGBA8 image extent or PNG byte budget");

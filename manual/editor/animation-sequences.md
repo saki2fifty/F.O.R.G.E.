@@ -29,26 +29,28 @@ Use Game Play to hear sound and run gameplay.
 ## Export preview frames
 
 1. Stop Game Play. Finish any pending Timeline fields, then choose **Refresh clips**.
-2. Choose **Export frames…** in the sequence Timeline. Game opens to show the
-   sequence preview. Set **Start time**, **Frames per second** and **Frame count**.
-3. Choose a parent folder and a new folder name. Check the output dimensions and
-   sampled time range. Keep Game open at the same size, then choose **Start export**.
-4. Wait for **Sequence frames saved** in the status bar or Console. Open the new
-   folder to find the numbered PNGs and `frames.json` listing completed frames.
+2. Choose **Export frames…** in the sequence Timeline. Game opens to show the sequence preview. Set **Start time**, **Frames per second** and **Frame count**.
+3. Leave the current Game size, or enable **Fixed output size** and choose 720p, 1080p, Square or your own width and height. Choose a parent folder and a new folder name. Check the output dimensions and sampled time range, keep Game open, then choose **Start export**.
+4. Wait for **Sequence frames saved** in the status bar or Console. Open the new folder to find the numbered PNGs and `frames.json` listing completed frames.
 
 Every sampled time must be before the sequence's end. For a six-second sequence,
 30 FPS and 180 frames sample 0 through 5.966667 seconds. Playback speed does not
-change these chosen times. The current Game image size determines output size.
-The settings area scrolls in small windows; Start and Cancel remain below it.
+change these chosen times. Fixed-size output keeps its resolution when you resize
+the editor. Its Game preview fits the available space without stretching. Custom
+dimensions must be from 1 to 4096 pixels per side. With fixed size off, keep Game
+at the same size until export ends. The settings area scrolls in small windows;
+Start and Cancel remain below it.
 
 **Cancel export** keeps completed images and stops further frames after any
 already accepted file finishes. Your previous preview position and playing state
-return afterward. Changing the Scene, sequence, assets or Game size stops the
-export. An existing output folder is preserved; choose a new name for each run.
+return afterward, and Game returns to its normal panel resolution. Changing the
+Scene, sequence or assets stops export. Changing Game's render size also stops a
+current-size export. An existing output folder is preserved; choose a new name
+for each run.
 
 These frames contain the silent sequence camera image. Gameplay C++, physics,
 runtime UI and sound do not run during this preview. For a single image while
-playing, use [Game → Save image](viewport.md#save-an-image).
+playing, use [Game → Save image](viewport.md).
 
 ## Camera shots
 

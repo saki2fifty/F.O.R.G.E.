@@ -294,14 +294,21 @@ budget starts afresh; readiness, exact pixels and preservation checks are unchan
 The existing 180-second process and 210-second CTest budgets remain in force.
 The separate `editor_sequence_frames` workflow drives the actual Timeline action,
 Game focus, frontmost export modal, configuration Cancel/restore, settings input,
-folder-picker adapter and four-frame PNG batch at 100/150/200%. Its dedicated
-fixture mode bypasses legacy scene seeding/capture stages. Normal source import
+folder-picker adapter and current/fixed four-frame PNG batches at 100/150/200%.
+Fixed mode selects an actual preset, enters custom 320×180 dimensions, resizes the
+real SDL window during rendering/saving, checks unchanged target dimensions and
+restored ordinary Game sizing, and compares exact PNG bytes across all three UI
+scales. Its dedicated fixture mode bypasses legacy scene seeding/capture stages.
+Normal source import
 must settle before its protected baseline; source/catalog bytes remain unchanged
-during all three exports. It retains modal images, frame receipts and failure
+during all six exports. It retains modal images, frame receipts and failure
 state, with a 240-second internal deadline, 250-second process timeout and 270-second
 CTest budget. Only the OS folder choice is injected. The separate
 `editor_render_sequence-frames` case compares actual Gallery 70 Timeline/Game
-pixels at 0/1.5/3 with independent synchronous GPU reads, including the camera cut.
+pixels at 0/1.5/3 with independent synchronous GPU reads, including the camera cut,
+current size, all three presets and custom landscape/portrait sizes. The offscreen
+host completes each native graphics frame just as swap-chain presentation does;
+Flush alone is not graphics frame cleanup.
 Both cases belong to the full editor acceptance selection; workflow-only audits
 include the native modal workflow without claiming the additional renderer case.
 Original scenes, project settings and raw asset sources must remain byte-identical

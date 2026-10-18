@@ -5562,7 +5562,18 @@ int main(int argc, char** argv) {
                             !viewport.frame(preview, "", view_camera, size.x / size.y))
                             message = "Cannot fit scene: visible geometry is not ready or exceeds "
                                       "camera range.";
-                        const auto image_origin = ImGui::GetCursorScreenPos();
+                        auto image_origin = ImGui::GetCursorScreenPos();
+                        const auto fixed_extent =
+                            sequence_camera_preview
+                                ? view_image.sequence_extent()
+                                : std::optional<forge::ui::SequenceFrameExtent>{};
+                        if (fixed_extent) {
+                            const auto fit =
+                                forge::ui::fit_sequence_frame(*fixed_extent, size.x, size.y);
+                            image_origin.x += fit.x;
+                            image_origin.y += fit.y;
+                            size = {fit.width, fit.height};
+                        }
 #ifdef FORGE_UI_FIXTURE
                         if (!game_view)
                             fixture.scene_image_y = image_origin.y;
@@ -5647,8 +5658,12 @@ int main(int argc, char** argv) {
                         const float render_scale =
                             std::min(1.0f, 4096.0f / std::max(size.x, size.y));
                         const auto scene_submit = forge::ui::Performance::Clock::now();
-                        const auto render_width = unsigned(std::max(1.0f, size.x * render_scale));
-                        const auto render_height = unsigned(std::max(1.0f, size.y * render_scale));
+                        const auto render_width =
+                            fixed_extent ? fixed_extent->width
+                                         : unsigned(std::max(1.0f, size.x * render_scale));
+                        const auto render_height =
+                            fixed_extent ? fixed_extent->height
+                                         : unsigned(std::max(1.0f, size.y * render_scale));
                         auto* texture =
                             game_view
                                 ? game_viewport->game(context, rendered, render_width,
@@ -6403,8 +6418,9 @@ int main(int argc, char** argv) {
                                         !game_viewport->cameras().empty() &&
                                         game_viewport->diagnostics().empty();
                 if (sequence_frame_workflow.finish(
-                        fixture, animation_timeline, view_image, scene, play.active(), game_ready,
-                        [&](const std::string& label) {
+                        fixture, animation_timeline, view_image, scene, window.get(),
+                        game_viewport ? game_viewport->output() : nullptr, play.active(),
+                        game_ready, [&](const std::string& label) {
                             fixture.capture(device, context, rtv, true, label);
                         }))
                     running = false;

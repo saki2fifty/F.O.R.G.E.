@@ -54,6 +54,15 @@ action opens Game and holds the existing isolated, silent sequence preview while
 settings are chosen. The on-demand modal has scrollable settings and persistent
 Start/Cancel controls, with current dimensions and an explicit sampled range.
 
+Current-view size is the default. **Fixed output size** selects real render
+dimensions independent of Game's displayed rectangle: 720p, 1080p, square or
+custom positive width/height up to 4096 pixels per axis and 64 MiB of RGBA pixels.
+Game fits this existing render target into its panel without stretching. Resizing
+the editor preserves fixed output dimensions; it does not resize saved PNGs after
+rendering. Invalid dimensions disable Start before folder creation or GPU capture.
+The override ends with the task, and the next ordinary Game render uses its panel
+size again. No second renderer or target cache is introduced.
+
 Each time is `start + index / FPS`, with 1–4096 frames, finite FPS above zero up
 to 240, nonnegative start and every sample strictly before sequence duration. This
 avoids the runtime's intentional exact-endpoint loop wrap. Sequence playback speed
@@ -68,8 +77,9 @@ it; restoration only applies to the same surviving owner. Capture adds no Scene
 history entry or source/catalog write. Three consecutive ready Game renders are
 required for each held sample; resource errors or a missing camera prevent admission.
 The current renderer has no temporal accumulation to reset. A pending frame has a
-60-second resource-readiness deadline. Changing dimensions or losing Game cancels
-or fails explicitly rather than mixing output sizes.
+60-second resource-readiness deadline. Changing current-view render dimensions,
+losing Game, or receiving a target that does not match the requested fixed size
+cancels or fails explicitly rather than mixing output sizes.
 
 Choose one new output folder. Its creation precedes capture; an existing folder is
 rejected without changing it. One PNG/readback/file worker is active at a time.
@@ -78,13 +88,14 @@ folder is not an atomic transaction. Cancel stops admitting more frames, allows 
 already accepted file operation to finish, retires native copies through their
 existing fence and keeps completed files. The task restores preview before writing
 the detached final `frames.json` receipt. The receipt records completed filenames,
-exact times, dimensions, source/catalog digests and complete/cancelled/failed state.
+exact times, dimensions, current/fixed size mode, source/catalog digests and
+complete/cancelled/failed state.
 Shutdown attempts the same receipt after its accepted file task has retired.
 
-This captures current-size sequence preview, without gameplay C++, physics,
-advancing particle simulation, runtime UI or sound. Custom resolution, movies,
-audio encoding and nested sequences remain separate consumers. This private editor
-operation changes no component, asset format, public SDK, runtime ABI or dependency.
+This captures sequence preview, without gameplay C++, physics, advancing particle
+simulation, runtime UI or sound. Movies, audio encoding and nested sequences remain
+separate consumers. This private editor operation changes no component, asset
+format, public SDK, runtime ABI or dependency.
 
 ## Draft/history boundaries
 

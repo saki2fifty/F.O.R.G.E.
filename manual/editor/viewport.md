@@ -65,7 +65,7 @@ working. The existing image is replaced only after a complete PNG has been writt
 Saving an image does not mark
 the Scene as changed or add an Undo step. This command saves a single image.
 For numbered sequence preview frames, use
-[Timeline → Export frames](animation-sequences.md#export-preview-frames).
+[Timeline → Export frames](animation-sequences.md).
 
 ## Save a camera bookmark
 

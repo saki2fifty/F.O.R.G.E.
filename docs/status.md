@@ -11,6 +11,18 @@ and 462 Gallery files/70 scenes were verified. Native images were reviewed;
 physical Windows testing remains deferred. See the [delivery evidence and
 performance limits](../changelog/20261018/README.md).
 
+# Sequence preview frames — local implementation
+
+Current development source adds numbered PNG frame export from the sequence
+Timeline, including bounded sample ranges, preview restoration, progress/Cancel
+and completed-frame receipts. Current Game size is the default; fixed-size
+720p/1080p/square presets and custom dimensions reuse the same Game renderer with
+an aspect-preserving preview. Fixed export dimensions survive editor resizing.
+Focused native software-Vulkan pixels, input/lifecycle and sanitizer checks pass
+locally. Full native Windows/editor visual acceptance for these additions remains
+pending; neither feature is in Build192 or on main. See [the image export
+contract](editor-ui.md#sequence-preview-frames) and [the guide](../manual/editor/animation-sequences.md#export-preview-frames).
+
 # Save rendered view images — 2026-10-17
 
 Current source adds Scene/Game PNG export through the existing display target,

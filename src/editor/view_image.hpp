@@ -5,6 +5,7 @@
 #include "../view_image.hpp"
 #include "editor_state.hpp"
 #include "file_dialog.hpp"
+#include "sequence_frame_output.hpp"
 #include "sequence_frame_plan.hpp"
 #include "sequence_frame_source.hpp"
 #include "ui_probe.hpp"
@@ -23,6 +24,7 @@ class ViewImageTask {
     struct FrameReceipt {
         SequenceFrameSourceInfo source;
         SequenceFramePlan plan;
+        SequenceFrameOutput output;
         std::filesystem::path folder;
         std::string source_digest, state, error, reason;
         unsigned completed = 0, width = 0, height = 0;
@@ -44,6 +46,12 @@ class ViewImageTask {
     enum class View { Scene, Game };
     bool busy() const { return dialog_.busy() || pending_ || copied_ || job_.valid() || frames_; }
     bool sequence_active() const { return bool(frames_); }
+    std::optional<SequenceFrameExtent> sequence_extent() const {
+        if (!frames_ || frames_->finishing || frames_->cancelled || !frames_->error.empty() ||
+            !frames_->token || !frames_->timeline->frame_export_current(frames_->token))
+            return {};
+        return frames_->output.extent();
+    }
     ~ViewImageTask() {
         // Main declares this task after Timeline. Shutdown waits only for the one
         // existing file task; presentation retains any GPU ticket until retirement.
@@ -76,18 +84,25 @@ class ViewImageTask {
     }
     bool begin_sequence(SequenceFrameSource& timeline, const SequenceFramePlan& plan,
                         const std::filesystem::path& folder, const std::filesystem::path& project,
-                        AssetId scene, std::string& message) {
+                        AssetId scene, std::string& message,
+                        const SequenceFrameOutput& output = {}) {
         if (busy())
             return false;
         frames_.emplace();
         frames_->timeline = &timeline;
         frames_->plan = plan;
+        frames_->output = output;
         try {
             project_ = project;
             scene_ = scene;
             view_ = View::Game;
             frames_->source = timeline.frame_export_info();
             plan.validate(frames_->source.duration);
+            output.validate();
+            if (const auto extent = output.extent()) {
+                frames_->width = extent->width;
+                frames_->height = extent->height;
+            }
             if (frames_->source.controller.scene != scene || !frames_->source.catalog ||
                 frames_->source.catalog->project_root() != project)
                 throw std::runtime_error(
@@ -326,8 +341,14 @@ class ViewImageTask {
                  Diligent::ITextureView* texture, std::string& message,
                  bool resources_ready = true) {
         if (frames_ && frames_->configuring && view == View::Game) {
-            if (resources_ready && frames_->timeline->frame_export_current(frames_->token)) {
+            if (resources_ready && frames_->output.valid() &&
+                frames_->timeline->frame_export_current(frames_->token)) {
                 const auto& desc = texture->GetTexture()->GetDesc();
+                if (const auto extent = frames_->output.extent();
+                    extent && (desc.Width != extent->width || desc.Height != extent->height)) {
+                    frames_->ready_frames = 0;
+                    return;
+                }
                 if (frames_->width != desc.Width || frames_->height != desc.Height)
                     frames_->ready_frames = 0;
                 frames_->width = desc.Width;
@@ -344,6 +365,12 @@ class ViewImageTask {
                 if (!frames_->timeline->frame_export_current(frames_->token)) {
                     stop_frames("Sequence changed before rendering its frame");
                     return;
+                }
+                if (const auto extent = frames_->output.extent()) {
+                    const auto& desc = texture->GetTexture()->GetDesc();
+                    if (desc.Width != extent->width || desc.Height != extent->height)
+                        throw std::runtime_error(
+                            "Game preview did not render the requested fixed output size");
                 }
                 frames_->ready_frames = resources_ready ? frames_->ready_frames + 1 : 0;
                 if (frames_->ready_frames < 3)
@@ -409,6 +436,43 @@ class ViewImageTask {
                 ImGui::TextUnformatted("Frame count");
                 changed |= ImGui::InputInt("##frame-count", &frames_->plan.frame_count);
                 FORGE_UI_PROBE("frame-export:count");
+                bool output_changed = ImGui::Checkbox("Fixed output size", &frames_->output.fixed);
+                FORGE_UI_PROBE("frame-export:fixed-size");
+                if (frames_->output.fixed) {
+                    const char* labels[] = {"720p (1280 × 720)", "1080p (1920 × 1080)",
+                                            "Square (1024 × 1024)"};
+                    const int widths[] = {1280, 1920, 1024}, heights[] = {720, 1080, 1024};
+                    const char* selected = "Custom";
+                    for (unsigned i = 0; i < 3; ++i)
+                        if (frames_->output.width == widths[i] &&
+                            frames_->output.height == heights[i])
+                            selected = labels[i];
+                    ImGui::TextUnformatted("Size preset");
+                    const bool presets = ImGui::BeginCombo("##frame-size-preset", selected);
+                    FORGE_UI_PROBE("frame-export:size-preset");
+                    if (presets) {
+                        for (unsigned i = 0; i < 3; ++i) {
+                            if (ImGui::Selectable(labels[i], selected == labels[i])) {
+                                frames_->output.width = widths[i];
+                                frames_->output.height = heights[i];
+                                output_changed = true;
+                            }
+                            FORGE_UI_PROBE("frame-export:size-preset:" + std::to_string(i));
+                        }
+                        ImGui::EndCombo();
+                    }
+                    ImGui::TextUnformatted("Width (pixels)");
+                    output_changed |= ImGui::InputInt("##frame-width", &frames_->output.width);
+                    FORGE_UI_PROBE("frame-export:width");
+                    ImGui::TextUnformatted("Height (pixels)");
+                    output_changed |= ImGui::InputInt("##frame-height", &frames_->output.height);
+                    FORGE_UI_PROBE("frame-export:height");
+                    ImGui::TextWrapped(
+                        "The Game preview fits this image without stretching. "
+                        "Keep Game open; resizing its panel keeps this output size.");
+                }
+                if (output_changed)
+                    frames_->ready_frames = 0;
                 ImGui::TextUnformatted("Parent folder");
                 if (ImGui::InputText("##frame-parent", frames_->parent, sizeof(frames_->parent)))
                     frames_->validation.clear();
@@ -428,6 +492,12 @@ class ViewImageTask {
                 std::string validation;
                 try {
                     frames_->plan.validate(frames_->source.duration);
+                    if (changed) {
+                        frames_->timeline->sample_frame_export(frames_->token,
+                                                               frames_->plan.sample(0));
+                        frames_->ready_frames = 0;
+                    }
+                    frames_->output.validate();
                     const auto name = std::filesystem::u8path(frames_->name);
                     if (name.empty() || name.has_parent_path() || name == "." || name == ".." ||
                         !frames_->parent[0])
@@ -435,11 +505,6 @@ class ViewImageTask {
                     folder =
                         std::filesystem::absolute(std::filesystem::u8path(frames_->parent) / name)
                             .lexically_normal();
-                    if (changed) {
-                        frames_->timeline->sample_frame_export(frames_->token,
-                                                               frames_->plan.sample(0));
-                        frames_->ready_frames = 0;
-                    }
                 } catch (const std::exception& e) {
                     validation = e.what();
                     valid = false;
@@ -457,7 +522,9 @@ class ViewImageTask {
                     ImGui::TextWrapped("Waiting for a ready Game preview with an enabled camera. "
                                        "Check Problems for rendering errors.");
                 ImGui::EndChild();
-                if (frames_->width)
+                if (!frames_->output.valid())
+                    ImGui::TextUnformatted("Output: choose valid dimensions");
+                else if (frames_->width)
                     ImGui::Text("Output: %u × %u | RGBA PNG", frames_->width, frames_->height);
                 else
                     ImGui::TextUnformatted("Output: waiting for Game preview");
@@ -599,6 +666,7 @@ class ViewImageTask {
                       {"completed_frames", receipt.completed},
                       {"width", receipt.width},
                       {"height", receipt.height},
+                      {"size_mode", receipt.output.fixed ? "fixed" : "current_view"},
                       {"pixels", "RGBA8 display-encoded sRGB PNG"},
                       {"error", receipt.error},
                       {"reason", receipt.reason},

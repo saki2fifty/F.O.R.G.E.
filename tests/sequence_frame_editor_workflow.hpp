@@ -14,10 +14,17 @@ class SequenceFrameEditorWorkflow {
         Reopen,
         Count,
         Fps,
+        Fixed,
+        Preset,
+        SelectPreset,
+        Width,
+        Height,
         Parent,
         Name,
+        FixedSettings,
         Start,
         Wait,
+        Restore,
         Done
     };
     Step step_ = Step::Prepare;
@@ -27,6 +34,9 @@ class SequenceFrameEditorWorkflow {
     std::string text_;
     Uint64 started_ = SDL_GetTicks(), phase_started_ = started_;
     bool opened_ = false, source_opened_ = false, picker_seeded_ = false;
+    bool fixed_ = false;
+    unsigned resize_ = 0;
+    Json resized_ = Json::array();
     Json authored_, records_ = Json::array();
     std::uint64_t revision_ = 0;
     std::array<float, 4> layout_{};
@@ -132,6 +142,10 @@ class SequenceFrameEditorWorkflow {
         }
         if (step_ != Step::Prepare)
             return;
+        int window_width = 0, window_height = 0;
+        SDL_GetWindowSize(window, &window_width, &window_height);
+        if (window_width != 1920 || window_height != 1080)
+            SDL_SetWindowSize(window, 1920, 1080);
         ui::style(1.f + .5f * group_);
         preparation_ready_ = sources_ready ? preparation_ready_ + 1 : 0;
         if (preparation_ready_ < 3)
@@ -154,11 +168,14 @@ class SequenceFrameEditorWorkflow {
     }
     template <class Capture>
     bool finish(EditorFixture& fixture, AnimationTimelineEditor& timeline, ui::ViewImageTask& task,
-                Scene& scene, bool playing, bool game_ready, Capture&& capture) {
+                Scene& scene, SDL_Window* window, Diligent::ITextureView* game_image, bool playing,
+                bool game_ready, Capture&& capture) {
         const auto fail = [&](const std::string& message) {
             Json state{{"step", int(step_)},
                        {"scale", ui::interface_scale},
                        {"task", task.status()},
+                       {"fixed", fixed_},
+                       {"resize_step", resize_},
                        {"message", message},
                        {"source_ready", timeline.frame_export_ready()},
                        {"game_ready", game_ready}};
@@ -221,6 +238,21 @@ class SequenceFrameEditorWorkflow {
                 advance(Step::Fps);
         } else if (step_ == Step::Fps) {
             if (edit("frame-export:fps", "1"))
+                advance(fixed_ ? Step::Fixed : Step::Parent);
+        } else if (step_ == Step::Fixed) {
+            if (click("frame-export:fixed-size"))
+                advance(Step::Preset);
+        } else if (step_ == Step::Preset) {
+            if (click("frame-export:size-preset"))
+                advance(Step::SelectPreset);
+        } else if (step_ == Step::SelectPreset) {
+            if (click("frame-export:size-preset:2"))
+                advance(Step::Width);
+        } else if (step_ == Step::Width) {
+            if (edit("frame-export:width", "320"))
+                advance(Step::Height);
+        } else if (step_ == Step::Height) {
+            if (edit("frame-export:height", "180"))
                 advance(Step::Parent);
         } else if (step_ == Step::Parent) {
             if (!picker_seeded_) {
@@ -231,15 +263,78 @@ class SequenceFrameEditorWorkflow {
             if (click("frame-export:browse"))
                 advance(Step::Name);
         } else if (step_ == Step::Name) {
-            if (edit("frame-export:name", "Frames" + suffix))
-                advance(Step::Start);
+            if (edit("frame-export:name", (fixed_ ? "FixedFrames" : "Frames") + suffix))
+                advance(fixed_ ? Step::FixedSettings : Step::Start);
+        } else if (step_ == Step::FixedSettings) {
+            const auto start = ui_targets.find("frame-export:start");
+            const auto* modal = ImGui::FindWindowByName("Export sequence frames");
+            const auto* focus = ImGui::GetCurrentContext()->NavWindow;
+            const auto requested = task.sequence_extent();
+            if (modal && focus && modal->RootWindow == focus->RootWindow && game_image &&
+                requested == ui::SequenceFrameExtent{320, 180} &&
+                game_image->GetTexture()->GetDesc().Width == 320 &&
+                game_image->GetTexture()->GetDesc().Height == 180 && game_ready &&
+                start != ui_targets.end() && visible(start->second)) {
+                if (++stable_ >= 3) {
+                    capture("sequence-frame-fixed-settings-" + suffix);
+                    resize_ = 0;
+                    resized_ = Json::array();
+                    advance(Step::Start);
+                }
+            } else
+                stable_ = 0;
         } else if (step_ == Step::Start) {
             if (click("frame-export:start"))
                 advance(Step::Wait);
+        } else if (step_ == Step::Wait && task.busy() && fixed_) {
+            if (const auto extent = task.sequence_extent()) {
+                if (*extent != ui::SequenceFrameExtent{320, 180} || !game_image ||
+                    game_image->GetTexture()->GetDesc().Width != 320 ||
+                    game_image->GetTexture()->GetDesc().Height != 180)
+                    fail("Native fixed-size target changed while exporting");
+                int width = 0, height = 0;
+                SDL_GetWindowSize(window, &width, &height);
+                const auto display = ImGui::GetIO().DisplaySize;
+                const bool drawn_at_window_size = display.x == width && display.y == height;
+                if (resize_ == 0 && task.status().starts_with("Rendering sequence frame")) {
+                    SDL_SetWindowSize(window, 1400, 900);
+                    resize_ = 1;
+                } else if (resize_ == 1 && width == 1400 && height == 900 && drawn_at_window_size) {
+                    if (resized_.empty()) {
+                        capture("sequence-frame-fixed-resize-a-" + suffix);
+                        resized_.push_back({{"window", {width, height}}, {"target", {320, 180}}});
+                    }
+                    if (task.status().starts_with("Saving sequence frame")) {
+                        SDL_SetWindowSize(window, 1680, 1000);
+                        resize_ = 2;
+                    }
+                } else if (resize_ == 2 && width == 1680 && height == 1000 &&
+                           drawn_at_window_size && resized_.size() == 1) {
+                    capture("sequence-frame-fixed-resize-b-" + suffix);
+                    resized_.push_back({{"window", {width, height}}, {"target", {320, 180}}});
+                }
+            }
         } else if (step_ == Step::Wait && !task.busy()) {
             if (!task.status().starts_with("Sequence frames saved:") || timeline.preview_active() ||
                 scene.revision() != revision_)
                 fail("Native sequence frame export failed or did not restore preview/history");
+            if (!fixed_) {
+                fixed_ = true;
+                advance(Step::Reopen);
+            } else {
+                if (resized_.size() != 2)
+                    fail("Native fixed export did not cover both real editor window resizes");
+                records_.back()["fixed_output"] = {320, 180};
+                records_.back()["resizes"] = resized_;
+                advance(Step::Restore);
+            }
+        } else if (step_ == Step::Restore) {
+            if (!game_image || task.sequence_extent() ||
+                (game_image->GetTexture()->GetDesc().Width == 320 &&
+                 game_image->GetTexture()->GetDesc().Height == 180))
+                return false;
+            records_.back()["ordinary_target_restored"] = true;
+            fixed_ = false;
             if (++group_ == 3) {
                 atomic_write(fixture.output / "sequence-frame-workflow.json",
                              Json{{"source_commit", source_commit},

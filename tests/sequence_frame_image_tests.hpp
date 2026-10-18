@@ -1,6 +1,7 @@
 #pragma once
 #include "view_image_editor_tests.hpp"
 #include <array>
+#include <limits>
 namespace forge::test_sequence_frame_image {
 using test_view_image_ui::check;
 using test_view_image_ui::read;
@@ -134,8 +135,8 @@ struct Host {
         until(task, [&] { return source.held; });
     }
     void start(Task& task, const std::filesystem::path& folder,
-               ui::SequenceFramePlan plan = {0, 1, 3}) {
-        check(task.begin_sequence(source, plan, folder, project, scene(), message),
+               ui::SequenceFramePlan plan = {0, 1, 3}, ui::SequenceFrameOutput output = {}) {
+        check(task.begin_sequence(source, plan, folder, project, scene(), message, output),
               "Sequence export did not start");
     }
     Json receipt(const std::filesystem::path& folder, const char* state, unsigned count) {
@@ -161,8 +162,45 @@ struct Host {
         check(equal, "Numbered PNG differs from its independent sample pixel oracle");
     }
 };
+inline void output_settings() {
+    const ui::SequenceFrameOutput current{false, std::numeric_limits<int>::min(), 0};
+    current.validate();
+    check(!current.extent(), "Current-view mode retained an inactive fixed-size draft");
+    const ui::SequenceFrameOutput maximum{true, 4096, 4096};
+    maximum.validate();
+    check(maximum.extent() == ui::SequenceFrameExtent{4096, 4096},
+          "Existing 64 MiB RGBA boundary changed");
+    for (const auto invalid : {ui::SequenceFrameOutput{true, 0, 720},
+                               {true, 1280, -1},
+                               {true, 4097, 1},
+                               {true, 1, 4097},
+                               {true, std::numeric_limits<int>::max(), 720},
+                               {true, 1280, std::numeric_limits<int>::min()}}) {
+        bool rejected = false;
+        try {
+            invalid.validate();
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+        check(rejected && !invalid.extent(), "Invalid fixed dimensions accepted");
+    }
+    const auto wide = ui::fit_sequence_frame({1920, 1080}, 800, 800);
+    check(wide.x == 0 && wide.y == 175 && wide.width == 800 && wide.height == 450,
+          "Wide output stretched or lost centered letterboxing");
+    const auto square = ui::fit_sequence_frame({1024, 1024}, 400, 200);
+    check(square.x == 100 && square.y == 0 && square.width == 200 && square.height == 200,
+          "Square output stretched to fill a wide preview");
+    const auto portrait = ui::fit_sequence_frame({320, 640}, 960, 640);
+    check(portrait.x == 320 && portrait.y == 0 && portrait.width == 320 && portrait.height == 640,
+          "Portrait output lost its aspect ratio");
+    check(ui::fit_sequence_frame({1920, 1080}, std::numeric_limits<float>::infinity(), 100).width ==
+                  0 &&
+              ui::fit_sequence_frame({}, 100, 100).height == 0,
+          "Invalid display geometry produced a drawable rectangle");
+}
 inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* graphics,
                      const std::filesystem::path& root) {
+    output_settings();
     Host host(presentation, graphics, root);
     Task task;
     const auto authored = host.source.document;
@@ -339,6 +377,53 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
         check(std::chrono::steady_clock::now() < retirement, "Shutdown ticket did not retire");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    const auto fixed = host.project / "fixed";
+    host.start(task, fixed, {0, 1, 3}, {true, 7, 3});
+    check(!task.sequence_extent(), "Fixed extent escaped before its source lease");
+    host.admitted(task);
+    check(task.sequence_extent() == ui::SequenceFrameExtent{7, 3},
+          "Active batch did not request its real rendering extent");
+    host.finish(task);
+    check(!task.sequence_extent() && host.receipt(fixed, "complete", 3).at("size_mode") == "fixed",
+          "Fixed output retained its override or lost receipt mode");
+    for (unsigned i = 0; i < 3; ++i)
+        host.exact(fixed / ui::SequenceFramePlan{0, 1, 3}.filename(i), i);
+    const auto fixed_cancel = host.project / "fixed-cancel-gpu";
+    host.start(task, fixed_cancel, {0, 1, 3}, {true, 7, 3});
+    host.admitted(task);
+    for (unsigned i = 0; i < 3; ++i)
+        task.capture(Task::View::Game, presentation, graphics, host.view(), host.message);
+    check(presentation.readback_pending(), "Fixed cancellation did not queue its native copy");
+    task.cancel_sequence(host.message);
+    check(!task.sequence_extent(), "Cancelled fixed batch retained its Game size override");
+    task.poll(presentation, graphics, host.project, host.scene(), host.message);
+    check(presentation.readback_pending(), "Fixed cancellation retired an unsubmitted copy");
+    host.finish(task);
+    host.receipt(fixed_cancel, "cancelled", 0);
+    check(!std::filesystem::exists(fixed_cancel / "frame-000000.png"),
+          "Cancelled fixed copy published pixels");
+    const auto fixed_stale = host.project / "fixed-stale-source";
+    host.start(task, fixed_stale, {0, 1, 3}, {true, 7, 3});
+    host.admitted(task);
+    host.source.valid = false;
+    check(!task.sequence_extent(), "Stale fixed source retained its Game size override");
+    host.finish(task);
+    host.receipt(fixed_stale, "cancelled", 0);
+    host.source.valid = true;
+    host.source.cursor = 1.25;
+    host.source.playing = true;
+    const auto wrong_extent = host.project / "wrong-fixed-target";
+    host.start(task, wrong_extent, {0, 1, 3}, {true, 8, 3});
+    host.finish(task);
+    host.receipt(wrong_extent, "failed", 0);
+    check(!std::filesystem::exists(wrong_extent / "frame-000000.png"),
+          "Fixed export published a different render extent");
+    const auto invalid_extent = host.project / "invalid-fixed-target";
+    const auto prior_begins = host.source.begins;
+    check(!task.begin_sequence(host.source, {0, 1, 3}, invalid_extent, host.project, host.scene(),
+                               host.message, {true, std::numeric_limits<int>::max(), 3}) &&
+              host.source.begins == prior_begins && !std::filesystem::exists(invalid_extent),
+          "Invalid fixed extent acquired a preview lease or wrote a folder");
     check(host.source.document == authored && host.source.info.catalog->document() == catalog &&
               read(host.project / "authored.scene.json") ==
                   std::vector<unsigned char>({'a', 'u', 't', 'h', 'o', 'r', 'e', 'd',
@@ -472,6 +557,33 @@ inline void exercise_ui(DiligentPresentation& presentation, Diligent::IDeviceCon
     host.receipt(host.project / "SequenceFrames", "complete", 3);
     for (unsigned i = 0; i < 3; ++i)
         host.exact(host.project / "SequenceFrames" / ui::SequenceFramePlan{0, 1, 3}.filename(i), i);
+    frame();
+    choose();
+    click("frame-export:fixed-size");
+    for (unsigned i = 0; i < 3; ++i) {
+        click("frame-export:size-preset");
+        click("frame-export:size-preset:" + std::to_string(i));
+        const ui::SequenceFrameExtent expected[] = {{1280, 720}, {1920, 1080}, {1024, 1024}};
+        check(task.sequence_extent() == expected[i], "Preset did not request its actual extent");
+    }
+    type("frame-export:width", "0");
+    frame();
+    check(!task.sequence_extent() && !test::ui_targets.at("frame-export:start").enabled,
+          "Invalid output draft enabled Start");
+    type("frame-export:width", "7");
+    type("frame-export:height", "3");
+    type("frame-export:count", "3");
+    type("frame-export:fps", "1");
+    FileDialog::fixture_selection =
+        FileDialog::Result{FileDialog::Kind::SequenceFramesParent, path_utf8(host.project), {}, {}};
+    click("frame-export:browse");
+    type("frame-export:name", "FixedFrames");
+    click("frame-export:start");
+    host.finish(task);
+    check(host.receipt(host.project / "FixedFrames", "complete", 3).at("size_mode") == "fixed",
+          "Real fixed-size input did not produce fixed-mode frames");
+    for (unsigned i = 0; i < 3; ++i)
+        host.exact(host.project / "FixedFrames" / ui::SequenceFramePlan{0, 1, 3}.filename(i), i);
     frame();
     choose();
     FileDialog::fixture_selection =
