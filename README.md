@@ -6,6 +6,22 @@
 
 Native ECS game editor under development. Windows/D3D12 is the first editor target; the portable core can be built and tested on Linux.
 
+## Editor screenshots
+
+Real Windows editor captures using small validation scenes. Click an image to open it at full size.
+
+[![Scene authoring with the Hierarchy, transform tools, Inspector and unified Content browser](docs/images/readme/scene-editor.png)](docs/images/readme/scene-editor.png)
+
+| [C++ components and systems](manual/editor/native-gameplay.md) | [Material graphs and shader preview](manual/editor/material-graphs.md) |
+| :---: | :---: |
+| [![Integrated C++ editor showing a rotation system and project code in Content](docs/images/readme/cpp-editor.png)](docs/images/readme/cpp-editor.png) | [![Material graph connecting a color parameter to surface output with a rendered sphere preview](docs/images/readme/material-graph.png)](docs/images/readme/material-graph.png) |
+| **[Animation states](manual/editor/animation-states.md)** | **[Mesh editing and sculpting](manual/editor/editable-meshes.md)** |
+| [![Animation state graph with connected Idle, Walk and Run states](docs/images/readme/animation-states.png)](docs/images/readme/animation-states.png) | [![Editable mesh workspace showing a wireframe sphere and sculpt brush symmetry controls](docs/images/readme/mesh-sculpting.png)](docs/images/readme/mesh-sculpting.png) |
+| **[Sequence camera cuts](manual/editor/animation-sequences.md)** | **[Live Inspector tuning](manual/editor/play-mode.md)** |
+| [![Animation sequence timeline with camera shot intervals and camera selection](docs/images/readme/camera-sequencing.png)](docs/images/readme/camera-sequencing.png) | [![A running game with C++ component properties adjustable in the Live Gameplay Inspector](docs/images/readme/live-inspector.png)](docs/images/readme/live-inspector.png) |
+
+[Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
+
 ## User manual
 
 Read the [FORGE User Manual](manual/README.md) for feature explanations and how-to guides. Windows packages include an offline edition under **Help → User Manual**. Technical implementation documents remain in `docs/`.
