@@ -422,7 +422,6 @@ int main(int argc, char** argv) {
         forge::ui::PhysicsOverlay physics_overlay;
         forge::ui::RuntimeDependenciesEditor runtime_dependencies;
         forge::ui::GameExportTask game_export;
-        forge::ui::ViewImageTask view_image;
         forge::ui::DocumentWorkspace documents;
         forge::ui::AssetEditors asset_editors;
         content.editors = &asset_editors;
@@ -969,6 +968,7 @@ int main(int argc, char** argv) {
         forge::MaterialEditor material_editor;
         forge::EditableMeshEditor editable_mesh_editor;
         forge::AnimationTimelineEditor animation_timeline;
+        forge::ui::ViewImageTask view_image; // Retires before its borrowed Timeline owner.
         forge::AnimationStatesEditor animation_states;
         forge::AnimationMaskEditor animation_mask;
         forge::ParticleEffectEditor particle_editor;
@@ -1890,6 +1890,20 @@ int main(int argc, char** argv) {
             files.document.save();
         }
 #endif
+        animation_timeline.on_frame_export(
+            [&] {
+                if (view_image.choose_sequence(animation_timeline, window.get(),
+                                               files.document.project(), scene.asset_id(),
+                                               message)) {
+                    workspace.game = true;
+                    focus_game = true;
+                }
+            },
+            [&] {
+                return !view_image.busy() && !play.active() && !sdk_build->busy() &&
+                       !files.busy() && content_imports.ready_for_play() && !content.refreshing() &&
+                       !modal.active() && !blockout.active() && !scene_tools.active();
+            });
         content.runtime_dependencies = [&](const forge::AssetCatalog& catalog,
                                            const forge::AssetRecord& asset) {
             runtime_dependencies.draw(
@@ -5643,9 +5657,18 @@ int main(int argc, char** argv) {
                                             unsigned(std::max(1.0f, size.y * render_scale)));
                         if (texture && (!game_view || !game_viewport->cameras().empty())) {
                             (game_view ? game_image_available : scene_image_available) = true;
-                            view_image.capture(game_view ? forge::ui::ViewImageTask::View::Game
-                                                         : forge::ui::ViewImageTask::View::Scene,
-                                               presentation, context, texture, message);
+                            view_image.capture(
+                                game_view ? forge::ui::ViewImageTask::View::Game
+                                          : forge::ui::ViewImageTask::View::Scene,
+                                presentation, context, texture, message,
+                                !game_view ||
+                                    (sequence_camera_preview && !game_viewport->pending() &&
+                                     std::none_of(game_viewport->diagnostics().begin(),
+                                                  game_viewport->diagnostics().end(),
+                                                  [](const auto& d) {
+                                                      return d.severity == forge::Severity::Error ||
+                                                             d.severity == forge::Severity::Fatal;
+                                                  })));
                         }
                         ImGui::GetWindowDrawList()->AddImage(
                             ImTextureRef{reinterpret_cast<ImTextureID>(texture)}, image_origin,

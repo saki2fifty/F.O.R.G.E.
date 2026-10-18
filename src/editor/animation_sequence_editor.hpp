@@ -5,6 +5,7 @@
 #include "document.hpp"
 #include "editor_state.hpp"
 #include "property_drawer.hpp"
+#include "sequence_frame_source.hpp"
 #include "widgets.hpp"
 #include <forge/animation.hpp>
 #include <forge/authoring.hpp>
@@ -15,6 +16,8 @@ namespace forge {
 // A borrowed Scene editing mode of the Timeline, not another document owner.
 class AnimationSequenceEditor {
   public:
+    std::function<void()> export_frames_requested;
+    std::function<bool()> export_frames_available;
     bool save_requested = false;
     bool close_cancelled = false;
     bool is_open() const { return bool(controller_.entity); }
@@ -114,12 +117,7 @@ class AnimationSequenceEditor {
     }
     void stop_preview() { preview_ = playing_ = frame_exporting_ = false; }
     bool preview_active() const { return preview_ && ready_ && context_; }
-    struct FrameExportInfo {
-        EntityRef controller;
-        double duration;
-        std::uint64_t revision;
-        std::shared_ptr<const AssetCatalog> catalog;
-    };
+    using FrameExportInfo = ui::SequenceFrameSourceInfo;
     bool frame_export_ready() const { return !frame_exporting_ && frame_source_current(); }
     FrameExportInfo frame_export_info() const {
         if (!frame_export_ready())
@@ -127,7 +125,12 @@ class AnimationSequenceEditor {
                                      "before exporting frames");
         return {controller_,
                 scene_->entity(controller_.entity.str()).get<AnimationSequence>().duration,
-                revision_, catalog_};
+                revision_, frame_export_serial_, catalog_};
+    }
+    Json frame_export_document() const {
+        if (!frame_source_current())
+            throw std::runtime_error("Sequence source changed before frame export");
+        return scene_->document();
     }
     std::uint64_t begin_frame_export() {
         (void)frame_export_info();
@@ -304,6 +307,14 @@ class AnimationSequenceEditor {
             playing_ = !playing_;
         }
         FORGE_UI_PROBE("sequence:play");
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!frame_export_ready() || !export_frames_requested ||
+                             (export_frames_available && !export_frames_available()));
+        if (ui::button("Export frames…", "Export the ready sequence preview as numbered PNGs. "
+                                         "Wait for image and source-import work to finish."))
+            export_frames_requested();
+        FORGE_UI_PROBE("sequence:export-frames");
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
         const double zero = 0;
         ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x);
@@ -1004,6 +1015,9 @@ class AnimationSequenceEditor {
         error_.clear();
         targets_.clear();
         try {
+            if (frame_export_serial_ == std::numeric_limits<std::uint64_t>::max())
+                throw std::runtime_error("Sequence preview generation exhausted");
+            ++frame_export_serial_;
             const auto config = scene_->entity(controller_.entity.str()).get<AnimationSequence>();
             time_ = std::clamp(time_, 0., config.duration);
             catalog_ = std::make_shared<const AssetCatalog>(

@@ -9,7 +9,15 @@
 namespace forge {
 class FileDialog {
   public:
-    enum class Kind { OpenScene, SaveScene, OpenProject, ProjectParent, ImportFiles, SaveImage };
+    enum class Kind {
+        OpenScene,
+        SaveScene,
+        OpenProject,
+        ProjectParent,
+        ImportFiles,
+        SaveImage,
+        SequenceFramesParent
+    };
     struct Result {
         Kind kind;
         std::string path, error;

@@ -15,23 +15,30 @@
 #include <set>
 #include <vector>
 namespace forge {
-class AnimationTimelineEditor {
+class AnimationTimelineEditor : public ui::SequenceFrameSource {
   public:
     bool close_cancelled = false;
     bool is_open() const { return bool(document_) || sequence_.is_open(); }
     bool sequence_mode() const { return sequence_.is_open(); }
-    bool frame_export_ready() const { return sequence_mode() && sequence_.frame_export_ready(); }
-    AnimationSequenceEditor::FrameExportInfo frame_export_info() const {
+    void on_frame_export(std::function<void()> request, std::function<bool()> available) {
+        sequence_.export_frames_requested = std::move(request);
+        sequence_.export_frames_available = std::move(available);
+    }
+    bool frame_export_ready() const override {
+        return sequence_mode() && sequence_.frame_export_ready();
+    }
+    AnimationSequenceEditor::FrameExportInfo frame_export_info() const override {
         return sequence_.frame_export_info();
     }
-    std::uint64_t begin_frame_export() { return sequence_.begin_frame_export(); }
-    bool frame_export_current(std::uint64_t token) const {
+    Json frame_export_document() const override { return sequence_.frame_export_document(); }
+    std::uint64_t begin_frame_export() override { return sequence_.begin_frame_export(); }
+    bool frame_export_current(std::uint64_t token) const override {
         return sequence_mode() && sequence_.frame_export_current(token);
     }
-    void sample_frame_export(std::uint64_t token, double seconds) {
+    void sample_frame_export(std::uint64_t token, double seconds) override {
         sequence_.sample_frame_export(token, seconds);
     }
-    void end_frame_export(std::uint64_t token) { sequence_.end_frame_export(token); }
+    void end_frame_export(std::uint64_t token) override { sequence_.end_frame_export(token); }
     bool take_scene_save_request() { return std::exchange(sequence_.save_requested, false); }
     bool pending() const { return job_ != 0; }
     bool dirty() const {
