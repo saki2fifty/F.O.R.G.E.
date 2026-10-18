@@ -42,6 +42,7 @@ class EditorActions {
         const auto* action = find(id);
         if (!action || !action->available)
             return false;
+        FORGE_UI_ACTION_PROBE(id);
         action->execute();
         return true;
     }
