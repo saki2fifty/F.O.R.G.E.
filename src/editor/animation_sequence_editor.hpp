@@ -10,6 +10,7 @@
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
+#include <limits>
 namespace forge {
 // A borrowed Scene editing mode of the Timeline, not another document owner.
 class AnimationSequenceEditor {
@@ -19,8 +20,12 @@ class AnimationSequenceEditor {
     bool is_open() const { return bool(controller_.entity); }
     bool dirty() const { return pending_ || (project_ && project_->dirty()); }
     bool pending_fields() const { return pending_; }
-    bool can_undo() const { return scene_ && !locked_ && (pending_ || scene_->can_undo()); }
-    bool can_redo() const { return scene_ && !locked_ && !pending_ && scene_->can_redo(); }
+    bool can_undo() const {
+        return scene_ && !locked_ && !frame_exporting_ && (pending_ || scene_->can_undo());
+    }
+    bool can_redo() const {
+        return scene_ && !locked_ && !frame_exporting_ && !pending_ && scene_->can_redo();
+    }
     EntityRef controller() const { return controller_; }
     void open(SceneDocument& project, Scene& scene, EntityRef controller) {
         close();
@@ -107,8 +112,79 @@ class AnimationSequenceEditor {
             stop_preview();
         }
     }
-    void stop_preview() { preview_ = playing_ = false; }
+    void stop_preview() { preview_ = playing_ = frame_exporting_ = false; }
     bool preview_active() const { return preview_ && ready_ && context_; }
+    struct FrameExportInfo {
+        EntityRef controller;
+        double duration;
+        std::uint64_t revision;
+        std::shared_ptr<const AssetCatalog> catalog;
+    };
+    bool frame_export_ready() const { return !frame_exporting_ && frame_source_current(); }
+    FrameExportInfo frame_export_info() const {
+        if (!frame_export_ready())
+            throw std::runtime_error("Finish sequence fields and refresh ready published clips "
+                                     "before exporting frames");
+        return {controller_,
+                scene_->entity(controller_.entity.str()).get<AnimationSequence>().duration,
+                revision_, catalog_};
+    }
+    std::uint64_t begin_frame_export() {
+        (void)frame_export_info();
+        if (frame_export_serial_ == std::numeric_limits<std::uint64_t>::max())
+            throw std::runtime_error("Sequence preview export generation exhausted");
+        saved_preview_time_ = time_;
+        saved_preview_ = preview_;
+        saved_playing_ = playing_;
+        frame_exporting_ = preview_ = true;
+        playing_ = false;
+        return ++frame_export_serial_;
+    }
+    bool frame_export_current(std::uint64_t token) const {
+        return frame_exporting_ && token == frame_export_serial_ && frame_source_current();
+    }
+    void sample_frame_export(std::uint64_t token, double seconds) {
+        if (!frame_export_current(token))
+            throw std::runtime_error("Sequence preview changed during frame export");
+        const auto duration =
+            scene_->entity(controller_.entity.str()).get<AnimationSequence>().duration;
+        // The runtime intentionally maps an exact loop endpoint to zero. Frame
+        // ranges are end-exclusive, so explicit sample times never wrap silently.
+        if (!std::isfinite(seconds) || seconds < 0 || seconds >= duration)
+            throw std::runtime_error("Frame sample must be inside the sequence duration");
+        AnimationPlaybackAccess::control(*context_->animation, controller_,
+                                         {{"operation", "seek"}, {"position_seconds", seconds}});
+        time_ = seconds;
+        preview_ = true;
+        playing_ = false;
+    }
+    void end_frame_export(std::uint64_t token) {
+        if (!frame_exporting_ || token != frame_export_serial_)
+            return;
+        const bool current = frame_export_current(token);
+        frame_exporting_ = false;
+        if (!current) {
+            stop_preview();
+            return;
+        }
+        try {
+            AnimationPlaybackAccess::control(
+                *context_->animation, controller_,
+                {{"operation", "seek"}, {"position_seconds", saved_preview_time_}});
+            time_ = saved_preview_time_;
+            preview_ = saved_preview_;
+            playing_ = saved_playing_;
+        } catch (...) {
+            stop_preview();
+            throw;
+        }
+    }
+    void asset_catalog_changed(const std::shared_ptr<const AssetCatalog>& catalog) {
+        if (context_ && catalog_ && catalog && catalog_->document() != catalog->document()) {
+            stale_ = true;
+            stop_preview();
+        }
+    }
     void poll(bool locked, double seconds) {
         locked_ = locked;
         if (!is_open())
@@ -195,7 +271,7 @@ class AnimationSequenceEditor {
         const auto config = entity.get<AnimationSequence>();
         view_.reconcile(config.duration * animation_timebase);
         ImGui::TextUnformatted("Scene sequence — arrangement edits use Scene Save and Undo");
-        ImGui::BeginDisabled(locked);
+        ImGui::BeginDisabled(locked || frame_exporting_);
         if (ui::button("Save scene", "Save this arrangement with its Scene."))
             request_save();
         if (ui::button("Select controller", "Edit duration, loop and speed in Inspector.") &&
@@ -208,7 +284,8 @@ class AnimationSequenceEditor {
             refresh();
         FORGE_UI_PROBE("sequence:refresh");
         if (stale_)
-            ImGui::TextWrapped("Scene changed. Refresh clips before previewing again.");
+            ImGui::TextWrapped(
+                "Scene or published assets changed. Refresh clips before previewing again.");
         else if (context_ && !ready_)
             ImGui::TextWrapped("Preparing published clips...");
         ImGui::BeginDisabled(!ready_ || stale_ || !config.enabled);
@@ -471,10 +548,20 @@ class AnimationSequenceEditor {
     Json shot_camera_ = nullptr, cue_source_ = nullptr;
     double shot_start_ = 0, shot_end_ = 1, cue_time_ = 0;
     AnimationTimelineView view_;
-    std::uint64_t revision_ = 0, pending_revision_ = 0;
+    std::uint64_t revision_ = 0, pending_revision_ = 0, frame_export_serial_ = 0;
+    double saved_preview_time_ = 0;
+    bool frame_exporting_ = false, saved_preview_ = false, saved_playing_ = false;
     double time_ = 0, offset_ = 0;
     bool ready_ = false, stale_ = false, preview_ = false, playing_ = false, pending_ = false,
          closing_ = false, locked_ = false;
+    bool frame_source_current() const {
+        if (!is_open() || !scene_ || !project_ || !context_ || !ready_ || stale_ || pending_ ||
+            locked_ || scene_->asset_id() != controller_.scene || scene_->revision() != revision_ ||
+            project_->project() != project_path_ || project_->generation() != project_generation_)
+            return false;
+        const auto actor = scene_->entity(controller_.entity.str());
+        return actor && actor.has<AnimationSequence>() && actor.get<AnimationSequence>().enabled;
+    }
     Json property(const std::string& id, const char* field, const Json& value,
                   const char* component = "forge.transform_animator") const {
         return {{"operation", "property.set"},

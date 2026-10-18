@@ -20,6 +20,18 @@ class AnimationTimelineEditor {
     bool close_cancelled = false;
     bool is_open() const { return bool(document_) || sequence_.is_open(); }
     bool sequence_mode() const { return sequence_.is_open(); }
+    bool frame_export_ready() const { return sequence_mode() && sequence_.frame_export_ready(); }
+    AnimationSequenceEditor::FrameExportInfo frame_export_info() const {
+        return sequence_.frame_export_info();
+    }
+    std::uint64_t begin_frame_export() { return sequence_.begin_frame_export(); }
+    bool frame_export_current(std::uint64_t token) const {
+        return sequence_mode() && sequence_.frame_export_current(token);
+    }
+    void sample_frame_export(std::uint64_t token, double seconds) {
+        sequence_.sample_frame_export(token, seconds);
+    }
+    void end_frame_export(std::uint64_t token) { sequence_.end_frame_export(token); }
     bool take_scene_save_request() { return std::exchange(sequence_.save_requested, false); }
     bool pending() const { return job_ != 0; }
     bool dirty() const {
@@ -45,6 +57,7 @@ class AnimationTimelineEditor {
     void asset_catalog_changed(std::shared_ptr<const AssetCatalog> catalog) {
         if (!catalog || catalog == material_catalog_)
             return;
+        sequence_.asset_catalog_changed(catalog);
         material_catalog_ = std::move(catalog);
         if (material_state_)
             material_state_->preview.refresh();

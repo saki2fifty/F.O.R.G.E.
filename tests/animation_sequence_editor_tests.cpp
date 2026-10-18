@@ -1,4 +1,5 @@
 #include "animation_timeline.hpp"
+#include "sequence_frame_plan.hpp"
 #include <forge/render_scene.hpp>
 #include <imgui_internal.h>
 #include <iostream>
@@ -13,6 +14,7 @@ void near(double a, double b) {
     check(std::abs(a - b) < 1e-5,
           "Sequence UI numeric oracle differs: " + std::to_string(a) + " vs " + std::to_string(b));
 }
+#include "sequence_frame_export_tests.hpp"
 void exercise(const std::filesystem::path& gallery, const std::filesystem::path& scratch,
               float scale, ImVec2 display) {
     const auto began = std::chrono::steady_clock::now();
@@ -221,10 +223,17 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
         }
     check(found && scene.document() == authored && scene.revision() == revision,
           "Preview changed authored Scene/history");
+    const auto held = editor.begin_frame_export();
+    editor.sample_frame_export(held, 2);
+    frame();
+    editor.end_frame_export(held);
+    check(editor.preview_active() && editor.preview(scene.effective_document()) == preview,
+          "Frame export failed to restore the prior scrubbed preview");
     editor.stop_preview();
     check(editor.preview(scene.effective_document()) == scene.effective_document(),
           "Stopping preview did not restore authored view");
     type("sequence:start", "99");
+    check(!editor.frame_export_ready(), "Pending fields admitted a frame export");
     check(!test::ui_targets.at("sequence:add").enabled &&
               !test::ui_targets.at("sequence:remove").enabled &&
               !test::ui_targets.at("asset-picker:transform_animation:Clip").enabled,
@@ -526,6 +535,8 @@ void exercise(const std::filesystem::path& gallery, const std::filesystem::path&
 int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need Gallery and sequence UI scratch root");
+        frame_plans();
+        frame_source(argv[1], argv[2]);
         for (float scale : {1.f, 1.5f, 2.f})
             for (auto display : {ImVec2{1400, 1500}, ImVec2{960, 640}})
                 exercise(argv[1], argv[2], scale, display);
