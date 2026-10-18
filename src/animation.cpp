@@ -1,5 +1,6 @@
 #include "animation_asset.hpp"
 #include "animation_blend_space_resource.hpp"
+#include "animation_event_range.hpp"
 #include "animation_mask_resource.hpp"
 #include "animation_morph_blend.hpp"
 #include "animation_playback_access.hpp"
@@ -156,9 +157,7 @@ void append_markers(const Playback& p, std::uint64_t tick, std::vector<Animation
                 emit(marker, time);
             continue;
         }
-        const double first = std::floor((begin - time) / duration) + 1;
-        const double last = std::floor((end - time) / duration);
-        const double count = std::max(0., last - first + 1);
+        const auto [first, count] = animation_periodic_range(begin, end, time, duration);
         if (count > 4096 - events.size())
             throw ArchiveError("Animation marker delivery exceeds 4096 occurrences per fixed tick");
         for (std::size_t i = 0; i < static_cast<std::size_t>(count); ++i)
@@ -1949,7 +1948,7 @@ void AnimationRuntime::tick(float dt, std::uint64_t tick) {
         p.tick_advance = p.advance;
     }
     impl_->apply_model_poses(true, {}, 0, {}, tick);
-    impl_->transforms.tick(dt);
+    impl_->transforms.tick(dt, impl_->deliver_events);
     if (impl_->deliver_events) {
         try {
             for (auto& [id, p] : impl_->states) {
@@ -2485,6 +2484,14 @@ Json AnimationRuntime::checkpoint() const {
             result["version"] = 4;
             result["camera_shots"] = std::move(shots);
         }
+        auto cues = impl_->transforms.audio_cues_checkpoint();
+        if (!cues.empty()) {
+            result["version"] = 5;
+            result["audio_cues"] = std::move(cues);
+            if (!result.contains("camera_shots"))
+                result["camera_shots"] = Json::array();
+            result["sequence_entries"] = impl_->transforms.sequence_checkpoint(true);
+        }
     }
     return result;
 }
@@ -2534,14 +2541,18 @@ void AnimationRuntime::restore(const Json& data) {
             throw ArchiveError("Animation recovery admission timed out");
     }
     if ((data.at("version") != 1 && data.at("version") != 2 && data.at("version") != 3 &&
-         data.at("version") != 4) ||
+         data.at("version") != 4 && data.at("version") != 5) ||
         !data.at("entries").is_array() || data.at("entries").size() != impl_->states.size() ||
         !impl_->errors.empty())
         throw ArchiveError("Animation recovery configuration differs");
-    if ((data.at("version") != 4 && data.contains("camera_shots")) ||
-        (data.at("version") == 4 ? data.at("camera_shots") : Json::array()) !=
+    if ((data.at("version") < 4 && data.contains("camera_shots")) ||
+        (data.at("version") >= 4 ? data.at("camera_shots") : Json::array()) !=
             impl_->transforms.camera_shots_checkpoint())
         throw ArchiveError("Camera Shot recovery configuration differs");
+    if ((data.at("version") != 5 && data.contains("audio_cues")) ||
+        (data.at("version") == 5 ? data.at("audio_cues") : Json::array()) !=
+            impl_->transforms.audio_cues_checkpoint())
+        throw ArchiveError("Audio Cue recovery configuration differs");
     std::set<flecs::entity_t> seen;
     struct RestoreValue {
         Playback* playback;
@@ -2794,8 +2805,8 @@ void AnimationRuntime::restore(const Json& data) {
     swap_players();
     swap_sources();
     impl_->transforms.restore(data.value("transform_entries", Json::array()),
-                              data.at("version") >= 3 ? data.at("sequence_entries")
-                                                      : Json::array());
+                              data.at("version") >= 3 ? data.at("sequence_entries") : Json::array(),
+                              data.at("version") == 5);
     for (auto& value : values) {
         auto& p = *value.playback;
         const auto time = value.time;

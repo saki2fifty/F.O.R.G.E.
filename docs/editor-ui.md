@@ -18,6 +18,33 @@ Scene always renders the authored world, including existing transient transform 
 
 Game input capture releases on Escape, focus loss, hidden Game, or an outside mouse press. The outside press continues into the editor. F6/F7 remain reserved runtime clock controls. Editor zoom remains available independently. A hidden Game tab must not cancel Scene gestures.
 
+## Rendered view image export
+
+Scene **View → Save image…** and Game **Save image…** share one transient
+ViewImageTask and the existing native FileDialog. A completed selection requests
+the first usable render of that view. Project/Scene changes before capture cancel
+it; already captured pixels can finish independently. Hidden/unavailable views,
+missing Game cameras, unsupported targets and IO failures report through existing
+timestamped status/Problems owners. One request is admitted at a time. A filename
+without a suffix gains `.png`; an existing appended filename requires explicit
+confirmation because the native chooser may have confirmed a different name.
+
+DiligentPresentation owns one source/staging/context lease through its existing
+frame completion fence. Capture accepts the current single-mip, single-sample
+RGBA8 display target, at most 4096 pixels per axis. It does not submit, flush or wait
+for the device. After completion, presentation-thread DO_NOT_WAIT mapping copies
+padded rows into at most 64 MiB of detached pixels. Normal view resizing cannot
+replace the captured revision. The existing Scene GPU grid and Game runtime UI
+are included; ImGui handles, debug overlays and editor chrome are separate.
+
+One editor async task encodes detached pixels and publishes a binary file through
+existing atomic file storage. The selected libpng C boundary contains longjmp,
+caps output at 68 MiB, writes sRGB intent and preserves display-encoded RGBA bytes.
+Compression and disk writes do not run in the frame loop. Failure preserves the
+previous file before publication; no asset registration, Scene history, persisted component, SDK API,
+runtime editor or separate capture clock is introduced. This is a current-size
+single image, with no frame range, custom resolution, movie or offline stepping.
+
 ## Draft/history boundaries
 
 Ctrl+S routes to the active Scene, Prefab source or Project Settings task. Scene Undo/Redo is unavailable while a separate draft task owns focus. File/project switch and application close resolve independent dirty drafts before invoking the existing dirty-scene guard. A failed candidate or save keeps its draft open. Publishing prefab source retains the existing reconciliation/history policy. No Apply to Prefab, cross-document transaction, new prefab format or automatic migration is introduced.

@@ -16,7 +16,7 @@ class TransformAnimationPlayback {
     bool has_players() const;
     void synchronize();
     bool initial_pose();
-    void tick(double seconds);
+    void tick(double seconds, bool deliver_events);
     void reset_presentation();
     Json presentation_properties(flecs::entity_t, double alpha) const;
     bool ready() const;
@@ -28,10 +28,11 @@ class TransformAnimationPlayback {
     std::optional<AnimationPlayback> playback(EntityRef) const;
     bool control(EntityRef, AnimationControl);
     bool seek(EntityRef, double seconds);
-    Json sequence_checkpoint() const;
+    Json sequence_checkpoint(bool audio_entries = false) const;
     Json camera_shots_checkpoint() const;
+    Json audio_cues_checkpoint() const;
     Json camera_presentation(flecs::entity_t, double alpha) const;
-    void restore(const Json&, const Json& sequences);
+    void restore(const Json&, const Json& sequences, bool audio_entries = false);
     void pose_validator(AnimationRuntime::PoseValidator callback) {
         validator_ = std::move(callback);
     }
@@ -60,12 +61,19 @@ class TransformAnimationPlayback {
         AnimationSequence config;
         EntityRef entity;
         double time = 0, previous = 0, advance = 0;
-        bool playing = false, discontinuous = true;
+        bool playing = false, discontinuous = true, entry_pending = true;
     };
     struct Shot {
         CameraShot config;
         EntityRef entity;
         flecs::entity_t sequence = 0, camera = 0;
+    };
+    struct Cue {
+        AudioCue config;
+        EntityRef entity;
+        flecs::entity_t sequence = 0;
+        bool ready = false, binding_error = false;
+        std::string error;
     };
     WorldContext& context_;
     std::filesystem::path project_;
@@ -73,10 +81,13 @@ class TransformAnimationPlayback {
     flecs::query<const TransformAnimator> players_;
     flecs::query<const AnimationSequence> sequences_;
     flecs::query<const CameraShot> camera_shots_;
+    flecs::query<const AudioCue> audio_cues_;
     std::map<flecs::entity_t, SequenceState> sequence_states_;
     std::set<flecs::entity_t> sequence_errors_;
     std::map<flecs::entity_t, std::vector<Shot>> shot_scenes_;
     std::set<flecs::entity_t> shot_errors_;
+    std::map<flecs::entity_t, Cue> cue_states_;
+    bool cue_over_capacity_ = false;
     std::shared_ptr<const AssetCatalog> catalog_;
     std::map<flecs::entity_t, State> states_;
     std::set<std::uint64_t> discontinuities_;
@@ -90,6 +101,10 @@ class TransformAnimationPlayback {
     void error(flecs::entity_t, const std::string&);
     void synchronize_sequences();
     void synchronize_camera_shots();
+    void synchronize_audio_cues();
+    void dispatch_audio_cues();
+    bool audio_cues_checkpoint_ready() const;
+    void cue_error(Cue&, const std::string&, bool binding);
     void synchronize_materials();
     double sequence_time(const State&, double) const;
     std::map<flecs::entity_t, double> times_at(flecs::entity_t controller, double time) const;

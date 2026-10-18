@@ -31,7 +31,8 @@ TransformAnimationPlayback::TransformAnimationPlayback(WorldContext& context,
     : context_(context), project_(std::move(project)), pool_({1, 64, 64, 16 * 1024 * 1024}),
       players_(context.world().query<const TransformAnimator>()),
       sequences_(context.world().query<const AnimationSequence>()),
-      camera_shots_(context.world().query<const CameraShot>()) {}
+      camera_shots_(context.world().query<const CameraShot>()),
+      audio_cues_(context.world().query<const AudioCue>()) {}
 void TransformAnimationPlayback::catalog(std::shared_ptr<const AssetCatalog> catalog) {
     catalog_ = std::move(catalog);
 }
@@ -203,6 +204,7 @@ void TransformAnimationPlayback::synchronize() {
     std::erase_if(load_errors_, [&](auto id) { return !alive.contains(id); });
     synchronize_materials();
     synchronize_camera_shots();
+    synchronize_audio_cues();
 }
 void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& times,
                                        bool commit) {
@@ -307,8 +309,9 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
 }
 bool TransformAnimationPlayback::ready() const { return !pending_ && errors_.empty(); }
 bool TransformAnimationPlayback::checkpoint_ready() const {
-    return ready() && std::none_of(states_.begin(), states_.end(),
-                                   [](const auto& entry) { return entry.second.discontinuous; });
+    return ready() && audio_cues_checkpoint_ready() &&
+           std::none_of(states_.begin(), states_.end(),
+                        [](const auto& entry) { return entry.second.discontinuous; });
 }
 bool TransformAnimationPlayback::initial_pose() {
     // AnimationRuntime synchronizes assets before this provider is evaluated.
@@ -323,7 +326,7 @@ bool TransformAnimationPlayback::initial_pose() {
     apply(times, true);
     return true;
 }
-void TransformAnimationPlayback::tick(double seconds) {
+void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
     // Reuse the owner's synchronization; do not query/admit every player twice.
     discontinuities_.clear();
     for (auto& [id, sequence] : sequence_states_) {
@@ -413,6 +416,11 @@ void TransformAnimationPlayback::tick(double seconds) {
         return;
     try {
         apply(times, true);
+        if (deliver_events)
+            dispatch_audio_cues();
+        for (auto& [id, sequence] : sequence_states_)
+            if (sequence.advance > 0)
+                sequence.entry_pending = false;
     } catch (const AnimationMaterialPending&) {
         pending_ = true;
     } catch (const std::exception& e) {
@@ -492,7 +500,8 @@ Json TransformAnimationPlayback::checkpoint() const {
     return result;
 }
 void TransformAnimationPlayback::restore(const Json& values) { restore(values, Json::array()); }
-void TransformAnimationPlayback::restore(const Json& values, const Json& sequences) {
+void TransformAnimationPlayback::restore(const Json& values, const Json& sequences,
+                                         bool audio_entries) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
     do {
         if (context_.services().available(Capability::Resources))
@@ -527,6 +536,11 @@ void TransformAnimationPlayback::restore(const Json& values, const Json& sequenc
         state.time = state.previous = time;
         state.advance = 0;
         state.playing = value.at("playing");
+        if (audio_entries
+                ? (!value.contains("entry_pending") || !value.at("entry_pending").is_boolean())
+                : value.contains("entry_pending"))
+            throw std::runtime_error("Sequence recovery cue-entry state/version mismatch");
+        state.entry_pending = audio_entries ? value.at("entry_pending").get<bool>() : false;
         state.discontinuous = true;
     }
     std::map<flecs::entity_t, double> times;

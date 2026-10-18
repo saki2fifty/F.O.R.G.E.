@@ -3920,6 +3920,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "621cbf74-7267-4772-bd93-40c4896fab53",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/70-sequence-audio-cues.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "62dc825c-4b9d-4041-96f0-b2a9b2a6d3de",
       "metadata": {
         "forge.ui_source": {

@@ -530,6 +530,7 @@ void camera_shots(const std::filesystem::path& root) {
     std::cout << "Camera shots: shared clock/interpolation, cuts/gaps/end/loop, immutable cameras, "
                  "typed duplicate-name references and exact recovery passed\n";
 }
+#include "audio_cue_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -541,6 +542,7 @@ int main(int argc, char** argv) {
                                    {"windows", "d3d12", "desktop"});
         camera_shot_identity(root);
         camera_shots(root);
+        audio_cue_tests(root);
         const auto motion = clip(lease, imports, "Assets/Motion.animation.json", false);
         const auto pulse = clip(lease, imports, "Assets/Pulse.animation.json", true);
         const auto held = clip(lease, imports, "Assets/Held.animation.json", false, true);

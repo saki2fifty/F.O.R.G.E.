@@ -56,6 +56,55 @@ remain supported and persistent.
 Export closes over the existing saved Scene, selected clip cooks and typed audio
 references; it does not ship an editor or require a compiler for sequencing.
 
+## Sequence audio cues
+
+`AudioCue{sequence,source,time_seconds,enabled}` is a native Scene/Prefab point
+event. The registered fields `forge.audio_cue.sequence` and `.source` are typed
+EntityRefs: existing duplication and ADR022 Prefab member links remap them, without
+interpreting opaque JSON. Enabled bound cues require an AnimationSequence and an
+AudioSource with a clip in the same loaded Scene membership. Missing IDs stay
+stored and diagnosable; a null controller detaches the cue while retaining source
+and time. Time must be finite, 0–3600 seconds, and within the controller duration.
+Disabled/invalid controllers emit no cues. Invalid cue bindings are isolated from
+other cues and animation players. A world without Audio capability still advances
+its sequence silently.
+
+After a complete fixed candidate commits, forward crossings in `(previous,new]`
+request the existing `AudioService::play_one_shot`. A newly started/restarted
+sequence also delivers its zero-time entry once on its first advancing tick.
+Pause and speed 0 retain that intent. Loop boundaries deliver zero-time cues once
+per wrap; an independently authored duration-time cue can coincide with them.
+Order is crossing offset within the fixed tick, then durable cue EntityRef.
+Several events crossed in one tick are submitted together at that tick boundary;
+this is not sample-accurate scheduling. Seek, initial pose, copied previews,
+presentation reset and recovery itself emit no new request. Restart rearms entry;
+seek does not. Already requested effects follow the source's ordinary controls
+and lifetime; animation seek/Stop preview do not rewind or stop them.
+
+The provider admits at most 256 AudioCue components, including disabled/unbound
+components, and precomputes at most 128 requests per fixed tick in a fixed array.
+An overfull batch submits no requests and emits bounded feedback. Source/command
+admission can reject individual requests under AudioRuntime's existing budgets;
+this does not roll back an applied pose. Unchanged cue errors are deduplicated.
+AudioRuntime alone owns decoding, asynchronous source admission, source generation,
+gain/pitch/bus routing and the final one-shot/voice budgets.
+
+The existing sequence Timeline adds/selects cue points and stages source/time in
+one revision-checked Scene transaction. Its filtered source picker uses IDs;
+diamonds show point positions. Existing pending-field, Save/Undo, close and Play
+locks apply. Removing a cue clears only its sequence link. Stopped sequence
+preview remains silent; use Game Play or the existing Audio document's audition.
+
+Private checkpoint 5 stores exact cue configuration, including disabled/detached
+cues, and per-controller `entry_pending`. Earlier checkpoint versions reject any
+current cue configuration. Malformed or mismatching payloads reject before clock
+adoption. Invalid native cue values prevent a recoverable checkpoint; partial
+native references and overfull cue collections also reject recovery before clock
+adoption. Noncue configurations retain their prior checkpoint 3/4 layout. Source/Prefab/clip formats,
+dependency pins and ABI1 function tables stay unchanged. The installed component
+header changes the exact SDK fingerprint, requiring native module rebuilds.
+Gallery70 combines editable sound points, two camera shots and object animation.
+
 ## Sequence camera shots
 
 `CameraShot` is a Scene-owned native component with `sequence` and `camera`

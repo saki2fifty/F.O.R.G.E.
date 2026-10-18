@@ -1,5 +1,24 @@
 # FORGE Feature Gallery
 
+## Sequence sound cues
+
+Open **Scenes/70-sequence-audio-cues.scene.json** and press Play, then open Game.
+The red, green and blue sources request lower, middle and higher tones at 0, 2 and 4
+seconds. A gold panel and two camera shots use the same six-second sequence. These
+sources use the Master mixer channel. The sounds are original Gallery audio.
+
+Select **Six-second sequence - three sound points** and open its sequence Timeline.
+Under **Audio cues**, select a point, choose its source/time and **Apply cue fields**.
+Save the Scene, then use Play to hear edits; stopped Timeline preview is silent.
+Audio Sources own gain, pitch and routing. Their Play on start and Loop settings
+are off here so the three cues supply the starts. Removing a cue from the sequence
+keeps its entity and source. See the packaged manual's Animation Sequences page.
+
+Choose this Scene as startup before export. Its saved cue links, camera shots,
+prepared animation and sound ship with the game; no C++ module or compiler is
+required. Audio points run on the fixed game clock, without sample-accurate music
+scheduling or waveform editing.
+
 ## Scene color adjustments
 
 Open **Scenes/69-scene-color-adjustments.scene.json**. Five colored columns and

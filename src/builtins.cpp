@@ -85,6 +85,11 @@ template <class T> Json encode(const T& p) {
                 {"start_seconds", p.start_seconds},
                 {"end_seconds", p.end_seconds},
                 {"enabled", p.enabled}};
+    else if constexpr (std::is_same_v<T, AudioCue>)
+        return {{"sequence", p.sequence.entity ? Json(p.sequence) : Json()},
+                {"source", p.source.entity ? Json(p.source) : Json()},
+                {"time_seconds", p.time_seconds},
+                {"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, TransformAnimator>)
         return {{"clip", p.clip.id ? Json(p.clip.id) : Json()},
                 {"enabled", p.enabled},
@@ -319,6 +324,17 @@ template <class T> Value decode(const Json& p) {
         if (!std::isfinite(v.start_seconds) || !std::isfinite(v.end_seconds) ||
             v.start_seconds < 0 || v.start_seconds >= v.end_seconds || v.end_seconds > 3600)
             throw std::runtime_error("Camera Shot requires 0 <= start < end <= 3600 seconds");
+        return v;
+    } else if constexpr (std::is_same_v<T, AudioCue>) {
+        AudioCue v;
+        if (!p.at("sequence").is_null())
+            v.sequence = p.at("sequence").get<EntityRef>();
+        if (!p.at("source").is_null())
+            v.source = p.at("source").get<EntityRef>();
+        v.time_seconds = p.at("time_seconds");
+        v.enabled = p.at("enabled");
+        if (!std::isfinite(v.time_seconds) || v.time_seconds < 0 || v.time_seconds > 3600)
+            throw std::runtime_error("Audio Cue time must be between 0 and 3600 seconds");
         return v;
     } else if constexpr (std::is_same_v<T, TransformAnimator>) {
         TransformAnimator v;
@@ -706,6 +722,12 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<double>("start_seconds")
             .template member<double>("end_seconds")
             .template member<bool>("enabled");
+    } else if constexpr (std::is_same_v<T, AudioCue>) {
+        (void)authoring_value_adapters(w);
+        c.template member<EntityRef>("sequence")
+            .template member<EntityRef>("source")
+            .template member<double>("time_seconds")
+            .template member<bool>("enabled");
     } else if constexpr (std::is_same_v<T, TransformAnimator>) {
         (void)authoring_value_adapters(w);
         register_asset_ref<TransformAnimationAsset>(w, "forge.transform_animation_ref");
@@ -1083,9 +1105,13 @@ const std::array<Builtin, builtin_count>& builtins() {
             "Allow viewport selection in this structural subtree, independently of visibility. "
             "Hierarchy selection remains available; an unselectable ancestor still takes "
             "precedence.",
-            "unitless", {}, {}, [](flecs::world& w) {
-                return register_type<NodeSelectability>(w, "forge.node_selectability");
-            })};
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<NodeSelectability>(w, "forge.node_selectability"); }),
+        descriptor<AudioCue>(
+            "forge.audio_cue", "Request an Audio Source one-shot at a Scene sequence time",
+            "unitless", {}, {},
+            [](flecs::world& w) { return register_type<AudioCue>(w, "forge.audio_cue"); })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -1490,6 +1516,21 @@ Json registration_options(const Builtin& type, const std::string& field) {
                 field.starts_with("pole_")
                     ? "Model-space pole direction; avoid alignment with the target"
                     : "Local direction; normalized when preparing IK";
+        }
+    }
+    if (name == "forge.audio_cue") {
+        if (field == "sequence") {
+            value["display_name"] = "Sequence controller";
+            value["description"] = "Scene Animation Sequence that owns this cue's timing";
+        } else if (field == "source") {
+            value["display_name"] = "Audio Source";
+            value["description"] = "Audio Source in the same loaded Scene; owns clip and gain";
+        } else if (field == "time_seconds") {
+            value["display_name"] = "Time (seconds)";
+            value["minimum"] = 0;
+            value["maximum"] = 3600;
+            value["unit"] = "seconds";
+            value["description"] = "Forward-playback event inside the controller duration";
         }
     }
     if (name == "forge.camera_shot") {
@@ -1921,7 +1962,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
             : name.starts_with("forge.navigation_") ? 4u
             : (name == "forge.animator" || name == "forge.transform_animator" ||
                name == "forge.animation_sequence" || name == "forge.camera_shot" ||
-               name == "forge.two_bone_ik" || name == "forge.aim_ik")
+               name == "forge.audio_cue" || name == "forge.two_bone_ik" || name == "forge.aim_ik")
                 ? 3u
             : name.starts_with("forge.audio_") ? 2u
             : (name == "forge.physics_body" || name == "forge.physics_joint" ||
@@ -1938,7 +1979,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         }
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.transform_animator" ||
-            name == "forge.camera_shot")
+            name == "forge.camera_shot" || name == "forge.audio_cue")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.

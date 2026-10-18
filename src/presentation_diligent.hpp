@@ -8,7 +8,9 @@
 #include <cstdint>
 #include <forge/services.hpp>
 #include <memory>
+#include <optional>
 #include <thread>
+#include <vector>
 namespace forge {
 // One presentation-thread owner per device. No world, asset identity or UI state.
 // Native Diligent hashes and caches complete shaders/PSOs; views own their SRBs.
@@ -50,6 +52,16 @@ class DiligentPresentation {
     nlohmann::json gpu_profile_status() const;
     GpuScope gpu_scope(Diligent::IDeviceContext*, const char* view, const char* stage,
                        bool enabled = true);
+    struct DisplayPixels {
+        unsigned width{}, height{};
+        std::vector<std::uint8_t> rgba;
+    };
+    // One bounded capture, completed by the existing end_frame fence/host submission.
+    // No device wait or submission is performed by either method.
+    void readback(Diligent::IDeviceContext*, Diligent::ITextureView*);
+    bool readback_pending() const { return bool(readback_staging_); }
+    std::optional<DisplayPixels> take_readback(Diligent::IDeviceContext*);
+    void cancel_readback(); // Retain native resources until the queued copy completes.
 
   private:
     static constexpr unsigned gpu_capacity = 64;
@@ -78,5 +90,10 @@ class DiligentPresentation {
     Diligent::RefCntAutoPtr<Diligent::ITexture> empty_shadow_;
     std::uint64_t hits_{}, misses_{};
     unsigned epoch_creations_{};
+    Diligent::RefCntAutoPtr<Diligent::ITexture> readback_source_, readback_staging_;
+    Diligent::RefCntAutoPtr<Diligent::IDeviceContext> readback_context_;
+    std::uint64_t readback_frame_{};
+    bool readback_discard_ = false;
+    void clear_readback();
 };
 } // namespace forge

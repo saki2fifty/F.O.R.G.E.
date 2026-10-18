@@ -3,17 +3,24 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 namespace forge {
 class FileDialog {
   public:
-    enum class Kind { OpenScene, SaveScene, OpenProject, ProjectParent, ImportFiles };
+    enum class Kind { OpenScene, SaveScene, OpenProject, ProjectParent, ImportFiles, SaveImage };
     struct Result {
         Kind kind;
         std::string path, error;
         std::vector<std::string> paths;
     };
+#ifdef FORGE_UI_FIXTURE
+    // Native picker boundary only. The fixture still clicks the actual command;
+    // its result goes through the same busy state, take() and owning controller.
+    inline static std::optional<Result> fixture_selection;
+    inline static unsigned fixture_deliveries = 0;
+#endif
     bool busy() const { return busy_; }
     void show(Kind kind, SDL_Window* window, std::string location) {
         if (busy_)
@@ -21,8 +28,20 @@ class FileDialog {
         busy_ = true;
         state_->location = std::move(location);
         state_->kind = kind;
+#ifdef FORGE_UI_FIXTURE
+        if (fixture_selection) {
+            if (fixture_selection->kind != kind)
+                throw std::runtime_error("Fixture file picker kind differs from the command");
+            std::lock_guard lock(state_->mutex);
+            state_->result = std::move(fixture_selection);
+            fixture_selection.reset();
+            ++fixture_deliveries;
+            return;
+        }
+#endif
         auto* owned = new std::shared_ptr<State>(state_);
         static const SDL_DialogFileFilter filter{"FORGE scene", "json"};
+        static const SDL_DialogFileFilter image_filter{"PNG image", "png"};
         if (kind == Kind::ImportFiles)
             SDL_ShowOpenFileDialog(callback, owned, window, nullptr, 0, state_->location.c_str(),
                                    true);
@@ -31,6 +50,9 @@ class FileDialog {
                                    false);
         else if (kind == Kind::SaveScene)
             SDL_ShowSaveFileDialog(callback, owned, window, &filter, 1, state_->location.c_str());
+        else if (kind == Kind::SaveImage)
+            SDL_ShowSaveFileDialog(callback, owned, window, &image_filter, 1,
+                                   state_->location.c_str());
         else
             SDL_ShowOpenFolderDialog(callback, owned, window, state_->location.c_str(), false);
     }

@@ -54,7 +54,7 @@ int main() {
         require(hover, "Vertex capture pointer not applied");
         frame(142, 23);
         require(!hover, "Vertex setup did not end at finite bound");
-        for (unsigned stage : {235u, 238u}) {
+        for (unsigned stage : {235u, 238u, 293u, 296u, 297u, 304u}) {
             input.click_once(io, stage, 4, {50, 50}, false);
             frame(stage, 4);
             require(!hover, "Capture clicked before its widget became ready");
@@ -103,6 +103,10 @@ int main() {
         require(EditorCaptureInput::document_focus_allowed(121, false) &&
                     !EditorCaptureInput::document_focus_allowed(121, true) &&
                     !EditorCaptureInput::document_focus_allowed(124, true) &&
+                    !EditorCaptureInput::document_focus_allowed(296, true) &&
+                    !EditorCaptureInput::document_focus_allowed(297, true) &&
+                    EditorCaptureInput::document_focus_allowed(297, false) &&
+                    EditorCaptureInput::document_focus_allowed(305, true) &&
                     EditorCaptureInput::document_focus_allowed(122, true),
                 "Finite setup popup focus policy differs");
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
@@ -145,6 +149,52 @@ int main() {
             combo_frame();
         }
         require(mode == 1, "Parent focus stole actual combo selection");
+        // The image-capture consumer uses one stage to open View and another
+        // to choose Save image. Exercise the real popup and a disappearing item.
+        input = {};
+        unsigned menu_stage = 296, menu_frames = 0, saves = 0;
+        for (unsigned attempt = 0; saves == 0 && attempt < 100; ++attempt) {
+            io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+            input.after_platform_update(io, menu_stage, menu_frames);
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos({0, 0});
+            ImGui::SetNextWindowSize({300, 300});
+            ImGui::Begin("Scene image capture", nullptr, ImGuiWindowFlags_MenuBar);
+            bool ready = false;
+            ImVec2 point{};
+            const auto observe = [&] {
+                const auto lo = ImGui::GetItemRectMin(), hi = ImGui::GetItemRectMax();
+                point = {(lo.x + hi.x) * .5f, (lo.y + hi.y) * .5f};
+                ready = true;
+            };
+            if (ImGui::BeginMenuBar()) {
+                const bool open = ImGui::BeginMenu("View");
+                if (menu_stage == 296)
+                    observe();
+                if (open) {
+                    if (ImGui::MenuItem("Save image..."))
+                        ++saves;
+                    if (menu_stage == 297)
+                        observe();
+                    ImGui::EndMenu();
+                }
+                ImGui::EndMenuBar();
+            }
+            ImGui::End();
+            const bool popup = ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                               ImGuiPopupFlags_AnyPopupLevel);
+            if (EditorCaptureInput::document_focus_allowed(menu_stage, popup))
+                ImGui::SetWindowFocus("Scene image capture");
+            ImGui::Render();
+            ++menu_frames;
+            input.click_once(io, menu_stage, menu_frames, point, ready);
+            if (menu_stage == 296 && popup && !io.MouseDown[0] && menu_frames > 12) {
+                menu_stage = 297;
+                menu_frames = 0;
+            }
+        }
+        require(saves == 1 && !io.MouseDown[0],
+                "Settled capture input did not open View and choose its actual Save image item");
         ImGui::DestroyContext();
         std::cout << "Platform overwrite/real widget click/static suppression/finite capture "
                      "bounds passed\n";

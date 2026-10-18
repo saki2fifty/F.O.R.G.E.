@@ -349,6 +349,13 @@ pitch-preserving time stretch; ephemeral recovery retains the existing restart p
 
 Audio tests use offline PCM and explicit null-device callback teardown. Process tests cover schema-only mode, pause/step/resume, private recovery reconstruction and rejected candidate preservation; shared SDK fixture checks typed components, Play/Stop and missing capability. Existing physics/runtime/render tests remain required. These tests cannot establish subjective spatial quality or physical-device playback.
 
+Scene sequence [audio cues](transform-animation.md#sequence-audio-cues) request the
+same one-shot operation on forward fixed playback. The animation provider owns
+only crossing/entry intent; this audio owner retains decoding, commands, source
+generations, routing and voices. Seek and stopped Timeline preview request no
+sound. Existing effects retain their ordinary audio lifetime. Private animation
+recovery preserves cue intent without recovering or replaying audio cursors.
+
 Later work includes streaming music, voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
 
 

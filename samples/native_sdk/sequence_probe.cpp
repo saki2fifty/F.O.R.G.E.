@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <flecs.h>
 #include <forge/animation_components.hpp>
+#include <forge/audio_components.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/render_components.hpp>
 #include <forge/sdk_client.hpp>
@@ -23,6 +24,8 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t
         world.component<forge::AnimationSequence>("forge.animation_sequence");
         world.component<forge::TransformAnimator>("forge.transform_animator");
         world.component<forge::CameraShot>("forge.camera_shot");
+        world.component<forge::AudioCue>("forge.audio_cue");
+        world.component<forge::AudioSource>("forge.audio_source");
         world.component<forge::Camera>("forge.camera");
         auto type = world.component<SequenceProbe>("project.SequenceProbe")
                         .member<std::uint32_t>("ticks")
@@ -106,7 +109,29 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                               "Camera Shot typed data/reference unavailable through matching SDK");
                         ++shots;
                     });
-                    check((shots == 0 && tracks == 3) || (shots == 3 && tracks == 1),
+                    unsigned cues = 0;
+                    current.each([&](const forge::AudioCue& cue) {
+                        if (cue.sequence.entity.str() != ref.entity_uuid)
+                            return;
+                        bool found = false;
+                        current.each([&](flecs::entity actor, const forge::AudioSource& source) {
+                            ForgeSdkEntityRefV1 source_ref{};
+                            if (client.entity_reference(actor.id(), source_ref) == 1 &&
+                                cue.source.scene.str() == source_ref.scene_uuid &&
+                                cue.source.entity.str() == source_ref.entity_uuid) {
+                                check(bool(source.clip.id) && !source.play_on_start && !source.loop,
+                                      "Cue source settings changed across SDK boundary");
+                                found = true;
+                            }
+                        });
+                        check(found && cue.enabled && cue.time_seconds >= 0 &&
+                                  cue.time_seconds <= config.duration,
+                              "Audio Cue typed data/reference unavailable through matching SDK");
+                        ++cues;
+                    });
+                    check((cues == 0 && shots == 0 && tracks == 3) ||
+                              (cues == 0 && shots == 3 && tracks == 1) ||
+                              (cues == 3 && shots == 2 && tracks == 1),
                           "Sequence probe did not inspect its complete object/shot tracks");
                 } else if (tick == 4) {
                     control(FORGE_SDK_ANIMATION_PAUSE);
