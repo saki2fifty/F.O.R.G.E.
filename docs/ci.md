@@ -37,7 +37,7 @@ The shared full-editor acceptance selection includes existing `cpu_profile`
 collector/process/transport/editor checks. GPU duration lifecycle and actual Game
 on/off image checks run inside the existing D3D12 viewport acceptance. The input
 walkthrough exercises default-off GPU collection, Start/Stop/Clear and captures
-at100/150/200%. Software WARP results do not establish physical GPU performance.
+at 100/150/200%. Software WARP results do not establish physical GPU performance.
 
 Both full editor jobs allow 150 minutes overall. A cold Windows source audit
 measured 6 minutes of configuration, 63 minutes of compilation and 20.5 minutes of
@@ -292,6 +292,18 @@ That initial source-preparation phase has a 90-second deadline and records its
 elapsed time. Once the baseline is frozen, the ordinary 45-second control-stage
 budget starts afresh; readiness, exact pixels and preservation checks are unchanged.
 The existing 180-second process and 210-second CTest budgets remain in force.
+The separate `editor_sequence_frames` workflow drives the actual Timeline action,
+Game focus, frontmost export modal, configuration Cancel/restore, settings input,
+folder-picker adapter and four-frame PNG batch at 100/150/200%. Its dedicated
+fixture mode bypasses legacy scene seeding/capture stages. Normal source import
+must settle before its protected baseline; source/catalog bytes remain unchanged
+during all three exports. It retains modal images, frame receipts and failure
+state, with a 240-second internal deadline, 250-second process timeout and 270-second
+CTest budget. Only the OS folder choice is injected. The separate
+`editor_render_sequence-frames` case compares actual Gallery 70 Timeline/Game
+pixels at 0/1.5/3 with independent synchronous GPU reads, including the camera cut.
+Both cases belong to the full editor acceptance selection; workflow-only audits
+include the native modal workflow without claiming the additional renderer case.
 Original scenes, project settings and raw asset sources must remain byte-identical
 through startup and capture; only importer-owned sidecars/catalog may refresh
 before that baseline, preserving every asset ID/source/type. No source/catalog
@@ -487,7 +499,7 @@ shipping timing, deadlines or assertions were changed.
 
 ### Editable Mesh UV acceptance
 
-The UV batch adds analytic/max-profile source checks to `editable_mesh`, multi-corner UV source history/reopen to `editable_mesh_pipeline`, and actual selected Windows-cook/resource/camera/source-free relocated export checks in `editable_mesh_uv_gallery`. `editable_mesh_uv_editor` performs mouse/keyboard selection, drag/release/cancel, numerical rejection, navigation, lock and publication routes at65/100/200%. The editor fixture's stages115–120 capture UV canvas/tools at100/150/200% using staged original source data and deliberate document layout/scroll; these images establish visual layout, not a performed authoring workflow. Final Windows package acceptance exports Gallery14 and starts its shipped standalone without Mesh source files.
+The UV batch adds analytic/max-profile source checks to `editable_mesh`, multi-corner UV source history/reopen to `editable_mesh_pipeline`, and actual selected Windows-cook/resource/camera/source-free relocated export checks in `editable_mesh_uv_gallery`. `editable_mesh_uv_editor` performs mouse/keyboard selection, drag/release/cancel, numerical rejection, navigation, lock and publication routes at65/100/200%. The editor fixture's stages115–120 capture UV canvas/tools at 100/150/200% using staged original source data and deliberate document layout/scroll; these images establish visual layout, not a performed authoring workflow. Final Windows package acceptance exports Gallery14 and starts its shipped standalone without Mesh source files.
 
 ### Brush symmetry acceptance
 
@@ -519,7 +531,7 @@ at65/100/200%, mode/locks/history/publication/reopen) and
 `editable_mesh_shading_gallery` (equal geometry/distinct normals, real root material
 selector, resource/camera and exact three-record relocated source-free closure).
 Native editor captures130–132 stage an original flat cube and scroll to shading
-controls at100/150/200%; these are layout evidence, separate from performed
+controls at 100/150/200%; these are layout evidence, separate from performed
 workflow and physical acceptance. The combined package exports Gallery17 and runs
 its shipped game with `--verify-startup`; source Mesh files must be absent.
 
@@ -529,7 +541,7 @@ its shipped game with `--verify-startup`; source Mesh files must be absent.
 publication/reopen inputs. `animation_key_batch_gallery` checks complete key data,
 fresh copied IDs, analytic cubic vectors/slerp, selected cooked resources, camera/
 render admission and relocated source-free export. Native layout fixture captures
-133–138 stage original three-key data at100/150/200% with controlled scrolling;
+133–138 stage original three-key data at 100/150/200% with controlled scrolling;
 these captures alone do not prove performed edits or default docking usability.
 The combined Windows package check exports Gallery18 and runs its actual EXE with
 `--verify-startup`. The installed native SDK fingerprint inputs are unchanged by these authoring APIs.
@@ -542,7 +554,7 @@ flat/smooth/double-reversal invariants and invalid partial winding/undefined smo
 normal failure atomicity. `editable_mesh_facing_editor` performs scaled Model/UV/
 history/branch/locks/publication/reopen inputs. `editable_mesh_facing_gallery` uses
 actual public material/resource/camera consumers and selected relocated source-free
-content. Native fixture139–141 stages reversed original Cube controls at100/150/200%
+content. Native fixture139–141 stages reversed original Cube controls at 100/150/200%
 with controlled scrolling/undocking; capture increments the stage before exit142.
 The final combined package route exports Gallery19 and runs its actual EXE startup.
 These authored native routes are separate from executed evidence.
@@ -568,21 +580,21 @@ transport is compiled only into the automated capture executable.
 Native editor CI explicitly builds/runs physics_joints, physics_joint_editor and
 physics_joint_gallery. These cover solver behavior and recovery ordering, actual
 reflected Inspector controls, and relocated source-free Gallery20 content. Joint
-Inspector captures cover body references and hinge bounds at100/150/200% scale.
+Inspector captures cover body references and hinge bounds at 100/150/200% scale.
 The final assembled-package gate exports Gallery20 with the shipped runtime kit
 and executes its startup verification alongside the existing Gallery scenes.
 These automated results are separate from physical GPU/desktop acceptance.
 
 Point/fixed acceptance extends the same targets with physics_joint_extended_gallery,
 original Gallery21 export and real shipped EXE startup. Native151–156 captures
-cover Point body references and Fixed reference-frame controls at100/150/200%.
+cover Point body references and Fixed reference-frame controls at 100/150/200%.
 The numerical gate compares independent frame vectors and four-type native
 swapped-index recovery rather than relying on test counts or labels.
 
 Selected-joint guide acceptance adds `physics_joint_guides`: independent rotated
 parent/signed-scale anchors, explicit reference diagnostics and actual clipped
 ImGui draw without document/history or active-input mutation. Native157–162 show
-Fixed guides and missing-body feedback at100/150/200%; review the captured images
+Fixed guides and missing-body feedback at 100/150/200%; review the captured images
 before claiming visual acceptance. Actual offset-COM native solver tests compare
 these derived guides to body-origin anchors for Hinge, Point and Fixed.
 
@@ -590,7 +602,7 @@ Continuous collision extends existing `physics` / `physics_joints` tests and add
 `physics_continuous_gallery`. The full Inspector test exercises the saved checkbox,
 Undo/Redo and mode-retained choice. The final assembled Windows package exports
 Gallery22 and executes the shipped EXE startup verification with its saved CCD flag.
-Native163–165 capture the actual Dynamic Physics Body checkbox at100/150/200%.
+Native163–165 capture the actual Dynamic Physics Body checkbox at 100/150/200%.
 These are Inspector render captures, not evidence that the Gallery animation was
 physically reviewed on a desktop GPU. The ordinary-gravity Gallery motion oracle
 and source-free relocated content test remain distinct gates.
@@ -620,7 +632,7 @@ four numeric fields and the sleep checkbox with Undo/Redo/save/reopen at65/100/2
 The existing Gallery executable adds `physics_motion_tuning_gallery`, explicitly
 selected by native editor CI: six original actors, independent gravity/damping/cap
 math, sleep policy, real render bounds and relocated source-free content.
-Captures166–168 show the actual body tuning Inspector at100/150/200%; image review
+Captures166–168 show the actual body tuning Inspector at 100/150/200%; image review
 is required separately from widget probes. The compiled C++ PhysicsLoads consumer
 also runs nondefault tuning and fresh recovery against the matching installed SDK.
 The final ZIP acceptance exports Gallery23 and verifies its source-free startup.
@@ -865,7 +877,7 @@ forward recovery and cursor continuity. `audio_falloff_gallery` closes over both
 31/32, measures source-free parent-directed front/back PCM after relocation.
 `audio_editor` includes real directional controls/history/reopen and finite
 227-segment guide checks. `editor_audio_cones` captures actual production controls
-and Scene guides at100/150/200%; final package starts exported Gallery32.
+and Scene guides at 100/150/200%; final package starts exported Gallery32.
 
 ## Common audio mixer
 
@@ -879,7 +891,7 @@ settings-write rollback and a new scene inheriting the current mix.
 measures actual cooked PCM through its three routes after relocation.
 `audio_editor` drives routing and four settings sliders at65/100/150/200%, including
 independent settings publication and scene Undo/save/reopen.
-`editor_audio_mixer` captures routing and project volumes at100/150/200%; final
+`editor_audio_mixer` captures routing and project volumes at 100/150/200%; final
 combined-package acceptance starts source-free Gallery33 in the production host.
 Native capture configuration is distinct from actual image/physical acceptance.
 
@@ -924,5 +936,5 @@ teardown is a lifecycle test; it is never an automatic device fallback.
 `audio_preview_editor` uses actual Play/Stop/Loop/volume widgets at65/100/150/200%
 and verifies PCM and selection/project/Play-lock teardown. Typed gain clamps and
 nonfinite input cannot change the last admitted output. `editor_audio_preview`
-captures the real AudioClip tab at100/150/200% on a copied original Gallery,
+captures the real AudioClip tab at 100/150/200% on a copied original Gallery,
 without requesting a device or autoplay. Physical listening remains separate.

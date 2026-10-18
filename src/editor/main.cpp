@@ -107,6 +107,7 @@
 #include <memory>
 #include <tuple>
 #ifdef FORGE_UI_FIXTURE
+#include "sequence_frame_editor_workflow.hpp"
 // Test-only crash capture. The fixture may exit 0xC0000005 (Windows
 // access violation) before any C++ exception handler runs; the
 // unhandled-exception filter is the only way to obtain any signal
@@ -244,6 +245,7 @@ int main(int argc, char** argv) {
     try {
 #ifdef FORGE_UI_FIXTURE
         forge::test::EditorFixture fixture(argc, argv);
+        forge::test::SequenceFrameEditorWorkflow sequence_frame_workflow;
         constexpr Uint32 root_play_frame_pause_ms = 50;
         forge::test::fixture_breadcrumb("after-fixture-construct");
         // Legacy EditorInputWorkflow runs only for the historical
@@ -2339,6 +2341,10 @@ int main(int argc, char** argv) {
                 const auto _t0 = SDL_GetTicks();
                 gui->NewFrame(width, height, swap->GetDesc().PreTransform);
                 play.sdk_diag_slow("gui.NewFrame", SDL_GetTicks() - _t0);
+            } else if (fixture.sequence_frames) {
+                ImGui_ImplSDL3_NewFrame();
+                sequence_frame_workflow.input();
+                gui->ImGuiImplDiligent::NewFrame(width, height, swap->GetDesc().PreTransform);
             } else if (fixture.workflow) {
                 ImGui_ImplSDL3_NewFrame();
                 input_workflow.input();
@@ -2811,7 +2817,7 @@ int main(int argc, char** argv) {
                     ? 90000
                 : fixture.root_motion && fixture.stage == 253 ? 75000
                                                               : 45000;
-            if (!fixture.workflow && !fixture.sdk_play &&
+            if (!fixture.workflow && !fixture.sdk_play && !fixture.sequence_frames &&
                 // The expanded capture suite exceeds four minutes under WARP.
                 // Keep a separate per-stage deadline to catch actual stalls.
                 (SDL_GetTicks() - fixture.started > 600000 ||
@@ -2869,7 +2875,15 @@ int main(int argc, char** argv) {
                     "; model state=" + (model_viewer ? model_viewer->loading_state() : "absent") +
                     "; import=" + model_imports.diagnostic());
             }
-            if (!fixture.workflow && !fixture.sdk_play && !fixture.prepared) {
+            if (fixture.sequence_frames) {
+                workspace.scene = false;
+                workspace.game = true;
+                sequence_frame_workflow.prepare(
+                    fixture, files.document, scene, animation_timeline, window.get(),
+                    content_imports.ready_for_play() && !content.refreshing());
+            }
+            if (!fixture.workflow && !fixture.sdk_play && !fixture.sequence_frames &&
+                !fixture.prepared) {
                 bool ready = true;
                 switch (fixture.stage) {
                 case 0:
@@ -6384,6 +6398,16 @@ int main(int argc, char** argv) {
                     result = 1;
                 sdk_frame_exception = false;
                 running = false;
+            } else if (fixture.sequence_frames) {
+                const bool game_ready = game_viewport && !game_viewport->pending() &&
+                                        !game_viewport->cameras().empty() &&
+                                        game_viewport->diagnostics().empty();
+                if (sequence_frame_workflow.finish(
+                        fixture, animation_timeline, view_image, scene, play.active(), game_ready,
+                        [&](const std::string& label) {
+                            fixture.capture(device, context, rtv, true, label);
+                        }))
+                    running = false;
             } else if (fixture.workflow) {
                 forge::Json selected_preview = forge::Json::object();
                 if (!selected.empty()) {
