@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <string_view>
+#include <vector>
 // Compiled only into the automated editor fixture executable, never the shipped editor.
 // Native D3D declarations must precede the Diligent command queue interface.
 #include <d3d12.h>
@@ -36,6 +38,7 @@ struct EditorFixture {
     Json view_image_report;
     std::filesystem::path view_image_path;
     unsigned view_image_ready_frames = 0;
+    bool view_image_sources_ready = false;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
     bool rig_scene_marker_visible = false, rig_game_marker_visible = false;
@@ -133,6 +136,29 @@ struct EditorFixture {
             std::filesystem::remove_all(project, ec);
         if (sdk_play || view_images)
             std::filesystem::remove_all(user_data, ec);
+    }
+    void snapshot_view_image_sources() {
+        // Startup imports legitimately refresh catalog/sidecar recipes. Freeze the
+        // complete input set only after the normal import owner has settled and
+        // before any Save image input. The Python harness still checks authored
+        // scenes and raw asset sources against their original pre-launch bytes.
+        const auto baseline = output / "source-baseline";
+        std::vector<std::filesystem::path> paths{project / "forge.project.json",
+                                                 project / "forge.assets.json"};
+        for (const auto* folder : {"Scenes", "Assets"})
+            for (const auto& entry :
+                 std::filesystem::recursive_directory_iterator(project / folder))
+                if (entry.is_regular_file() &&
+                    (std::string_view(folder) == "Assets" || entry.path().extension() == ".json"))
+                    paths.push_back(entry.path());
+        for (const auto& path : paths) {
+            const auto target = baseline / path.lexically_relative(project);
+            std::filesystem::create_directories(target.parent_path());
+            std::filesystem::copy_file(path, target);
+        }
+        atomic_write(output / "source-baseline.json",
+                     Json{{"source_import_ready", true}, {"files", paths.size()}}.dump(2));
+        view_image_sources_ready = true;
     }
     const char* focused_document() const {
         if (view_images && stage >= 296 && stage <= 304)

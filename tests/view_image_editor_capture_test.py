@@ -19,6 +19,17 @@ def authored_files(project):
     return {p.relative_to(project): p.read_bytes() for p in paths if p.is_file()}
 
 
+for name in ('source-baseline', 'source-changes'):
+    path = evidence / name
+    if path.exists():
+        assert path.is_dir() and not path.is_symlink(), path
+        shutil.rmtree(path)
+for name in ('source-baseline.json', 'source-preservation.json'):
+    path = evidence / name
+    if path.exists():
+        assert path.is_file() and not path.is_symlink(), path
+        path.unlink()
+
 for scale in (100, 150, 200):
     for name in (f'scene-{scale}.png', f'game-ui-{scale}.png'):
         path = evidence / name
@@ -29,7 +40,7 @@ for scale in (100, 150, 200):
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture-') as scratch:
     project = Path(scratch) / 'Gallery'
     shutil.copytree(gallery, project)
-    before = authored_files(project)
+    original = authored_files(project)
     result = subprocess.run([fixture, evidence, '--view-images', project],
                             capture_output=True, text=True, timeout=180)
     (evidence / 'capture.log').write_text(result.stdout + result.stderr)
@@ -60,24 +71,52 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture
                 if mode == 2:
                     assert report['png_sources'] and report['jpeg_sources'], report
                     assert report['ui_changed_pixels'] >= 100, report
+    receipt = json.loads((evidence / 'source-baseline.json').read_text())
+    assert receipt['source_import_ready'], receipt
+    before = authored_files(evidence / 'source-baseline')
+    assert receipt['files'] == len(before) and len(before) >= len(original), receipt
     after = authored_files(project)
-    changed = sorted(p for p in before.keys() | after.keys() if before.get(p) != after.get(p))
-    changes = []
-    for path in changed:
-        row = {'path': path.as_posix()}
-        for label, snapshot in (('before', before), ('after', after)):
-            data = snapshot.get(path)
-            row[label] = None if data is None else hashlib.sha256(data).hexdigest()
-            if data is not None:
+
+    def changed_paths(first, second):
+        return sorted(p for p in first.keys() | second.keys() if first.get(p) != second.get(p))
+
+    def importer_owned(path):
+        return path == Path('forge.assets.json') or path.name.endswith('.forge-import.json')
+
+    startup_changed = changed_paths(original, before)
+    changed = changed_paths(before, after)
+    unexpected_startup = [p for p in startup_changed if not importer_owned(p)]
+
+    def identities(snapshot):
+        catalog = json.loads(snapshot[Path('forge.assets.json')])
+        return {r['id']: (r['type'], r['source']) for r in catalog['assets']}
+
+    identity_changed = identities(original) != identities(before)
+    for path in sorted(set(startup_changed) | set(changed)):
+        for label, snapshot in (('before-launch', original), ('before', before), ('after', after)):
+            if (data := snapshot.get(path)) is not None:
                 retained = evidence / 'source-changes' / label / path
                 retained.parent.mkdir(parents=True, exist_ok=True)
                 retained.write_bytes(data)
-        changes.append(row)
+
+    def rows(paths, first, second):
+        return [{'path': p.as_posix(), **{
+            label: None if snapshot.get(p) is None else hashlib.sha256(snapshot[p]).hexdigest()
+            for label, snapshot in (('before', first), ('after', second))}} for p in paths]
+
     (evidence / 'source-preservation.json').write_text(json.dumps({
-        'before_files': len(before), 'after_files': len(after), 'changes': changes
+        'original_files': len(original), 'before_files': len(before), 'after_files': len(after),
+        'startup_changes': rows(startup_changed, original, before),
+        'unexpected_startup_changes': [p.as_posix() for p in unexpected_startup],
+        'startup_identity_changed': identity_changed,
+        'changes': rows(changed, before, after)
     }, indent=2) + '\n')
+    assert not unexpected_startup, 'Startup changed authored Gallery input: ' + ', '.join(
+        p.as_posix() for p in unexpected_startup)
+    assert not identity_changed, 'Startup changed Gallery asset identity/source/type'
     assert not changed, 'Image capture changed Gallery source/catalog: ' + ', '.join(
         p.as_posix() for p in changed)
 print('Native Scene/Game Save image controls and exact PNG pixels checked at 100/150/200%; '
       'Game includes actual PNG/JPEG runtime UI. OS picker selection injected; '
-      'physical Windows picker acceptance remains deferred.')
+      'original authored inputs and all post-import source/catalog bytes preserved. '
+      'Physical Windows picker acceptance remains deferred.')

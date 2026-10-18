@@ -285,8 +285,14 @@ full commit SHA and `windows_package=false`. For changes confined to native
 input/capture fixtures, set `audit_workflow_only=true` to build their required
 editor/runtime targets and run the process, input, physics, root-motion,
 sequence sound-cue, Scene/Game image-export and standalone workflows. Image-export
-failures retain the changed authored files before and after capture, with a hash
-receipt that also detects added or removed files. The root-motion fixture waits for an object-valued animation
+failures retain changed files and a hash receipt that detects additions/removals.
+The image fixture waits for the normal startup import owner to settle before
+freezing its complete source/catalog baseline and issuing any Save image input.
+Original scenes, project settings and raw asset sources must remain byte-identical
+through startup and capture; only importer-owned sidecars/catalog may refresh
+before that baseline, preserving every asset ID/source/type. No source/catalog
+change is allowed across image export. Synthetic legacy cube/prefab setup belongs
+only to the legacy capture starting at stage0. The root-motion fixture waits for an object-valued animation
 status before checking availability; startup may legitimately have no observation. Root-mode
 Inspector/document captures require their controls to be ready and the panel
 bounds/scroll unchanged for three consecutive frames. Target-guide captures also

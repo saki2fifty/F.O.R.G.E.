@@ -1875,11 +1875,9 @@ int main(int argc, char** argv) {
         std::string current_title;
         std::string live_inspector_entity;
 #ifdef FORGE_UI_FIXTURE
-        // SDK mode drives the supplied reference project unchanged.
-        // The legacy cube/prefab/UI-document mutations belong to the
-        // staged-capture fixture path (workflow == false) and must
-        // not run for SDK.
-        if (!fixture.workflow && !fixture.sdk_play) {
+        // Only the legacy capture starting at stage0 owns this synthetic scene.
+        // Targeted Gallery/SDK modes drive their supplied authored projects.
+        if (!fixture.workflow && !fixture.sdk_play && fixture.stage == 0) {
             editor.selection.select_entity(
                 forge::authoring_command(scene, "entity.create", {{"name", "Fixture cube"}})
                     .at("selected"));
@@ -7398,6 +7396,11 @@ int main(int argc, char** argv) {
                         (mode == 2 ? !game_viewport->pending()
                                    : viewport.meshes() && !viewport.meshes()->pending() &&
                                          viewport.meshes()->diagnostics().empty());
+                    if (!fixture.view_image_sources_ready) {
+                        render_ready &= content_imports.ready_for_play() && !content.refreshing();
+                        if (render_ready)
+                            fixture.snapshot_view_image_sources();
+                    }
                     unsigned png_sources = 0, jpeg_sources = 0;
                     if (mode == 2) {
                         if (play.control_ready() && !play.paused())
