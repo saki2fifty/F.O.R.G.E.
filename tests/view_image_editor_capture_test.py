@@ -73,6 +73,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture
                     assert report['ui_changed_pixels'] >= 100, report
     receipt = json.loads((evidence / 'source-baseline.json').read_text())
     assert receipt['source_import_ready'], receipt
+    assert 0 <= receipt['preparation_ms'] < 180000, receipt
     before = authored_files(evidence / 'source-baseline')
     assert receipt['files'] == len(before) and len(before) >= len(original), receipt
     after = authored_files(project)

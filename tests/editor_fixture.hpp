@@ -157,8 +157,14 @@ struct EditorFixture {
             std::filesystem::copy_file(path, target);
         }
         atomic_write(output / "source-baseline.json",
-                     Json{{"source_import_ready", true}, {"files", paths.size()}}.dump(2));
+                     Json{{"source_import_ready", true},
+                          {"files", paths.size()},
+                          {"preparation_ms", SDL_GetTicks() - started}}
+                         .dump(2));
         view_image_sources_ready = true;
+        // Source preparation has its own bounded phase. Actual menu/input checks
+        // receive their normal full stage budget after that phase finishes.
+        stage_started = SDL_GetTicks();
     }
     const char* focused_document() const {
         if (view_images && stage >= 296 && stage <= 304)

@@ -2793,7 +2793,10 @@ int main(int argc, char** argv) {
             // dedicated EditorSdkWorkflow tracks its own deadline).
             // Initial Play also starts the process and requests live playback status.
             const Uint64 fixture_stage_budget =
-                fixture.root_motion && fixture.stage == 253 ? 75000 : 45000;
+                fixture.view_images && fixture.stage == 296 && !fixture.view_image_sources_ready
+                    ? 90000
+                : fixture.root_motion && fixture.stage == 253 ? 75000
+                                                              : 45000;
             if (!fixture.workflow && !fixture.sdk_play &&
                 // The expanded capture suite exceeds four minutes under WARP.
                 // Keep a separate per-stage deadline to catch actual stalls.
