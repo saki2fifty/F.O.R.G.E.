@@ -212,6 +212,15 @@ The SDK reference workflow tolerates an unpublished scene snapshot while recordi
 startup diagnostics. It retries an unaccepted initial toolbar click at most twice,
 500ms apart, only with a stopped untouched session and an enabled visible button.
 Reported startup failures are retained; stage and overall deadlines are unchanged.
+The native editor input walkthrough observes entry into the existing Play action
+callback in fixture builds. It repeats a physical toolbar click at most twice,
+500ms apart, only when that callback was never entered. The per-step deadline is
+unchanged. Earlier
+session logs or unrelated earlier workflow errors do not hide a missed click.
+An entered callback is never replayed, including one that reports a startup error;
+the following runtime-readiness check must still pass. Audio preview captures wait
+for initial source-import and Content catalog refresh readiness before clicking
+the real waveform control. Selected-revision admission remains unchanged.
 
 The native editor workflow records a personal Duplicate shortcut through the
 ordinary Preferences route and exercises its effective command at 100/150/200%.

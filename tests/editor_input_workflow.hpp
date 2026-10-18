@@ -4,6 +4,8 @@
 #include <algorithm>
 #include <bit>
 #include <cmath>
+#include <forge/assets.hpp>
+#include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
 #include <fstream>
 #include <functional>
@@ -37,6 +39,7 @@ class EditorInputWorkflow {
     std::vector<Step> steps_;
     std::size_t index_ = 0;
     unsigned frame_ = 0, play_click_retries_ = 0;
+    unsigned play_invocations_before_ = 0;
     Uint64 since_ = 0, checkpoint_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
     std::string failure_, last_check_, cube_, camera_, light_, scene_;
@@ -996,6 +999,13 @@ class EditorInputWorkflow {
     }
 
   public:
+    static EditorInputWorkflow play_click_probe() {
+        EditorInputWorkflow probe(false, {});
+        observe_ui = true;
+        probe.click("icon:play");
+        probe.check("runtime-tuning-ready");
+        return probe;
+    }
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
                                  const std::filesystem::path& physics_project = {},
                                  bool sdk_onboarding = false, bool shortcut_reopen = false) {
@@ -2045,6 +2055,8 @@ class EditorInputWorkflow {
                     "Cannot paste edited C++ source into the editor");
         }
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
+            if (step.kind == Kind::Click && step.value == "icon:play")
+                play_invocations_before_ = play_action_invocations;
             const auto target =
                 step.value == "saved-cube-row"         ? "entity:" + cube_
                 : step.value == "graph-parameter-node" ? "graph:node:" + graph_parameter_
@@ -2215,30 +2227,34 @@ class EditorInputWorkflow {
         if (frame_ < 8 || SDL_GetTicks() - since_ < 100)
             return;
         const auto& step = steps_[index_];
+        if (step.kind == Kind::Click && step.value == "icon:play" &&
+            play_action_invocations == play_invocations_before_) {
+            // Enabled-state changes can reject a complete physical click. Retry
+            // only when the action callback was never entered, even if old Play
+            // logs/Problems remain from earlier walkthrough steps. A callback
+            // that reports a startup failure is observed and is never repeated.
+            if (SDL_GetTicks() - since_ < 500u * (play_click_retries_ + 1))
+                return;
+            if (play_click_retries_ < 2 && !state.at("playing").get<bool>()) {
+                ++play_click_retries_;
+                trace_.push_back({{"step", index_},
+                                  {"operation", "retry unaccepted toolbar click"},
+                                  {"attempt", play_click_retries_ + 1}});
+                frame_ = 0;
+            } else
+                failure_ = "Play toolbar did not invoke its action after three clicks";
+            return;
+        }
+        if (step.kind == Kind::Click && step.value == "icon:play")
+            trace_.push_back({{"step", index_},
+                              {"operation", "Play callback observed"},
+                              {"before", play_invocations_before_},
+                              {"after", play_action_invocations}});
         if (step.kind == Kind::Check) {
             try {
                 verify(step.value, state);
             } catch (const std::exception& e) {
                 last_check_ = e.what();
-                // A real mouse press can straddle an asynchronous enabled-state
-                // change. Retry only an untouched stopped session, at most twice;
-                // preserve reported startup failures rather than masking them.
-                if (step.value == "starter-ticked" && !state.at("playing").get<bool>() &&
-                    state.at("play_status").get<std::string>().starts_with("Stopped.") &&
-                    state.at("play_log").get<std::string>().empty() &&
-                    state.at("problems").empty() && play_click_retries_ < 2 &&
-                    SDL_GetTicks() - since_ > 500 && index_ > 0 &&
-                    steps_[index_ - 1].kind == Kind::Click &&
-                    steps_[index_ - 1].value == "icon:play") {
-                    ++play_click_retries_;
-                    trace_.push_back({{"step", index_},
-                                      {"operation", "retry stopped toolbar click"},
-                                      {"attempt", play_click_retries_ + 1}});
-                    --index_;
-                    frame_ = 0;
-                    since_ = 0;
-                    return;
-                }
                 // Keep current failure evidence even if CTest's overall limit
                 // expires before this individual readiness check does.
                 if (SDL_GetTicks() - checkpoint_ >= 5000) {
@@ -2282,6 +2298,7 @@ class EditorInputWorkflow {
         std::cout << "Editor input step " << index_ << " complete in " << SDL_GetTicks() - since_
                   << " ms" << std::endl;
         ++index_;
+        play_click_retries_ = 0;
         frame_ = 0;
         since_ = 0;
         last_check_.clear();

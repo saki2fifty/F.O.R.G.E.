@@ -2806,6 +2806,8 @@ int main(int argc, char** argv) {
                     {"stage_budget_ms", fixture_stage_budget},
                     {"frames", fixture.frames},
                     {"ui_frame", ImGui::GetFrameCount()},
+                    {"source_import_ready", content_imports.ready_for_play()},
+                    {"content_refreshing", content.refreshing()},
                     {"mesh_picker_requested", forge::fixture_open_mesh_picker},
                     {"model_open", model_imports.is_open()},
                     {"model_import_pending", model_imports.pending()},
@@ -6984,7 +6986,8 @@ int main(int argc, char** argv) {
                                 ImGui::GetIO(), fixture.stage, fixture.frames,
                                 {(item.minimum.x + item.maximum.x) * .5f,
                                  (item.minimum.y + item.maximum.y) * .5f},
-                                item.enabled && item.minimum.y >= item.clip_minimum.y &&
+                                content_imports.ready_for_play() && !content.refreshing() &&
+                                    item.enabled && item.minimum.y >= item.clip_minimum.y &&
                                     item.maximum.y <= item.clip_maximum.y);
                         }
                     }
@@ -7020,7 +7023,8 @@ int main(int argc, char** argv) {
                                 ImGui::GetIO(), fixture.stage, fixture.frames,
                                 {(item.minimum.x + item.maximum.x) * .5f,
                                  (item.minimum.y + item.maximum.y) * .5f},
-                                item.enabled && item.minimum.y >= item.clip_minimum.y &&
+                                content_imports.ready_for_play() && !content.refreshing() &&
+                                    item.enabled && item.minimum.y >= item.clip_minimum.y &&
                                     item.maximum.y <= item.clip_maximum.y);
                         }
                     const auto last = forge::test::ui_targets.find(
