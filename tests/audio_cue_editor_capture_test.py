@@ -15,7 +15,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-cue-capture-
     scene = project / 'Scenes/70-sequence-audio-cues.scene.json'
     before = hashlib.sha256(scene.read_bytes()).hexdigest()
     result = subprocess.run([fixture, evidence, '--audio-cues', project],
-                            capture_output=True, text=True, timeout=120)
+                            capture_output=True, text=True, timeout=180)
     (evidence / 'capture.log').write_text(result.stdout + result.stderr)
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
@@ -26,5 +26,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-cue-capture-
         chrome = json.loads((evidence / f'chrome-{stage}.json').read_text())
         assert chrome['controls_ready'] and chrome['document_in_front'], chrome
         assert chrome['stable_control_frames'] >= 3, chrome
+        assert chrome['source_preparation_ready'] and chrome['source_preparation_ms'] < 90000
+        assert chrome['control_stage_budget_ms'] == 45000, chrome
     assert hashlib.sha256(scene.read_bytes()).hexdigest() == before
 print('Native sound-cue Timeline controls captured at 100/150/200%; physical listening deferred')

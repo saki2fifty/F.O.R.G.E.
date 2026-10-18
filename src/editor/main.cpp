@@ -2813,7 +2813,9 @@ int main(int argc, char** argv) {
             // dedicated EditorSdkWorkflow tracks its own deadline).
             // Initial Play also starts the process and requests live playback status.
             const Uint64 fixture_stage_budget =
-                fixture.view_images && fixture.stage == 296 && !fixture.view_image_sources_ready
+                ((fixture.view_images && fixture.stage == 296 &&
+                  !fixture.view_image_sources_ready) ||
+                 (fixture.audio_cues && fixture.stage == 293 && !fixture.audio_cues_sources_ready))
                     ? 90000
                 : fixture.root_motion && fixture.stage == 253 ? 75000
                                                               : 45000;
@@ -2828,6 +2830,9 @@ int main(int argc, char** argv) {
                     {"frames", fixture.frames},
                     {"ui_frame", ImGui::GetFrameCount()},
                     {"source_import_ready", content_imports.ready_for_play()},
+                    {"audio_cues_sources_ready", fixture.audio_cues_sources_ready},
+                    {"audio_cues_ready_frames", fixture.audio_cues_ready_frames},
+                    {"audio_cues_preparation_ms", fixture.audio_cues_preparation_ms},
                     {"content_refreshing", content.refreshing()},
                     {"mesh_picker_requested", forge::fixture_open_mesh_picker},
                     {"model_open", model_imports.is_open()},
@@ -4289,15 +4294,31 @@ int main(int argc, char** argv) {
                 case 293:
                     if (fixture.audio_cues) {
                         forge::test::observe_ui = true;
-                        forge::ui::style(1);
-                        SDL_SetWindowSize(window.get(), 1920, 1080);
-                        files.document.open_scene("Scenes/70-sequence-audio-cues.scene.json");
+                        if (fixture.frames == 0) {
+                            forge::ui::style(1);
+                            SDL_SetWindowSize(window.get(), 1920, 1080);
+                            files.document.open_scene("Scenes/70-sequence-audio-cues.scene.json");
+                        }
+                        // Normal source imports can publish a new catalog after
+                        // opening the Scene. Hold Timeline creation until that
+                        // owner settles, so the walkthrough starts from current clips.
+                        fixture.audio_cues_ready_frames =
+                            content_imports.ready_for_play() && !content.refreshing()
+                                ? fixture.audio_cues_ready_frames + 1
+                                : 0;
+                        ready = fixture.audio_cues_ready_frames >= 3;
+                        if (!ready)
+                            break;
                         const auto snapshot = scene.snapshot();
                         for (const auto& row : snapshot.at("entities"))
                             if (row.at("components").contains("forge.animation_sequence"))
                                 animation_timeline.open_sequence(
                                     files.document, scene,
                                     {scene.asset_id(), row.at("id").get<forge::EntityId>()});
+                        fixture.audio_cues_sources_ready = true;
+                        fixture.audio_cues_preparation_ms = SDL_GetTicks() - fixture.stage_started;
+                        fixture.stage_started = SDL_GetTicks();
+                        fixture.frames = 0; // Start the ordinary control deadline afresh.
                     }
                     break;
                 case 238:
@@ -7701,6 +7722,13 @@ int main(int argc, char** argv) {
                                                                 ? fixture.rig_scene_marker_visible
                                                                 : fixture.rig_game_marker_visible;
                             metrics["stable_control_frames"] = stable_control_frames;
+                            if (fixture.audio_cues) {
+                                metrics["source_preparation_ms"] =
+                                    fixture.audio_cues_preparation_ms;
+                                metrics["source_preparation_ready"] =
+                                    fixture.audio_cues_sources_ready;
+                                metrics["control_stage_budget_ms"] = fixture_stage_budget;
+                            }
                             metrics["fixture_frames"] = fixture.frames;
                             metrics["controls_ready"] = captured_document_visible;
                             if (fixture.stage == 285 || fixture.stage == 289) {

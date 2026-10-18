@@ -416,7 +416,7 @@ class ViewImageTask {
                 frame_popup_ = false;
                 ImGui::CloseCurrentPopup();
             } else if (frames_->configuring) {
-                ImGui::TextUnformatted("Sequence preview → numbered PNG frames");
+                ImGui::TextUnformatted("Sequence preview: numbered PNG frames");
                 ImGui::TextWrapped("Choose a new folder. Your previous preview position returns "
                                    "when export ends.");
                 ImGui::BeginChild(

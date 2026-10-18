@@ -195,9 +195,10 @@ class SequenceFrameEditorWorkflow {
                 // former Timeline window over that same completed click.
                 advance(reopening ? Step::Count : Step::Settings);
             } else if (auto* window = ImGui::FindWindowByName("###Animation Timeline")) {
-                ImGui::SetWindowDock(window, 0, ImGuiCond_Always);
-                ImGui::SetWindowPos(window, {30, 55}, ImGuiCond_Always);
-                ImGui::SetWindowSize(window, {1860, 990}, ImGuiCond_Always);
+                // Exercise the ordinary document tabs. A floating full-window
+                // Timeline can cover Game even after its tab receives focus.
+                if (const auto* game = ImGui::FindWindowByName("Game"); game && game->DockId)
+                    ImGui::SetWindowDock(window, game->DockId, ImGuiCond_Always);
                 ImGui::SetWindowFocus("###Animation Timeline");
             }
         } else if (step_ == Step::Settings) {
@@ -205,10 +206,15 @@ class SequenceFrameEditorWorkflow {
             const auto start = ui_targets.find("frame-export:start");
             const auto cancel = ui_targets.find("frame-export:cancel");
             const auto* focus = ImGui::GetCurrentContext()->NavWindow;
+            const auto* game = ImGui::FindWindowByName("Game");
+            const auto* sequence = ImGui::FindWindowByName("###Animation Timeline");
+            const bool game_tab_visible = game && sequence && game->DockId &&
+                                          game->DockId == sequence->DockId &&
+                                          game->DockTabIsVisible;
             const bool ready = modal && focus && modal->RootWindow == focus->RootWindow &&
                                start != ui_targets.end() && visible(start->second) &&
                                cancel != ui_targets.end() && visible(cancel->second) &&
-                               game_ready && timeline.preview_active();
+                               game_ready && game_tab_visible && timeline.preview_active();
             if (ready) {
                 const std::array layout{modal->Pos.x, modal->Pos.y, modal->Size.x, modal->Size.y};
                 stable_ = layout == layout_ ? stable_ + 1 : 1;
@@ -219,6 +225,7 @@ class SequenceFrameEditorWorkflow {
                                         {"controls_ready", true},
                                         {"modal_in_front", true},
                                         {"game_preview_ready", true},
+                                        {"game_tab_visible", game_tab_visible},
                                         {"stable_frames", stable_}});
                     advance(Step::Cancel);
                 }

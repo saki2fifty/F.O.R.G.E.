@@ -311,6 +311,13 @@ host completes each native graphics frame just as swap-chain presentation does;
 Flush alone is not graphics frame cleanup.
 Both cases belong to the full editor acceptance selection; workflow-only audits
 include the native modal workflow without claiming the additional renderer case.
+The separate sound-cue Timeline walkthrough also waits for normal source imports
+and the Content catalog scan to settle for three frames before opening its clip
+snapshot. Startup preparation is bounded at 90 seconds and recorded in capture
+metadata; its ordinary 45-second control deadline starts after that preparation.
+It retains the same ready-controls, stable-layout, foreground and source checks,
+with a 180-second process timeout inside a 210-second CTest budget. This prevents
+startup publication from invalidating the test's clip snapshot before cue input.
 Original scenes, project settings and raw asset sources must remain byte-identical
 through startup and capture; only importer-owned sidecars/catalog may refresh
 before that baseline, preserving every asset ID/source/type. No source/catalog

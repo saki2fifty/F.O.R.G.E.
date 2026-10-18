@@ -522,7 +522,7 @@ if(BUILD_TESTING)
  add_test(NAME editor_sequence_frames COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/sequence_frame_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/sequence-frames")
  set_tests_properties(editor_sequence_frames PROPERTIES TIMEOUT 270)
  add_test(NAME editor_sequence_audio_cues COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cue_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cues")
- set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 150)
+ set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 210)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
  # The full authoring/export scenario includes native compilation and three
  # graph-worker preparations. Individual input/readiness deadlines remain bounded.

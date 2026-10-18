@@ -48,6 +48,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sequence-frame-edi
         assert abs(capture['scale'] - scale / 100) < .001, capture
         assert capture['controls_ready'] and capture['modal_in_front'], capture
         assert capture['game_preview_ready'] and capture['stable_frames'] >= 3, capture
+        assert capture['game_tab_visible'], capture
         assert capture['fixed_output'] == [320, 180] and capture['ordinary_target_restored'], capture
         assert capture['resizes'] == [
             {'window': [1400, 900], 'target': [320, 180]},
