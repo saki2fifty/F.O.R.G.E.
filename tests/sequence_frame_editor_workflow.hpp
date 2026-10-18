@@ -172,15 +172,17 @@ class SequenceFrameEditorWorkflow {
             fail("Sequence export entered Play or changed authored Scene values");
         const auto suffix = std::to_string(100 + group_ * 50);
         if (step_ == Step::Open || step_ == Step::Reopen) {
-            if (auto* window = ImGui::FindWindowByName("###Animation Timeline")) {
+            const bool reopening = step_ == Step::Reopen;
+            if (click("sequence:export-frames")) {
+                // The actual action has just focused Game. Do not focus its
+                // former Timeline window over that same completed click.
+                advance(reopening ? Step::Count : Step::Settings);
+            } else if (auto* window = ImGui::FindWindowByName("###Animation Timeline")) {
                 ImGui::SetWindowDock(window, 0, ImGuiCond_Always);
                 ImGui::SetWindowPos(window, {30, 55}, ImGuiCond_Always);
                 ImGui::SetWindowSize(window, {1860, 990}, ImGuiCond_Always);
                 ImGui::SetWindowFocus("###Animation Timeline");
             }
-            const bool reopening = step_ == Step::Reopen;
-            if (click("sequence:export-frames"))
-                advance(reopening ? Step::Count : Step::Settings);
         } else if (step_ == Step::Settings) {
             auto* modal = ImGui::FindWindowByName("Export sequence frames");
             const auto start = ui_targets.find("frame-export:start");
