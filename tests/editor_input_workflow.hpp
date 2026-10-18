@@ -1031,6 +1031,7 @@ class EditorInputWorkflow {
             check("shortcut-default");
             capture("editor-shortcut-reset");
             click("shortcuts:close");
+            click("saved-cube-row");
             key(ImGuiKey_D, true);
             check("shortcut-duplicated");
             key(ImGuiKey_Z, true);
