@@ -283,8 +283,10 @@ Both the source-audit and Windows package test selections include this test.
 For a source-only run, dispatch **Build and test** with `audit_source` set to the
 full commit SHA and `windows_package=false`. For changes confined to native
 input/capture fixtures, set `audit_workflow_only=true` to build their required
-editor/runtime targets and run the process, input, physics, root-motion and
-standalone workflows. The root-motion fixture waits for an object-valued animation
+editor/runtime targets and run the process, input, physics, root-motion,
+sequence sound-cue, Scene/Game image-export and standalone workflows. Image-export
+failures retain the changed authored files before and after capture, with a hash
+receipt that also detects added or removed files. The root-motion fixture waits for an object-valued animation
 status before checking availability; startup may legitimately have no observation. Root-mode
 Inspector/document captures require their controls to be ready and the panel
 bounds/scroll unchanged for three consecutive frames. Target-guide captures also

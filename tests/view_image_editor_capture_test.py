@@ -10,6 +10,15 @@ import tempfile
 
 fixture, gallery, evidence = (Path(p).resolve() for p in sys.argv[1:4])
 evidence.mkdir(parents=True, exist_ok=True)
+
+
+def authored_files(project):
+    paths = [project / 'forge.project.json', project / 'forge.assets.json']
+    paths += list((project / 'Scenes').rglob('*.json'))
+    paths += [p for p in (project / 'Assets').rglob('*') if p.is_file()]
+    return {p.relative_to(project): p.read_bytes() for p in paths if p.is_file()}
+
+
 for scale in (100, 150, 200):
     for name in (f'scene-{scale}.png', f'game-ui-{scale}.png'):
         path = evidence / name
@@ -20,10 +29,7 @@ for scale in (100, 150, 200):
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture-') as scratch:
     project = Path(scratch) / 'Gallery'
     shutil.copytree(gallery, project)
-    protected = [project / 'forge.project.json', project / 'forge.assets.json']
-    protected += list((project / 'Scenes').rglob('*.json'))
-    protected += [p for p in (project / 'Assets').rglob('*') if p.is_file()]
-    before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in protected}
+    before = authored_files(project)
     result = subprocess.run([fixture, evidence, '--view-images', project],
                             capture_output=True, text=True, timeout=180)
     (evidence / 'capture.log').write_text(result.stdout + result.stderr)
@@ -54,8 +60,24 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture
                 if mode == 2:
                     assert report['png_sources'] and report['jpeg_sources'], report
                     assert report['ui_changed_pixels'] >= 100, report
-    assert all(hashlib.sha256(p.read_bytes()).hexdigest() == digest
-               for p, digest in before.items()), 'Image capture changed Gallery source/catalog'
+    after = authored_files(project)
+    changed = sorted(p for p in before.keys() | after.keys() if before.get(p) != after.get(p))
+    changes = []
+    for path in changed:
+        row = {'path': path.as_posix()}
+        for label, snapshot in (('before', before), ('after', after)):
+            data = snapshot.get(path)
+            row[label] = None if data is None else hashlib.sha256(data).hexdigest()
+            if data is not None:
+                retained = evidence / 'source-changes' / label / path
+                retained.parent.mkdir(parents=True, exist_ok=True)
+                retained.write_bytes(data)
+        changes.append(row)
+    (evidence / 'source-preservation.json').write_text(json.dumps({
+        'before_files': len(before), 'after_files': len(after), 'changes': changes
+    }, indent=2) + '\n')
+    assert not changed, 'Image capture changed Gallery source/catalog: ' + ', '.join(
+        p.as_posix() for p in changed)
 print('Native Scene/Game Save image controls and exact PNG pixels checked at 100/150/200%; '
       'Game includes actual PNG/JPEG runtime UI. OS picker selection injected; '
       'physical Windows picker acceptance remains deferred.')
