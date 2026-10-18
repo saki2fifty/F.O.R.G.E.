@@ -1,13 +1,15 @@
 # Windows delivery — 2026-10-18
 
-**Build261018-000190** delivers sequence camera shots, personal editor shortcuts,
-reviewed runtime tuning, Scene color adjustments and optional GPU profiling.
-The complete Windows/Linux, exact SDK, native editor, fresh shortcut restart and
-final exported-game gates passed for compiled source
-`84553c800d3a6dbf636532a9fad99d840b3dc1f3`. Changed native captures were reviewed;
+**Build261018-000192** delivers sequence sound cues, editable Gallery70 and
+Scene/Game PNG export, alongside Build190's camera shots, shortcuts, reviewed
+runtime tuning, color adjustments and optional GPU profiling. The repository
+README includes seven real editor screenshots and the technology stack.
+All nine Windows/Linux, exact SDK, native editor, fresh shortcut restart and
+final exported-game jobs passed for compiled source
+`d8b33f67f3918a61cbf3baac4d68a2cc1525c7cf`. All 1536 package files, 72 x64 binaries
+and 462 Gallery files/70 scenes were verified. Native images were reviewed;
 physical Windows testing remains deferred. See the [delivery evidence and
-performance limits](../changelog/20261018/README.md). Later local sound-cue/PNG work
-has separate pending gates and is absent from this ZIP.
+performance limits](../changelog/20261018/README.md).
 
 # Save rendered view images — 2026-10-17
 
@@ -16,8 +18,9 @@ frame fence, file picker and atomic storage. A bounded asynchronous readback
 preserves display colors, alpha and row order; PNG compression/file writing runs
 off the editor thread. Local normal/sanitizer pixel/IO tests, software Vulkan
 readback and actual overwrite controls at three scales and two window sizes pass.
-The native Windows file picker, complete editor captures and full package gate
-remain pending; physical Windows acceptance is deferred. See [the image export
+Actual Windows controls, exact display pixels, source preservation, native image
+review and the full package gate pass for Build192. Only the OS picker selection
+was injected; physical picker/Windows acceptance is deferred. See [the image export
 contract](editor-ui.md#rendered-view-image-export) and [the guide](../manual/editor/viewport.md#save-an-image).
 
 # Sequence sound cues — 2026-10-17
@@ -29,7 +32,7 @@ Normal/sanitizer sequence, real offline PCM, recovery, typed Scene/Prefab links,
 Timeline controls at three scales, matching installed-only C++ SDK consumers and
 old-module rejection pass locally. Editable Gallery70 and its relocated source-free
 export produce matching sound samples with coordinated camera cuts and motion.
-Native Windows capture/full-package gates remain pending; physical listening and
+Native Windows capture review and full-package gates pass for Build192; physical listening and
 desktop acceptance are deferred. See [the contract](transform-animation.md#sequence-audio-cues)
 and [the user guide](../manual/editor/animation-sequences.md#sound-cues).
 
