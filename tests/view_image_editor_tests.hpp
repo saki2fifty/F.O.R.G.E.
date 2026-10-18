@@ -90,7 +90,7 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
     desc.Format = TEX_FORMAT_RGBA8_UNORM;
     desc.BindFlags = BIND_SHADER_RESOURCE;
     TextureSubResData row{expected.data(), 8};
-    TextureData initial{&row, 1};
+    Diligent::TextureData initial{&row, 1};
     RefCntAutoPtr<ITexture> texture;
     presentation.device()->CreateTexture(desc, &initial, &texture);
     check(bool(texture), "Image task GPU target unavailable");
