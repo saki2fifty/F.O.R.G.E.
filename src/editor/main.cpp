@@ -2865,6 +2865,22 @@ int main(int argc, char** argv) {
                                             {"candidate", {input.candidate.x, input.candidate.y}},
                                             {"stable_frames", input.stable_frames},
                                             {"mouse_down", ImGui::GetIO().MouseDown[0]}};
+                if (fixture.audio_cues || fixture.audio_preview) {
+                    auto& controls = stalled["audio_capture_controls"] = forge::Json::object();
+                    for (const auto& [id, box] : forge::test::ui_targets)
+                        if (id.starts_with("sequence:") || id.starts_with("audio-preview:"))
+                            controls[id] = {
+                                {"enabled", box.enabled},
+                                {"minimum", {box.minimum.x, box.minimum.y}},
+                                {"maximum", {box.maximum.x, box.maximum.y}},
+                                {"clip_minimum", {box.clip_minimum.x, box.clip_minimum.y}},
+                                {"clip_maximum", {box.clip_maximum.x, box.clip_maximum.y}},
+                                {"id", box.id}};
+                    const auto* ui = ImGui::GetCurrentContext();
+                    stalled["capture_hovered_id"] = ui->HoveredId;
+                    stalled["capture_active_id"] = ui->ActiveId;
+                    stalled["capture_focused_window"] = ui->NavWindow ? ui->NavWindow->Name : "";
+                }
                 if (auto* w = ImGui::FindWindowByName("###Model import"))
                     stalled["model_window"] = {{"active", bool(w->Active)},
                                                {"hidden", bool(w->Hidden)},
@@ -4230,7 +4246,8 @@ int main(int argc, char** argv) {
                                 content_imports.ready_for_play()
                                     ? fixture.audio_preview_ready_frames + 1
                                     : 0;
-                            if (fixture.audio_preview_ready_frames >= 3) {
+                            ready = fixture.audio_preview_ready_frames >= 3;
+                            if (ready) {
                                 audio_imports.open(files.document, "Assets/FalloffTone.wav");
                                 fixture.audio_preview_opened = true;
                                 fixture.stage_started = SDL_GetTicks();
@@ -6352,7 +6369,7 @@ int main(int argc, char** argv) {
                         (fixture.stage >= 103 && fixture.stage <= 141) ||
                         (fixture.stage >= 145 && fixture.stage <= 168) ||
                         (fixture.stage >= 217 && fixture.stage <= 252) || fixture.root_motion ||
-                        fixture.view_images)
+                        fixture.view_images || fixture.audio_cues)
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
@@ -7604,7 +7621,8 @@ int main(int argc, char** argv) {
                                                         (box.minimum.y + box.maximum.y) / 2};
                                     fixture.capture_input.click_once(
                                         ImGui::GetIO(), fixture.stage, fixture.frames, center,
-                                        box.enabled && center.x >= box.clip_minimum.x &&
+                                        fixture.prepared && captured_document_visible &&
+                                            box.enabled && center.x >= box.clip_minimum.x &&
                                             center.x <= box.clip_maximum.x &&
                                             center.y >= box.clip_minimum.y &&
                                             center.y <= box.clip_maximum.y);
