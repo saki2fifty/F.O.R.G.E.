@@ -356,11 +356,6 @@ moves the exported folder twice, and asserts graph-material pixels after each
 launch. The numbered editor gate includes both standalone tests too.
 No package/build-number allocation is needed for a source audit.
 
-Static screenshot fixtures may focus their chosen document for capture. Input-driven
-workflows own focus through actual clicks and must bypass that static focus policy,
-including while their legacy capture stage is zero. Otherwise sheet-picker keyboard
-navigation can be redirected to the background document and close its popup.
-
 A passing test establishes only the listed interactions and assertions. Review
 the images separately for readability, clipping, hierarchy, selection feedback,
 and useful camera/light presentation. `visual_review` deliberately remains
