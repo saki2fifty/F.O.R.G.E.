@@ -633,7 +633,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
             }
         }
         if (entry.ready && entry.resource_current && !adopted &&
-            (values_changed || !entry.parameter_error.empty()) && parameters_observed) {
+            (values_changed || (input.sprite && !entry.parameter_error.empty())) &&
+            parameters_observed) {
             try {
                 auto parameters = asset_detail::prepare_model_material_parameters(
                     entry.ready->prepared(), entry.requested_parameters);

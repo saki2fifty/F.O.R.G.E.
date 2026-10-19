@@ -240,13 +240,13 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     image.renderer.tint_a = .5;
     image.renderer.order = std::numeric_limits<std::int32_t>::max();
     image.world.m[11] = 3; // Far red draws first regardless of priority.
-    auto near = image;
-    near.entity = second;
-    near.world.m[11] = 2;
-    near.renderer.tint_r = 0;
-    near.renderer.tint_b = 1;
-    near.renderer.order = std::numeric_limits<std::int32_t>::min();
-    scene.sprites = {near, image};
+    auto foreground = image;
+    foreground.entity = second;
+    foreground.world.m[11] = 2;
+    foreground.renderer.tint_r = 0;
+    foreground.renderer.tint_b = 1;
+    foreground.renderer.order = std::numeric_limits<std::int32_t>::min();
+    scene.sprites = {foreground, image};
     settle(renderer);
     const auto blended = render();
     const std::array<double, 4> expected{.25 + clear[0] * .25, clear[1] * .25, .5 + clear[2] * .25,
