@@ -22,5 +22,10 @@ first-launch observation order, preserving its storage assertions.
 
 This is not a new delivered Windows build. Physical performance testing remains
 deferred. Software rendering verifies behavior; these counters do not establish
-GPU duration or smooth frame pacing. The frame-export bundle's independent editor
-gate still governs integration with main.
+GPU duration or smooth frame pacing. The combined frame-export/FPS editor job
+[passed 273/273 tests](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39195937866)
+at source `6c4f09f568240d3958124ee8046a0b79b75d0ab8`, including actual Game statistics,
+followed by standalone-only validation. Seven fresh FPS captures and nine audio
+captures were reviewed. A [corrected comparison-only run](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39206311150)
+also passed, reusing the audit's benchmark after correcting a baseline artifact
+reference. Build192 remains the latest delivered ZIP.

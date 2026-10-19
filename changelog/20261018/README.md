@@ -69,7 +69,7 @@ threshold. Representative hardware/smoothness testing remains outstanding.
 Build190 excluded sequence sound cues and rendered-view PNG export. Build192
 above delivers them after their native and final-package gates.
 
-## Local implementation — Sequence preview frames
+## Sequence preview frames — source validated, delivery pending
 
 The ready sequence Timeline can export a bounded range of its silent Game preview
 to numbered PNGs in a new folder. Start/FPS/count settings, current-view or fixed
@@ -84,6 +84,19 @@ operation.
 Focused Linux software-Vulkan checks pass for exact sample pixels/order, actual
 Gallery 70 animation/camera images, source preservation, cancellation, failures,
 shutdown and real settings controls at 100/150/200% in two window sizes. Normal
-and sanitizer owner/lifecycle checks pass. Native Windows compilation, full editor
-visual review and a delivered package for this addition remain pending. It is
-absent from Build192.
+and sanitizer owner/lifecycle checks pass. The editor job in the
+[combined Windows audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39195937866)
+passed all 273 tests at source `6c4f09f568240d3958124ee8046a0b79b75d0ab8`, followed
+by standalone-only build, link-boundary and workflow checks. Actual exports cover
+24 PNGs and six receipts at three UI scales, two window resizes per scale, fixed
+pixel equality and ordinary Game target restoration. All 246 source files remain
+unchanged during capture and 230 asset identities survive normal import preparation.
+Native settings, resize, restored-preview, audio and FPS images were reviewed.
+
+The separate [benchmark comparison](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39206311150)
+passed using the audit's benchmark executable and the recorded original baseline.
+The first comparison request referenced a later run without the baseline artifact;
+correcting that reference required no repeated compilation or editor tests.
+These software-rendered startup/idle measurements are not physical GPU/FPS or a
+performance-threshold pass. A new numbered package and physical acceptance remain
+pending; these features are absent from Build192.

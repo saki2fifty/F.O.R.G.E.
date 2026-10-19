@@ -11,17 +11,31 @@ and 462 Gallery files/70 scenes were verified. Native images were reviewed;
 physical Windows testing remains deferred. See the [delivery evidence and
 performance limits](../changelog/20261018/README.md).
 
-# Sequence preview frames — local implementation
+# Sequence preview frames — source validated
 
 Current development source adds numbered PNG frame export from the sequence
 Timeline, including bounded sample ranges, preview restoration, progress/Cancel
 and completed-frame receipts. Current Game size is the default; fixed-size
 720p/1080p/square presets and custom dimensions reuse the same Game renderer with
 an aspect-preserving preview. Fixed export dimensions survive editor resizing.
-Focused native software-Vulkan pixels, input/lifecycle and sanitizer checks pass
-locally. Full native Windows/editor visual acceptance for these additions remains
-pending; neither feature is in Build192 or on main. See [the image export
+Focused native software-Vulkan pixels, input/lifecycle and sanitizer checks pass.
+The combined Windows editor job passed 273/273 tests, standalone-only validation,
+24 exported PNGs/six receipts, source protection and native capture review. The
+separate corrected benchmark comparison passed using the same compiled source.
+A new numbered package and physical acceptance remain pending; these additions
+are absent from Build192. See [the image export
 contract](editor-ui.md#sequence-preview-frames) and [the guide](../manual/editor/animation-sequences.md#export-preview-frames).
+
+# Optional standalone FPS display — source validated
+
+`--show-fps` displays actual presentation FPS, average frame time and peak frame
+interval in the existing game UI. It defaults off, accepts no gameplay input and
+works without an authored HUD. Counter/sanitizer, native UI/pixel, actual Windows
+resize/fullscreen/minimize/input and source-free relocated export checks pass.
+Both platforms pass 150 core/183 Native SDK tests for the unchanged implementation;
+the combined editor gate above also passes. Physical performance testing and a
+new delivered ZIP remain pending. See [the launch option](standalone-host.md) and
+[the user guide](../manual/getting-started/standalone-runtime.md).
 
 # Save rendered view images — 2026-10-17
 
