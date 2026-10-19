@@ -28,6 +28,8 @@ template <class T> Json encode(const T& p) {
         return render_value(p);
     else if constexpr (std::is_same_v<T, Light>)
         return render_value(p);
+    else if constexpr (std::is_same_v<T, SpriteRenderer>)
+        return render_value(p);
     else if constexpr (std::is_same_v<T, ModelSource>) {
         return {{"model", p.model.id ? Json(p.model.id) : Json()},
                 {"node", p.node.id ? Json(p.node.id) : Json()}};
@@ -275,6 +277,8 @@ template <class T> Value decode(const Json& p) {
         return value;
     } else if constexpr (std::is_same_v<T, ParticleEmitter>) {
         return particle_emitter_value(p);
+    } else if constexpr (std::is_same_v<T, SpriteRenderer>) {
+        return sprite_renderer_value(p);
     } else if constexpr (std::is_same_v<T, LocalScale>) {
         return checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
     } else if constexpr (std::is_same_v<T, UiDocument>) {
@@ -660,6 +664,57 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("layers")
             .template member<AssetRef<MaterialVariantAsset>>("material_variant")
             .template member<std::vector<MaterialParameterOverride>>("material_parameters");
+    } else if constexpr (std::is_same_v<T, SpriteRenderer>) {
+        register_asset_ref<MaterialAsset>(w, "forge.material_ref");
+        c.template member<AssetRef<MaterialAsset>>("material")
+            .template member<bool>("enabled")
+            .template member<bool>("visible")
+            .template member<bool>("flip_x")
+            .template member<bool>("flip_y")
+            .template member<std::uint32_t>("layers")
+            .template member<std::uint32_t>("columns")
+            .template member<std::uint32_t>("rows")
+            .template member<std::uint32_t>("margin_x")
+            .template member<std::uint32_t>("margin_y")
+            .template member<std::uint32_t>("spacing_x")
+            .template member<std::uint32_t>("spacing_y")
+            .template member<std::uint32_t>("frame")
+            .template member<std::int32_t>("order")
+            .template member<double>("width")
+            .template member<double>("height")
+            .template member<double>("pivot_x")
+            .template member<double>("pivot_y")
+            .template member<float>("tint_r")
+            .template member<float>("tint_g")
+            .template member<float>("tint_b")
+            .template member<float>("tint_a");
+        for (const auto& [field, offset] :
+             {std::pair{"material", offsetof(SpriteRenderer, material)},
+              std::pair{"enabled", offsetof(SpriteRenderer, enabled)},
+              std::pair{"visible", offsetof(SpriteRenderer, visible)},
+              std::pair{"flip_x", offsetof(SpriteRenderer, flip_x)},
+              std::pair{"flip_y", offsetof(SpriteRenderer, flip_y)},
+              std::pair{"layers", offsetof(SpriteRenderer, layers)},
+              std::pair{"columns", offsetof(SpriteRenderer, columns)},
+              std::pair{"rows", offsetof(SpriteRenderer, rows)},
+              std::pair{"margin_x", offsetof(SpriteRenderer, margin_x)},
+              std::pair{"margin_y", offsetof(SpriteRenderer, margin_y)},
+              std::pair{"spacing_x", offsetof(SpriteRenderer, spacing_x)},
+              std::pair{"spacing_y", offsetof(SpriteRenderer, spacing_y)},
+              std::pair{"frame", offsetof(SpriteRenderer, frame)},
+              std::pair{"order", offsetof(SpriteRenderer, order)},
+              std::pair{"width", offsetof(SpriteRenderer, width)},
+              std::pair{"height", offsetof(SpriteRenderer, height)},
+              std::pair{"pivot_x", offsetof(SpriteRenderer, pivot_x)},
+              std::pair{"pivot_y", offsetof(SpriteRenderer, pivot_y)},
+              std::pair{"tint_r", offsetof(SpriteRenderer, tint_r)},
+              std::pair{"tint_g", offsetof(SpriteRenderer, tint_g)},
+              std::pair{"tint_b", offsetof(SpriteRenderer, tint_b)},
+              std::pair{"tint_a", offsetof(SpriteRenderer, tint_a)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("SpriteRenderer native Meta disagrees with typed layout");
+        }
     } else if constexpr (std::is_same_v<T, ParticleEmitter>) {
         register_asset_ref<ParticleEffectAsset>(w, "forge.particle_effect_ref");
         c.template member<AssetRef<ParticleEffectAsset>>("effect")
@@ -1078,6 +1133,11 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<MeshRenderer>(
             "forge.mesh_renderer", "Mesh and logical material slot assignments", "unitless", {}, {},
             [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
+        descriptor<SpriteRenderer>(
+            "forge.sprite_renderer", "World-space image or uniform sheet using a shared material",
+            "unitless", {}, {},
+            [](flecs::world&
+                   w) { return register_type<SpriteRenderer>(w, "forge.sprite_renderer"); }),
         descriptor<ParticleEmitter>(
             "forge.particle_emitter", "Reusable CPU mesh-particle effect driven by the fixed clock",
             "unitless", {}, {},
@@ -1661,6 +1721,50 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = field == "enabled" ? "Load this document during Play"
                                                       : "Show this document during Play";
     }
+    if (name == "forge.sprite_renderer") {
+        if (field == "material") {
+            value["asset_type"] = MaterialAsset::type;
+            value["nullable"] = true;
+            value["description"] =
+                "Shared unlit image material; owns the texture and alpha/depth settings";
+        } else if (field == "width" || field == "height") {
+            value["minimum"] = .0001;
+            value["maximum"] = 10000;
+            value["unit"] = "meters";
+            value["description"] = "Image size before the entity world transform";
+        } else if (field == "pivot_x" || field == "pivot_y") {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["description"] =
+                "Normalized pivot measured from the image top-left; 0.5 centers it";
+        } else if (field.starts_with("tint_")) {
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["description"] = "Linear straight RGBA modulation; one preserves the channel";
+        } else if (field == "columns" || field == "rows" || field.starts_with("margin_") ||
+                   field.starts_with("spacing_")) {
+            value["minimum"] = field == "columns" || field == "rows" ? 1 : 0;
+            value["maximum"] = 16384;
+            value["description"] =
+                field == "columns" || field == "rows"
+                    ? "Uniform sheet cell count; cells must contain whole pixels"
+                    : "Symmetric outer margin or between-cell spacing in texture pixels";
+        } else if (field == "frame") {
+            value["minimum"] = 0;
+            value["maximum"] = 16384 * 16384 - 1;
+            value["description"] =
+                "Integer frame from the top-left, across rows; must fit the grid";
+        } else if (field == "order") {
+            value["description"] =
+                "Shared queue priority at equal camera depth; higher draws later";
+        } else if (field == "flip_x" || field == "flip_y") {
+            value["description"] = "Mirror the image without moving its geometry or pivot";
+        } else if (field == "enabled" || field == "visible") {
+            value["description"] = "Include the image in scene rendering";
+        } else if (field == "layers") {
+            value["description"] = "Camera visibility layer bit mask";
+        }
+    }
     if (name == "forge.particle_emitter") {
         if (field == "effect") {
             value["asset_type"] = ParticleEffectAsset::type;
@@ -2029,8 +2133,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
              {"schema_version", 1},
              {"fields", fields},
              {"optional", category != 0 || name == "forge.mesh_renderer" ||
-                              name == "forge.particle_emitter" || name == "forge.camera" ||
-                              name == "forge.light" || name == "forge.node_visibility" ||
+                              name == "forge.particle_emitter" || name == "forge.sprite_renderer" ||
+                              name == "forge.camera" || name == "forge.light" ||
+                              name == "forge.node_visibility" ||
                               name == "forge.node_selectability"}});
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();

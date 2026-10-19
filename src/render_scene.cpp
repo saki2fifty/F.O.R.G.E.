@@ -216,6 +216,15 @@ RenderScene extract_render_scene(const Json& source) {
                     {id, mesh, world_transform(row), {}, state.valid && state.selectable});
             }
         });
+        admit("forge.sprite_renderer", "render.sprite.invalid", [&] {
+            auto sprite = component<SpriteRenderer>(values, "forge.sprite_renderer");
+            if (!sprite.enabled)
+                return;
+            require(bool(sprite.material.id), "Sprite Renderer has no assigned image material");
+            sprite.visible = sprite.visible && state.valid && state.visible;
+            result.sprites.push_back(
+                {id, sprite, world_transform(row), state.valid && state.selectable});
+        });
         admit("forge.particle_emitter", "render.particles.invalid", [&] {
             auto emitter = component<ParticleEmitter>(values, "forge.particle_emitter");
             if (!emitter.enabled)

@@ -43,6 +43,12 @@ struct RenderParticleEmitter {
     std::string revision;
     std::uint64_t generation = 0;
 };
+struct RenderSprite {
+    EntityId entity;
+    SpriteRenderer renderer;
+    AffineTransform world;
+    bool selectable = true;
+};
 struct RenderModelNode {
     EntityId entity;
     ModelSource source;
@@ -68,6 +74,7 @@ struct RenderScene {
     std::size_t omitted_diagnostics = 0;
     std::vector<RenderModelNode> model_nodes;
     std::vector<RenderModelAnimation> model_animations;
+    std::vector<RenderSprite> sprites;
 };
 // Malformed envelope/identity rejects the whole snapshot. Invalid per-component
 // producer values are diagnosed and omitted without touching authored state.

@@ -1,6 +1,77 @@
 #include "render_values.hpp"
+#include <cmath>
 #include <forge/render_view.hpp>
+#include <stdexcept>
 namespace forge::detail {
+void validate_sprite_renderer(const SpriteRenderer& value) {
+    for (const auto size : {value.width, value.height})
+        if (!std::isfinite(size) || size < .0001 || size > 10000)
+            throw std::invalid_argument(
+                "Sprite width/height must be finite meters in [0.0001,10000]");
+    for (const auto pivot : {value.pivot_x, value.pivot_y})
+        if (!std::isfinite(pivot) || pivot < 0 || pivot > 1)
+            throw std::invalid_argument("Sprite pivot must be finite normalized values in [0,1]");
+    for (const auto tint : {value.tint_r, value.tint_g, value.tint_b, value.tint_a})
+        if (!std::isfinite(tint) || tint < 0 || tint > 1)
+            throw std::invalid_argument("Sprite tint must be finite linear RGBA in [0,1]");
+    if (!value.columns || !value.rows || value.columns > 16384 || value.rows > 16384 ||
+        value.margin_x > 16384 || value.margin_y > 16384 || value.spacing_x > 16384 ||
+        value.spacing_y > 16384 || value.frame >= std::uint64_t(value.columns) * value.rows)
+        throw std::invalid_argument("Sprite grid/frame is outside the supported integer range");
+}
+Json render_value(const SpriteRenderer& p) {
+    validate_sprite_renderer(p);
+    return {{"material", p.material.id ? Json(p.material.id) : Json()},
+            {"enabled", p.enabled},
+            {"visible", p.visible},
+            {"flip_x", p.flip_x},
+            {"flip_y", p.flip_y},
+            {"layers", p.layers},
+            {"columns", p.columns},
+            {"rows", p.rows},
+            {"margin_x", p.margin_x},
+            {"margin_y", p.margin_y},
+            {"spacing_x", p.spacing_x},
+            {"spacing_y", p.spacing_y},
+            {"frame", p.frame},
+            {"order", p.order},
+            {"width", p.width},
+            {"height", p.height},
+            {"pivot_x", p.pivot_x},
+            {"pivot_y", p.pivot_y},
+            {"tint_r", p.tint_r},
+            {"tint_g", p.tint_g},
+            {"tint_b", p.tint_b},
+            {"tint_a", p.tint_a}};
+}
+SpriteRenderer sprite_renderer_value(const Json& p) {
+    SpriteRenderer value;
+    if (!p.at("material").is_null())
+        value.material.id = p.at("material").get<AssetId>();
+    value.enabled = p.at("enabled");
+    value.visible = p.at("visible");
+    value.flip_x = p.at("flip_x");
+    value.flip_y = p.at("flip_y");
+    value.layers = p.at("layers").get<std::uint32_t>();
+    value.columns = p.at("columns").get<std::uint32_t>();
+    value.rows = p.at("rows").get<std::uint32_t>();
+    value.margin_x = p.at("margin_x").get<std::uint32_t>();
+    value.margin_y = p.at("margin_y").get<std::uint32_t>();
+    value.spacing_x = p.at("spacing_x").get<std::uint32_t>();
+    value.spacing_y = p.at("spacing_y").get<std::uint32_t>();
+    value.frame = p.at("frame").get<std::uint32_t>();
+    value.order = p.at("order").get<std::int32_t>();
+    value.width = p.at("width").get<double>();
+    value.height = p.at("height").get<double>();
+    value.pivot_x = p.at("pivot_x").get<double>();
+    value.pivot_y = p.at("pivot_y").get<double>();
+    value.tint_r = p.at("tint_r").get<float>();
+    value.tint_g = p.at("tint_g").get<float>();
+    value.tint_b = p.at("tint_b").get<float>();
+    value.tint_a = p.at("tint_a").get<float>();
+    validate_sprite_renderer(value);
+    return value;
+}
 Json render_value(const ParticleEmitter& p) {
     return {{"effect", p.effect.id ? Json(p.effect.id) : Json()},
             {"enabled", p.enabled},

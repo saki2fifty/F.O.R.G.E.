@@ -48,6 +48,20 @@ struct MeshRenderer {
     std::vector<MaterialParameterOverride> material_parameters;
     bool operator==(const MeshRenderer&) const = default;
 };
+// World-space XY image/sheet. Material owns texture/sampler/alpha/depth intent;
+// these numeric values introduce no resource, simulation clock or hierarchy.
+struct SpriteRenderer {
+    AssetRef<MaterialAsset> material;
+    bool enabled = true, visible = true, flip_x = false, flip_y = false;
+    std::uint32_t layers = UINT32_MAX;
+    std::uint32_t columns = 1, rows = 1, margin_x = 0, margin_y = 0, spacing_x = 0, spacing_y = 0;
+    std::uint32_t frame = 0; // Top-left, row-major integer frame; never a fractional index.
+    std::int32_t order = 0;  // Same-depth priority in the shared render queue; higher draws later.
+    double width = 1, height = 1;      // Meters before the entity's world transform.
+    double pivot_x = .5, pivot_y = .5; // Normalized from the image's top-left corner.
+    float tint_r = 1, tint_g = 1, tint_b = 1, tint_a = 1; // Linear straight RGBA.
+    bool operator==(const SpriteRenderer&) const = default;
+};
 // Authored emitter values only. Effect resources, fixed-clock age and transient
 // particle instances belong to runtime/presentation owners, never the scene file.
 struct ParticleEmitter {

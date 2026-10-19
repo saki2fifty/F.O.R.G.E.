@@ -1,5 +1,18 @@
 # ADR 013 — Persistence domains
 
+## Sprite component development — 2026-10-19
+
+The in-progress Sprite family adds optional `forge.sprite_renderer` through the
+existing native built-in codec and reflected Scene/Prefab authority. Its Material
+AssetRef is traversed by existing typed dependency inspection. Grid/frame, local
+image size/pivot, linear RGBA, flips, visibility/layers and sort priority are plain
+authored values; native resources and texture-dependent admission stay derived.
+No existing component or Scene/Prefab version is migrated. Unknown extensions
+retain the existing preservation rules. The public C++ header changes the exact
+SDK fingerprint and requires matching native-module rebuilds; native ABI1 is
+unchanged. This records the additive persistence boundary, not completion of the
+renderer/editor/animation/export family. See [world sprites](../sprites.md).
+
 Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
 validation is complete. Future implementation requires its own authorized scope.
 
