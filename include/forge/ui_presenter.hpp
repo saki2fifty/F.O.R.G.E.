@@ -34,6 +34,9 @@ class UiPresenter {
     // Presentation-only host values bound as forge_loading_* in every document.
     // Does not modify authored/gameplay models or their protocol budget.
     void loading(const LoadingState&);
+    // Host presentation diagnostics only: bounded literal text, no input/model/source
+    // authority. Empty hides it; disabled hosts create no diagnostic document.
+    void frame_statistics(const std::string& text);
     std::optional<std::uint64_t> take_loading_cancel();
     // Explicit scene transition trust. Loads a second native context and its GPU
     // resources without replacing visible documents or routing candidate input.

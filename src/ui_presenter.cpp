@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include <RmlUi/Core.h>
+#include <RmlUi/Core/ElementText.h>
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -26,6 +27,8 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         std::shared_ptr<UiResources> resources;
         UiAssetSnapshot assets;
         std::vector<std::unique_ptr<Doc>> docs;
+        Rml::ElementDocument* frame_document = nullptr;
+        Rml::ElementText* frame_text = nullptr;
     };
     struct File {
         const std::vector<std::byte>* bytes;
@@ -109,6 +112,7 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
     };
     std::string session, error, loading_prefix, failed_structure;
     LoadingState loading;
+    std::string frame_statistics_label;
     std::optional<std::uint64_t> cancel_loading;
     Json loading_values{{"forge_loading_state", "idle"},    {"forge_loading_stage", ""},
                         {"forge_loading_completed", 0u},    {"forge_loading_total", 0u},
@@ -332,6 +336,45 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         }
         pending.push_back(std::move(request));
     }
+    void update_frame_statistics(Set& set) {
+        if (frame_statistics_label.empty()) {
+            if (set.frame_document)
+                set.frame_document->Hide();
+            return;
+        }
+        if (!set.frame_document) {
+            static constexpr std::string_view markup = R"(<rml><head><style>
+body, div { display:block; font-family:Lato; font-size:14dp; color:#ffffff; pointer-events:none; }
+body { width:100%; height:100%; z-index:65536; }
+#forge-frame-statistics { position:absolute; left:8dp; top:8dp; box-sizing:border-box; width:340dp; max-width:90%; padding:6dp; background-color:#101722ee; pointer-events:none; }
+@media (max-height:160dp) { body, div { font-size:7vh; } }
+</style></head><body><div id="forge-frame-statistics"></div></body></rml>)";
+            validate_ui_text(markup, true);
+            auto* document = set.context->LoadDocumentFromMemory(
+                std::string(markup), set.name + "/__forge_frame_statistics.rml");
+            if (!document)
+                throw std::runtime_error("Host frame statistics document could not be loaded");
+            try {
+                auto* panel = document->GetElementById("forge-frame-statistics");
+                if (!panel)
+                    throw std::runtime_error("Host frame statistics text panel is unavailable");
+                auto text = document->CreateTextNode(frame_statistics_label);
+                if (!text)
+                    throw std::runtime_error("Host frame statistics text could not be created");
+                // CreateTextNode guarantees an ElementText; keep text literal, never RML.
+                auto* value = static_cast<Rml::ElementText*>(text.get());
+                panel->AppendChild(std::move(text));
+                set.frame_text = value;
+                set.frame_document = document;
+            } catch (...) {
+                document->Close();
+                throw;
+            }
+        } else
+            set.frame_text->SetText(frame_statistics_label);
+        set.frame_document->Show(Rml::ModalFlag::None, Rml::FocusFlag::None);
+        set.frame_document->PullToFront();
+    }
     std::unique_ptr<Set> build(const Json& state, bool static_inspection = false) {
         auto candidate = std::make_unique<Set>();
         candidate->name = "ui" + std::to_string(++serial);
@@ -443,6 +486,8 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
                 d->document->Show(Rml::ModalFlag::None, Rml::FocusFlag::None);
                 candidate->docs.push_back(std::move(d));
             }
+            if (!static_inspection)
+                update_frame_statistics(*candidate);
             candidate->context->Update();
             renderer.preparing = true;
             candidate->context->Render();
@@ -712,11 +757,28 @@ void UiPresenter::update(double t, int w, int h, float dp) {
         s.live->context->Update();
     }
 }
+void UiPresenter::frame_statistics(const std::string& text) {
+    auto& s = *impl_;
+    s.check();
+    if (text.size() > 128)
+        throw std::runtime_error("Host frame statistics text exceeds 128 bytes");
+    ui_protocol::validate_value(text);
+    if (text == s.frame_statistics_label)
+        return;
+    s.frame_statistics_label = text;
+    if (s.live)
+        s.update_frame_statistics(*s.live);
+    if (s.staged)
+        s.update_frame_statistics(*s.staged->set);
+}
 void UiPresenter::render() {
     auto& s = *impl_;
     s.check();
-    if (s.live)
+    if (s.live) {
+        if (!s.frame_statistics_label.empty() && s.live->frame_document)
+            s.live->frame_document->PullToFront();
         s.live->context->Render();
+    }
 }
 bool UiPresenter::mouse_move(int x, int y, int m) {
     auto& s = *impl_;

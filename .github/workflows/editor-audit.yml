@@ -206,7 +206,7 @@ jobs:
       - name: Execute native input and capture workflows
         if: inputs.workflow_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(editor_process_and_scale|editor_input_workflow|editor_physics_workflow|editor_animation_root_motion|editor_view_images|editor_sequence_frames|editor_sequence_audio_cues|standalone_game_workflow|standalone_package_workflow|animation_overlay|animation_mask_pipeline)$" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "^(editor_process_and_scale|editor_input_workflow|editor_physics_workflow|editor_animation_root_motion|editor_view_images|editor_sequence_frames|editor_sequence_audio_cues|standalone_game_workflow|game_frame_statistics|standalone_package_workflow|animation_overlay|animation_mask_pipeline)$" --output-on-failure
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -229,7 +229,7 @@ jobs:
           if ($LASTEXITCODE) { throw 'Standalone-only build failed' }
           python tests/target_boundaries_test.py ../AgentFiles/b ninja
           if ($LASTEXITCODE) { throw 'Standalone link boundary failed' }
-          ctest --test-dir ../AgentFiles/b -R '^standalone_game_workflow$' --output-on-failure
+          ctest --test-dir ../AgentFiles/b -R '^(standalone_game_workflow|game_frame_statistics)$' --output-on-failure
           if ($LASTEXITCODE) { throw 'Standalone-only workflow failed' }
       - name: Upload fresh audit evidence
         if: always()

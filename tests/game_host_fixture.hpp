@@ -1,4 +1,5 @@
 #pragma once
+#include "frame_statistics_game_fixture.hpp"
 #include "game_host_source.hpp"
 #include "material_graph_game_fixture.hpp"
 #include "reference_game_workflow.hpp"
@@ -13,6 +14,8 @@ namespace forge::test {
 struct GameHostFixture {
     std::filesystem::path output, project;
     unsigned stage = 0, frames = 0;
+    bool frame_statistics = false;
+    FrameStatisticsGameFixture frame_statistics_workflow;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
          slider = false, motors = false, position_drive = false, connected = false,
@@ -61,6 +64,9 @@ struct GameHostFixture {
                                                          .dump(2));
     }
     explicit GameHostFixture(int argc, char** argv) {
+        frame_statistics =
+            argc == 3 && (std::string_view(argv[1]) == "--frame-statistics" ||
+                          std::string_view(argv[1]) == "--packaged-frame-statistics");
         reference = argc == 3 && (std::string_view(argv[1]) == "--reference" ||
                                   std::string_view(argv[1]) == "--reference-load" ||
                                   std::string_view(argv[1]) == "--reference-error" ||
@@ -85,9 +91,11 @@ struct GameHostFixture {
         animation_exits = argc == 3 && std::string_view(argv[1]) == "--packaged-exits";
         packaged = reference || mixed || loads || velocity || contacts || volumes || slider ||
                    motors || position_drive || connected || swing_twist || distance_springs ||
-                   animation_exits || (argc == 3 && std::string_view(argv[1]) == "--packaged");
+                   animation_exits ||
+                   (argc == 3 && (std::string_view(argv[1]) == "--packaged" ||
+                                  std::string_view(argv[1]) == "--packaged-frame-statistics"));
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
-        if (argc != 2 && !packaged && !prepare_only)
+        if (argc != 2 && !packaged && !prepare_only && !frame_statistics)
             throw std::runtime_error("Game fixture requires output directory");
         output = std::filesystem::absolute(argv[argc == 3 ? 2 : 1]);
         std::filesystem::create_directories(output);
@@ -255,6 +263,12 @@ struct GameHostFixture {
         }
         if (!image || ++frames < 4)
             return;
+        if (frame_statistics) {
+            frame_statistics_workflow.frame(
+                game, image, window, running, output,
+                [&](const char* name) { capture(name, image, device, context); }, click);
+            return;
+        }
         if (animation_exits) {
             const auto animation = animation_runtime(game.active().engine.world());
             check(bool(animation), "Exported automatic animation owner missing");
