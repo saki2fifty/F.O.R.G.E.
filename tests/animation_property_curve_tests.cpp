@@ -26,6 +26,22 @@ int main() {
     try {
         for (const auto& binding : animation_property_bindings()) {
             const auto p = binding.property;
+            if (animation_property_discrete(p)) {
+                auto discrete = TransformAnimationSource::create(AssetId::generate());
+                discrete.add_property(p, 0);
+                auto end = discrete.clip().keys.front().properties;
+                end[unsigned(p)] = 2;
+                discrete.set_key(animation_timebase, {}, false, {}, {}, end);
+                for (const auto time : {0., 1., 250000., 999999.999})
+                    near(discrete.clip().sample_properties(time)[unsigned(p)], 0);
+                near(discrete.clip().sample_properties(animation_timebase)[unsigned(p)], 2);
+                const auto before = discrete.document;
+                rejects(
+                    [&] { discrete.set_property_curve(discrete.clip().keys.front().id, p, {}); });
+                rejects([&] { animation_property_curve_sample(p, 1); });
+                check(discrete.document == before, "Discrete curve rejection changed source");
+                continue;
+            }
             double from = .1, to = 1;
             if (p == AnimationProperty::CameraFov) {
                 from = std::numbers::pi / 6;

@@ -23,6 +23,7 @@ inline const std::vector<EntityRecipe>& entity_recipes() {
              {EntityRecipe{"render.camera", "Camera", "Rendering", no_primitive, "forge.camera"},
               {"render.light", "Light", "Rendering", no_primitive, "forge.light"},
               {"render.mesh", "Mesh Renderer", "Rendering", no_primitive, "forge.mesh_renderer"},
+              {"render.sprite", "Sprite", "Rendering", no_primitive, "forge.sprite_renderer"},
               {"render.particles", "Particle Emitter", "Rendering", no_primitive,
                "forge.particle_emitter"},
               {"audio.source", "Audio Source", "Audio", no_primitive, "forge.audio_source"},

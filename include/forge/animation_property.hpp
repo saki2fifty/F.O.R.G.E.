@@ -15,9 +15,10 @@ enum class AnimationProperty : unsigned {
     ParticleSize,
     ParticleRed,
     ParticleGreen,
-    ParticleBlue
+    ParticleBlue,
+    SpriteFrame
 };
-inline constexpr unsigned animation_property_count = 12;
+inline constexpr unsigned animation_property_count = 13;
 using AnimationPropertyValues = std::array<double, animation_property_count>;
 struct AnimationPropertyBinding {
     AnimationProperty property;
@@ -34,6 +35,9 @@ struct AnimationPropertyLimits {
 std::span<const AnimationPropertyBinding> animation_property_bindings();
 const AnimationPropertyBinding& animation_property_binding(AnimationProperty);
 AnimationProperty animation_property_named(std::string_view);
+// Discrete bindings hold the preceding key until the next key's exact time.
+// They have no linear/cubic tangent representation.
+bool animation_property_discrete(AnimationProperty);
 void validate_animation_property(AnimationProperty, double);
 AnimationPropertyLimits animation_property_limits(AnimationProperty);
 // Source admission has already proved the whole cubic interval. Correct only

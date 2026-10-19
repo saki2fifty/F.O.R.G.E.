@@ -56,6 +56,7 @@ class TransformAnimationPlayback {
         flecs::entity_t sequence = 0;
         std::optional<MaterialTarget> material;
         bool material_pending = false, material_error = false;
+        std::optional<std::uint64_t> sprite_frames;
     };
     struct SequenceState {
         AnimationSequence config;

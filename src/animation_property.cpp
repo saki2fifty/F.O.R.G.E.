@@ -33,7 +33,9 @@ std::span<const AnimationPropertyBinding> animation_property_bindings() {
         AnimationPropertyBinding{AnimationProperty::ParticleGreen, "forge.particle_emitter.tint_g",
                                  "forge.particle_emitter", "tint_g", "Particle green (linear)", 1},
         AnimationPropertyBinding{AnimationProperty::ParticleBlue, "forge.particle_emitter.tint_b",
-                                 "forge.particle_emitter", "tint_b", "Particle blue (linear)", 1}};
+                                 "forge.particle_emitter", "tint_b", "Particle blue (linear)", 1},
+        AnimationPropertyBinding{AnimationProperty::SpriteFrame, "forge.sprite_renderer.frame",
+                                 "forge.sprite_renderer", "frame", "Sprite frame (step)", 1}};
     return bindings;
 }
 const AnimationPropertyBinding& animation_property_binding(AnimationProperty property) {
@@ -46,6 +48,10 @@ AnimationProperty animation_property_named(std::string_view name) {
         if (binding.name == name)
             return binding.property;
     throw std::runtime_error("Unsupported animated component property");
+}
+bool animation_property_discrete(AnimationProperty property) {
+    (void)animation_property_binding(property);
+    return property == AnimationProperty::SpriteFrame;
 }
 AnimationPropertyLimits animation_property_limits(AnimationProperty property) {
     (void)animation_property_binding(property);
@@ -62,6 +68,8 @@ AnimationPropertyLimits animation_property_limits(AnimationProperty property) {
         return {.25, 4};
     case AnimationProperty::ParticleSize:
         return {.01, 16};
+    case AnimationProperty::SpriteFrame:
+        return {0, 16384. * 16384 - 1};
     default:
         return {0, 1};
     }
@@ -72,11 +80,13 @@ void validate_animation_property(AnimationProperty property, double value) {
         std::isfinite(value) &&
         (limits.minimum_exclusive ? value > limits.minimum : value >= limits.minimum) &&
         (limits.maximum_exclusive ? value < limits.maximum : value <= limits.maximum);
-    if (!admitted)
+    if (!admitted || (animation_property_discrete(property) && std::trunc(value) != value))
         throw std::runtime_error(std::string(animation_property_binding(property).label) +
                                  " is outside the animated value range");
 }
 double animation_property_curve_sample(AnimationProperty property, double value) {
+    if (animation_property_discrete(property))
+        throw std::runtime_error("Discrete animated properties do not have curve samples");
     const auto limits = animation_property_limits(property);
     const auto low =
         limits.minimum_exclusive ? std::nextafter(limits.minimum, limits.maximum) : limits.minimum;

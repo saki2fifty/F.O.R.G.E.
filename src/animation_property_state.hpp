@@ -5,6 +5,7 @@
 #include <flecs.h>
 #include <forge/animation_property.hpp>
 #include <forge/render_view.hpp>
+#include <forge/transform_animation.hpp>
 #include <optional>
 namespace forge {
 // Typed candidates inside the current animation owner. No component creation.
@@ -13,18 +14,21 @@ struct AnimationPropertyState {
     std::optional<Light> light;
     std::optional<AudioSource> audio;
     std::optional<ParticleEmitter> particle;
+    std::optional<SpriteRenderer> sprite;
     static constexpr unsigned camera_mask = 3u, light_mask = 60u, audio_mask = 192u;
     static constexpr unsigned particle_mask =
         animation_property_bit(AnimationProperty::ParticleSize) |
         animation_property_bit(AnimationProperty::ParticleRed) |
         animation_property_bit(AnimationProperty::ParticleGreen) |
         animation_property_bit(AnimationProperty::ParticleBlue);
+    static constexpr unsigned sprite_mask = animation_property_bit(AnimationProperty::SpriteFrame);
     static bool available(flecs::entity entity, AnimationProperty property) {
         const auto bit = animation_property_bit(property);
         return entity && ((bit & camera_mask)     ? entity.has<Camera>()
                           : (bit & light_mask)    ? entity.has<Light>()
                           : (bit & audio_mask)    ? entity.has<AudioSource>()
                           : (bit & particle_mask) ? entity.has<ParticleEmitter>()
+                          : (bit & sprite_mask)   ? entity.has<SpriteRenderer>()
                                                   : false);
     }
     static AnimationPropertyState from(flecs::entity entity, unsigned mask) {
@@ -52,6 +56,12 @@ struct AnimationPropertyState {
                     "Animated particle property requires a ParticleEmitter component");
             result.particle = entity.get<ParticleEmitter>();
             detail::validate_reflected_value(entity, *result.particle);
+        }
+        if (mask & sprite_mask) {
+            if (!entity.has<SpriteRenderer>())
+                throw std::runtime_error("Animated frame requires a SpriteRenderer component");
+            result.sprite = entity.get<SpriteRenderer>();
+            detail::validate_sprite_renderer(*result.sprite);
         }
         return result;
     }
@@ -81,7 +91,22 @@ struct AnimationPropertyState {
             detail::validate_components({{"forge.particle_emitter", value}});
             result.particle = detail::particle_emitter_value(value);
         }
+        if (mask & sprite_mask) {
+            if (!components.contains("forge.sprite_renderer"))
+                throw std::runtime_error("Animated frame requires a SpriteRenderer component");
+            result.sprite = detail::sprite_renderer_value(components.at("forge.sprite_renderer"));
+        }
         return result;
+    }
+    // Whole-clip, target-dependent admission. The fixed sampler only validates
+    // its current candidate, never scans every key each tick.
+    void validate_clip(const TransformAnimationClip& clip) const {
+        if (!(clip.properties & sprite_mask))
+            return;
+        const auto count = std::uint64_t(sprite.value().columns) * sprite.value().rows;
+        for (const auto& key : clip.keys)
+            if (key.properties[unsigned(AnimationProperty::SpriteFrame)] >= double(count))
+                throw std::runtime_error("Animated frame exceeds the target sprite grid");
     }
     double value(AnimationProperty property) const {
         switch (property) {
@@ -109,6 +134,8 @@ struct AnimationPropertyState {
             return particle.value().tint_g;
         case AnimationProperty::ParticleBlue:
             return particle.value().tint_b;
+        case AnimationProperty::SpriteFrame:
+            return sprite.value().frame;
         }
         throw std::runtime_error("Unknown animated property");
     }
@@ -155,6 +182,9 @@ struct AnimationPropertyState {
             case AnimationProperty::ParticleBlue:
                 particle.value().tint_b = float(v);
                 break;
+            case AnimationProperty::SpriteFrame:
+                sprite.value().frame = std::uint32_t(v);
+                break;
             }
         }
         if (camera)
@@ -165,6 +195,8 @@ struct AnimationPropertyState {
         // the only changed scalars have the same admitted gain/pitch ranges.
         if (audio)
             detail::validate_audio_source(*audio);
+        if (sprite)
+            detail::validate_sprite_renderer(*sprite);
         // Particle candidates preflight all native fields before sampling. Only
         // the four appearance scalars change, and each uses the same native range.
         // Avoid JSON construction/validation on the fixed animation path.
@@ -178,12 +210,18 @@ struct AnimationPropertyState {
             entity.set<AudioSource>(*audio);
         if (particle)
             entity.set<ParticleEmitter>(*particle);
+        if (sprite)
+            entity.set<SpriteRenderer>(*sprite);
     }
     nlohmann::json patch(unsigned mask) const {
         auto result = nlohmann::json::object();
         for (const auto& binding : animation_property_bindings())
-            if (mask & animation_property_bit(binding.property))
-                result[binding.component][binding.field] = value(binding.property);
+            if (mask & animation_property_bit(binding.property)) {
+                if (binding.property == AnimationProperty::SpriteFrame)
+                    result[binding.component][binding.field] = sprite.value().frame;
+                else
+                    result[binding.component][binding.field] = value(binding.property);
+            }
         return result;
     }
 };

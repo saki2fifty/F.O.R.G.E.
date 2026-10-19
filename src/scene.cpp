@@ -780,6 +780,22 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
     const auto target = entity(entity_id);
     if (!target || !target.is_alive() || target.has(flecs::Prefab))
         throw std::runtime_error("Live property target is missing or a prefab source");
+    if (RuntimePropertyTune::sprite_type(type_key)) {
+        if (!RuntimePropertyTune::sprite_property(property_key) || !target.has<SpriteRenderer>())
+            throw std::runtime_error("Only existing sprite appearance values can be tuned live");
+        for (const auto& codec : detail::builtins()) {
+            if (type_key != codec.name)
+                continue;
+            auto candidate = codec.read(target, true);
+            candidate[property_key] = value;
+            detail::validate_components({{type_key, candidate}});
+            const auto typed = std::get<SpriteRenderer>(codec.decode(candidate));
+            detail::validate_reflected_value(target, typed);
+            target.set<SpriteRenderer>(typed);
+            return codec.read(target, true).at(property_key);
+        }
+        throw std::runtime_error("Sprite Renderer builtin is unavailable");
+    }
     if (RuntimePropertyTune::material_type(type_key)) {
         if (!RuntimePropertyTune::material_property(property_key) || !target.has<MeshRenderer>())
             throw std::runtime_error("Only existing object material values can be tuned live");

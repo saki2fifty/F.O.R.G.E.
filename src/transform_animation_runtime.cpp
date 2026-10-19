@@ -162,6 +162,17 @@ void TransformAnimationPlayback::synchronize() {
                 pending_ = true;
                 return;
             }
+            if (clip->properties & AnimationPropertyState::sprite_mask) {
+                const auto values =
+                    AnimationPropertyState::from(entity, AnimationPropertyState::sprite_mask);
+                const auto frames = std::uint64_t(values.sprite->columns) * values.sprite->rows;
+                if (changed || !state.clip ||
+                    state.clip.identity().revision != clip.identity().revision ||
+                    state.sprite_frames != frames)
+                    values.validate_clip(clip.get());
+                state.sprite_frames = frames;
+            } else
+                state.sprite_frames.reset();
             if (changed || !state.clip) {
                 state.time = 0;
                 state.playing = config.play_on_start;

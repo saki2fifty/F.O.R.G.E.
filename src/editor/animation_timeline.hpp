@@ -951,6 +951,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             try {
                 const auto id = target_.entity.str();
                 auto properties = AnimationPropertyState::from(scene.entity(id), clip_->properties);
+                properties.validate_clip(*clip_);
                 properties.sample(clip_->properties, clip_->sample_properties(0));
                 auto commands = Json::array();
                 if (!scene.entity(id).has<TransformAnimator>())
@@ -1133,10 +1134,10 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         if (!expanded)
             return;
         ImGui::BeginDisabled(bool(drag_key_) || curve_drag_ || box_ || pan_);
-        ImGui::TextWrapped(
-            "Camera, light, audio and particle appearance use the same keys. Adding a "
-            "property captures its current authored value into every key. "
-            "Key fields below set different values over time.");
+        ImGui::TextWrapped("Camera, light, audio, particle appearance and sprite frames use the "
+                           "same keys. Adding a "
+                           "property captures its current authored value into every key. "
+                           "Key fields below set different values over time.");
         const auto entity = target_.entity && target_.scene == scene.asset_id()
                                 ? scene.entity(target_.entity.str())
                                 : flecs::entity{};
@@ -1162,8 +1163,8 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             ImGui::EndDisabled();
         }
         if (!entity)
-            ImGui::TextDisabled(
-                "Choose a preview object to add its camera, light, audio or particle properties.");
+            ImGui::TextDisabled("Choose a preview object to add its camera, light, audio, particle "
+                                "or sprite properties.");
         ImGui::EndDisabled();
     }
     void cancel_ruler_capture() {
@@ -1593,7 +1594,13 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             ui::IdScope id(binding.name);
             ImGui::TextWrapped("%s", binding.label);
             auto value = property_fields_[unsigned(binding.property)] * binding.display_multiplier;
-            if (ImGui::InputDouble("##value", &value, 0, 0, "%.6f"))
+            if (animation_property_discrete(binding.property)) {
+                auto frame = std::uint32_t(property_fields_[unsigned(binding.property)]);
+                if (ImGui::InputScalar("##value", ImGuiDataType_U32, &frame))
+                    property_fields_[unsigned(binding.property)] = frame;
+                ui::help("Hold this whole frame until the next key. Sprite frames have no curve "
+                         "tangents.");
+            } else if (ImGui::InputDouble("##value", &value, 0, 0, "%.6f"))
                 property_fields_[unsigned(binding.property)] = value / binding.display_multiplier;
             FORGE_UI_PROBE(std::string("animation:value:") + binding.name);
         }
@@ -1740,8 +1747,9 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                              : std::string(channels[curve_channel_]);
         if (ImGui::BeginCombo("Curve value", curve_label.c_str())) {
             for (int channel = 0; channel < int(animation_property_count) + 2; ++channel) {
-                if (channel >= 2 &&
-                    !(clip_->properties & animation_property_bit(AnimationProperty(channel - 2))))
+                if (channel >= 2 && (!(clip_->properties &
+                                       animation_property_bit(AnimationProperty(channel - 2))) ||
+                                     animation_property_discrete(AnimationProperty(channel - 2))))
                     continue;
                 const auto label =
                     channel < 2 ? channels[channel]

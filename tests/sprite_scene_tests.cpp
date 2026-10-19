@@ -147,6 +147,57 @@ int main(int argc, char** argv) {
         check(reopened.document() == edited &&
                   reopened.entity(actor.str()).get<SpriteRenderer>().frame == 1,
               "Saved Sprite scene failed exact reopen");
+        const auto before_recipe = scene.document();
+        const auto created =
+            authoring_command(
+                scene, "entity.create",
+                {{"recipe", "render.sprite"},
+                 {"component_values", {{"material", material}, {"columns", 2}, {"frame", 1}}}})
+                .at("selected")
+                .get<std::string>();
+        check(scene.entity(created).has<SpriteRenderer>() &&
+                  !scene.entity(created).has<MeshRenderer>() &&
+                  scene.entity(created).get<SpriteRenderer>().frame == 1 && scene.undo() &&
+                  scene.document() == before_recipe && scene.redo() &&
+                  scene.entity(created).get<SpriteRenderer>().material.id == material,
+              "Sprite recipe did not create one undoable typed composition");
+        scene.undo();
+        EngineContext runtime_engine(WorldRole::Runtime);
+        Scene runtime(runtime_engine.world());
+        runtime.restore_snapshot(edited);
+        const auto live =
+            runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "frame", 2);
+        runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "flip_x", true);
+        runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "tint_a", .25);
+        check(live == 2 && runtime.entity(actor.str()).get<SpriteRenderer>().frame == 2 &&
+                  runtime.entity(actor.str()).get<SpriteRenderer>().flip_x &&
+                  runtime.entity(actor.str()).get<SpriteRenderer>().tint_a == .25f &&
+                  !runtime.undo() && !runtime.redo() && scene.document() == edited,
+              "Live sprite tuning changed authoring state or failed native application");
+        const auto live_native = runtime.entity(actor.str()).get<SpriteRenderer>();
+        for (const auto& [field, value] :
+             std::vector<std::pair<std::string, Json>>{{"frame", 4},
+                                                       {"frame", 1.5},
+                                                       {"frame", -1},
+                                                       {"width", 0},
+                                                       {"tint_a", 2},
+                                                       {"material", material},
+                                                       {"columns", 4},
+                                                       {"enabled", false},
+                                                       {"flip_x", 1}}) {
+            bool rejected = false;
+            try {
+                runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", field, value);
+            } catch (const std::exception&) {
+                rejected = true;
+            }
+            check(rejected && runtime.entity(actor.str()).get<SpriteRenderer>() == live_native,
+                  "Rejected live Sprite edit partially changed native state");
+        }
+        runtime.restore_snapshot(edited);
+        check(runtime.entity(actor.str()).get<SpriteRenderer>() ==
+                  scene.entity(actor.str()).get<SpriteRenderer>(),
+              "Fresh Play retained temporary Sprite values");
         auto corrupt = scene.effective_document();
         corrupt["entities"][0]["components"]["forge.sprite_renderer"]["frame"] = 4;
         const auto diagnosed = extract_render_scene(corrupt);

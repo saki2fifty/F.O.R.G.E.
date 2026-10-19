@@ -14,6 +14,7 @@ inline bool apply_transform_animation_preview(Json& document, EntityRef target,
         auto c = entity.at("components");
         if (clip.properties) {
             auto properties = AnimationPropertyState::from(c, clip.properties);
+            properties.validate_clip(clip);
             properties.sample(clip.properties, clip.sample_properties(time));
             const auto patch = properties.patch(clip.properties);
             for (const auto& [component, fields] : patch.items())

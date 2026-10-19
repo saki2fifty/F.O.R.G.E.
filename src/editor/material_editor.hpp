@@ -4,6 +4,7 @@
 #include "../material_document.hpp"
 #include "../model_render_resource.hpp"
 #include "../pbr_material.hpp"
+#include "../sprite_material_source.hpp"
 #include "../texture_authoring.hpp"
 #include "document.hpp"
 #include "material_labels.hpp"
@@ -85,24 +86,53 @@ class MaterialEditor {
         if (ui::button("New material...", "Create a reusable material source. Edit and publish it "
                                           "in the central Material workspace."))
             ImGui::OpenPopup("New material source");
+        FORGE_UI_PROBE("material:new");
         ImGui::EndDisabled();
         if (ImGui::BeginPopupModal("New material source", nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
             ImGui::InputText("Project file", path_, sizeof(path_));
             FORGE_UI_PROBE("material:new-path");
             ui::help("Choose a new .material.json path inside an existing project folder.");
+            constexpr const char* presets[]{"Standard 3D", "Sprite / image"};
+            if (ImGui::BeginCombo("Preset", presets[new_preset_])) {
+                for (int preset = 0; preset < 2; ++preset) {
+                    if (ImGui::Selectable(presets[preset], new_preset_ == preset))
+                        new_preset_ = preset;
+                    FORGE_UI_PROBE("material:new-preset:" + std::to_string(preset));
+                }
+                ImGui::EndCombo();
+            }
+            FORGE_UI_PROBE("material:new-preset");
+            if (new_preset_ == 1) {
+                asset_ref_picker(project.project(), new_image_, TextureAsset::type, "Image");
+                FORGE_UI_PROBE("material:new-image");
+                ImGui::Checkbox("Pixel filtering", &new_pixel_filtering_);
+                ui::help("Uses an unlit, two-sided transparent material. Pixel filtering keeps "
+                         "hard edges; otherwise the image uses linear filtering. Import a color "
+                         "RGBA image first, then choose it here.");
+            }
             ImGui::BeginDisabled(locked || dirty());
+            ImGui::BeginDisabled(new_preset_ == 1 && new_image_.is_null());
             if (ui::button("Create", "Create the authored source without replacing existing files. "
                                      "Save in Material to publish it.")) {
                 try {
-                    auto created = MaterialDocument::create(project.writer_guard(),
-                                                            std::filesystem::u8path(path_));
+                    auto created = MaterialDocument::create(
+                        project.writer_guard(), std::filesystem::u8path(path_), [&](AssetId id) {
+                            return new_preset_ == 1
+                                       ? sprite_material_source(
+                                             id, new_image_.get<AssetRef<TextureAsset>>(),
+                                             new_pixel_filtering_ ? TextureFilter::Nearest
+                                                                  : TextureFilter::Linear)
+                                       : MaterialSource::create(id);
+                        });
                     load(project, created->locator());
                     ImGui::CloseCurrentPopup();
                 } catch (const std::exception& e) {
                     report(e.what());
                 }
             }
+            FORGE_UI_PROBE("material:new-create");
+            ImGui::EndDisabled();
             ImGui::EndDisabled();
             ui::next_text_button("Cancel");
             if (ui::button("Cancel", "Close without creating a material."))
@@ -365,6 +395,9 @@ class MaterialEditor {
     bool close_ = false, save_ = false, focus_ = false;
     std::string error_;
     char path_[512] = "Assets/New.material.json";
+    int new_preset_ = 0;
+    Json new_image_ = nullptr;
+    bool new_pixel_filtering_ = false;
     std::stop_source cancel_;
     std::future<MaterialSourceContext> base_job_;
     void report(std::string error) {

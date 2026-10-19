@@ -339,7 +339,7 @@ ruler and cancel itself; Save & Publish supplies
 Play and export through the existing owners. Gallery47 compares original motion,
 changed position and changed scale using selected Windows-target CPU cooks.
 
-The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v7`
+The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v8`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
 It publishes `forge.transform-clip` version 5, validated by the same bounded
 parser/evaluator. Previously selected version-1/2/3/4 artifacts remain readable without
@@ -364,6 +364,30 @@ channel omitted from the clip preserves the object's current local value.
 
 ## Evaluation and preview
 
+### Sprite frame binding (development)
+
+The in-development Sprite family adds `forge.sprite_renderer.frame` to the
+existing typed property bindings. Its index is appended; previous binding indices
+retain their meanings. Source3/4/5 and cooked5 retain their existing representation;
+new publication uses recipev8, while previously selected cooks remain readable.
+
+Frame values must be whole numbers from0 through268435455. Each target must already
+have a SpriteRenderer whose configured grid contains every keyed frame. Runtime
+admission checks the whole clip when the clip revision or grid capacity changes,
+before any animated component writes. The existing complete candidate also checks
+the currently sampled value. Texture-dependent pixel-grid admission still belongs
+to rendering and its selected material/texture resources.
+
+This binding always holds the preceding frame until the next key's exact time,
+including copied presentation sampled between fixed ticks. It has no fractional
+interpolation, cubic curve or tangent settings. Continuous properties on the same
+keys keep their own timing. Preview, source history/publication, fixed playback,
+sequences and recovery retain their existing owners and clocks. Timeline shows a
+whole-frame field and excludes the binding from curve-tangent choices.
+
+The implementation and its focused tests are in progress; this is not a claim
+that Sprite animation has shipped in the downloadable editor.
+
 ### Typed camera, light, audio and particle properties
 
 Source versions3/4 optionally bind `properties` to unique qualified names:
@@ -383,9 +407,11 @@ or undeclared values, and property syntax in versions1/2 reject explicitly.
 
 These typed built-in bindings use current native Camera/Light/AudioSource/ParticleEmitter members
 and existing scalar/domain validators. They are not a general custom-component/material/UI binding
-registry. No native component layout, installed SDK input or callback changes.
+registry. Sprite frame support appends a binding to the public property arrays,
+changing the exact SDK fingerprint; native modules need a matching SDK rebuild.
+ABI1 callback tables remain unchanged.
 Version3 introduced these property values; version4 adds scalar curves. New
-publication uses recipev7 and cooked5 even for a legacy transform-only source.
+publication uses recipev8 and cooked5 even for a legacy transform-only source.
 Selected previous cooks remain readable. Binding indices remain unchanged. Older
 engines reject unsupported versions or names rather than partially executing clips.
 

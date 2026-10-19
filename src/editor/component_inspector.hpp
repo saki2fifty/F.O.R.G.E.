@@ -7,6 +7,7 @@
 #include "model_variant_controls.hpp"
 #include "property_drawer.hpp"
 #include "rig_target_gesture.hpp"
+#include "sprite_inspector.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>
@@ -82,6 +83,7 @@ class ComponentInspector {
         return AnimationPlaybackAccess::rig_type(key) ||
                RuntimePropertyTune::navigation_type(key) ||
                RuntimePropertyTune::particle_type(key) || RuntimePropertyTune::material_type(key) ||
+               RuntimePropertyTune::sprite_type(key) ||
                (type.value("custom", false) && type.contains("admission") &&
                 components.at(key).value("$forge", Json()) == type.at("admission"));
     }
@@ -92,7 +94,9 @@ class ComponentInspector {
                (!RuntimePropertyTune::particle_type(key) ||
                 RuntimePropertyTune::particle_property(name)) &&
                (!RuntimePropertyTune::material_type(key) ||
-                RuntimePropertyTune::material_property(name));
+                RuntimePropertyTune::material_property(name)) &&
+               (!RuntimePropertyTune::sprite_type(key) ||
+                RuntimePropertyTune::sprite_property(name));
     }
     static bool has_runtime_fields(const Json& effective, const Json& schema,
                                    const std::string& selected) {
@@ -203,10 +207,23 @@ class ComponentInspector {
             if (!ImGui::CollapsingHeader(type.value("display_name", key).c_str(),
                                          ImGuiTreeNodeFlags_DefaultOpen))
                 continue;
-            for (const auto& field : type.at("fields")) {
+            Json sprite_fields;
+            const Json* fields = &type.at("fields");
+            if (RuntimePropertyTune::sprite_type(key)) {
+                sprite_fields = sprite_inspector_fields(*fields, components.at(key));
+                fields = &sprite_fields;
+            }
+            std::string_view group;
+            for (const auto& field : *fields) {
                 const auto name = field.at("id").get<std::string>();
                 if (!runtime_field_available(key, field, components))
                     continue;
+                if (RuntimePropertyTune::sprite_type(key) &&
+                    group != sprite_inspector_group(name)) {
+                    group = sprite_inspector_group(name);
+                    ui::heading(group.data(),
+                                "Temporary sprite appearance; Stop restores authored values.");
+                }
                 ui::IdScope field_scope(name.c_str());
                 auto value = components.at(key).at(name);
                 const bool read_only = field.value("read_only", false);
@@ -385,7 +402,17 @@ class ComponentInspector {
                 FORGE_UI_PROBE("rig-target-tool:" + key);
                 ImGui::EndDisabled();
             }
-            for (const auto& field : type.at("fields")) {
+            Json sprite_fields;
+            const Json* fields = &type.at("fields");
+            if (RuntimePropertyTune::sprite_type(key)) {
+                sprite_fields = sprite_inspector_fields(*fields, values.at(key));
+                fields = &sprite_fields;
+                ui::help("Choose a Sprite / image preset in Content > Create / Register > New "
+                         "material, select its image and save it. Assign that material here. "
+                         "Frames are whole cells counted from zero across each row.");
+            }
+            std::string_view group;
+            for (const auto& field : *fields) {
                 const std::string name = field.at("id");
                 if (key == "forge.physics_joint") {
                     const auto kind = values.at(key).at("kind").get<unsigned>();
@@ -418,6 +445,12 @@ class ComponentInspector {
                     search_key(property_label(field)).find(search_key(filter_)) ==
                         std::string::npos)
                     continue;
+                if (RuntimePropertyTune::sprite_type(key) &&
+                    group != sprite_inspector_group(name)) {
+                    group = sprite_inspector_group(name);
+                    ui::heading(group.data(),
+                                "Sprite values use the usual property Undo and prefab overrides.");
+                }
                 ui::IdScope field_scope(name.c_str());
                 auto value = values.at(key).at(name);
                 Json contextual;

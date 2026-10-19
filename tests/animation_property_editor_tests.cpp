@@ -20,9 +20,12 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     const auto actor =
         authoring_command(scene, "entity.create", {{"name", "Lens and light"}})["selected"]
             .get<std::string>();
-    for (const char* component :
-         {"forge.camera", "forge.light", "forge.audio_source", "forge.particle_emitter"})
+    for (const char* component : {"forge.camera", "forge.light", "forge.audio_source",
+                                  "forge.particle_emitter", "forge.sprite_renderer"})
         authoring_command(scene, "component.add", {{"entity", actor}, {"component", component}});
+    auto sprite = scene.entity(actor).get<SpriteRenderer>();
+    sprite.columns = sprite.rows = 2;
+    scene.entity(actor).set(sprite);
     auto document = TransformAnimationDocument::create(project.writer_guard(),
                                                        "Assets/Properties.animation.json");
     const auto id = document->source().asset();
@@ -111,8 +114,9 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     click("animation:property:forge.audio_source.pitch");
     for (const char* field : {"size_multiplier", "tint_r", "tint_g", "tint_b"})
         click(std::string("animation:property:forge.particle_emitter.") + field);
+    click("animation:property:forge.sprite_renderer.frame");
     check(editor.document()->source().document["version"] == 3 &&
-              editor.document()->source().clip().properties == 4037,
+              editor.document()->source().clip().properties == 8133,
           "Typed property checkboxes did not add bindings");
     for (const char* name : {"Position", "Rotation", "Scale"})
         click(std::string("animation:channel:") + name);
@@ -131,6 +135,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     type("animation:value:forge.particle_emitter.tint_r", "0.25");
     type("animation:value:forge.particle_emitter.tint_g", "0.5");
     type("animation:value:forge.particle_emitter.tint_b", "0.75");
+    type("animation:value:forge.sprite_renderer.frame", "3");
     click("button:Add / Update key at playhead");
     const auto source = editor.document()->source();
     check(source.clip().keys.size() == 2, "Property UI did not create second key");
@@ -141,7 +146,8 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               source.clip().keys.back().properties[8] == 2.5 &&
               source.clip().keys.back().properties[9] == .25 &&
               source.clip().keys.back().properties[10] == .5 &&
-              source.clip().keys.back().properties[11] == .75,
+              source.clip().keys.back().properties[11] == .75 &&
+              source.clip().keys.back().properties[unsigned(AnimationProperty::SpriteFrame)] == 3,
           "Property UI did not convert degrees or save values");
     const auto revision = editor.document()->revision();
     type("animation:value:forge.camera.vertical_fov", "0");
@@ -169,7 +175,9 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               editor.document()->source().clip().keys.back().properties[6] == 1 &&
               editor.document()->source().clip().keys.back().properties[7] == 1 &&
               editor.document()->source().clip().keys.back().properties[8] == 1 &&
-              editor.document()->source().clip().keys.back().properties[11] == 1,
+              editor.document()->source().clip().keys.back().properties[11] == 1 &&
+              editor.document()->source().clip().keys.back().properties[unsigned(
+                  AnimationProperty::SpriteFrame)] == 0,
           "Capture omitted authored camera field");
     editor.undo();
     const auto preview = editor.preview(scene.effective_document());
@@ -179,7 +187,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               preview["entities"][0]["components"]["forge.audio_source"]["pitch"] == 2 &&
               preview["entities"][0]["components"]["forge.particle_emitter"]["size_multiplier"] ==
                   2.5 &&
-              preview["entities"][0]["components"]["forge.particle_emitter"]["tint_b"] == .75,
+              preview["entities"][0]["components"]["forge.particle_emitter"]["tint_b"] == .75 &&
+              preview["entities"][0]["components"]["forge.sprite_renderer"]["frame"]
+                  .is_number_unsigned() &&
+              preview["entities"][0]["components"]["forge.sprite_renderer"]["frame"] == 3,
           "Property preview changed Scene history or omitted substitution");
     editor.stop_preview();
     check(editor.preview(scene.effective_document()) == scene.effective_document(),
@@ -221,6 +232,8 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     frame();
     click("animation:curve_section");
     click("animation:curve_channel");
+    check(!test::ui_targets.contains("animation:curve_channel_choice:14"),
+          "Sprite step binding was offered as a curve/tangent channel");
     click("animation:curve_channel_choice:10"); // Particle size, after2 vector choices.
     click("animation:curve_mode");
     click("animation:curve_choice:1");

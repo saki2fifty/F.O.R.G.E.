@@ -154,6 +154,8 @@ TransformAnimationCurves curves(const Json& key, bool scalar_enabled) {
                 "Invalid property curve map");
         for (const auto& [name, settings] : map.items()) {
             const auto property = animation_property_named(name);
+            require(!animation_property_discrete(property),
+                    "Discrete animated properties do not support curve settings");
             const auto interpolation = settings.at("interpolation");
             require(interpolation == "linear" || interpolation == "cubic",
                     "Invalid property curve interpolation");
@@ -475,6 +477,10 @@ AnimationPropertyValues TransformAnimationClip::sample_properties(double time) c
     AnimationPropertyValues result{};
     for (unsigned i = 0; i < animation_property_count; ++i)
         if (properties & (1u << i)) {
+            if (animation_property_discrete(AnimationProperty(i))) {
+                result[i] = left.properties[i];
+                continue;
+            }
             const auto& curve = left.curves.properties[i];
             if ((left.curves.property_mask & (1u << i)) && curve.cubic) {
                 const auto seconds = double(right->time - left.time) / animation_timebase;
@@ -845,6 +851,8 @@ void TransformAnimationSource::erase_property(AnimationProperty property) {
 }
 void TransformAnimationSource::set_property_curve(AssetId key, AnimationProperty property,
                                                   const AnimationPropertyCurve& value) {
+    require(!animation_property_discrete(property),
+            "Discrete animated properties do not support curve settings");
     const auto admitted = clip();
     const auto bit = animation_property_bit(animation_property_binding(property).property);
     require(admitted.properties & bit, "Property curve needs a declared binding");
@@ -1186,6 +1194,8 @@ void TransformAnimationSource::set_tangent_preset(std::span<const AssetId> keys,
 void TransformAnimationSource::set_property_tangent_preset(std::span<const AssetId> keys,
                                                            AnimationProperty property,
                                                            TransformAnimationTangentPreset preset) {
+    require(!animation_property_discrete(property),
+            "Discrete animated properties do not support tangents");
     require(preset == TransformAnimationTangentPreset::Flat ||
                 preset == TransformAnimationTangentPreset::Linear ||
                 preset == TransformAnimationTangentPreset::Smooth,

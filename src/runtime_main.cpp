@@ -392,7 +392,8 @@ int main(int argc, char** argv) {
                         const auto target = forge::RuntimePropertyTune::parse(
                             request, ui_generation, runtime->scene.asset_id());
                         forge::Json value;
-                        if (forge::RuntimePropertyTune::material_type(target.type)) {
+                        if (forge::RuntimePropertyTune::material_type(target.type) ||
+                            forge::RuntimePropertyTune::sprite_type(target.type)) {
                             value = runtime->scene.tune_runtime_property(
                                 target.target.entity.str(), target.type, target.property,
                                 request.at("value"));

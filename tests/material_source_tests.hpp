@@ -1,5 +1,7 @@
 #pragma once
 #include "pbr_material.hpp"
+#include "sprite_material_profile.hpp"
+#include "sprite_material_source.hpp"
 #include <forge/material_source.hpp>
 inline void test_material_source() {
     using namespace forge;
@@ -20,6 +22,22 @@ inline void test_material_source() {
         const auto bytes = j.dump();
         return MaterialSource::parse(std::as_bytes(std::span(bytes)));
     };
+    for (const auto filtering : {TextureFilter::Nearest, TextureFilter::Linear}) {
+        const auto id = AssetId::generate(), image = AssetId::generate();
+        const auto source = sprite_material_source(id, {image}, filtering);
+        const auto resolved = resolve_material_source(parse(source.document));
+        validate_sprite_material_profile(resolved.values);
+        check(source.asset() == id && !source.base() &&
+              resolved.textures.at("baseColorTexture").id == image &&
+              resolved.values.alpha == MaterialAlpha::Blend && resolved.values.double_sided &&
+              resolved.values.depth_test && !resolved.values.depth_write &&
+              resolved.values.textures.at("baseColorTexture").sampler.min == filtering &&
+              decode_material(encode_material(resolved.values)) == resolved.values);
+    }
+    rejects([&] { sprite_material_source(AssetId::generate(), {}); });
+    rejects([&] {
+        sprite_material_source(AssetId::generate(), {AssetId::generate()}, TextureFilter(99));
+    });
     auto base = MaterialSource::create(AssetId::generate());
     base.document["plugin.extension"] = {{"future", {1, "opaque", true}}};
     base.document["overrides"]["parameters"]["roughnessFactor"] = {

@@ -176,7 +176,7 @@ void exercise(const std::filesystem::path& root) {
     const auto catalog =
         std::make_shared<const AssetCatalog>(receipts.front().publication->catalog);
     check(catalog->records().at(clip_id).metadata["forge.import"]["importer_revision"] ==
-              "forge.animation.transform.v7",
+              "forge.animation.transform.v8",
           "Expanded property semantics reused the old recipe revision");
 
     EngineContext author;

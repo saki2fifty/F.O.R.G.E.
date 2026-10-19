@@ -47,7 +47,7 @@ void animation_particle_property_tests(const std::filesystem::path& scratch) {
     require(receipt.published && receipt.publication, "Particle property clip publication failed");
     const auto catalog = std::make_shared<const AssetCatalog>(receipt.publication->catalog);
     require(catalog->records().at(id).metadata.at("forge.import").at("importer_revision") ==
-                "forge.animation.transform.v7",
+                "forge.animation.transform.v8",
             "Expanded bindings reused an old recipe identity");
     EngineContext authored;
     Scene scene(authored.world());

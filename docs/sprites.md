@@ -4,7 +4,7 @@
 
 This family is in development. Typed Scene authoring, shared world rendering,
 framing/geometric picking and bounded Sprite instancing have focused tests. The
-complete editor workflow, animation, Gallery content and exported-game acceptance
+complete editor workflow validation, animation validation, Gallery content and exported-game acceptance
 are not yet complete. This document records the implementation contract; it does
 not describe a finished feature in the downloadable editor.
 
@@ -84,6 +84,31 @@ Contiguous compatible translucent Sprite draws may instance in queue order.
 Ordinary blended Mesh draws keep their existing policy. An unlit Sprite does not
 consume the scene's 3D light list. These are extensions of the existing world
 composition path; sprites have no separate overlay pass.
+
+## Editor authoring (development)
+
+Entity > Create > Rendering > Sprite creates an ordinary entity with the typed
+SpriteRenderer component. To choose an image, use Content > Create / Register >
+New material, select the Sprite / image preset and a registered color image, then
+create and save the material. The preset creates an ordinary unlit, two-sided
+Blend material with depth testing and no depth writes. Pixel filtering chooses
+nearest sampling; the default is linear. The existing Material workspace owns
+further alpha/depth/filter edits and normal publication. Assign that published
+material in the Sprite Inspector.
+
+Inspector fields are grouped into image material, sheet frames, size/pivot,
+appearance and visibility. Scene property validation, Undo/Redo, prefab overrides
+and saved references retain their existing owners. The displayed frame bound
+follows the configured columns and rows; actual cell size still requires the
+selected texture. Temporary Play fields expose frame, width/height, pivot, flips,
+tint and order through the existing live-value panel. Stop restores authored
+values; explicit Keep values review uses the existing mechanism. Material/grid
+resource changes are outside that live whitelist.
+
+Atlas frame animation extends the existing Timeline property owner with
+`forge.sprite_renderer.frame`. It holds whole frames between keys and rejects
+curve/tangent settings. See [transform animation](transform-animation.md#sprite-frame-binding-development).
+Full editor workflow and animation acceptance remain in progress.
 
 ## Persistence and SDK
 

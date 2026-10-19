@@ -14,6 +14,13 @@ struct RuntimePropertyTune {
     }
     static bool particle_type(std::string_view type) { return type == "forge.particle_emitter"; }
     static bool material_type(std::string_view type) { return type == "forge.mesh_renderer"; }
+    static bool sprite_type(std::string_view type) { return type == "forge.sprite_renderer"; }
+    static bool sprite_property(std::string_view property) {
+        return property == "frame" || property == "width" || property == "height" ||
+               property == "pivot_x" || property == "pivot_y" || property == "flip_x" ||
+               property == "flip_y" || property == "tint_r" || property == "tint_g" ||
+               property == "tint_b" || property == "tint_a" || property == "order";
+    }
     static bool material_property(std::string_view property) {
         return property == "material_parameters";
     }
