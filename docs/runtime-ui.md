@@ -1,5 +1,14 @@
 # Runtime UI
 
+The standalone host can request a presentation-only FPS panel through
+`UiPresenter::frame_statistics`. Empty text hides it; the default creates no
+diagnostic document. The text is validated UTF-8 capped at128bytes and inserted
+as a literal text node, without RML parsing or model binding. One private document
+per existing context uses the same resource admission, font and renderer. It
+stays outside authored document counts, source provenance and gameplay protocol
+models, and takes no input/focus. Live/staged sets keep their ordinary lifetime.
+See [standalone presentation statistics](standalone-host.md) for launch and timing.
+
 Phase 6F adds screen-space game UI using RmlUi 6.3. Dear ImGui continues to own the editor. The [user manual](../manual/editor/runtime-ui.md) describes creating a HUD without coding.
 
 ## Ownership and composition

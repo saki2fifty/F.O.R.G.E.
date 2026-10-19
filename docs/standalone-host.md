@@ -187,6 +187,30 @@ asynchronous presentation. Acceptance checks keep process logs and reject native
 Diligent error messages even if the process otherwise exits successfully. Software
 verification is a correctness check, not a gameplay throughput measurement.
 
+### Optional presentation statistics
+
+`--show-fps` composes with the packaged launch, `--project PATH`, or
+`--verify-startup`. It leaves the selected device, VSync and simulation settings
+intact. The host samples its existing monotonic time source after each completed
+primary Present. The private `PresentationRate` value accumulates completed
+intervals over at least half a second: FPS is interval count divided by elapsed
+time, Frame is elapsed time divided by count, and Peak is the largest interval in
+that window. It keeps real hitches, rejects repeated/backward times and resets
+across skipped/minimized periods and inactive startup. It never drives fixed ticks.
+
+The existing UiPresenter renders a private, bounded literal-text document in its
+live/staged context using the packaged Lato font and existing Diligent adapter.
+It uses no authored canvas, model binding, source asset, native SDK callback or
+additional renderer. It takes no input or focus. Candidate publication and
+retirement remain under the existing UI owner. The disabled default performs no
+statistics formatting and creates no diagnostic document; repeated toggles retain
+at most one hidden diagnostic document per existing context.
+
+These readings include host, rendering and presentation waits. They do not isolate
+GPU duration or prove good frame pacing. Software verification remains a
+correctness check. With both diagnostic flags, startup verification waits for a
+numeric reading to reach a presented frame before reporting success.
+
 ## Export acceptance —2026-09-23
 
 Source75bfb73413e3e190432989e0a3356af679627cfd passes Windows shared-SDK

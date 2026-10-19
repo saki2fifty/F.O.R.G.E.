@@ -1,11 +1,14 @@
 #include "RmlUi_Platform_SDL.h"
 #include "asset_bytes.hpp"
 #include "game_device.hpp"
+#include "game_launch.hpp"
 #include "game_presentation.hpp"
+#include "presentation_rate.hpp"
 #include "sdl_game_cursor.hpp"
 #include "sdl_gamepads.hpp"
 #include "sdl_input.hpp"
 #include "standalone_manifest.hpp"
+#include <cstdio>
 #include <forge/build.hpp>
 #include <forge/game_content.hpp>
 #include <forge/game_host_controls.hpp>
@@ -17,6 +20,7 @@
 #include <forge/project.hpp>
 #include <fstream>
 #include <iostream>
+#include <vector>
 #ifdef FORGE_GAME_FIXTURE
 #include "game_host_fixture.hpp"
 #endif
@@ -69,8 +73,9 @@ int main(int argc, char** argv) {
         std::cout << "FORGE game | Build: " << build_id << '\n';
         return 0;
     }
-    bool software = false, verify_startup = false;
+    bool software = false, verify_startup = false, show_fps = false;
     unsigned verification_frames = 0;
+    bool verification_statistics_seen = false;
     std::ofstream log;
     std::streambuf* previous_log = nullptr;
     int result = 0;
@@ -91,17 +96,19 @@ int main(int argc, char** argv) {
         if (!fixture.packaged)
             root = fixture.project;
         software = true;
+        show_fps = fixture.frame_statistics;
         const bool packaged_start = fixture.packaged;
 #else
-        const bool development_project = argc == 3 && std::string_view(argv[1]) == "--project";
-        verify_startup = argc == 2 && std::string_view(argv[1]) == "--verify-startup";
-        const bool packaged_start = argc == 1 || verify_startup;
+        std::vector<std::string_view> arguments;
+        for (int i = 1; i < argc; ++i)
+            arguments.emplace_back(argv[i]);
+        const auto launch = parse_game_launch(arguments);
+        verify_startup = launch.verify_startup;
+        show_fps = launch.show_fps;
+        const bool packaged_start = !launch.project;
         software = verify_startup; // Explicit diagnostic mode uses WARP/offline audio.
-        if (development_project)
-            root = std::filesystem::absolute(std::filesystem::u8path(argv[2]));
-        else if (!packaged_start)
-            throw std::runtime_error(
-                "Usage: forge_game [--project <development directory> | --verify-startup]");
+        if (launch.project)
+            root = std::filesystem::absolute(std::filesystem::u8path(*launch.project));
 #endif
         if (packaged_start) {
             distribution = open_standalone_distribution(executable_root, {"windows", "d3d12"},
@@ -186,6 +193,9 @@ int main(int argc, char** argv) {
             asset_detail::read_bytes(executable_root / "resources/ui/LatoLatin-Regular.ttf",
                                      4 * 1024 * 1024),
             std::move(callbacks), &ime);
+        static constexpr const char* pending_rate = "FPS -- | Frame -- ms | Peak -- ms";
+        if (show_fps)
+            presentation.ui().frame_statistics(pending_rate);
         EngineServices bootstrap;
         GameSessionConfig config;
         auto game_requests = std::make_shared<GameControlQueue>();
@@ -247,8 +257,13 @@ int main(int argc, char** argv) {
         std::string loading_stage, last_ui_error;
         std::uint64_t log_generation = 0, diagnostic_cursor = 0;
         auto& ui = presentation.ui();
+        PresentationRate presentation_rate;
         while (running) {
             const auto now = RuntimeClock::Clock::now();
+#ifdef FORGE_GAME_FIXTURE
+            if (fixture.frame_statistics)
+                fixture.frame_statistics_workflow.poll(window.get());
+#endif
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_EVENT_QUIT ||
@@ -323,6 +338,11 @@ int main(int argc, char** argv) {
             checked(SDL_GetWindowSizeInPixels(window.get(), &width, &height));
             if (width <= 0 || height <= 0 ||
                 (SDL_GetWindowFlags(window.get()) & SDL_WINDOW_MINIMIZED)) {
+                if (show_fps) {
+                    presentation_rate.reset();
+                    verification_statistics_seen = false;
+                    ui.frame_statistics(pending_rate);
+                }
                 SDL_Delay(10);
                 continue;
             }
@@ -462,13 +482,43 @@ int main(int argc, char** argv) {
             device.end_frame(graphics.context);
             graphics.swap->Present(
                 game_controls.settings().at("display").at("vsync").get<bool>() ? 1 : 0);
+            if (show_fps) {
+                if (!active) {
+                    presentation_rate.reset();
+                    verification_statistics_seen = false;
+                    ui.frame_statistics(pending_rate);
+                } else if (presentation_rate.presented(RuntimeClock::Clock::now())) {
+                    if (const auto sample = presentation_rate.sample()) {
+                        char label[128];
+                        const int count = std::snprintf(
+                            label, sizeof(label), "FPS %.1f | Frame %.2f ms | Peak %.2f ms",
+                            sample->fps, sample->mean_ms, sample->peak_ms);
+                        if (count < 0 || std::size_t(count) >= sizeof(label))
+                            ui.frame_statistics("Frame statistics unavailable");
+                        else
+                            ui.frame_statistics(label);
+                    } else
+                        ui.frame_statistics(pending_rate);
+                }
+            }
 #ifdef FORGE_GAME_FIXTURE
             test::GameHostFixture::check(graphics.context->GetFrameNumber() == frame_number + 1,
                                          "Primary presentation must finish exactly one frame");
 #endif
-            if (verify_startup && active && ++verification_frames >= 4) {
-                std::cout << "FORGE standalone startup verified" << std::endl;
-                running = false;
+            if (verify_startup && active) {
+                const bool statistics_ready =
+                    !show_fps || (verification_statistics_seen && presentation_rate.sample());
+                verification_statistics_seen = presentation_rate.sample().has_value();
+                if (++verification_frames >= 4 && statistics_ready) {
+                    if (show_fps) {
+                        const auto& sample = *presentation_rate.sample();
+                        std::cout << "FORGE standalone frame statistics verified: " << sample.fps
+                                  << " FPS, " << sample.mean_ms << " ms mean, " << sample.peak_ms
+                                  << " ms peak\n";
+                    }
+                    std::cout << "FORGE standalone startup verified" << std::endl;
+                    running = false;
+                }
             }
             log.flush();
         }

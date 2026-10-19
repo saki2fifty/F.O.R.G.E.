@@ -76,6 +76,27 @@ standalone folder. A normal launch runs `forge_game.exe` with no arguments and
 uses its validated startup manifest. `--project PATH` remains the explicit
 development-project launch option.
 
+## Show FPS and frame time
+
+Open PowerShell in the exported game folder and run:
+
+```powershell
+.\forge_game.exe --show-fps
+```
+
+A small panel in the upper left shows **FPS**, average **Frame** time and the
+slowest **Peak** frame in each reporting window. It refreshes about twice per
+second. Lower frame times mean faster presentation; a high peak can reveal a
+visible hitch. The panel also works in fullscreen and in scenes without a HUD.
+It lets mouse and keyboard input reach your game's controls.
+
+Launch normally to leave the display off. For a development project, add
+`--show-fps` after `--project "C:\Projects\MyGame"`.
+Minimizing the window clears the old reading; values appear again after restoring
+it. The readings describe completed game presentations, including their waits.
+GPU execution time and overall smoothness need separate measurements on your
+computer. The display does not change simulation speed or fix uneven motion.
+
 For automated startup diagnosis, `forge_game.exe --verify-startup` admits the
 package, creates the software D3D12 device and offline audio, waits for startup
 resource readiness, renders several frames and exits with a success/failure code.

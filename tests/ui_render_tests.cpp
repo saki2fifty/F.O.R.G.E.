@@ -14,6 +14,7 @@
 #include <windows.h>
 #include <wrl/client.h>
 #endif
+#include "ui_frame_statistics_render_tests.hpp"
 #include <RmlUi/Core.h>
 #include <cstring>
 #include <forge/ui_diligent.hpp>
@@ -378,6 +379,8 @@ img {position:absolute;width:64px;height:64px;top:16px;} #png {left:16px;} #jpg 
                 save(pixels, size, 480, images / ("ui-document-" + std::to_string(size) + ".ppm"));
             }
         }
+        forge::test_ui_frame_statistics::exercise(device, context, renderer, images, argv[2],
+                                                  readback, save);
         context->WaitForIdle();
         std::cout << "Runtime UI native geometry, clipping, transform, texture, blend, font "
                      "and resize passed\n";
