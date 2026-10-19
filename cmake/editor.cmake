@@ -379,7 +379,7 @@ if(BUILD_TESTING)
  target_link_libraries(forge_viewport_tests PRIVATE forge_authoring imgui Diligent-Imgui Diligent-GraphicsEngineD3D12-shared Diligent-BuildSettings d3d12 dxgi d3dcompiler)
  copy_required_dlls(forge_viewport_tests)
  target_link_libraries(forge_viewport_tests PRIVATE forge_shader_diligent forge_presentation_diligent forge_image_codecs forge_view_image SDL3::SDL3)
- target_link_libraries(forge_viewport_tests PRIVATE forge_animation forge_runtime_resources forge_transform_animation_authoring forge_texture_authoring)
+ target_link_libraries(forge_viewport_tests PRIVATE forge_animation forge_runtime_resources forge_transform_animation_authoring forge_texture_authoring forge_simulation forge_game_content)
  add_test(NAME editor_viewport_render COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images")
  # Combined device-lifetime coverage already took 56-57s before the additional
  # volume-exit cases. Keep its assertions and individual case bounds; allow
