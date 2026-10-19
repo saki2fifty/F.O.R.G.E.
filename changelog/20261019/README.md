@@ -30,7 +30,7 @@ captures were reviewed. A [corrected comparison-only run](https://github.com/sak
 also passed, reusing the audit's benchmark after correcting a baseline artifact
 reference. Build192 remains the latest delivered ZIP.
 
-## World sprites and image-sheet animation — source development
+## World sprites and image-sheet animation — source validated, delivery pending
 
 The current source adds Sprite entities with ordinary image Materials, sheet
 grids and whole frames, meter sizes, top-left pivots, flips, linear RGBA tint,
@@ -48,8 +48,16 @@ reuse the admitted image extent and unchanged Quad pose; 10,000 compatible image
 share one draw bundle and render in157 calls without raising resource budgets.
 This is a local renderer workload observation, not physical GPU or game FPS proof.
 
-Full Windows/editor/standalone acceptance and a new numbered delivery remain
-pending. Build192 predates this Sprite family. The initial image profile is
+The four-way Linux/Windows core 154/154 and Native SDK 187/187 matrix passed at
+source `fbec063`. Windows editor 279/279 and standalone-only 2/2 checks pass
+at source `a7df8bddd8285f378c62d1e0025b3b828b1513e3` in
+[audit39267449500](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39267449500).
+Native Windows captures show the four frames and expected transparency in wide
+and tall views. The sequence-frame walkthrough now waits for the actual export
+callback before advancing after a click, retaining its original assertions and
+deadlines. The final benchmark comparison also completed. A new numbered delivery
+remains pending.
+Build192 predates this Sprite family. The initial image profile is
 unlit RGBA8/sRGB with ordinary opaque/straight alpha; compressed/HDR/custom-surface
 images, atlas mip generation, slicing/tiling, tilemaps and 2D physics are outside
 this first family.

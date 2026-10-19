@@ -11,6 +11,25 @@ and 462 Gallery files/70 scenes were verified. Native images were reviewed;
 physical Windows testing remains deferred. See the [delivery evidence and
 performance limits](../changelog/20261018/README.md).
 
+# World sprites — source validated, delivery pending
+
+Current source adds world Sprite entities using ordinary image Materials, sheet
+frames, size/pivot/flip/tint controls, geometric picking and ordered instancing.
+The existing Timeline animates whole Sprite frames with step interpolation;
+original Gallery71/72 demonstrate still images and four-frame signals.
+Linux/Windows core 154/154 and Native SDK 187/187 profiles pass at source `fbec063`.
+The unchanged portable/SDK implementation and subsequent native-only corrections
+are covered by 279/279 Windows editor and 2/2 standalone-only checks at
+`a7df8bddd8285f378c62d1e0025b3b828b1513e3` in
+[audit39267449500](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39267449500).
+Native Windows Sprite captures were reviewed, including all four frames in wide
+and tall views. Local normal/sanitizer rendering, actual editor input at three
+scales and relocated cooked-content checks also pass. The audit's benchmark
+comparison completed. A new numbered package remains pending; Build192 predates sprites.
+Exact SDK fingerprints change, requiring matching C++ module rebuilds; ABI1
+callback tables remain unchanged. Physical Windows/GPU acceptance remains deferred.
+See [the contract](sprites.md) and [the guide](../manual/editor/sprites.md).
+
 # Sequence preview frames — source validated
 
 Current development source adds numbered PNG frame export from the sequence

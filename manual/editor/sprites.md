@@ -2,8 +2,7 @@
 
 A Sprite places an image in the scene. It uses the ordinary camera, scene
 transforms and Material assets, so it can appear beside meshes and move with a
-parent. It does not require C++ code. The current source includes this workflow;
-build192 does not include it.
+parent. It does not require C++ code. The Feature Gallery includes two examples.
 
 ## Try the examples
 
