@@ -32,7 +32,7 @@ struct EditorFixture {
          sdk_onboarding = false, animation_exits = false, audio_falloff = false,
          audio_cones = false, audio_mixer = false, audio_preview = false, root_motion = false;
     bool scene_create = false, hierarchy_create = false, shortcut_reopen = false,
-         audio_cues = false, view_images = false, sequence_frames = false;
+         audio_cues = false, view_images = false, sequence_frames = false, sprite_frames = false;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> view_image_target;
     ViewImageReference view_image_background;
     Json view_image_report;
@@ -58,6 +58,7 @@ struct EditorFixture {
     std::filesystem::path sdk_root, user_data;
     std::string joint_entity;
     explicit EditorFixture(int argc, char** argv) {
+        sprite_frames = argc == 4 && std::string(argv[2]) == "--sprite-frames";
         sequence_frames = argc == 4 && std::string(argv[2]) == "--sequence-frames";
         if (sequence_frames)
             stage = 305; // Dedicated workflow, outside the legacy staged capture.
@@ -94,12 +95,12 @@ struct EditorFixture {
         sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
         if (!physics && !sdk_play && !sdk_onboarding && !animation_exits && !audio_falloff &&
             !audio_cones && !audio_mixer && !audio_preview && !root_motion && !shortcut_reopen &&
-            !audio_cues && !view_images && !sequence_frames && argc != 2 &&
+            !audio_cues && !view_images && !sequence_frames && !sprite_frames && argc != 2 &&
             (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
                 "Expected fixture output directory [--workflow | --physics PROJECT | "
                 "--sdk-play PROJECT SDK USERDATA]");
-        workflow = argc == 3 || physics || sdk_onboarding || shortcut_reopen;
+        workflow = argc == 3 || physics || sdk_onboarding || shortcut_reopen || sprite_frames;
         output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
         if (sdk_play) {
@@ -113,14 +114,15 @@ struct EditorFixture {
         } else {
             project = physics || animation_exits || audio_falloff || audio_cones || audio_mixer ||
                               audio_preview || root_motion || audio_cues || view_images ||
-                              sequence_frames
+                              sequence_frames || sprite_frames
                           ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                           : output / ("project-" + AssetId::generate().str());
             config = shortcut_reopen ? std::filesystem::absolute(std::filesystem::u8path(argv[3]))
                      : physics       ? output / ".fixture-preferences"
                                      : project / ".fixture-preferences";
             if (!physics && !animation_exits && !audio_falloff && !audio_cones && !audio_mixer &&
-                !audio_preview && !root_motion && !audio_cues && !view_images && !sequence_frames)
+                !audio_preview && !root_motion && !audio_cues && !view_images && !sequence_frames &&
+                !sprite_frames)
                 SceneDocument::create_project(project, "UX fixture");
         }
         std::filesystem::create_directories(config);
@@ -142,7 +144,7 @@ struct EditorFixture {
         }
         if (!physics && !sdk_play && !animation_exits && !audio_falloff && !audio_cones &&
             !audio_mixer && !audio_preview && !root_motion && !audio_cues && !view_images &&
-            !sequence_frames)
+            !sequence_frames && !sprite_frames)
             std::filesystem::remove_all(project, ec);
         if (sdk_play || view_images)
             std::filesystem::remove_all(user_data, ec);

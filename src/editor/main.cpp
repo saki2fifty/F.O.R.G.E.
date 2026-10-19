@@ -86,6 +86,7 @@
 #include "simulation_speed_controls.hpp"
 #include "source_import.hpp"
 #include "spatial_helpers.hpp"
+#include "sprite_frame_preview.hpp"
 #include "status_bar.hpp"
 #include "terrain_editor.hpp"
 #include "terrain_preview.hpp"
@@ -255,7 +256,8 @@ int main(int argc, char** argv) {
         forge::test::EditorInputWorkflow input_workflow(
             fixture.workflow || fixture.physics, fixture.output,
             fixture.physics ? fixture.project : std::filesystem::path{}, fixture.sdk_onboarding,
-            fixture.shortcut_reopen);
+            fixture.shortcut_reopen,
+            fixture.sprite_frames ? fixture.project : std::filesystem::path{});
         forge::test::fixture_breadcrumb("after-input-workflow-construct");
         // SDK Play reference workflow: drives the editor + PlaySession
         // through the standalone reference acceptance flow.
@@ -970,6 +972,28 @@ int main(int argc, char** argv) {
         forge::MaterialEditor material_editor;
         forge::EditableMeshEditor editable_mesh_editor;
         forge::AnimationTimelineEditor animation_timeline;
+        forge::ui::SpriteFramePicker sprite_frame_picker;
+        std::unique_ptr<forge::SpriteSheetPreview> sprite_sheet_preview;
+        bool sprite_sheet_active = false;
+        sprite_frame_picker.image_source = [&](forge::AssetRef<forge::MaterialAsset> material) {
+            forge::ui::SpriteSheetImage image;
+            if (!mesh_resources || (sprite_sheet_preview &&
+                                    sprite_sheet_preview->project() != files.document.project())) {
+                image.status = "Preparing this project's published image resources...";
+                return image;
+            }
+            if (!sprite_sheet_preview)
+                sprite_sheet_preview = std::make_unique<forge::SpriteSheetPreview>(
+                    presentation, context, files.document.project());
+            sprite_sheet_active = true;
+            return forge::ui::sprite_sheet_image(*sprite_sheet_preview, mesh_resources->catalog(),
+                                                 material);
+        };
+        const forge::ui::SpriteFrameField choose_sprite_frame =
+            [&](const auto& field, auto& value) { return sprite_frame_picker.draw(field, value); };
+        component_inspector.sprite_frames = choose_sprite_frame;
+        prefab_editor.sprite_frames = choose_sprite_frame;
+        animation_timeline.sprite_frames = choose_sprite_frame;
         forge::ui::ViewImageTask view_image; // Retires before its borrowed Timeline owner.
         forge::AnimationStatesEditor animation_states;
         forge::AnimationMaskEditor animation_mask;
@@ -2365,6 +2389,7 @@ int main(int argc, char** argv) {
 #endif
                 gui->NewFrame(width, height, swap->GetDesc().PreTransform);
             // Preserve live numeric edits; ImGui 1.92.9 changed its default to commit-on-exit.
+            sprite_frame_picker.begin_frame();
             ImGui::PushItemFlag(ImGuiItemFlags_LiveEditOnInputScalar, true);
             telemetry.frame();
             forge::ui::status_bar(
@@ -2907,6 +2932,12 @@ int main(int argc, char** argv) {
                 sequence_frame_workflow.prepare(
                     fixture, files.document, scene, animation_timeline, window.get(),
                     content_imports.ready_for_play() && !content.refreshing());
+            }
+            if (fixture.sprite_frames && !fixture.prepared) {
+                SDL_SetWindowSize(window.get(), 1920, 1080);
+                files.document.open_scene("Scenes/72-sprite-frame-animation.scene.json");
+                workspace.hierarchy = workspace.inspector = true;
+                fixture.prepared = true;
             }
             if (!fixture.workflow && !fixture.sdk_play && !fixture.sequence_frames &&
                 !fixture.prepared) {
@@ -6409,6 +6440,7 @@ int main(int argc, char** argv) {
             context->SetRenderTargets(1, &rtv, nullptr, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             const float clear[] = {0.04f, 0.05f, 0.06f, 1};
             context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+            sprite_frame_picker.after_ui();
             ImGui::PopItemFlag();
             {
                 auto timing = presentation.gpu_scope(context, "Editor", "UI composition");
@@ -6548,6 +6580,9 @@ int main(int argc, char** argv) {
                 observed["scene_revision"] = scene.revision();
                 observed["scene_undo"] = scene.can_undo();
                 observed["scene_redo"] = scene.can_redo();
+                observed["sprite_chooser_open"] = sprite_frame_picker.open();
+                observed["sprite_sheet_ready"] =
+                    sprite_sheet_preview && sprite_sheet_preview->ready();
                 observed["editor_shortcuts"] = editor_shortcuts.settings();
                 observed["gpu_profile"] = presentation.gpu_profile_status();
                 observed["editor_cpu_profile"] = scene_engine.services().profile_status();
@@ -7868,6 +7903,15 @@ int main(int argc, char** argv) {
                 (texture_viewer && texture_viewer->project() != files.document.project()))
                 texture_viewer.reset();
             texture_view_document.after_submission(files.document.project());
+            if (sprite_sheet_preview &&
+                sprite_sheet_preview->project() != files.document.project()) {
+                sprite_frame_picker.cancel();
+                sprite_sheet_preview.reset();
+                sprite_sheet_active = false;
+            } else if (sprite_sheet_active && !sprite_frame_picker.open()) {
+                sprite_sheet_preview->cancel();
+                sprite_sheet_active = false;
+            }
             if (!model_imports.is_open() ||
                 (model_viewer && model_viewer->project() != files.document.project()))
                 model_viewer.reset();

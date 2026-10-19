@@ -7,10 +7,12 @@ namespace forge {
 // CPU pool performs verification asynchronously; GPU work stays on its owner.
 class TextureAssetPreview {
   public:
+    using Admission = void (*)(const TextureData&);
     TextureAssetPreview(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-                        std::filesystem::path project)
+                        std::filesystem::path project, Admission admission = nullptr)
         : context_(context), project_(std::move(project)), pool_({1, 8, 16, 256ull * 1024 * 1024}),
-          gpu_(presentation.device(), context, 256ull * 1024 * 1024, 16), renderer_(presentation) {}
+          gpu_(presentation.device(), context, 256ull * 1024 * 1024, 16), renderer_(presentation),
+          admission_(admission) {}
     TexturePreviewSettings settings;
     void select(std::shared_ptr<const AssetCatalog> catalog, AssetRef<TextureAsset> asset,
                 std::optional<TextureSemantic> semantic = {}) {
@@ -65,8 +67,10 @@ class TextureAssetPreview {
             return;
         attempted_ = candidate.identity();
         try {
-            auto native = gpu_.acquire(candidate);
             const auto& data = candidate.get();
+            if (admission_)
+                admission_(data);
+            auto native = gpu_.acquire(candidate);
             if (reset_display_) {
                 settings.display =
                     data.semantic == TextureSemantic::HdrColor ? TexturePreviewDisplay::Hdr
@@ -110,6 +114,17 @@ class TextureAssetPreview {
         }
     }
     const TextureData* data() const { return ready_cpu_ ? &ready_cpu_.get() : nullptr; }
+    // Existing viewers may show the previous good image during replacement.
+    // A selection control must require the exact selected revision instead.
+    bool current() const {
+        if (!catalog_ || !ticket_ || !ready_cpu_ || !ready_gpu_ || !error_.empty())
+            return false;
+        const auto selected = ticket_.inspect();
+        return selected.state == ResourceState::Ready && selected.identity == ready_cpu_.identity();
+    }
+    std::optional<ResourceIdentity> current_identity() const {
+        return current() ? std::optional<ResourceIdentity>(ready_cpu_.identity()) : std::nullopt;
+    }
     std::uint64_t render_count() const { return renderer_.render_count(); }
     const std::string& error() const { return error_; }
     bool pending() const { return ticket_ && !resource_detail::terminal(ticket_.inspect().state); }
@@ -127,6 +142,7 @@ class TextureAssetPreview {
     ResourceLease<TextureAsset> ready_cpu_;
     GpuLease<TextureAsset> ready_gpu_;
     TexturePreviewRenderer renderer_; // Bindings die before leases and residency.
+    Admission admission_;
     std::optional<ResourceIdentity> attempted_;
     std::optional<TexturePreviewSettings> rendered_;
     unsigned width_ = 0, height_ = 0;

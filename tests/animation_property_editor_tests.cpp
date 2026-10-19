@@ -1,4 +1,5 @@
 #include "animation_timeline.hpp"
+#include "sprite_frame_picker.hpp"
 #include <chrono>
 #include <imgui_internal.h>
 #include <iostream>
@@ -38,6 +39,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     io.DisplaySize = display;
     io.DeltaTime = 1.f / 60;
     io.ConfigInputTrickleEventQueue = false;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     unsigned char* pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
@@ -46,17 +48,33 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     ui::ContextScope scope(context);
     test::observe_ui = true;
     AnimationTimelineEditor editor;
+    ui::SpriteFramePicker picker;
+    editor.sprite_frames = [&](const auto& field, auto& value) {
+        return picker.draw(field, value);
+    };
+    picker.image_source = [&](auto) {
+        ui::SpriteSheetImage image;
+        image.width = image.height = 32;
+        image.revision = ResourceIdentity{};
+        image.render = [](auto, auto, auto) {
+            static int marker;
+            return reinterpret_cast<ImTextureID>(&marker);
+        };
+        return image;
+    };
     editor.open(project, "Assets/Properties.animation.json");
     editor.bind(scene, actor);
     bool locked = false;
     std::string message;
     auto frame = [&] {
         test::ui_targets.clear();
+        picker.begin_frame();
         editor.poll(project, scene, locked, io.DeltaTime, message);
         ImGui::NewFrame();
         ImGui::SetNextWindowPos({5, 5}, ImGuiCond_Always);
         ImGui::SetNextWindowSize({display.x - 10, display.y - 10}, ImGuiCond_Always);
         editor.draw(project, scene, locked);
+        picker.after_ui();
         ImGui::Render();
     };
     auto target = [&](const std::string& name) {
@@ -87,7 +105,16 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         const auto box = target(name);
         const ImVec2 p{(box.minimum.x + box.maximum.x) / 2, (box.minimum.y + box.maximum.y) / 2};
         mouse(p, false);
+        if (name == "button:Add / Update key at playhead") {
+            const auto settled = test::ui_targets.at(name);
+            check(p.x >= settled.minimum.x && p.x <= settled.maximum.x &&
+                      p.y >= settled.minimum.y && p.y <= settled.maximum.y,
+                  "Timeline Apply key moved after pointer hover");
+        }
         mouse(p, true);
+        if (name == "button:Add / Update key at playhead")
+            check(GImGui->ActiveId == test::ui_targets.at(name).id,
+                  "Timeline Apply key did not receive the pointer press");
         mouse(p, false);
         frame();
     };
@@ -135,10 +162,38 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     type("animation:value:forge.particle_emitter.tint_r", "0.25");
     type("animation:value:forge.particle_emitter.tint_g", "0.5");
     type("animation:value:forge.particle_emitter.tint_b", "0.75");
-    type("animation:value:forge.sprite_renderer.frame", "3");
+    type("animation:value:forge.sprite_renderer.frame", "0");
+    const auto before_frame_choice = editor.document()->source().document;
+    click("sprite:choose-frame");
+    const auto frame_key = [&](ImGuiKey key) {
+        io.AddKeyEvent(key, true);
+        frame();
+        io.AddKeyEvent(key, false);
+        frame();
+    };
+    frame_key(ImGuiKey_End);
+    frame_key(ImGuiKey_Enter);
+    check(!picker.open(), "Timeline chooser did not close after frame confirmation");
+    check(editor.document()->source().document == before_frame_choice &&
+              scene.document() == authored,
+          "Visual Timeline frame choice published a key or changed the authored target");
+    click("sprite:choose-frame");
+    frame_key(ImGuiKey_Home);
+    frame_key(ImGuiKey_Escape);
+    check(!picker.open(), "Timeline chooser did not close after cancellation");
+    check(editor.document()->source().document == before_frame_choice,
+          "Cancelled Timeline frame navigation changed the clip");
     click("button:Add / Update key at playhead");
     const auto source = editor.document()->source();
-    check(source.clip().keys.size() == 2, "Property UI did not create second key");
+    check(source.clip().keys.size() == 2,
+          "Property UI did not create second key at scale " + std::to_string(scale) + " display " +
+              std::to_string(display.x) + "x" + std::to_string(display.y) +
+              "; keys=" + std::to_string(source.clip().keys.size()) +
+              "; problems=" + std::to_string(context.problems.size()) +
+              "; revision=" + std::to_string(editor.document()->revision()) + "; frame=" +
+              std::to_string(
+                  source.clip().keys.front().properties[unsigned(AnimationProperty::SpriteFrame)]) +
+              "; message=" + message);
     check(std::abs(source.clip().keys.back().properties[0] - std::numbers::pi / 2) < 1e-7 &&
               source.clip().keys.back().properties[2] == 10 &&
               source.clip().keys.back().properties[6] == .25 &&

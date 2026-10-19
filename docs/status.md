@@ -1,3 +1,15 @@
+# Visual Sprite frame selection — Windows validation pending
+
+Development source adds a sheet preview beside numeric Sprite Frame controls in
+Inspector, temporary live fields, prefab drafts and targeted Timeline key fields.
+It supports direct frame hits, pending keyboard selection, pan/zoom and image
+dimensions. Existing Undo, live submission, draft publication and key application
+own the edits. Stale/failed image revisions cannot authorize a selection. Focused
+input/owner checks and native software-Vulkan UI images pass normally and with
+affected-own-unit sanitizer/leak inspection; six captures were visually reviewed.
+Full Windows acceptance is pending. Build193
+does not include the chooser. See [the guide](../manual/editor/sprites.md#select-frames-from-a-sheet).
+
 # Orthographic Scene editing — Windows validation pending
 
 Development source adds Perspective/Orthographic Scene views, six axis presets,

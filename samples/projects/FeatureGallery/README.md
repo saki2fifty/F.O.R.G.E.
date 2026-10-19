@@ -29,6 +29,15 @@ signal's frame keys. **Sprite frame (step)** holds each whole frame until the ne
 key; it has no curve tangents. Animation continues to control its bound fields,
 so use the smaller, unanimated signals for manual live Frame changes.
 
+In development source, stop Play and select one of the smaller signals. Beside its
+numeric Frame field, **Choose frame...** shows the four original arrow cells:
+green up, blue right, orange down and pink left. Click one, then use Scene Undo to
+restore it. Try wheel zoom, right-drag pan and **Fit image**; Cancel changes nothing.
+The same control during Play changes only the temporary live value. On Timeline,
+choose the large signal as Preview object: selecting an image fills its pending
+Sprite frame field, and **Add / Update key at playhead** commits the key. These
+visual controls are not in Build193; their Windows validation is pending.
+
 Both scenes use ordinary materials and built-in components. Choose the desired
 scene as startup before export. Their prepared images, materials and animation
 ship as game content; no project C++ module or compiler is required. The two PNGs

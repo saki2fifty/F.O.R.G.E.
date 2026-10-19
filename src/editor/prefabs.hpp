@@ -3,6 +3,7 @@
 #include "component_choices.hpp"
 #include "document.hpp"
 #include "property_drawer.hpp"
+#include "sprite_inspector.hpp"
 #include "widgets.hpp"
 #include <cmath>
 #include <forge/authoring.hpp>
@@ -55,6 +56,7 @@ inline std::string prefab_member_label(const Json& document, const std::string& 
 }
 class PrefabEditor {
   public:
+    ui::SpriteFrameField sprite_frames;
     bool dirty() const { return open_ && !detail::json_value_equal(draft_, baseline_); }
     bool is_open() const { return open_; }
     Json migration_document() const {
@@ -628,7 +630,20 @@ class PrefabEditor {
                                 const std::string f = field.at("id");
                                 auto value = m["components"][key][f];
                                 PrefabPropertyScope prefab_properties(draft_);
-                                if (property_field(project.project(), field, value, false)) {
+                                bool changed =
+                                    property_field(project.project(), field, value, false);
+                                if (key == "forge.sprite_renderer" && f == "frame" &&
+                                    sprite_frames) {
+                                    const auto owner =
+                                        "prefab:" + path_text(project.project()) + "/" +
+                                        draft_.at("asset_id").get<std::string>() + "/" + member_ +
+                                        "/" + draft_.at("revision").dump();
+                                    ImGui::BeginDisabled(field.value("read_only", false));
+                                    changed |= sprite_frame_field(sprite_frames, owner,
+                                                                  m["components"][key], value);
+                                    ImGui::EndDisabled();
+                                }
+                                if (changed) {
                                     auto admitted = value;
                                     bool found_reference = false;
                                     detail::transform_prefab_reference_field(

@@ -72,6 +72,7 @@ class ComponentInspector {
     // Domain-specific logical mesh slots reuse the same property command/history.
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     std::function<bool(const Json& mesh_renderer, Json& parameters)> material_parameters;
+    ui::SpriteFrameField sprite_frames;
     std::function<void(const std::string&)> open_cpp_definition;
     std::function<void(const std::string&)> edit_rig_target;
     static bool runtime_type_available(const Json& type, const Json& components) {
@@ -228,13 +229,19 @@ class ComponentInspector {
                 auto value = components.at(key).at(name);
                 const bool read_only = field.value("read_only", false);
                 ImGui::BeginDisabled(read_only);
-                const bool changed = key == "forge.mesh_renderer" &&
-                                             name == "material_parameters" && material_parameters
-                                         ? material_parameters(components.at(key), value)
-                                         : property_field(project_root, field, value, true,
-                                                          model_node_scope(components, key, field));
+                bool changed = key == "forge.mesh_renderer" && name == "material_parameters" &&
+                                       material_parameters
+                                   ? material_parameters(components.at(key), value)
+                                   : property_field(project_root, field, value, true,
+                                                    model_node_scope(components, key, field));
                 ImGui::EndDisabled();
                 FORGE_UI_PROBE("runtime-field:" + key + ":" + name);
+                if (key == "forge.sprite_renderer" && name == "frame" && sprite_frames) {
+                    const auto owner = "live:" + path_text(project_root) + "/" + selected;
+                    ImGui::BeginDisabled(read_only);
+                    changed |= sprite_frame_field(sprite_frames, owner, components.at(key), value);
+                    ImGui::EndDisabled();
+                }
                 if (changed && !read_only && !submit(key, name, value))
                     ImGui::TextWrapped("Live change is pending or Play is not ready.");
                 ui::help(read_only ? "Runtime observation; this property is read only."
@@ -469,14 +476,13 @@ class ComponentInspector {
                         display_field = &contextual;
                     }
                 }
-                const bool changed =
-                    key == "forge.mesh_renderer" && name == "materials" && material_slots
-                        ? material_slots(values.at(key), value)
-                    : key == "forge.mesh_renderer" && name == "material_parameters" &&
-                            material_parameters
-                        ? material_parameters(values.at(key), value)
-                        : property_field(project.project(), *display_field, value, true,
-                                         model_node_scope(values, key, field));
+                bool changed = key == "forge.mesh_renderer" && name == "materials" && material_slots
+                                   ? material_slots(values.at(key), value)
+                               : key == "forge.mesh_renderer" && name == "material_parameters" &&
+                                       material_parameters
+                                   ? material_parameters(values.at(key), value)
+                                   : property_field(project.project(), *display_field, value, true,
+                                                    model_node_scope(values, key, field));
                 FORGE_UI_PROBE("component-field:" + key + ":" + name);
                 if (changed)
                     edit_property(scene, entity, key, name, value);
@@ -490,6 +496,16 @@ class ComponentInspector {
                         "explicit property intent; Revert instead follows the prefab source.");
                     ImGui::EndDisabled();
                     ImGui::EndPopup();
+                }
+                if (key == "forge.sprite_renderer" && name == "frame" && sprite_frames) {
+                    const auto owner = "scene:" + path_text(project.project()) + "/" +
+                                       std::to_string(project.generation()) + "/" + entity;
+                    ImGui::BeginDisabled(field.value("read_only", false));
+                    const bool chosen =
+                        sprite_frame_field(sprite_frames, owner, values.at(key), value);
+                    ImGui::EndDisabled();
+                    if (chosen)
+                        edit_property(scene, entity, key, name, value);
                 }
                 const bool field_override = whole || (partial && masks.at(key).contains(name));
                 if (prefab) {

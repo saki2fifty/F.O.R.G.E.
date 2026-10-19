@@ -55,6 +55,8 @@ class EditorInputWorkflow {
     std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_,
         graph_function_, graph_call_;
     Json graph_before_, view_baseline_, view_before_, view_saved_;
+    Json sprite_baseline_;
+    std::string sprite_entity_;
     Json starter_modules_, apply_before_, apply_after_, shot_before_, shortcut_before_,
         tuning_before_, tuning_after_, color_before_, color_after_;
     std::string shot_camera_, shot_controller_, shot_entity_;
@@ -419,6 +421,44 @@ class EditorInputWorkflow {
     void verify(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
+        if (what.starts_with("sprite-sheet-")) {
+            require(!state.at("playing").get<bool>() && state.at("selected") == sprite_entity_,
+                    "Native sheet workflow lost its authored Sprite selection");
+            if (what == "sprite-sheet-baseline") {
+                bool found = false;
+                for (const auto& row : entities)
+                    if (row.at("id") == sprite_entity_) {
+                        const auto& sprite = row.at("components").at("forge.sprite_renderer");
+                        found = sprite.at("frame") == 0 && sprite.at("columns") == 4 &&
+                                sprite.at("rows") == 1;
+                    }
+                require(found,
+                        "Gallery72 static Sprite must start at frame zero on its four-cell sheet");
+                sprite_baseline_ = doc;
+                return;
+            }
+            auto expected = sprite_baseline_;
+            if (what == "sprite-sheet-chosen")
+                for (auto& row : expected.at("entities"))
+                    if (row.at("id") == sprite_entity_)
+                        row["components"]["forge.sprite_renderer"]["frame"] = 3;
+            require(doc == expected, "Native chooser changed more than the requested frame");
+            if (what == "sprite-sheet-ready") {
+                require(state.at("sprite_chooser_open").get<bool>() &&
+                            state.at("sprite_sheet_ready").get<bool>() &&
+                            ui_targets.contains("sprite:sheet-canvas") &&
+                            ui_targets.contains("sprite:use-frame") &&
+                            ui_targets.at("sprite:use-frame").enabled,
+                        "Native chooser has not admitted/rendered the published sheet");
+            } else {
+                require(!state.at("sprite_chooser_open").get<bool>(),
+                        "Native chooser did not close after confirm/cancel");
+                if (what == "sprite-sheet-cancelled")
+                    require(state.at("scene_redo").get<bool>(),
+                            "Cancelling native sheet selection discarded Scene redo history");
+            }
+            return;
+        }
         if (what == "character-world-binding") {
             bool valid = false;
             for (const auto& entity : entities)
@@ -1135,10 +1175,46 @@ class EditorInputWorkflow {
     }
     explicit EditorInputWorkflow(bool enabled, const std::filesystem::path& evidence,
                                  const std::filesystem::path& physics_project = {},
-                                 bool sdk_onboarding = false, bool shortcut_reopen = false) {
+                                 bool sdk_onboarding = false, bool shortcut_reopen = false,
+                                 const std::filesystem::path& sprite_project = {}) {
         observe_ui = enabled;
         if (!enabled)
             return;
+        if (!sprite_project.empty()) {
+            std::ifstream file(sprite_project / "Scenes/72-sprite-frame-animation.scene.json");
+            const auto scene = Json::parse(file);
+            for (const auto& row : scene.at("entities"))
+                if (row.at("name") == "Frame 0 - top-left row-major")
+                    sprite_entity_ = row.at("id");
+            require(!sprite_entity_.empty(), "Gallery72's static frame-zero Sprite is missing");
+            for (unsigned scale = 0; scale < 3; ++scale) {
+                key(ImGuiKey_0, true);
+                for (unsigned i = 0; i < scale * 5; ++i)
+                    key(ImGuiKey_Equal, true);
+                click("entity:" + sprite_entity_);
+                check("sprite-sheet-baseline");
+                click("sprite:choose-frame");
+                check("sprite-sheet-ready");
+                hover("sprite:sheet-canvas");
+                capture("sprite-sheet-fit-" + std::to_string(100 + scale * 50));
+                key(ImGuiKey_End);
+                check("sprite-sheet-ready");
+                key(ImGuiKey_Enter);
+                check("sprite-sheet-chosen");
+                key(ImGuiKey_Z, true);
+                check("sprite-sheet-restored");
+                key(ImGuiKey_Y, true);
+                check("sprite-sheet-chosen");
+                key(ImGuiKey_Z, true);
+                check("sprite-sheet-restored");
+                click("sprite:choose-frame");
+                check("sprite-sheet-ready");
+                key(ImGuiKey_End);
+                key(ImGuiKey_Escape);
+                check("sprite-sheet-cancelled");
+            }
+            return;
+        }
         if (shortcut_reopen) {
             key(ImGuiKey_0, true);
             check("shortcut-bound");

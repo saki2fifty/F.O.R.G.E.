@@ -1,5 +1,19 @@
 # 2026-10-19
 
+## Visual Sprite frame selection — Windows validation pending
+
+- Image-sheet preview beside numeric Frame controls in Inspector, live tuning, prefab drafts and targeted Timeline key fields.
+- Click a cell, or navigate a pending frame with the keyboard and confirm/cancel. The chooser shows image/cell dimensions and supports anchored wheel zoom, right-drag pan and Fit image.
+- Existing Scene Undo, runtime submission, draft publication and Timeline Apply key retain ownership. Published Material/Texture resources and bounded cropped previews are reused; failed/stale replacements cannot select old frames.
+- Gallery72 includes a short walkthrough of the four original arrow images. No new asset schema, SDK/runtime component, dependency, slicing or tilemap system.
+
+Focused input/owner checks and actual software-Vulkan UI images pass normally and
+with affected-own-unit ASan/UBSan/leak inspection; pinned/CPU libraries remain
+normal. Six native chooser captures were visually reviewed. A dedicated Windows
+fixture now covers real-host selection, pending confirmation, Undo/Redo and Cancel
+at three scales. Its execution and full Windows shell acceptance are pending;
+Build193 predates these visual controls.
+
 ## Orthographic Scene editing — Windows validation pending
 
 - Scene View offers Perspective/Orthographic projection, visible height and six signed axis views. Orientation endpoints choose an orthographic view with a matching grid.

@@ -120,10 +120,46 @@ resource changes are outside that live whitelist.
 An animation continues to control its bound fields; manual live Frame changes
 are useful on sprites whose frame is not currently driven by a track.
 
+### Visual sheet selection (development source)
+
+`Choose frame...` accompanies the numeric frame field in Scene Inspector,
+temporary live fields and Prefab source drafts. Timeline offers the same chooser
+for a SpriteFrame binding with a valid Sprite preview target. It uses the selected
+Sprite's Material and uniform grid; Timeline confirmation only changes its pending
+key field. Existing property commands, runtime submission, draft publication and
+clip history remain authoritative. Numeric inputs and their context/reset actions
+are preserved. The chooser adds no public SDK, serialized asset or runtime code.
+
+The one transient preview resolves the published Material through
+`request_model_pbr_material` and its actual base-color Texture through the existing
+resource pools and `TextureAssetPreview`. Sprite material/texture profile admission
+precedes GPU adoption. Selection requires the exact current resource identity;
+retained last-good viewer pixels never authorize a failed replacement. Requests
+remain asynchronous and bounded. Main retires the private preview after UI
+submission on closure/project changes, using the existing GPU residency owner.
+
+Hit testing reuses `sprite_grid_region`: top-origin row-major U32 frames, no hits
+on margins/gaps, checked wide arithmetic. Visible grid edges have a fixed bound;
+large grids allocate no per-cell widget, texture, job or record. Preview outputs
+reuse the existing crop renderer and stay within2048 pixels per axis. Wheel zoom
+is anchored under the pointer; right-drag pans; keyboard navigation remains
+pending until confirmation and reveals the highlighted cell. Context/revision,
+read-only and disappearing-field transitions invalidate the chooser.
+
+Local input/owner checks and native software-Vulkan chooser images pass normally
+and with ASan/UBSan/leak inspection of the affected own units; pinned/CPU libraries
+remain normal. Three scales, a small window, Scene Undo/cancel, prefab discard,
+live restoration, Timeline pending-key application and image revision failure/
+recovery are covered. Six native chooser captures were visually reviewed.
+Actual Windows shell acceptance remains pending. Build193 does not include this control. There is no
+irregular slicing, atlas packing, atlas mip generation, tilemap or new animation
+clock in this change.
+
 Atlas frame animation extends the existing Timeline property owner with
 `forge.sprite_renderer.frame`. It holds whole frames between keys and rejects
 curve/tangent settings. See [transform animation](transform-animation.md#sprite-frame-binding-development).
-Full editor workflow and animation acceptance remain in progress.
+The delivered frame-animation gates are recorded in [status](status.md); visual
+frame-chooser validation is separate.
 
 ## Persistence and SDK
 

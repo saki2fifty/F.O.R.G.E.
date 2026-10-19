@@ -295,6 +295,14 @@ That initial source-preparation phase has a 90-second deadline and records its
 elapsed time. Once the baseline is frozen, the ordinary 45-second control-stage
 budget starts afresh; readiness, exact pixels and preservation checks are unchanged.
 The existing 180-second process and 210-second CTest budgets remain in force.
+The separate `editor_sprite_frames` workflow opens Gallery72 in the actual editor,
+selects its static Sprite and opens the published image sheet at 100/150/200%.
+It captures the real native UI, confirms pending keyboard selection, checks one
+Scene Undo/Redo edit and verifies that Cancel preserves redo history. Saved
+project, Scene and asset files remain byte-identical. This fixture has its own
+210-second CTest budget and appears in both full acceptance and focused input
+selections. Physical desktop/GPU acceptance remains separate.
+
 The separate `editor_sequence_frames` workflow drives the actual Timeline action,
 Game focus, frontmost export modal, configuration Cancel/restore, settings input,
 folder-picker adapter and current/fixed four-frame PNG batches at 100/150/200%.

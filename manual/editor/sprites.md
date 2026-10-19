@@ -38,11 +38,32 @@ testing Play or export; the Scene view's editor camera is independent.
 
 ## Select frames from a sheet
 
+The visual **Choose frame...** controls are in development source; Build193 uses
+numeric frame selection. Windows validation of the visual controls is pending.
+
 Use **Sheet frames** to set columns, rows, outer pixel margins and pixel spacing.
 The cells must divide the selected image into whole positive pixel rectangles.
 Frame zero is the top-left cell, then numbering continues across each row. A
 one-column, one-row grid shows the whole image. The Inspector limits the frame
 index to the chosen grid.
+
+Choose **Choose frame...** beside Frame to see the published image with cell
+boundaries and the current frame outlined. The preview reports image and cell
+sizes in pixels. Click a cell to select it, or use the arrow keys to highlight a
+frame and **Enter / Use frame** to confirm. **Escape / Cancel** leaves the original
+value unchanged. Wheel to zoom, right-drag to pan, and use **Fit image** to see the
+whole sheet. Margins and spaces between cells do not select frames.
+
+A choice in Scene Inspector is one normal Undo step. In a prefab source document,
+it changes the draft; **Publish source** and **Discard edits** retain their usual
+meaning. A Live gameplay choice is temporary and follows the normal Stop/Keep
+values review. An animation can overwrite a manually selected live frame on its
+next sample; use an unanimated Sprite when trying manual changes.
+
+The chooser waits for the current published image. A failed or unsupported image
+cannot select a frame from an older preview. Correct the material or import and
+use **Retry image** when offered. Changing the Sprite, material, grid or loaded
+image revision closes the old chooser; open it again for the new selection.
 
 An incompatible grid or material shows a diagnostic and retains the last usable
 complete image, frame and size. Correct the values to retry. A retained image
@@ -55,7 +76,7 @@ the base image level; this is not an atlas mip-generation feature.
 
 1. Create a [transform animation](transform-animation.md), or open an existing one.
 2. Choose the Sprite in **Preview object**. Under **Animated properties**, enable **Sprite frame (step)**. Disable Position/Rotation/Scale channels if you want only frame animation.
-3. Enter a whole frame number, set the key time and choose **Add / Update key at playhead**. Repeat for the other frames.
+3. Enter a whole frame number, or use **Choose frame...** with a valid Sprite preview target. A visual choice only fills the pending frame field. Set the key time and choose **Add / Update key at playhead** to commit it. Repeat for the other frames.
 4. Scrub or play Timeline preview, then save the animation and attach it to the Sprite using the usual animation workflow. Enable looping when needed.
 
 A frame holds until the next key. There are no fractional frames, curves or

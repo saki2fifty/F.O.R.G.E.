@@ -1,3 +1,4 @@
+#include "editor/sprite_sheet_layout.hpp"
 #include "sprite_draw_values.hpp"
 #include "sprite_region.hpp"
 #include <cmath>
@@ -22,9 +23,81 @@ template <class F> void rejects(F&& action) {
     }
     check(rejected, "Invalid sprite region/grid was admitted");
 }
+void sheet_selection() {
+    // Independent pixel partition with outer borders and internal empty gaps.
+    for (unsigned y = 0; y < 8; ++y)
+        for (unsigned x = 0; x < 12; ++x) {
+            const auto frame = sprite_sheet_frame_at(12, 8, {2, 2, 1, 1, 2, 2}, x + .5, y + .5);
+            const bool covered = ((x >= 1 && x < 5) || (x >= 7 && x < 11)) &&
+                                 ((y >= 1 && y < 3) || (y >= 5 && y < 7));
+            check(bool(frame) == covered, "Sheet selection included a margin/gap or lost a cell");
+            if (frame)
+                check(*frame == (y >= 5 ? 2u : 0u) + (x >= 7 ? 1u : 0u),
+                      "Visual sheet selection changed top-left row-major order");
+        }
+    check(!sprite_sheet_frame_at(12, 8, {2, 2, 1, 1, 2, 2}, 5, 1) &&
+              sprite_sheet_frame_at(12, 8, {2, 2, 1, 1, 2, 2}, std::nextafter(5., 0.), 1) == 0 &&
+              !sprite_sheet_frame_at(12, 8, {2, 2, 1, 1, 2, 2}, 12, 1),
+          "Sheet edges are not half-open");
+    check(sprite_sheet_frame_at(65536, 65536, {65536, 65536}, 65535.5, 65535.5) == UINT32_MAX &&
+              !sprite_sheet_frame_at(65536, 65537, {65536, 65537}, .5, 65536.5),
+          "Large sheet selection wrapped its U32 frame value");
+    for (double bad :
+         {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::infinity(), -1.})
+        check(!sprite_sheet_frame_at(16, 8, {4, 2}, bad, 0),
+              "Nonfinite/outside sheet coordinates were admitted");
+    rejects([] { (void)sprite_sheet_frame_at(16, 8, {0, 2}, 0, 0); });
+    rejects([] { (void)sprite_sheet_frame_at(17, 8, {4, 2}, 0, 0); });
+
+    SpriteSheetView state;
+    auto view = sprite_sheet_viewport(1024, 256, 800, 600, state);
+    near(view.left, 0);
+    near(view.top, 200);
+    near(view.width, 800);
+    near(view.height, 200);
+    check(!view.pixel_at(400, 100) && !view.pixel_at(400, 400),
+          "Sheet letterbox or bottom edge became selectable");
+    const auto anchor = view.pixel_at(500, 300);
+    check(bool(anchor), "Expected sheet pixel missing");
+    near((*anchor)[0], 640);
+    near((*anchor)[1], 128);
+    check(sprite_sheet_zoom_at(state, 1024, 256, 800, 600, 500, 300, std::log(4.) / .15),
+          "Sheet zoom did not acquire its image");
+    near(state.zoom, 4);
+    view = sprite_sheet_viewport(1024, 256, 800, 600, state);
+    const auto zoomed = view.pixel_at(500, 300);
+    check(bool(zoomed), "Zoom lost the pointer anchor");
+    near((*zoomed)[0], (*anchor)[0]);
+    near((*zoomed)[1], (*anchor)[1]);
+    near(view.width / (1024 * (view.region[2] - view.region[0])),
+         view.height / (256 * (view.region[3] - view.region[1])));
+    check(sprite_sheet_pan(state, 1024, 256, 800, 600, 100, -50), "Sheet pan failed");
+    view = sprite_sheet_viewport(1024, 256, 800, 600, state);
+    const auto panned = view.pixel_at(500, 300);
+    check(bool(panned), "Pan lost a visible sheet pixel");
+    near((*panned)[0], 608);
+    near((*panned)[1], 144);
+    check(sprite_sheet_pan(state, 1024, 256, 800, 600, 1e300, 1e300),
+          "Finite extreme sheet pan failed to clamp");
+    view = sprite_sheet_viewport(1024, 256, 800, 600, state);
+    near(view.region[0], 0);
+    near(view.region[1], 0);
+    const auto before = state;
+    check(
+        !sprite_sheet_pan(state, 1024, 256, 800, 600, std::numeric_limits<double>::infinity(), 0) &&
+            state == before &&
+            !sprite_sheet_zoom_at(state, 1024, 256, 800, 600, 0, 0,
+                                  std::numeric_limits<double>::quiet_NaN()) &&
+            state == before,
+        "Invalid sheet navigation partially changed the view");
+    rejects([] { (void)sprite_sheet_viewport(0, 256, 800, 600, {}); });
+    rejects([] { (void)sprite_sheet_viewport(1024, 256, 0, 600, {}); });
+    rejects([] { (void)sprite_sheet_viewport(1024, 256, 800, 600, {0}); });
+}
 } // namespace
 int main() {
     try {
+        sheet_selection();
         check(sprite_grid_region(16, 8, {4, 2}, 0) == SpritePixelRegion{0, 0, 4, 4},
               "First frame differs");
         check(sprite_grid_region(16, 8, {4, 2}, 5) == SpritePixelRegion{4, 4, 4, 4},

@@ -1,10 +1,29 @@
 #pragma once
+#include "editor_state.hpp"
+#include "sprite_frame_context.hpp"
 #include <algorithm>
 #include <array>
 #include <nlohmann/json.hpp>
 #include <string_view>
 
 namespace forge {
+inline bool sprite_frame_field(const ui::SpriteFrameField& chooser, std::string_view owner,
+                               const nlohmann::json& renderer, nlohmann::json& value) {
+    if (!chooser)
+        return false;
+    try {
+        if (!value.is_number_integer() || value.get<std::uint64_t>() > UINT32_MAX)
+            throw std::invalid_argument("Sprite frame must be an unsigned whole number");
+        auto frame = value.get<std::uint32_t>();
+        if (chooser(ui::sprite_frame_context(owner, renderer), frame)) {
+            value = frame;
+            return true;
+        }
+    } catch (const std::exception& error) {
+        ui::field_error(error.what());
+    }
+    return false;
+}
 // A view of reflected fields. Schema/value admission and property history stay
 // with the existing component owner; this does not retain component values.
 inline nlohmann::json sprite_inspector_fields(const nlohmann::json& fields,

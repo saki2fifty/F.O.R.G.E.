@@ -8,6 +8,7 @@
 #include "document.hpp"
 #include "editor_state.hpp"
 #include "mesh_material_inspector.hpp"
+#include "sprite_frame_context.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/authoring.hpp>
@@ -17,6 +18,7 @@
 namespace forge {
 class AnimationTimelineEditor : public ui::SequenceFrameSource {
   public:
+    ui::SpriteFrameField sprite_frames;
     bool close_cancelled = false;
     bool is_open() const { return bool(document_) || sequence_.is_open(); }
     bool sequence_mode() const { return sequence_.is_open(); }
@@ -1603,6 +1605,24 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             } else if (ImGui::InputDouble("##value", &value, 0, 0, "%.6f"))
                 property_fields_[unsigned(binding.property)] = value / binding.display_multiplier;
             FORGE_UI_PROBE(std::string("animation:value:") + binding.name);
+            if (binding.property == AnimationProperty::SpriteFrame && sprite_frames) {
+                const auto actor = target_.entity && target_.scene == scene.asset_id()
+                                       ? scene.entity(target_.entity.str())
+                                       : flecs::entity{};
+                if (actor && actor.has<SpriteRenderer>()) {
+                    const auto owner = "timeline:" + path_text(document_->project()) + "/" +
+                                       path_text(document_->locator()) + "/" +
+                                       std::to_string(document_->revision()) + "/" +
+                                       target_.scene.str() + "/" + target_.entity.str();
+                    auto frame = std::uint32_t(property_fields_[unsigned(binding.property)]);
+                    if (sprite_frames(ui::sprite_frame_context(owner, actor.get<SpriteRenderer>()),
+                                      frame))
+                        property_fields_[unsigned(binding.property)] = frame;
+                    ui::help("Choose a pending key value. Apply key commits it to the clip.");
+                } else {
+                    ImGui::TextDisabled("Choose a Sprite target to see its image frames.");
+                }
+            }
         }
         ImGui::Checkbox("Hold until next key", &held_);
         for (std::size_t i = 0; i < clip_->material_bindings.size(); ++i) {
