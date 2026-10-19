@@ -39,6 +39,21 @@ void capture_waveform(const std::filesystem::path& root, const AssetRecord& reco
         test::EditorCaptureInput input;
         auto displayed = record;
         displayed.metadata["fixture.stale"] = true;
+        const auto published =
+            std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+        AudioClipPreview rejected;
+        bool stale_rejected = false;
+        try {
+            rejected.load_waveform(root, displayed);
+        } catch (const std::runtime_error&) {
+            stale_rejected = true;
+        }
+        require(stale_rejected, "Waveform accepted stale browser metadata");
+        auto removed = record;
+        removed.id = AssetId::generate();
+        require(!audio_preview_record(published, &removed, removed.id) &&
+                    audio_preview_record({}, &record, record.id) == &record,
+                "Published removal or read-only preview fallback differs");
         unsigned frames = 0;
         bool shown = false;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -52,11 +67,10 @@ void capture_waveform(const std::filesystem::path& root, const AssetRecord& reco
             ImGui::SetNextWindowPos(frames < 4 ? ImVec2{0, 0} : ImVec2{30, 55}, ImGuiCond_Always);
             ImGui::SetNextWindowSize({1400, 900}, ImGuiCond_Always);
             ImGui::Begin("Audio clip");
-            // Initial source publication/catalog refresh has not finished yet.
-            // The real preview guard must still reject that old selection.
-            if (frames >= 12)
-                displayed = record;
-            preview.draw(root, &displayed, false);
+            // Keep browser discovery stale throughout the actual click/load.
+            // The import owner's published revision must drive the preview.
+            const auto* selected = audio_preview_record(published, &displayed, record.id);
+            preview.draw(root, selected, false);
             ImGui::End();
             ImGui::Render();
             ++frames;
@@ -65,15 +79,16 @@ void capture_waveform(const std::filesystem::path& root, const AssetRecord& reco
                 input.click_once(io, 235, frames,
                                  {(target.minimum.x + target.maximum.x) * .5f,
                                   (target.minimum.y + target.maximum.y) * .5f},
-                                 displayed.metadata == record.metadata && target.enabled &&
-                                     target.minimum.y >= target.clip_minimum.y &&
+                                 selected && selected->metadata == record.metadata &&
+                                     target.enabled && target.minimum.y >= target.clip_minimum.y &&
                                      target.maximum.y <= target.clip_maximum.y);
             }
             shown = test::ui_targets.contains("audio-preview:waveform");
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-        require(shown && input.click_frame >= 15 && !io.MouseDown[0] && !preview.active(),
-                "Moved waveform control missed its settled fixture click or started playback");
+        require(shown && input.click_frame >= 7 && !io.MouseDown[0] && !preview.active() &&
+                    displayed.metadata != record.metadata,
+                "Published waveform did not survive stale browser discovery and a moved control");
     }
     ImGui::DestroyContext();
 }

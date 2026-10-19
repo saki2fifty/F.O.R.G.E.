@@ -895,19 +895,6 @@ int main(int argc, char** argv) {
                                                "forge_asset_build.exe");
         forge::AudioPreviewEditor audio_preview;
         audio_imports.preview_before_settings = true;
-        audio_imports.draw_extension = [&](auto& document, bool locked) {
-            forge::ui::heading("Clip details",
-                               "Metadata of the successfully published audio clip.");
-            if (const auto* record = content.record(audio_imports.selected_asset()))
-                forge::draw_audio_details(*record);
-            else {
-                ImGui::TextWrapped("Clip details appear after a successful import.");
-                forge::ui::help(
-                    "The catalog refreshes asynchronously, even when Content is closed.");
-            }
-            audio_preview.draw(document.project(), content.record(audio_imports.selected_asset()),
-                               locked || play.active());
-        };
         std::unique_ptr<forge::TextureViewer> texture_viewer;
         forge::TextureViewerDocument texture_view_document(presentation, context);
         texture_imports.preview_before_settings = true;
@@ -1092,6 +1079,25 @@ int main(int argc, char** argv) {
             graph_preview_catalog.reset();
         };
         forge::ContentImports content_imports;
+        const auto selected_audio_record = [&]() -> const forge::AssetRecord* {
+            return forge::audio_preview_record(content_imports.catalog(),
+                                               content.record(audio_imports.selected_asset()),
+                                               audio_imports.selected_asset());
+        };
+        audio_imports.draw_extension = [&](auto& document, bool locked) {
+            forge::ui::heading("Clip details",
+                               "Metadata of the successfully published audio clip.");
+            if (const auto* record = selected_audio_record())
+                forge::draw_audio_details(*record);
+            else {
+                ImGui::TextWrapped("Clip details appear after a successful import.");
+                forge::ui::help(
+                    "The catalog refreshes asynchronously, even when Content is closed.");
+            }
+            audio_preview.draw(document.project(), selected_audio_record(),
+                               locked || play.active());
+        };
+
         forge::ContentFiles content_files;
         forge::CacheTools cache_tools;
         forge::ui::ResourceInspector resource_inspector;
@@ -2025,7 +2031,7 @@ int main(int argc, char** argv) {
                 terrain_preview.reset();
             performance.begin();
 #ifdef FORGE_UI_FIXTURE
-            if (fixture.workflow)
+            if (fixture.workflow && (!fixture.sprite_frames || fixture.prepared))
                 input_workflow.platform_input(SDL_GetWindowID(window.get()));
 #endif
             SDL_Event event;
@@ -2372,7 +2378,8 @@ int main(int argc, char** argv) {
                 gui->ImGuiImplDiligent::NewFrame(width, height, swap->GetDesc().PreTransform);
             } else if (fixture.workflow) {
                 ImGui_ImplSDL3_NewFrame();
-                input_workflow.input();
+                if (!fixture.sprite_frames || fixture.prepared)
+                    input_workflow.input();
                 gui->ImGuiImplDiligent::NewFrame(width, height, swap->GetDesc().PreTransform);
             } else if (fixture.stage >= 26) {
                 // Run the platform update once, then override its real desktop pointer
@@ -2839,15 +2846,16 @@ int main(int argc, char** argv) {
             // dedicated EditorSdkWorkflow tracks its own deadline).
             // Initial Play also starts the process and requests live playback status.
             const Uint64 fixture_stage_budget =
-                ((fixture.view_images && fixture.stage == 296 &&
-                  !fixture.view_image_sources_ready) ||
+                ((fixture.view_images && fixture.stage == 296 && !fixture.source_baseline_ready) ||
                  (fixture.audio_cues && fixture.stage == 293 &&
                   !fixture.audio_cues_sources_ready) ||
-                 (fixture.audio_preview && fixture.stage == 235 && !fixture.audio_preview_opened))
+                 (fixture.audio_preview && fixture.stage == 235 && !fixture.audio_preview_opened) ||
+                 (fixture.sprite_frames && !fixture.prepared))
                     ? 90000
                 : fixture.root_motion && fixture.stage == 253 ? 75000
                                                               : 45000;
-            if (!fixture.workflow && !fixture.sdk_play && !fixture.sequence_frames &&
+            if ((!fixture.workflow || (fixture.sprite_frames && !fixture.prepared)) &&
+                !fixture.sdk_play && !fixture.sequence_frames &&
                 // The expanded capture suite exceeds four minutes under WARP.
                 // Keep a separate per-stage deadline to catch actual stalls.
                 (SDL_GetTicks() - fixture.started > 600000 ||
@@ -2952,10 +2960,22 @@ int main(int argc, char** argv) {
                     content_imports.ready_for_play() && !content.refreshing());
             }
             if (fixture.sprite_frames && !fixture.prepared) {
-                SDL_SetWindowSize(window.get(), 1920, 1080);
-                files.document.open_scene("Scenes/72-sprite-frame-animation.scene.json");
-                workspace.hierarchy = workspace.inspector = true;
-                fixture.prepared = true;
+                if (!fixture.sprite_scene_opened) {
+                    SDL_SetWindowSize(window.get(), 1920, 1080);
+                    files.document.open_scene("Scenes/72-sprite-frame-animation.scene.json");
+                    workspace.hierarchy = workspace.inspector = true;
+                    fixture.sprite_scene_opened = true;
+                }
+                const auto sources = content_imports.sources();
+                fixture.sprite_source_ready_frames = content_imports.ready_for_play() && sources &&
+                                                             sources->complete &&
+                                                             !content.refreshing()
+                                                         ? fixture.sprite_source_ready_frames + 1
+                                                         : 0;
+                if (fixture.sprite_source_ready_frames >= 3) {
+                    fixture.freeze_authored_sources();
+                    fixture.prepared = true;
+                }
             }
             if (!fixture.workflow && !fixture.sdk_play && !fixture.sequence_frames &&
                 !fixture.prepared) {
@@ -4950,10 +4970,10 @@ int main(int argc, char** argv) {
                     graph_editor.asset_catalog_changed(catalog);
                     content.refresh(files);
                 }
-                audio_preview.poll(
-                    files.document.project(), content.record(audio_imports.selected_asset()),
-                    audio_imports.is_open() && !audio_imports.dirty() && !audio_imports.pending() &&
-                        !asset_document_locked && !play.active());
+                audio_preview.poll(files.document.project(), selected_audio_record(),
+                                   audio_imports.is_open() && !audio_imports.dirty() &&
+                                       !audio_imports.pending() && !asset_document_locked &&
+                                       !play.active());
                 texture_imports.poll(files.document, message);
                 if (auto catalog = texture_imports.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -6700,19 +6720,20 @@ int main(int argc, char** argv) {
                 for (const auto& [id, activity] : content_imports.activity())
                     if (activity == forge::AssetJobState::Failed)
                         observed["failed_imports"].push_back(id);
-                input_workflow.finish(
-                    observed,
-                    [&](const std::string& name) {
-                        fixture.capture(device, context, rtv, true, name);
-                    },
-                    [&](forge::Json record) {
-                        record["build"] = forge::build_id;
-                        record["source_commit"] = forge::source_commit;
-                        record["platform"] = "Windows / D3D12 WARP";
-                        record["window_pixels"] = {width, height};
-                        record["visual_review"] = "Pending human/agent image inspection";
-                        forge::atomic_write(fixture.output / "workflow.json", record.dump(2));
-                    });
+                if (!fixture.sprite_frames || fixture.prepared)
+                    input_workflow.finish(
+                        observed,
+                        [&](const std::string& name) {
+                            fixture.capture(device, context, rtv, true, name);
+                        },
+                        [&](forge::Json record) {
+                            record["build"] = forge::build_id;
+                            record["source_commit"] = forge::source_commit;
+                            record["platform"] = "Windows / D3D12 WARP";
+                            record["window_pixels"] = {width, height};
+                            record["visual_review"] = "Pending human/agent image inspection";
+                            forge::atomic_write(fixture.output / "workflow.json", record.dump(2));
+                        });
                 if (input_workflow.done())
                     running = false;
             } else if (!fixture.sdk_play) {
@@ -7605,10 +7626,10 @@ int main(int argc, char** argv) {
                         (mode == 2 ? !game_viewport->pending()
                                    : viewport.meshes() && !viewport.meshes()->pending() &&
                                          viewport.meshes()->diagnostics().empty());
-                    if (!fixture.view_image_sources_ready) {
+                    if (!fixture.source_baseline_ready) {
                         render_ready &= content_imports.ready_for_play() && !content.refreshing();
                         if (render_ready)
-                            fixture.snapshot_view_image_sources();
+                            fixture.freeze_authored_sources();
                     }
                     unsigned png_sources = 0, jpeg_sources = 0;
                     if (mode == 2) {

@@ -153,8 +153,8 @@ class SequenceFrameEditorWorkflow {
         preparation_ready_ = sources_ready ? preparation_ready_ + 1 : 0;
         if (preparation_ready_ < 3)
             return;
-        if (!fixture.view_image_sources_ready)
-            fixture.snapshot_view_image_sources();
+        if (!fixture.source_baseline_ready)
+            fixture.freeze_authored_sources();
         if (!source_opened_) {
             const auto snapshot = scene.snapshot();
             for (const auto& row : snapshot.at("entities"))

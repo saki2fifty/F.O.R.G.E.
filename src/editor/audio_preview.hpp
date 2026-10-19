@@ -5,6 +5,15 @@
 #include <algorithm>
 #include <cmath>
 namespace forge {
+// Import publication owns selection metadata; browser discovery can lag behind.
+// An authoritative removal must not revive a stale browser row.
+inline const AssetRecord* audio_preview_record(const std::shared_ptr<const AssetCatalog>& published,
+                                               const AssetRecord* browser, AssetId selected) {
+    if (!published)
+        return browser && browser->id == selected ? browser : nullptr;
+    const auto found = published->records().find(selected);
+    return found == published->records().end() ? nullptr : &found->second;
+}
 class AudioPreviewEditor {
   public:
     explicit AudioPreviewEditor(AudioOutput output = AudioOutput::Device) : output_(output) {}

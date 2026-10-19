@@ -37,6 +37,11 @@ class ContentImports {
     std::shared_ptr<const SourceSnapshot> sources() const {
         return service_ ? service_->sources() : nullptr;
     }
+    // Borrow the existing import owner's published snapshot, independently of
+    // the browser's asynchronous discovery snapshot.
+    std::shared_ptr<const AssetCatalog> catalog() const {
+        return service_ ? service_->catalog() : nullptr;
+    }
     void catalog_changed(std::shared_ptr<const AssetCatalog> catalog) {
         if (service_)
             service_->catalog_changed(std::move(catalog));
