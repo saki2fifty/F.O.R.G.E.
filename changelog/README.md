@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-19](20261019/README.md) — Optional standalone FPS/frame-time display; local checks pass, native Windows validation pending.
+- [2026-10-19](20261019/README.md) — Optional standalone FPS/frame-time display; Windows/Linux, shared-game and fresh-runner source validation passed; delivery pending.
 
 - [2026-10-18](20261018/README.md) — Build190 delivers sequence cameras, shortcuts, reviewed runtime tuning, Scene color and GPU profiling; physical testing pending.
 - [2026-10-17](20261017/README.md) — Stable model reimport evidence, ID-preserving migration and clearer import review; Build188 delivered, physical testing pending.
