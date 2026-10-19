@@ -53,6 +53,9 @@ source gate must exercise the same acceptance selection before allocating a new
 delivery number. Focused shader/input scopes remain explicitly separate. Numbered
 failures retain the full capture diagnostics and CTest logs, including the stalled
 state JSON, so a screenshot is not the only available readiness evidence.
+The sequence-frame input walkthrough waits for the real export callback to accept
+its request before entering settings. A consumed click during an asynchronous
+layout or tab change is retried within the original workflow deadline.
 The shared selection includes `hdr_bloom` settings/control/Gallery checks and the
 `feature_gallery` CLI admission check. New display-color pixel checks also execute
 inside the existing native viewport fixtures. Final combined-package acceptance

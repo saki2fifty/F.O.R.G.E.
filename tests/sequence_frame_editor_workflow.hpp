@@ -193,10 +193,15 @@ class SequenceFrameEditorWorkflow {
         const auto suffix = std::to_string(100 + group_ * 50);
         if (step_ == Step::Open || step_ == Step::Reopen) {
             const bool reopening = step_ == Step::Reopen;
-            if (click("sequence:export-frames")) {
-                // The actual action has just focused Game. Do not focus its
-                // former Timeline window over that same completed click.
+            if (task.sequence_active()) {
+                // Advance only after the real callback accepted the request.
+                // A tab/layout or availability change can consume a synthetic
+                // click without activating its button. Retry that ordinary
+                // input rather than waiting for a dialog that never opened.
+                // The accepted action focuses Game; keep that focus intact.
                 advance(reopening ? Step::Count : Step::Settings);
+            } else if (click("sequence:export-frames")) {
+                stable_ = 0;
             } else if (auto* window = ImGui::FindWindowByName("###Animation Timeline")) {
                 // Exercise the ordinary document tabs. A floating full-window
                 // Timeline can cover Game even after its tab receives focus.
