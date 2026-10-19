@@ -367,9 +367,10 @@ int main(int argc, char** argv) {
         for (float scale : {0.65f, 1.0f, 2.0f})
             for (const char* component : {"forge.rotation", "forge.position", "forge.scale"})
                 test_property_drag(scale, component);
-        for (float scale : {0.65f, 1.0f, 2.0f})
+        for (float scale : {0.65f, 1.0f, 2.0f}) {
             test_authoring_input(scale);
-        test_authoring_input(scale, true);
+            test_authoring_input(scale, true);
+        }
         test_workspace_startup();
         test_transforms();
         for (float scale : {0.65f, 1.0f, 2.0f})
