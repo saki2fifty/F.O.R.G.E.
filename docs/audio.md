@@ -400,6 +400,13 @@ new selected PCM after successful reimport; dirty import settings stop/release
 the previous audition/envelope. Failed admission/publication keeps the prior
 selected revision. Source-free export includes the processed immutable PCM.
 
+Editor preview metadata comes from the existing import service's published catalog,
+independently of asynchronous Content discovery. A stale browser row cannot replace
+that current selection or revive a removed clip. Read-only projects retain their
+existing discovery snapshot fallback. Waveform/PCM admission still checks the
+captured selection against the on-disk published catalog on an explicit request.
+
+
 Original Gallery34 compares untouched stereo with normalized, trimmed mono.
 Direct and isolated worker fixtures cover exact defaults, unequal/antiphase
 channels, finite extreme/subnormal samples, silence, short clips and24/48/96kHz

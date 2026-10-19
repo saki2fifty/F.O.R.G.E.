@@ -32,6 +32,10 @@ on:
         description: For audit_source only, build/run the editor input workflow instead of the full audit
         type: boolean
         default: false
+      audit_capture_only:
+        description: For audit_source, run only Sprite sheet and audio-preview capture diagnostics (partial audit)
+        type: boolean
+        default: false
       standalone_audit:
         description: For audit_source, validate the shared SDK standalone host and clean-room relocation
         type: boolean
@@ -67,7 +71,8 @@ jobs:
     uses: ./.github/workflows/editor-audit.yml
     with:
       source_commit: ${{ inputs.audit_source }}
-      workflow_only: ${{ inputs.audit_workflow_only }}
+      workflow_only: ${{ inputs.audit_workflow_only || inputs.audit_capture_only }}
+      capture_only: ${{ inputs.audit_capture_only }}
       shader_only: ${{ inputs.audit_shader_only }}
       performance_source_run: ${{ inputs.audit_performance_source_run }}
       baseline_source_run: ${{ inputs.audit_baseline_source_run }}

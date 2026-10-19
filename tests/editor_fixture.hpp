@@ -38,7 +38,9 @@ struct EditorFixture {
     Json view_image_report;
     std::filesystem::path view_image_path;
     unsigned view_image_ready_frames = 0;
-    bool view_image_sources_ready = false;
+    bool source_baseline_ready = false;
+    bool sprite_scene_opened = false;
+    unsigned sprite_source_ready_frames = 0;
     unsigned audio_cues_ready_frames = 0;
     bool audio_cues_sources_ready = false;
     Uint64 audio_cues_preparation_ms = 0;
@@ -149,10 +151,10 @@ struct EditorFixture {
         if (sdk_play || view_images)
             std::filesystem::remove_all(user_data, ec);
     }
-    void snapshot_view_image_sources() {
+    void freeze_authored_sources() {
         // Startup imports legitimately refresh catalog/sidecar recipes. Freeze the
         // complete input set only after the normal import owner has settled and
-        // before any Save image input. The Python harness still checks authored
+        // before captured authoring/export input. The Python harness still checks authored
         // scenes and raw asset sources against their original pre-launch bytes.
         const auto baseline = output / "source-baseline";
         std::vector<std::filesystem::path> paths{project / "forge.project.json",
@@ -173,7 +175,7 @@ struct EditorFixture {
                           {"files", paths.size()},
                           {"preparation_ms", SDL_GetTicks() - started}}
                          .dump(2));
-        view_image_sources_ready = true;
+        source_baseline_ready = true;
         // Source preparation has its own bounded phase. Actual menu/input checks
         // receive their normal full stage budget after that phase finishes.
         stage_started = SDL_GetTicks();

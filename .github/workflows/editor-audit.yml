@@ -17,6 +17,9 @@ on:
       workflow_only:
         type: boolean
         default: false
+      capture_only:
+        type: boolean
+        default: false
       clean_build:
         type: boolean
         default: false
@@ -39,6 +42,10 @@ on:
       workflow_only:
         type: boolean
         default: false
+      capture_only:
+        description: Requires workflow_only; only sheet and waveform captures, never a full gate
+        type: boolean
+        default: false
       clean_build:
         description: Ignore compatible build cache
         type: boolean
@@ -51,7 +58,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   editor:
-    if: inputs.performance_source_run == ''
+    if: inputs.performance_source_run == '' || inputs.capture_only
     runs-on: windows-2022
     # Cold configuration/build plus full acceptance measured almost 90 minutes
     # before standalone and benchmark checks. Keep those checks in the same gate.
@@ -63,6 +70,13 @@ jobs:
       GIT_CONFIG_KEY_0: core.longpaths
       GIT_CONFIG_VALUE_0: "true"
     steps:
+      - name: Validate capture diagnostic scope
+        if: inputs.capture_only
+        shell: pwsh
+        run: |
+          if ('${{ inputs.workflow_only }}' -ne 'true' -or '${{ inputs.shader_only }}' -eq 'true' -or '${{ inputs.performance_source_run }}' -ne '') {
+            throw 'Capture diagnostics require workflow_only and cannot be combined with shader or benchmark scopes'
+          }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         if: runner.os != 'Windows'
       - name: Checkout Windows source without trailing-dot paths
@@ -162,7 +176,7 @@ jobs:
         run: cmake --preset windows-editor -B ../AgentFiles/b -DFORGE_ENABLE_NATIVE_SDK=OFF -DFORGE_BUILD_ASSET_TOOLS=ON -DFORGE_BUILD_GAME=ON -DFETCHCONTENT_BASE_DIR:PATH="${{ runner.temp }}/forge-work/AgentFiles/d" -DCMAKE_BUILD_TYPE=Release -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DCMAKE_PROJECT_INCLUDE:FILEPATH="${{ !inputs.workflow_only && !inputs.shader_only && format('{0}/forge-work/AgentFiles/benchmark-target/inject.cmake', runner.temp) || '' }}" -DFORGE_BUILD_ID="$env:FORGE_BUILD_ID" -DFORGE_SOURCE_COMMIT="$env:FORGE_SOURCE_COMMIT"
         working-directory: ${{ runner.os == 'Windows' && format('{0}/forge-work/FORGE', runner.temp) || github.workspace }}
       - name: Build input-driven native fixtures
-        if: inputs.workflow_only
+        if: ${{ inputs.workflow_only && !inputs.capture_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
@@ -170,12 +184,16 @@ jobs:
           if (Test-Path cmake/game.cmake) { $targets += @('forge_game_fixture', 'forge_tools') }
           cmake --build ../AgentFiles/b --target $targets --parallel 2
           if ($LASTEXITCODE) { throw 'Native workflow fixture build failed' }
+      - name: Build sheet and waveform capture fixtures
+        if: inputs.capture_only
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: cmake --build ../AgentFiles/b --target forge_editor_fixture forge_asset_build gltf2ozz --parallel 2
       - name: Build actual editor with audit fixture
         if: ${{ !inputs.workflow_only && !inputs.shader_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: cmake --build ../AgentFiles/b --parallel 2
       - name: Install exact standalone runtime kit
-        if: ${{ !inputs.shader_only }}
+        if: ${{ !inputs.shader_only && !inputs.capture_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
@@ -200,13 +218,17 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics)$" --output-on-failure
       - name: Repeat additive pose diagnostics
-        if: inputs.workflow_only
+        if: ${{ inputs.workflow_only && !inputs.capture_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(animation_overlay|animation_mask_pipeline)$" --repeat until-fail:30 --output-on-failure
       - name: Execute native input and capture workflows
-        if: inputs.workflow_only
+        if: ${{ inputs.workflow_only && !inputs.capture_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(editor_process_and_scale|editor_input_workflow|editor_physics_workflow|editor_animation_root_motion|editor_audio_preview|editor_view_images|editor_sequence_frames|editor_sprite_frames|editor_sequence_audio_cues|standalone_game_workflow|game_frame_statistics|standalone_package_workflow|animation_overlay|animation_mask_pipeline)$" --output-on-failure
+      - name: Execute sheet and waveform capture diagnostics
+        if: inputs.capture_only
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: ctest --test-dir ../AgentFiles/b -R "^(editor_sprite_frames|editor_audio_preview)$" --output-on-failure
       - name: Record exact source and audit identity
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
@@ -214,11 +236,11 @@ jobs:
           $actual = git rev-parse HEAD
           if ($actual -ne $env:FORGE_SOURCE_COMMIT) { throw 'Source mismatch' }
           New-Item -ItemType Directory -Force ../AgentFiles/b/grid-test-images/editor | Out-Null
-          @{ shader_only = '${{ inputs.shader_only }}'; workflow_only = '${{ inputs.workflow_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
+          @{ shader_only = '${{ inputs.shader_only }}'; workflow_only = '${{ inputs.workflow_only }}'; capture_only = '${{ inputs.capture_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
       - name: Validate standalone-only build without editor or import tooling
-        if: ${{ !inputs.shader_only }}
+        if: ${{ !inputs.shader_only && !inputs.capture_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
@@ -295,7 +317,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}-partial-${{ inputs.source_commit }}
 
   benchmark-baseline:
-    if: ${{ !inputs.workflow_only && !inputs.shader_only && inputs.baseline_source_run == '' }}
+    if: ${{ !inputs.workflow_only && !inputs.capture_only && !inputs.shader_only && inputs.baseline_source_run == '' }}
     runs-on: windows-2022
     timeout-minutes: 90
     env:
@@ -414,7 +436,7 @@ jobs:
 
   editor-performance:
     needs: [editor, benchmark-baseline]
-    if: ${{ always() && !cancelled() && !inputs.workflow_only && !inputs.shader_only && (needs.benchmark-baseline.result == 'success' || inputs.baseline_source_run != '') && (needs.editor.result == 'success' || inputs.performance_source_run != '') }}
+    if: ${{ always() && !cancelled() && !inputs.workflow_only && !inputs.capture_only && !inputs.shader_only && (needs.benchmark-baseline.result == 'success' || inputs.baseline_source_run != '') && (needs.editor.result == 'success' || inputs.performance_source_run != '') }}
     runs-on: windows-2022
     timeout-minutes: 45
     steps:

@@ -19,15 +19,34 @@ def authored_files(project):
             for p in paths if p.is_file()}
 
 
-for pattern in ('editor-*-sprite-sheet-fit-*.ppm', 'workflow.json', 'sprite-frame-workflow.json'):
+def raw_sources(files):
+    return {name: digest for name, digest in files.items()
+            if name != 'forge.assets.json' and not name.endswith('.forge-import.json')}
+
+
+def identities(project):
+    rows = json.loads((project / 'forge.assets.json').read_text(encoding='utf-8'))['assets']
+    result = {row['id']: (row['type'], row['source'].replace('\\', '/')) for row in rows}
+    assert len(result) == len(rows), 'Duplicate asset identities in native fixture'
+    return result
+
+
+for pattern in ('editor-*-sprite-sheet-fit-*.ppm', 'workflow.json', 'sprite-frame-workflow.json',
+                'source-baseline.json'):
     for path in evidence.glob(pattern):
         assert path.is_file() and not path.is_symlink(), path
         path.unlink()
+
+baseline_folder = evidence / 'source-baseline'
+if baseline_folder.exists():
+    assert baseline_folder.is_dir() and not baseline_folder.is_symlink(), baseline_folder
+    shutil.rmtree(baseline_folder)
 
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sprite-frame-editor-') as scratch:
     project = Path(scratch) / 'Gallery'
     shutil.copytree(gallery, project)
     original = authored_files(project)
+    original_ids = identities(project)
     result = subprocess.run([fixture, evidence, '--sprite-frames', project],
                             capture_output=True, text=True, timeout=190)
     (evidence / 'capture.log').write_text(result.stdout + result.stderr, encoding='utf-8')
@@ -38,7 +57,16 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sprite-frame-edito
     assert not workflow['state']['sprite_sheet_ready']
     assert not workflow['state']['sprite_chooser_open']
     assert not workflow['state']['playing'] and workflow['state']['scene_redo']
-    assert original == authored_files(project), 'Native chooser changed saved project content'
+    preparation = json.loads((evidence / 'source-baseline.json').read_text(encoding='utf-8'))
+    assert preparation['source_import_ready'] and preparation['preparation_ms'] <= 90000
+    baseline = authored_files(evidence / 'source-baseline')
+    final = authored_files(project)
+    assert raw_sources(original) == raw_sources(final), 'Native fixture changed authored sources'
+    final_ids = identities(project)
+    assert all(final_ids.get(key) == value for key, value in original_ids.items()), 'Startup import changed asset identities'
+    assert baseline == final, ('Chooser changed admitted project content',
+                               sorted(name for name in baseline.keys() | final.keys()
+                                      if baseline.get(name) != final.get(name)))
     assertions = [step['value'] for step in workflow['trace'] if step.get('operation') == 'assert']
     for name, count in (('sprite-sheet-baseline', 3), ('sprite-sheet-chosen', 6),
                         ('sprite-sheet-restored', 6), ('sprite-sheet-cancelled', 3),
@@ -71,6 +99,10 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sprite-frame-edito
         images[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
     receipt = {'complete': True, 'source_commit': workflow['source_commit'],
                'build': workflow['build'], 'authored_unchanged': True,
+               'admitted_state_unchanged': True, 'asset_ids_preserved': True,
+               'preparation': preparation,
+               'startup_import_updates': sorted(name for name in original.keys() | baseline.keys()
+                                                if original.get(name) != baseline.get(name)),
                'captures': captures, 'images': images,
                'scope': 'Actual editor host and published sheet at three scales; pending '
                         'keyboard choice, one Scene Undo/Redo edit, cancellation preserves redo. '

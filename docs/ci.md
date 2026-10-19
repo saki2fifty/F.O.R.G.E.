@@ -354,6 +354,22 @@ The input-driven source audit also runs the graphical standalone fixture and its
 package workflow. The package workflow deletes source/kit inputs, restricts PATH,
 moves the exported folder twice, and asserts graph-material pixels after each
 launch. The numbered editor gate includes both standalone tests too.
+The sheet workflow waits for normal source publication and browser discovery to
+settle before beginning input. It uses the same source-baseline helper as image and
+sequence captures. Raw source bytes and existing AssetIds/source/type associations
+are checked from pre-launch; importer-owned catalog/sidecar refreshes may finish
+before that baseline. Every admitted source/catalog/sidecar byte must then stay
+unchanged through the full picker workflow. Per-action and process deadlines
+remain; startup preparation has a separate90-second bound.
+
+For sheet-picker or waveform regressions, `audit_capture_only=true` selects only
+`editor_sprite_frames` and `editor_audio_preview`, using their actual editor host,
+asset worker and converter. The root workflow also sets `workflow_only=true`;
+this remains a partial audit in the artifact and cannot replace full acceptance.
+Direct calls to the reusable workflow must set both flags. Shader and benchmark
+scopes cannot be combined with this capture mode. The complete source gate remains
+required before integration or delivery.
+
 No package/build-number allocation is needed for a source audit.
 
 A passing test establishes only the listed interactions and assertions. Review
