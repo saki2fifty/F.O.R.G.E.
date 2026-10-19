@@ -1,4 +1,5 @@
 #pragma once
+#include "mesh_draw_profile.hpp"
 #include "model_render_resource.hpp"
 #include <tuple>
 namespace forge::asset_detail {
@@ -54,11 +55,15 @@ struct PreparedModelDrawKey {
     std::map<AssetId, AssetId> material_fallbacks;
     std::map<DrawTextureKey, DrawTextureKey> texture_fallbacks;
     bool skinned{};
+    MeshDrawProfile profile = MeshDrawProfile::Mesh;
     auto operator<=>(const PreparedModelDrawKey&) const = default;
 };
-inline PreparedModelDrawKey prepared_model_draw_key(const PreparedModelDraw& draw, bool skinned) {
+inline PreparedModelDrawKey
+prepared_model_draw_key(const PreparedModelDraw& draw, bool skinned,
+                        MeshDrawProfile profile = MeshDrawProfile::Mesh) {
     PreparedModelDrawKey result;
     result.skinned = skinned;
+    result.profile = profile;
     result.material_fallbacks = draw.material_fallbacks;
     result.texture_fallbacks = draw.texture_fallbacks;
     result.resources.push_back(draw.mesh.identity());

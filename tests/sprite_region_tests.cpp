@@ -1,3 +1,4 @@
+#include "sprite_draw_values.hpp"
 #include "sprite_region.hpp"
 #include <cmath>
 #include <iostream>
@@ -70,6 +71,30 @@ int main() {
         near(pixel.sample_maximum[0], .75);
         near(pixel.sample_minimum[1], .5);
         near(pixel.sample_maximum[1], .5);
+        SpriteDrawValues draw{sprite_region_mapping({4, 4, 4, 4}, 16, 8, true, false),
+                              {1, .5f, .25f, .75f}};
+        validate_sprite_draw_values(draw);
+        auto invalid_draw = draw;
+        invalid_draw.color[3] = -1;
+        rejects([&] { validate_sprite_draw_values(invalid_draw); });
+        invalid_draw = draw;
+        invalid_draw.color[0] = std::numeric_limits<float>::quiet_NaN();
+        rejects([&] { validate_sprite_draw_values(invalid_draw); });
+        invalid_draw = draw;
+        invalid_draw.region.scale[0] = 0;
+        rejects([&] { validate_sprite_draw_values(invalid_draw); });
+        invalid_draw = draw;
+        invalid_draw.region.origin[1] = std::numeric_limits<double>::infinity();
+        rejects([&] { validate_sprite_draw_values(invalid_draw); });
+        invalid_draw = draw;
+        invalid_draw.region.sample_minimum[0] = 0;
+        rejects([&] { validate_sprite_draw_values(invalid_draw); });
+        invalid_draw = draw;
+        invalid_draw.region.sample_maximum[1] = 1.01;
+        rejects([&] { validate_sprite_draw_values(invalid_draw); });
+        invalid_draw = draw;
+        invalid_draw.region.sample_minimum[1] = invalid_draw.region.sample_maximum[1] + .01;
+        rejects([&] { validate_sprite_draw_values(invalid_draw); });
         // Independent occupancy oracle: every pixel is covered exactly once by
         // every admitted unpadded partition, with no overlap or out-of-bounds cell.
         unsigned layouts = 0;

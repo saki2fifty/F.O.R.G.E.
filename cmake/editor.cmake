@@ -378,7 +378,7 @@ if(BUILD_TESTING)
  # volume-exit cases. Keep its assertions and individual case bounds; allow
  # headroom for the complete shader/readback workload on hosted WARP.
  set_tests_properties(editor_viewport_render PROPERTIES TIMEOUT 120)
- foreach(render_case IN ITEMS morph skin frame optics sequence-frames)
+ foreach(render_case IN ITEMS morph skin frame optics sequence-frames sprites)
   add_test(NAME editor_render_${render_case} COMMAND forge_viewport_tests "${CMAKE_BINARY_DIR}/grid-test-images/${render_case}" ${render_case})
   set_tests_properties(editor_render_${render_case} PROPERTIES TIMEOUT 60)
  endforeach()

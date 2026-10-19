@@ -109,7 +109,8 @@ class MeshSceneRenderer {
         std::uint64_t material_bytes() const;
     };
     std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,
-                                                   std::shared_ptr<const MeshPoseGeometry>);
+                                                   std::shared_ptr<const MeshPoseGeometry>,
+                                                   MeshDrawProfile = MeshDrawProfile::Mesh);
     std::map<asset_detail::PreparedModelDrawKey, std::weak_ptr<MeshDrawBundle>> bundles_;
     bool update_environment(const RenderScene&);
     void report(EntityId, const std::string&, bool particle = false);

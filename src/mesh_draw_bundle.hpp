@@ -20,7 +20,8 @@ class MeshDrawBundle {
                    const asset_detail::PreparedModelDraw&, GpuResidency<MeshAsset>&,
                    GpuResidency<TextureAsset>&, Diligent::TEXTURE_FORMAT color,
                    Diligent::TEXTURE_FORMAT depth, bool skinned = false,
-                   std::shared_ptr<const MeshPoseGeometry> geometry = {});
+                   std::shared_ptr<const MeshPoseGeometry> geometry = {},
+                   MeshDrawProfile profile = MeshDrawProfile::Mesh);
     void environment(const EnvironmentLease&);
     void shadows(const ShadowLighting*);
     void transmission(const TransmissionLighting*);
@@ -38,7 +39,8 @@ class MeshDrawBundle {
                    const TransmissionLighting* transmission = nullptr,
                    const MeshInstancePose* pose = nullptr,
                    std::span<const MeshDraw::Instance> instances = {},
-                   std::span<const MaterialParameterOverride> parameters = {});
+                   std::span<const MaterialParameterOverride> parameters = {},
+                   const SpriteDrawValues* sprite = nullptr);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }
@@ -52,6 +54,7 @@ class MeshDrawBundle {
     const MeshPoseGeometry& geometry() const { return *geometry_; }
     std::shared_ptr<const MeshPoseGeometry> geometry_owner() const { return geometry_; }
     bool skinned() const { return skinned_; }
+    MeshDrawProfile profile() const { return profile_; }
     std::size_t lod_count() const { return lods_.size(); }
 
   private:
@@ -59,6 +62,7 @@ class MeshDrawBundle {
     asset_detail::PreparedModelDraw prepared_;
     std::shared_ptr<const MeshPoseGeometry> geometry_;
     bool skinned_ = false;
+    MeshDrawProfile profile_ = MeshDrawProfile::Mesh;
     EnvironmentLease environment_;
     GpuLease<MeshAsset> mesh_;
     std::map<asset_detail::DrawTextureKey, GpuLease<TextureAsset>> textures_;

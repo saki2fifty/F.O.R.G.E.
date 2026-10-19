@@ -340,8 +340,9 @@ std::size_t MeshSceneRenderer::bundle_count() const {
 }
 std::shared_ptr<MeshDrawBundle>
 MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepared, bool skinned,
-                                  std::shared_ptr<const MeshPoseGeometry> geometry) {
-    const auto key = asset_detail::prepared_model_draw_key(prepared, skinned);
+                                  std::shared_ptr<const MeshPoseGeometry> geometry,
+                                  MeshDrawProfile profile) {
+    const auto key = asset_detail::prepared_model_draw_key(prepared, skinned, profile);
     if (auto found = bundles_.find(key); found != bundles_.end())
         if (auto existing = found->second.lock())
             return existing;
@@ -363,7 +364,7 @@ MeshSceneRenderer::prepare_bundle(const asset_detail::PreparedModelDraw& prepare
     }
     auto next = std::make_shared<MeshDrawBundle>(
         host_->presentation_, host_->context_, prepared, host_->gpu_meshes_, host_->gpu_textures_,
-        color_, Diligent::TEX_FORMAT_D32_FLOAT, skinned, std::move(geometry));
+        color_, Diligent::TEX_FORMAT_D32_FLOAT, skinned, std::move(geometry), profile);
     next->environment(environment_ready_);
     bundles_[key] = next;
     return next;

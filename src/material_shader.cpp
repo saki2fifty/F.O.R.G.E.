@@ -14,7 +14,8 @@ std::vector<MaterialParameterUniform> material_parameter_uniforms(const Material
     return result;
 }
 MaterialShader material_shader(const PbrMaterialProfile& material,
-                               std::span<const unsigned> uv_sets, MaterialSamplerBinding binding) {
+                               std::span<const unsigned> uv_sets, MaterialSamplerBinding binding,
+                               bool sprite_profile) {
     MaterialShader result;
     const auto canonical = prepare_pbr_material(material.values);
     const auto& values = canonical.values;
@@ -68,6 +69,9 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
             {float(s * slot.scale[0]), float(c * slot.scale[1]), slot.offset[1], 0});
         // KHR_texture_transform uses offset + rotation * scale * UV; source UV
         // orientation is unchanged. Hardware sRGB views own color conversion.
+        const auto sampling = sprite_profile
+                                  ? texture + ".SampleLevel(" + sampler + ",transformed,0)"
+                                  : texture + ".SampleGrad(" + sampler + ",transformed,dx,dy)";
         functions += "float2 ForgeUV_" + role +
                      "(float2 uv){\n"
                      "float3 u=g_MaterialValues[" +
@@ -80,8 +84,8 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
                      "(uv);float2 dx=ddx(transformed),dy=ddy(transformed);"
                      "valid=all(isfinite(transformed))&&all(isfinite(dx))&&all(isfinite(dy));"
                      "float4 value=0;if(valid){value=" +
-                     texture + ".SampleGrad(" + sampler +
-                     ",transformed,dx,dy);valid=all(isfinite(value));}"
+                     sampling +
+                     ";valid=all(isfinite(value));}"
                      "return valid?value:0;}\n";
     }
     if (binding == MaterialSamplerBinding::NamedElements) {

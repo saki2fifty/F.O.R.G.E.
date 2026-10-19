@@ -1,4 +1,5 @@
 #include "mesh_draw_bundle.hpp"
+#include "sprite_draw_selection.hpp"
 #include <forge/engine_assets.hpp>
 namespace forge {
 MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
@@ -7,13 +8,18 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                GpuResidency<MeshAsset>& meshes,
                                GpuResidency<TextureAsset>& textures, Diligent::TEXTURE_FORMAT color,
                                Diligent::TEXTURE_FORMAT depth, bool skinned,
-                               std::shared_ptr<const MeshPoseGeometry> geometry)
+                               std::shared_ptr<const MeshPoseGeometry> geometry,
+                               MeshDrawProfile profile)
     : prepared_(prepared),
       geometry_(geometry ? std::move(geometry)
                          : std::make_shared<const MeshPoseGeometry>(
                                prepare_mesh_pose_geometry(prepared.mesh->mesh))),
-      skinned_(skinned) {
+      skinned_(skinned), profile_(profile) {
     const auto& source = prepared.mesh.get();
+    if (profile != MeshDrawProfile::Mesh && profile != MeshDrawProfile::Sprite)
+        throw std::invalid_argument("Unknown mesh draw bundle profile");
+    if (profile == MeshDrawProfile::Sprite)
+        (void)asset_detail::sprite_source_texture(prepared, skinned);
     validate_mesh_material_bindings(source);
     if (prepared.selection.parts.size() != source.mesh.lods.size())
         throw std::runtime_error("Material selection LOD count differs from mesh");
@@ -79,13 +85,14 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                 return std::make_unique<MeshDraw>(
                     presentation, context, part, *values, native_textures, target, depth, skinned,
                     Diligent::SHADER_COMPILER_DEFAULT, Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT,
-                    surface);
+                    surface, profile);
             };
             output.push_back(prepare(color));
             // Blended surfaces do not have a single opaque shadow depth. Masked
             // surfaces evaluate the same base alpha and cutoff as their color pass.
             const bool transmits = !surface && material_transmits(prepare_pbr_material(*values));
-            shadows.push_back(values->alpha == MaterialAlpha::Blend || transmits
+            shadows.push_back(profile == MeshDrawProfile::Sprite ||
+                                      values->alpha == MaterialAlpha::Blend || transmits
                                   ? nullptr
                                   : prepare(Diligent::TEX_FORMAT_UNKNOWN));
             info.push_back({values->alpha, material_ref.id, part.bounds, transmits,
@@ -160,7 +167,8 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                const TransmissionLighting* transmission,
                                const MeshInstancePose* pose,
                                std::span<const MeshDraw::Instance> instances,
-                               std::span<const MaterialParameterOverride> parameters) {
+                               std::span<const MaterialParameterOverride> parameters,
+                               const SpriteDrawValues* sprite) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -173,6 +181,6 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
     selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
-                   skin, instances, parameters, slot(lod, part));
+                   skin, instances, parameters, slot(lod, part), sprite);
 }
 } // namespace forge

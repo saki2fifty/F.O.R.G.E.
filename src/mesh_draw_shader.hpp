@@ -10,7 +10,8 @@ struct MeshGeometryShader {
 };
 // Both built-in PBR and custom pixel surfaces use the same engine-owned
 // geometry, morphing, skinning and winding implementation.
-MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch&, bool allow_instances = true);
+MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch&, bool allow_instances = true,
+                                        bool sprite_profile = false);
 struct MeshDrawShader {
     std::string vertex, pixel;
     MaterialShader material;
@@ -23,7 +24,7 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch&, const PbrMaterialProfile
                                 bool shadow_pass = false,
                                 MaterialSamplerBinding = MaterialSamplerBinding::Array,
                                 const SurfaceShaderDefinition* graph = nullptr,
-                                std::string_view graph_source = {});
+                                std::string_view graph_source = {}, bool sprite_profile = false);
 std::string material_graph_shader_wrapper(const SurfaceShaderDefinition&, std::string_view source,
                                           bool depth_only);
 } // namespace forge

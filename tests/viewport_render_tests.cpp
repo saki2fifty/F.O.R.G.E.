@@ -16,6 +16,7 @@
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
 #include "shader_diligent_tests.hpp"
+#include "sprite_bundle_render_tests.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
 #include <cstring>
@@ -259,7 +260,13 @@ int main(int argc, char** argv) {
             else if (selected == "sequence-frames")
                 forge::test_sequence_frame_render::exercise(isolated, context, FORGE_TEST_GALLERY,
                                                             images);
-            else if (selected == "optics") {
+            else if (selected == "sprites") {
+                const auto read = [&](ITexture* texture) {
+                    return forge::test_sprite_draw::read_pixels(device, context, texture);
+                };
+                forge::test_sprite_draw::exercise(isolated, context, read, images);
+                forge::test_sprite_bundle::exercise(isolated, context, read);
+            } else if (selected == "optics") {
                 std::string bloom_failures;
                 for (const auto compiler : {SHADER_COMPILER_DXC, SHADER_COMPILER_FXC}) {
                     for (const auto optimization :

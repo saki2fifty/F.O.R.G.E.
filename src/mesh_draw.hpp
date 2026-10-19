@@ -1,10 +1,12 @@
 #pragma once
 #include "environment_gpu.hpp"
 #include "material_shader.hpp"
+#include "mesh_draw_profile.hpp"
 #include "mesh_vertex_fetch.hpp"
 #include "presentation_diligent.hpp"
 #include "render_bounds.hpp"
 #include "shadow_lighting.hpp"
+#include "sprite_draw_values.hpp"
 #include "transmission_background.hpp"
 #include <forge/material_resource.hpp>
 #include <forge/render_components.hpp>
@@ -19,6 +21,7 @@ class MeshDraw {
     struct Instance {
         AffineTransform world;
         std::optional<std::array<float, 3>> legacy_tint;
+        const SpriteDrawValues* sprite = nullptr; // Borrowed only until draw returns.
     };
     bool supports_instances() const { return bool(instances_); }
     using Textures = std::map<std::string, Diligent::RefCntAutoPtr<Diligent::ITextureView>>;
@@ -28,7 +31,8 @@ class MeshDraw {
              Diligent::SHADER_COMPILER compiler = Diligent::SHADER_COMPILER_DEFAULT,
              Diligent::SHADER_OPTIMIZATION_LEVEL optimization =
                  Diligent::SHADER_OPTIMIZATION_LEVEL_DEFAULT,
-             const MaterialShaderSnapshot* surface = nullptr);
+             const MaterialShaderSnapshot* surface = nullptr,
+             MeshDrawProfile = MeshDrawProfile::Mesh);
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);
@@ -44,7 +48,7 @@ class MeshDraw {
               std::span<const float> morph_weights = {}, const SkinPose* skin = nullptr,
               std::span<const Instance> instances = {},
               std::span<const MaterialParameterOverride> object_parameters = {},
-              std::string_view material_slot = {});
+              std::string_view material_slot = {}, const SpriteDrawValues* sprite = nullptr);
 
   private:
     const MaterialParameterUniform* material_parameter_binding(std::string_view) const;
@@ -60,6 +64,7 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_environment_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     bool shadow_pass_{};
+    bool sprite_{};
     float volume_thickness_{};
     Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_, instances_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> material_immutable_, material_dynamic_;

@@ -46,8 +46,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    const GpuMeshPart& mesh, const MaterialData& source, const Textures& textures,
                    TEXTURE_FORMAT color_format, TEXTURE_FORMAT depth_format, bool enable_skin,
                    SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
-                   const MaterialShaderSnapshot* surface)
-    : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN) {
+                   const MaterialShaderSnapshot* surface, MeshDrawProfile draw_profile)
+    : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN),
+      sprite_(draw_profile == MeshDrawProfile::Sprite) {
+    require(draw_profile == MeshDrawProfile::Mesh || sprite_, "unknown draw profile");
+    require(!sprite_ || !surface, "Sprite draw profile does not admit custom surfaces");
     device_ = presentation.device();
     material_surface_ = surface != nullptr;
     std::optional<PbrMaterialProfile> profile;
@@ -78,7 +81,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         if (surface->program.surface->physically_based)
             program.material = material_shader(*profile, fetch.uv_sets, sampler_binding);
     } else
-        program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding);
+        program =
+            mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {}, sprite_);
     const auto& material = program.material;
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
         ShaderCreateInfo ci;
@@ -150,7 +154,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     if (program.instanced) {
         BufferDesc desc;
         desc.Name = "FORGE static instance transforms";
-        desc.Size = instance_limit * 7 * sizeof(Row);
+        desc.Size = instance_limit * (sprite_ ? 9 : 7) * sizeof(Row);
         desc.BindFlags = BIND_VERTEX_BUFFER;
         desc.Usage = USAGE_DYNAMIC;
         desc.CPUAccessFlags = CPU_ACCESS_WRITE;
@@ -249,13 +253,14 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     g.RTVFormats[0] = color_format;
     g.DSVFormat = depth_format;
     g.PrimitiveTopology = mesh.topology;
-    std::array<LayoutElement, 7> instance_layout;
+    std::array<LayoutElement, 9> instance_layout;
     if (program.instanced) {
-        for (unsigned i = 0; i < instance_layout.size(); ++i)
+        const unsigned rows = sprite_ ? 9 : 7;
+        for (unsigned i = 0; i < rows; ++i)
             instance_layout[i] =
                 LayoutElement{i, 0, 4, VT_FLOAT32, False, INPUT_ELEMENT_FREQUENCY_PER_INSTANCE};
         g.InputLayout.LayoutElements = instance_layout.data();
-        g.InputLayout.NumElements = Uint32(instance_layout.size());
+        g.InputLayout.NumElements = rows;
     }
     g.DepthStencilDesc.DepthEnable = shadow_pass_ || source.depth_test;
     g.DepthStencilDesc.DepthWriteEnable = shadow_pass_ || source.depth_write;
@@ -481,7 +486,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     const TransmissionLighting* transmission, std::span<const float> morph_weights,
                     const SkinPose* skin, std::span<const Instance> instances,
                     std::span<const MaterialParameterOverride> object_parameters,
-                    std::string_view material_slot) {
+                    std::string_view material_slot, const SpriteDrawValues* sprite) {
     const auto world = skin_ ? AffineTransform{} : object_world;
     require(instances.empty() || (instances_ && instances.size() <= instance_limit),
             "instance batch exceeds its supported static draw profile");
@@ -492,6 +497,21 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
             "invalid context or light list exceeds draw profile");
     require(shadow_slots.empty() || shadow_slots.size() == lights.size(),
             "shadow selections differ from the selected light list");
+    require(sprite_ || !sprite, "Sprite values require the Sprite draw profile");
+    if (sprite_) {
+        require(!legacy_tint, "Sprite color must not use legacy blockout lighting");
+        if (instances.empty()) {
+            require(sprite, "Sprite draw requires its detached numeric values");
+            validate_sprite_draw_values(*sprite);
+        }
+        for (const auto& item : instances) {
+            require(item.sprite, "Sprite instance requires its detached numeric values");
+            require(!item.legacy_tint, "Sprite color must not use legacy blockout lighting");
+            validate_sprite_draw_values(*item.sprite);
+        }
+    } else
+        for (const auto& item : instances)
+            require(!item.sprite, "Sprite instance values require the Sprite draw profile");
     object_material_values(context, object_parameters, material_slot);
     if (morph_weights_) {
         if (morph_weights.empty())
@@ -692,8 +712,10 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     }
     if (instances_) {
         // Prepare the complete bounded batch before publishing any mapped bytes.
-        std::array<std::array<Row, 7>, instance_limit> copied{};
-        const Instance single{world, legacy_tint ? std::optional(*legacy_tint) : std::nullopt};
+        std::array<std::array<Row, 9>, instance_limit> copied{};
+        const unsigned rows = sprite_ ? 9 : 7;
+        const Instance single{world, legacy_tint ? std::optional(*legacy_tint) : std::nullopt,
+                              sprite};
         const auto selected = instances.empty() ? std::span(&single, 1) : instances;
         for (std::size_t i = 0; i < selected.size(); ++i) {
             const auto& item = selected[i];
@@ -710,7 +732,16 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                 }
                 copied[i][r][3] = gpu(item.world.m[4 * r + 3] - view.position[r]);
             }
-            if (item.legacy_tint) {
+            if (sprite_) {
+                const auto& values = *item.sprite;
+                copied[i][6] = values.color;
+                for (unsigned axis = 0; axis < 2; ++axis) {
+                    copied[i][7][axis] = gpu(values.region.origin[axis]);
+                    copied[i][7][axis + 2] = gpu(values.region.scale[axis]);
+                    copied[i][8][axis] = gpu(values.region.sample_minimum[axis]);
+                    copied[i][8][axis + 2] = gpu(values.region.sample_maximum[axis]);
+                }
+            } else if (item.legacy_tint) {
                 for (unsigned c = 0; c < 3; ++c) {
                     const auto value = (*item.legacy_tint)[c];
                     require(std::isfinite(value) && value >= 0 && value <= 1,
@@ -723,7 +754,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         {
             MapHelper<Row> mapped(context, instances_, MAP_WRITE, MAP_FLAG_DISCARD);
             for (std::size_t i = 0; i < selected.size(); ++i)
-                std::copy(copied[i].begin(), copied[i].end(), static_cast<Row*>(mapped) + i * 7);
+                std::copy_n(copied[i].begin(), rows, static_cast<Row*>(mapped) + i * rows);
         }
         IBuffer* vertices[]{instances_};
         const Uint64 offset = 0;

@@ -1,4 +1,5 @@
 #include "mesh_draw_shader.hpp"
+#include "sprite_material_profile.hpp"
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
@@ -20,8 +21,12 @@ float4 ForgeProject(float3 p) {
 }
 )";
 } // namespace
-MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow_instances) {
+MeshGeometryShader mesh_geometry_shader(const MeshVertexFetch& fetch, bool allow_instances,
+                                        bool sprite_profile) {
     const bool instanced = allow_instances && !fetch.skin && !fetch.morph_count;
+    if (sprite_profile)
+        require(instanced && fetch.triangles && fetch.uv_sets == std::vector<unsigned>{0},
+                "Sprite geometry requires a static triangle mesh with UV0");
     const auto uv_count = std::max<std::size_t>(1, fetch.uv_sets.size());
     const std::string skin = fetch.skin ? R"(
 // Common positive normalization avoids overflowing weighted linear matrices.
@@ -34,15 +39,21 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
         "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
         "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;float2 UV[" +
         std::to_string(uv_count) + "]:TEXCOORD4;";
+    if (sprite_profile)
+        varyings += "nointerpolation float4 SpriteClamp:TEXCOORD5;";
     if (fetch.skin)
         varyings += "float3 Source:TEXCOORD" + std::to_string(4 + uv_count) +
                     ";float3 SkinRows[3]:TEXCOORD" + std::to_string(5 + uv_count) + ";";
     varyings += "};\n";
     std::string vs = std::string("#include \"ForgeSurface.fxh\"\n") + object_source + skin +
                      fetch.source + varyings;
-    if (instanced)
+    if (instanced) {
         vs += "struct ForgeInstance {float4 R0:ATTRIB0;float4 R1:ATTRIB1;float4 R2:ATTRIB2;"
-              "float4 B0:ATTRIB3;float4 B1:ATTRIB4;float4 B2:ATTRIB5;float4 Tint:ATTRIB6;};\n";
+              "float4 B0:ATTRIB3;float4 B1:ATTRIB4;float4 B2:ATTRIB5;float4 Tint:ATTRIB6;";
+        if (sprite_profile)
+            vs += "float4 Atlas:ATTRIB7;float4 AtlasClamp:ATTRIB8;";
+        vs += "};\n";
+    }
     vs += std::string("ForgeVarying main(uint id:SV_VertexID") +
           (instanced ? ",ForgeInstance instance" : "") + R"() {
     ForgeMeshVertex v=ForgeLoadMeshVertex(id);
@@ -75,7 +86,11 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
     o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
 )"
           "[unroll]for(uint i=0;i<" +
-          std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];return o;}\n";
+          std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];";
+    if (sprite_profile)
+        vs += "o.UV[0]=instance.Atlas.xy+float2(v.UV[0].x,1-v.UV[0].y)*instance.Atlas.zw;"
+              "o.SpriteClamp=instance.AtlasClamp;o.Color*=instance.Tint;o.LegacyTint=0;";
+    vs += "return o;}\n";
     std::string geometry;
     if (fetch.skin && fetch.triangles)
         geometry = std::string("#include \"ForgeSurface.fxh\"\n") + skin + varyings + R"(
@@ -120,9 +135,14 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
 }
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
                                 bool shadow_pass, MaterialSamplerBinding sampler_binding,
-                                const SurfaceShaderDefinition* graph,
-                                std::string_view graph_source) {
+                                const SurfaceShaderDefinition* graph, std::string_view graph_source,
+                                bool sprite_profile) {
     const auto& source = profile.values;
+    if (sprite_profile) {
+        require(!shadow_pass && !graph && profile.workflow == PbrWorkflow::Unlit,
+                "Sprite draw profile requires a built-in unlit color material");
+        validate_sprite_material_profile(source);
+    }
     const bool transmission = !shadow_pass && material_transmits(profile);
     const bool instanced = !fetch.skin && !fetch.morph_count && !transmission;
     if (transmission) {
@@ -158,8 +178,8 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
         require((fetch.normal && fetch.tangent) ||
                     profile.values.textures.contains("normalTexture"),
                 "anisotropy requires authored normal/tangent or a base normal map");
-    const auto material = material_shader(profile, fetch.uv_sets, sampler_binding);
-    const auto generated = mesh_geometry_shader(fetch, !transmission);
+    const auto material = material_shader(profile, fetch.uv_sets, sampler_binding, sprite_profile);
+    const auto generated = mesh_geometry_shader(fetch, !transmission, sprite_profile);
     const auto& vs = generated.vertex;
     const auto& geometry = generated.geometry;
     const auto& varyings = generated.varyings;
@@ -229,6 +249,8 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     float3 dpdx=ddx(input.World),dpdy=ddy(input.World);
     bool valid=true;
 )";
+    if (sprite_profile)
+        ps += "input.UV[0]=clamp(input.UV[0],input.SpriteClamp.xy,input.SpriteClamp.zw);\n";
     if (graph)
         ps += "ForgeGraphValues graph=ForgeGraphSurface(input);\n"
               "if(!all(isfinite(graph.BaseColor)) || !isfinite(graph.Metallic) || "

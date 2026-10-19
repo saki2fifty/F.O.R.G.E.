@@ -28,5 +28,6 @@ std::vector<MaterialParameterUniform> material_parameter_uniforms(const Material
 // uniforms, so changing a factor never creates a new shader permutation.
 // Texture resources use native color-space views and independent binding samplers.
 MaterialShader material_shader(const PbrMaterialProfile&, std::span<const unsigned> uv_sets,
-                               MaterialSamplerBinding = MaterialSamplerBinding::Array);
+                               MaterialSamplerBinding = MaterialSamplerBinding::Array,
+                               bool sprite_profile = false);
 } // namespace forge
