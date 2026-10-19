@@ -42,6 +42,7 @@ class EditorInputWorkflow {
     std::size_t index_ = 0;
     unsigned frame_ = 0, play_click_retries_ = 0;
     unsigned play_invocations_before_ = 0;
+    bool menu_proxy_ = false;
     Uint64 since_ = 0, checkpoint_ = 0;
     ImVec2 pointer_{-FLT_MAX, -FLT_MAX};
     std::string failure_, last_check_, cube_, camera_, light_, scene_;
@@ -1166,6 +1167,12 @@ class EditorInputWorkflow {
     }
 
   public:
+    static EditorInputWorkflow menu_click_probe() {
+        EditorInputWorkflow probe(false, {});
+        observe_ui = true;
+        probe.click("menu:File");
+        return probe;
+    }
     static EditorInputWorkflow play_click_probe() {
         EditorInputWorkflow probe(false, {});
         observe_ui = true;
@@ -2264,7 +2271,7 @@ class EditorInputWorkflow {
         if ((step.kind == Kind::Click || step.kind == Kind::Hover) && frame_ == 0) {
             if (step.kind == Kind::Click && step.value == "icon:play")
                 play_invocations_before_ = play_action_invocations;
-            const auto target =
+            auto target =
                 step.value == "saved-cube-row"         ? "entity:" + cube_
                 : step.value == "graph-parameter-node" ? "graph:node:" + graph_parameter_
                 : step.value == "graph-function-edit"  ? "graph:function-edit:" + graph_function_
@@ -2287,6 +2294,14 @@ class EditorInputWorkflow {
                 : step.value == "light-marker"              ? "marker:" + light_
                 : step.value == "saved-scene-asset"         ? "asset:" + scene_
                                                             : step.value;
+            const bool root_menu = target == "menu:File" || target == "menu:Edit" ||
+                                   target == "menu:Entity" || target == "menu:Run" ||
+                                   target == "menu:Window" || target == "menu:Assets" ||
+                                   target == "menu:Tools" || target == "menu:Help";
+            menu_proxy_ = step.kind == Kind::Click && root_menu && !ui_targets.contains(target) &&
+                          ui_targets.contains("menu:overflow");
+            if (menu_proxy_)
+                target = "menu:overflow";
             const auto it = ui_targets.find(target);
             if (it == ui_targets.end() || !it->second.enabled) {
                 io.AddMousePosEvent(pointer_.x, pointer_.y);
@@ -2460,6 +2475,13 @@ class EditorInputWorkflow {
         if (frame_ < 8 || SDL_GetTicks() - since_ < 100)
             return;
         const auto& step = steps_[index_];
+        if (menu_proxy_) {
+            trace_.push_back(
+                {{"step", index_}, {"operation", "open compact menu"}, {"value", step.value}});
+            menu_proxy_ = false;
+            frame_ = 0;
+            return; // Keep the original action/readiness deadline and click the real submenu next.
+        }
         if (step.kind == Kind::Click && step.value == "icon:play" &&
             play_action_invocations == play_invocations_before_) {
             // Enabled-state changes can reject a complete physical click. Retry

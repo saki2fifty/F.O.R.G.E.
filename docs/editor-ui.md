@@ -46,6 +46,10 @@ and XZ explicitly. Unknown entry/root metadata and other views survive saves.
 Save validates before publication; restore validates a complete candidate before
 assigning camera or plane. Invalid input preserves the previous file or view.
 Gallery71/72 ship intentional front-view bookmarks through this same owner.
+Restore first checks the existing native path key, then the portable forward-slash
+key used by packaged examples. Existing personal keys keep precedence, including
+invalid entries that must report an error. Lookup does not rewrite or migrate
+bookmark data; saves retain their existing key format.
 
 ## Rendered view image export
 

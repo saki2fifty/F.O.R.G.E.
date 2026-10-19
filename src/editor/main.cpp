@@ -2881,6 +2881,23 @@ int main(int argc, char** argv) {
                     {"authored_scene", scene.document()},
                     {"play_snapshot", play.effective_snapshot()},
                     {"status", message}};
+                stalled["source_jobs"] = forge::Json::array();
+                for (const auto& [asset, state] : content_imports.activity())
+                    stalled["source_jobs"].push_back(
+                        {{"asset", asset.str()}, {"state", unsigned(state)}});
+                if (const auto sources = content_imports.sources()) {
+                    stalled["source_snapshot"] = {{"complete", sources->complete},
+                                                  {"files", sources->files.size()},
+                                                  {"bytes_read", sources->bytes_read},
+                                                  {"filtered", sources->filtered},
+                                                  {"diagnostics", forge::Json::array()}};
+                    for (const auto& diagnostic : sources->diagnostics)
+                        stalled["source_snapshot"]["diagnostics"].push_back(
+                            {{"source", forge::path_utf8(diagnostic.source)},
+                             {"code", diagnostic.code},
+                             {"message", diagnostic.message},
+                             {"error", diagnostic.error}});
+                }
                 const auto& input = fixture.capture_input;
                 stalled["capture_input"] = {{"valid", input.valid},
                                             {"point", {input.x, input.y}},
@@ -4635,6 +4652,8 @@ int main(int argc, char** argv) {
                 const bool narrow_menu =
                     ImGui::GetMainViewport()->WorkSize.x < 900 * forge::ui::interface_scale;
                 const bool menu_open = !narrow_menu || ImGui::BeginMenu("Menu");
+                if (narrow_menu)
+                    FORGE_UI_PROBE("menu:overflow");
                 if (menu_open) {
                     files.menu(actions);
                     if (ImGui::BeginMenu("Edit")) {

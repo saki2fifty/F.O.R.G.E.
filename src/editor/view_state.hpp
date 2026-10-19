@@ -1,7 +1,16 @@
 #pragma once
 #include "document.hpp"
 #include "grid.hpp"
+#include <forge/project_paths.hpp>
 namespace forge {
+inline const Json* editor_view_bookmark_entry(const Json& views, const std::string& native_key,
+                                              const std::string& portable_key) {
+    if (const auto entry = views.find(native_key); entry != views.end())
+        return &*entry;
+    if (const auto entry = views.find(portable_key); entry != views.end())
+        return &*entry;
+    return nullptr;
+}
 inline std::string view_key(const SceneDocument& document) {
     return document.path().empty()
                ? "untitled"
@@ -52,10 +61,16 @@ inline bool restore_view(const SceneDocument& document, EditorCamera& camera,
     const auto data = read_json(path);
     if (data.at("version") != 1 || !data.at("views").is_object())
         throw std::runtime_error("Invalid view bookmark file");
-    const auto key = view_key(document);
-    if (!data.at("views").contains(key))
+    // Existing personal files retain their native keys and precedence. Packaged
+    // bookmarks use portable separators, including when opened on Windows.
+    const auto portable_key =
+        document.path().empty() ? "untitled"
+                                : path_utf8(document.path().lexically_relative(document.project()));
+    const auto* selected =
+        editor_view_bookmark_entry(data.at("views"), view_key(document), portable_key);
+    if (!selected)
         return false;
-    const auto& entry = data.at("views").at(key);
+    const auto& entry = *selected;
     auto next = camera;
     next.target = entry.at("target").get<EditorCamera::Vec>();
     next.yaw = entry.at("yaw");

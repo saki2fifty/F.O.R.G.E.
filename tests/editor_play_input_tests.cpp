@@ -88,6 +88,60 @@ void exercise(bool reject_start, bool reject_every_click) {
                 "Unaccepted Play click did not recover through the real toolbar");
     ImGui::DestroyContext();
 }
+void menu_input(bool compact) {
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {400, 300};
+    io.DeltaTime = 1.f / 60;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    auto workflow = test::EditorInputWorkflow::menu_click_probe();
+    bool opened = false;
+    unsigned compact_clicks = 0;
+    const auto draw = [&] {
+        test::ui_targets.clear();
+        opened = false;
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize({400, 300});
+        ImGui::Begin("Menu host", nullptr, ImGuiWindowFlags_MenuBar);
+        if (ImGui::BeginMenuBar()) {
+            const bool root = !compact || ImGui::BeginMenu("Menu");
+            if (compact)
+                FORGE_UI_PROBE("menu:overflow");
+            if (root) {
+                const bool file = ImGui::BeginMenu("File");
+                FORGE_UI_PROBE("menu:File");
+                opened = file;
+                if (file)
+                    ImGui::EndMenu();
+                if (compact)
+                    ImGui::EndMenu();
+            }
+            ImGui::EndMenuBar();
+        }
+        ImGui::End();
+        ImGui::Render();
+    };
+    draw();
+    for (unsigned frame = 0; frame < 100 && !workflow.done(); ++frame) {
+        workflow.input();
+        draw();
+        workflow.finish(
+            Json::object(), [](const auto&) {},
+            [&](const Json& report) {
+                compact_clicks = 0;
+                for (const auto& entry : report.at("trace"))
+                    compact_clicks += entry.value("operation", "") == "open compact menu";
+            });
+        SDL_Delay(15);
+    }
+    require(workflow.done() && opened && compact_clicks == unsigned(compact),
+            "Native input driver did not open File through the actual responsive menu");
+    ImGui::DestroyContext();
+}
 } // namespace
 int main() {
     try {
@@ -95,6 +149,8 @@ int main() {
         exercise(false, false);
         exercise(true, false);
         exercise(false, true);
+        menu_input(false);
+        menu_input(true);
         SDL_Quit();
         std::cout << "Real toolbar receipt/retry bound/startup failure preservation passed\n";
     } catch (const std::exception& e) {

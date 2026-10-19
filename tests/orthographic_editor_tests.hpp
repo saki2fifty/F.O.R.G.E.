@@ -114,6 +114,22 @@ inline void test_orthographic_camera() {
 
 inline void test_orthographic_bookmarks(const std::filesystem::path& scratch) {
     using namespace forge;
+    const std::string native_key = "Scenes\\sheet.scene.json",
+                      portable_key = "Scenes/sheet.scene.json";
+    Json choices{{portable_key, {{"marker", "packaged"}}}};
+    require(editor_view_bookmark_entry(choices, native_key, portable_key)->at("marker") ==
+                "packaged",
+            "Native bookmark lookup did not fall back to the portable packaged key");
+    choices[native_key] = {{"marker", "personal"}};
+    const auto before_lookup = choices;
+    require(editor_view_bookmark_entry(choices, native_key, portable_key)->at("marker") ==
+                    "personal" &&
+                choices == before_lookup,
+            "Personal native bookmark lost precedence or lookup rewrote stored data");
+    choices[native_key] = nullptr;
+    require(editor_view_bookmark_entry(choices, native_key, portable_key)->is_null() &&
+                !editor_view_bookmark_entry(choices, "missing", "also-missing"),
+            "Malformed native bookmark silently fell back or missing keys became present");
     const auto root = scratch / ("orthographic-" + AssetId::generate().str());
     struct Cleanup {
         std::filesystem::path root;
