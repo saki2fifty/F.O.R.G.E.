@@ -4227,7 +4227,7 @@ int main(int argc, char** argv) {
                         SDL_SetWindowSize(window.get(), 1920, 1080);
                         if (!fixture.audio_preview_opened) {
                             fixture.audio_preview_ready_frames =
-                                content_imports.ready_for_play() && !content.refreshing()
+                                content_imports.ready_for_play()
                                     ? fixture.audio_preview_ready_frames + 1
                                     : 0;
                             if (fixture.audio_preview_ready_frames >= 3) {
@@ -7085,8 +7085,10 @@ int main(int argc, char** argv) {
                                 ImGui::GetIO(), fixture.stage, fixture.frames,
                                 {(item.minimum.x + item.maximum.x) * .5f,
                                  (item.minimum.y + item.maximum.y) * .5f},
-                                content_imports.ready_for_play() && !content.refreshing() &&
-                                    item.enabled && item.minimum.y >= item.clip_minimum.y &&
+                                // Browser enumeration may remain active after publication.
+                                // The viewer admits the selected clip revision itself.
+                                content_imports.ready_for_play() && item.enabled &&
+                                    item.minimum.y >= item.clip_minimum.y &&
                                     item.maximum.y <= item.clip_maximum.y);
                         }
                     }
@@ -7122,8 +7124,8 @@ int main(int argc, char** argv) {
                                 ImGui::GetIO(), fixture.stage, fixture.frames,
                                 {(item.minimum.x + item.maximum.x) * .5f,
                                  (item.minimum.y + item.maximum.y) * .5f},
-                                content_imports.ready_for_play() && !content.refreshing() &&
-                                    item.enabled && item.minimum.y >= item.clip_minimum.y &&
+                                content_imports.ready_for_play() && item.enabled &&
+                                    item.minimum.y >= item.clip_minimum.y &&
                                     item.maximum.y <= item.clip_maximum.y);
                         }
                     const auto last = forge::test::ui_targets.find(
