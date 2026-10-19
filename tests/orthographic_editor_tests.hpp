@@ -1,4 +1,5 @@
 #pragma once
+#include "animation_debug.hpp"
 #include "authoring.hpp"
 #include "blockout.hpp"
 #include "camera_controls.hpp"
@@ -220,6 +221,14 @@ inline void test_orthographic_authoring() {
     require(front[0] && front[3] && back[0] && back[3] &&
                 std::abs((front[0]->x - front[3]->x) - (back[0]->x - back[3]->x)) < .001f,
             "Orthographic transform handle size changed with depth");
+    for (const double z : {4., 104.}) {
+        const auto point = project_debug_point(camera, {4, 5, z}, {800, 600});
+        require(point && std::abs((*point)[0] - 550) < .001f && std::abs((*point)[1] - 150) < .001f,
+                "Orthographic animation guide scale changed with world depth");
+    }
+    require(!project_debug_point(camera, {4, 5, -4}, {800, 600}) &&
+                !project_debug_point(camera, {4, 5, 4}, {800, 0}),
+            "Animation guide admitted a clipped point or invalid orthographic view");
     require(scene.document() == original, "Camera/picking helpers changed authored data");
 }
 

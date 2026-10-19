@@ -136,7 +136,7 @@ inline void test_authoring() {
     require(forge::scene_files(root / "Game").size() == 2,
             "Browser excluded a legacy custom JSON scene");
 }
-inline void test_authoring_input(float scale) {
+inline void test_authoring_input(float scale, bool orthographic = false) {
     ImGui::CreateContext();
     forge::ui::style(scale);
     auto& io = ImGui::GetIO();
@@ -151,6 +151,8 @@ inline void test_authoring_input(float scale) {
     forge::Scene scene(scene_engine.world());
     scene.reset(authoring_fixture());
     forge::EditorCamera camera;
+    if (orthographic)
+        camera.set_projection(forge::CameraProjection::Orthographic);
     forge::ui::SceneTools tools;
     std::string selected, status;
     ImVec2 origin;
@@ -198,6 +200,8 @@ inline void test_authoring_input(float scale) {
     io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
     frame();
     camera = {};
+    if (orthographic)
+        camera.set_projection(forge::CameraProjection::Orthographic);
     io.AddKeyEvent(ImGuiKey_W, true);
     frame();
     require(tools.move_tool, "W did not restore selected-object move handles");

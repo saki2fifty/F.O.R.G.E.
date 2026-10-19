@@ -369,6 +369,7 @@ int main(int argc, char** argv) {
                 test_property_drag(scale, component);
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_authoring_input(scale);
+        test_authoring_input(scale, true);
         test_workspace_startup();
         test_transforms();
         for (float scale : {0.65f, 1.0f, 2.0f})
