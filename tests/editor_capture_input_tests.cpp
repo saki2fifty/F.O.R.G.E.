@@ -112,6 +112,8 @@ int main() {
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         int mode = 0;
         ImVec2 combo_at{};
+        bool workflow = false;
+        unsigned focus_stage = 121;
         auto combo_frame = [&] {
             io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
             input.after_platform_update(io, 121, 12);
@@ -125,8 +127,10 @@ int main() {
             combo_at = {(lo.x + hi.x) / 2, (lo.y + hi.y) / 2};
             ImGui::End();
             if (EditorCaptureInput::document_focus_allowed(
-                    121, ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
-                                                         ImGuiPopupFlags_AnyPopupLevel)))
+                    focus_stage,
+                    ImGui::IsPopupOpen(nullptr,
+                                       ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel),
+                    workflow))
                 ImGui::SetWindowFocus("Tool capture");
             ImGui::Render();
         };
@@ -149,6 +153,31 @@ int main() {
             combo_frame();
         }
         require(mode == 1, "Parent focus stole actual combo selection");
+        // Native input routes stay at legacy stage0. Static capture focus must
+        // never override their real clicks, with or without a popup open.
+        workflow = true;
+        focus_stage = 0;
+        mode = 0;
+        require(!EditorCaptureInput::document_focus_allowed(0, false, true) &&
+                    !EditorCaptureInput::document_focus_allowed(0, true, true),
+                "Input workflow allowed static capture focus");
+        input.queue(io, combo_at, 0);
+        combo_frame();
+        input.queue(io, combo_at, 1);
+        combo_frame();
+        input.queue(io, combo_at, 2);
+        combo_frame();
+        combo_frame();
+        require(
+            ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel),
+            "Workflow combo did not retain focus at legacy stage0");
+        for (const auto key : {ImGuiKey_Home, ImGuiKey_DownArrow, ImGuiKey_Enter}) {
+            io.AddKeyEvent(key, true);
+            combo_frame();
+            io.AddKeyEvent(key, false);
+            combo_frame();
+        }
+        require(mode == 1, "Legacy capture focus stole input-workflow keyboard selection");
         // The image-capture consumer uses one stage to open View and another
         // to choose Save image. Exercise the real popup and a disappearing item.
         input = {};

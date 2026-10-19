@@ -18,9 +18,12 @@ struct EditorCaptureInput {
                 ((stage == 235 || stage == 238 || stage == 293 || (stage >= 296 && stage <= 304)) &&
                  stage == click_stage && frames >= click_frame && frames <= click_frame + 4));
     }
-    static bool document_focus_allowed(unsigned stage, bool popup_open) {
+    static bool document_focus_allowed(unsigned stage, bool popup_open,
+                                       bool input_workflow = false) {
         // A forced parent-window focus steals keyboard navigation from its combo.
-        return !popup_open || (stage != 121 && stage != 124 && !(stage >= 296 && stage <= 304));
+        // Input workflows own focus through real clicks, including at legacy stage0.
+        return !input_workflow &&
+               (!popup_open || (stage != 121 && stage != 124 && !(stage >= 296 && stage <= 304)));
     }
     void queue(ImGuiIO& io, ImVec2 at, int event) {
         valid = std::isfinite(at.x) && std::isfinite(at.y);
