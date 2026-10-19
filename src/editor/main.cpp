@@ -2815,7 +2815,9 @@ int main(int argc, char** argv) {
             const Uint64 fixture_stage_budget =
                 ((fixture.view_images && fixture.stage == 296 &&
                   !fixture.view_image_sources_ready) ||
-                 (fixture.audio_cues && fixture.stage == 293 && !fixture.audio_cues_sources_ready))
+                 (fixture.audio_cues && fixture.stage == 293 &&
+                  !fixture.audio_cues_sources_ready) ||
+                 (fixture.audio_preview && fixture.stage == 235 && !fixture.audio_preview_opened))
                     ? 90000
                 : fixture.root_motion && fixture.stage == 253 ? 75000
                                                               : 45000;
@@ -2833,6 +2835,8 @@ int main(int argc, char** argv) {
                     {"audio_cues_sources_ready", fixture.audio_cues_sources_ready},
                     {"audio_cues_ready_frames", fixture.audio_cues_ready_frames},
                     {"audio_cues_preparation_ms", fixture.audio_cues_preparation_ms},
+                    {"audio_preview_opened", fixture.audio_preview_opened},
+                    {"audio_preview_ready_frames", fixture.audio_preview_ready_frames},
                     {"content_refreshing", content.refreshing()},
                     {"mesh_picker_requested", forge::fixture_open_mesh_picker},
                     {"model_open", model_imports.is_open()},
@@ -4221,7 +4225,17 @@ int main(int argc, char** argv) {
                         forge::test::observe_ui = true;
                         forge::ui::style(1);
                         SDL_SetWindowSize(window.get(), 1920, 1080);
-                        audio_imports.open(files.document, "Assets/FalloffTone.wav");
+                        if (!fixture.audio_preview_opened) {
+                            fixture.audio_preview_ready_frames =
+                                content_imports.ready_for_play() && !content.refreshing()
+                                    ? fixture.audio_preview_ready_frames + 1
+                                    : 0;
+                            if (fixture.audio_preview_ready_frames >= 3) {
+                                audio_imports.open(files.document, "Assets/FalloffTone.wav");
+                                fixture.audio_preview_opened = true;
+                                fixture.stage_started = SDL_GetTicks();
+                            }
+                        }
                     }
                     break;
                 case 296:

@@ -50,6 +50,8 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sequence-frame-edi
         assert capture['game_preview_ready'] and capture['stable_frames'] >= 3, capture
         assert capture['game_tab_visible'], capture
         assert capture['fixed_output'] == [320, 180] and capture['ordinary_target_restored'], capture
+        assert capture['ordinary_output'] != [320, 180] and all(capture['ordinary_output']), capture
+        assert (evidence / f'editor-sequence-frame-ordinary-restored-{scale}.ppm').is_file()
         assert capture['resizes'] == [
             {'window': [1400, 900], 'target': [320, 180]},
             {'window': [1680, 1000], 'target': [320, 180]}], capture

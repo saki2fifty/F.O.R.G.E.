@@ -25,6 +25,9 @@ class SequenceFrameEditorWorkflow {
         Start,
         Wait,
         Restore,
+        OrdinaryPreview,
+        StopOrdinaryPreview,
+        WaitStopped,
         Done
     };
     Step step_ = Step::Prepare;
@@ -336,11 +339,32 @@ class SequenceFrameEditorWorkflow {
                 advance(Step::Restore);
             }
         } else if (step_ == Step::Restore) {
-            if (!game_image || task.sequence_extent() ||
+            if (task.sequence_extent())
+                fail("Native fixed extent survived completed export");
+            // Export restored an inactive preview, so stopped Game correctly does
+            // not render. Start an ordinary preview through its real control first.
+            ImGui::SetWindowFocus("###Animation Timeline");
+            if (click("sequence:preview"))
+                advance(Step::OrdinaryPreview);
+        } else if (step_ == Step::OrdinaryPreview) {
+            ImGui::SetWindowFocus("Game");
+            if (!game_image || task.sequence_extent() || !timeline.preview_active() ||
+                !game_ready ||
                 (game_image->GetTexture()->GetDesc().Width == 320 &&
                  game_image->GetTexture()->GetDesc().Height == 180))
                 return false;
             records_.back()["ordinary_target_restored"] = true;
+            records_.back()["ordinary_output"] = {game_image->GetTexture()->GetDesc().Width,
+                                                  game_image->GetTexture()->GetDesc().Height};
+            capture("sequence-frame-ordinary-restored-" + suffix);
+            advance(Step::StopOrdinaryPreview);
+        } else if (step_ == Step::StopOrdinaryPreview) {
+            ImGui::SetWindowFocus("###Animation Timeline");
+            if (click("sequence:preview"))
+                advance(Step::WaitStopped);
+        } else if (step_ == Step::WaitStopped) {
+            if (timeline.preview_active() || task.sequence_extent())
+                return false;
             fixed_ = false;
             if (++group_ == 3) {
                 atomic_write(fixture.output / "sequence-frame-workflow.json",

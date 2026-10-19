@@ -42,6 +42,8 @@ struct EditorFixture {
     unsigned audio_cues_ready_frames = 0;
     bool audio_cues_sources_ready = false;
     Uint64 audio_cues_preparation_ms = 0;
+    bool audio_preview_opened = false;
+    unsigned audio_preview_ready_frames = 0;
     bool component_inspection_requested = false;
     float scene_image_y = 0;
     bool rig_scene_marker_visible = false, rig_game_marker_visible = false;
