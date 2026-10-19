@@ -556,11 +556,14 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     admit_parameters(entry.requested_parameters, parameters);
                     parameters_validated = true;
                     std::optional<SpriteDrawValues> sprite_values;
+                    std::uint32_t texture_width = 0, texture_height = 0;
                     auto draw_mesh = mesh;
                     if (input.sprite) {
-                        sprite_values =
-                            sprite_draw_values(entry.sprite->requested,
-                                               asset_detail::sprite_source_texture(*candidate));
+                        const auto& source = asset_detail::sprite_source_texture(*candidate);
+                        texture_width = source.width;
+                        texture_height = source.height;
+                        sprite_values = sprite_draw_values(entry.sprite->requested, texture_width,
+                                                           texture_height);
                         draw_mesh.world =
                             sprite_world_transform(entry.sprite->requested, mesh.world);
                     }
@@ -587,6 +590,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     if (sprite_values) {
                         entry.sprite->admitted = entry.sprite->requested;
                         entry.sprite->draw = *sprite_values;
+                        entry.sprite->texture_width = texture_width;
+                        entry.sprite->texture_height = texture_height;
                         entry.sprite->ready = true;
                     }
                     entry.thresholds = std::move(thresholds);
@@ -627,8 +632,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.candidate.reset();
             }
         }
-        if (entry.ready && entry.resource_current && !adopted && values_changed &&
-            parameters_observed) {
+        if (entry.ready && entry.resource_current && !adopted &&
+            (values_changed || !entry.parameter_error.empty()) && parameters_observed) {
             try {
                 auto parameters = asset_detail::prepare_model_material_parameters(
                     entry.ready->prepared(), entry.requested_parameters);
@@ -636,27 +641,31 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 std::optional<SpriteDrawValues> sprite_values;
                 std::optional<MeshInstancePose> sprite_pose;
                 if (input.sprite) {
-                    sprite_values = sprite_draw_values(
-                        entry.sprite->requested,
-                        asset_detail::sprite_source_texture(entry.ready->prepared()));
+                    sprite_values =
+                        sprite_draw_values(entry.sprite->requested, entry.sprite->texture_width,
+                                           entry.sprite->texture_height);
                     auto draw_mesh = mesh;
                     draw_mesh.world = sprite_world_transform(entry.sprite->requested, mesh.world);
-                    sprite_pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
-                                                             entry.ready->geometry(), draw_mesh,
-                                                             model_index, available());
-                    if (sprite_pose->skinned)
-                        throw std::runtime_error("Sprite pose must remain static Quad geometry");
+                    if (draw_mesh.world != entry.pose.world || !entry.pose_error.empty()) {
+                        sprite_pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
+                                                                 entry.ready->geometry(), draw_mesh,
+                                                                 model_index, available());
+                        if (sprite_pose->skinned)
+                            throw std::runtime_error(
+                                "Sprite pose must remain static Quad geometry");
+                    }
                 }
                 entry.ready->prepare_material_parameters(parameters);
                 changed |= !detail::same_material_parameter_values(entry.parameters, parameters);
                 entry.parameters = std::move(parameters);
                 if (sprite_values) {
                     changed |= entry.sprite->admitted != entry.sprite->requested ||
-                               entry.pose != *sprite_pose;
+                               (sprite_pose && entry.pose != *sprite_pose);
                     entry.sprite->admitted = entry.sprite->requested;
                     entry.sprite->draw = *sprite_values;
                     entry.sprite->ready = true;
-                    entry.pose = std::move(*sprite_pose);
+                    if (sprite_pose)
+                        entry.pose = std::move(*sprite_pose);
                     entry.pose_error.clear();
                     adopted = true;
                 }
@@ -673,22 +682,28 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         throw std::runtime_error("Sprite has no admitted numeric values");
                     draw_mesh.world = sprite_world_transform(entry.sprite->admitted, mesh.world);
                 }
-                auto pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
-                                                       entry.ready->geometry(), draw_mesh,
-                                                       model_index, available());
-                if (pose.skinned != entry.ready->skinned()) {
-                    if (entry.failed_skin_mode == pose.skinned)
-                        throw std::runtime_error(entry.pose_error);
-                    entry.failed_skin_mode = pose.skinned;
-                    auto native = prepare_bundle(
-                        entry.ready->prepared(), pose.skinned, entry.ready->geometry_owner(),
-                        input.sprite ? MeshDrawProfile::Sprite : MeshDrawProfile::Mesh);
-                    native->prepare_material_parameters(entry.parameters);
-                    entry.ready = std::move(native);
+                // Sprite always uses the admitted immutable, unskinned Quad. Its
+                // pose can change only with this matrix; ordinary model binding
+                // and morph/skin validation continue on every update below.
+                if (!input.sprite || draw_mesh.world != entry.pose.world ||
+                    !entry.pose_error.empty()) {
+                    auto pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
+                                                           entry.ready->geometry(), draw_mesh,
+                                                           model_index, available());
+                    if (pose.skinned != entry.ready->skinned()) {
+                        if (entry.failed_skin_mode == pose.skinned)
+                            throw std::runtime_error(entry.pose_error);
+                        entry.failed_skin_mode = pose.skinned;
+                        auto native = prepare_bundle(
+                            entry.ready->prepared(), pose.skinned, entry.ready->geometry_owner(),
+                            input.sprite ? MeshDrawProfile::Sprite : MeshDrawProfile::Mesh);
+                        native->prepare_material_parameters(entry.parameters);
+                        entry.ready = std::move(native);
+                    }
+                    entry.failed_skin_mode.reset();
+                    changed |= pose != entry.pose;
+                    entry.pose = std::move(pose);
                 }
-                entry.failed_skin_mode.reset();
-                changed |= pose != entry.pose;
-                entry.pose = std::move(pose);
                 entry.pose_error.clear();
             } catch (const DrawCapacityError& e) {
                 entry.failed_skin_mode.reset();

@@ -3,9 +3,11 @@
 ## Development status
 
 This family is in development. Typed Scene authoring, shared world rendering,
-framing/geometric picking and bounded Sprite instancing have focused tests. The
-complete editor workflow validation, animation validation, Gallery content and exported-game acceptance
-are not yet complete. This document records the implementation contract; it does
+framing/geometric picking, bounded Sprite instancing, actual editor controls,
+discrete frame animation and Gallery content have local focused tests. Native
+software-Vulkan rendering and relocated content consumption pass. The full
+Windows/editor/standalone acceptance and delivery gates remain pending. This
+document records the implementation contract; it does
 not describe a finished feature in the downloadable editor.
 
 ## Ownership
@@ -80,6 +82,14 @@ an unrelated asset edit. Malformed transport components follow the existing
 diagnose-and-omit policy. Fixed Sprite value storage counts toward the existing
 scene material-value budget; native draw-part and pose budgets remain independent.
 
+An Entry derives the image extent from its successfully admitted immutable
+selection and retains that extent with the selected resources and Sprite values.
+Numeric changes validate their grid against this admitted extent without repeating
+material/texture profile validation. Failed resource replacement keeps the old
+extent; successful replacement updates it atomically. The immutable unskinned
+Quad pose is reused while its final world matrix is unchanged. Invalid poses
+retain complete prior values, and correcting the world retries pending values.
+
 Contiguous compatible translucent Sprite draws may instance in queue order.
 Ordinary blended Mesh draws keep their existing policy. An unlit Sprite does not
 consume the scene's 3D light list. These are extensions of the existing world
@@ -104,6 +114,8 @@ selected texture. Temporary Play fields expose frame, width/height, pivot, flips
 tint and order through the existing live-value panel. Stop restores authored
 values; explicit Keep values review uses the existing mechanism. Material/grid
 resource changes are outside that live whitelist.
+An animation continues to control its bound fields; manual live Frame changes
+are useful on sprites whose frame is not currently driven by a track.
 
 Atlas frame animation extends the existing Timeline property owner with
 `forge.sprite_renderer.frame`. It holds whole frames between keys and rejects
@@ -128,6 +140,15 @@ Mesh/Sprite coexistence, transparency against an independent alpha reference,
 large non-power-of-two single-pixel atlases through HDR/display at exposure 8.
 This is correctness evidence, not a physical GPU throughput claim.
 
-Windows Sprite render cases are registered but have not executed. Complete editor
-workflow/visual review, discrete frame animation, representative performance
-measurements and relocated source-free export remain required before completion.
+Sixteen additional native cases compare wide/tall views and pivot/reflected/sheared
+poses against an independent XY polygon oracle, including geometric picking. Real
+ImGui input tests cover creation, image-material publication, Inspector history,
+save/reopen, live controls and Timeline frame authoring at three interface scales.
+Gallery71/72 checks consume actual imported RGBA images and published materials,
+then verify fixed/presentation frame timing and a seven-asset content closure after
+relocation and removal of the authored copy. Content-package acceptance is separate
+from executing an exported standalone game.
+
+Windows Sprite render cases are registered but have not executed. Native editor
+visual review, current-code sanitizer coverage, representative performance
+measurements and relocated standalone-game execution remain required before completion.

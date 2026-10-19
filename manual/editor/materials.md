@@ -49,6 +49,11 @@ import** opens the owning model's import document. To customize one without
 changing the model source, create a project material and choose the imported
 material as its **Base material**.
 
+For an image on a world Sprite, choose **Sprite / image** in the new-material
+dialog's **Preset**, then choose its registered color image. This starts an unlit,
+two-sided transparent Material with nearest or linear image filtering. Save it
+before assigning it to a Sprite. See [World sprites and image sheets](sprites.md).
+
 ## Use a custom surface Shader
 
 Import a [material surface Shader](shaders.md), then choose it in **Surface Shader**.

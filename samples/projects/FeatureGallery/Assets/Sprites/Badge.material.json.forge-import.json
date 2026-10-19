@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "12261d4a42e089260f5b1de3be77a7978d692790a1fd949f3b180671c960a8fc",
+        "role": "material.texture:baseColorTexture",
+        "target": "0c07b499-c865-4e5b-838d-8021bb7a99d3",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "be703c7f8e10178907ea0903676d94291e8ade38bbbf056bf69291f3d9e860ce",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "d8208370fb69c4c71ba0603415e06a0532e621da7870b55d6d596252fc52a254",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "7949266a-8b55-4b6e-beb6-37526ca79446",
+    "source": "Assets/Sprites/Badge.material.json",
+    "source_digest": "d8208370fb69c4c71ba0603415e06a0532e621da7870b55d6d596252fc52a254",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

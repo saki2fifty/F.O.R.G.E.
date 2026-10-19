@@ -148,6 +148,23 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
               host->inspect().gpu_meshes.resident == source_stats.gpu_meshes.resident &&
               host->inspect().gpu_textures.resident == source_stats.gpu_textures.resident,
           "Sprite recovery duplicated native resources");
+    scene.sprites[0].world.m[3] = std::numeric_limits<double>::infinity();
+    settle(renderer);
+    check(!renderer.diagnostics().empty() && render() == black,
+          "Invalid Sprite world replaced the admitted Quad pose");
+    scene.sprites[0].world = image.world;
+    settle(renderer);
+    check(renderer.diagnostics().empty() && render() == black,
+          "Returning to an unchanged Sprite matrix left a stale pose error");
+    scene.sprites[0].renderer.frame = 0;
+    scene.sprites[0].world.m[3] = std::numeric_limits<double>::infinity();
+    settle(renderer);
+    check(!renderer.diagnostics().empty() && render() == black,
+          "Failed Sprite pose partially admitted new frame values");
+    scene.sprites[0].world = image.world;
+    settle(renderer);
+    check(renderer.diagnostics().empty() && render() == magenta,
+          "Corrected Sprite world did not retry its unchanged requested frame");
     scene.sprites[0].renderer.frame = 0;
     scene.sprites[0].renderer.height = 1;
     scene.sprites[0].renderer.pivot_x = scene.sprites[0].renderer.pivot_y = 0;
@@ -186,6 +203,35 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
           "Mesh/Sprite scopes collided or their pipeline specializations duplicated resources");
     scene.meshes.clear();
 
+    scene.sprites = {image};
+    scene.sprites[0].renderer.frame = 1;
+    settle(renderer);
+    check(render() == black, "Texture-extent replacement setup differs");
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::White);
+    host->preview_material(material, surface);
+    settle(renderer);
+    check(!renderer.diagnostics().empty() && render() == black,
+          "Incompatible new texture extent replaced complete last-good Sprite values");
+    scene.sprites[0].renderer.columns = scene.sprites[0].renderer.rows = 1;
+    scene.sprites[0].renderer.frame = 0;
+    settle(renderer);
+    const auto white = render();
+    check(renderer.diagnostics().empty() &&
+              std::all_of(white.begin(), white.end(),
+                          [](const auto& p) {
+                              return p == std::array<std::uint8_t, 4>{255, 255, 255, 255};
+                          }),
+          "Corrected grid did not admit the replacement texture and extent");
+    scene.sprites[0].renderer.columns = scene.sprites[0].renderer.rows = 4;
+    scene.sprites[0].renderer.frame = 1;
+    settle(renderer);
+    check(!renderer.diagnostics().empty() && render() == white,
+          "Numeric frame admission used the previous texture extent");
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::Checker);
+    host->preview_material(material, surface);
+    settle(renderer);
+    check(renderer.diagnostics().empty() && render() == black,
+          "Sprite could not recover its original texture extent and frame");
     surface.textures["baseColorTexture"] = engine_texture(EngineTexture::White);
     host->preview_material(material, surface);
     image.renderer.columns = image.renderer.rows = 1;

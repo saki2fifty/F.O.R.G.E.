@@ -1,0 +1,48 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "2e644b65b77c50125af88e9b2cef3d6d8a7dda8dc49ff1ed7a2efb24a377eed8",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": true,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "4572309fee3629e597f8a54b33d62fe65752662a3594fc9fac4235660d945cb1",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "c89058da-027b-4f84-97be-75fd538d15c4",
+    "source": "Assets/Sprites/SignalSheet.png",
+    "source_digest": "4572309fee3629e597f8a54b33d62fe65752662a3594fc9fac4235660d945cb1",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

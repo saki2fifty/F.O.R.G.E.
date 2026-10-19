@@ -96,6 +96,8 @@ class MeshSceneRenderer {
     struct SpriteValues {
         SpriteRenderer requested, admitted;
         SpriteDrawValues draw;
+        // Derived only from the successfully admitted immutable selection.
+        std::uint32_t texture_width = 0, texture_height = 0;
         bool checked = false, ready = false;
     };
     struct Entry {

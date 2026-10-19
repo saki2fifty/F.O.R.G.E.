@@ -1,0 +1,48 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "2e644b65b77c50125af88e9b2cef3d6d8a7dda8dc49ff1ed7a2efb24a377eed8",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": true,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "daaa805be488589f7f961187ddb79f5e6c8f9b09ca0f0e8621235b692f680a01",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "0c07b499-c865-4e5b-838d-8021bb7a99d3",
+    "source": "Assets/Sprites/Badge.png",
+    "source_digest": "daaa805be488589f7f961187ddb79f5e6c8f9b09ca0f0e8621235b692f680a01",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

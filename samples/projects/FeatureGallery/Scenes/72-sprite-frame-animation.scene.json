@@ -1,0 +1,329 @@
+{
+  "asset_id": "481ba836-7831-4266-a980-8f27abf8fc47",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 50.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 8.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "58d5d2c4-9515-4252-ae39-bd43866eadfc",
+      "name": "Orthographic camera - image plane",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.1,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 2.6,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 2.6
+        },
+        "forge.transform_animator": {
+          "clip": "1c028f2c-fb1d-4aac-877e-6fd741380b90",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "7adb9752-292a-41aa-9bdd-0a23494c2ed9",
+      "name": "Animated signal - four step frames, two second loop",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -1.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 1.2,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.2
+        }
+      },
+      "id": "47ef4769-4156-4b31-b19a-1756840939fc",
+      "name": "Frame 0 - top-left row-major",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -1.0,
+          "y": -1.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 1,
+          "height": 1.2,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.2
+        }
+      },
+      "id": "4df2764e-ccc0-4a7c-b647-ed43555e6d9a",
+      "name": "Frame 1 - top-left row-major",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 1.0,
+          "y": -1.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 2,
+          "height": 1.2,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.2
+        }
+      },
+      "id": "55c3d00e-31be-4ef4-81f7-c24f2e34e2a1",
+      "name": "Frame 2 - top-left row-major",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -1.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 3,
+          "height": 1.2,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.2
+        }
+      },
+      "id": "0d53b8bd-d8e6-49ce-b2ab-2c7819a4553b",
+      "name": "Frame 3 - top-left row-major",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

@@ -1,13 +1,16 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "sprite_atlas_precision_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
+#include "sprite_gallery_render_tests.hpp"
+#include "sprite_projection_render_tests.hpp"
 #include "sprite_scene_render_tests.hpp"
 #include <iostream>
 
 int main(int argc, char** argv) {
     using namespace Diligent;
     try {
-        forge::test_sprite_draw::check(argc == 2, "Expected Sprite image output directory");
+        forge::test_sprite_draw::check(
+            argc == 2 || argc == 3, "Expected Sprite image output directory and optional Gallery");
         RefCntAutoPtr<IRenderDevice> device;
         RefCntAutoPtr<IDeviceContext> context;
         EngineVkCreateInfo info;
@@ -22,6 +25,11 @@ int main(int argc, char** argv) {
         forge::test_sprite_atlas_precision::exercise(presentation, context, read);
         forge::test_sprite_scene_render::exercise(presentation, context, read,
                                                   std::filesystem::path(argv[1]) / "scene");
+        forge::test_sprite_projection::exercise(presentation, context, read,
+                                                std::filesystem::path(argv[1]) / "projection");
+        if (argc == 3)
+            forge::test_sprite_gallery_render::exercise(presentation, context, read, argv[2],
+                                                        std::filesystem::path(argv[1]) / "gallery");
         std::cout << "Sprite draw/bundle pixels and resource ownership passed: "
                   << device->GetAdapterInfo().Description << '\n';
     } catch (const std::exception& error) {

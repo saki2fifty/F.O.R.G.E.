@@ -429,7 +429,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         ('Directional Audio', 'Scenes/32-directional-audio.scene.json', None, None),
         ('Audio Mixer', 'Scenes/33-audio-mixer.scene.json', None, None),
         ('Sequence Camera Shots', 'Scenes/68-sequence-camera-shots.scene.json', None, None),
-        ('Sequence Audio Cues', 'Scenes/70-sequence-audio-cues.scene.json', None, None)):
+        ('Sequence Audio Cues', 'Scenes/70-sequence-audio-cues.scene.json', None, None),
+        ('World Sprites', 'Scenes/71-world-sprites.scene.json', None, None),
+        ('Sprite Frame Animation', 'Scenes/72-sprite-frame-animation.scene.json', None, None)):
         slider_source = root / (label + ' Gallery Copy')
         shutil.copytree(gallery, slider_source)
         slider_scene = scene_path

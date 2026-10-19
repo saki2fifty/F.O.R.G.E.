@@ -26,6 +26,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [See animation progress and control playback from C++](editor/animation-playback-status.md)
 - [Audio](editor/audio.md): WAV clips, sound sources, listeners, pause and prefabs.
 - [Particle effects](editor/particles.md): reusable mesh fountains and bursts with an isolated preview.
+- [World sprites and image sheets](editor/sprites.md): place images, choose sheet frames and animate them on Timeline.
 
 - [Projects](editor/projects.md): create, open, and return to projects.
 - [Project settings](editor/project-settings.md): shared simulation frequency, startup scene, and controls.

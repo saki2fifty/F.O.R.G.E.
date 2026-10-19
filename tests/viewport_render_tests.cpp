@@ -18,6 +18,8 @@
 #include "shader_diligent_tests.hpp"
 #include "sprite_atlas_precision_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
+#include "sprite_gallery_render_tests.hpp"
+#include "sprite_projection_render_tests.hpp"
 #include "sprite_scene_render_tests.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
@@ -271,6 +273,10 @@ int main(int argc, char** argv) {
                 forge::test_sprite_atlas_precision::exercise(isolated, context, read);
                 forge::test_sprite_scene_render::exercise(isolated, context, read,
                                                           images / "scene");
+                forge::test_sprite_projection::exercise(isolated, context, read,
+                                                        images / "projection");
+                forge::test_sprite_gallery_render::exercise(isolated, context, read,
+                                                            FORGE_TEST_GALLERY, images / "gallery");
             } else if (selected == "optics") {
                 std::string bloom_failures;
                 for (const auto compiler : {SHADER_COMPILER_DXC, SHADER_COMPILER_FXC}) {

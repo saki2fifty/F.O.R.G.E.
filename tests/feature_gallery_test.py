@@ -11,6 +11,9 @@ project = json.loads((project_root / 'forge.project.json').read_text(encoding="u
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
+                       ('Assets/Sprites/Badge.material.json', 'material.values'),
+                       ('Assets/Sprites/SignalSheet.material.json', 'material.values'),
+                       ('Assets/Sprites/SignalFrames.animation.json', 'animation.clip'),
                        ('Assets/Terrain/LayeredHills.terrain.json', 'mesh.bin'),
                        ('Assets/Terrain/LayeredHills.collision.json', 'collision.bin'),
                        ('Assets/Bloom/WarmGlow.material.json', 'material.values'),
@@ -66,6 +69,7 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
     assert (project_root / '.forge/cache/derived' /
             asset['metadata']['forge.import']['key'] / cooked).is_file()
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
+assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json'} <= {p.name for p in scenes}
 assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '03-physics.scene.json', '04-cameras.scene.json',
         '05-editable-mesh.scene.json', '06-sculpt.scene.json',

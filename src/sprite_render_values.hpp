@@ -6,15 +6,20 @@
 
 namespace forge {
 inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
-                                           const TextureData& source) {
+                                           std::uint32_t texture_width,
+                                           std::uint32_t texture_height) {
     detail::validate_sprite_renderer(sprite);
-    validate_sprite_texture_profile(source);
     const SpriteGridLayout grid{sprite.columns,  sprite.rows,      sprite.margin_x,
                                 sprite.margin_y, sprite.spacing_x, sprite.spacing_y};
     return {
-        sprite_region_mapping(sprite_grid_region(source.width, source.height, grid, sprite.frame),
-                              source.width, source.height, sprite.flip_x, sprite.flip_y),
+        sprite_region_mapping(sprite_grid_region(texture_width, texture_height, grid, sprite.frame),
+                              texture_width, texture_height, sprite.flip_x, sprite.flip_y),
         {sprite.tint_r, sprite.tint_g, sprite.tint_b, sprite.tint_a}};
+}
+inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
+                                           const TextureData& source) {
+    validate_sprite_texture_profile(source);
+    return sprite_draw_values(sprite, source.width, source.height);
 }
 inline AffineTransform sprite_world_transform(const SpriteRenderer& sprite,
                                               const AffineTransform& world) {

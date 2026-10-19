@@ -1,5 +1,34 @@
 # FORGE Feature Gallery
 
+## World sprites
+
+Open **Scenes/71-world-sprites.scene.json**, press Play, then open Game. The scene
+includes its camera. The original circle images show tint, horizontal flipping,
+transparent overlap, a top-left pivot and different sizes. These unlit images do
+not need a light.
+
+Select an image and use its **Sprite Renderer** Inspector groups. Width and height
+use meters; the pivot is measured from the image's top-left corner. Higher Order
+values draw later at equal camera depth. During Play, the colored Live gameplay
+panel offers temporary appearance changes; Stop restores the authored scene.
+
+## Sprite frame animation
+
+Open **Scenes/72-sprite-frame-animation.scene.json** and press Play. The large
+signal changes direction and color every half second, looping after two seconds.
+The four smaller signals show frames 0 through 3 of the same original image sheet.
+Select a smaller signal to try its Frame or Flip fields during Play.
+
+Open **Assets/Sprites/SignalFrames.animation.json** in Timeline to edit the large
+signal's frame keys. **Sprite frame (step)** holds each whole frame until the next
+key; it has no curve tangents. Animation continues to control its bound fields,
+so use the smaller, unanimated signals for manual live Frame changes.
+
+Both scenes use ordinary materials and built-in components. Choose the desired
+scene as startup before export. Their prepared images, materials and animation
+ship as game content; no project C++ module or compiler is required. The two PNGs
+are original FORGE artwork.
+
 ## Sequence sound cues
 
 Open **Scenes/70-sequence-audio-cues.scene.json** and press Play, then open Game.

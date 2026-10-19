@@ -18,6 +18,16 @@ with another startup scene to export a different demonstration.
 The gallery contains ordinary saved project content. Most scenes need no C++ compiler; optional C++ examples require the matching development tools to build. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
 
+## World sprites and frame animation
+
+Scene **71-world-sprites** compares image sizes, tints, mirrored images, pivots
+and transparent overlap. Scene **72-sprite-frame-animation** cycles a large arrow
+through four image-sheet frames while four smaller arrows show the individual
+cells. Select the animated Sprite to inspect its grid and animation, or open its
+clip under **Assets/Sprites** in Timeline. Save before exporting either scene.
+See [World sprites and image sheets](../editor/sprites.md). These examples are
+available in the current source; build192 predates them.
+
 ## Sequence sound cues
 
 Scene **70-sequence-audio-cues** plays three original tones at zero, two and four

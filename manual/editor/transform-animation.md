@@ -59,6 +59,11 @@ affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
 ## Animate camera zoom or light color
 
+For an image-sheet animation, choose a Sprite as **Preview object** and enable
+**Sprite frame (step)** under **Animated properties**. Its whole-number frame
+holds until the next key and has no curve or tangent controls. All keyed frames
+must fit the target Sprite's grid. See [World sprites and image sheets](sprites.md).
+
 Choose an object with a **Camera** or **Light** in **Preview object**, then expand
 **Animated properties**. Check camera field of view/orthographic height, or light
 intensity/red/green/blue. Adding a property copies its current authored value into
