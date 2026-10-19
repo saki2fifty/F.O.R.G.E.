@@ -16,7 +16,9 @@
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
 #include "shader_diligent_tests.hpp"
+#include "sprite_atlas_precision_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
+#include "sprite_scene_render_tests.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
 #include <cstring>
@@ -266,6 +268,9 @@ int main(int argc, char** argv) {
                 };
                 forge::test_sprite_draw::exercise(isolated, context, read, images);
                 forge::test_sprite_bundle::exercise(isolated, context, read);
+                forge::test_sprite_atlas_precision::exercise(isolated, context, read);
+                forge::test_sprite_scene_render::exercise(isolated, context, read,
+                                                          images / "scene");
             } else if (selected == "optics") {
                 std::string bloom_failures;
                 for (const auto compiler : {SHADER_COMPILER_DXC, SHADER_COMPILER_FXC}) {

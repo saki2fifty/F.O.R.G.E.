@@ -6,9 +6,26 @@
 #include "pbr_material.hpp"
 #include "render_projection.hpp"
 #include "render_sort.hpp"
+#include "sprite_draw_selection.hpp"
+#include "sprite_render_values.hpp"
+#include <forge/engine_assets.hpp>
 #include <set>
 namespace forge {
 namespace {
+void update_sprite_mesh(RenderMesh& mesh, const RenderSprite& sprite) {
+    mesh.entity = sprite.entity;
+    mesh.renderer.mesh = engine_primitive(8);
+    // Reuse the one logical slot's storage across frames and numeric edits.
+    mesh.renderer.materials.resize(1);
+    mesh.renderer.materials[0].slot = "surface";
+    mesh.renderer.materials[0].material = sprite.renderer.material;
+    mesh.renderer.enabled = sprite.renderer.enabled;
+    mesh.renderer.visible = sprite.renderer.enabled && sprite.renderer.visible;
+    mesh.renderer.cast_shadows = mesh.renderer.receive_shadows = false;
+    mesh.renderer.layers = sprite.renderer.layers;
+    mesh.world = sprite.world;
+    mesh.selectable = sprite.selectable;
+}
 std::uint64_t parameter_bytes(const std::vector<MaterialParameterOverride>& values) {
     std::uint64_t bytes = values.capacity() * sizeof(MaterialParameterOverride);
     for (const auto& value : values)
@@ -85,7 +102,22 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds(const RenderScene& scene,
     for (const auto& mesh : scene.meshes) {
         if (selected.empty() ? !mesh.renderer.visible : !selected.contains(mesh.entity))
             continue;
-        const auto found = entries_.find({mesh.entity, mesh.particle_source});
+        const auto found = entries_.find({mesh.entity, scope(mesh)});
+        if (found == entries_.end() || !found->second.ready)
+            return {};
+        const auto box = mesh_instance_bounds(found->second.pose, origin);
+        if (!result)
+            result = box;
+        else
+            for (unsigned axis = 0; axis < 3; ++axis) {
+                result->minimum[axis] = std::min(result->minimum[axis], box.minimum[axis]);
+                result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
+            }
+    }
+    for (const auto& sprite : scene.sprites) {
+        if (selected.empty() ? !sprite.renderer.visible : !selected.contains(sprite.entity))
+            continue;
+        const auto found = entries_.find({sprite.entity, DrawScope::Sprite});
         if (found == entries_.end() || !found->second.ready)
             return {};
         const auto box = mesh_instance_bounds(found->second.pose, origin);
@@ -133,16 +165,18 @@ MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera
     MeshPickBudget budget;
     EntityId selected;
     double nearest = 2;
-    for (const auto& mesh : scene.meshes) {
+    std::int32_t selected_order = 0;
+    auto visit = [&](const RenderMesh& mesh, DrawScope draw_scope) {
         if (!mesh.selectable || !(mesh.renderer.layers & layers))
-            continue;
-        const auto found = entries_.find({mesh.entity, mesh.particle_source});
+            return;
+        const auto found = entries_.find({mesh.entity, draw_scope});
         if (found == entries_.end() || !found->second.ready)
-            continue;
+            return;
         const auto& entry = found->second;
+        const auto order = entry.sprite && entry.sprite->ready ? entry.sprite->admitted.order : 0;
         const auto bounds = mesh_instance_bounds(entry.pose, camera.position);
         if (!bounds_visible(bounds, camera))
-            continue;
+            return;
         // Conservative screen rectangle; crossing a clip plane disables this
         // shortcut. Precise tests below still clip every actual primitive.
         double left = INFINITY, right = -INFINITY, top = INFINITY, bottom = -INFINITY;
@@ -163,18 +197,25 @@ MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera
         }
         if (rectangle &&
             (x < left - radius || x > right + radius || y < top - radius || y > bottom + radius))
-            continue;
+            return;
         const auto& data = entry.ready->prepared().mesh->mesh;
         const auto lod = select_mesh_lod(data, bounds_screen_coverage(bounds, camera));
         const auto& parts = data.lods.at(lod).parts;
         for (unsigned p = 0; p < parts.size(); ++p)
             if (const auto depth = pick_mesh_part(parts[p], entry.pose.lods.at(lod).at(p),
                                                   entry.pose, camera, x, y, budget, radius))
-                if (*depth < nearest || (*depth == nearest && mesh.entity < selected)) {
+                if (*depth < nearest ||
+                    (*depth == nearest && (order > selected_order ||
+                                           (order == selected_order && mesh.entity < selected)))) {
                     nearest = *depth;
                     selected = mesh.entity;
+                    selected_order = order;
                 }
-    }
+    };
+    for (const auto& mesh : scene.meshes)
+        visit(mesh, scope(mesh));
+    for (const auto& mesh : sprites_)
+        visit(mesh, DrawScope::Sprite);
     return selected ? std::optional(std::pair{selected, nearest}) : std::nullopt;
 }
 MeshResourceHost::MeshResourceHost(DiligentPresentation& presentation,
@@ -292,7 +333,8 @@ std::uint64_t MeshSceneRenderer::Entry::pose_bytes() const {
     return bytes;
 }
 std::uint64_t MeshSceneRenderer::Entry::material_bytes() const {
-    return parameter_bytes(requested_parameters) + parameter_bytes(parameters);
+    return parameter_bytes(requested_parameters) + parameter_bytes(parameters) +
+           (sprite ? sizeof(SpriteValues) : 0);
 }
 std::uint64_t MeshSceneRenderer::material_payload_bytes() const {
     host_->check_thread();
@@ -318,18 +360,22 @@ std::uint64_t MeshSceneRenderer::pose_payload_bytes() const {
     }
     return bytes;
 }
-void MeshSceneRenderer::report(EntityId entity, const std::string& text, bool particle) {
+void MeshSceneRenderer::report(EntityId entity, const std::string& text, DrawScope draw_scope) {
     if (diagnostics_.size() >= 256) {
         ++omitted_;
         return;
     }
     Diagnostic value{Severity::Error,
-                     particle ? "render.particles.resource" : "render.mesh.resource",
+                     draw_scope == DrawScope::Sprite     ? "render.sprite.resource"
+                     : draw_scope == DrawScope::Particle ? "render.particles.resource"
+                                                         : "render.mesh.resource",
                      text.substr(0, 4096),
                      {}};
     value.context.asset = scene_;
     value.context.entity = entity;
-    value.context.property = particle ? "forge.particle_emitter" : "forge.mesh_renderer";
+    value.context.property = draw_scope == DrawScope::Sprite     ? "forge.sprite_renderer"
+                             : draw_scope == DrawScope::Particle ? "forge.particle_emitter"
+                                                                 : "forge.mesh_renderer";
     value.context.source = "presentation";
     diagnostics_.push_back(std::move(value));
 }
@@ -376,6 +422,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     omitted_ = scene.omitted_diagnostics;
     if (scene_ != scene.scene) {
         entries_.clear();
+        sprites_.clear();
         particle_sources_.clear();
         particle_instances_.clear();
         particle_bounds_.clear();
@@ -389,24 +436,48 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     }
     changed |= update_environment(scene);
     const ModelSceneIndex model_index(scene);
-    auto meshes = scene.meshes;
-    auto sources = prepare_particle_sources(scene);
-    meshes.insert(meshes.end(), sources.begin(), sources.end());
+    auto particle_sources = prepare_particle_sources(scene);
+    sprites_.resize(scene.sprites.size());
+    for (std::size_t i = 0; i < scene.sprites.size(); ++i)
+        update_sprite_mesh(sprites_[i], scene.sprites[i]);
+    struct Input {
+        const RenderMesh* mesh;
+        DrawScope scope;
+        const SpriteRenderer* sprite = nullptr;
+    };
+    std::vector<Input> inputs;
+    inputs.reserve(scene.meshes.size() + particle_sources.size() + sprites_.size());
+    for (const auto& mesh : scene.meshes)
+        inputs.push_back({&mesh, scope(mesh)});
+    for (const auto& mesh : particle_sources)
+        inputs.push_back({&mesh, DrawScope::Particle});
+    for (std::size_t i = 0; i < sprites_.size(); ++i)
+        inputs.push_back({&sprites_[i], DrawScope::Sprite, &scene.sprites[i].renderer});
     std::set<DrawOwner> used;
-    for (const auto& mesh : meshes)
-        used.insert({mesh.entity, mesh.particle_source});
+    for (const auto& input : inputs)
+        used.insert({input.mesh->entity, input.scope});
     // Reclaim deleted instances before admitting this frame's replacements.
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
     std::erase_if(bundles_, [](const auto& row) { return row.second.expired(); });
     auto resident = pose_payload_bytes();
     auto material_resident = material_payload_bytes();
-    for (const auto& mesh : meshes) {
-        auto& entry = entries_[{mesh.entity, mesh.particle_source}];
+    for (const auto& input : inputs) {
+        const auto& mesh = *input.mesh;
+        auto& entry = entries_[{mesh.entity, input.scope}];
         const auto previous_bytes = entry.pose_bytes();
         const auto previous_material_bytes = entry.material_bytes();
+        if (input.sprite && !entry.sprite) {
+            if (sizeof(SpriteValues) >
+                material_budget_ - (material_resident - previous_material_bytes)) {
+                report(mesh.entity, "Sprite values exceed the scene payload budget", input.scope);
+                continue;
+            }
+            entry.sprite = std::make_unique<SpriteValues>();
+        }
         const auto admit_parameters = [&](const auto& requested, const auto& admitted) {
             const auto other = material_resident - previous_material_bytes;
-            const auto own = parameter_bytes(requested) + parameter_bytes(admitted);
+            const auto own = parameter_bytes(requested) + parameter_bytes(admitted) +
+                             (entry.sprite ? sizeof(SpriteValues) : 0);
             if (own > material_budget_ - other)
                 throw std::runtime_error("Object material values exceed the scene payload budget");
         };
@@ -419,20 +490,30 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         };
         bool adopted = false;
         const auto& renderer = mesh.renderer;
-        const bool values_changed = !entry.parameters_checked ||
-                                    !detail::same_material_parameter_values(
-                                        entry.requested_parameters, renderer.material_parameters);
+        const bool values_changed =
+            !entry.parameters_checked ||
+            !detail::same_material_parameter_values(entry.requested_parameters,
+                                                    renderer.material_parameters) ||
+            (input.sprite && (!entry.sprite->checked || entry.sprite->requested != *input.sprite));
         bool parameters_observed = true;
         if (values_changed)
             try {
                 detail::validate_material_parameter_overrides(renderer.material_parameters);
+                if (input.sprite)
+                    detail::validate_sprite_renderer(*input.sprite);
                 auto requested = renderer.material_parameters;
                 admit_parameters(requested, entry.parameters);
                 entry.requested_parameters = std::move(requested);
                 entry.parameters_checked = true;
+                if (input.sprite) {
+                    entry.sprite->requested = *input.sprite;
+                    entry.sprite->checked = true;
+                }
                 entry.parameter_error.clear();
             } catch (const std::exception& error) {
                 parameters_observed = false;
+                if (entry.sprite)
+                    entry.sprite->checked = false;
                 entry.parameter_error = error.what();
             }
         const bool resource_changed = entry.epoch != host_->epoch_ || entry.mesh != renderer.mesh ||
@@ -456,7 +537,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.candidate = std::make_unique<asset_detail::ModelDrawCandidate>(
                     host_->project_, host_->catalog_, host_->epoch_, renderer.mesh,
                     renderer.materials, host_->meshes_, host_->material_preview_,
-                    renderer.material_variant, !entry.ready || entry.fallback,
+                    renderer.material_variant,
+                    input.scope != DrawScope::Sprite && (!entry.ready || entry.fallback),
                     host_->mesh_preview_);
             } catch (const std::exception& e) {
                 entry.error = e.what();
@@ -473,15 +555,25 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         *candidate, entry.requested_parameters);
                     admit_parameters(entry.requested_parameters, parameters);
                     parameters_validated = true;
+                    std::optional<SpriteDrawValues> sprite_values;
+                    auto draw_mesh = mesh;
+                    if (input.sprite) {
+                        sprite_values =
+                            sprite_draw_values(entry.sprite->requested,
+                                               asset_detail::sprite_source_texture(*candidate));
+                        draw_mesh.world =
+                            sprite_world_transform(entry.sprite->requested, mesh.world);
+                    }
                     if (!entry.candidate_geometry)
                         entry.candidate_geometry = std::make_shared<const MeshPoseGeometry>(
                             prepare_mesh_pose_geometry(candidate->mesh->mesh, available()));
                     auto pose =
                         prepare_mesh_instance_pose(candidate->mesh.get(), *entry.candidate_geometry,
-                                                   mesh, model_index, available());
+                                                   draw_mesh, model_index, available());
                     pose_validated = true;
-                    auto native =
-                        prepare_bundle(*candidate, pose.skinned, entry.candidate_geometry);
+                    auto native = prepare_bundle(*candidate, pose.skinned, entry.candidate_geometry,
+                                                 input.sprite ? MeshDrawProfile::Sprite
+                                                              : MeshDrawProfile::Mesh);
                     native->prepare_material_parameters(parameters);
                     std::vector<float> thresholds;
                     for (const auto& lod : candidate->mesh->mesh.lods)
@@ -492,6 +584,11 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     entry.parameter_error.clear();
                     entry.resource_current = true;
                     entry.pose = std::move(pose);
+                    if (sprite_values) {
+                        entry.sprite->admitted = entry.sprite->requested;
+                        entry.sprite->draw = *sprite_values;
+                        entry.sprite->ready = true;
+                    }
                     entry.thresholds = std::move(thresholds);
                     entry.error = entry.candidate->diagnostic();
                     entry.fallback = candidate->has_fallbacks();
@@ -511,7 +608,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         entry.candidate_geometry.reset();
                     } else if (pose_validated) {
                         bool retry = false;
-                        if (!entry.ready || entry.fallback)
+                        if (!input.sprite && (!entry.ready || entry.fallback))
                             try {
                                 retry = entry.candidate->error_surface(e.what(), host_->materials_);
                             } catch (const std::exception& fallback_error) {
@@ -536,9 +633,33 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 auto parameters = asset_detail::prepare_model_material_parameters(
                     entry.ready->prepared(), entry.requested_parameters);
                 admit_parameters(entry.requested_parameters, parameters);
+                std::optional<SpriteDrawValues> sprite_values;
+                std::optional<MeshInstancePose> sprite_pose;
+                if (input.sprite) {
+                    sprite_values = sprite_draw_values(
+                        entry.sprite->requested,
+                        asset_detail::sprite_source_texture(entry.ready->prepared()));
+                    auto draw_mesh = mesh;
+                    draw_mesh.world = sprite_world_transform(entry.sprite->requested, mesh.world);
+                    sprite_pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
+                                                             entry.ready->geometry(), draw_mesh,
+                                                             model_index, available());
+                    if (sprite_pose->skinned)
+                        throw std::runtime_error("Sprite pose must remain static Quad geometry");
+                }
                 entry.ready->prepare_material_parameters(parameters);
                 changed |= !detail::same_material_parameter_values(entry.parameters, parameters);
                 entry.parameters = std::move(parameters);
+                if (sprite_values) {
+                    changed |= entry.sprite->admitted != entry.sprite->requested ||
+                               entry.pose != *sprite_pose;
+                    entry.sprite->admitted = entry.sprite->requested;
+                    entry.sprite->draw = *sprite_values;
+                    entry.sprite->ready = true;
+                    entry.pose = std::move(*sprite_pose);
+                    entry.pose_error.clear();
+                    adopted = true;
+                }
                 entry.parameter_error.clear();
             } catch (const std::exception& error) {
                 entry.parameter_error = error.what();
@@ -546,15 +667,22 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         }
         if (entry.ready && !adopted) {
             try {
+                auto draw_mesh = mesh;
+                if (input.sprite) {
+                    if (!entry.sprite->ready)
+                        throw std::runtime_error("Sprite has no admitted numeric values");
+                    draw_mesh.world = sprite_world_transform(entry.sprite->admitted, mesh.world);
+                }
                 auto pose = prepare_mesh_instance_pose(entry.ready->prepared().mesh.get(),
-                                                       entry.ready->geometry(), mesh, model_index,
-                                                       available());
+                                                       entry.ready->geometry(), draw_mesh,
+                                                       model_index, available());
                 if (pose.skinned != entry.ready->skinned()) {
                     if (entry.failed_skin_mode == pose.skinned)
                         throw std::runtime_error(entry.pose_error);
                     entry.failed_skin_mode = pose.skinned;
-                    auto native = prepare_bundle(entry.ready->prepared(), pose.skinned,
-                                                 entry.ready->geometry_owner());
+                    auto native = prepare_bundle(
+                        entry.ready->prepared(), pose.skinned, entry.ready->geometry_owner(),
+                        input.sprite ? MeshDrawProfile::Sprite : MeshDrawProfile::Mesh);
                     native->prepare_material_parameters(entry.parameters);
                     entry.ready = std::move(native);
                 }
@@ -573,22 +701,24 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         material_resident = material_resident - previous_material_bytes + entry.material_bytes();
         if (!entry.parameter_error.empty())
             report(mesh.entity,
-                   entry.parameter_error + " (previous complete material values retained)",
-                   mesh.particle_source);
+                   entry.parameter_error + (input.sprite
+                                                ? " (previous complete Sprite values retained)"
+                                                : " (previous complete material values retained)"),
+                   input.scope);
         if (!entry.pose_error.empty())
             report(mesh.entity, entry.pose_error + " (previous complete pose retained)",
-                   mesh.particle_source);
+                   input.scope);
         if (!entry.error.empty())
             report(mesh.entity,
                    entry.error + (entry.ready ? entry.fallback
                                                     ? " (fallback draw active)"
                                                     : " (previous complete draw retained)"
                                               : ""),
-                   mesh.particle_source);
+                   input.scope);
         if (entry.ready)
             for (const auto& key : entry.ready->unresolved_slots())
                 report(mesh.entity, "Authored material slot is absent from this revision: " + key,
-                       mesh.particle_source);
+                       input.scope);
     }
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
     update_particle_instances(scene);
@@ -693,6 +823,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         unsigned lod;
         std::vector<LightView> lights;
         std::vector<int> shadow_slots;
+        const SpriteDrawValues* sprite = nullptr;
+        DrawScope scope = DrawScope::Mesh;
     };
     struct Item {
         RenderSortKey key;
@@ -701,10 +833,11 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     };
     std::vector<Object> objects;
     std::vector<Item> queue;
-    auto append = [&](const RenderMesh& mesh, const MeshInstancePose* instance_pose = nullptr) {
+    auto append = [&](const RenderMesh& mesh, DrawScope draw_scope,
+                      const MeshInstancePose* instance_pose = nullptr) {
         if (!mesh.renderer.visible || !(mesh.renderer.layers & layers))
             return;
-        const auto found = entries_.find({mesh.entity, mesh.particle_source});
+        const auto found = entries_.find({mesh.entity, draw_scope});
         if (found == entries_.end() || !found->second.ready)
             return;
         auto& entry = found->second;
@@ -720,8 +853,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 if (coverage <= entry.thresholds[i])
                     lod = i;
             Object object{&mesh, entry.ready.get(), &pose, entry.parameters, lod, {}, {}};
+            object.scope = draw_scope;
+            if (draw_scope == DrawScope::Sprite) {
+                if (!entry.sprite || !entry.sprite->ready)
+                    throw std::runtime_error("Sprite has no complete admitted draw values");
+                object.sprite = &entry.sprite->draw;
+            }
             for (const auto& light : scene.lights)
-                if (light.light.layers & mesh.renderer.layers & layers) {
+                if (!object.sprite && (light.light.layers & mesh.renderer.layers & layers)) {
                     if (object.lights.size() == mesh_draw_light_limit)
                         throw std::runtime_error(
                             "Visible light list exceeds the current draw profile");
@@ -745,19 +884,25 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                   i,
                                   mesh.particle_source,
                                   mesh.birth};
+                if (object.sprite) {
+                    key.order = entry.sprite->admitted.order;
+                    key.sprite = true;
+                }
                 validate_render_key(key);
                 queue.push_back({key, objects.size(), part.transmission});
             }
             objects.push_back(std::move(object));
         } catch (const std::exception& e) {
             queue.resize(queue_start);
-            report(mesh.entity, e.what(), mesh.particle_source);
+            report(mesh.entity, e.what(), draw_scope);
         }
     };
     for (const auto& mesh : scene.meshes)
-        append(mesh);
+        append(mesh, scope(mesh));
     for (const auto& [mesh, pose] : particle_instances_)
-        append(mesh, &pose);
+        append(mesh, DrawScope::Particle, &pose);
+    for (const auto& mesh : sprites_)
+        append(mesh, DrawScope::Sprite);
     std::sort(queue.begin(), queue.end(),
               [](const auto& a, const auto& b) { return render_key_less(a.key, b.key); });
     EnvironmentLighting lighting;
@@ -808,8 +953,9 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         try {
             std::array<MeshDraw::Instance, MeshDraw::instance_limit> batch;
             std::size_t count = 1;
-            batch[0] = {object.pose->world, object.mesh->legacy_tint};
-            const bool eligible = item.key.alpha != MaterialAlpha::Blend && !item.transmission &&
+            batch[0] = {object.pose->world, object.mesh->legacy_tint, object.sprite};
+            const bool eligible = (item.key.alpha != MaterialAlpha::Blend || object.sprite) &&
+                                  !item.transmission &&
                                   object.bundle->supports_instances(object.lod, item.key.part);
             while (eligible && cursor < queue.size() && count < batch.size()) {
                 const auto& next_item = queue[cursor];
@@ -826,7 +972,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         slot_parameters(next.parameters,
                                         next.bundle->slot(next.lod, next_item.key.part))))
                     break;
-                batch[count++] = {next.pose->world, next.mesh->legacy_tint};
+                batch[count++] = {next.pose->world, next.mesh->legacy_tint, next.sprite};
                 ++cursor;
             }
             object.bundle->draw_part(
@@ -837,13 +983,14 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 transmission.background ? &transmission : nullptr, object.pose,
                 count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
                           : std::span<const MeshDraw::Instance>{},
-                slot_parameters(object.parameters, object.bundle->slot(object.lod, item.key.part)));
+                slot_parameters(object.parameters, object.bundle->slot(object.lod, item.key.part)),
+                object.sprite);
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
         } catch (const std::exception& e) {
             if (cursor == batch_start + 1) {
-                report(object.mesh->entity, e.what(), object.mesh->particle_source);
+                report(object.mesh->entity, e.what(), object.scope);
                 continue;
             }
             // A rejected batch must not hide its valid neighbors. Individual
@@ -858,11 +1005,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         single.mesh->legacy_tint ? &*single.mesh->legacy_tint : nullptr,
                         &shadows_->lighting(), single.shadow_slots, nullptr, single.pose, {},
                         slot_parameters(single.parameters,
-                                        single.bundle->slot(single.lod, failed_item.key.part)));
+                                        single.bundle->slot(single.lod, failed_item.key.part)),
+                        single.sprite);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {
-                    report(single.mesh->entity, error.what(), single.mesh->particle_source);
+                    report(single.mesh->entity, error.what(), single.scope);
                 }
             }
         }
@@ -885,7 +1033,7 @@ void MeshSceneRenderer::shadows(const RenderScene& scene, const CameraView& came
         if (!mesh.renderer.visible || !mesh.renderer.cast_shadows ||
             !(mesh.renderer.layers & layers))
             continue;
-        const auto found = entries_.find({mesh.entity, mesh.particle_source});
+        const auto found = entries_.find({mesh.entity, scope(mesh)});
         if (found == entries_.end() || !found->second.ready)
             continue;
         try {

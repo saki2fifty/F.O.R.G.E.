@@ -93,7 +93,7 @@ std::vector<RenderMesh> MeshSceneRenderer::prepare_particle_sources(const Render
             validate_particle_mesh_profile(source.mesh_lease.get());
             result.push_back(proxy(emitter, *data, source.mesh_lease.get()));
         } catch (const std::exception& error) {
-            report(emitter.entity, error.what(), true);
+            report(emitter.entity, error.what(), DrawScope::Particle);
         }
     }
     return result;
@@ -105,7 +105,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
     std::uint64_t bytes = 0;
     for (const auto& emitter : scene.particles) {
         const auto source = particle_sources_.find(emitter.entity);
-        const auto entry = entries_.find({emitter.entity, true});
+        const auto entry = entries_.find({emitter.entity, DrawScope::Particle});
         if (source == particle_sources_.end() || !source->second.data() ||
             entry == entries_.end() || !entry->second.ready)
             continue;
@@ -152,7 +152,7 @@ void MeshSceneRenderer::update_particle_instances(const RenderScene& scene) {
                 particle_instances_.emplace_back(draw, std::move(pose));
             }
         } catch (const std::exception& error) {
-            report(emitter.entity, error.what(), true);
+            report(emitter.entity, error.what(), DrawScope::Particle);
         }
     }
 }

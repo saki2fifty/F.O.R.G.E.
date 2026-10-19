@@ -89,6 +89,15 @@ class MeshSceneRenderer {
     const EnvironmentLease& environment() const { return environment_ready_; }
 
   private:
+    enum class DrawScope { Mesh, Particle, Sprite };
+    static DrawScope scope(const RenderMesh& mesh) {
+        return mesh.particle_source ? DrawScope::Particle : DrawScope::Mesh;
+    }
+    struct SpriteValues {
+        SpriteRenderer requested, admitted;
+        SpriteDrawValues draw;
+        bool checked = false, ready = false;
+    };
     struct Entry {
         AssetRef<MeshAsset> mesh;
         std::vector<MaterialSlotOverride> overrides;
@@ -105,6 +114,7 @@ class MeshSceneRenderer {
         std::string error, pose_error;
         std::optional<bool> failed_skin_mode;
         bool fallback = false;
+        std::unique_ptr<SpriteValues> sprite;
         std::uint64_t pose_bytes() const;
         std::uint64_t material_bytes() const;
     };
@@ -113,7 +123,7 @@ class MeshSceneRenderer {
                                                    MeshDrawProfile = MeshDrawProfile::Mesh);
     std::map<asset_detail::PreparedModelDrawKey, std::weak_ptr<MeshDrawBundle>> bundles_;
     bool update_environment(const RenderScene&);
-    void report(EntityId, const std::string&, bool particle = false);
+    void report(EntityId, const std::string&, DrawScope = DrawScope::Mesh);
     std::shared_ptr<MeshResourceHost> host_;
     std::unique_ptr<ShadowRenderer> shadows_;
     std::unique_ptr<TransmissionBackground> transmission_;
@@ -127,8 +137,10 @@ class MeshSceneRenderer {
     std::optional<ResourceTicket> environment_candidate_;
     EnvironmentLease environment_ready_;
     std::string environment_error_;
-    using DrawOwner = std::pair<EntityId, bool>; // Entity plus mesh/emitter draw scope.
+    using DrawOwner = std::pair<EntityId, DrawScope>;
     std::map<DrawOwner, Entry> entries_;
+    // Detached requested proxies. Entry owns admitted values/resources/poses.
+    std::vector<RenderMesh> sprites_;
     struct ParticleSource {
         AssetRef<ParticleEffectAsset> effect;
         std::uint64_t epoch = 0;

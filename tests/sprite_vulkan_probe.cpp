@@ -1,5 +1,7 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+#include "sprite_atlas_precision_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
+#include "sprite_scene_render_tests.hpp"
 #include <iostream>
 
 int main(int argc, char** argv) {
@@ -17,6 +19,9 @@ int main(int argc, char** argv) {
         };
         forge::test_sprite_draw::exercise(presentation, context, read, argv[1]);
         forge::test_sprite_bundle::exercise(presentation, context, read);
+        forge::test_sprite_atlas_precision::exercise(presentation, context, read);
+        forge::test_sprite_scene_render::exercise(presentation, context, read,
+                                                  std::filesystem::path(argv[1]) / "scene");
         std::cout << "Sprite draw/bundle pixels and resource ownership passed: "
                   << device->GetAdapterInfo().Description << '\n';
     } catch (const std::exception& error) {

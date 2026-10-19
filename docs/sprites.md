@@ -2,11 +2,11 @@
 
 ## Development status
 
-This family is in development. Typed Scene authoring and a private native draw
-profile have focused tests. Scene-to-renderer integration, the complete editor
-workflow, animation, Gallery content and exported-game acceptance are not yet
-complete. This document records the implementation contract; it does not describe
-a finished feature in the downloadable editor.
+This family is in development. Typed Scene authoring, shared world rendering,
+framing/geometric picking and bounded Sprite instancing have focused tests. The
+complete editor workflow, animation, Gallery content and exported-game acceptance
+are not yet complete. This document records the implementation contract; it does
+not describe a finished feature in the downloadable editor.
 
 ## Ownership
 
@@ -41,9 +41,16 @@ Every frame must contain whole positive pixels in the selected texture, and the
 frame index must fit the grid. A 1×1 grid selects the whole image. Texture-dependent
 admission belongs to the resource selection, rather than the authored Scene codec.
 
-`order` is intended as a numeric priority in the existing draw queue. Transparent
+`order` is a numeric priority in the existing draw queue. Transparent
 camera depth remains authoritative before equal-depth priority; higher priorities
-draw later. Renderer and picking integration of this field is still pending.
+draw later. Ordinary objects have priority zero. The comparison applies to the
+whole queue, including stable draw-scope ties, rather than conditionally comparing
+only two sprites. Material depth tests still determine opaque occlusion.
+
+Framing and geometric picking use the same admitted Quad pose. Picking does not
+test image alpha, matching the existing Mesh picking contract. At equal picked
+depth, explicit priority ranks before the stable entity tie. Mesh and Sprite
+draw scopes on one entity remain independent.
 
 ## Initial native material profile
 
@@ -66,6 +73,18 @@ and texture resources. Its instance data includes RGBA and atlas values. Ordinar
 mesh instances retain their existing seven-row GPU layout. Frame/tint values do
 not create resource keys or new material identities.
 
+The existing renderer Entry owns the admitted Sprite configuration and numeric
+values with its complete resource selection. Invalid frame/grid updates and failed
+material replacements retain the usable selection. Corrected values retry without
+an unrelated asset edit. Malformed transport components follow the existing
+diagnose-and-omit policy. Fixed Sprite value storage counts toward the existing
+scene material-value budget; native draw-part and pose budgets remain independent.
+
+Contiguous compatible translucent Sprite draws may instance in queue order.
+Ordinary blended Mesh draws keep their existing policy. An unlit Sprite does not
+consume the scene's 3D light list. These are extensions of the existing world
+composition path; sprites have no separate overlay pass.
+
 ## Persistence and SDK
 
 The new component uses the existing Scene/Prefab formats and unknown-extension
@@ -76,8 +95,14 @@ ABI1 remains unchanged. Recovery is still an exact-build, private runtime domain
 ## Validation boundary
 
 Focused tests cover grid partitions/bounds/overflow, CPU material/texture admission,
-typed component authoring/history/reopen/reference traversal, and direct native
-pixel/bundle behavior. Software Vulkan pixels have executed; Windows Sprite render
-cases are registered but have not executed. Whole engine/editor integration,
-discrete frame animation, resource lifetime/scale measurements and relocated
-source-free export remain required before this family is complete.
+typed component authoring/history/reopen/reference traversal, and native draw,
+bundle, scene and actual Game consumers. Software Vulkan checks include frame
+changes, invalid-grid/material recovery, pivot/layer/selectability picking,
+Mesh/Sprite coexistence, transparency against an independent alpha reference,
+129 sprites in three draw calls, bounded numeric churn, payload admission and
+large non-power-of-two single-pixel atlases through HDR/display at exposure 8.
+This is correctness evidence, not a physical GPU throughput claim.
+
+Windows Sprite render cases are registered but have not executed. Complete editor
+workflow/visual review, discrete frame animation, representative performance
+measurements and relocated source-free export remain required before completion.

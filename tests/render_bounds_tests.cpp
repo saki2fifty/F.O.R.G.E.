@@ -288,6 +288,48 @@ int main() {
         std::sort(queue.begin(), queue.end(), render_key_less);
         check(queue == std::vector<RenderSortKey>{opaque, mask, tied, far, near},
               "Render order depends on extraction/allocation order");
+        auto behind = far, above = tied, closest = near;
+        behind.sprite = above.sprite = closest.sprite = true;
+        behind.order = -10;
+        above.order = std::numeric_limits<std::int32_t>::max();
+        closest.order = std::numeric_limits<std::int32_t>::min();
+        queue = {above, closest, far, behind};
+        std::sort(queue.begin(), queue.end(), render_key_less);
+        check(queue == std::vector<RenderSortKey>{behind, far, above, closest},
+              "Sprite priority overrode transparent depth or ignored mixed-scene ties");
+        auto sprite_a = far, sprite_b = tied;
+        sprite_a.entity = EntityId::parse("00000000-0000-4000-8000-000000000003");
+        sprite_a.sprite = sprite_b.sprite = true;
+        sprite_a.order = -1;
+        sprite_b.order = 1;
+        check(render_key_less(sprite_a, far) && render_key_less(far, sprite_b) &&
+                  render_key_less(sprite_a, sprite_b),
+              "Interleaved Mesh/Sprite identities created a conditional-priority cycle");
+        std::vector<RenderSortKey> mixed;
+        for (auto alpha : {MaterialAlpha::Opaque, MaterialAlpha::Mask, MaterialAlpha::Blend})
+            for (double depth : {1., 2.})
+                for (int order : {-1, 0, 1})
+                    for (bool sprite : {false, true}) {
+                        RenderSortKey key;
+                        key.alpha = alpha;
+                        key.depth = depth;
+                        key.order = order;
+                        key.sprite = sprite;
+                        key.entity = sprite ? first : second;
+                        mixed.push_back(key);
+                    }
+        // A conditional "only compare priority when both are sprites" can form
+        // cycles through ordinary meshes. Check ordering laws across all scopes.
+        for (const auto& a : mixed) {
+            check(!render_key_less(a, a), "Render comparator is not irreflexive");
+            for (const auto& b : mixed) {
+                check(!(render_key_less(a, b) && render_key_less(b, a)),
+                      "Mixed render comparator is not asymmetric");
+                for (const auto& c : mixed)
+                    if (render_key_less(a, b) && render_key_less(b, c))
+                        check(render_key_less(a, c), "Mixed render comparator is not transitive");
+            }
+        }
         near.depth = std::numeric_limits<double>::quiet_NaN();
         rejects([&] { validate_render_key(near); });
         MeshData mesh;
