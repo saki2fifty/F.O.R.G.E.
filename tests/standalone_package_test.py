@@ -94,11 +94,6 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     assert all(math.isfinite(value) and value > 0 for value in rate_values), fps_checked.stdout
     assert abs(rate_values[0] * rate_values[1] - 1000) < .1, fps_checked.stdout
     assert rate_values[2] >= rate_values[1], fps_checked.stdout
-    run([relocated/'forge_game_fixture.exe', '--packaged-frame-statistics', evidence/'fps'],
-        cwd=relocated, env=env, evidence_log=evidence/'capture-fps-host.log')
-    fps = json.loads((evidence/'fps/frame-statistics-result.json').read_text())
-    assert all(fps[name] for name in ('actual_presentations', 'input_passed_to_authored_ui',
-                                    'no_authored_canvas', 'resized', 'fullscreen', 'minimize_reset'))
     mode = '--packaged-mixed' if args.source else '--packaged'
     run([relocated/'forge_game_fixture.exe', mode, evidence], cwd=relocated, env=env,
         evidence_log=evidence/'capture-host.log')
@@ -108,6 +103,13 @@ with tempfile.TemporaryDirectory(prefix='FORGE standalone export ') as temporary
     user_root = Path(storage_result['root'])
     assert user_root.is_absolute() and not user_root.is_relative_to(relocated)
     assert (user_root/'runtime.log').is_file()
+    # The observer deliberately writes/loads the same persistent fixture slot.
+    # Preserve the ordinary host's first-launch proof before adding another launch.
+    run([relocated/'forge_game_fixture.exe', '--packaged-frame-statistics', evidence/'fps'],
+        cwd=relocated, env=env, evidence_log=evidence/'capture-fps-host.log')
+    fps = json.loads((evidence/'fps/frame-statistics-result.json').read_text())
+    assert all(fps[name] for name in ('actual_presentations', 'input_passed_to_authored_ui',
+                                    'no_authored_canvas', 'resized', 'fullscreen', 'minimize_reset'))
     # Move the same installation again, restart, and load its existing OS-scoped data.
     moved_again = work/'Moved Again'
     shutil.move(str(relocated), moved_again)
