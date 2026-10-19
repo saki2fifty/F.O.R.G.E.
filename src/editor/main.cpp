@@ -6444,7 +6444,8 @@ int main(int argc, char** argv) {
                         if (forge::test::EditorCaptureInput::document_focus_allowed(
                                 fixture.stage,
                                 ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
-                                                                ImGuiPopupFlags_AnyPopupLevel)))
+                                                                ImGuiPopupFlags_AnyPopupLevel),
+                                fixture.workflow))
                             ImGui::SetWindowFocus(target);
             }
             // Count textures used by this UI frame, before advance can finish
