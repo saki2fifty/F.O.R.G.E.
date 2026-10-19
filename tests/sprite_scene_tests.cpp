@@ -58,6 +58,31 @@ void image_authoring(EngineContext& engine, Json legacy, EntityId actor,
     check(reopened.document() == changed &&
               reopened.entity(actor.str()).get<SpriteRenderer>() == mapped,
           "Image fill values/unknown extension did not reopen exactly");
+    // This precision limit depends only on authored values, so reject at the
+    // ordinary property boundary instead of accepting unusable renderer intent.
+    for (const auto& [field, value] :
+         std::vector<std::pair<std::string, Json>>{{"pixels_per_meter", 1000000}, {"width", 2}})
+        authoring_command(scene, "property.set",
+                          {{"entity", actor},
+                           {"component", "forge.sprite_renderer"},
+                           {"field", field},
+                           {"value", value}});
+    const auto before_mode = scene.document();
+    const auto mode_revision = scene.revision();
+    bool rejected_mode = false;
+    try {
+        authoring_command(scene, "property.set",
+                          {{"entity", actor},
+                           {"component", "forge.sprite_renderer"},
+                           {"field", "image_mode"},
+                           {"value", 2}});
+    } catch (const std::exception&) {
+        rejected_mode = true;
+    }
+    check(rejected_mode && scene.document() == before_mode && scene.revision() == mode_revision,
+          "Unusable repeat extent was accepted or partially changed authoring history");
+    check(scene.undo() && scene.undo() && scene.document() == changed,
+          "Rejected image mode consumed an Undo step");
     const auto member = PrefabMemberId::generate();
     const Json prefab_source{
         {"format", "forge.prefab"},
@@ -253,11 +278,24 @@ int main(int argc, char** argv) {
             runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "frame", 2);
         runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "flip_x", true);
         runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "tint_a", .25);
+        runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "image_mode", 1);
+        runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "pixels_per_meter", 32);
+        runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "border_left", 1);
+        runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "border_right", 2);
         check(live == 2 && runtime.entity(actor.str()).get<SpriteRenderer>().frame == 2 &&
                   runtime.entity(actor.str()).get<SpriteRenderer>().flip_x &&
                   runtime.entity(actor.str()).get<SpriteRenderer>().tint_a == .25f &&
+                  runtime.entity(actor.str()).get<SpriteRenderer>().image_mode == 1 &&
+                  runtime.entity(actor.str()).get<SpriteRenderer>().pixels_per_meter == 32 &&
+                  runtime.entity(actor.str()).get<SpriteRenderer>().border_left == 1 &&
+                  runtime.entity(actor.str()).get<SpriteRenderer>().border_right == 2 &&
                   !runtime.undo() && !runtime.redo() && scene.document() == edited,
               "Live sprite tuning changed authoring state or failed native application");
+        runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "image_mode", 2);
+        runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "pixels_per_meter",
+                                      262144);
+        check(runtime.entity(actor.str()).get<SpriteRenderer>().pixels_per_meter == 262144,
+              "Exact supported repeated-fill extent was rejected");
         const auto live_native = runtime.entity(actor.str()).get<SpriteRenderer>();
         for (const auto& [field, value] :
              std::vector<std::pair<std::string, Json>>{{"frame", 4},
@@ -265,6 +303,11 @@ int main(int argc, char** argv) {
                                                        {"frame", -1},
                                                        {"width", 0},
                                                        {"tint_a", 2},
+                                                       {"image_mode", 3},
+                                                       {"pixels_per_meter", 0},
+                                                       {"pixels_per_meter", 262145},
+                                                       {"border_left", -1},
+                                                       {"border_right", 1.5},
                                                        {"material", material},
                                                        {"columns", 4},
                                                        {"enabled", false},

@@ -11,6 +11,8 @@ Open **71-world-sprites** for image sizes, tints, transparency, mirroring and
 different pivots. Open **72-sprite-frame-animation** and press Play: the large
 arrow cycles up, right, down and left. The smaller arrows show the four frames.
 The Gallery's README describes the expected results and export steps.
+Development Scene **73-sprite-image-fill** compares stretch, preserved borders
+and repeated fill, with small and mirrored examples. It is absent from Build193.
 
 ## Create an image material
 
@@ -35,6 +37,22 @@ writes. Keep the preset's identity UV transform and color texture role.
 Inspector edits use normal Scene Undo/Redo and saving. Picking uses the image's
 rectangle, including transparent pixels. Add a game Camera facing the image before
 testing Play or export; the Scene view's editor camera is independent.
+
+## Resize borders or repeat an image (development)
+
+These Image fill controls are in development source and are absent from Build193.
+Windows and exported-game acceptance remain pending.
+
+Choose an **Image mode** under **Image fill**:
+
+- **Simple** stretches the complete image to Width and Height.
+- **Sliced** keeps the image's border widths while stretching its center. Enter the four border sizes in source-cell pixels and choose **Pixels per meter**. Opposing borders must leave a positive image center. A target too small for its borders compresses them together.
+- **Tiled** repeats the selected image cell. Width, Height and Pixels per meter determine the number of repeats; the last tile can be partial. Flips mirror the complete fill.
+
+Density applies before the entity's world scale. Camera zoom does not change it.
+Tiled width and height times density must each stay within1048576 source pixels.
+Scene Undo/Redo, prefab publication and temporary Live gameplay controls keep
+their normal behavior. Stop restores the authored fill settings.
 
 ## Select frames from a sheet
 

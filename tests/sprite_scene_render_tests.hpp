@@ -121,6 +121,53 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                                           }),
           "Sprite frame edit did not reach shared scene drawing");
     const auto source_stats = host->inspect();
+    const auto original_sprite = scene.sprites[0];
+    scene.sprites[0].renderer.columns = scene.sprites[0].renderer.rows = 1;
+    scene.sprites[0].renderer.frame = 0;
+    scene.sprites[0].renderer.pixels_per_meter = 4;
+    scene.sprites[0].renderer.border_left = scene.sprites[0].renderer.border_right = 1;
+    scene.sprites[0].renderer.border_top = scene.sprites[0].renderer.border_bottom = 1;
+    std::array<Pixels, 2> fills;
+    for (unsigned mode = 1; mode <= 2; ++mode) {
+        scene.sprites[0].renderer.image_mode = mode;
+        settle(renderer);
+        fills[mode - 1] = render();
+        check(renderer.diagnostics().empty() && renderer.bundle_count() == 1,
+              "Sprite fill mode changed its shared resource/bundle selection");
+        for (unsigned y = 0; y < 64; ++y)
+            for (unsigned x = 0; x < 64; ++x) {
+                // Independent pixel partition of the built-in4x4 checker. Sliced
+                // corners occupy8px and stretched middle cells24px; tiled cells8px.
+                const auto cell = [mode](unsigned p) {
+                    return mode == 2 ? p / 8 : p < 8 ? 0u : p < 32 ? 1u : p < 56 ? 2u : 3u;
+                };
+                const auto ink = (cell(x) + cell(y)) % 2 == 0;
+                check(fills[mode - 1][y * 64 + x] ==
+                          (ink ? std::array<std::uint8_t, 4>{255, 0, 255, 255}
+                               : std::array<std::uint8_t, 4>{0, 0, 0, 255}),
+                      "Shared Sprite admission/draw differs from independent fill partitions");
+            }
+    }
+    scene.sprites[0].renderer.image_mode = 1;
+    scene.sprites[0].renderer.border_left = scene.sprites[0].renderer.border_right = 2;
+    settle(renderer);
+    check(!renderer.diagnostics().empty() && render() == fills[1],
+          "Invalid sliced borders replaced the last complete usable Sprite");
+    scene.sprites[0].renderer.image_mode = 2;
+    scene.sprites[0].renderer.pixels_per_meter = 1000000;
+    settle(renderer);
+    check(!renderer.diagnostics().empty() && render() == fills[1],
+          "Unbounded repeat phase replaced the last complete usable Sprite");
+    scene.sprites[0].renderer.pixels_per_meter = 4;
+    settle(renderer);
+    check(renderer.diagnostics().empty() && render() == fills[1] &&
+              host->inspect().gpu_meshes.resident == source_stats.gpu_meshes.resident &&
+              host->inspect().gpu_textures.resident == source_stats.gpu_textures.resident,
+          "Corrected repeat values did not retry or duplicated shared resources");
+    scene.sprites[0] = original_sprite;
+    settle(renderer);
+    check(renderer.diagnostics().empty() && render() == black,
+          "Returning to Simple mode did not restore the admitted source frame");
     scene.sprites[0].renderer.columns = 3; // Valid component; incompatible pixel division.
     settle(renderer);
     check(!renderer.diagnostics().empty() && render() == black,
@@ -357,5 +404,31 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     check(game_black != game_image && game_black[32 * 64 + 32][0] == 0 &&
               game_black[32 * 64 + 32][2] == 0,
           "Sprite numeric edits did not reach the Game consumer");
+    // The earlier transparency case deliberately selected the one-pixel white
+    // image. Restore the4x4 checker before testing its sliced pixel borders.
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::Checker);
+    host->preview_material(material, surface);
+    auto filled = image.renderer;
+    filled.columns = filled.rows = 1;
+    filled.frame = 0;
+    filled.pixels_per_meter = 4;
+    filled.border_left = filled.border_right = filled.border_top = filled.border_bottom = 1;
+    std::array<Pixels, 2> game_fills;
+    for (unsigned mode = 1; mode <= 2; ++mode) {
+        filled.image_mode = mode;
+        document["entities"][0]["components"]["forge.sprite_renderer"] =
+            detail::render_value(filled);
+        game_fills[mode - 1] = game_pixels();
+        if (!game.diagnostics().empty())
+            throw std::runtime_error("Game Sprite fill: " + game.diagnostics()[0].text);
+        check(game.game_scene()->sprites[0].renderer.image_mode == mode,
+              "Game extraction lost authored image fill intent");
+        // Compare categorical HDR/display output at cell interiors. The raw
+        // RGBA8 oracle above owns exact independent per-pixel colors.
+        const auto& sample = game_fills[mode - 1][16 * 64 + 8];
+        check(mode == 1 ? sample[0] > 100 && sample[2] > 100 : sample[0] == 0 && sample[2] == 0,
+              "Image fill did not reach shared Game HDR/display rendering");
+    }
+    check(game_fills[0] != game_fills[1], "Game image modes produced indistinguishable content");
 }
 } // namespace forge::test_sprite_scene_render

@@ -210,6 +210,54 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     const auto field = [](const char* name) {
         return std::string("component-field:forge.sprite_renderer:") + name;
     };
+    const auto key = [&](ImGuiKey key) {
+        io.AddKeyEvent(key, true);
+        frame();
+        io.AddKeyEvent(key, false);
+        frame();
+    };
+    frame();
+    const auto simple_image = scene.document();
+    check(!test::ui_targets.contains(field("pixels_per_meter")) &&
+              !test::ui_targets.contains(field("border_left")),
+          "Simple Sprite exposes inactive fill fields");
+    click(field("image_mode"));
+    key(ImGuiKey_DownArrow);
+    key(ImGuiKey_Enter);
+    check(scene.entity(selected).get<SpriteRenderer>().image_mode == 1,
+          "Image mode combo did not select Sliced through actual input");
+    type(field("pixels_per_meter"), "32");
+    type(field("border_left"), "2");
+    const auto sliced_image = scene.document();
+    check(scene.entity(selected).get<SpriteRenderer>().pixels_per_meter == 32 &&
+              scene.entity(selected).get<SpriteRenderer>().border_left == 2,
+          "Sliced controls did not author the typed Sprite");
+    for (unsigned step = 0; step < 3; ++step)
+        check(scene.undo(), "Sliced Inspector edit lost its ordinary Undo step");
+    check(scene.document() == simple_image, "Sliced Inspector Undo changed unrelated source");
+    for (unsigned step = 0; step < 3; ++step)
+        check(scene.redo(), "Sliced Inspector Redo failed");
+    check(scene.document() == sliced_image, "Sliced Inspector Redo lost field intent");
+    click(field("image_mode"));
+    key(ImGuiKey_DownArrow);
+    key(ImGuiKey_Enter);
+    frame();
+    check(scene.entity(selected).get<SpriteRenderer>().image_mode == 2 &&
+              scene.entity(selected).get<SpriteRenderer>().border_left == 2 &&
+              test::ui_targets.contains(field("pixels_per_meter")) &&
+              !test::ui_targets.contains(field("border_left")),
+          "Tiled mode lost inactive borders or exposed sliced-only controls");
+    click(field("image_mode"));
+    key(ImGuiKey_Home);
+    key(ImGuiKey_Enter);
+    frame();
+    check(scene.entity(selected).get<SpriteRenderer>().image_mode == 0 &&
+              !test::ui_targets.contains(field("pixels_per_meter")),
+          "Simple mode did not hide inactive density controls");
+    for (unsigned step = 0; step < 5; ++step)
+        check(scene.undo(), "Image fill mode/history did not remain ordinary property edits");
+    check(scene.document() == simple_image,
+          "Image fill test did not restore its initial authored Scene");
     type(field("columns"), "2");
     type(field("rows"), "2");
     type(field("frame"), "3");
@@ -230,12 +278,6 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     Scene reopened(engine.world());
     reopened.load(path);
     check(reopened.document() == saved, "Sprite Inspector edits did not survive save/reopen");
-    const auto key = [&](ImGuiKey key) {
-        io.AddKeyEvent(key, true);
-        frame();
-        io.AddKeyEvent(key, false);
-        frame();
-    };
     click("sprite:choose-frame");
     key(ImGuiKey_Home);
     key(ImGuiKey_RightArrow);
@@ -253,6 +295,23 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     runtime.restore_snapshot(saved);
     live = true;
     frame();
+    click("runtime-field:forge.sprite_renderer:image_mode");
+    key(ImGuiKey_DownArrow);
+    key(ImGuiKey_Enter);
+    type("runtime-field:forge.sprite_renderer:pixels_per_meter", "16");
+    type("runtime-field:forge.sprite_renderer:border_left", "1");
+    check(runtime.entity(selected).get<SpriteRenderer>().image_mode == 1 &&
+              runtime.entity(selected).get<SpriteRenderer>().pixels_per_meter == 16 &&
+              runtime.entity(selected).get<SpriteRenderer>().border_left == 1 &&
+              scene.document() == saved,
+          "Live image fill controls changed authored source or bypassed runtime values");
+    runtime.restore_snapshot(saved);
+    frame();
+    check(runtime.entity(selected).get<SpriteRenderer>().image_mode == 0 &&
+              runtime.entity(selected).get<SpriteRenderer>().pixels_per_meter == 100 &&
+              runtime.entity(selected).get<SpriteRenderer>().border_left == 0 &&
+              !test::ui_targets.contains("runtime-field:forge.sprite_renderer:pixels_per_meter"),
+          "Temporary image fill controls survived authored snapshot restoration");
     check(!test::ui_targets.contains("runtime-field:forge.sprite_renderer:material") &&
               !test::ui_targets.contains("runtime-field:forge.sprite_renderer:columns"),
           "Live Sprite form exposed resource/grid edits outside its whitelist");

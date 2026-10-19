@@ -1,0 +1,48 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "2e644b65b77c50125af88e9b2cef3d6d8a7dda8dc49ff1ed7a2efb24a377eed8",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "linear",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": true,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "repeat"
+    },
+    "settings_version": 1,
+    "source": "3866ef5e8b61e4844354e11733e0ec4f3565c7330bcde734929abc4d183df3ed",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "e7a40664-a742-4d12-a29f-236aa703ba7c",
+    "source": "Assets/Sprites/Panel.png",
+    "source_digest": "3866ef5e8b61e4844354e11733e0ec4f3565c7330bcde734929abc4d183df3ed",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

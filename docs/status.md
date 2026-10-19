@@ -1,3 +1,16 @@
+# Scalable Sprite image fill — development, Windows/export validation pending
+
+Development source adds Simple/Sliced/Tiled fill, pixel-density and border fields
+to the existing Sprite component. The same settings support Source history and
+temporary live tuning. Original Gallery73 panels compare stretched corners,
+preserved borders, partial repeats, small targets and flipping. Actual native
+pixels, shared resource retention, HDR Game rendering, three-scale Inspector input
+and installed-only C++/cold recovery checks pass locally, including scoped
+sanitizer/leak inspection. The existing Sprite GPU stride and shared resource keys
+remain; compatible mixed modes instance together. Public fields require matching
+SDK/module rebuilds, with ABI1 unchanged. Build193 lacks these modes and Scene73.
+Full Windows/export acceptance remains pending; see [world sprites](sprites.md).
+
 # Visual Sprite frame selection — Windows validation pending
 
 Development source adds a sheet preview beside numeric Sprite Frame controls in

@@ -46,6 +46,43 @@ Every frame must contain whole positive pixels in the selected texture, and the
 frame index must fit the grid. A 1×1 grid selects the whole image. Texture-dependent
 admission belongs to the resource selection, rather than the authored Scene codec.
 
+### Image fill modes (development source)
+
+`image_mode` selects Simple (0), Sliced (1) or Tiled (2). Simple retains the
+existing affine whole-cell stretch and is the default for legacy documents.
+`pixels_per_meter`, default100, defines density before the entity's world scale;
+it is independent of viewport DPI or camera zoom. It must be finite in
+`[0.0001,1000000]`.
+
+Sliced uses `border_left`, `border_right`, `border_top` and `border_bottom` in
+whole source-cell pixels, each in `[0,16384]`. Each opposing pair must leave a
+positive source center. Borders keep their natural meter size; the center and
+middle edges stretch. If the target is smaller than its opposing borders, both
+compress proportionally and the target center collapses. Texture-dependent border
+admission uses the selected cell and retains the complete last-good draw on error.
+
+Tiled repeats the whole selected cell from the top-left, cropping a partial final
+tile. Flips mirror the complete fill, including the partial tile's position.
+The authored width and height times density must each be at most1048576 source
+pixels, bounding float repeat phase; ordinary component/property validation
+rejects excessive combinations. Border fields are retained while inactive.
+Repeated filtering stays inside the existing cell clamp/LOD0 contract; it does
+not add periodic cross-edge filtering, mip-safe atlas gutters or atlas mipmaps.
+
+These values use one existing Quad/Sprite profile and its existing nine-row
+instance stride. The unused unlit basis rows carry normalized mapping parameters;
+flat varyings carry the atlas and piecewise/repeat data. Sprite normal-frame and
+legacy-lighting work is omitted deliberately. Standard Mesh lighting and its
+seven-row layout remain. Numeric modes create no material, bundle or resource
+identity, and compatible mixed-mode draws still instance in order. An Entry owns
+the complete admitted configuration under the existing numeric-value budget.
+
+Development Gallery73 compares the modes using original panel art. Local normal
+and sanitizer checks cover mapped pixels, shared-resource retention/recovery,
+actual HDR Game rendering, Source/live Inspector controls and installed-only C++
+field access/cold recovery. Build193 does not include these modes or Scene73;
+Windows/export acceptance and the coherent final gate remain pending.
+
 `order` is a numeric priority in the existing draw queue. Transparent
 camera depth remains authoritative before equal-depth priority; higher priorities
 draw later. Ordinary objects have priority zero. The comparison applies to the
@@ -114,7 +151,9 @@ appearance and visibility. Scene property validation, Undo/Redo, prefab override
 and saved references retain their existing owners. The displayed frame bound
 follows the configured columns and rows; actual cell size still requires the
 selected texture. Temporary Play fields expose frame, width/height, pivot, flips,
-tint and order through the existing live-value panel. Stop restores authored
+tint and order through the existing live-value panel. Development source also
+exposes fill mode, density and sliced borders through the same temporary owner.
+Stop restores authored
 values; explicit Keep values review uses the existing mechanism. Material/grid
 resource changes are outside that live whitelist.
 An animation continues to control its bound fields; manual live Frame changes

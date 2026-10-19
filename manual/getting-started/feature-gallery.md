@@ -28,6 +28,13 @@ clip under **Assets/Sprites** in Timeline. Save before exporting either scene.
 See [World sprites and image sheets](../editor/sprites.md). These examples are
 included in Build261019-000193 and later; build192 predates them.
 
+Development Scene **73-sprite-image-fill** compares complete-image stretch,
+preserved borders and repeated image fill. Two smaller examples show compressed
+borders and mirrored partial repeats. Its original panel art uses one shared
+Material. Try Image fill, Width and Height in Inspector; choose the Scene as
+startup before exporting. Scene73 and these modes are absent from Build193;
+Windows/export acceptance remains pending.
+
 ## Sequence sound cues
 
 Scene **70-sequence-audio-cues** plays three original tones at zero, two and four

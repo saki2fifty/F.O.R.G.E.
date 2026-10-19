@@ -42,7 +42,8 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sprite-frame-edito
     assertions = [step['value'] for step in workflow['trace'] if step.get('operation') == 'assert']
     for name, count in (('sprite-sheet-baseline', 3), ('sprite-sheet-chosen', 6),
                         ('sprite-sheet-restored', 6), ('sprite-sheet-cancelled', 3),
-                        ('sprite-sheet-ready', 9)):
+                        ('sprite-sheet-ready', 9), ('sprite-fill-source', 3),
+                        ('sprite-fill-restored', 3)):
         assert assertions.count(name) == count, (name, assertions.count(name))
     captures = [step for step in workflow['trace'] if 'image' in step]
     assert len(captures) == 3, captures
@@ -72,7 +73,8 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sprite-frame-edito
     receipt = {'complete': True, 'source_commit': workflow['source_commit'],
                'build': workflow['build'], 'authored_unchanged': True,
                'captures': captures, 'images': images,
-               'scope': 'Actual editor host and published sheet at three scales; pending '
+               'scope': 'Actual editor host, published sheet and image fill/density/border '
+                        'controls with ordinary Undo at three scales; pending '
                         'keyboard choice, one Scene Undo/Redo edit, cancellation preserves redo. '
                         'Separate owner tests cover prefab/live/Timeline. Software D3D12 WARP; '
                         'physical desktop and GPU acceptance remain separate.'}

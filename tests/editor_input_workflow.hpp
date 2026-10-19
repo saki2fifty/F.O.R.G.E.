@@ -306,6 +306,38 @@ class EditorInputWorkflow {
     bool verify_development(const std::string& what, const Json& state) {
         const auto& doc = state.at("scene");
         const auto& entities = doc.at("entities");
+        if (what.starts_with("sprite-fill-")) {
+            require(!state.at("playing").get<bool>() && state.at("selected") == sprite_entity_,
+                    "Native fill controls lost their authored Sprite selection");
+            if (what == "sprite-fill-restored") {
+                require(doc == sprite_baseline_, "Image fill Undo did not restore authored intent");
+                return true;
+            }
+            auto expected = sprite_baseline_;
+            auto actual = doc;
+            for (auto* document : {&expected, &actual})
+                for (auto& row : document->at("entities"))
+                    if (row.at("id") == sprite_entity_) {
+                        auto& sprite = row["components"]["forge.sprite_renderer"];
+                        if (!sprite.contains("image_mode"))
+                            sprite["image_mode"] = 0;
+                        if (!sprite.contains("pixels_per_meter"))
+                            sprite["pixels_per_meter"] = 100.;
+                        for (const auto* field :
+                             {"border_left", "border_right", "border_top", "border_bottom"})
+                            if (!sprite.contains(field))
+                                sprite[field] = 0;
+                    }
+            for (auto& row : expected.at("entities"))
+                if (row.at("id") == sprite_entity_) {
+                    auto& sprite = row["components"]["forge.sprite_renderer"];
+                    sprite["image_mode"] = 1;
+                    sprite["pixels_per_meter"] = 16.;
+                    sprite["border_left"] = 1;
+                }
+            require(actual == expected, "Native fill controls changed unrelated Scene values");
+            return true;
+        }
         if (what == "gpu-default-off") {
             require(!state.at("gpu_profile").at("enabled").get<bool>() &&
                         state.at("gpu_profile").at("created") == 0,
@@ -1219,6 +1251,16 @@ class EditorInputWorkflow {
                 key(ImGuiKey_End);
                 key(ImGuiKey_Escape);
                 check("sprite-sheet-cancelled");
+                click("component-field:forge.sprite_renderer:image_mode");
+                key(ImGuiKey_DownArrow);
+                key(ImGuiKey_Enter);
+                text("component-field:forge.sprite_renderer:pixels_per_meter", "16");
+                text("component-field:forge.sprite_renderer:border_left", "1");
+                check("sprite-fill-source");
+                key(ImGuiKey_Z, true);
+                key(ImGuiKey_Z, true);
+                key(ImGuiKey_Z, true);
+                check("sprite-fill-restored");
             }
             return;
         }

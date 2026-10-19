@@ -19,7 +19,10 @@ struct RuntimePropertyTune {
         return property == "frame" || property == "width" || property == "height" ||
                property == "pivot_x" || property == "pivot_y" || property == "flip_x" ||
                property == "flip_y" || property == "tint_r" || property == "tint_g" ||
-               property == "tint_b" || property == "tint_a" || property == "order";
+               property == "tint_b" || property == "tint_a" || property == "order" ||
+               property == "image_mode" || property == "pixels_per_meter" ||
+               property == "border_left" || property == "border_right" ||
+               property == "border_top" || property == "border_bottom";
     }
     static bool material_property(std::string_view property) {
         return property == "material_parameters";

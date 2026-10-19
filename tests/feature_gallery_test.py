@@ -13,6 +13,7 @@ by_source = {row['source']: row for row in assets}
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Sprites/Badge.material.json', 'material.values'),
                        ('Assets/Sprites/SignalSheet.material.json', 'material.values'),
+                       ('Assets/Sprites/Panel.material.json', 'material.values'),
                        ('Assets/Sprites/SignalFrames.animation.json', 'animation.clip'),
                        ('Assets/Terrain/LayeredHills.terrain.json', 'mesh.bin'),
                        ('Assets/Terrain/LayeredHills.collision.json', 'collision.bin'),
@@ -69,7 +70,15 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
     assert (project_root / '.forge/cache/derived' /
             asset['metadata']['forge.import']['key'] / cooked).is_file()
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
-assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json'} <= {p.name for p in scenes}
+assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
+        '73-sprite-image-fill.scene.json'} <= {p.name for p in scenes}
+panel_scene = json.loads((project_root / 'Scenes/73-sprite-image-fill.scene.json').read_text(encoding='utf-8'))
+panels = [row['components']['forge.sprite_renderer'] for row in panel_scene['entities']
+          if 'forge.sprite_renderer' in row['components']]
+assert sorted(row['image_mode'] for row in panels) == [0, 1, 1, 2, 2]
+assert {row['material'] for row in panels} == {by_source['Assets/Sprites/Panel.material.json']['id']}
+assert any(row['image_mode'] == 2 and row['flip_x'] and row['flip_y'] for row in panels)
+assert any(row['image_mode'] == 1 and row['width'] < 1 and row['height'] < 1 for row in panels)
 assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '03-physics.scene.json', '04-cameras.scene.json',
         '05-editable-mesh.scene.json', '06-sculpt.scene.json',
@@ -173,6 +182,12 @@ try:
             renderer = row['components'].get('forge.mesh_renderer')
             if renderer is not None:
                 renderer.setdefault('material_parameters', [])
+            sprite = row['components'].get('forge.sprite_renderer')
+            if sprite is not None:
+                sprite.setdefault('image_mode', 0)
+                sprite.setdefault('pixels_per_meter', 100.)
+                for field in ('border_left', 'border_right', 'border_top', 'border_bottom'):
+                    sprite.setdefault(field, 0)
             transform = row['components'].get('forge.transform_animator')
             if transform is not None:
                 transform.setdefault('sequence', None)

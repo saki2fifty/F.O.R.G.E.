@@ -77,19 +77,24 @@ int main(int argc, char** argv) {
         auto catalog = AssetCatalog::open_project(root);
         const auto basics = asset(catalog, "Scenes/71-world-sprites.scene.json");
         const auto frames = asset(catalog, "Scenes/72-sprite-frame-animation.scene.json");
-        const std::array roots{basics, frames};
+        const auto panels = asset(catalog, "Scenes/73-sprite-image-fill.scene.json");
+        const std::array roots{basics, frames, panels};
         const auto badge = asset(catalog, "Assets/Sprites/Badge.png");
         const auto sheet = asset(catalog, "Assets/Sprites/SignalSheet.png");
         const auto badge_material = asset(catalog, "Assets/Sprites/Badge.material.json");
         const auto sheet_material = asset(catalog, "Assets/Sprites/SignalSheet.material.json");
-        for (const auto id : {badge_material, sheet_material}) {
+        const auto panel = asset(catalog, "Assets/Sprites/Panel.png");
+        const auto panel_material = asset(catalog, "Assets/Sprites/Panel.material.json");
+        for (const auto id : {badge_material, sheet_material, panel_material}) {
             const auto selection = asset_detail::load_material_selection(root, catalog, {id});
             validate_sprite_material_profile(selection.data.values);
-            check(selection.data.textures.at("baseColorTexture").id ==
-                      (id == badge_material ? badge : sheet),
+            check(selection.data.textures.at("baseColorTexture").id == (id == badge_material ? badge
+                                                                        : id == sheet_material
+                                                                            ? sheet
+                                                                            : panel),
                   "Gallery Sprite material lost its real image dependency");
         }
-        for (const auto id : {badge, sheet}) {
+        for (const auto id : {badge, sheet, panel}) {
             const auto cooked = selected(root, catalog.records().at(id));
             const auto index = asset_detail::validate_texture_bundle(cooked.files);
             bool color = false;
@@ -101,8 +106,12 @@ int main(int argc, char** argv) {
                                  [&](const auto& f) { return f.name == variant.file; });
                 const auto image = decode_texture(file->bytes);
                 validate_sprite_texture_profile(image);
-                check(image.width == (id == badge ? 32u : 64u) &&
-                          image.height == (id == badge ? 32u : 16u) &&
+                check(image.width == (id == badge   ? 32u
+                                      : id == sheet ? 64u
+                                                    : 96u) &&
+                          image.height == (id == badge   ? 32u
+                                           : id == sheet ? 16u
+                                                         : 64u) &&
                           image.alpha == TextureAlpha::Straight,
                       "Original Gallery RGBA image lost dimensions/straight alpha");
                 color = true;
@@ -111,6 +120,7 @@ int main(int argc, char** argv) {
         }
         EngineContext authored;
         Scene scene(authored.world());
+        std::map<EntityId, SpriteRenderer> fill_values;
         for (const auto id : roots) {
             scene.load(root / catalog.records().at(id).source);
             const auto rendered = extract_render_scene(scene.effective_document());
@@ -118,6 +128,9 @@ int main(int argc, char** argv) {
                       rendered.sprites.size() == (id == basics ? 6u : 5u) &&
                       rendered.cameras.size() == 1,
                   "Gallery Sprite Scene did not use typed extraction");
+            if (id == panels)
+                for (const auto& sprite : rendered.sprites)
+                    fill_values.emplace(sprite.entity, sprite.renderer);
         }
         playback(root, catalog, frames);
         {
@@ -130,7 +143,7 @@ int main(int argc, char** argv) {
         const auto relocated = scratch / "relocated sprite content";
         std::filesystem::rename(package, relocated);
         const auto loaded = open_runtime_content(relocated, {"windows", "d3d12"});
-        check(loaded.records().size() == 7,
+        check(loaded.records().size() == 10,
               "Sprite content dependency closure is incomplete or oversized");
         for (const auto& file : std::filesystem::recursive_directory_iterator(relocated)) {
             if (!file.is_regular_file())
@@ -141,11 +154,21 @@ int main(int argc, char** argv) {
                       !name.ends_with(".hpp") && !name.ends_with(".exe"),
                   "Sprite content package leaked image/material/clip/compiler/editor source");
         }
-        for (const auto id : {badge_material, sheet_material})
+        for (const auto id : {badge_material, sheet_material, panel_material})
             validate_sprite_material_profile(
                 asset_detail::load_material_selection(relocated, loaded, {id}).data.values);
         playback(relocated, loaded, frames);
-        std::cout << "Gallery71/72 real texture/material/step-animation consumers and relocated "
+        EngineContext runtime(WorldRole::Runtime);
+        Scene restored(runtime.world());
+        restored.restore_snapshot(load_game_scene(relocated, {panels}));
+        const auto rendered = extract_render_scene(restored.effective_document());
+        std::map<EntityId, SpriteRenderer> packed_values;
+        for (const auto& sprite : rendered.sprites)
+            packed_values.emplace(sprite.entity, sprite.renderer);
+        check(rendered.diagnostics.empty() && fill_values.size() == 5 &&
+                  packed_values == fill_values,
+              "Relocated source-free content lost Sprite fill intent or identities");
+        std::cout << "Gallery71/72/73 real texture/material/fill/animation consumers and relocated "
                      "source-free content closure passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

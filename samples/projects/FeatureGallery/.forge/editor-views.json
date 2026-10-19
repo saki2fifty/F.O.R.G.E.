@@ -26,6 +26,19 @@
       "projection": "orthographic",
       "orthographic_height": 8,
       "grid_plane": "xy"
+    },
+    "Scenes/73-sprite-image-fill.scene.json": {
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0,
+      "pitch": 0,
+      "distance": 12,
+      "projection": "orthographic",
+      "orthographic_height": 12,
+      "grid_plane": "xy"
     }
   }
 }

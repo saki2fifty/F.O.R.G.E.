@@ -2,7 +2,7 @@
 
 ## World sprites
 
-The two Sprite scenes open with a front orthographic Scene bookmark and an XY
+The Sprite scenes open with a front orthographic Scene bookmark and an XY
 grid. Use **View → Axis views** for another direction, or **Projection** to switch
 to Perspective. **Save view** replaces your bookmark without changing the Game
 camera or adding Scene Undo.
@@ -38,10 +38,31 @@ choose the large signal as Preview object: selecting an image fills its pending
 Sprite frame field, and **Add / Update key at playhead** commits the key. These
 visual controls are not in Build193; their Windows validation is pending.
 
-Both scenes use ordinary materials and built-in components. Choose the desired
+These scenes use ordinary materials and built-in components. Choose the desired
 scene as startup before export. Their prepared images, materials and animation
 ship as game content; no project C++ module or compiler is required. The two PNGs
 are original FORGE artwork.
+
+## Sprite image fill (development)
+
+Open **Scenes/73-sprite-image-fill.scene.json** and press Play. The three large
+panels on the left use the same original image and material:
+
+- Top: **Simple** stretches the complete image, including its corners.
+- Middle: **Sliced** keeps the borders at their chosen width while resizing the center.
+- Bottom: **Tiled** repeats the image, showing partial tiles at the right and bottom.
+
+The small panel on the right compresses its borders when the target becomes too
+small for a center. The other right-hand panel mirrors the complete repeated fill.
+Select a panel and try **Image fill**, Width and Height in Inspector. During Play,
+fill settings are temporary; Stop restores the authored scene. Density is measured
+in pixels per meter before the entity's world scale. Borders use pixels of the
+selected image cell. Opposing sliced borders must leave a positive image center.
+
+Choose this Scene as startup before export and use the matching build's runtime
+kit. Its prepared image and material ship with the game; no project C++ module is
+needed. These fill modes and Scene73 are development work and are absent from
+Build193; final Windows and exported-game acceptance remain pending.
 
 ## Sequence sound cues
 

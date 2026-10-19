@@ -23,6 +23,10 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
     if (!std::isfinite(value.pixels_per_meter) || value.pixels_per_meter < .0001 ||
         value.pixels_per_meter > 1000000)
         throw std::invalid_argument("Sprite pixels per meter must be finite in [0.0001,1000000]");
+    if (value.image_mode == std::uint32_t(SpriteImageMode::Tiled) &&
+        (value.width * value.pixels_per_meter > 1048576 ||
+         value.height * value.pixels_per_meter > 1048576))
+        throw std::invalid_argument("Sprite repeated fill exceeds 1048576 target pixels");
     for (const auto border :
          {value.border_left, value.border_right, value.border_top, value.border_bottom})
         if (border > 16384)

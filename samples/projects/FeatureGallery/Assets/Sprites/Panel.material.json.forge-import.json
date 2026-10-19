@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "b6de5091ee0b1699142787f9ec845676852687b20dd4731ae44043f9711ebf55",
+        "role": "material.texture:baseColorTexture",
+        "target": "e7a40664-a742-4d12-a29f-236aa703ba7c",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "be703c7f8e10178907ea0903676d94291e8ade38bbbf056bf69291f3d9e860ce",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "69b8625f242fe7e13f4d9843359e4563fb59deadb07ce184fc88ca32982e7d68",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "88975017-17c3-435d-8273-c35a207cb274",
+    "source": "Assets/Sprites/Panel.material.json",
+    "source_digest": "69b8625f242fe7e13f4d9843359e4563fb59deadb07ce184fc88ca32982e7d68",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

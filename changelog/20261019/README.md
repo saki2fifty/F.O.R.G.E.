@@ -1,5 +1,20 @@
 # 2026-10-19
 
+## Scalable Sprite image fill — development, Windows/export validation pending
+
+- Simple stretch, Sliced borders and Tiled whole-cell fill share the existing Sprite and Material path. Density uses pixels per meter; undersized borders compress together and flips mirror partial repeats.
+- Inspector shows the relevant density/border fields. Source history, prefab intent and temporary live tuning retain their existing owners. Excessive repeat extents fail ordinary property validation.
+- The existing nine-row Sprite instance layout carries numeric mapping data; modes add no material/resource keys or per-cell geometry. Ordinary Mesh lighting remains unchanged.
+- Gallery73 uses original panel art to compare all modes, compressed borders and mirrored partial repeats. The installed SDK probe exercises real C++ writes, cold recovery and unknown-data preservation.
+
+Local normal and affected-own-unit sanitizer checks cover actual mapped pixels,
+resource failure/recovery, HDR Game rendering, Inspector input at three scales
+and relocated SDK consumption. Software workloads with1000/4000Sprites retain
+one bundle and16/63draw calls respectively. These are hosted software measurements,
+not physical GPU FPS or a before/after speedup claim. Public C++ fields change the
+exact SDK fingerprint and require matching module rebuilds; ABI1 is unchanged.
+Build193 predates these modes and Scene73. Full Windows/export acceptance remains pending.
+
 ## Visual Sprite frame selection — Windows validation pending
 
 - Image-sheet preview beside numeric Frame controls in Inspector, live tuning, prefab drafts and targeted Timeline key fields.
