@@ -1,60 +1,56 @@
-# Windows delivery — 2026-10-18
+# Windows delivery — 2026-10-19
 
-**Build261018-000192** delivers sequence sound cues, editable Gallery70 and
-Scene/Game PNG export, alongside Build190's camera shots, shortcuts, reviewed
-runtime tuning, color adjustments and optional GPU profiling. The repository
-README includes seven real editor screenshots and the technology stack.
-All nine Windows/Linux, exact SDK, native editor, fresh shortcut restart and
-final exported-game jobs passed for compiled source
-`d8b33f67f3918a61cbf3baac4d68a2cc1525c7cf`. All 1536 package files, 72 x64 binaries
-and 462 Gallery files/70 scenes were verified. Native images were reviewed;
-physical Windows testing remains deferred. See the [delivery evidence and
-performance limits](../changelog/20261018/README.md).
+**Build261019-000193** delivers world sprites, image-sheet frame animation and
+editable Gallery71/72, plus sequence preview PNG frame export and the optional
+standalone FPS display. The editor, matching C++ SDK and examples share one ZIP.
+README includes seven actual editor screenshots and the technology stack.
 
-# World sprites — source validated, delivery pending
+Compiled source is `fd62990357dec0591f1acc6d617670114256264b`. Its full
+[Windows/Linux source matrix](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39277082312)
+passed all eight required jobs. The initial package precheck stopped before
+assembly; the existing
+[assembly-only retry](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39286996320)
+reused those compiled artifacts and passed combined-package relocation, actual
+Gallery exports/startup and final editor/SDK acceptance. All1556 manifest files,
+72 x64 binaries and488 Gallery files/72 scenes were verified. Native captures
+were reviewed; physical Windows/GPU acceptance remains deferred.
+See [the evidence and performance limits](../changelog/20261019/README.md).
 
-Current source adds world Sprite entities using ordinary image Materials, sheet
-frames, size/pivot/flip/tint controls, geometric picking and ordered instancing.
-The existing Timeline animates whole Sprite frames with step interpolation;
-original Gallery71/72 demonstrate still images and four-frame signals.
-Linux/Windows core 154/154 and Native SDK 187/187 profiles pass at source `fbec063`.
-The unchanged portable/SDK implementation and subsequent native-only corrections
-are covered by 279/279 Windows editor and 2/2 standalone-only checks at
-`a7df8bddd8285f378c62d1e0025b3b828b1513e3` in
-[audit39267449500](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39267449500).
-Native Windows Sprite captures were reviewed, including all four frames in wide
-and tall views. Local normal/sanitizer rendering, actual editor input at three
-scales and relocated cooked-content checks also pass. The audit's benchmark
-comparison completed. A new numbered package remains pending; Build192 predates sprites.
-Exact SDK fingerprints change, requiring matching C++ module rebuilds; ABI1
-callback tables remain unchanged. Physical Windows/GPU acceptance remains deferred.
-See [the contract](sprites.md) and [the guide](../manual/editor/sprites.md).
+## World sprites and image-sheet animation
 
-# Sequence preview frames — source validated
+Sprite entities use ordinary image Materials, size/pivot/flip/tint controls,
+geometric picking and ordered instancing. Timeline animates whole Sprite frames
+with step interpolation. Gallery71/72 demonstrate still images and four-frame
+signals. Linux/Windows core154/154 and Native SDK187/187 pass. The full Windows
+editor audit passed279/279 and standalone-only2/2 before the documentation-only
+final candidate; the numbered source/package gates above also pass. Exact SDK
+fingerprints change, requiring matching C++ module rebuilds; ABI1 callback tables
+are unchanged. See [the contract](sprites.md) and
+[the guide](../manual/editor/sprites.md).
 
-Current development source adds numbered PNG frame export from the sequence
-Timeline, including bounded sample ranges, preview restoration, progress/Cancel
-and completed-frame receipts. Current Game size is the default; fixed-size
-720p/1080p/square presets and custom dimensions reuse the same Game renderer with
-an aspect-preserving preview. Fixed export dimensions survive editor resizing.
-Focused native software-Vulkan pixels, input/lifecycle and sanitizer checks pass.
-The combined Windows editor job passed 273/273 tests, standalone-only validation,
-24 exported PNGs/six receipts, source protection and native capture review. The
-separate corrected benchmark comparison passed using the same compiled source.
-A new numbered package and physical acceptance remain pending; these additions
-are absent from Build192. See [the image export
-contract](editor-ui.md#sequence-preview-frames) and [the guide](../manual/editor/animation-sequences.md#export-preview-frames).
+## Sequence preview frames
 
-# Optional standalone FPS display — source validated
+Timeline exports numbered PNGs with bounded sample ranges, progress/Cancel and
+completed-frame receipts. Current Game size is the default; fixed-size presets
+and custom dimensions use the same renderer with an aspect-preserving preview.
+The full native Windows audit includes24 PNGs/six receipts, source protection and
+capture review. See [the contract](editor-ui.md#sequence-preview-frames) and
+[the guide](../manual/editor/animation-sequences.md#export-preview-frames).
 
-`--show-fps` displays actual presentation FPS, average frame time and peak frame
-interval in the existing game UI. It defaults off, accepts no gameplay input and
-works without an authored HUD. Counter/sanitizer, native UI/pixel, actual Windows
-resize/fullscreen/minimize/input and source-free relocated export checks pass.
-Both platforms pass 150 core/183 Native SDK tests for the unchanged implementation;
-the combined editor gate above also passes. Physical performance testing and a
-new delivered ZIP remain pending. See [the launch option](standalone-host.md) and
-[the user guide](../manual/getting-started/standalone-runtime.md).
+## Optional standalone FPS display
+
+`--show-fps` displays presentation FPS, average frame time and peak frame interval
+in the existing game UI. It defaults off and takes no gameplay input. Actual
+Windows resize/fullscreen/minimize/input and source-free relocated exports pass.
+Hosted software rendering verifies behavior; it does not establish physical GPU
+performance or smooth frame pacing. See [the launch option](standalone-host.md)
+and [the guide](../manual/getting-started/standalone-runtime.md).
+
+## Previous delivery
+
+Build261018-000192 delivered sequence sound cues, Gallery70 and single-image
+Scene/Game PNG export. It predates the additions above. See
+[the previous delivery](../changelog/20261018/README.md).
 
 # Save rendered view images — 2026-10-17
 

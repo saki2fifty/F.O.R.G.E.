@@ -8,8 +8,9 @@ content have normal/sanitizer and native rendering checks. The full Windows edit
 selection and standalone-only checks pass at source
 `a7df8bddd8285f378c62d1e0025b3b828b1513e3` in
 [audit39267449500](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39267449500).
-The benchmark comparison also completed; the final numbered-package gate remains
-pending. Build192 predates this family; see [delivery status](status.md). Hosted software
+The benchmark comparison completed. Build261019-000193 passes the full numbered
+source matrix, combined-package relocation, actual Gallery export/startup and final
+editor/SDK acceptance; see [delivery status](status.md). Hosted software
 rendering does not establish physical GPU performance or desktop acceptance.
 
 ## Ownership

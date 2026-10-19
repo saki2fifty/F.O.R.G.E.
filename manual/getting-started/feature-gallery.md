@@ -26,7 +26,7 @@ through four image-sheet frames while four smaller arrows show the individual
 cells. Select the animated Sprite to inspect its grid and animation, or open its
 clip under **Assets/Sprites** in Timeline. Save before exporting either scene.
 See [World sprites and image sheets](../editor/sprites.md). These examples are
-available in the current source; build192 predates them.
+included in Build261019-000193 and later; build192 predates them.
 
 ## Sequence sound cues
 
