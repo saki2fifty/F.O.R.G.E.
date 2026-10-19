@@ -2863,6 +2863,7 @@ int main(int argc, char** argv) {
                     {"audio_cues_preparation_ms", fixture.audio_cues_preparation_ms},
                     {"audio_preview_opened", fixture.audio_preview_opened},
                     {"audio_preview_ready_frames", fixture.audio_preview_ready_frames},
+                    {"audio_preview_diagnostics", audio_preview.diagnostics()},
                     {"content_refreshing", content.refreshing()},
                     {"mesh_picker_requested", forge::fixture_open_mesh_picker},
                     {"model_open", model_imports.is_open()},
@@ -6600,6 +6601,9 @@ int main(int argc, char** argv) {
                 observed["scene_undo"] = scene.can_undo();
                 observed["scene_redo"] = scene.can_redo();
                 observed["sprite_chooser_open"] = sprite_frame_picker.open();
+                observed["sprite_chooser_diagnostics"] = sprite_frame_picker.diagnostics();
+                observed["source_import_ready"] = content_imports.ready_for_play();
+                observed["content_refreshing"] = content.refreshing();
                 observed["sprite_sheet_ready"] =
                     sprite_sheet_preview && sprite_sheet_preview->ready();
                 observed["editor_shortcuts"] = editor_shortcuts.settings();

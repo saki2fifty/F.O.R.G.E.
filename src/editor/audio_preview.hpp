@@ -13,14 +13,29 @@ class AudioPreviewEditor {
     bool pending() const { return preview_.pending() || preview_.waveform_pending(); }
     bool paused() const { return preview_.paused(); }
     double position() const { return preview_.position(); }
+#ifdef FORGE_UI_FIXTURE
+    Json diagnostics() const {
+        return {{"waveform_requests", waveform_requests_},
+                {"pending", preview_.waveform_pending()},
+                {"waveform_ready", bool(preview_.waveform())},
+                {"error", error_},
+                {"last_stop", last_stop_}};
+    }
+#endif
     void poll(const std::filesystem::path& project, const AssetRecord* record, bool permitted) {
         if (error_project_ != project || !record || error_asset_ != record->id)
             error_.clear();
         if (!permitted || !record || (preview_.active() && !preview_.matches(project, *record)) ||
             ((preview_.waveform() || preview_.waveform_pending()) &&
-             !preview_.waveform_matches(project, *record)))
+             !preview_.waveform_matches(project, *record))) {
+#ifdef FORGE_UI_FIXTURE
+            if (preview_.waveform() || preview_.waveform_pending() || preview_.active())
+                last_stop_ = !permitted ? "preview not permitted"
+                             : !record  ? "record missing"
+                                        : "published selection changed";
+#endif
             stop();
-        else {
+        } else {
             try {
                 preview_.poll();
             } catch (const std::exception& e) {
@@ -87,8 +102,12 @@ class AudioPreviewEditor {
         ImGui::BeginDisabled(locked || !record || preview_.waveform() ||
                              preview_.waveform_pending());
         if (ui::button("Show waveform",
-                       "Load a bounded waveform envelope without opening a sound device."))
+                       "Load a bounded waveform envelope without opening a sound device.")) {
+#ifdef FORGE_UI_FIXTURE
+            ++waveform_requests_;
+#endif
             attempt(project, record, [&] { preview_.load_waveform(project, *record); });
+        }
         FORGE_UI_PROBE("audio-preview:waveform-load");
         ImGui::EndDisabled();
         if (const auto* envelope = preview_.waveform()) {
@@ -121,6 +140,10 @@ class AudioPreviewEditor {
     void read_offline(std::span<float> output) { preview_.read_offline(output); }
 
   private:
+#ifdef FORGE_UI_FIXTURE
+    std::uint64_t waveform_requests_ = 0;
+    std::string last_stop_;
+#endif
     template <class F>
     void attempt(const std::filesystem::path& project, const AssetRecord* record, F action) {
         try {

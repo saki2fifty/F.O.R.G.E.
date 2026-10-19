@@ -21,11 +21,36 @@ struct SpriteSheetImage {
 class SpriteFramePicker {
   public:
     std::function<SpriteSheetImage(AssetRef<MaterialAsset>)> image_source;
-    void begin_frame() { submitted_ = false; }
-    void after_ui() {
-        if (popup_ && !submitted_)
-            cancel();
+    void begin_frame() {
+        submitted_ = false;
+#ifdef FORGE_UI_FIXTURE
+        draw_calls_ = 0;
+#endif
     }
+    void after_ui() {
+        if (popup_ && !submitted_) {
+#ifdef FORGE_UI_FIXTURE
+            if (close_reason_.empty())
+                close_reason_ = draw_calls_ ? "popup no longer submitted" : "field not drawn";
+#endif
+            cancel();
+        }
+    }
+#ifdef FORGE_UI_FIXTURE
+    nlohmann::json diagnostics() const {
+        const auto* g = ImGui::GetCurrentContext();
+        return {{"close_reason", close_reason_},
+                {"message", message_},
+                {"submitted", submitted_},
+                {"draw_calls", draw_calls_},
+                {"popup_id", popup_},
+                {"owner", owner_},
+                {"pending", pending_},
+                {"canvas_focused", canvas_focused_},
+                {"nav_window", g && g->NavWindow ? g->NavWindow->Name : ""},
+                {"nav_id", g ? g->NavId : 0}};
+    }
+#endif
     bool open() const {
         return ImGui::GetCurrentContext() && popup_ &&
                ImGui::IsPopupOpen(popup_, ImGuiPopupFlags_None);
@@ -43,6 +68,9 @@ class SpriteFramePicker {
         image_revision_.reset();
     }
     bool draw(const SpriteFrameContext& context, std::uint32_t& value) {
+#ifdef FORGE_UI_FIXTURE
+        ++draw_calls_;
+#endif
         if (button("Choose frame...", "See the image sheet and choose a whole frame.")) {
             owner_ = context.owner;
             material_ = context.material;
@@ -51,12 +79,18 @@ class SpriteFramePicker {
             view_ = {};
             image_revision_.reset();
             message_.clear();
+#ifdef FORGE_UI_FIXTURE
+            close_reason_.clear();
+#endif
             popup_ = ImGui::GetID("Sprite frames");
             ImGui::OpenPopup("Sprite frames");
         }
         FORGE_UI_PROBE("sprite:choose-frame");
         if ((ImGui::GetCurrentContext()->CurrentItemFlags & ImGuiItemFlags_Disabled) &&
             ImGui::IsPopupOpen("Sprite frames")) {
+#ifdef FORGE_UI_FIXTURE
+            close_reason_ = "field disabled";
+#endif
             cancel();
             return false;
         }
@@ -74,6 +108,9 @@ class SpriteFramePicker {
         bool chosen = false;
         if (owner_ != context.owner || material_ != context.material ||
             grid_ != grid_key(context.grid)) {
+#ifdef FORGE_UI_FIXTURE
+            close_reason_ = "owner, material or grid changed";
+#endif
             message_ = "The Sprite or its grid changed. Open Choose frame again.";
             ImGui::CloseCurrentPopup();
         } else {
@@ -151,6 +188,9 @@ class SpriteFramePicker {
         std::uint64_t last = 0;
         if (valid) {
             if (image_revision_ && image_revision_ != source.revision) {
+#ifdef FORGE_UI_FIXTURE
+                close_reason_ = "image revision changed";
+#endif
                 message_ = "The image changed. Open Choose frame again.";
                 ImGui::CloseCurrentPopup();
                 return false;
@@ -182,6 +222,9 @@ class SpriteFramePicker {
                                    ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_EnableNav);
         FORGE_UI_PROBE("sprite:sheet-canvas");
         ImGui::SetItemDefaultFocus();
+#ifdef FORGE_UI_FIXTURE
+        canvas_focused_ = ImGui::IsItemFocused();
+#endif
         ImGui::GetWindowDrawList()->AddRectFilled(origin, {origin.x + size.x, origin.y + size.y},
                                                   ImGui::GetColorU32(ImGuiCol_FrameBg));
         if (valid) {
@@ -298,8 +341,12 @@ class SpriteFramePicker {
             FORGE_UI_PROBE("sprite:retry-sheet");
         }
         choose &= valid;
-        if (choose || close)
+        if (choose || close) {
+#ifdef FORGE_UI_FIXTURE
+            close_reason_ = choose ? "confirmed" : "cancel button";
+#endif
             ImGui::CloseCurrentPopup();
+        }
         if (choose) {
             const bool changed = value != pending_;
             value = pending_;
@@ -308,6 +355,11 @@ class SpriteFramePicker {
         return false;
     }
     ImGuiID popup_ = 0;
+#ifdef FORGE_UI_FIXTURE
+    std::string close_reason_;
+    bool canvas_focused_ = false;
+    unsigned draw_calls_ = 0;
+#endif
     bool submitted_ = false;
     std::string owner_, message_;
     AssetRef<MaterialAsset> material_;

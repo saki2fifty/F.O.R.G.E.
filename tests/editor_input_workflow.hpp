@@ -2134,6 +2134,15 @@ class EditorInputWorkflow {
         if (done())
             return;
         const auto& step = steps_[index_];
+        if (step.kind == Kind::Key && frame_ == 0) {
+            const auto* g = ImGui::GetCurrentContext();
+            trace_.push_back({{"step", index_},
+                              {"operation", "keyboard owner before input"},
+                              {"key", ImGui::GetKeyName(step.key)},
+                              {"nav_window", g->NavWindow ? g->NavWindow->Name : ""},
+                              {"nav_id", g->NavId},
+                              {"popup_depth", g->OpenPopupStack.Size}});
+        }
         if (step.kind == Kind::DropFile && frame_ == 0) {
             const auto it = ui_targets.find("content-results");
             if (it == ui_targets.end())
