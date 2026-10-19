@@ -106,6 +106,7 @@ inline void test_interaction_input(float scale) {
     const auto original = scene.document();
     forge::ui::ModalTransform modal;
     forge::ui::OrientationGizmo gizmo;
+    auto grid_plane = forge::GridPlane::XY;
     forge::EditorCamera camera;
     std::string status;
     bool allowed = true;
@@ -117,7 +118,8 @@ inline void test_interaction_input(float scale) {
         ImGui::SetNextWindowSize({1000, 800});
         ImGui::Begin("Scene interaction");
         origin = ImGui::GetCursorScreenPos();
-        const bool blocked = gizmo.input(camera, origin, size, allowed && !modal.active());
+        const bool blocked =
+            gizmo.input(camera, origin, size, allowed && !modal.active(), &grid_plane);
         ImGui::SetCursorScreenPos(origin);
         forge::ui::ViewportInput input;
         forge::ui::camera_controls(camera, size, allowed, &input, blocked || modal.active());
@@ -180,6 +182,8 @@ inline void test_interaction_input(float scale) {
     frame();
     require(std::abs(camera.pitch + forge::EditorCamera::pole) < .00001f,
             "Orientation Y endpoint failed");
+    require(camera.orthographic() && grid_plane == forge::GridPlane::XZ,
+            "Orientation axis click did not choose an orthographic matching plane");
     require(scene.document() == original, "Camera gizmo edited scene");
     forge::ui::Workspace workspace;
     workspace.scene = false;

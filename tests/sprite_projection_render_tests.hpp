@@ -78,7 +78,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                                        RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
             context->ClearDepthStencil(dsv, CLEAR_DEPTH_FLAG, 1, 0,
                                        RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-            const Viewport viewport{0, 0, float(width), float(height), 0, 1};
+            const Diligent::Viewport viewport{0, 0, float(width), float(height), 0, 1};
             context->SetViewports(1, &viewport, width, height);
             renderer.draw(scene, view, UINT32_MAX, color, dsv);
             presentation.end_frame(context);

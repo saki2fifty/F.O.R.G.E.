@@ -14,9 +14,38 @@ The editor uses the pinned Dear ImGui docking build and SDL3. Runtime libraries 
 
 ## Scene and Game
 
-Scene always renders the authored world, including existing transient transform previews. Game renders snapshots from the existing single isolated runtime and hosts the approved RmlUi presenter. Each has a separate viewport render target/cache and editor camera; starting Play seeds the Game camera from Scene. This does not introduce a runtime renderer process or final game-camera system. Runtime UI stays out of the authoring world.
+Scene renders the authored world, including transient transform previews. Game
+renders snapshots from the existing single isolated runtime through authored
+Camera components and hosts the RmlUi presenter. Each view has a separate render
+target/cache. Scene's EditorCamera is independent of the authored Game cameras;
+changing Scene projection does not change Play or export. Runtime UI stays out of
+the authoring world.
 
 Game input capture releases on Escape, focus loss, hidden Game, or an outside mouse press. The outside press continues into the editor. F6/F7 remain reserved runtime clock controls. Editor zoom remains available independently. A hidden Game tab must not cancel Scene gestures.
+
+### Scene projection and reference planes
+
+The existing EditorCamera owns Perspective/Orthographic projection and a bounded
+full vertical orthographic height. The shared pixels-per-unit adapter supplies
+projection, tool sizes and overlays. Pixel rays carry both origin and direction:
+orthographic rays have shifted origins and parallel directions. Their parameter
+remains forward depth, preserving clipping and plane-intersection consumers.
+Native Scene drawing adapts this owner through the existing public camera math;
+the legacy primitive and grid shaders use the same admitted extent and depth.
+
+View controls and orientation endpoints select six signed orthographic axis
+views, with world-zero XY/XZ/YZ grid planes. Navigation remains available. The
+existing retained-image key includes projection, height and plane. Asset previews
+keep their independent default perspective cameras. Authored Game cameras,
+Scene/Prefab history, SDK interfaces and runtime data do not change.
+
+The existing `.forge/editor-views.json` version1 per-scene bookmark entries add
+`projection` (`perspective` or `orthographic`), `orthographic_height` and
+`grid_plane` (`xz`, `xy` or `yz`). Missing fields restore Perspective, height10
+and XZ explicitly. Unknown entry/root metadata and other views survive saves.
+Save validates before publication; restore validates a complete candidate before
+assigning camera or plane. Invalid input preserves the previous file or view.
+Gallery71/72 ship intentional front-view bookmarks through this same owner.
 
 ## Rendered view image export
 

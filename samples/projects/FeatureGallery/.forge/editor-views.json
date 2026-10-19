@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "views": {
+    "Scenes/71-world-sprites.scene.json": {
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0,
+      "pitch": 0,
+      "distance": 8,
+      "projection": "orthographic",
+      "orthographic_height": 8,
+      "grid_plane": "xy"
+    },
+    "Scenes/72-sprite-frame-animation.scene.json": {
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0,
+      "pitch": 0,
+      "distance": 8,
+      "projection": "orthographic",
+      "orthographic_height": 8,
+      "grid_plane": "xy"
+    }
+  }
+}

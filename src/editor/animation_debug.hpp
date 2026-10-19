@@ -32,7 +32,9 @@ inline std::optional<std::array<float, 2>> project_debug_point(const EditorCamer
     if (size.x <= 0 || size.y <= 0 || depth < EditorCamera::near_plane ||
         depth > EditorCamera::far_plane)
         return {};
-    const double scale = EditorCamera::focal * size.y / (2 * depth);
+    const double scale = camera.pixels_per_unit(depth, size.y);
+    if (!(scale > 0))
+        return {};
     return debug_screen_point(size.x / 2 + dot_axis(camera.right()) * scale,
                               size.y / 2 - dot_axis(camera.up()) * scale);
 }

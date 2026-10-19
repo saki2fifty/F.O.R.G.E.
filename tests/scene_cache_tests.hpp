@@ -84,7 +84,7 @@ inline void test_scene_cache() {
     require(key != forge::viewport_frame_key(1, 800, 600, camera), "Zoom kept texture");
 }
 inline void test_world_grid_axes() {
-    static_assert(sizeof(forge::GridConstants) == 80);
+    static_assert(sizeof(forge::GridConstants) == 96);
     forge::EditorCamera camera;
     camera.target = {0, 0, 0};
     camera.pitch = -.5f;

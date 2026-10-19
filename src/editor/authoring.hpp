@@ -46,25 +46,28 @@ inline std::optional<std::array<float, 2>> project_point(const EditorCamera& cam
                                                          float width, float height) {
     const auto delta = subtract(p, camera.eye());
     const auto depth = dot(delta, camera.forward());
-    if (width <= 0 || height <= 0 || depth < EditorCamera::near_plane ||
-        depth > EditorCamera::far_plane)
+    if (!std::isfinite(width) || width <= 0)
         return {};
-    const float scale = EditorCamera::focal * height / (2 * depth);
-    return std::array<float, 2>{width / 2 + dot(delta, camera.right()) * scale,
-                                height / 2 - dot(delta, camera.up()) * scale};
+    const auto scale = camera.pixels_per_unit(depth, height);
+    if (!(scale > 0))
+        return {};
+    const std::array<float, 2> result{float(width / 2 + dot(delta, camera.right()) * scale),
+                                      float(height / 2 - dot(delta, camera.up()) * scale)};
+    return std::isfinite(result[0]) && std::isfinite(result[1])
+               ? std::optional<std::array<float, 2>>(result)
+               : std::nullopt;
 }
-inline Vec3 view_ray(const EditorCamera& camera, float x, float y, float width, float height) {
-    const auto f = camera.forward(), r = camera.right(), u = camera.up();
-    const float sx = (2 * x - width) / (EditorCamera::focal * height);
-    const float sy = (height - 2 * y) / (EditorCamera::focal * height);
-    return {f[0] + sx * r[0] + sy * u[0], f[1] + sx * r[1] + sy * u[1],
-            f[2] + sx * r[2] + sy * u[2]};
+inline std::optional<EditorCamera::Ray> view_ray(const EditorCamera& camera, float x, float y,
+                                                 float width, float height) {
+    return camera.ray(x, y, width, height);
 }
 inline std::string pick_block(const Json& doc, const EditorCamera& camera, float x, float y,
                               float width, float height) {
     if (width <= 0 || height <= 0 || x < 0 || y < 0 || x >= width || y >= height)
         return {};
-    const auto ray = view_ray(camera, x, y, width, height), eye = camera.eye();
+    const auto ray = view_ray(camera, x, y, width, height);
+    if (!ray)
+        return {};
     float nearest = EditorCamera::far_plane;
     std::string selected;
     const auto policy = extract_node_policies(doc);
@@ -75,7 +78,8 @@ inline std::string pick_block(const Json& doc, const EditorCamera& camera, float
         if (!center || state == policy.entities.end() || !state->second.valid ||
             !state->second.selectable)
             continue;
-        if (const auto distance = object_hit(e, eye, ray, EditorCamera::near_plane, nearest)) {
+        if (const auto distance =
+                object_hit(e, ray->origin, ray->direction, EditorCamera::near_plane, nearest)) {
             nearest = *distance;
             selected = id;
         }
@@ -87,18 +91,21 @@ inline std::string pick_block(const Json& doc, const EditorCamera& camera, float
 inline std::optional<float> axis_drag(const EditorCamera& camera, Vec3 origin, int axis,
                                       std::array<float, 2> press, std::array<float, 2> mouse,
                                       float width, float height) {
+    if (axis < 0 || axis > 2)
+        return {};
     auto normal = camera.forward();
     normal[axis] = 0;
-    const float plane_distance = dot(normal, subtract(origin, camera.eye()));
     auto intersect = [&](std::array<float, 2> point) -> std::optional<float> {
         const auto ray = view_ray(camera, point[0], point[1], width, height);
-        const float denominator = dot(normal, ray);
+        if (!ray)
+            return {};
+        const float denominator = dot(normal, ray->direction);
         if (std::abs(denominator) < 0.000001f)
             return {};
-        const float t = plane_distance / denominator;
-        if (!std::isfinite(t) || t < EditorCamera::near_plane)
+        const float t = dot(normal, subtract(origin, ray->origin)) / denominator;
+        if (!std::isfinite(t) || t < EditorCamera::near_plane || t > EditorCamera::far_plane)
             return {};
-        return camera.eye()[axis] + ray[axis] * t;
+        return ray->origin[axis] + ray->direction[axis] * t;
     };
     const auto first = intersect(press), last = intersect(mouse);
     if (!first || !last)

@@ -68,29 +68,31 @@ inline std::optional<double> rig_axis_drag(const EditorCamera& camera, Double3 o
     const double squared = dot3(basis, basis);
     if (!std::isfinite(squared) || squared < 1e-16)
         return {};
-    Double3 normal{}, eye{}, relative{};
+    Double3 normal{};
     const auto forward = camera.forward();
-    const auto position = camera.eye();
     const auto parallel = dot3({forward[0], forward[1], forward[2]}, basis) / squared;
     for (unsigned i = 0; i < 3; ++i) {
         normal[i] = forward[i] - basis[i] * parallel;
-        eye[i] = position[i];
-        relative[i] = origin[i] - eye[i];
     }
     if (dot3(normal, normal) < 1e-12)
         return {};
-    const auto plane = dot3(normal, relative);
     const auto intersect = [&](std::array<float, 2> pixel) -> std::optional<Double3> {
         const auto ray = view_ray(camera, pixel[0], pixel[1], width, height);
-        const auto denominator = dot3(normal, {ray[0], ray[1], ray[2]});
+        if (!ray)
+            return {};
+        const auto& direction = ray->direction;
+        const auto& eye = ray->origin;
+        const auto denominator = dot3(normal, {direction[0], direction[1], direction[2]});
         if (!std::isfinite(denominator) || std::abs(denominator) < 1e-8)
             return {};
-        const auto distance = plane / denominator;
+        const auto distance =
+            dot3(normal, {origin[0] - eye[0], origin[1] - eye[1], origin[2] - eye[2]}) /
+            denominator;
         if (!std::isfinite(distance) || distance < EditorCamera::near_plane ||
             distance > EditorCamera::far_plane)
             return {};
-        return Double3{eye[0] + ray[0] * distance, eye[1] + ray[1] * distance,
-                       eye[2] + ray[2] * distance};
+        return Double3{eye[0] + direction[0] * distance, eye[1] + direction[1] * distance,
+                       eye[2] + direction[2] * distance};
     };
     const auto first = intersect(press), last = intersect(mouse);
     if (!first || !last)

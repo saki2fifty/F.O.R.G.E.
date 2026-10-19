@@ -1,5 +1,5 @@
 #pragma once
-#include "camera.hpp"
+#include "grid.hpp"
 #include "widgets.hpp"
 namespace forge::ui {
 inline ImU32 axis_color(unsigned axis) {
@@ -32,7 +32,8 @@ struct OrientationGizmo {
             return f[a / 2] * (a % 2 ? -1 : 1) > f[b / 2] * (b % 2 ? -1 : 1);
         });
     }
-    bool input(EditorCamera& camera, ImVec2 origin, ImVec2 size, bool allowed) {
+    bool input(EditorCamera& camera, ImVec2 origin, ImVec2 size, bool allowed,
+               GridPlane* plane = nullptr) {
         if (!visible || !allowed || size.x < 70 * interface_scale ||
             size.y < 70 * interface_scale) {
             dragging = false;
@@ -73,14 +74,20 @@ struct OrientationGizmo {
                     int sign = pressed % 2 ? -1 : 1;
                     if (std::abs(camera.forward()[axis] + sign) < .000001f)
                         sign = -sign;
-                    camera.align(axis, sign);
+                    if (camera.set_projection(CameraProjection::Orthographic)) {
+                        camera.align(axis, sign);
+                        if (plane)
+                            *plane = axis == 0   ? GridPlane::YZ
+                                     : axis == 1 ? GridPlane::XZ
+                                                 : GridPlane::XY;
+                    }
                 }
                 dragging = false;
             }
         }
         help("World orientation (Y up). Click + or - X/Y/Z for an axis view; click the current "
-             "axis to flip sides; drag to orbit. "
-             "Perspective projection. Camera changes do not edit the scene.");
+             "axis to flip sides; drag to orbit. Axis clicks choose orthographic projection; "
+             "change projection under View. Camera changes do not edit the scene.");
         geometry(camera, origin, size);
         return inside || active || dragging;
     }

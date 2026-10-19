@@ -8,6 +8,7 @@
 namespace forge::ui {
 struct SceneTools {
     bool move_tool = true, grid = true, snap = false;
+    GridPlane grid_plane = GridPlane::XZ;
     float snap_step = 1, grid_step = 1, fly_speed = 5, exposure = 0;
     MoveGesture move;
     RigTargetGesture rig;
@@ -48,7 +49,8 @@ struct SceneTools {
         double depth = 0;
         for (unsigned i = 0; i < 3; ++i)
             depth += (center[i] - eye[i]) * forward[i];
-        const auto length = 75 * interface_scale * 2 * depth / (EditorCamera::focal * size.y);
+        const auto scale = camera.pixels_per_unit(depth, size.y);
+        const auto length = scale > 0 ? 75 * interface_scale / scale : 0;
         for (unsigned axis = 0; axis < 3; ++axis) {
             const auto basis = target.axis(axis);
             const auto magnitude =
@@ -196,7 +198,7 @@ struct SceneTools {
             return result;
         result[3] = ImVec2{(*center)[0], (*center)[1]};
         const float depth = dot(subtract(p, camera.eye()), camera.forward());
-        const float length = 75 * interface_scale * 2 * depth / (EditorCamera::focal * size.y);
+        const float length = 75 * interface_scale * camera.world_units_per_pixel(depth, size.y);
         for (unsigned i = 0; i < 3; ++i) {
             auto end = p;
             end[i] += length;
@@ -284,8 +286,8 @@ struct SceneTools {
                         dragged = false;
                         start_right = camera.right();
                         start_up = camera.up();
-                        units_per_pixel = 2 * dot(subtract(*p, camera.eye()), camera.forward()) /
-                                          (EditorCamera::focal * size.y);
+                        units_per_pixel = camera.world_units_per_pixel(
+                            dot(subtract(*p, camera.eye()), camera.forward()), size.y);
                     }
                 }
             }

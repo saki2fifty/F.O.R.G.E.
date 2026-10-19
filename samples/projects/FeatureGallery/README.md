@@ -2,6 +2,11 @@
 
 ## World sprites
 
+The two Sprite scenes open with a front orthographic Scene bookmark and an XY
+grid. Use **View → Axis views** for another direction, or **Projection** to switch
+to Perspective. **Save view** replaces your bookmark without changing the Game
+camera or adding Scene Undo.
+
 Open **Scenes/71-world-sprites.scene.json**, press Play, then open Game. The scene
 includes its camera. The original circle images show tint, horizontal flipping,
 transparent overlap, a top-left pivot and different sizes. These unlit images do

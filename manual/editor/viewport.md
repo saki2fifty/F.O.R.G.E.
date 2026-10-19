@@ -12,7 +12,7 @@ Hold the right mouse button (RMB) and drag to look around from the current camer
 
 While holding RMB, use W/S to fly forward/backward and A/D to fly left/right. Space raises altitude; Shift lowers it along world Y. Holding both cancels vertical movement. Release RMB to stop flight.
 
-Hold Shift+MMB to pan. Dragging left moves the camera right; dragging down moves the camera up. The mouse wheel changes viewing distance.
+Hold Shift+MMB to pan. Dragging left moves the camera right; dragging down moves the camera up. The mouse wheel changes viewing distance in Perspective, or visible height in Orthographic.
 
 Gestures that begin outside the image do not acquire viewport navigation. Losing application focus stops navigation.
 
@@ -41,9 +41,9 @@ Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multip
 
 ## Reference grid and flight speed
 
-**View → Grid** shows a world-anchored XZ reference plane at Y=0. It appears infinite: there is no rectangular patch edge. Thin, muted lines keep approximately one-pixel coverage as you zoom. Small divisions blend away as they become crowded, with subtle emphasis on larger divisions. The whole grid gradually loses contrast at shallow viewing angles toward the horizon, including the colored world axes. It is visible from above and below, with opaque scene objects covering the grid where appropriate.
+**View → Grid** shows a reference plane through world zero. **Grid plane** chooses Ground XZ, Front XY or Side YZ; Ground XZ is the default. It appears infinite: there is no rectangular patch edge. Thin, muted lines keep approximately one-pixel coverage as you zoom. Small divisions blend away as they become crowded, with subtle emphasis on larger divisions. The whole grid gradually loses contrast at shallow viewing angles toward the horizon, including the colored world axes. It is visible from either side, with opaque scene objects covering the grid where appropriate.
 
-Red marks world X at Z=0; blue marks world Z at X=0. Both cross at world `(0,0,0)`. The colored axes and gray lines are part of the same ground rendering, so look, pan, orbit and flight do not move them relative to objects or world coordinates. Their screen positions naturally change with the camera view. Looking exactly along the plane makes it edge-on; looking away from it hides it.
+Red marks world X, green world Y and blue world Z. Each plane shows its two axes crossing at world `(0,0,0)`. The colored axes and gray lines belong to the same rendering, so look, pan, orbit and flight do not move them relative to objects or world coordinates. Their screen positions naturally change with the camera view. Looking exactly along the plane makes it edge-on; looking away from it hides it.
 
 Open **View** to change **Grid spacing** and **Fly speed**. Grid spacing is the smallest displayed division; farther divisions are multiples of ten. This display adjustment does not change snap spacing. The grid is an editor reference, not a floor entity, collision surface or game asset.
 
@@ -71,15 +71,25 @@ For numbered sequence preview frames, use
 
 Choose **View → Save view** to store one camera bookmark for the current scene. **View → Restore view** returns to it. The bookmark also restores automatically when that scene opens again, including after an editor restart. A scene without a bookmark opens with the default camera.
 
+Bookmarks include the projection, orthographic height and grid plane. Older bookmarks restore Perspective with the Ground XZ grid. **Reset view** restores those defaults for the current view; save it to replace a bookmark.
+
 Bookmarks are stored separately from scene content under the project's `.forge` folder. They do not enter scene undo history. Each saved scene path has its own bookmark; untitled scenes share one slot. Save As does not copy the old filename's bookmark to the new filename.
 
 ## Orientation gizmo
 
 The compact widget in the image's upper-right corner shows world X in red, Y in green, and Z in blue. Positive endpoints are filled; negative endpoints carry a minus sign.
 
-Click an endpoint to look from that side toward the current camera target. **+Y** gives an exact top view and **-Y** an exact bottom view. Click the current viewing-axis endpoint again to flip to the opposite side. Drag the widget to orbit. It works without an object selected and does not create scene edits or undo entries.
+Click an endpoint to choose an orthographic view from that side toward the current camera target, with a matching reference plane. **+Y** gives an exact top view and **-Y** an exact bottom view. Click the current viewing-axis endpoint again to flip to the opposite side. Drag the widget to orbit. It works without an object selected and does not create scene edits or undo entries.
 
-The view label identifies axis views and the current **Perspective** projection. An axis view remains perspective; orthographic projection is not available yet. Toggle **View → Orientation gizmo** to hide or show it. The setting persists. The widget hides when the viewport is too small to fit it.
+The view label identifies the viewing direction and current **Perspective** or **Orthographic** projection. Toggle **View → Orientation gizmo** to hide or show it. The setting persists. The widget hides when the viewport is too small to fit it.
+
+## Orthographic editing
+
+Open **View → Projection** to switch between Perspective and Orthographic. Orthographic keeps equally sized objects the same screen size at different depths. Switching matches the size at the camera target within the supported zoom limits. **View height (m)** controls the full visible vertical height; the horizontal extent follows the panel's shape.
+
+**View → Axis views** offers Front (-Z), Back (+Z), Top (+Y), Bottom (-Y), Right (+X) and Left (-X). These select orthographic projection and the matching XY, XZ or YZ grid. You can still orbit, pan, frame, select and transform objects. An axis facing directly toward the camera remains hidden when it cannot be dragged usefully.
+
+These settings belong to Scene editing. They do not change authored Camera components, Play, exported games or Scene Undo. To change the game's projection, select its Camera and edit it in Inspector.
 
 For object rotation and scaling with **R / S**, followed by **X / Y / Z**, see [Transforms](transforms.md).
 

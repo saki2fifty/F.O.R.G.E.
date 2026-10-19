@@ -140,7 +140,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 if (clear)
                     context->ClearRenderTarget(rtv, background.data(),
                                                RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-                const Viewport viewport{0, 0, 64, 64, 0, 1};
+                const Diligent::Viewport viewport{0, 0, 64, 64, 0, 1};
                 context->SetViewports(1, &viewport, 64, 64);
             };
             const auto end = [&] {

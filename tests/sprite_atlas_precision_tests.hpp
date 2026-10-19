@@ -57,7 +57,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                                   RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
         constexpr float clear[]{0, 0, 0, 1};
         context->ClearRenderTarget(rtv, clear, RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
-        const Viewport viewport{0, 0, 64, 64, 0, 1};
+        const Diligent::Viewport viewport{0, 0, 64, 64, 0, 1};
         context->SetViewports(1, &viewport, 64, 64);
         draw.draw(context, {}, view, {}, nullptr, nullptr, nullptr, {}, nullptr, {}, nullptr, {},
                   {}, {}, &values);

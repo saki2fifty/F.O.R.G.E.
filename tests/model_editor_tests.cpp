@@ -18,6 +18,104 @@ void save(const std::filesystem::path& path, const Json& source) {
     out << source.dump();
     require(bool(out.flush()), "Cannot save owned model editor fixture");
 }
+// Real external Content payload delivery exercises the viewport target's ray,
+// deferred publication and history boundary together, at actual UI scales.
+void check_orthographic_drop(const std::filesystem::path& root, ui::EditorUiContext& context) {
+    std::filesystem::create_directories(root);
+    EngineContext engine;
+    Scene scene(engine.world());
+    std::vector<std::string> recent;
+    EditorFiles files(scene, nullptr, recent);
+    files.document.open_project(root, true);
+    ContentBrowser content;
+    content.refresh(files);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (content.refreshing() && std::chrono::steady_clock::now() < deadline) {
+        content.poll(files);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    require(!content.refreshing(), "Drop Content catalog did not settle");
+    SceneAssetDrop drop;
+    EditorCamera camera;
+    const auto prototype =
+        authoring_command(scene, "entity.create", {{"kind", 0}}).at("selected").get<std::string>();
+    const auto prefab = files.document.prefabs().create(
+        scene, create_prefab_source(scene, prototype), "Drop.prefab.json");
+    const auto asset = prefab.str();
+    auto& io = ImGui::GetIO();
+    const auto old_size = io.DisplaySize;
+    io.DisplaySize = {1920, 1200};
+    io.ConfigInputTrickleEventQueue = false;
+    ImVec2 origin{}, size{700, 500};
+    bool dragging = false, allowed = true;
+    const auto frame = [&] {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({10, 10});
+        ImGui::SetNextWindowSize({1500, 1000});
+        ImGui::Begin("Orthographic Content drop");
+        if (dragging && ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+            ImGui::SetDragDropPayload("FORGE_ASSET", asset.c_str(), 37);
+            ImGui::TextUnformatted("Project Cube Prefab");
+            ImGui::EndDragDropSource();
+        }
+        origin = ImGui::GetCursorScreenPos();
+        ImGui::InvisibleButton("Scene image", size);
+        drop.target(scene, files, content, camera, origin, size, allowed);
+        ImGui::End();
+        ImGui::Render();
+    };
+    for (float scale : {1.f, 1.5f, 2.f}) {
+        ui::style(scale);
+        for (unsigned axis = 0; axis < 3; ++axis)
+            for (int sign : {-1, 1}) {
+                camera = {};
+                camera.target = {3, 4, 5};
+                camera.distance = 12;
+                camera.set_projection(CameraProjection::Orthographic);
+                camera.orthographic_height = 10;
+                camera.align(axis, sign);
+                const auto before = scene.document();
+                for (unsigned i = 0; i < 3; ++i)
+                    frame();
+                io.AddMousePosEvent(origin.x + size.x * .65f, origin.y + size.y * .4f);
+                frame();
+                dragging = true;
+                io.AddMouseButtonEvent(0, true);
+                frame();
+                frame();
+                io.AddMouseButtonEvent(0, false);
+                frame();
+                dragging = false;
+                require(drop.busy() && scene.document() == before,
+                        "Orthographic payload was not deferred until owner-thread publication");
+                std::string message;
+                drop.poll(scene, files, context.selection, false, message);
+                require(!drop.busy() && scene.entity_count() == before.at("entities").size() + 1,
+                        message.c_str());
+                // Independent signed-axis oracle using the actually delivered logical pixel.
+                // ImGui quantizes pointer coordinates; fractional UI origins can differ
+                // from the requested floating-point position by one pixel.
+                const auto dx = (io.MousePos.x - origin.x - size.x / 2) * 10 / size.y;
+                const auto dy = (origin.y + size.y / 2 - io.MousePos.y) * 10 / size.y;
+                const std::array<float, 3> expected =
+                    axis == 0   ? std::array<float, 3>{3, 4 + dy, 5 + sign * dx}
+                    : axis == 1 ? std::array<float, 3>{3 + dx, 4, 5 + sign * dy}
+                                : std::array<float, 3>{3 - sign * dx, 4 + dy, 5};
+                const auto entity = scene.entity(context.selection.entity());
+                const auto* position = entity.try_get<LocalTranslation>();
+                require(position && std::abs(position->x - expected[0]) < .001f &&
+                            std::abs(position->y - expected[1]) < .001f &&
+                            std::abs(position->z - expected[2]) < .001f,
+                        "Content drop ignored the orthographic pixel origin or target plane");
+                require(scene.undo() && scene.document() == before,
+                        "Orthographic Content drop did not undo as one ordinary placement");
+                frame();
+            }
+    }
+    ui::style(1);
+    io.DisplaySize = old_size;
+    context.selection.clear();
+}
 void check_content_refresh(const std::filesystem::path& root) {
     EngineContext engine;
     Scene scene(engine.world());
@@ -91,6 +189,7 @@ int main(int argc, char** argv) {
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
         ui::EditorUiContext context;
         ui::ContextScope scope(context);
+        check_orthographic_drop(root / "OrthographicDrop", context);
         ModelImportEditor editor(std::filesystem::absolute(argv[1]), {}, scene, context.selection);
         std::string message;
         auto frame = [&] {

@@ -27,7 +27,9 @@ class EditorInputWorkflow {
         Capture,
         DropFile,
         SourceEdit,
-        SourceText
+        SourceText,
+        CameraPan,
+        CameraWheel
     };
     struct Step {
         Kind kind;
@@ -52,7 +54,7 @@ class EditorInputWorkflow {
     std::uint64_t model_generation_ = 0;
     std::string graph_asset_, graph_parameter_, graph_output_, graph_binding_, graph_added_,
         graph_function_, graph_call_;
-    Json graph_before_;
+    Json graph_before_, view_baseline_, view_before_, view_saved_;
     Json starter_modules_, apply_before_, apply_after_, shot_before_, shortcut_before_,
         tuning_before_, tuning_after_, color_before_, color_after_;
     std::string shot_camera_, shot_controller_, shot_entity_;
@@ -173,6 +175,129 @@ class EditorInputWorkflow {
     static void require(bool ok, const char* reason) {
         if (!ok)
             throw std::runtime_error(reason);
+    }
+    void configure_scene_views() {
+        for (unsigned scale = 0; scale < 3; ++scale) {
+            key(ImGuiKey_0, true);
+            for (unsigned i = 0; i < scale * 5; ++i)
+                key(ImGuiKey_Equal, true);
+            check("view-baseline");
+            for (unsigned axis = 0; axis < 6; ++axis) {
+                click("scene:view-menu");
+                hover("scene:axis-views");
+                click("scene:axis-view:" + std::to_string(axis));
+                check("view-axis:" + std::to_string(axis));
+            }
+            click("scene:view-menu");
+            hover("scene:axis-views");
+            click("scene:axis-view:0");
+            click("scene:view-menu");
+            text("scene:orthographic-height", "12.5", true);
+            key(ImGuiKey_Enter);
+            key(ImGuiKey_Escape);
+            check("view-height");
+            check("view-before-navigation");
+            steps_.push_back({Kind::CameraPan, {}});
+            check("view-panned");
+            check("view-before-navigation");
+            steps_.push_back({Kind::CameraWheel, {}});
+            check("view-zoomed");
+            capture("orthographic-front-" + std::to_string(scale));
+            click("scene:view-menu");
+            click("scene:frame");
+            check("view-framed");
+            click("scene:view-menu");
+            click("scene:save-view");
+            check("view-saved");
+            click("scene:view-menu");
+            click("scene:reset-view");
+            check("view-reset");
+            click("scene:view-menu");
+            click("scene:restore-view");
+            check("view-restored");
+            capture("orthographic-bookmark-" + std::to_string(scale));
+            click("menu:File");
+            click("file:Reload from disk");
+            check("view-reopened");
+            click("saved-cube-row");
+            click("scene:view-menu");
+            click("scene:reset-view");
+            click("scene:view-menu");
+            click("scene:save-view");
+            check("view-reset");
+        }
+        key(ImGuiKey_0, true);
+    }
+    bool verify_scene_view(const std::string& what, const Json& state) {
+        if (!what.starts_with("view-"))
+            return false;
+        if (what == "view-baseline") {
+            view_baseline_ = state;
+            return true;
+        }
+        if (what == "view-reopened") {
+            require(state.at("scene") == view_baseline_.at("scene") &&
+                        state.at("disk") == view_baseline_.at("disk") &&
+                        !state.at("dirty").get<bool>() && state.at("scene_view") == view_saved_,
+                    "Reopening Scene lost its saved orthographic view or changed authored content");
+            // Reload legitimately clears Scene history; subsequent view commands must not.
+            view_baseline_ = state;
+            return true;
+        }
+        for (const auto* field :
+             {"scene", "disk", "dirty", "scene_revision", "scene_undo", "scene_redo"})
+            require(state.at(field) == view_baseline_.at(field),
+                    "Scene view controls changed authored data, Save or history");
+        const auto& view = state.at("scene_view");
+        const auto close_value = [](double a, double b) { return std::abs(a - b) < .0001; };
+        if (what.starts_with("view-axis:")) {
+            const auto axis = std::stoul(what.substr(10));
+            constexpr unsigned planes[] = {1, 1, 0, 0, 2, 2};
+            constexpr double yaws[] = {0, 3.141592653589793,   0,
+                                       0, -1.5707963267948966, 1.5707963267948966};
+            constexpr double pitches[] = {0, 0, -1.5707963267948966, 1.5707963267948966, 0, 0};
+            require(axis < 6 && view.at("projection") == 1 && view.at("plane") == planes[axis] &&
+                        close_value(view.at("yaw"), yaws[axis]) &&
+                        close_value(view.at("pitch"), pitches[axis]),
+                    "Native axis preset did not set matching orthographic direction and plane");
+        } else if (what == "view-height") {
+            require(close_value(view.at("height"), 12.5),
+                    "Native view height did not accept typed input");
+        } else if (what == "view-before-navigation") {
+            view_before_ = view;
+        } else if (what == "view-panned") {
+            require(view.at("target") != view_before_.at("target") &&
+                        view.at("distance") == view_before_.at("distance") &&
+                        view.at("height") == view_before_.at("height") &&
+                        view.at("yaw") == view_before_.at("yaw") &&
+                        view.at("pitch") == view_before_.at("pitch"),
+                    "Native orthographic pan failed or changed projection scale/orientation");
+        } else if (what == "view-zoomed") {
+            require(close_value(view.at("height"),
+                                view_before_.at("height").get<double>() * std::exp(-.15)) &&
+                        view.at("distance") == view_before_.at("distance") &&
+                        view.at("target") == view_before_.at("target"),
+                    "Native orthographic wheel did not zoom extent independently of eye position");
+        } else if (what == "view-framed") {
+            require(view.at("projection") == 1 && view.at("height").get<double>() > 0 &&
+                        view.at("target") != view_before_.at("target"),
+                    "Native Frame selected did not center the orthographic view");
+        } else if (what == "view-saved") {
+            view_saved_ = view;
+        } else if (what == "view-restored") {
+            require(view == view_saved_, "Native bookmark did not restore the complete view");
+        } else if (what == "view-reset") {
+            require(view.at("projection") == 0 && view.at("plane") == 0 &&
+                        view.at("target") == Json::array({0, 1, 0}) &&
+                        close_value(view.at("distance"), 6),
+                    "Native Reset view did not restore perspective/XZ defaults");
+        } else if (what == "view-play-invariant") {
+            require(view == view_baseline_.at("scene_view"),
+                    "Play changed the authored Scene view");
+        } else {
+            throw std::runtime_error("Unknown Scene-view assertion");
+        }
+        return true;
     }
     // Keep independent fixture domains below MSVC's nested-block limit.
     bool verify_development(const std::string& what, const Json& state) {
@@ -305,6 +430,8 @@ class EditorInputWorkflow {
             require(valid, "Character fixture requires World binding and a clear spawn");
             return;
         }
+        if (verify_scene_view(what, state))
+            return;
         if (verify_development(what, state))
             return;
         if (what == "graph-created") {
@@ -1339,6 +1466,7 @@ class EditorInputWorkflow {
         key(ImGuiKey_S, true);
         check("saved");
         capture("saved-scene");
+        configure_scene_views();
         click("menu:Entity");
         click("action:Entity / Delete subtree");
         check("deleted");
@@ -1418,8 +1546,10 @@ class EditorInputWorkflow {
         check("zoom");
         capture("light-ui-150");
         key(ImGuiKey_0, true);
+        check("view-baseline");
         click("icon:play");
         check("playing");
+        check("view-play-invariant");
         capture("game-camera");
         click("game-relative-mouse");
         click("button:Capture gameplay input");
@@ -2120,6 +2250,32 @@ class EditorInputWorkflow {
                               {"rect", {t.minimum.x, t.minimum.y, t.maximum.x, t.maximum.y}},
                               {"route", "ImGui queued mouse/key input"}});
         }
+        if (step.kind == Kind::CameraPan || step.kind == Kind::CameraWheel) {
+            const auto found = ui_targets.find("scene:canvas");
+            if (found == ui_targets.end() || !found->second.enabled) {
+                ui_targets.clear();
+                return;
+            }
+            const auto& t = found->second;
+            pointer_ = {(t.minimum.x + t.maximum.x) * .5f, (t.minimum.y + t.maximum.y) * .5f};
+            if (step.kind == Kind::CameraPan && frame_ >= 4) {
+                pointer_.x += 40;
+                pointer_.y -= 25;
+            }
+            io.AddMousePosEvent(pointer_.x, pointer_.y);
+            if (step.kind == Kind::CameraPan) {
+                if (frame_ == 2) {
+                    io.AddKeyEvent(ImGuiMod_Shift, true);
+                    io.AddMouseButtonEvent(2, true);
+                }
+                if (frame_ == 6) {
+                    io.AddMouseButtonEvent(2, false);
+                    io.AddKeyEvent(ImGuiMod_Shift, false);
+                }
+            } else if (frame_ == 2) {
+                io.AddMouseWheelEvent(0, 1);
+            }
+        }
         if (step.kind == Kind::Drag) {
             const auto separator = step.value.find('|');
             auto name =
@@ -2287,8 +2443,10 @@ class EditorInputWorkflow {
                                          "capture",
                                          "SDL file drop",
                                          "external source edit",
-                                         "type generated C++ source"};
-        static_assert(std::size(names) == static_cast<unsigned>(Kind::SourceText) + 1);
+                                         "type generated C++ source",
+                                         "Scene pan",
+                                         "Scene wheel zoom"};
+        static_assert(std::size(names) == static_cast<unsigned>(Kind::CameraWheel) + 1);
         trace_.push_back({{"step", index_},
                           {"operation", names[int(step.kind)]},
                           {"value", step.value},

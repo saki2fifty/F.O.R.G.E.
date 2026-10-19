@@ -881,7 +881,7 @@ int main(int argc, char** argv) {
         };
         forge::EditorCamera camera;
         try {
-            forge::restore_view(files.document, camera);
+            forge::restore_view(files.document, camera, &scene_tools.grid_plane);
         } catch (const std::exception& e) {
             message = e.what();
         }
@@ -2105,11 +2105,12 @@ int main(int argc, char** argv) {
                 play.stop();
                 editor.selection.clear();
                 camera = {};
+                scene_tools.grid_plane = forge::GridPlane::XZ;
                 scene_tools.cancel();
                 modal.cancel();
                 blockout.cancel();
                 try {
-                    forge::restore_view(files.document, camera);
+                    forge::restore_view(files.document, camera, &scene_tools.grid_plane);
                 } catch (const std::exception& e) {
                     message = e.what();
                 }
@@ -5410,6 +5411,12 @@ int main(int argc, char** argv) {
                                 actions.item("tool.rig.reach");
                                 actions.item("tool.rig.aim");
                                 ImGui::Separator();
+                                if (forge::ui::camera_view_controls(view_camera,
+                                                                    scene_tools.grid_plane)) {
+                                    scene_tools.cancel();
+                                    modal.cancel();
+                                    orientation.dragging = false;
+                                }
                                 frame_selected = ImGui::MenuItem("Frame selected", "F");
                                 FORGE_UI_PROBE("scene:frame");
                                 forge::ui::help(
@@ -5417,21 +5424,30 @@ int main(int argc, char** argv) {
                                 fit_scene = ImGui::MenuItem("Fit scene");
                                 FORGE_UI_PROBE("scene:fit");
                                 forge::ui::help("Frame all visible objects.");
-                                if (ImGui::MenuItem("Reset view"))
+                                if (ImGui::MenuItem("Reset view")) {
                                     view_camera = {};
+                                    scene_tools.grid_plane = forge::GridPlane::XZ;
+                                    scene_tools.cancel();
+                                    modal.cancel();
+                                }
+                                FORGE_UI_PROBE("scene:reset-view");
                                 forge::ui::help("Reset the editor camera without editing objects.");
                                 if (ImGui::MenuItem("Save view"))
                                     perform([&] {
-                                        forge::save_view(files.document, view_camera);
+                                        forge::save_view(files.document, view_camera,
+                                                         scene_tools.grid_plane);
                                         message = "View bookmark saved";
                                     });
+                                FORGE_UI_PROBE("scene:save-view");
                                 forge::ui::help("Remember one camera bookmark for this scene.");
                                 if (ImGui::MenuItem("Restore view"))
                                     perform([&] {
-                                        message = forge::restore_view(files.document, view_camera)
+                                        message = forge::restore_view(files.document, view_camera,
+                                                                      &scene_tools.grid_plane)
                                                       ? "View restored"
                                                       : "No saved view";
                                     });
+                                FORGE_UI_PROBE("scene:restore-view");
                                 forge::ui::help("Return to the saved camera bookmark.");
                                 if (ImGui::MenuItem("Save image…", nullptr, false,
                                                     !view_image.busy() && !files.busy() &&
@@ -5480,8 +5496,8 @@ int main(int argc, char** argv) {
                                     "far plane; labels identify capped or unlimited light ranges.");
                                 changed |= ImGui::Checkbox("Grid", &scene_tools.grid);
                                 forge::ui::help(
-                                    "Show the world-anchored XZ grid at Y=0, fading toward "
-                                    "the horizon.");
+                                    "Show the selected reference plane through world zero. "
+                                    "Distant and crowded divisions fade away.");
                                 changed |= ImGui::DragFloat("Snap spacing", &scene_tools.snap_step,
                                                             .05f, .01f, 1000, "%.2f",
                                                             ImGuiSliderFlags_AlwaysClamp);
@@ -5640,7 +5656,8 @@ int main(int argc, char** argv) {
                             !game_view && orientation.input(view_camera, image_origin, size,
                                                             focused && !game_input.captured() &&
                                                                 !modal.active() &&
-                                                                !scene_tools.active() && !popup);
+                                                                !scene_tools.active() && !popup,
+                                                            &scene_tools.grid_plane);
                         ImGui::SetCursorScreenPos(image_origin);
                         forge::ui::ViewportInput input;
                         const bool was_modal = modal.active();
@@ -5654,6 +5671,8 @@ int main(int argc, char** argv) {
                                     "Cannot frame selection: geometry is not ready or exceeds "
                                     "camera range.";
                         }
+                        if (!game_view)
+                            FORGE_UI_PROBE("scene:canvas");
                         const bool can_edit =
                             !game_view && focused && !play.active() && !sdk_build->busy() &&
                             !files.busy() && !blockout.active() &&
@@ -5723,7 +5742,8 @@ int main(int argc, char** argv) {
                                 : viewport.render(context, rendered, render_width, render_height,
                                                   view_camera, view_cache.generation(),
                                                   performance.continuous,
-                                                  {scene_tools.grid, scene_tools.grid_step});
+                                                  {scene_tools.grid, scene_tools.grid_step,
+                                                   scene_tools.grid_plane});
                         performance.scene_ms = forge::ui::Performance::milliseconds(
                             scene_submit, forge::ui::Performance::Clock::now());
 #ifdef FORGE_UI_FIXTURE
@@ -5828,7 +5848,8 @@ int main(int argc, char** argv) {
                                                       "Rendering > Camera.")
                                         : "Game cameras: " +
                                               std::to_string(game_viewport->cameras().size()))
-                                 : std::string(view_camera.view_name()) + " | Perspective")
+                                 : std::string(view_camera.view_name()) + " | " +
+                                       view_camera.projection_name())
                                 .c_str());
 
                     } else if (!game_view) {
@@ -6517,6 +6538,16 @@ int main(int argc, char** argv) {
                     {"ui_scale", forge::ui::interface_scale},
                     {"status", message}};
                 auto observed = state;
+                observed["scene_view"] = {{"projection", unsigned(camera.projection)},
+                                          {"target", camera.target},
+                                          {"yaw", camera.yaw},
+                                          {"pitch", camera.pitch},
+                                          {"distance", camera.distance},
+                                          {"height", camera.orthographic_height},
+                                          {"plane", unsigned(scene_tools.grid_plane)}};
+                observed["scene_revision"] = scene.revision();
+                observed["scene_undo"] = scene.can_undo();
+                observed["scene_redo"] = scene.can_redo();
                 observed["editor_shortcuts"] = editor_shortcuts.settings();
                 observed["gpu_profile"] = presentation.gpu_profile_status();
                 observed["editor_cpu_profile"] = scene_engine.services().profile_status();

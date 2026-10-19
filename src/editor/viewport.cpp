@@ -10,6 +10,8 @@ namespace forge {
 namespace {
 CameraView scene_camera(const EditorCamera& camera, unsigned width, unsigned height) {
     Camera lens;
+    lens.projection = std::uint32_t(camera.projection);
+    lens.orthographic_height = camera.orthographic_height;
     lens.vertical_fov = 2 * std::atan(1.0 / EditorCamera::focal);
     lens.near_plane = EditorCamera::near_plane;
     lens.far_plane = EditorCamera::far_plane;
@@ -107,6 +109,9 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
     float depthScale=upFar.w/(upFar.w-eyeNear.w);
     Out o; o.position=float4(p.x*rightFocal.w/centerAspect.w,p.y*rightFocal.w,
                              (p.z-eyeNear.w)*depthScale,p.z);
+    if (forwardPad.w > 0)
+        o.position=float4(2*p.x/(forwardPad.w*centerAspect.w),2*p.y/forwardPad.w,
+                          (p.z-eyeNear.w)/(upFar.w-eyeNear.w),1);
     float3 n=normalX.xyz*normal.x + normalY.xyz*normal.y + normalZ.xyz*normal.z;
     float largest=max(abs(n.x),max(abs(n.y),abs(n.z)));
     n /= largest > 0 ? largest : 1;
@@ -246,6 +251,8 @@ Out main(float3 vertex : ATTRIB0, float3 normal : ATTRIB1) {
 ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsigned width,
                                unsigned height, const EditorCamera& camera,
                                std::uint64_t generation, bool live, GridSettings grid) {
+    if (!camera.ray(float(width) / 2, float(height) / 2, float(width), float(height)))
+        throw std::runtime_error("Invalid Scene viewport camera or extent");
     if (meshes_) {
         if (!mesh_scene_ || live || mesh_generation_ != generation) {
             mesh_scene_ = extract_render_scene(scene);
@@ -336,7 +343,7 @@ ITextureView* Viewport::render(IDeviceContext* context, const Json& scene, unsig
                 data[7] = EditorCamera::near_plane;
                 data[11] = EditorCamera::focal;
                 data[15] = EditorCamera::far_plane;
-                data[19] = 0;
+                data[19] = camera.orthographic() ? camera.orthographic_height : 0;
                 const ObjectTransform transform(entity);
                 for (unsigned axis = 0; axis < 3; ++axis) {
                     for (unsigned coordinate = 0; coordinate < 3; ++coordinate)

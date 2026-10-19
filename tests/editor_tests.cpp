@@ -20,6 +20,7 @@
 #include "import_settings_editor_tests.hpp"
 #include "interaction_tests.hpp"
 #include "navigation_editor_tests.hpp"
+#include "orthographic_editor_tests.hpp"
 #include "play.hpp"
 #include "prefab_editor_tests.hpp"
 #include "project_settings.hpp"
@@ -355,6 +356,12 @@ int main(int argc, char** argv) {
         test_blockout();
         test_scene_cache();
         test_world_grid_axes();
+        test_orthographic_camera();
+        test_orthographic_authoring();
+        test_orthographic_bookmarks(std::filesystem::current_path());
+        test_orthographic_gallery_bookmarks(std::filesystem::current_path());
+        for (float scale : {1.f, 1.5f, 2.f})
+            test_orthographic_view_controls(scale);
         for (float scale : {0.65f, 1.0f, 2.0f})
             test_command_workspace(scale);
         for (float scale : {0.65f, 1.0f, 2.0f})

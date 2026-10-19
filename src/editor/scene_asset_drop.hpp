@@ -118,13 +118,20 @@ class SceneAssetDrop {
                     const auto mouse = ImGui::GetIO().MousePos;
                     const auto ray =
                         view_ray(camera, mouse.x - origin.x, mouse.y - origin.y, size.x, size.y);
+                    if (!ray)
+                        throw std::runtime_error("The Scene view has no valid placement ray");
                     // A stable camera-facing plane through the orbit target works
                     // for top/front/side views without a horizon-plane singularity.
-                    const auto depth = camera.distance / dot(ray, camera.forward());
-                    const auto eye = camera.eye();
+                    const auto denominator = dot(ray->direction, camera.forward());
+                    const auto depth =
+                        dot(subtract(camera.target, ray->origin), camera.forward()) / denominator;
+                    if (!std::isfinite(depth) || depth < EditorCamera::near_plane ||
+                        depth > EditorCamera::far_plane)
+                        throw std::runtime_error("Placement is outside the Scene view");
                     queue(*asset, scene, files.document,
-                          {eye[0] + ray[0] * depth, eye[1] + ray[1] * depth,
-                           eye[2] + ray[2] * depth});
+                          {ray->origin[0] + ray->direction[0] * depth,
+                           ray->origin[1] + ray->direction[1] * depth,
+                           ray->origin[2] + ray->direction[2] * depth});
                 } else {
                     ImGui::SetTooltip(asset->type == "scene"
                                           ? "Open scene (asks about unsaved changes)"

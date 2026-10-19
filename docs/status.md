@@ -1,3 +1,13 @@
+# Orthographic Scene editing — Windows validation pending
+
+Development source adds Perspective/Orthographic Scene views, six axis presets,
+XY/XZ/YZ grids, matching picking/tools/navigation and saved view bookmarks.
+Gallery71/72 include front orthographic editor bookmarks. These personal views
+leave authored Game cameras and exported content unchanged. Local input, placement,
+native rendering and sanitizer checks pass; full Windows editor acceptance is
+pending. These changes are not included in Build193. See
+[the user guide](../manual/editor/viewport.md#orthographic-editing).
+
 # Windows delivery — 2026-10-19
 
 **Build261019-000193** delivers world sprites, image-sheet frame animation and

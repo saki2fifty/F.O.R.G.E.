@@ -189,6 +189,7 @@ void check_axes(const Pixels& pixels, unsigned width, unsigned height,
 #include "mesh_gpu_tests.hpp"
 #include "mesh_vertex_fetch_tests.hpp"
 #include "morph_render_tests.hpp"
+#include "orthographic_scene_render_tests.hpp"
 #include "presentation_diligent_tests.hpp"
 #include "punctual_light_tests.hpp"
 #include "sequence_frame_image_tests.hpp"
@@ -404,6 +405,13 @@ int main(int argc, char** argv) {
         check_texture_upload(presentation, context);
         check_texture_preview(presentation, context, images);
         check_native_pbr(presentation, context);
+        forge::test_orthographic_render::exercise(
+            presentation, context,
+            [&](ITexture* texture) {
+                return readback(device, context,
+                                texture->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET));
+            },
+            images / "orthographic");
         auto original = render("grid");
         check_axes(original, width, height, camera);
         auto unchanged = render("retained");

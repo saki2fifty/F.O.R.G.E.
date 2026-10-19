@@ -1,5 +1,5 @@
 #pragma once
-#include "camera.hpp"
+#include "grid.hpp"
 #include "widgets.hpp"
 namespace forge::ui {
 // Submit at the image origin. An actual interactive item owns the drag and
@@ -7,6 +7,65 @@ namespace forge::ui {
 struct ViewportInput {
     bool hovered = false, active = false, activated = false;
 };
+// Editor view settings only: no authored Camera or Scene changes.
+inline bool camera_view_controls(EditorCamera& camera, GridPlane& plane) {
+    bool changed = false;
+    int projection = camera.orthographic() ? 1 : 0;
+    if (ImGui::Combo("Projection", &projection, "Perspective\0Orthographic\0"))
+        changed |= camera.set_projection(projection ? CameraProjection::Orthographic
+                                                    : CameraProjection::Perspective);
+    FORGE_UI_PROBE("scene:projection");
+    help("Perspective gives distant objects a smaller size. Orthographic keeps parallel lines "
+         "parallel. Switching matches the size at the view target within the zoom limits.");
+    if (camera.orthographic()) {
+        auto height = camera.orthographic_height;
+        if (ImGui::DragFloat("View height (m)", &height, std::max(.0001f, height * .01f),
+                             EditorCamera::minimum_height, EditorCamera::maximum_height, "%.4g",
+                             ImGuiSliderFlags_AlwaysClamp) &&
+            std::isfinite(height) && height >= EditorCamera::minimum_height &&
+            height <= EditorCamera::maximum_height) {
+            camera.orthographic_height = height;
+            changed = true;
+        }
+        FORGE_UI_PROBE("scene:orthographic-height");
+        help("Full vertical world height visible in the Scene view. The mouse wheel changes "
+             "this height while orthographic projection is active.");
+    }
+    const bool presets = ImGui::BeginMenu("Axis views");
+    FORGE_UI_PROBE("scene:axis-views");
+    if (presets) {
+        struct Preset {
+            const char* name;
+            unsigned axis;
+            int sign;
+            GridPlane plane;
+        };
+        constexpr Preset views[] = {
+            {"Front (-Z)", 2, -1, GridPlane::XY}, {"Back (+Z)", 2, 1, GridPlane::XY},
+            {"Top (+Y)", 1, 1, GridPlane::XZ},    {"Bottom (-Y)", 1, -1, GridPlane::XZ},
+            {"Right (+X)", 0, 1, GridPlane::YZ},  {"Left (-X)", 0, -1, GridPlane::YZ}};
+        for (unsigned i = 0; i < std::size(views); ++i) {
+            const auto& view = views[i];
+            if (ImGui::MenuItem(view.name) &&
+                camera.set_projection(CameraProjection::Orthographic)) {
+                camera.align(view.axis, view.sign);
+                plane = view.plane;
+                changed = true;
+            }
+            FORGE_UI_PROBE("scene:axis-view:" + std::to_string(i));
+        }
+        ImGui::EndMenu();
+    }
+    int selected_plane = int(plane);
+    if (ImGui::Combo("Grid plane", &selected_plane, "Ground XZ\0Front XY\0Side YZ\0")) {
+        plane = GridPlane(selected_plane);
+        changed = true;
+    }
+    FORGE_UI_PROBE("scene:grid-plane");
+    help("Reference plane through world zero. Axis views choose a matching plane. Projection, "
+         "height and plane are stored with Save view; authored objects stay unchanged.");
+    return changed;
+}
 inline bool camera_controls(EditorCamera& camera, ImVec2 size, bool application_focused,
                             ViewportInput* input = nullptr, bool blocked = false) {
     if (blocked) {

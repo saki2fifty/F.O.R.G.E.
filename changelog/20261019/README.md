@@ -1,5 +1,18 @@
 # 2026-10-19
 
+## Orthographic Scene editing — Windows validation pending
+
+- Scene View offers Perspective/Orthographic projection, visible height and six signed axis views. Orientation endpoints choose an orthographic view with a matching grid.
+- World-zero XY/XZ/YZ grids share projection/depth with drawing, picking, overlays and tools. Pan, zoom, framing and retained images use the admitted view extent.
+- Existing per-scene bookmarks preserve projection, height and grid plane; old bookmarks explicitly restore Perspective/XZ. Unknown metadata survives, and invalid updates preserve the previous file/view.
+- Gallery71/72 ship useful front-view bookmarks separately from authored Sprites, animation and Game cameras. No SDK API, runtime component, dependency or authored Scene format changes.
+
+Local math/input/bookmark and actual Content placement checks pass. Native wide/tall
+axis/grid/depth/picking and perspective/orthographic Sprite cases pass normally and
+with own-unit ASan/UBSan/leak inspection; pinned/native dependencies remain normal.
+All24 normal/sanitizer render outputs match. Full actual Windows editor workflow
+and visual acceptance remain pending. Build193 predates this batch.
+
 ## Standalone presentation display — delivered in Build193
 
 - Optional `--show-fps` launch flag shows FPS, average frame time and the slowest frame in a small reporting window.
