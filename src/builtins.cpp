@@ -687,7 +687,13 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("tint_r")
             .template member<float>("tint_g")
             .template member<float>("tint_b")
-            .template member<float>("tint_a");
+            .template member<float>("tint_a")
+            .template member<std::uint32_t>("image_mode")
+            .template member<double>("pixels_per_meter")
+            .template member<std::uint32_t>("border_left")
+            .template member<std::uint32_t>("border_right")
+            .template member<std::uint32_t>("border_top")
+            .template member<std::uint32_t>("border_bottom");
         for (const auto& [field, offset] :
              {std::pair{"material", offsetof(SpriteRenderer, material)},
               std::pair{"enabled", offsetof(SpriteRenderer, enabled)},
@@ -710,7 +716,13 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"tint_r", offsetof(SpriteRenderer, tint_r)},
               std::pair{"tint_g", offsetof(SpriteRenderer, tint_g)},
               std::pair{"tint_b", offsetof(SpriteRenderer, tint_b)},
-              std::pair{"tint_a", offsetof(SpriteRenderer, tint_a)}}) {
+              std::pair{"tint_a", offsetof(SpriteRenderer, tint_a)},
+              std::pair{"image_mode", offsetof(SpriteRenderer, image_mode)},
+              std::pair{"pixels_per_meter", offsetof(SpriteRenderer, pixels_per_meter)},
+              std::pair{"border_left", offsetof(SpriteRenderer, border_left)},
+              std::pair{"border_right", offsetof(SpriteRenderer, border_right)},
+              std::pair{"border_top", offsetof(SpriteRenderer, border_top)},
+              std::pair{"border_bottom", offsetof(SpriteRenderer, border_bottom)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("SpriteRenderer native Meta disagrees with typed layout");
@@ -1727,6 +1739,20 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["nullable"] = true;
             value["description"] =
                 "Shared unlit image material; owns the texture and alpha/depth settings";
+        } else if (field == "image_mode") {
+            value["description"] =
+                "Simple stretches; Sliced preserves borders; Tiled repeats the selected frame";
+        } else if (field == "pixels_per_meter") {
+            value["minimum"] = .0001;
+            value["maximum"] = 1000000;
+            value["unit"] = "pixels/meter";
+            value["description"] = "Sliced border and Tiled image density before world scale";
+        } else if (field.starts_with("border_")) {
+            value["minimum"] = 0;
+            value["maximum"] = 16384;
+            value["unit"] = "pixels";
+            value["description"] =
+                "Sliced source-cell border; opposing borders must leave a positive center";
         } else if (field == "width" || field == "height") {
             value["minimum"] = .0001;
             value["maximum"] = 10000;
@@ -1915,6 +1941,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.camera" && field == "projection") {
         type = "forge.CameraProjection";
         names = {"Perspective", "Orthographic"};
+    } else if (component == "forge.sprite_renderer" && field == "image_mode") {
+        type = "forge.SpriteImageMode";
+        names = {"Simple", "Sliced", "Tiled"};
     } else if (component == "forge.light" && field == "kind") {
         type = "forge.LightKind";
         names = {"Directional", "Point", "Spot"};
@@ -2205,6 +2234,11 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
 namespace {
 Json admitted_builtin_source(const Builtin& type, const Json& source) {
     auto current = source;
+    if (std::string_view(type.name) == "forge.sprite_renderer")
+        for (const auto* field : {"image_mode", "pixels_per_meter", "border_left", "border_right",
+                                  "border_top", "border_bottom"})
+            if (!current.contains(field))
+                current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.transform_animator")
         for (const auto* field : {"sequence", "sequence_start_seconds"})
             if (!current.contains(field))

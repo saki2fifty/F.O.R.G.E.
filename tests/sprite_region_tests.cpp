@@ -23,6 +23,54 @@ template <class F> void rejects(F&& action) {
     }
     check(rejected, "Invalid sprite region/grid was admitted");
 }
+void image_mapping() {
+    const auto large = sprite_image_axis(1, 10, 2, 3, 2, 10);
+    near(large.source_low, .2);
+    near(large.source_high, .3);
+    near(large.target_low, .1);
+    near(large.target_high, .15);
+    const auto small = sprite_image_axis(1, 10, 2, 3, .2, 10);
+    near(small.target_low, .4);
+    near(small.target_high, .6);
+    const auto partial = sprite_image_axis(2, 16, 0, 0, 1, 24);
+    near(partial.repeat, 1.5);
+    const auto simple = sprite_image_axis(0, 16, UINT32_MAX, UINT32_MAX, 10000, 1000000);
+    near(simple.repeat, 1);
+    near(simple.source_low, 0);
+    const auto inert = sprite_image_axis(2, 16, UINT32_MAX, UINT32_MAX, 1, 24);
+    near(inert.repeat, 1.5);
+    std::uint64_t cases = 0;
+    for (unsigned pixels = 1; pixels <= 64; ++pixels)
+        for (unsigned left = 0; left < pixels; ++left)
+            for (double meters : {.0001, .25, 2., 10000.}) {
+                const auto right = (pixels - left - 1) / 2;
+                const auto axis = sprite_image_axis(1, pixels, left, right, meters, 100);
+                const double target = meters * 100;
+                // Independent pixel-space invariants: preserved corners at/above
+                // natural size, proportional compression below it, no overlap.
+                near(axis.source_low * pixels, left);
+                near(axis.source_high * pixels, right);
+                if (target >= left + right) {
+                    near(axis.target_low * target, left);
+                    near(axis.target_high * target, right);
+                } else {
+                    near(axis.target_low + axis.target_high, 1);
+                    near(axis.target_low * (left + right), left);
+                }
+                check(axis.target_low + axis.target_high <= 1 + 1e-12 &&
+                          axis.source_low + axis.source_high < 1,
+                      "Sliced image overlaps its opposing borders");
+                ++cases;
+            }
+    check(cases == 8320, "Image mapping partition coverage changed");
+    rejects([] { sprite_image_axis(3, 16, 0, 0, 1, 100); });
+    rejects([] { sprite_image_axis(1, 16, 8, 8, 1, 100); });
+    rejects([] { sprite_image_axis(1, 16, UINT32_MAX, 2, 1, 100); });
+    rejects([] { sprite_image_axis(2, 16, 0, 0, 10000, 1000000); });
+    rejects([] { sprite_image_axis(0, 0, 0, 0, 1, 100); });
+    rejects([] { sprite_image_axis(1, 16, 0, 0, 1, 0); });
+    rejects([] { sprite_image_axis(1, 16, 0, 0, 1, std::numeric_limits<double>::quiet_NaN()); });
+}
 void sheet_selection() {
     // Independent pixel partition with outer borders and internal empty gaps.
     for (unsigned y = 0; y < 8; ++y)
@@ -97,6 +145,7 @@ void sheet_selection() {
 } // namespace
 int main() {
     try {
+        image_mapping();
         sheet_selection();
         check(sprite_grid_region(16, 8, {4, 2}, 0) == SpritePixelRegion{0, 0, 4, 4},
               "First frame differs");

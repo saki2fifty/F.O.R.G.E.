@@ -722,18 +722,30 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
             require(transform_parity(item.world) == transform_parity(world),
                     "instance batch mixes raster winding policies");
             double maximum = 0;
-            for (unsigned r = 0; r < 3; ++r)
-                for (unsigned c = 0; c < 3; ++c)
-                    maximum = std::max(maximum, std::abs(item.world.m[4 * r + c]));
+            if (!sprite_)
+                for (unsigned r = 0; r < 3; ++r)
+                    for (unsigned c = 0; c < 3; ++c)
+                        maximum = std::max(maximum, std::abs(item.world.m[4 * r + c]));
             for (unsigned r = 0; r < 3; ++r) {
                 for (unsigned c = 0; c < 3; ++c) {
                     copied[i][r][c] = gpu(item.world.m[4 * r + c]);
-                    copied[i][3 + r][c] = maximum > 0 ? gpu(item.world.m[4 * r + c] / maximum) : 0;
+                    if (!sprite_)
+                        copied[i][3 + r][c] =
+                            maximum > 0 ? gpu(item.world.m[4 * r + c] / maximum) : 0;
                 }
                 copied[i][r][3] = gpu(item.world.m[4 * r + 3] - view.position[r]);
             }
             if (sprite_) {
                 const auto& values = *item.sprite;
+                // The unlit Sprite path does not consume a lighting basis. Reuse
+                // those three rows for numeric mapping without growing its stride.
+                for (unsigned axis = 0; axis < 2; ++axis) {
+                    const auto& mapping = values.image.axes[axis];
+                    copied[i][3 + axis] = {gpu(mapping.source_low), gpu(mapping.source_high),
+                                           gpu(mapping.target_low), gpu(mapping.target_high)};
+                }
+                copied[i][5] = {float(values.image.mode), gpu(values.image.axes[0].repeat),
+                                gpu(values.image.axes[1].repeat), 0};
                 copied[i][6] = values.color;
                 for (unsigned axis = 0; axis < 2; ++axis) {
                     copied[i][7][axis] = gpu(values.region.origin[axis]);

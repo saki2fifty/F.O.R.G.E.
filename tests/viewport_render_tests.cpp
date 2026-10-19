@@ -19,6 +19,7 @@
 #include "sprite_atlas_precision_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
 #include "sprite_gallery_render_tests.hpp"
+#include "sprite_image_render_tests.hpp"
 #include "sprite_projection_render_tests.hpp"
 #include "sprite_scene_render_tests.hpp"
 #include "viewport.hpp"
@@ -270,6 +271,7 @@ int main(int argc, char** argv) {
                     return forge::test_sprite_draw::read_pixels(device, context, texture);
                 };
                 forge::test_sprite_draw::exercise(isolated, context, read, images);
+                forge::test_sprite_image::exercise(isolated, context, read, images / "image-fill");
                 forge::test_sprite_bundle::exercise(isolated, context, read);
                 forge::test_sprite_atlas_precision::exercise(isolated, context, read);
                 forge::test_sprite_scene_render::exercise(isolated, context, read,

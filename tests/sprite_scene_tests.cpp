@@ -3,6 +3,7 @@
 #include "sprite_render_values.hpp"
 #include <forge/authoring.hpp>
 #include <forge/engine_assets.hpp>
+#include <forge/prefab_authoring.hpp>
 #include <forge/render_scene.hpp>
 #include <iostream>
 
@@ -11,6 +12,80 @@ namespace {
 void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
+}
+void image_authoring(EngineContext& engine, Json legacy, EntityId actor,
+                     const std::filesystem::path& root) {
+    auto& image = legacy["entities"][0]["components"]["forge.sprite_renderer"];
+    for (const auto* field : {"image_mode", "pixels_per_meter", "border_left", "border_right",
+                              "border_top", "border_bottom"})
+        image.erase(field);
+    image["future_image_extension"] = {{"keep", Json::array({7, 9})}};
+    Scene scene(engine.world());
+    scene.reset(legacy);
+    const auto before = scene.document();
+    const auto typed = scene.entity(actor.str()).get<SpriteRenderer>();
+    check(typed.image_mode == std::uint32_t(SpriteImageMode::Simple) &&
+              typed.pixels_per_meter == 100 && typed.border_left == 0 && typed.border_right == 0 &&
+              typed.border_top == 0 && typed.border_bottom == 0,
+          "Old Sprite data did not admit additive Simple defaults");
+    check(scene.document().at("asset_id") == legacy.at("asset_id") &&
+              scene.document()["entities"][0]["id"].get<EntityId>() == actor &&
+              scene.document()["entities"][0]["components"]["forge.sprite_renderer"]
+                              ["future_image_extension"] == image["future_image_extension"],
+          "Old Sprite admission changed identity or unknown data");
+    for (const auto& [field, value] : std::vector<std::pair<std::string, Json>>{
+             {"image_mode", 1}, {"pixels_per_meter", 32}, {"border_left", 2}, {"border_right", 1}})
+        authoring_command(scene, "property.set",
+                          {{"entity", actor},
+                           {"component", "forge.sprite_renderer"},
+                           {"field", field},
+                           {"value", value}});
+    const auto changed = scene.document();
+    const auto mapped = scene.entity(actor.str()).get<SpriteRenderer>();
+    check(mapped.image_mode == 1 && mapped.pixels_per_meter == 32 && mapped.border_left == 2 &&
+              mapped.border_right == 1,
+          "Image fill authoring bypassed typed component values");
+    for (unsigned step = 0; step < 4; ++step)
+        check(scene.undo(), "Image fill property did not create its ordinary Undo step");
+    check(scene.document() == before, "Image fill Undo lost legacy/unknown intent");
+    for (unsigned step = 0; step < 4; ++step)
+        check(scene.redo(), "Image fill Redo failed");
+    check(scene.document() == changed, "Image fill Redo changed admitted values");
+    const auto path = root / "LegacyImage.scene.json";
+    scene.save(path);
+    Scene reopened(engine.world());
+    reopened.load(path);
+    check(reopened.document() == changed &&
+              reopened.entity(actor.str()).get<SpriteRenderer>() == mapped,
+          "Image fill values/unknown extension did not reopen exactly");
+    const auto member = PrefabMemberId::generate();
+    const Json prefab_source{
+        {"format", "forge.prefab"},
+        {"version", 2},
+        {"asset_id", AssetId::generate()},
+        {"revision", 1u},
+        {"root", member},
+        {"members", Json::array({{{"id", member},
+                                  {"name", "Old image"},
+                                  {"components", legacy["entities"][0]["components"]}}})}};
+    const PrefabDocument prefab(prefab_source);
+    check(prefab.source == prefab_source, "Legacy Sprite prefab was rewritten during admission");
+    Scene instance(engine.world());
+    instance.set_prefab_sources({{prefab.asset(), prefab.source}});
+    const auto root_entity = instantiate_prefab(instance, prefab.asset());
+    const auto inherited = instance.document();
+    check(instance.entity(root_entity).get<SpriteRenderer>().image_mode == 0,
+          "Legacy Sprite prefab did not realize Simple defaults");
+    authoring_command(instance, "property.set",
+                      {{"entity", root_entity},
+                       {"component", "forge.sprite_renderer"},
+                       {"field", "image_mode"},
+                       {"value", 2}});
+    check(instance.entity(root_entity).get<SpriteRenderer>().image_mode == 2 &&
+              instance.prefab_sources().at(prefab.asset()) == prefab_source && instance.undo() &&
+              instance.document() == inherited &&
+              instance.entity(root_entity).get<SpriteRenderer>().image_mode == 0,
+          "Sprite image override/Undo changed prefab source or inherited defaults");
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -48,6 +123,7 @@ int main(int argc, char** argv) {
                   scene.undo() && scene.document() == before_add && scene.redo() &&
                   scene.document() == added,
               "Sprite component creation/Undo/Redo did not use typed Scene authority");
+        image_authoring(engine, added, actor, root);
         auto source = scene.document();
         auto& sprite = source["entities"][0]["components"]["forge.sprite_renderer"];
         sprite["material"] = material;
@@ -124,6 +200,14 @@ int main(int argc, char** argv) {
                                                        {"pivot_y", 1.01},
                                                        {"tint_a", 1.01},
                                                        {"tint_r", -.01},
+                                                       {"image_mode", 3},
+                                                       {"image_mode", .5},
+                                                       {"image_mode", -1},
+                                                       {"pixels_per_meter", 0},
+                                                       {"pixels_per_meter", 1000001},
+                                                       {"border_left", -1},
+                                                       {"border_top", .25},
+                                                       {"border_bottom", 16385},
                                                        {"enabled", 1},
                                                        {"material", "invalid"}}) {
             const auto revision = scene.revision();

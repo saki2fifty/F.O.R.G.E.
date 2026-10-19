@@ -18,6 +18,15 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
         value.margin_x > 16384 || value.margin_y > 16384 || value.spacing_x > 16384 ||
         value.spacing_y > 16384 || value.frame >= std::uint64_t(value.columns) * value.rows)
         throw std::invalid_argument("Sprite grid/frame is outside the supported integer range");
+    if (value.image_mode > std::uint32_t(SpriteImageMode::Tiled))
+        throw std::invalid_argument("Sprite image mode is unsupported");
+    if (!std::isfinite(value.pixels_per_meter) || value.pixels_per_meter < .0001 ||
+        value.pixels_per_meter > 1000000)
+        throw std::invalid_argument("Sprite pixels per meter must be finite in [0.0001,1000000]");
+    for (const auto border :
+         {value.border_left, value.border_right, value.border_top, value.border_bottom})
+        if (border > 16384)
+            throw std::invalid_argument("Sprite borders must be whole pixels in [0,16384]");
 }
 Json render_value(const SpriteRenderer& p) {
     validate_sprite_renderer(p);
@@ -42,7 +51,13 @@ Json render_value(const SpriteRenderer& p) {
             {"tint_r", p.tint_r},
             {"tint_g", p.tint_g},
             {"tint_b", p.tint_b},
-            {"tint_a", p.tint_a}};
+            {"tint_a", p.tint_a},
+            {"image_mode", p.image_mode},
+            {"pixels_per_meter", p.pixels_per_meter},
+            {"border_left", p.border_left},
+            {"border_right", p.border_right},
+            {"border_top", p.border_top},
+            {"border_bottom", p.border_bottom}};
 }
 SpriteRenderer sprite_renderer_value(const Json& p) {
     SpriteRenderer value;
@@ -69,6 +84,12 @@ SpriteRenderer sprite_renderer_value(const Json& p) {
     value.tint_g = p.at("tint_g").get<float>();
     value.tint_b = p.at("tint_b").get<float>();
     value.tint_a = p.at("tint_a").get<float>();
+    value.image_mode = p.value("image_mode", value.image_mode);
+    value.pixels_per_meter = p.value("pixels_per_meter", value.pixels_per_meter);
+    value.border_left = p.value("border_left", value.border_left);
+    value.border_right = p.value("border_right", value.border_right);
+    value.border_top = p.value("border_top", value.border_top);
+    value.border_bottom = p.value("border_bottom", value.border_bottom);
     validate_sprite_renderer(value);
     return value;
 }

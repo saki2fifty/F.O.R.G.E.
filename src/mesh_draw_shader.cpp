@@ -35,10 +35,16 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
 )"
                                         : "";
     std::string varyings =
-        "struct ForgeVarying {float4 Position:SV_Position;float3 World:TEXCOORD0;"
-        "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
-        "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;float2 UV[" +
-        std::to_string(uv_count) + "]:TEXCOORD4;";
+        "struct ForgeVarying {float4 Position:SV_Position;float3 World:TEXCOORD0;";
+    if (sprite_profile)
+        varyings += "nointerpolation float4 SpriteX:TEXCOORD1;"
+                    "nointerpolation float4 SpriteY:TEXCOORD2;"
+                    "nointerpolation float4 SpriteImage:TEXCOORD3;"
+                    "float4 Color:COLOR0;nointerpolation float4 SpriteAtlas:COLOR1;";
+    else
+        varyings += "float3 Normal:TEXCOORD1;float3 Tangent:TEXCOORD2;float3 Bitangent:TEXCOORD3;"
+                    "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;";
+    varyings += "float2 UV[" + std::to_string(uv_count) + "]:TEXCOORD4;";
     if (sprite_profile)
         varyings += "nointerpolation float4 SpriteClamp:TEXCOORD5;";
     if (fetch.skin)
@@ -74,22 +80,27 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
         vs += "o.Source=v.Position;[unroll]for(uint k=0;k<3;k++)o.SkinRows[k]=basis[k];\n";
     } else if (instanced) {
         vs += "float4 position4=float4(v.Position,1);o.World=float3(dot(instance.R0,position4),"
-              "dot(instance.R1,position4),dot(instance.R2,position4));"
-              "basis=float3x3(instance.B0.xyz,instance.B1.xyz,instance.B2.xyz);\n";
+              "dot(instance.R1,position4),dot(instance.R2,position4));";
+        if (!sprite_profile)
+            vs += "basis=float3x3(instance.B0.xyz,instance.B1.xyz,instance.B2.xyz);\n";
     } else
         vs += "o.World=ForgePoint(v.Position);basis=float3x3(g_Object[3].xyz,g_Object[4].xyz,g_"
               "Object[5].xyz);\n";
-    vs += instanced ? "o.LegacyTint=instance.Tint;\n" : "o.LegacyTint=g_Object[14];\n";
-    vs += R"(
-    o.Position=ForgeProject(o.World);o.Color=v.Color;
+    vs += "o.Position=ForgeProject(o.World);o.Color=v.Color;\n";
+    if (!sprite_profile) {
+        vs += instanced ? "o.LegacyTint=instance.Tint;\n" : "o.LegacyTint=g_Object[14];\n";
+        vs += R"(
     ForgeSurfaceFrame frame=ForgeMakeSurfaceFrame(basis,v.Normal,v.Tangent);
     o.Normal=frame.Normal;o.Tangent=frame.Tangent;o.Bitangent=frame.Bitangent;
-)"
-          "[unroll]for(uint i=0;i<" +
-          std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];";
+ )";
+    }
+    vs += "[unroll]for(uint i=0;i<" + std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];";
     if (sprite_profile)
-        vs += "o.UV[0]=instance.Atlas.xy+float2(v.UV[0].x,1-v.UV[0].y)*instance.Atlas.zw;"
-              "o.SpriteClamp=instance.AtlasClamp;o.Color*=instance.Tint;o.LegacyTint=0;";
+        vs += "float2 local=float2(v.UV[0].x,1-v.UV[0].y);"
+              "o.UV[0]=instance.B2.x==0?instance.Atlas.xy+local*instance.Atlas.zw:local;"
+              "o.SpriteX=instance.B0;o.SpriteY=instance.B1;o.SpriteImage=instance.B2;"
+              "o.SpriteAtlas=instance.Atlas;o.SpriteClamp=instance.AtlasClamp;"
+              "o.Color*=instance.Tint;";
     vs += "return o;}\n";
     std::string geometry;
     if (fetch.skin && fetch.triangles)
@@ -244,13 +255,34 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
         ps += "#include \"ForgeTransmission.fxh\"\n";
     ps += "cbuffer ForgeLights {PBRLightAttribs g_Lights[" + std::to_string(mesh_draw_light_limit) +
           "];};\n";
+    if (sprite_profile)
+        ps += R"(
+float ForgeSpriteSlice(float u,float4 axis) {
+    if(axis.z>0 && u<=axis.z)return u*axis.x/axis.z;
+    if(axis.w>0 && u>=1-axis.w)return 1-(1-u)*axis.y/axis.w;
+    float center=1-axis.z-axis.w;
+    return center>0?axis.x+(u-axis.z)*(1-axis.x-axis.y)/center:axis.x;
+}
+)";
     ps += R"(
 float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     float3 dpdx=ddx(input.World),dpdy=ddy(input.World);
     bool valid=true;
 )";
     if (sprite_profile)
-        ps += "input.UV[0]=clamp(input.UV[0],input.SpriteClamp.xy,input.SpriteClamp.zw);\n";
+        ps += R"(
+    if(input.SpriteImage.x!=0) {
+        float2 local=input.UV[0];
+        if(input.SpriteAtlas.z<0)local.x=1-local.x;
+        if(input.SpriteAtlas.w<0)local.y=1-local.y;
+        float2 mapped=input.SpriteImage.x==1?
+            float2(ForgeSpriteSlice(local.x,input.SpriteX),ForgeSpriteSlice(local.y,input.SpriteY)):
+            frac(local*input.SpriteImage.yz);
+        input.UV[0]=min(input.SpriteAtlas.xy,input.SpriteAtlas.xy+input.SpriteAtlas.zw)+
+                    mapped*abs(input.SpriteAtlas.zw);
+    }
+    input.UV[0]=clamp(input.UV[0],input.SpriteClamp.xy,input.SpriteClamp.zw);
+)";
     if (graph)
         ps += "ForgeGraphValues graph=ForgeGraphSurface(input);\n"
               "if(!all(isfinite(graph.BaseColor)) || !isfinite(graph.Metallic) || "
@@ -292,8 +324,11 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         if (source.alpha != MaterialAlpha::Blend)
             ps += "base.a=1;\n";
     }
-    ps += "if(input.LegacyTint.w!=0)base.rgb*=input.LegacyTint.rgb;\n";
-    if (profile.workflow == PbrWorkflow::Unlit)
+    if (!sprite_profile)
+        ps += "if(input.LegacyTint.w!=0)base.rgb*=input.LegacyTint.rgb;\n";
+    if (sprite_profile)
+        ps += "return all(isfinite(base))?base:float4(1,0,1,1);}\n";
+    else if (profile.workflow == PbrWorkflow::Unlit)
         ps += R"(
     if(input.LegacyTint.w!=0) {
         float3 n=ForgeUnit(input.Normal);

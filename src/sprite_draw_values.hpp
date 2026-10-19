@@ -1,4 +1,5 @@
 #pragma once
+#include "sprite_image_mapping.hpp"
 #include "sprite_region.hpp"
 #include <algorithm>
 #include <cmath>
@@ -10,8 +11,21 @@ namespace forge {
 struct SpriteDrawValues {
     SpriteRegionMapping region;
     std::array<float, 4> color{1, 1, 1, 1}; // Linear straight RGBA modulation.
+    SpriteImageMapping image{};
 };
 inline void validate_sprite_draw_values(const SpriteDrawValues& values) {
+    if (values.image.mode > 2)
+        throw std::invalid_argument("Sprite draw image mode is unsupported");
+    for (const auto& axis : values.image.axes) {
+        for (const auto span :
+             {axis.source_low, axis.source_high, axis.target_low, axis.target_high})
+            if (!std::isfinite(span) || span < 0 || span > 1)
+                throw std::invalid_argument("Sprite draw image spans must be finite in [0,1]");
+        if (axis.source_low + axis.source_high >= 1 ||
+            axis.target_low + axis.target_high > 1 + 8 * std::numeric_limits<double>::epsilon() ||
+            !std::isfinite(axis.repeat) || axis.repeat <= 0 || axis.repeat > 1048576)
+            throw std::invalid_argument("Sprite draw image mapping is outside supported bounds");
+    }
     constexpr double tolerance = 64 * std::numeric_limits<double>::epsilon();
     for (unsigned axis = 0; axis < 2; ++axis) {
         const auto origin = values.region.origin[axis], scale = values.region.scale[axis];

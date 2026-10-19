@@ -50,6 +50,7 @@ struct MeshRenderer {
 };
 // World-space XY image/sheet. Material owns texture/sampler/alpha/depth intent;
 // these numeric values introduce no resource, simulation clock or hierarchy.
+enum class SpriteImageMode : std::uint32_t { Simple, Sliced, Tiled };
 struct SpriteRenderer {
     AssetRef<MaterialAsset> material;
     bool enabled = true, visible = true, flip_x = false, flip_y = false;
@@ -60,6 +61,9 @@ struct SpriteRenderer {
     double width = 1, height = 1;      // Meters before the entity's world transform.
     double pivot_x = .5, pivot_y = .5; // Normalized from the image's top-left corner.
     float tint_r = 1, tint_g = 1, tint_b = 1, tint_a = 1; // Linear straight RGBA.
+    std::uint32_t image_mode = std::uint32_t(SpriteImageMode::Simple);
+    double pixels_per_meter = 100; // Sliced border density and Tiled repeat density.
+    std::uint32_t border_left = 0, border_right = 0, border_top = 0, border_bottom = 0;
     bool operator==(const SpriteRenderer&) const = default;
 };
 // Authored emitter values only. Effect resources, fixed-clock age and transient

@@ -11,10 +11,15 @@ inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
     detail::validate_sprite_renderer(sprite);
     const SpriteGridLayout grid{sprite.columns,  sprite.rows,      sprite.margin_x,
                                 sprite.margin_y, sprite.spacing_x, sprite.spacing_y};
+    const auto region = sprite_grid_region(texture_width, texture_height, grid, sprite.frame);
     return {
-        sprite_region_mapping(sprite_grid_region(texture_width, texture_height, grid, sprite.frame),
-                              texture_width, texture_height, sprite.flip_x, sprite.flip_y),
-        {sprite.tint_r, sprite.tint_g, sprite.tint_b, sprite.tint_a}};
+        sprite_region_mapping(region, texture_width, texture_height, sprite.flip_x, sprite.flip_y),
+        {sprite.tint_r, sprite.tint_g, sprite.tint_b, sprite.tint_a},
+        {sprite.image_mode,
+         {sprite_image_axis(sprite.image_mode, region.width, sprite.border_left,
+                            sprite.border_right, sprite.width, sprite.pixels_per_meter),
+          sprite_image_axis(sprite.image_mode, region.height, sprite.border_top,
+                            sprite.border_bottom, sprite.height, sprite.pixels_per_meter)}}};
 }
 inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
                                            const TextureData& source) {
