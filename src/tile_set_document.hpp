@@ -1,5 +1,6 @@
 #pragma once
 #include "asset_source_document.hpp"
+#include "tile_asset_types.hpp"
 #include "tile_set_source.hpp"
 #include <algorithm>
 #include <set>
@@ -8,7 +9,7 @@ struct TileSetDocumentTraits {
     using Source = TileSetSource;
     static constexpr auto byte_limit = tile_set_source_byte_limit;
     static constexpr auto suffix = ".tileset.json";
-    static constexpr auto asset_type = "tile_set";
+    static constexpr auto asset_type = TileSetAsset::type;
     static Source create(AssetId id) { return Source::create(id); }
     static void validate_edit(const Source& before, const Source& after) {
         const auto previous = before.values(), next = after.values();

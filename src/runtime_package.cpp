@@ -18,6 +18,7 @@
 #include "runtime_document_package.hpp"
 #include "runtime_raw_assets.hpp"
 #include "texture_bundle_validation.hpp"
+#include "tile_asset_resources.hpp"
 #include "ui_asset_catalog.hpp"
 #include <forge/animation_states.hpp>
 #include <forge/audio_components.hpp>
@@ -181,7 +182,8 @@ AssetRecord runtime_record(AssetRecord record) {
          {"forge.import", "forge.model", "forge.mesh", "forge.terrain", "forge.material",
           "forge.shader", "forge.audio", "forge.ui_source", "forge.collision",
           "forge.transform_animation", "forge.animation_states", "forge.animation_mask",
-          "forge.animation_blend_space", "forge.particle_effect"})
+          "forge.animation_blend_space", "forge.particle_effect", "forge.tile_set",
+          "forge.tile_map"})
         if (record.metadata.contains(name))
             metadata[name] = record.metadata.at(name);
     record.metadata = std::move(metadata);
@@ -213,7 +215,11 @@ Json artifact_profile(const CachedArtifact& artifact, const AssetRecord& root,
 }
 void admit_bundle(const AssetRecord& root, const CachedArtifact& artifact) {
     const auto format = root.metadata.at("forge.import").at("output_format");
-    if (root.type == ModelAsset::type && format == "forge.model-bundle")
+    if (root.type == TileSetAsset::type && format == tile_set_cooked_format)
+        (void)admit_tile_set_artifact(artifact, root);
+    else if (root.type == TileMapAsset::type && format == tile_map_cooked_format)
+        (void)admit_tile_map_artifact(artifact, root);
+    else if (root.type == ModelAsset::type && format == "forge.model-bundle")
         (void)validate_model_bundle(artifact.files);
     else if (root.type == AnimationBlendSpaceAsset::type &&
              format == "forge.animation-blend-space") {

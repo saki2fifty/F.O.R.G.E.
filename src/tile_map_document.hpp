@@ -1,5 +1,6 @@
 #pragma once
 #include "asset_source_document.hpp"
+#include "tile_asset_types.hpp"
 #include "tile_map_source.hpp"
 #include <set>
 
@@ -8,7 +9,7 @@ struct TileMapDocumentTraits {
     using Source = TileMapSource;
     static constexpr auto byte_limit = tile_map_source_byte_limit;
     static constexpr auto suffix = ".tilemap.json";
-    static constexpr auto asset_type = "tile_map";
+    static constexpr auto asset_type = TileMapAsset::type;
     static Source create(AssetId) {
         throw std::runtime_error("Select a Tile Set before creating a Tile Map");
     }

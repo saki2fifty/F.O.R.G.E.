@@ -1,8 +1,10 @@
 # Tile Set and Tile Map source foundation
 
-These are internal source codecs and document tests. They are not registered
-importers or user-facing Tile Set/Tile Map tools. There is no completed painting,
-rendering, C++ runtime or export support from this foundation alone. The first
+These are internal source, cooked-data and asset-pipeline foundations. The
+programmatic import/publication/resource/content-package path has focused Linux
+tests; editor/CLI automatic routing and user-facing Tile Set/Tile Map tools are
+still pending. There is no completed painting, tile rendering, C++ cell API or
+standalone game-export workflow from this foundation alone. The first
 complete workflow must integrate those consumers and the Feature Gallery before
 claiming a working tilemap feature.
 
@@ -42,9 +44,9 @@ sheet frames start at the image's top left and proceed across each row.
 
 Admission limits are 16 images, 4096 tile definitions, 2MiB source bytes,
 100000 JSON events and depth 16. Names contain 1–128 UTF-8 bytes without ASCII
-controls. Material compatibility, published image readiness and actual texture
-extents require the later resource/publication integration; a structurally valid
-source is not evidence that its images can render.
+controls. Source admission checks structure; publication additionally checks
+Material compatibility, published image readiness and actual texture extents
+through the existing Sprite image candidate. Neither check promises GPU readiness.
 
 ### Cooked Tile Set data
 
@@ -69,8 +71,8 @@ code. This checks values and linking, not image publication or GPU readiness.
 
 The 16-image/4096-definition fixture, with maximum-length tile names, cooks to
 706285 bytes. Its retained allocation estimate is 759440 bytes in Linux GCC12;
-this is not a process RSS or cross-platform allocator guarantee. Material profile
-and real image-extent admission remain part of the pending asset integration.
+this is not a process RSS or cross-platform allocator guarantee. Publication
+separately admits the Material profile and actual selected image extent.
 
 ## Internal Tile Map profile
 
@@ -80,7 +82,8 @@ meters and `layers`. Each layer has an allocated local uint64 `id`, `name`, bool
 `visible` and signed int32 `order`. Layer names and local keys follow the same
 display/identity distinction and high-water behavior as Tile Sets. A painted map
 cannot change its Tile Set identity without first clearing its occupied cells.
-Resolving tile keys against a published Tile Set is a later admission boundary.
+Import discovery and cooking resolve occupied tile keys against the selected
+published Tile Set; the source parser alone does not load that dependency.
 
 The first internal limits are 8 layers, 1024 chunks, 262144 occupied cells,
 4096 ordered cell writes per candidate, 64MiB source bytes, 4000000 JSON events
@@ -123,6 +126,42 @@ It is an encoded retention policy, not a process RSS cap. The immutable chunk
 representation keeps unchanged data shared across saved values and history.
 
 ## Current evidence and remaining work
+
+### Ordinary asset publication and loading
+
+Internal `TileSetAsset`/`TileMapAsset` tags use the existing root AssetCatalog and
+ResourcePool contracts. `tile_asset_import_registry` supplies the two source
+importers to `AssetImportService`; no parallel catalog, dependency graph, history
+or loaded-handle database is introduced. Source bytes and selected dependencies
+are recaptured before cooking, and stale or failed candidates retain last-good
+publication.
+
+Tile Set discovery uses the existing complete Quad/Material/Texture candidate and
+`sprite_source_texture` admission, then checks sheet division against the actual
+selected texture extent. Custom surface shaders, fallback resources and texture
+profiles outside the current Sprite interpretation reject. Tile Map discovery and
+cooking verify all occupied tile keys against its selected Tile Set.
+
+The existing `forge_asset_build` fixed-command process owns both tile recipes.
+Its normal supervisor provides cancellation, a 120-second deadline, 1GiB memory,
+64MiB plus header per file, and 128MiB total staging bounds. Tile Set input is one
+owned source snapshot; Tile Map also receives the exact owned cooked Tile Set.
+Requests bind expected UUIDs, source/dependency digests and a recipe fingerprint
+from the actual selected source/toolchain. The worker cannot publish a catalog
+or edit authored files.
+
+Publication stores one ordinary root record, immutable file and typed dependency
+edges: Map → Tile Set → unique Materials, continuing through their normal image
+dependencies. Local keys never become subassets. Loading and content packaging
+share the same record/recipe/generation/edge/file/manifest admission. These loads
+inspect selected records rather than requiring authored source-file existence.
+CPU admission does not promise GPU/draw readiness.
+
+Focused tests exercise real-worker publication, cached candidate reuse, invalid
+actual grid/missing-tile rejection, old strong leases across replacement, stale
+dependency rejection/recook, relocated content packages and offline source files.
+This is content-package backend evidence; it is not a running exported tile game
+or a completed editor workflow.
 
 ### Read-only CPU presentation view
 
@@ -181,7 +220,9 @@ The maximum-profile test uses all 1024 chunks and 262144 occupied cells. Its
 complete cooked artifact is 4215032 bytes. In the Linux GCC12 configuration its
 retained allocation estimate is 16883912 bytes. That estimate includes typed arrays, container capacity and
 conservative node/control storage; it is not a measured process RSS or performance
-guarantee. Cooking/publication is not yet wired into the asset pipeline or export.
+guarantee. Programmatic cooking/publication and explicit-root content packaging
+use the ordinary asset pipeline. Editor routing and rendered game export remain
+part of the complete workflow still to implement.
 
 Focused source tests cover malformed inputs, duplicate JSON keys, finite/range
 limits, negative/far addresses, exact uint64 keys, unknown data, detached paint,
@@ -190,8 +231,8 @@ The actual document owner also exercises a 262144-cell map with 16 paint strokes
 and complete Undo/Redo. These tests do not replace the future native-renderer,
 installed SDK, editor interaction and moved-game gates.
 
-The remaining complete feature includes typed publication/dependency/cook closure,
-ordinary resource ownership, GPU presentation consuming this immutable view, bounded C++ runtime
+The remaining complete feature includes editor/CLI routing, reimport and reference
+tools, GPU presentation consuming this immutable view, bounded C++ runtime
 queries/edits, palette/painting/picking, source replacement behavior and original
 editable Gallery content. No autotiling, animated tiles, 2D collision or streaming
 is implied by this source foundation.

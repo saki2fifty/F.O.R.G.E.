@@ -1,6 +1,7 @@
 #include "audio_importer.hpp"
 #include "model_importer.hpp"
 #include "texture_importer.hpp"
+#include "tile_asset_worker.hpp"
 #include <chrono>
 #include <thread>
 int main(int argc, char** argv) {
@@ -23,21 +24,24 @@ int main(int argc, char** argv) {
         const auto recipe = forge::asset_detail::read_import_process_recipe(staging);
         const bool model = recipe == "forge.model.gltf";
         const bool audio = recipe == "forge.audio.wav";
-        if (!model && !audio && recipe != "forge.texture.image" &&
+        const bool tile =
+            recipe == forge::tile_set_importer_id || recipe == forge::tile_map_importer_id;
+        if (!model && !audio && !tile && recipe != "forge.texture.image" &&
             recipe != "forge.texture.container")
             throw std::runtime_error("Unsupported import worker recipe");
         const auto limits = model   ? forge::asset_detail::model_worker_limits()
                             : audio ? forge::asset_detail::audio_worker_limits()
+                            : tile  ? forge::asset_detail::tile_worker_limits()
                                     : forge::asset_detail::texture_worker_limits();
         auto request = forge::asset_detail::read_import_process_request(staging, limits);
         if (request.payload.at("recipe") != recipe)
             throw std::runtime_error("Import recipe changed while reading snapshot");
         auto output =
-            model ? forge::asset_detail::execute_model_recipe(std::move(request),
-                                                              cancellation.get_token())
-            : audio
-                ? forge::asset_detail::execute_audio_recipe(request, cancellation.get_token())
-                : forge::asset_detail::execute_texture_recipe(request, cancellation.get_token());
+            model   ? forge::asset_detail::execute_model_recipe(std::move(request),
+                                                                cancellation.get_token())
+            : audio ? forge::asset_detail::execute_audio_recipe(request, cancellation.get_token())
+            : tile ? forge::asset_detail::execute_tile_recipe(request, cancellation.get_token())
+                   : forge::asset_detail::execute_texture_recipe(request, cancellation.get_token());
         if (cancellation.stop_requested())
             throw std::runtime_error("Import cancelled before result publication");
         forge::asset_detail::write_import_process_result(staging, output, limits);
