@@ -57,7 +57,10 @@ cannot change its Tile Set identity without first clearing its occupied cells.
 Resolving tile keys against a published Tile Set is a later admission boundary.
 
 The first internal limits are 8 layers, 1024 chunks, 262144 occupied cells,
-4096 ordered cell writes per candidate and 64MiB source bytes. Cell sizes must be
+4096 ordered cell writes per candidate, 64MiB source bytes, 4000000 JSON events
+and depth 16. Immutable metadata/chunks cache their admitted event counts; each
+candidate checks the combined source budget without scanning unchanged chunks.
+Cell sizes must be
 finite and between 0.000001 and 1000000 meters, inclusive. These limits bound the
 source profile; they are not a renderer, frame-time, total-memory or SDK capacity
 promise. Save also checks the actual formatted byte size.
@@ -117,6 +120,43 @@ ordinary Sprites under one map entity would share that owner incorrectly. Tile
 rendering must integrate its image/chunk instances with that existing owner and
 the shared render queue, without creating authored entities for cells.
 
+### Internal cooked map data
+
+The map cooker projects admitted cell/layer values into the existing cooked
+envelope. The eight-byte magic is `FTILEMAP`, envelope version 1. Header scalars,
+chunk coordinates and cell records are little-endian. Metadata is bounded to
+64KiB and contains only `asset_id`, `tile_set`, `cell_size`, `layers`, `chunk_count`
+and `cell_count`. Layer records contain only their stable ID, name, visibility and
+order. Authoring unknown fields, allocation high-water marks and empty chunks
+are omitted. Unknown cooked metadata fields reject.
+
+Each occupied chunk uses this payload:
+
+| Field | Bytes |
+| --- | --- |
+| Layer key, unsigned | 8 |
+| Chunk X and Y, signed int32 bit patterns | 4 each |
+| Occupied cell count | 4 |
+| Each occupied cell: slot, tile key, flags | 4 + 8 + 4 |
+
+Chunks sort by numeric layer/X/Y key and cell slots strictly increase. The decoder
+checks expected root identity, referenced layer keys, signed coordinate bounds,
+exact lengths/counts, positive tile keys, supported flag values and strict ordering.
+Truncation, duplicate keys/slots, extra bytes and unsupported headers reject.
+The payload cap is `1024×20 + 262144×16 = 4214784` bytes.
+
+`TileMapData` retains typed immutable chunks and copied layer metadata. Its decoder
+and camera-view libraries have no dependency on the map source/cooker/document
+libraries. The source-side view is a separate adapter to the same culling helper.
+A runtime-only test links the cooked decoder/view and consumes a hand-authored
+binary fixture; symbol/link checks verify that map authoring code is absent.
+
+The maximum-profile test uses all 1024 chunks and 262144 occupied cells. Its
+complete cooked artifact is 4215032 bytes. In the Linux GCC12 configuration its
+retained allocation estimate is 16883912 bytes. That estimate includes typed arrays, container capacity and
+conservative node/control storage; it is not a measured process RSS or performance
+guarantee. Cooking/publication is not yet wired into the asset pipeline or export.
+
 Focused source tests cover malformed inputs, duplicate JSON keys, finite/range
 limits, negative/far addresses, exact uint64 keys, unknown data, detached paint,
 erase, ordered writes, layer isolation, allocation history and Save/reopen.
@@ -125,7 +165,7 @@ and complete Undo/Redo. These tests do not replace the future native-renderer,
 installed SDK, editor interaction and moved-game gates.
 
 The remaining complete feature includes typed publication/dependency/cook closure,
-ordinary resource ownership, immutable read-only presentation, bounded C++ runtime
+ordinary resource ownership, GPU presentation consuming this immutable view, bounded C++ runtime
 queries/edits, palette/painting/picking, source replacement behavior and original
 editable Gallery content. No autotiling, animated tiles, 2D collision or streaming
 is implied by this source foundation.

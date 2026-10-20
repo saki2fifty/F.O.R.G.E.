@@ -1,4 +1,5 @@
 #include "tile_map_view.hpp"
+#include "tile_map_view_impl.hpp"
 #include <algorithm>
 
 namespace forge {
@@ -16,22 +17,9 @@ RenderBounds tile_map_chunk_bounds(TileChunkAddress chunk, std::array<double, 2>
                               (double(minimum.y) + tile_chunk_side) * size[1], 0}};
     return transform_render_bounds(local, world);
 }
-void visit_visible_tile_chunks(const TileMapValue& map, const AffineTransform& world,
+void visit_visible_tile_chunks(const TileMapData& map, const AffineTransform& world,
                                std::span<const CameraView> cameras,
                                const std::function<void(const TileMapChunkView&)>& visit) {
-    map.validate();
-    if (!visit)
-        throw std::invalid_argument("Tile Map visible chunk visitor is empty");
-    const auto& layers = map.layers();
-    map.for_each_chunk([&](auto key, auto cells, std::size_t occupied) {
-        const auto layer = std::find_if(layers.begin(), layers.end(),
-                                        [&](const auto& value) { return value.id == key.layer; });
-        if (!occupied || !layer->visible || cameras.empty())
-            return;
-        const auto bounds = tile_map_chunk_bounds(key.address, map.cell_size(), world);
-        if (std::any_of(cameras.begin(), cameras.end(),
-                        [&](const auto& camera) { return bounds_visible(bounds, camera); }))
-            visit({key, cells, bounds});
-    });
+    tile_detail::visit_visible(map, world, cameras, visit);
 }
 } // namespace forge

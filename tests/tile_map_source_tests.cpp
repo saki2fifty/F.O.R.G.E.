@@ -161,6 +161,21 @@ void sparse_and_layer_limits() {
                 restored.cell(UINT64_MAX - 1, {-1, -1}) == TileMapCell{UINT64_MAX, 0},
             "Wide layer/chunk/tile identity lost exact uint64 values");
 }
+void structural_budget() {
+    const auto empty = TileMapValue::create(AssetId::generate(), AssetId::generate());
+    auto metadata = empty.metadata();
+    metadata["opaque_events"] = std::vector<int>(tile_map_source_event_limit - 1200);
+    const auto first = paint(empty.with_metadata(std::move(metadata)), {{1, {}, {1, 0}}});
+    // Each chunk is individually small. Their combined event count must still
+    // respect the one source budget; paint must use immutable cached counts.
+    reject([&] { (void)paint(first, {{1, {32, 32}, {2, 0}}}); });
+    require(first.chunk_count() == 1 && first.occupied() == 1 &&
+                first.cell(1, {}) == TileMapCell{1, 0},
+            "Structural-budget rejection changed the adopted immutable source");
+    auto nonfinite = empty.metadata();
+    nonfinite["opaque_number"] = std::numeric_limits<double>::quiet_NaN();
+    reject([&] { (void)empty.with_metadata(std::move(nonfinite)); });
+}
 TileMapValue dense() {
     auto root = Json::parse(TileMapValue::create(AssetId::generate(), AssetId::generate()).dump());
     for (int cy = -8; cy < 8; ++cy)
@@ -254,6 +269,7 @@ int main(int argc, char** argv) {
         values_and_paint();
         malformed();
         sparse_and_layer_limits();
+        structural_budget();
         const auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         history_and_limits(root);

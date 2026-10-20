@@ -48,13 +48,33 @@ TileMapChunkKey parse_key(const std::string& key) {
     (void)tile_cell_address({result.address, tile_chunk_cells - 1});
     return result;
 }
-void structure(const Json& value, int depth) {
+std::size_t structure(const Json& value, int depth) {
+    // Match the existing parser's value/start/end/key events. Cache the count in
+    // each immutable part so a paint candidate can enforce one whole-source
+    // structural budget without scanning or serializing unchanged chunks.
+    const auto count = [&](auto&& self, const Json& item, int level) -> std::size_t {
+        require(level <= depth, "Tile Map source exceeds JSON depth limit");
+        std::size_t events = item.is_structured() ? 2 : 1;
+        if (item.is_object())
+            events += item.size();
+        require(events <= tile_map_source_event_limit, "Tile Map source exceeds JSON event limit");
+        if (item.is_number_float())
+            require(std::isfinite(item.get<double>()),
+                    "Tile Map source has a non-finite JSON value");
+        if (item.is_structured())
+            for (const auto& child : item) {
+                events += self(self, child, level + 1);
+                require(events <= tile_map_source_event_limit,
+                        "Tile Map source exceeds JSON event limit");
+            }
+        return events;
+    };
+    const auto events = count(count, value, 0);
     const auto text = value.dump();
-    // Bytes also bound events: every JSON callback event needs at least one
-    // encoded character. Immutable chunk admission reserves root nesting below.
     (void)asset_detail::parse_bounded_json(std::as_bytes(std::span(text)),
-                                           tile_map_source_byte_limit, tile_map_source_byte_limit,
+                                           tile_map_source_byte_limit, tile_map_source_event_limit,
                                            depth);
+    return events;
 }
 void cell_valid(TileMapCell cell) {
     require(cell.flags <= 7 && (cell.tile || !cell.flags), "Invalid Tile Map cell flags");
@@ -98,7 +118,7 @@ std::shared_ptr<const TileMapValue::Metadata> TileMapValue::admit_metadata(Json 
         layer.order = signed_integer(row.at("order"));
         value->layers.push_back(std::move(layer));
     }
-    structure(root, 16);
+    value->json_events = structure(root, 16);
     value->encoded_bytes = root.dump().size();
     value->document = std::move(root);
     return value;
@@ -118,7 +138,7 @@ std::shared_ptr<const TileMapValue::Chunk> TileMapValue::admit_chunk(Json row) {
         value->cells[i] = decoded;
         ++value->occupied;
     }
-    structure(row, 12);
+    value->json_events = structure(row, 12);
     value->encoded_bytes = row.dump().size();
     value->document = std::move(row);
     return value;
@@ -149,7 +169,9 @@ TileMapValue TileMapValue::parse(Json root) {
         auto chunk = admit_chunk(std::move(row));
         value.occupied_ += chunk->occupied;
         value.encoded_bytes_ += chunk->encoded_bytes + name.size() + 4;
+        value.json_events_ += chunk->json_events + 1; // The chunk directory key.
         value.chunks_.emplace(key, std::move(chunk));
+        value.validate();
     }
     value.validate();
     return value;
@@ -201,7 +223,8 @@ bool TileMapValue::has_layer(std::uint64_t id) const {
 void TileMapValue::validate() const {
     require(bool(metadata_) && occupied_ <= tile_map_cell_limit &&
                 chunks_.size() <= tile_map_chunk_limit &&
-                encoded_bytes_ + metadata_->encoded_bytes + 64 <= tile_map_source_byte_limit,
+                encoded_bytes_ + metadata_->encoded_bytes + 64 <= tile_map_source_byte_limit &&
+                json_events_ + metadata_->json_events + 3 <= tile_map_source_event_limit,
             "Tile Map immutable value is uninitialized or exceeds its source profile");
 }
 TileMapCell TileMapValue::cell(std::uint64_t layer, TileCellAddress cell) const {
@@ -251,6 +274,7 @@ TileMapValue TileMapValue::paint(std::span<const TileMapCellEdit> writes) const 
         if (old != chunks_.end()) {
             next.occupied_ -= old->second->occupied;
             next.encoded_bytes_ -= old->second->encoded_bytes + overhead;
+            next.json_events_ -= old->second->json_events + 1;
         }
         if (!chunk->occupied && chunk->document.size() == 1) {
             next.chunks_.erase(key);
@@ -258,6 +282,7 @@ TileMapValue TileMapValue::paint(std::span<const TileMapCellEdit> writes) const 
         }
         next.occupied_ += chunk->occupied;
         next.encoded_bytes_ += chunk->encoded_bytes + overhead;
+        next.json_events_ += chunk->json_events + 1;
         next.chunks_[key] = std::move(chunk);
     }
     next.validate();
@@ -314,6 +339,6 @@ bool operator==(const TileMapValue& a, const TileMapValue& b) {
 }
 TileMapSource TileMapSource::parse(std::span<const std::byte> bytes) {
     return {TileMapValue::parse(asset_detail::parse_bounded_json(bytes, tile_map_source_byte_limit,
-                                                                 tile_map_source_byte_limit, 16))};
+                                                                 tile_map_source_event_limit, 16))};
 }
 } // namespace forge

@@ -1,5 +1,5 @@
 #pragma once
-#include "tile_grid.hpp"
+#include "tile_map_values.hpp"
 #include <forge/identity.hpp>
 #include <functional>
 #include <map>
@@ -11,29 +11,7 @@
 namespace forge {
 // Internal first source profile, not yet registered as an importable asset.
 inline constexpr std::size_t tile_map_source_byte_limit = 64 * 1024 * 1024;
-inline constexpr std::size_t tile_map_layer_limit = 8, tile_map_chunk_limit = 1024;
-inline constexpr std::size_t tile_map_cell_limit = 262144, tile_map_edit_limit = 4096;
-struct TileMapLayer {
-    std::uint64_t id = 0;
-    std::string name;
-    bool visible = true;
-    std::int32_t order = 0;
-};
-struct TileMapCell {
-    std::uint64_t tile = 0; // Zero is empty.
-    std::uint32_t flags = 0;
-    bool operator==(const TileMapCell&) const = default;
-};
-struct TileMapCellEdit {
-    std::uint64_t layer = 0;
-    TileCellAddress address;
-    TileMapCell value;
-};
-struct TileMapChunkKey {
-    std::uint64_t layer = 0;
-    TileChunkAddress address;
-    auto operator<=>(const TileMapChunkKey&) const = default;
-};
+inline constexpr std::size_t tile_map_source_event_limit = 4000000;
 class TileMapValue {
   public:
     TileMapValue() = default;
@@ -67,7 +45,7 @@ class TileMapValue {
     struct Chunk {
         nlohmann::json document;
         std::array<TileMapCell, tile_chunk_cells> cells{};
-        std::size_t occupied = 0, encoded_bytes = 0;
+        std::size_t occupied = 0, encoded_bytes = 0, json_events = 0;
     };
     struct Metadata {
         nlohmann::json document;
@@ -75,11 +53,11 @@ class TileMapValue {
         std::uint64_t next_id = 1;
         std::array<double, 2> cell_size{};
         std::vector<TileMapLayer> layers;
-        std::size_t encoded_bytes = 0;
+        std::size_t encoded_bytes = 0, json_events = 0;
     };
     std::shared_ptr<const Metadata> metadata_;
     std::map<TileMapChunkKey, std::shared_ptr<const Chunk>> chunks_;
-    std::size_t occupied_ = 0, encoded_bytes_ = 0;
+    std::size_t occupied_ = 0, encoded_bytes_ = 0, json_events_ = 0;
     static std::shared_ptr<const Metadata> admit_metadata(nlohmann::json);
     static std::shared_ptr<const Chunk> admit_chunk(nlohmann::json);
     bool has_layer(std::uint64_t) const;
