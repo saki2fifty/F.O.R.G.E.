@@ -1,5 +1,6 @@
 #include "cooked_envelope.hpp"
 #include "tile_map_view.hpp"
+#include "tile_set_data.hpp"
 #include <iostream>
 
 using namespace forge;
@@ -27,6 +28,28 @@ int main() {
             data.tile_set() != tile_set)
             throw std::runtime_error(
                 "Cooked-only runtime cell/identity differs from binary fixture");
+        const auto material = AssetId::parse("13a16254-bce4-41d3-b58f-d58399e0b2d4");
+        const nlohmann::json set_metadata{
+            {"asset_id", tile_set},
+            {"images",
+             {{{"id", 1},
+               {"name", "Original image"},
+               {"material", material},
+               {"grid",
+                {{"columns", 1},
+                 {"rows", 1},
+                 {"margin_x", 0},
+                 {"margin_y", 0},
+                 {"spacing_x", 0},
+                 {"spacing_y", 0}}}}}},
+            {"tiles", {{{"id", 9}, {"name", "Original tile"}, {"image", 1}, {"frame", 0}}}}};
+        const auto set_bytes = asset_detail::encode_envelope(
+            set_metadata, {}, tile_set_cooked_magic, tile_set_cooked_metadata_limit);
+        const auto definitions = decode_cooked_tile_set(set_bytes, data.tile_set());
+        const auto& tile = definitions.tile(data.cell(1, {-29, 0}).tile);
+        if (definitions.image(tile.image).material.id != material || tile.frame != 0)
+            throw std::runtime_error(
+                "Runtime-only map/tile/image/Material reference chain differs");
         Camera camera;
         camera.projection = std::uint32_t(CameraProjection::Orthographic);
         camera.orthographic_height = 40;

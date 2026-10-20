@@ -1,5 +1,5 @@
 #pragma once
-#include "sprite_region.hpp"
+#include "tile_set_values.hpp"
 #include <cstdint>
 #include <forge/asset_ref.hpp>
 #include <span>
@@ -7,18 +7,6 @@
 #include <vector>
 namespace forge {
 inline constexpr std::size_t tile_set_source_byte_limit = 2 * 1024 * 1024;
-inline constexpr std::size_t tile_set_image_limit = 16, tile_set_definition_limit = 4096;
-struct TileSetImage {
-    std::uint64_t id = 0;
-    std::string name;
-    AssetRef<MaterialAsset> material;
-    SpriteGridLayout grid;
-};
-struct TileSetDefinition {
-    std::uint64_t id = 0, image = 0;
-    std::string name;
-    std::uint32_t frame = 0;
-};
 struct TileSetValues {
     AssetId asset;
     std::uint64_t next_id = 1;

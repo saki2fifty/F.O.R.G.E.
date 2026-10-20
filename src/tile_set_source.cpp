@@ -18,15 +18,6 @@ std::uint64_t natural(const Json& value, std::uint64_t maximum = UINT64_MAX, boo
     require(number <= maximum && (!nonzero || number != 0), "Tile Set integer outside range");
     return number;
 }
-std::string name(const Json& value) {
-    require(value.is_string(), "Tile Set name must be a string");
-    const auto& text = value.get_ref<const std::string&>();
-    require(!text.empty() && text.size() <= 128 &&
-                std::none_of(text.begin(), text.end(),
-                             [](unsigned char c) { return c < 32 || c == 127; }),
-            "Tile Set name is empty, too long or contains controls");
-    return text;
-}
 TileSetValues decode(const Json& root) {
     require(root.is_object() && root.at("format") == "forge.tile-set" &&
                 natural(root.at("version")) == 1,
@@ -35,49 +26,13 @@ TileSetValues decode(const Json& root) {
     result.asset = root.at("asset_id").get<AssetId>();
     require(bool(result.asset), "Tile Set requires an asset identity");
     result.next_id = natural(root.at("next_id"), UINT64_MAX, true);
-    const auto& images = root.at("images");
-    const auto& tiles = root.at("tiles");
-    require(images.is_array() && images.size() <= tile_set_image_limit && tiles.is_array() &&
-                tiles.size() <= tile_set_definition_limit,
-            "Tile Set exceeds image/definition limits");
-    std::set<std::uint64_t> identities;
-    std::map<std::uint64_t, std::uint64_t> frame_counts;
-    for (const auto& row : images) {
-        require(row.is_object(), "Tile Set image must be an object");
-        TileSetImage image;
-        image.id = natural(row.at("id"), UINT64_MAX, true);
-        require(image.id < result.next_id && identities.insert(image.id).second,
-                "Tile Set image ID is duplicated or unallocated");
-        image.name = name(row.at("name"));
-        image.material = row.at("material").get<AssetRef<MaterialAsset>>();
-        require(bool(image.material.id), "Tile Set image needs a Material reference");
-        const auto& grid = row.at("grid");
-        require(grid.is_object(), "Tile Set grid must be an object");
-        image.grid = {std::uint32_t(natural(grid.at("columns"), UINT32_MAX, true)),
-                      std::uint32_t(natural(grid.at("rows"), UINT32_MAX, true)),
-                      std::uint32_t(natural(grid.at("margin_x"), UINT32_MAX)),
-                      std::uint32_t(natural(grid.at("margin_y"), UINT32_MAX)),
-                      std::uint32_t(natural(grid.at("spacing_x"), UINT32_MAX)),
-                      std::uint32_t(natural(grid.at("spacing_y"), UINT32_MAX))};
-        const auto count = std::uint64_t(image.grid.columns) * image.grid.rows;
-        require(count <= UINT32_MAX, "Tile Set grid exceeds its frame-index range");
-        frame_counts.emplace(image.id, count);
-        result.images.push_back(std::move(image));
-    }
-    for (const auto& row : tiles) {
-        require(row.is_object(), "Tile Set definition must be an object");
-        TileSetDefinition tile;
-        tile.id = natural(row.at("id"), UINT64_MAX, true);
-        require(tile.id < result.next_id && identities.insert(tile.id).second,
-                "Tile Set definition ID is duplicated or unallocated");
-        tile.name = name(row.at("name"));
-        tile.image = natural(row.at("image"), UINT64_MAX, true);
-        const auto source = frame_counts.find(tile.image);
-        require(source != frame_counts.end(), "Tile Set definition refers to a missing image");
-        tile.frame = std::uint32_t(natural(row.at("frame"), UINT32_MAX));
-        require(tile.frame < source->second, "Tile Set definition frame is outside its grid");
-        result.tiles.push_back(std::move(tile));
-    }
+    auto rows = tile_detail::decode_tile_set_rows(root.at("images"), root.at("tiles"));
+    for (const auto& image : rows.images)
+        require(image.id < result.next_id, "Tile Set image ID is unallocated");
+    for (const auto& tile : rows.tiles)
+        require(tile.id < result.next_id, "Tile Set definition ID is unallocated");
+    result.images = std::move(rows.images);
+    result.tiles = std::move(rows.tiles);
     return result;
 }
 void validate_structure(const Json& document) {

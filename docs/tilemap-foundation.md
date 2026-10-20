@@ -46,6 +46,32 @@ controls. Material compatibility, published image readiness and actual texture
 extents require the later resource/publication integration; a structurally valid
 source is not evidence that its images can render.
 
+### Cooked Tile Set data
+
+Source and cooked data use the same row admission for scoped IDs, Material
+references, sheet layouts and frame ranges. The source retains array order,
+unknown fields and its allocation high-water mark. Cooking sorts image/tile rows
+by numeric key and omits unknown fields and allocator metadata. Reordering source
+rows or advancing the allocator alone does not change cooked runtime bytes.
+
+The cooked envelope uses eight-byte magic `FTILESET`, version 1, at most 2MiB of
+metadata and no binary payload. Root fields are exactly `asset_id`, `images` and
+`tiles`; their known row/grid fields match the source value profile. Extra cooked
+fields reject. The decoder checks the expected root UUID and the same combined
+image/tile key space, frame references and limits as source admission.
+
+`TileSetData` retains shared immutable typed rows sorted for local-key lookup.
+Copies share that storage. Material dependency enumeration deduplicates Material
+references without collapsing separate image-entry IDs. A cooked-only consumer
+follows a map cell's tile key through the Tile Set definition and image entry to
+its typed Material reference without linking map/set source, cooker or document
+code. This checks values and linking, not image publication or GPU readiness.
+
+The 16-image/4096-definition fixture, with maximum-length tile names, cooks to
+706285 bytes. Its retained allocation estimate is 759440 bytes in Linux GCC12;
+this is not a process RSS or cross-platform allocator guarantee. Material profile
+and real image-extent admission remain part of the pending asset integration.
+
 ## Internal Tile Map profile
 
 The private discriminator is `forge.tile-map`, version 1. Root metadata contains
