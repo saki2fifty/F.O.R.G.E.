@@ -30,6 +30,8 @@ class TileMapData {
     // Validate written cells against this map's admitted definitions before changing
     // any snapshot. The eventual world owner controls fixed-phase publication.
     TileMapData with_cells(std::span<const TileMapCellEdit>, const TileSetData&) const;
+    // Same admission without constructing any candidate chunk arrays.
+    void validate_cells(std::span<const TileMapCellEdit>, const TileSetData&) const;
     void for_each_chunk(
         const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
                                  std::size_t occupied)>&) const;
@@ -43,6 +45,15 @@ class TileMapData {
         std::array<TileMapCell, tile_chunk_cells> cells{};
         std::size_t occupied = 0;
     };
+    struct CellPatch {
+        std::map<std::size_t, TileMapCell> cells;
+        std::size_t occupied = 0;
+    };
+    struct CellChanges {
+        std::map<TileMapChunkKey, CellPatch> chunks;
+        std::size_t occupied = 0;
+    };
+    CellChanges prepare_cells(std::span<const TileMapCellEdit>, const TileSetData&) const;
     AssetId asset_, tile_set_;
     std::array<double, 2> cell_size_{};
     std::vector<TileMapLayer> layers_;

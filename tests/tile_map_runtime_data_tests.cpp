@@ -54,6 +54,8 @@ void edit_candidates(const TileMapData& data, const TileSetData& definitions) {
                                                  {1, {}, {9, 0}},
                                                  {1, {}, {wide_tile_key, 4}}}};
     const auto first = data.with_cells(writes, definitions);
+    data.validate_cells(writes, definitions);
+    require(chunks(data) == baseline, "Validation changed a runtime snapshot");
     require(data.occupied() == 1 && first.occupied() == 3 && first.chunk_count() == 3 &&
                 first.cell(1, {}) == TileMapCell{wide_tile_key, 4} &&
                 first.cell(1, {INT32_MIN, INT32_MAX}) == TileMapCell{wide_tile_key, 7} &&
@@ -75,6 +77,7 @@ void edit_candidates(const TileMapData& data, const TileSetData& definitions) {
          {TileMapCellEdit{2, {}, {9, 0}}, {1, {}, {8, 0}}, {1, {}, {9, 8}}, {1, {}, {0, 1}}}) {
         const std::array batch{change[0], invalid};
         reject([&] { (void)data.with_cells(batch, definitions); });
+        reject([&] { data.validate_cells(batch, definitions); });
     }
     std::vector<TileMapCellEdit> excessive(tile_map_edit_limit + 1, change[0]);
     reject([&] { (void)data.with_cells(excessive, definitions); });
@@ -87,8 +90,10 @@ void edit_candidates(const TileMapData& data, const TileSetData& definitions) {
     const auto maximum_pointers = chunks(maximum);
     const std::array<TileMapCellEdit, 1> overflow{{{1, {0, 8}, {9, 0}}}};
     reject([&] { (void)maximum.with_cells(overflow, definitions); });
+    reject([&] { maximum.validate_cells(overflow, definitions); });
     const std::array<TileMapCellEdit, 2> move_cell{{overflow[0], {1, {}, {}}}};
     const auto moved = maximum.with_cells(move_cell, definitions);
+    maximum.validate_cells(move_cell, definitions);
     require(moved.occupied() == tile_map_cell_limit &&
                 moved.chunk_count() == tile_map_chunk_limit && moved.cell(1, {}) == TileMapCell{} &&
                 moved.cell(1, {0, 8}) == TileMapCell{9, 0},
@@ -102,6 +107,7 @@ void edit_candidates(const TileMapData& data, const TileSetData& definitions) {
     reject([&] { (void)sparse.with_cells(new_chunk, definitions); });
     const std::array<TileMapCellEdit, 2> move_chunk{{new_chunk[0], {1, {}, {}}}};
     const auto relocated = sparse.with_cells(move_chunk, definitions);
+    sparse.validate_cells(move_chunk, definitions);
     require(relocated.chunk_count() == tile_map_chunk_limit && relocated.occupied() == 1024 &&
                 relocated.cell(1, {}) == TileMapCell{} &&
                 relocated.cell(1, {32 * 1024, 0}) == TileMapCell{9, 0},

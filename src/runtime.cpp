@@ -1,6 +1,7 @@
 #include "animation_material_patch.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
+#include "runtime_tile_map.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/render_components.hpp>
@@ -314,6 +315,8 @@ void RuntimeSimulation::tick(float dt) {
     }
     if (navigation_)
         navigation_->synchronize();
+    detail::synchronize_runtime_tile_maps(context_);
+    detail::publish_runtime_tile_edits(context_);
     context_.modules().begin_tick(input_.snapshot());
     try {
         context_.world().progress(dt);
@@ -380,6 +383,7 @@ Json RuntimeSimulation::presentation(double alpha) const {
     // Synchronization does not advance the runtime clock or animation time.
     if (context_.services().available(Capability::Resources))
         context_.services().resources()->synchronize();
+    detail::synchronize_runtime_tile_maps(context_);
     if (physics_)
         (void)physics_->prepare_assets();
     if (animation_)

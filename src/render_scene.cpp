@@ -178,10 +178,11 @@ RenderScene extract_render_scene(const Json& source) {
             if (l.enabled && state.valid && state.visible)
                 result.lights.push_back({id, light_view(l, world_transform(row))});
         });
-        // Build-63 compatibility: an explicit MeshRenderer owns rendering when
-        // present, including disabled/missing assignments. Do not create a cube
+        // Build-63 compatibility: explicit Mesh/Tile Map renderers own rendering
+        // when present, including disabled/missing assignments. Do not create a cube
         // behind an intentionally invisible or invalid renderer.
         if (!values.contains("forge.mesh_renderer") &&
+            !values.contains("forge.tile_map_renderer") &&
             (values.contains("forge.local_translation") || values.contains("forge.position"))) {
             try {
                 const auto primitive = values.contains("forge.primitive")
@@ -224,6 +225,15 @@ RenderScene extract_render_scene(const Json& source) {
             sprite.visible = sprite.visible && state.valid && state.visible;
             result.sprites.push_back(
                 {id, sprite, world_transform(row), state.valid && state.selectable});
+        });
+        admit("forge.tile_map_renderer", "render.tile_map.invalid", [&] {
+            auto map = component<TileMapRenderer>(values, "forge.tile_map_renderer");
+            if (!map.enabled)
+                return;
+            require(bool(map.map.id), "Tile Map Renderer has no assigned map asset");
+            map.visible = map.visible && state.valid && state.visible;
+            result.tile_maps.push_back(
+                {id, map, world_transform(row), state.valid && state.selectable});
         });
         admit("forge.particle_emitter", "render.particles.invalid", [&] {
             auto emitter = component<ParticleEmitter>(values, "forge.particle_emitter");

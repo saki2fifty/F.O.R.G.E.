@@ -49,6 +49,12 @@ struct RenderSprite {
     AffineTransform world;
     bool selectable = true;
 };
+struct RenderTileMap {
+    EntityId entity;
+    TileMapRenderer renderer;
+    AffineTransform world;
+    bool selectable = true;
+};
 struct RenderModelNode {
     EntityId entity;
     ModelSource source;
@@ -75,6 +81,7 @@ struct RenderScene {
     std::vector<RenderModelNode> model_nodes;
     std::vector<RenderModelAnimation> model_animations;
     std::vector<RenderSprite> sprites;
+    std::vector<RenderTileMap> tile_maps;
 };
 // Malformed envelope/identity rejects the whole snapshot. Invalid per-component
 // producer values are diagnosed and omitted without touching authored state.

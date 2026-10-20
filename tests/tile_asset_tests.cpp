@@ -7,12 +7,15 @@
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
 #include "runtime_package.hpp"
+#include "runtime_tile_map.hpp"
 #include "tile_asset_authoring.hpp"
 #include "tile_asset_resources.hpp"
 #include "tile_asset_worker.hpp"
 #include "tile_map_document.hpp"
 #include "tile_set_document.hpp"
 #include <forge/engine_texture_assets.hpp>
+#include <forge/render_components.hpp>
+#include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
 #include <forge/scene.hpp>
 #include <future>
@@ -270,6 +273,204 @@ void runtime_leases(const std::filesystem::path& root, AssetId set_id, AssetId m
         restore.save(AssetCatalog::project_index(root));
     }
 }
+void runtime_instances(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
+                       const std::filesystem::path& worker, TileMapDocument& source) {
+    using namespace forge::detail;
+    EngineContext engine(WorldRole::Runtime, false, {runtime_resources_module(root)});
+    Scene scene(engine.world());
+    const auto first = EntityId::generate(), second = EntityId::generate();
+    TileMapRenderer renderer;
+    renderer.map.id = source.source().asset();
+    Json components = Json::object();
+    const auto schema = scene.schema();
+    for (const auto& type : schema.at("components")) {
+        const auto id = type.at("id").get<std::string>();
+        if (id == "forge.local_translation" || id == "forge.local_rotation" ||
+            id == "forge.local_scale" || id == "forge.tile_map_renderer")
+            for (const auto& field : type.at("fields"))
+                components[id][field.at("id").get<std::string>()] = field.at("default");
+    }
+    components["forge.tile_map_renderer"]["map"] = renderer.map.id;
+    scene.reset(
+        {{"version", 3},
+         {"asset_id", AssetId::generate()},
+         {"entities",
+          Json::array(
+              {{{"id", first}, {"name", "First runtime map"}, {"components", components}},
+               {{"id", second}, {"name", "Second runtime map"}, {"components", components}}})}});
+    const auto authored = scene.document();
+    const auto a = scene.reference(first.str()), b = scene.reference(second.str());
+    RuntimeSimulation simulation(engine.world(), scene);
+    const auto wait = [&](const auto& predicate) {
+        const auto deadline = std::chrono::steady_clock::now() + 15s;
+        do {
+            (void)simulation.presentation(0);
+            if (predicate())
+                return;
+            require(std::chrono::steady_clock::now() < deadline,
+                    "Runtime map instance adoption stalled");
+            std::this_thread::sleep_for(1ms);
+        } while (true);
+    };
+    wait([&] {
+        return inspect_runtime_tile_map(engine.world(), a).current &&
+               inspect_runtime_tile_map(engine.world(), b).current;
+    });
+    const auto original_a = runtime_tile_map_snapshot(engine.world(), a);
+    const auto original_b = runtime_tile_map_snapshot(engine.world(), b);
+    require(original_a->generation != original_b->generation &&
+                &original_a->asset.get() == &original_b->asset.get(),
+            "Map instances shared mutable identity or duplicated their immutable asset");
+    std::array<TileMapCellEdit, 2> writes{{{1, {-1, -1}, {3, 1}}, {1, {}, {4, 2}}}};
+    const auto one = request_runtime_tile_cells(engine.world(), "project.cells", a,
+                                                original_a->generation, writes);
+    writes[0].value = {999, 0}; // Caller memory must no longer belong to the queued command.
+    const std::array<TileMapCellEdit, 2> subsequent{{{1, {}, {5, 7}}, {1, {1, 0}, {2, 0}}}};
+    const auto two = request_runtime_tile_cells(engine.world(), "project.cells", a,
+                                                original_a->generation, subsequent);
+    for (unsigned paused = 0; paused < 3; ++paused)
+        (void)simulation.presentation(0);
+    require(inspect_runtime_tile_edit(engine.world(), "project.cells", one).state ==
+                    RuntimeTileEditState::Pending &&
+                runtime_tile_map_snapshot(engine.world(), a)->cells.cell(1, {}) == TileMapCell{},
+            "Paused presentation published a gameplay cell request");
+    simulation.tick(1.f / 60);
+    const auto changed = runtime_tile_map_snapshot(engine.world(), a);
+    require(changed->generation == original_a->generation && changed->revision == 2 &&
+                changed->edited && changed->cells.cell(1, {-1, -1}) == TileMapCell{3, 1} &&
+                changed->cells.cell(1, {}) == TileMapCell{5, 7} &&
+                changed->cells.cell(1, {1, 0}) == TileMapCell{2, 0} &&
+                original_a->cells.cell(1, {-1, -1}) == TileMapCell{2, 0} &&
+                runtime_tile_map_snapshot(engine.world(), b)->cells.cell(1, {}) == TileMapCell{},
+            "Fixed map commands lost copying, ordering, atomicity or instance isolation");
+    require(inspect_runtime_tile_edit(engine.world(), "project.cells", one).revision == 1 &&
+                inspect_runtime_tile_edit(engine.world(), "project.cells", two).revision == 2,
+            "Map request receipts did not identify their applied revisions");
+    reject([&] { (void)inspect_runtime_tile_edit(engine.world(), "project.other", one); });
+    require(!release_runtime_tile_edit(engine.world(), "project.other", one) &&
+                release_runtime_tile_edit(engine.world(), "project.cells", one) &&
+                release_runtime_tile_edit(engine.world(), "project.cells", two) &&
+                runtime_tile_map_snapshot(engine.world(), a)->revision == 2,
+            "Releasing a map observation undid gameplay or crossed module ownership");
+    const std::array<TileMapCellEdit, 2> invalid{{{1, {}, {2, 0}}, {1, {}, {999, 0}}}};
+    reject([&] {
+        (void)request_runtime_tile_cells(engine.world(), "project.cells", a, changed->generation,
+                                         invalid);
+    });
+    reject([&] {
+        (void)request_runtime_tile_cells(engine.world(), "project.cells", a,
+                                         changed->generation + 100, subsequent);
+    });
+    require(scene.document() == authored, "Runtime map edits entered Scene source/history");
+
+    const auto stale = request_runtime_tile_cells(engine.world(), "project.cells", b,
+                                                  original_b->generation, subsequent);
+    const auto baseline = source.source().document;
+    source.edit_source(source.revision(), "Instance source replacement fixture",
+                       [](auto& candidate) {
+                           const std::array<TileMapCellEdit, 1> extra{{{1, {64, 64}, {3, 0}}}};
+                           candidate.document = candidate.document.paint(extra);
+                       });
+    source.save();
+    AssetImportService importer(lease, tile_asset_import_registry(worker),
+                                {"linux", "none", "cpu"});
+    auto done = publish(importer, source.locator(), source.source().asset(), true);
+    require(done.published, "Replacement map fixture failed: " + done.diagnostic);
+    engine.services().resources()->refresh();
+    wait([&] {
+        const auto status = inspect_runtime_tile_map(engine.world(), b);
+        return status.current && status.generation != original_b->generation;
+    });
+    const auto retained = inspect_runtime_tile_map(engine.world(), a);
+    require(retained.ready && !retained.current && retained.edited &&
+                retained.generation == changed->generation && !retained.diagnostic.empty() &&
+                runtime_tile_map_snapshot(engine.world(), a)->cells.cell(1, {64, 64}) ==
+                    TileMapCell{} &&
+                runtime_tile_map_snapshot(engine.world(), b)->cells.cell(1, {64, 64}) ==
+                    TileMapCell{3, 0},
+            "Asset replacement silently overwrote an edited instance or failed an unedited one");
+    simulation.tick(1.f / 60);
+    require(inspect_runtime_tile_edit(engine.world(), "project.cells", stale).state ==
+                    RuntimeTileEditState::Failed &&
+                runtime_tile_map_snapshot(engine.world(), b)->cells.cell(1, {}) == TileMapCell{},
+            "Queued map edit retargeted a newer adopted generation");
+    release_runtime_tile_edit(engine.world(), "project.cells", stale);
+    const auto reset =
+        request_runtime_tile_reset(engine.world(), "project.cells", a, changed->generation);
+    (void)simulation.presentation(0);
+    require(runtime_tile_map_snapshot(engine.world(), a)->edited, "Reset applied while paused");
+    simulation.tick(1.f / 60);
+    const auto reset_snapshot = runtime_tile_map_snapshot(engine.world(), a);
+    require(!reset_snapshot->edited && reset_snapshot->revision == 0 &&
+                reset_snapshot->generation != changed->generation &&
+                reset_snapshot->cells.cell(1, {}) == TileMapCell{} &&
+                reset_snapshot->cells.cell(1, {64, 64}) == TileMapCell{3, 0} &&
+                inspect_runtime_tile_edit(engine.world(), "project.cells", reset).state ==
+                    RuntimeTileEditState::Applied,
+            "Explicit fixed-boundary reset did not adopt the new source coherently");
+    release_runtime_tile_edit(engine.world(), "project.cells", reset);
+    source.undo();
+    source.save();
+    require(source.source().document == baseline, "Fixture restore changed authored map values");
+    done = publish(importer, source.locator(), source.source().asset(), true);
+    require(done.published, "Restored map fixture failed: " + done.diagnostic);
+    engine.services().resources()->refresh();
+    wait([&] {
+        return inspect_runtime_tile_map(engine.world(), a).current &&
+               runtime_tile_map_snapshot(engine.world(), a)->cells.cell(1, {64, 64}) ==
+                   TileMapCell{};
+    });
+    const auto generation = inspect_runtime_tile_map(engine.world(), a).generation;
+    const auto removed =
+        request_runtime_tile_cells(engine.world(), "project.cells", a, generation, subsequent);
+    scene.entity(first.str()).remove<TileMapRenderer>();
+    scene.entity(first.str()).set<TileMapRenderer>(renderer);
+    wait([&] { return inspect_runtime_tile_map(engine.world(), a).current; });
+    simulation.tick(1.f / 60);
+    require(inspect_runtime_tile_edit(engine.world(), "project.cells", removed).state ==
+                    RuntimeTileEditState::Failed &&
+                inspect_runtime_tile_map(engine.world(), a).generation != generation,
+            "Removed/readded Tile Map reused the old mutable instance generation");
+    release_runtime_tile_edit(engine.world(), "project.cells", removed);
+    const auto current = inspect_runtime_tile_map(engine.world(), a).generation;
+    std::vector<std::uint64_t> quota;
+    for (unsigned index = 0; index < 64; ++index)
+        quota.push_back(
+            request_runtime_tile_cells(engine.world(), "project.quota", a, current, subsequent));
+    reject([&] {
+        (void)request_runtime_tile_cells(engine.world(), "project.quota", a, current, subsequent);
+    });
+    for (auto token : quota)
+        require(release_runtime_tile_edit(engine.world(), "project.quota", token),
+                "Pending cancellation lost its token");
+    std::vector<TileMapCellEdit> full(tile_map_edit_limit, subsequent[0]);
+    const auto pending_capacity = (4 * 1024 * 1024) / (sizeof(TileMapCellEdit) * full.size());
+    std::vector<std::uint64_t> memory;
+    for (std::size_t index = 0; index < pending_capacity; ++index)
+        memory.push_back(
+            request_runtime_tile_cells(engine.world(), "project.memory", a, current, full));
+    reject([&] {
+        (void)request_runtime_tile_cells(engine.world(), "project.memory", a, current, full);
+    });
+    for (auto token : memory)
+        release_runtime_tile_edit(engine.world(), "project.memory", token);
+    ecs_readonly_begin(engine.world().world(), false);
+    const auto deferred =
+        request_runtime_tile_cells(engine.world(), "project.cells", a, current, subsequent);
+    reject([&] { publish_runtime_tile_edits(engine.world()); });
+    ecs_readonly_end(engine.world().world());
+    (void)simulation.presentation(0);
+    require(inspect_runtime_tile_edit(engine.world(), "project.cells", deferred).state ==
+                RuntimeTileEditState::Pending,
+            "Deferred gameplay request published outside the fixed boundary");
+    simulation.tick(1.f / 60);
+    require(inspect_runtime_tile_edit(engine.world(), "project.cells", deferred).state ==
+                RuntimeTileEditState::Applied,
+            "Deferred gameplay request was not applied at the next fixed boundary");
+    release_runtime_tile_edit(engine.world(), "project.cells", deferred);
+    require(scene.document() == authored,
+            "Runtime lifecycle or cell requests wrote authored map actor values");
+}
 void automatic_updates(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
                        const std::filesystem::path& worker, AssetId material_id, AssetId set_id,
                        AssetId map_id) {
@@ -517,6 +718,8 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
                 catalog->records().at(map_id).dependency_edges.size() == 2,
             "Published sparse map values or typed Tile Set dependency differ");
     runtime_leases(root, set_id, map_id, true);
+    runtime_instances(root, lease, worker, *map);
+    catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto good_catalog = catalog->document();
     set->edit(set->revision(), "Grid that cannot divide its real texture",
               [](auto& source) { source["images"][0]["grid"]["columns"] = 3; });

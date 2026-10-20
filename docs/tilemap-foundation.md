@@ -9,6 +9,48 @@ standalone game-export workflow from this foundation alone. The first
 complete workflow must integrate those consumers and the Feature Gallery before
 claiming a working tilemap feature.
 
+## Scene and instance integration (development)
+
+The development `forge.tile_map_renderer` component stores a typed map reference,
+enabled/visible flags, a uint32 camera-layer mask, signed int32 ordering offset and
+linear RGBA tint in [0,1]. The ordinary Scene owns entity identity, transforms,
+history, prefab composition and unknown source fields. Cell dimensions, layer
+definitions and cells remain in the referenced map; no per-cell entities are
+created. Native Meta checks the actual component member offsets. Render extraction
+produces a typed map item with the ordinary visibility/selectability policy and
+double affine transform; GPU consumption of that item is still pending.
+
+Private runtime instance components own immutable cell snapshots and retained
+Map/Tile Set leases. Their state is not inherited, reflected into Scene source or
+stored in a second map database. Independent entities can share an immutable asset
+while changing their own snapshots. Initial asset adoption and unedited replacement
+can progress at the existing presentation/resource boundary while paused.
+
+Engine-only cell requests copy at most4096 ordered writes, bind a realized entity
+and adopted generation, and validate the whole batch. The queue bounds observations
+to64/module and256/world and pending copied cells to4MiB. Applied observations
+release their copied input; releasing a pending observation cancels it. Publication
+occurs at the fixed tick after resource synchronization and before gameplay. Paused
+presentation never publishes cell requests. Requests apply in accepted token order;
+each validates again against the then-current instance, and a failure changes no
+cells. A removed/readded component or replaced binding invalidates older requests.
+
+An edited instance retains its adopted binding when a new revision of the same
+map is published. It reports requested/adopted revisions separately; a fixed-boundary
+reset explicitly discards runtime edits and adopts current source assets. Assigning
+a different logical map root is also an explicit replacement. Stop destroys the
+world's transient state; this is not an automatic save or C++ recovery format.
+
+Focused Linux tests validate these scene/instance paths, including Scene history,
+prefabs, real fixed/paused requests, source replacement/reset, removal and bounded
+queues. Scoped ASan/UBSan/leak checks and matching shared-library SDK regressions
+pass. A maximum-profile allocation probe validates4096 writes across1024chunks/
+262144cells: preflight requests335872heap bytes, while constructing the changed
+snapshot requests17203270bytes in Linux GCC12. These are requested allocation
+totals, not peak/RSS/GPU memory or frame-time evidence.
+The public copied C++ cell interface, Play transport projection, GPU drawing,
+painting tools and complete exported-game workflow remain unfinished.
+
 ## Ownership
 
 `TileSetSource` keeps its JSON document authoritative. `TileMapValue` keeps
@@ -131,8 +173,8 @@ representation keeps unchanged data shared across saved values and history.
 ### Ordinary asset publication and loading
 
 Value-only `TileSetAsset`/`TileMapAsset` tags belong to the common AssetRef contract
-and use the existing root AssetCatalog and ResourcePool contracts. Their scene
-component and gameplay cell interface remain unfinished. `tile_asset_import_registry` supplies the two source
+and use the existing root AssetCatalog and ResourcePool contracts. The public
+gameplay cell interface remains unfinished. `tile_asset_import_registry` supplies the two source
 importers to `AssetImportService`; no parallel catalog, dependency graph, history
 or loaded-handle database is introduced. Source bytes and selected dependencies
 are recaptured before cooking, and stale or failed candidates retain last-good

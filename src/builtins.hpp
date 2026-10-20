@@ -11,7 +11,7 @@
 #include <optional>
 #include <variant>
 namespace forge::detail {
-inline constexpr std::size_t builtin_count = 34;
+inline constexpr std::size_t builtin_count = 35;
 using Value =
     std::variant<LocalTranslation, LocalRotation, LocalScale, Tint, Primitive, PhysicsBody,
                  PhysicsJoint, BoxCollider, SphereCollider, CapsuleCollider, CylinderCollider,
@@ -19,7 +19,7 @@ using Value =
                  TransformAnimator, AnimationSequence, CameraShot, TwoBoneIK, AimIK,
                  NavigationSurface, NavigationAgent, NavigationAvoidance, UiDocument, MeshRenderer,
                  ModelSource, Camera, Light, NodeVisibility, NodeSelectability, ParticleEmitter,
-                 AudioCue, SpriteRenderer>;
+                 AudioCue, SpriteRenderer, TileMapRenderer>;
 struct Builtin {
     const char* name;
     const char* description;

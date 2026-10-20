@@ -159,16 +159,13 @@ TileMapCell TileMapData::cell(std::uint64_t layer, TileCellAddress cell) const {
     const auto found = chunks_.find({layer, address.chunk});
     return found == chunks_.end() ? TileMapCell{} : found->second->cells[address.index];
 }
-TileMapData TileMapData::with_cells(std::span<const TileMapCellEdit> writes,
-                                    const TileSetData& definitions) const {
+TileMapData::CellChanges TileMapData::prepare_cells(std::span<const TileMapCellEdit> writes,
+                                                    const TileSetData& definitions) const {
     validate();
     require(definitions.asset() == tile_set_, "Runtime Tile Map definitions have a different root");
     require(writes.size() <= tile_map_edit_limit, "Runtime Tile Map edit batch exceeds its limit");
-    struct Patch {
-        std::map<std::size_t, TileMapCell> cells;
-        std::size_t occupied = 0;
-    };
-    std::map<TileMapChunkKey, Patch> patches;
+    CellChanges changes;
+    auto& patches = changes.chunks;
     for (const auto& write : writes) {
         require(has_layer(write.layer), "Runtime Tile Map edit has no matching layer");
         require(write.value.flags <= 7 && (write.value.tile || !write.value.flags),
@@ -201,8 +198,18 @@ TileMapData TileMapData::with_cells(std::span<const TileMapCellEdit> writes,
     }
     require(occupied <= tile_map_cell_limit && chunks <= tile_map_chunk_limit,
             "Runtime Tile Map edit exceeds its cell/chunk profile");
+    changes.occupied = occupied;
+    return changes;
+}
+void TileMapData::validate_cells(std::span<const TileMapCellEdit> writes,
+                                 const TileSetData& definitions) const {
+    (void)prepare_cells(writes, definitions);
+}
+TileMapData TileMapData::with_cells(std::span<const TileMapCellEdit> writes,
+                                    const TileSetData& definitions) const {
+    const auto changes = prepare_cells(writes, definitions);
     auto next = *this;
-    for (const auto& [key, patch] : patches) {
+    for (const auto& [key, patch] : changes.chunks) {
         const auto old = chunks_.find(key);
         if (!patch.occupied) {
             next.chunks_.erase(key);
@@ -220,7 +227,7 @@ TileMapData TileMapData::with_cells(std::span<const TileMapCellEdit> writes,
         chunk->occupied = patch.occupied;
         next.chunks_[key] = std::move(chunk);
     }
-    next.occupied_ = occupied;
+    next.occupied_ = changes.occupied;
     next.validate();
     return next;
 }

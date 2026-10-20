@@ -135,6 +135,8 @@ std::vector<ReflectedAdapter> authoring_value_adapters(flecs::world& world) {
     FORGE_REF(AnimationBlendSpaceAsset);
     FORGE_REF(NavMeshAsset);
     FORGE_REF(UiDocumentAsset);
+    FORGE_REF(TileSetAsset);
+    FORGE_REF(TileMapAsset);
 #undef FORGE_REF
     auto strings = world.component<std::string>();
     if (!strings.has<EcsOpaque>())

@@ -3,6 +3,7 @@
 #include "authored_schema.hpp"
 #include "builtins.hpp"
 #include "runtime_entity_creation.hpp"
+#include "runtime_tile_map.hpp"
 #include <forge/world.hpp>
 #include <stdexcept>
 #include <vector>
@@ -168,6 +169,7 @@ WorldContext::WorldContext(WorldRole role, ServiceAccess services,
     // member of one of these types, not only when that project opts into authoring.
     (void)detail::authoring_value_adapters(world_);
     detail::register_runtime_entity_creation(*this);
+    detail::register_runtime_tile_maps(*this);
     auto composition = built_in_modules();
     if (std::none_of(modules.begin(), modules.end(),
                      [](const auto& m) { return m.id == "forge.physics"; }))

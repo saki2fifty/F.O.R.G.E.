@@ -30,6 +30,8 @@ template <class T> Json encode(const T& p) {
         return render_value(p);
     else if constexpr (std::is_same_v<T, SpriteRenderer>)
         return render_value(p);
+    else if constexpr (std::is_same_v<T, TileMapRenderer>)
+        return render_value(p);
     else if constexpr (std::is_same_v<T, ModelSource>) {
         return {{"model", p.model.id ? Json(p.model.id) : Json()},
                 {"node", p.node.id ? Json(p.node.id) : Json()}};
@@ -279,6 +281,8 @@ template <class T> Value decode(const Json& p) {
         return particle_emitter_value(p);
     } else if constexpr (std::is_same_v<T, SpriteRenderer>) {
         return sprite_renderer_value(p);
+    } else if constexpr (std::is_same_v<T, TileMapRenderer>) {
+        return tile_map_renderer_value(p);
     } else if constexpr (std::is_same_v<T, LocalScale>) {
         return checked_local_scale({p.at("x"), p.at("y"), p.at("z")});
     } else if constexpr (std::is_same_v<T, UiDocument>) {
@@ -664,6 +668,31 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("layers")
             .template member<AssetRef<MaterialVariantAsset>>("material_variant")
             .template member<std::vector<MaterialParameterOverride>>("material_parameters");
+    } else if constexpr (std::is_same_v<T, TileMapRenderer>) {
+        register_asset_ref<TileMapAsset>(w, "forge.tile_map_ref");
+        c.template member<AssetRef<TileMapAsset>>("map")
+            .template member<bool>("enabled")
+            .template member<bool>("visible")
+            .template member<std::uint32_t>("layers")
+            .template member<std::int32_t>("order")
+            .template member<float>("tint_r")
+            .template member<float>("tint_g")
+            .template member<float>("tint_b")
+            .template member<float>("tint_a");
+        for (const auto& [name, offset] :
+             {std::pair{"map", offsetof(TileMapRenderer, map)},
+              std::pair{"enabled", offsetof(TileMapRenderer, enabled)},
+              std::pair{"visible", offsetof(TileMapRenderer, visible)},
+              std::pair{"layers", offsetof(TileMapRenderer, layers)},
+              std::pair{"order", offsetof(TileMapRenderer, order)},
+              std::pair{"tint_r", offsetof(TileMapRenderer, tint_r)},
+              std::pair{"tint_g", offsetof(TileMapRenderer, tint_g)},
+              std::pair{"tint_b", offsetof(TileMapRenderer, tint_b)},
+              std::pair{"tint_a", offsetof(TileMapRenderer, tint_a)}}) {
+            const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), name);
+            if (!member || std::size_t(member->offset) != offset)
+                throw std::runtime_error("TileMapRenderer native Meta disagrees with typed layout");
+        }
     } else if constexpr (std::is_same_v<T, SpriteRenderer>) {
         register_asset_ref<MaterialAsset>(w, "forge.material_ref");
         c.template member<AssetRef<MaterialAsset>>("material")
@@ -1150,6 +1179,11 @@ const std::array<Builtin, builtin_count>& builtins() {
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<SpriteRenderer>(w, "forge.sprite_renderer"); }),
+        descriptor<TileMapRenderer>(
+            "forge.tile_map_renderer", "Sparse Tile Map asset in the scene hierarchy", "unitless",
+            {}, {},
+            [](flecs::world&
+                   w) { return register_type<TileMapRenderer>(w, "forge.tile_map_renderer"); }),
         descriptor<ParticleEmitter>(
             "forge.particle_emitter", "Reusable CPU mesh-particle effect driven by the fixed clock",
             "unitless", {}, {},
@@ -2125,6 +2159,7 @@ Json register_builtins(flecs::world& world, unsigned family) {
         add_reference.template operator()<MaterialVariantAsset>();
         add_reference.template operator()<MeshAsset>();
         add_reference.template operator()<ParticleEffectAsset>();
+        add_reference.template operator()<TileMapAsset>();
         add_reference.template operator()<CollisionAsset>();
         add_reference.template operator()<MaterialAsset>();
         add_reference.template operator()<AudioClipAsset>();
@@ -2163,8 +2198,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
              {"fields", fields},
              {"optional", category != 0 || name == "forge.mesh_renderer" ||
                               name == "forge.particle_emitter" || name == "forge.sprite_renderer" ||
-                              name == "forge.camera" || name == "forge.light" ||
-                              name == "forge.node_visibility" ||
+                              name == "forge.tile_map_renderer" || name == "forge.camera" ||
+                              name == "forge.light" || name == "forge.node_visibility" ||
                               name == "forge.node_selectability"}});
         std::lock_guard lock(catalog_mutex);
         auto validation = components.back();

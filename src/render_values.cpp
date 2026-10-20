@@ -3,6 +3,35 @@
 #include <forge/render_view.hpp>
 #include <stdexcept>
 namespace forge::detail {
+Json render_value(const TileMapRenderer& value) {
+    for (const auto tint : {value.tint_r, value.tint_g, value.tint_b, value.tint_a})
+        if (!std::isfinite(tint) || tint < 0 || tint > 1)
+            throw std::invalid_argument("Tile Map tint must be finite linear RGBA in [0,1]");
+    return {{"map", value.map.id ? Json(value.map.id) : Json()},
+            {"enabled", value.enabled},
+            {"visible", value.visible},
+            {"layers", value.layers},
+            {"order", value.order},
+            {"tint_r", value.tint_r},
+            {"tint_g", value.tint_g},
+            {"tint_b", value.tint_b},
+            {"tint_a", value.tint_a}};
+}
+TileMapRenderer tile_map_renderer_value(const Json& source) {
+    TileMapRenderer value;
+    if (!source.at("map").is_null())
+        value.map.id = source.at("map").get<AssetId>();
+    value.enabled = source.at("enabled");
+    value.visible = source.at("visible");
+    value.layers = source.at("layers").get<std::uint32_t>();
+    value.order = source.at("order").get<std::int32_t>();
+    value.tint_r = source.at("tint_r").get<float>();
+    value.tint_g = source.at("tint_g").get<float>();
+    value.tint_b = source.at("tint_b").get<float>();
+    value.tint_a = source.at("tint_a").get<float>();
+    (void)render_value(value);
+    return value;
+}
 void validate_sprite_renderer(const SpriteRenderer& value) {
     for (const auto size : {value.width, value.height})
         if (!std::isfinite(size) || size < .0001 || size > 10000)

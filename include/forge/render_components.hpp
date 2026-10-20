@@ -66,6 +66,16 @@ struct SpriteRenderer {
     std::uint32_t border_left = 0, border_right = 0, border_top = 0, border_bottom = 0;
     bool operator==(const SpriteRenderer&) const = default;
 };
+// One sparse map asset in the ordinary hierarchy. Cell sizes/layers/definitions
+// belong to that asset; runtime cell values belong to this entity's world state.
+struct TileMapRenderer {
+    AssetRef<TileMapAsset> map;
+    bool enabled = true, visible = true;
+    std::uint32_t layers = UINT32_MAX;
+    std::int32_t order = 0;
+    float tint_r = 1, tint_g = 1, tint_b = 1, tint_a = 1;
+    bool operator==(const TileMapRenderer&) const = default;
+};
 // Authored emitter values only. Effect resources, fixed-clock age and transient
 // particle instances belong to runtime/presentation owners, never the scene file.
 struct ParticleEmitter {
