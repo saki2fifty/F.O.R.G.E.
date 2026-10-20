@@ -53,7 +53,7 @@ inline EditorActions asset_actions(AssetActionContext context,
                 fn(ids);
         });
     add("asset.place", "Assets / Place selected in Scene", target && context.placeable,
-        target && context.placeable ? "" : "Select a Model, Mesh or Prefab asset.",
+        target && context.placeable ? "" : "Select a Model, Mesh, Tile Map or Prefab asset.",
         "Place the selected asset at the creation target. One scene Undo step; source contents "
         "stay unchanged.",
         [target, fn = handlers.place] {

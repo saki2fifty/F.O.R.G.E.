@@ -66,6 +66,14 @@ void edit_candidates(const TileMapData& data, const TileSetData& definitions) {
             "Runtime candidate copied an unchanged chunk");
     const std::array<TileMapCellEdit, 1> erase{{{1, {}, {}}}};
     const auto erased = first.with_cells(erase, definitions);
+    const auto repaired = first.with_erased_cells(erase);
+    require(repaired.occupied() == erased.occupied() && chunks(repaired).size() == 2 &&
+                repaired.cell(1, {}) == TileMapCell{} &&
+                chunks(repaired).at({1, {-1, 0}}) == baseline.at({1, {-1, 0}}),
+            "Missing-Set erase copied unchanged chunks or retained the erased cell");
+    reject([&] { (void)first.with_erased_cells(writes); });
+    const std::array<TileMapCellEdit, 1> invalid_erase{{{99, {}, {}}}};
+    reject([&] { (void)first.with_erased_cells(invalid_erase); });
     require(erased.occupied() == 2 && erased.chunk_count() == 2 && first.occupied() == 3,
             "Runtime erase retained an empty chunk or changed an earlier snapshot");
     const std::array<TileMapCellEdit, 1> change{{{1, {-29, 0}, {9, 3}}}};

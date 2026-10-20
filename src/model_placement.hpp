@@ -35,5 +35,7 @@ EntityId instantiate_model(Scene&, const AssetCatalog&, const ModelPlacementCand
 // detached candidate commits once; only translation is overridden on prefabs.
 EntityId instantiate_mesh(Scene&, const AssetCatalog&, AssetRef<MeshAsset>, LocalTranslation,
                           const std::string& name);
+EntityId instantiate_tile_map(Scene&, const AssetCatalog&, AssetRef<TileMapAsset>, LocalTranslation,
+                              const std::string& name);
 EntityId instantiate_prefab_at(Scene&, AssetId, LocalTranslation);
 } // namespace forge::asset_detail

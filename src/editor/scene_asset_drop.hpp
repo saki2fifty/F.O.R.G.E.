@@ -12,13 +12,14 @@ class SceneAssetDrop {
     bool busy() const { return pending_.has_value() || job_.valid(); }
     void cancel() { stop_.request_stop(); }
     static bool supported(std::string_view type) {
-        return type == "model" || type == "mesh" || type == "prefab" || type == "scene";
+        return type == "model" || type == "mesh" || type == "prefab" || type == "scene" ||
+               type == "tile_map";
     }
     void queue(const AssetRecord& asset, const Scene& scene, const SceneDocument& document,
                LocalTranslation position) {
         if (busy() || !supported(asset.type))
             throw std::runtime_error(
-                "Finish the active placement or drop a Model, Mesh, Prefab or Scene.");
+                "Finish the active placement or drop a Model, Mesh, Tile Map, Prefab or Scene.");
         document.check_ownership();
         stop_ = std::stop_source{};
         pending_ = Pending{
@@ -78,6 +79,12 @@ class SceneAssetDrop {
                     asset_detail::instantiate_mesh(scene, catalog, {request.asset.id},
                                                    request.position, asset_display(request.asset))
                         .str());
+            } else if (request.asset.type == "tile_map") {
+                const auto catalog = AssetCatalog::open_project(request.project);
+                selection.select_entity(asset_detail::instantiate_tile_map(
+                                            scene, catalog, {request.asset.id}, request.position,
+                                            asset_display(request.asset))
+                                            .str());
             } else if (request.asset.type == "prefab") {
                 selection.select_entity(
                     asset_detail::instantiate_prefab_at(scene, request.asset.id, request.position)
@@ -112,8 +119,9 @@ class SceneAssetDrop {
                     AssetId::parse(std::string(static_cast<const char*>(payload->Data), 36));
                 auto* asset = content.resolve_record(files, id);
                 if (!asset || !supported(asset->type)) {
-                    ImGui::SetTooltip("Drop a Model, Mesh, Prefab or Scene. Assign materials and "
-                                      "textures through compatible Inspector fields.");
+                    ImGui::SetTooltip(
+                        "Drop a Model, Mesh, Tile Map, Prefab or Scene. Assign materials and "
+                        "textures through compatible Inspector fields.");
                 } else if (payload->IsDelivery()) {
                     const auto mouse = ImGui::GetIO().MousePos;
                     const auto ray =

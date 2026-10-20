@@ -93,6 +93,9 @@
 #include "terrain_preview.hpp"
 #include "texture_imports.hpp"
 #include "texture_viewer.hpp"
+#include "tile_map_editor.hpp"
+#include "tile_set_editor.hpp"
+#include "tile_set_preview.hpp"
 #include "transform_gesture.hpp"
 #include "view_image.hpp"
 #include "view_state.hpp"
@@ -1014,6 +1017,36 @@ int main(int argc, char** argv) {
             return terrain_preview->draw(source, revision, std::move(catalog), settings);
         };
         terrain_editor.release_preview = [&] { release_terrain_preview = true; };
+        forge::TileSetEditor tile_set_editor(std::filesystem::path(base) / "forge_asset_build.exe");
+        std::unique_ptr<forge::TileSetPreview> tile_set_preview;
+        bool release_tile_set_preview = false;
+        tile_set_editor.draw_preview = [&](const auto& source, std::uint64_t revision, auto catalog,
+                                           std::uint64_t selected) {
+            const auto& project = tile_set_editor.document()->project();
+            if (!tile_set_preview || tile_set_preview->project() != project ||
+                tile_set_preview->asset() != source.asset())
+                tile_set_preview = std::make_unique<forge::TileSetPreview>(presentation, context,
+                                                                           project, source.asset());
+            release_tile_set_preview = false;
+            tile_set_preview->draw(source, revision, std::move(catalog), selected);
+        };
+        tile_set_editor.release_preview = [&] { release_tile_set_preview = true; };
+        forge::TileMapEditor tile_map_editor(std::filesystem::path(base) / "forge_asset_build.exe");
+        std::unique_ptr<forge::TileMapPreview> tile_map_preview;
+        bool release_tile_map_preview = false;
+        tile_map_editor.draw_preview = [&](auto cells, auto definitions, auto catalog, bool stroke,
+                                           bool painting) {
+            const auto& project = tile_map_editor.document()->project();
+            if (!tile_map_preview || tile_map_preview->project() != project ||
+                tile_map_preview->asset() != cells->asset() ||
+                tile_map_preview->definitions() != cells->tile_set())
+                tile_map_preview = std::make_unique<forge::TileMapPreview>(
+                    presentation, context, project, cells->asset(), cells->tile_set());
+            release_tile_map_preview = false;
+            return tile_map_preview->draw(std::move(cells), std::move(definitions),
+                                          std::move(catalog), stroke, painting);
+        };
+        tile_map_editor.release_preview = [&] { release_tile_map_preview = true; };
         forge::AnimationBlendSpaceEditor animation_blend_space;
         forge::AnimationPreviewEditor animation_preview;
         forge::MaterialGraphEditor graph_editor(
@@ -1122,7 +1155,8 @@ int main(int argc, char** argv) {
                 navigation_tools.pending() || script_editor.pending() ||
                 texture_imports.pending() || audio_imports.pending() || model_imports.pending() ||
                 shader_imports.pending() || material_editor.pending() || graph_editor.pending() ||
-                collision_editor.pending() || particle_editor.pending() || terrain_editor.pending())
+                collision_editor.pending() || particle_editor.pending() ||
+                terrain_editor.pending() || tile_set_editor.pending() || tile_map_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
             if (documents.source_drafts_dirty())
                 return "Save or discard open source-document drafts before reviewing file changes.";
@@ -1151,6 +1185,18 @@ int main(int argc, char** argv) {
                     terrain_editor.request_close();
                     if (plan.request.action == forge::AssetFileAction::Move)
                         terrain_editor.open(files.document, plan.request.destination);
+                }
+                if (tile_set_editor.document() &&
+                    tile_set_editor.document()->source().asset() == id) {
+                    tile_set_editor.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        tile_set_editor.open(files.document, plan.request.destination);
+                }
+                if (tile_map_editor.document() &&
+                    tile_map_editor.document()->source().asset() == id) {
+                    tile_map_editor.request_close();
+                    if (plan.request.action == forge::AssetFileAction::Move)
+                        tile_map_editor.open(files.document, plan.request.destination);
                 }
                 const auto refresh_import = [&](auto& document) {
                     if (document.selected_asset() == id) {
@@ -1212,6 +1258,8 @@ int main(int argc, char** argv) {
             material_editor.asset_catalog_changed(catalog);
             particle_editor.catalog_changed(catalog);
             terrain_editor.catalog_changed(catalog);
+            tile_set_editor.catalog_changed(catalog);
+            tile_map_editor.catalog_changed(catalog);
             graph_editor.asset_catalog_changed(catalog);
             collision_editor.asset_catalog_changed(catalog);
             animation_preview.stop_preview();
@@ -1319,6 +1367,12 @@ int main(int argc, char** argv) {
                     collision_editor.dirty()) ||
                    (terrain_editor.document() &&
                     terrain_editor.document()->source().asset() == id && terrain_editor.dirty()) ||
+                   (tile_set_editor.document() &&
+                    tile_set_editor.document()->source().asset() == id &&
+                    tile_set_editor.dirty()) ||
+                   (tile_map_editor.document() &&
+                    tile_map_editor.document()->source().asset() == id &&
+                    tile_map_editor.dirty()) ||
                    (editable_mesh_editor.document() &&
                     editable_mesh_editor.document()->source().asset() == id &&
                     editable_mesh_editor.dirty()) ||
@@ -1340,7 +1394,11 @@ int main(int argc, char** argv) {
             particle_editor.source_published(files.document, id);
             particle_editor.catalog_changed(catalog);
             terrain_editor.source_published(files.document, id);
+            tile_set_editor.source_published(files.document, id);
+            tile_map_editor.source_published(files.document, id);
             terrain_editor.catalog_changed(catalog);
+            tile_set_editor.catalog_changed(catalog);
+            tile_map_editor.catalog_changed(catalog);
             graph_editor.source_published(id);
             collision_editor.source_published(files.document, id);
             collision_editor.asset_catalog_changed(catalog);
@@ -1395,6 +1453,12 @@ int main(int argc, char** argv) {
             } else if (kind == "transform_animation") {
                 if (open)
                     animation_timeline.open(files.document, path);
+            } else if (kind == "tile_set") {
+                if (open)
+                    tile_set_editor.open(files.document, path);
+            } else if (kind == "tile_map") {
+                if (open)
+                    tile_map_editor.open(files.document, path);
             } else if (kind == "terrain") {
                 if (open)
                     terrain_editor.open(files.document, path);
@@ -1797,6 +1861,39 @@ int main(int argc, char** argv) {
                        [&] { return editable_mesh_editor.can_redo(); },
                        {},
                        [&] { return std::exchange(editable_mesh_editor.close_cancelled, false); }});
+        documents.add(
+            {"tile_set", "Tile Set", "Tile Set###TileSet", true,
+             [&] { return tile_set_editor.is_open(); }, [&] { return tile_set_editor.dirty(); },
+             [&] { tile_set_editor.draw(files.document, asset_document_locked || play.active()); },
+             [&] { tile_set_editor.request_save(); }, [&] { tile_set_editor.undo(); },
+             [&] { tile_set_editor.redo(); }, [&] { tile_set_editor.request_close(); },
+             [&] { return tile_set_editor.can_undo(); }, [&] { return tile_set_editor.can_redo(); },
+             [&](const std::string& key) {
+                 tile_set_editor.inspect(key, asset_document_locked || play.active());
+             },
+             [&] { return std::exchange(tile_set_editor.close_cancelled, false); }});
+        asset_editors.add(
+            {forge::TileSetAsset::type, "Edit Tile Set", [&](const forge::AssetRecord& asset) {
+                 tile_set_editor.open(files.document, asset.source);
+             }});
+        documents.add(
+            {"tile_map", "Tile Map", "Tile Map###TileMap", true,
+             [&] { return tile_map_editor.is_open(); }, [&] { return tile_map_editor.dirty(); },
+             [&] {
+                 tile_map_editor.draw(files.document, scene,
+                                      asset_document_locked || play.active());
+             },
+             [&] { tile_map_editor.request_save(); }, [&] { tile_map_editor.undo(); },
+             [&] { tile_map_editor.redo(); }, [&] { tile_map_editor.request_close(); },
+             [&] { return tile_map_editor.can_undo(); }, [&] { return tile_map_editor.can_redo(); },
+             [&](const std::string& key) {
+                 tile_map_editor.inspect(key, asset_document_locked || play.active());
+             },
+             [&] { return std::exchange(tile_map_editor.close_cancelled, false); }});
+        asset_editors.add(
+            {forge::TileMapAsset::type, "Edit Tile Map", [&](const forge::AssetRecord& asset) {
+                 tile_map_editor.open(files.document, asset.source);
+             }});
         documents.add({"terrain",
                        "Terrain",
                        "Terrain###Terrain",
@@ -1982,9 +2079,10 @@ int main(int argc, char** argv) {
                 context.blocked =
                     "Stop Play and finish the current gesture, file, import, or cache operation.";
             context.openable = context.target && asset_editors.find(context.target->type);
-            context.placeable = context.target && (context.target->type == "model" ||
-                                                   context.target->type == "mesh" ||
-                                                   context.target->type == "prefab");
+            context.placeable =
+                context.target &&
+                (context.target->type == "model" || context.target->type == "mesh" ||
+                 context.target->type == "tile_map" || context.target->type == "prefab");
             context.reimportable = !context.selected.empty() && selection_complete;
             for (auto id : context.selected) {
                 const auto* asset = content.record(id);
@@ -2040,6 +2138,10 @@ int main(int argc, char** argv) {
                 particle_preview.reset();
             if (std::exchange(release_terrain_preview, false))
                 terrain_preview.reset();
+            if (std::exchange(release_tile_set_preview, false))
+                tile_set_preview.reset();
+            if (std::exchange(release_tile_map_preview, false))
+                tile_map_preview.reset();
             performance.begin();
 #ifdef FORGE_UI_FIXTURE
             if (fixture.workflow && (!fixture.sprite_frames || fixture.prepared))
@@ -4965,6 +5067,24 @@ int main(int argc, char** argv) {
                     play.model_assets_changed();
                     content.refresh(files);
                 }
+                tile_set_editor.poll(files.document, message);
+                if (auto catalog = tile_set_editor.take_catalog()) {
+                    tile_map_editor.catalog_changed(catalog);
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
+                tile_map_editor.poll(files.document, message);
+                if (auto catalog = tile_map_editor.take_catalog()) {
+                    tile_set_editor.catalog_changed(catalog);
+                    content_imports.catalog_changed(catalog);
+                    if (mesh_resources)
+                        mesh_resources->catalog(catalog);
+                    play.model_assets_changed();
+                    content.refresh(files);
+                }
                 material_editor.poll(files.document, message);
                 if (auto catalog = material_editor.take_catalog()) {
                     content_imports.catalog_changed(catalog);
@@ -6055,6 +6175,8 @@ int main(int argc, char** argv) {
                         material_editor.content(files.document, edit_locked);
                         particle_editor.content(files.document, edit_locked);
                         terrain_editor.content(files.document, edit_locked);
+                        tile_set_editor.content(files.document, edit_locked);
+                        tile_map_editor.content(files.document, edit_locked);
                         editable_mesh_editor.content(files.document, edit_locked);
                         animation_states.content(files.document, edit_locked);
                         animation_mask.content(files.document, edit_locked);
@@ -6091,7 +6213,8 @@ int main(int argc, char** argv) {
                 documents.source_drafts_dirty() || texture_imports.pending() ||
                 audio_imports.pending() || model_imports.pending() || shader_imports.pending() ||
                 material_editor.pending() || graph_editor.pending() || particle_editor.pending() ||
-                terrain_editor.pending() || source_import.busy() || animation_tools.pending() ||
+                terrain_editor.pending() || tile_set_editor.pending() ||
+                tile_map_editor.pending() || source_import.busy() || animation_tools.pending() ||
                 navigation_tools.pending() || script_editor.pending() ||
                 authored_components.busy() || content_files.busy());
             content_files.draw(content_imports);

@@ -28,6 +28,13 @@ template <class Traits> class AssetSourceDocument {
     bool dirty() const { return current_.document != saved_; }
     bool can_undo() const { return !undo_.empty(); }
     bool can_redo() const { return !redo_.empty(); }
+    // Preflight a gesture without changing source or history. Both directions
+    // must fit so the resulting Undo can itself retain a Redo entry.
+    bool retains_history(const Source& candidate) const {
+        check();
+        return history_weight(current_, candidate) <= history_budget &&
+               history_weight(candidate, current_) <= history_budget;
+    }
     void edit(std::uint64_t expected, std::string label,
               const std::function<void(nlohmann::json&)>& mutation);
     // Same validation/history owner for sources with an immutable typed value.

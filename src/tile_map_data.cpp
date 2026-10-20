@@ -160,9 +160,11 @@ TileMapCell TileMapData::cell(std::uint64_t layer, TileCellAddress cell) const {
     return found == chunks_.end() ? TileMapCell{} : found->second->cells[address.index];
 }
 TileMapData::CellChanges TileMapData::prepare_cells(std::span<const TileMapCellEdit> writes,
-                                                    const TileSetData& definitions) const {
+                                                    const TileSetData* definitions) const {
     validate();
-    require(definitions.asset() == tile_set_, "Runtime Tile Map definitions have a different root");
+    if (definitions)
+        require(definitions->asset() == tile_set_,
+                "Runtime Tile Map definitions have a different root");
     require(writes.size() <= tile_map_edit_limit, "Runtime Tile Map edit batch exceeds its limit");
     CellChanges changes;
     auto& patches = changes.chunks;
@@ -170,8 +172,10 @@ TileMapData::CellChanges TileMapData::prepare_cells(std::span<const TileMapCellE
         require(has_layer(write.layer), "Runtime Tile Map edit has no matching layer");
         require(write.value.flags <= 7 && (write.value.tile || !write.value.flags),
                 "Runtime Tile Map edit has invalid cell flags");
-        if (write.value.tile)
-            (void)definitions.tile(write.value.tile);
+        if (write.value.tile) {
+            require(definitions, "Tile Map erase batch contains a nonempty cell");
+            (void)definitions->tile(write.value.tile);
+        }
         const auto address = tile_chunk_cell(write.address);
         patches[{write.layer, address.chunk}].cells[address.index] = write.value;
     }
@@ -203,11 +207,16 @@ TileMapData::CellChanges TileMapData::prepare_cells(std::span<const TileMapCellE
 }
 void TileMapData::validate_cells(std::span<const TileMapCellEdit> writes,
                                  const TileSetData& definitions) const {
-    (void)prepare_cells(writes, definitions);
+    (void)prepare_cells(writes, &definitions);
 }
 TileMapData TileMapData::with_cells(std::span<const TileMapCellEdit> writes,
                                     const TileSetData& definitions) const {
-    const auto changes = prepare_cells(writes, definitions);
+    return apply_cells(prepare_cells(writes, &definitions));
+}
+TileMapData TileMapData::with_erased_cells(std::span<const TileMapCellEdit> writes) const {
+    return apply_cells(prepare_cells(writes, nullptr));
+}
+TileMapData TileMapData::apply_cells(const CellChanges& changes) const {
     auto next = *this;
     for (const auto& [key, patch] : changes.chunks) {
         const auto old = chunks_.find(key);

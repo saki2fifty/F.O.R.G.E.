@@ -281,6 +281,23 @@ EntityId instantiate_mesh(Scene& scene, const AssetCatalog& catalog, AssetRef<Me
     scene.edit(document);
     return id;
 }
+EntityId instantiate_tile_map(Scene& scene, const AssetCatalog& catalog, AssetRef<TileMapAsset> map,
+                              LocalTranslation position, const std::string& name) {
+    const auto resolved = catalog.resolve(map);
+    if (resolved.state != AssetState::Available)
+        throw std::runtime_error("Tile Map placement rejected: " + resolved.diagnostic);
+    auto document =
+        preview_authoring(scene, Json::array({{{"operation", "entity.create"},
+                                               {"arguments",
+                                                {{"recipe", "render.tile_map"},
+                                                 {"name", name},
+                                                 {"position", detail::encode(position)}}}}}));
+    auto& entity = document["entities"].back();
+    entity["components"]["forge.tile_map_renderer"]["map"] = map.id;
+    const auto id = entity.at("id").get<EntityId>();
+    scene.edit(document);
+    return id;
+}
 EntityId instantiate_prefab_at(Scene& scene, AssetId asset, LocalTranslation position) {
     detail::SceneDraft draft(scene);
     const auto id = draft.instantiate_prefab(asset);

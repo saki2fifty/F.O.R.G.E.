@@ -1,14 +1,35 @@
 # Tile Set and Tile Map source foundation
 
-These are internal source, cooked-data and asset-pipeline foundations. The
-programmatic import/publication/resource/content-package path has focused Linux
-tests. Discovery, Content reimport routes, command-line import and typed file/reference
-adapters are integrated in this development source; user-facing Tile Set/Tile Map
-document tools are still pending. Native map rendering is implemented and locally
-tested; there is no completed painting or standalone game-export workflow from
-this foundation alone. The first
-complete workflow must integrate those consumers and the Feature Gallery before
-claiming a working tilemap feature.
+This development source includes the source, cooked-data, asset pipeline, native
+renderer and central Tile Set/Tile Map document tools. Focused Linux checks cover
+the pipeline and renderer; headless ImGui interaction checks cover the document
+controls at three interface scales. The complete Editor Play projection, original
+Feature Gallery scene and moved standalone game gate remain unfinished. This is
+not yet a completed delivered tilemap workflow or Windows acceptance claim.
+
+## Source documents (development)
+
+Content creates and opens `.tileset.json` and `.tilemap.json` in central document
+tabs. Tile Set images reference ordinary Materials. Grid dimensions and selected
+tile definitions use the Inspector; definition keys remain local to their Set.
+Each document uses the existing source writer, revision, history and publication
+owners. Save / Publish cooks through the ordinary worker; failures retain the last
+working publication. Scene Undo and source-document Undo remain separate.
+
+The Map document selects a layer, tile and orientation, then paints or erases in
+an isolated XY canvas. Release commits a complete bounded stroke as one Undo
+step. Escape, loss of focus, close and locking cancel its temporary candidate.
+Mouse samples interpolate across cells; a full stroke retains its last accepted
+segment and asks the user to release. Status and loading messages occupy fixed
+space so they cannot move the grid beneath a captured pointer. Middle mouse pans
+and the wheel zooms; painting captures navigation. Map/layer settings and selected
+cells use the Inspector. A missing Tile Set still permits incremental erase and
+Undo without rebuilding every cell on each pointer sample.
+
+Published maps can be placed through the ordinary Content action/Scene drop path
+or assigned to a Tile Map Renderer. `render.tile_map` uses the existing entity
+recipe catalog and reflected defaults. Placement commits one Scene Undo step;
+neither the canvas nor placement creates an entity for each occupied cell.
 
 ## Scene and instance integration (development)
 
@@ -49,8 +70,7 @@ pass. A maximum-profile allocation probe validates4096 writes across1024chunks/
 262144cells: preflight requests335872heap bytes, while constructing the changed
 snapshot requests17203270bytes in Linux GCC12. These are requested allocation
 totals, not peak/RSS/GPU memory or frame-time evidence.
-Play transport projection, painting tools and the complete exported-game workflow
-remain unfinished.
+Play transport projection and the complete exported-game workflow remain unfinished.
 
 The in-process graphical host now binds typed map presentation values to the
 same immutable snapshots read by native gameplay. This shares cell storage and
@@ -238,8 +258,7 @@ representation keeps unchanged data shared across saved values and history.
 ### Ordinary asset publication and loading
 
 Value-only `TileSetAsset`/`TileMapAsset` tags belong to the common AssetRef contract
-and use the existing root AssetCatalog and ResourcePool contracts. The public
-gameplay cell interface remains unfinished. `tile_asset_import_registry` supplies the two source
+and use the existing root AssetCatalog and ResourcePool contracts. The copied C++ gameplay interface is described above. `tile_asset_import_registry` supplies the two source
 importers to `AssetImportService`; no parallel catalog, dependency graph, history
 or loaded-handle database is introduced. Source bytes and selected dependencies
 are recaptured before cooking, and stale or failed candidates retain last-good
@@ -436,15 +455,17 @@ candidates cannot change each other or the original asset snapshot.
 This operation validates written cells; selecting a compatible baseline/Tile Set
 revision remains the asset/instance owner's responsibility. It does not publish
 to a world, queue a gameplay command, persist a game save or provide a public SDK
-interface. The world owner and its fixed-step boundary still need integration.
+interface. The runtime instance owner uses this candidate at its fixed-step boundary,
+as described above. `with_erased_cells` accepts only empty values and applies the
+same bounded, structurally shared patches without a loadable Tile Set.
 
 The maximum-profile test uses all 1024 chunks and 262144 occupied cells. Its
 complete cooked artifact is 4215032 bytes. In the Linux GCC12 configuration its
 retained allocation estimate is 16883912 bytes. That estimate includes typed arrays, container capacity and
 conservative node/control storage; it is not a measured process RSS or performance
 guarantee. Cooking/publication and explicit-root content packaging
-use the ordinary asset pipeline. Tile document tools and rendered game export remain
-part of the complete workflow still to implement.
+use the ordinary asset pipeline. The complete rendered game-export gate remains
+unfinished.
 
 Focused source tests cover malformed inputs, duplicate JSON keys, finite/range
 limits, negative/far addresses, exact uint64 keys, unknown data, detached paint,
@@ -453,9 +474,9 @@ The actual document owner also exercises a 262144-cell map with 16 paint strokes
 and complete Undo/Redo. These source checks do not replace native-renderer,
 matching installed SDK, editor interaction and moved-game gates.
 
-The remaining complete feature includes Tile Set/Map document tools using the
-isolated previews, bounded Editor Play projection, palette/painting/history,
-complete source replacement UX, moved-game validation and original editable
-Gallery content. Native rendering/grid picking and bounded C++ queries/edits have
+The remaining complete feature gate includes bounded Editor Play projection,
+source replacement across that process boundary, moved-game validation and original
+editable Gallery content. The source documents and isolated canvas require the
+coherent Windows gate before delivery. Native rendering/grid picking and bounded C++ queries/edits have
 focused local evidence; they do not complete those workflows. No autotiling,
 animated tiles, 2D collision or streaming is implied by this source foundation.
