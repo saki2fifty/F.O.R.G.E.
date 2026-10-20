@@ -1,5 +1,6 @@
+#include "asset_bytes.hpp"
 #include "tile_map_document.hpp"
-#include <fstream>
+#include <chrono>
 #include <iostream>
 #include <type_traits>
 
@@ -203,11 +204,19 @@ TileMapValue dense() {
     return TileMapValue::parse(std::move(root));
 }
 std::string bytes(const std::filesystem::path& file) {
-    std::ifstream in(file, std::ios::binary);
-    return {std::istreambuf_iterator<char>(in), {}};
+    const auto data = asset_detail::read_bytes(file, tile_map_source_byte_limit);
+    return {reinterpret_cast<const char*>(data.data()), data.size()};
 }
 void history_and_limits(const std::filesystem::path& root) {
+    auto previous = std::chrono::steady_clock::now();
+    const auto progress = [&](const char* label) {
+        const auto now = std::chrono::steady_clock::now();
+        std::cout << label << " (" << std::chrono::duration<double>(now - previous).count() << " s)"
+                  << std::endl;
+        previous = now;
+    };
     const auto baseline = dense();
+    progress("Dense value created");
     require(baseline.occupied() == tile_map_cell_limit && baseline.chunk_count() == 256,
             "Dense first-profile fixture did not reach its cell capacity");
     reject([&] { (void)paint(baseline, {{1, {9999, 9999}, {1, 0}}}); });
@@ -217,9 +226,11 @@ void history_and_limits(const std::filesystem::path& root) {
         metadata["asset_id"] = id;
         return TileMapSource{baseline.with_metadata(std::move(metadata))};
     });
+    progress("Dense document created and admitted");
     const auto file = root / "Original.tilemap.json";
     const auto disk = bytes(file), id = doc->source().asset().str();
     const auto initial = doc->source().document;
+    progress("Initial disk bytes read");
     for (unsigned step = 0; step < 16; ++step) {
         std::vector<TileMapCellEdit> writes;
         for (int y = -4; y < 4; ++y)
@@ -231,12 +242,15 @@ void history_and_limits(const std::filesystem::path& root) {
         require(TileMapValue::history_weight(initial, doc->source().document) < 256 * 1024,
                 "Paint history retained a whole dense map instead of changed chunks");
     }
+    progress("Sixteen dense strokes retained");
     require(bytes(file) == disk, "Painting wrote source bytes before explicit Save");
+    progress("Unchanged disk baseline checked");
     const auto final = doc->source().document;
     for (unsigned i = 0; i < 16; ++i) {
         require(doc->can_undo(), "Dense Tile Map lost bounded stroke history");
         doc->undo();
     }
+    progress("Sixteen dense Undo steps completed");
     require(doc->source().document == initial && !doc->dirty(),
             "Dense Undo did not restore saved map");
     const auto revision = doc->revision();
@@ -248,10 +262,13 @@ void history_and_limits(const std::filesystem::path& root) {
         require(doc->can_redo(), "Dense Tile Map lost Redo history");
         doc->redo();
     }
+    progress("Sixteen dense Redo steps completed");
     require(doc->source().document == final && doc->dirty(),
             "Dense Redo differs from painted state");
     doc->save();
+    progress("Dense source saved");
     TileMapDocument reopened(lease, "Original.tilemap.json");
+    progress("Dense source reopened");
     require(reopened.source().asset().str() == id && reopened.source().document == final,
             "Dense Tile Map Save/reopen changed identity or cells");
     auto metadata = final.metadata();
@@ -278,6 +295,7 @@ void history_and_limits(const std::filesystem::path& root) {
     require(doc->source().document.cell(2, {}) == TileMapCell{99, 0} &&
                 doc->source().document.cell(1, {}) == TileMapCell{} && final.cell(1, {}).tile != 0,
             "Layer query isolation or immutable prior state changed");
+    progress("Layer identity and isolated cell checks completed");
 }
 } // namespace
 int main(int argc, char** argv) {

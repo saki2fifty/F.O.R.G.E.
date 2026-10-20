@@ -51,6 +51,13 @@ The Tile Map source fixture keeps all dense-capacity, history and four-million-
 event checks. Linux Debug measured 104.92 seconds; Windows Debug exceeded its
 former 120-second aggregate cutoff. This fixture allows 300 seconds in Debug and
 retains 120 seconds in other configurations, with flushed phase diagnostics.
+For a focused diagnosis, dispatch `build.yml` with `windows_package=false` and
+`tile_source_only=true`. The reusable Tile source audit builds the actual fixture
+in the selected Windows Debug configuration and measures its complete workload
+outside the aggregate CTest cutoff. Detailed dense-history stages flush to the
+retained log; source-byte comparisons use the existing bounded block reader.
+This diagnostic has a 35-minute job limit and does not replace the full matrix,
+editor, export or numbered-package gate.
 
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new
