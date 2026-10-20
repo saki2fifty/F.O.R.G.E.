@@ -405,13 +405,19 @@ class ViewImageTask {
         // Let the existing Game focus route activate its tab before opening a modal.
         if (frames_ && frame_popup_ && ImGui::GetFrameCount() > frames_->open_after)
             ImGui::OpenPopup("Export sequence frames");
-        const auto available = ImGui::GetMainViewport()->WorkSize;
+        const auto* viewport = ImGui::GetMainViewport();
+        const auto available = viewport->WorkSize;
         const float scale = ImGui::GetFontSize() / 13.f;
-        if (ImGui::IsPopupOpen("Export sequence frames"))
+        if (ImGui::IsPopupOpen("Export sequence frames")) {
+            // Keep this transient modal centered when its content or viewport changes.
+            ImGui::SetNextWindowPos(
+                {viewport->WorkPos.x + available.x * .5f, viewport->WorkPos.y + available.y * .5f},
+                ImGuiCond_Always, {.5f, .5f});
             ImGui::SetNextWindowSizeConstraints(
                 {0, 0}, {std::max(240.f, available.x - 32), std::max(180.f, available.y - 32)});
+        }
         if (ImGui::BeginPopupModal("Export sequence frames", nullptr,
-                                   ImGuiWindowFlags_AlwaysAutoResize)) {
+                                   ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove)) {
             if (!frames_) {
                 frame_popup_ = false;
                 ImGui::CloseCurrentPopup();

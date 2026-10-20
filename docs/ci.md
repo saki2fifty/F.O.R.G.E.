@@ -309,7 +309,8 @@ folder-picker adapter and current/fixed four-frame PNG batches at 100/150/200%.
 Fixed mode selects an actual preset, enters custom 320×180 dimensions, resizes the
 real SDL window during rendering/saving, checks unchanged target dimensions and
 restored ordinary Game sizing, and compares exact PNG bytes across all three UI
-scales. Its dedicated fixture mode bypasses legacy scene seeding/capture stages.
+scales. Each resize also verifies that the whole centered progress modal and its
+Cancel control remain inside the actual window; modal bounds travel with the receipt. Its dedicated fixture mode bypasses legacy scene seeding/capture stages.
 Normal source import
 must settle before its protected baseline; source/catalog bytes remain unchanged
 during all six exports. It retains modal images, frame receipts and failure

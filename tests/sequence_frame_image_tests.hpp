@@ -1,6 +1,7 @@
 #pragma once
 #include "view_image_editor_tests.hpp"
 #include <array>
+#include <imgui_internal.h>
 #include <limits>
 namespace forge::test_sequence_frame_image {
 using test_view_image_ui::check;
@@ -466,6 +467,7 @@ inline void exercise_ui(DiligentPresentation& presentation, Diligent::IDeviceCon
     Task task;
     auto frame = [&] {
         test::ui_targets.clear();
+        io.DisplaySize = display;
         ImGui::NewFrame();
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
         ImGui::SetNextWindowSize(display, ImGuiCond_Always);
@@ -537,6 +539,21 @@ inline void exercise_ui(DiligentPresentation& presentation, Diligent::IDeviceCon
             frame();
     };
     choose();
+    const auto initial_display = display;
+    for (const auto resized : {ImVec2{1920, 1080}, ImVec2{1400, 900}, ImVec2{1680, 1000}}) {
+        display = resized;
+        for (unsigned i = 0; i < 4; ++i)
+            frame();
+        const auto* modal = ImGui::FindWindowByName("Export sequence frames");
+        check(modal && modal->Active && modal->Pos.x >= 0 && modal->Pos.y >= 0 &&
+                  modal->Pos.x + modal->Size.x <= display.x &&
+                  modal->Pos.y + modal->Size.y <= display.y &&
+                  visible(test::ui_targets.at("frame-export:cancel")),
+              "Sequence export modal or Cancel escaped the resized viewport");
+    }
+    display = initial_display;
+    for (unsigned i = 0; i < 4; ++i)
+        frame();
     click("frame-export:cancel");
     host.finish(task);
     check(host.source.cursor == 1.25 && host.source.playing &&
