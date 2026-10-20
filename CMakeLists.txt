@@ -367,9 +367,10 @@ if(BUILD_TESTING)
  target_link_libraries(forge_tile_map_source_tests PRIVATE forge_tile_map_source forge_assets forge_file_storage forge_asset_bytes)
  add_test(NAME tile_map_source COMMAND forge_tile_map_source_tests "${CMAKE_BINARY_DIR}/tile-map-source-tests")
  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  # The full dense/history and four-million-event fixtures measured 104.92s
-  # on Linux Debug; Windows Debug exceeded the former 120s aggregate limit.
-  set_tests_properties(tile_map_source PROPERTIES TIMEOUT 300)
+  # Complete 262144-cell/history and four-million-event workload measured
+  # 538.90s on the selected Windows Debug compiler (audit39480854995).
+  # Preserve every check and allow measured unoptimized admission headroom.
+  set_tests_properties(tile_map_source PROPERTIES TIMEOUT 900)
  else()
   set_tests_properties(tile_map_source PROPERTIES TIMEOUT 120)
  endif()

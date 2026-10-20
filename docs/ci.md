@@ -47,10 +47,15 @@ Core/SDK matrix jobs allow 75 minutes: a cold Windows core run completed all 145
 tests and Runtime installation just before its former 45-minute cleanup deadline,
 but the overall job was still cancelled. The additional budget covers complete
 cold compilation, testing, installation and cleanup without relaxing any test.
-The Tile Map source fixture keeps all dense-capacity, history and four-million-
-event checks. Linux Debug measured 104.92 seconds; Windows Debug exceeded its
-former 120-second aggregate cutoff. This fixture allows 300 seconds in Debug and
-retains 120 seconds in other configurations, with flushed phase diagnostics.
+The Tile Map source fixture keeps all 262144-cell capacity, sixteen-stroke
+Undo/Redo, identity, Save/reopen and four-million-event checks. The complete
+[Windows Debug diagnosis](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39480854995)
+passes in 538.90 seconds: dense creation 72.43s, initial document admission 286.75s,
+reopen 141.98s, sixteen strokes 11.54s, and each disk comparison/Undo/Redo stage
+below 0.05s. This fixture allows 900 seconds in Debug for measured unoptimized
+admission headroom and retains 120 seconds in other configurations. The full
+Windows SDK Release fixture passes in 13.49 seconds at the unchanged implementation.
+These are stress-fixture timings, not gameplay performance or frame-pacing results.
 For a focused diagnosis, dispatch `build.yml` with `windows_package=false` and
 `tile_source_only=true`. The reusable Tile source audit builds the actual fixture
 in the selected Windows Debug configuration and measures its complete workload
