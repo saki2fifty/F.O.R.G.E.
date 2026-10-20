@@ -50,7 +50,13 @@ cold compilation, testing, installation and cleanup without relaxing any test.
 
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new
-delivery number. Focused shader/input scopes remain explicitly separate. Numbered
+delivery number.
+The 941-action native input walkthrough has a480-second aggregate CTest budget.
+One full WARP run completed all941 actions in297.56 seconds; a slower runner
+completed877 before the former360-second aggregate cutoff, with normal actions
+still progressing. The driver's12-second action/readiness and180-second compiler/
+graph checks remain unchanged. The additional aggregate allowance removes no
+actions, pixel/source checks or acceptance requirements. Focused shader/input scopes remain explicitly separate. Numbered
 failures retain the full capture diagnostics and CTest logs, including the stalled
 state JSON, so a screenshot is not the only available readiness evidence.
 The sequence-frame input walkthrough waits for the real export callback to accept
