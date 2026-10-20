@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <atomic>
 #include <forge/render_components.hpp>
+#include <forge/render_scene.hpp>
 #include <limits>
 
 namespace forge::detail {
@@ -42,7 +43,7 @@ struct Instance {
     Subscription map, definitions;
     std::shared_ptr<const RuntimeTileMapSnapshot> snapshot;
     std::string requested_revision, diagnostic;
-    bool current = false;
+    bool current = false, pending = false;
     void clear() noexcept {
         snapshot.reset();
         map.clear();
@@ -51,6 +52,7 @@ struct Instance {
         requested_revision.clear();
         diagnostic.clear();
         current = false;
+        pending = false;
     }
 };
 // This private component owns mutable instance state. It is never inherited,
@@ -109,7 +111,16 @@ bool ready(const RuntimeResourceStatus& status) {
     return status.state == "ready" && !status.requested_revision.empty() &&
            status.requested_revision == status.retained_revision;
 }
+void require_ready(Instance& state, const RuntimeResourceStatus& status, const char* label) {
+    if (ready(status))
+        return;
+    state.pending = status.state == "queued" || status.state == "dependency pending" ||
+                    status.state == "loading" || status.state == "replacing";
+    throw std::runtime_error(std::string(label) + ": " +
+                             (status.diagnostic.empty() ? status.state : status.diagnostic));
+}
 void adopt(WorldContext& context, Instance& state, bool reset) {
+    state.pending = false;
     require(bool(state.requested), "Tile Map has no assigned asset");
     require(context.services().available(Capability::Resources),
             "Runtime Tile Map resource provider is unavailable");
@@ -117,12 +128,12 @@ void adopt(WorldContext& context, Instance& state, bool reset) {
     state.map.select(resources, RuntimeResourceKind::TileMap, state.requested);
     const auto map_status = resources->inspect(state.map.token);
     state.requested_revision = map_status.requested_revision;
-    require(ready(map_status), "Tile Map asset is not current and ready");
+    require_ready(state, map_status, "Tile Map asset is not current and ready");
     const auto map = resources->tile_map(state.map.token);
     require(bool(map), "Tile Map has no admitted CPU lease");
     state.definitions.select(resources, RuntimeResourceKind::TileSet, map->tile_set());
     const auto set_status = resources->inspect(state.definitions.token);
-    require(ready(set_status), "Tile Map definitions are not current and ready");
+    require_ready(state, set_status, "Tile Map definitions are not current and ready");
     const auto definitions = resources->tile_set(state.definitions.token);
     require(bool(definitions) && definitions->asset() == map->tile_set(),
             "Tile Map definition binding differs");
@@ -150,6 +161,7 @@ void adopt(WorldContext& context, Instance& state, bool reset) {
     candidate->cells = map.get();
     candidate->asset = map;
     candidate->definitions = definitions;
+    candidate->definition_values = definitions.get();
     candidate->generation = generation(queue(context));
     state.snapshot = std::move(candidate);
     state.current = true;
@@ -206,6 +218,7 @@ void synchronize_runtime_tile_maps(WorldContext& context) {
         auto& state = *entity.get<RuntimeTileMapState>().value;
         const auto requested = entity.get<TileMapRenderer>().map.id;
         state.current = false;
+        state.pending = false;
         state.requested_revision.clear();
         if (!requested) {
             state.clear();
@@ -225,11 +238,13 @@ RuntimeTileMapStatus inspect_runtime_tile_map(WorldContext& context, EntityRef t
     status.requested = entity.get<TileMapRenderer>().map.id;
     if (!entity.has<RuntimeTileMapState>()) {
         status.diagnostic = "Tile Map is waiting for runtime synchronization";
+        status.pending = bool(status.requested);
         return status;
     }
     const auto state = entity.get<RuntimeTileMapState>().value;
     status.requested_revision = state->requested_revision;
     status.diagnostic = state->diagnostic;
+    status.pending = state->pending;
     if (const auto& snapshot = state->snapshot;
         snapshot && snapshot->asset && snapshot->definitions) {
         status.ready = true;
@@ -249,6 +264,32 @@ std::shared_ptr<const RuntimeTileMapSnapshot> runtime_tile_map_snapshot(WorldCon
     require(state->snapshot && state->snapshot->asset && state->snapshot->definitions,
             "Runtime Tile Map has no ready retained snapshot");
     return state->snapshot;
+}
+void bind_runtime_tile_maps(WorldContext& context, RenderScene& scene) {
+    (void)queue(context);
+    for (auto& map : scene.tile_maps) {
+        map.runtime_instance = true;
+        map.pending = false;
+        map.generation = map.revision = 0;
+        map.cells.reset();
+        map.definitions.reset();
+        map.diagnostic.clear();
+        try {
+            const EntityRef target{scene.scene, map.entity};
+            const auto status = inspect_runtime_tile_map(context, target);
+            map.diagnostic = status.diagnostic;
+            map.pending = status.pending;
+            if (!status.ready)
+                continue;
+            const auto snapshot = runtime_tile_map_snapshot(context, target);
+            map.cells = {snapshot, &snapshot->cells};
+            map.definitions = {snapshot, &snapshot->definition_values};
+            map.generation = snapshot->generation;
+            map.revision = snapshot->revision;
+        } catch (const std::exception& error) {
+            map.diagnostic = std::string(error.what()).substr(0, 1024);
+        }
+    }
 }
 static std::uint64_t request(WorldContext& context, const std::string& module, EntityRef target,
                              std::uint64_t expected, std::span<const TileMapCellEdit> writes,

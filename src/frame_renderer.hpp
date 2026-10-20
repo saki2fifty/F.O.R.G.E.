@@ -12,6 +12,8 @@ class FrameRenderer {
     void resources(std::shared_ptr<MeshResourceHost>);
     Diligent::ITextureView* game(Diligent::IDeviceContext*, const nlohmann::json&, unsigned width,
                                  unsigned height);
+    Diligent::ITextureView* game(Diligent::IDeviceContext*, RenderScene, unsigned width,
+                                 unsigned height);
     Diligent::ITextureView* render(Diligent::IDeviceContext*, const RenderScene&,
                                    std::span<const PreparedCamera>, unsigned width, unsigned height,
                                    float exposure);

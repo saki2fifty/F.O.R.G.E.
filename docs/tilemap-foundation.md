@@ -51,6 +51,16 @@ totals, not peak/RSS/GPU memory or frame-time evidence.
 Play transport projection, GPU drawing,
 painting tools and complete exported-game workflow remain unfinished.
 
+The in-process graphical host now binds typed map presentation values to the
+same immutable snapshots read by native gameplay. This shares cell storage and
+admitted definition rows; it does not put cell arrays into `effective_scene` or
+copy the map each frame. An older captured frame keeps its earlier cells. The
+snapshot retains pure definition values independently of retiring resource-lease
+storage, so detached values remain valid after provider shutdown. Pending asset
+loads are distinguished from terminal admission failures. `GamePresentation`
+passes this typed view through the existing `FrameRenderer`; map GPU consumption
+and the separate Editor Play process projection are still unfinished.
+
 ## Copied C++ cell interface (development)
 
 The exact SDK appends CPU map callbacks to the existing host table. Its changed

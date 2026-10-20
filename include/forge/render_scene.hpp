@@ -3,7 +3,10 @@
 #include <forge/scene_render_settings.hpp>
 #include <forge/services.hpp>
 #include <map>
+#include <memory>
 namespace forge {
+class TileMapData;
+class TileSetData;
 // Detached presentation values, never a second world or authored hierarchy.
 // Input is the existing bounded effective_scene transport used by Editor Play.
 struct NodePolicy {
@@ -54,6 +57,13 @@ struct RenderTileMap {
     TileMapRenderer renderer;
     AffineTransform world;
     bool selectable = true;
+    // Detached in-process runtime view; no cell JSON in effective_scene.
+    bool runtime_instance = false;
+    bool pending = false;
+    std::uint64_t generation = 0, revision = 0;
+    std::shared_ptr<const TileMapData> cells;
+    std::shared_ptr<const TileSetData> definitions;
+    std::string diagnostic;
 };
 struct RenderModelNode {
     EntityId entity;

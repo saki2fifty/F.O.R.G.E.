@@ -18,6 +18,7 @@
 #endif
 #include <forge/engine_texture_assets.hpp>
 #include <forge/render_components.hpp>
+#include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
 #include <forge/scene.hpp>
@@ -304,6 +305,17 @@ void runtime_instances(const std::filesystem::path& root, std::shared_ptr<Projec
     const auto authored = scene.document();
     const auto a = scene.reference(first.str()), b = scene.reference(second.str());
     RuntimeSimulation simulation(engine.world(), scene);
+    auto detached = extract_render_scene(scene.effective_document());
+    bind_runtime_tile_maps(engine.world(), detached);
+    const auto rendered = [&](const RenderScene& values, EntityId id) -> const RenderTileMap& {
+        const auto found = std::find_if(values.tile_maps.begin(), values.tile_maps.end(),
+                                        [&](const auto& item) { return item.entity == id; });
+        require(found != values.tile_maps.end(), "Runtime Tile Map actor missing from projection");
+        return *found;
+    };
+    require(rendered(detached, first).runtime_instance && rendered(detached, first).pending &&
+                !rendered(detached, first).cells,
+            "Unready runtime map projection initialized a snapshot or hid pending state");
     const auto wait = [&](const auto& predicate) {
         const auto deadline = std::chrono::steady_clock::now() + 15s;
         do {
@@ -321,6 +333,12 @@ void runtime_instances(const std::filesystem::path& root, std::shared_ptr<Projec
     });
     const auto original_a = runtime_tile_map_snapshot(engine.world(), a);
     const auto original_b = runtime_tile_map_snapshot(engine.world(), b);
+    bind_runtime_tile_maps(engine.world(), detached);
+    require(rendered(detached, first).cells.get() == &original_a->cells &&
+                rendered(detached, first).definitions.get() == &original_a->definition_values &&
+                rendered(detached, first).generation == original_a->generation &&
+                !rendered(detached, first).pending,
+            "Presentation copied cell storage or borrowed a retiring resource value");
     require(original_a->generation != original_b->generation &&
                 &original_a->asset.get() == &original_b->asset.get(),
             "Map instances shared mutable identity or duplicated their immutable asset");
@@ -339,6 +357,12 @@ void runtime_instances(const std::filesystem::path& root, std::shared_ptr<Projec
             "Paused presentation published a gameplay cell request");
     simulation.tick(1.f / 60);
     const auto changed = runtime_tile_map_snapshot(engine.world(), a);
+    auto latest_view = extract_render_scene(simulation.presentation(0));
+    bind_runtime_tile_maps(engine.world(), latest_view);
+    require(rendered(latest_view, first).cells.get() == &changed->cells &&
+                rendered(latest_view, first).revision == 2 &&
+                rendered(detached, first).cells->cell(1, {}) == TileMapCell{},
+            "Runtime presentation retained stale cells or mutated a prior frame");
     require(changed->generation == original_a->generation && changed->revision == 2 &&
                 changed->edited && changed->cells.cell(1, {-1, -1}) == TileMapCell{3, 1} &&
                 changed->cells.cell(1, {}) == TileMapCell{5, 7} &&
@@ -471,8 +495,25 @@ void runtime_instances(const std::filesystem::path& root, std::shared_ptr<Projec
                 RuntimeTileEditState::Applied,
             "Deferred gameplay request was not applied at the next fixed boundary");
     release_runtime_tile_edit(engine.world(), "project.cells", deferred);
+    const auto second_native = engine.world().world().entity(engine.world().resolve(b).entity);
+    const auto assigned = second_native.get<TileMapRenderer>();
+    auto missing = assigned;
+    missing.map.id = AssetId::generate();
+    second_native.set(missing);
+    auto failed_view = extract_render_scene(simulation.presentation(0));
+    bind_runtime_tile_maps(engine.world(), failed_view);
+    const auto& failed = rendered(failed_view, second);
+    require(!failed.pending && !failed.diagnostic.empty() && failed.cells &&
+                failed.cells->asset() == assigned.map.id,
+            "Terminal missing-map failure stayed pending or discarded retained cells");
+    second_native.set(assigned);
+    (void)simulation.presentation(0);
     require(scene.document() == authored,
             "Runtime lifecycle or cell requests wrote authored map actor values");
+    engine.world().modules().stop();
+    require(rendered(latest_view, first).cells->cell(1, {}) == TileMapCell{5, 7} &&
+                rendered(latest_view, first).definitions->tile(2).id == 2,
+            "Detached presentation became dangling when resource scopes retired");
 }
 void automatic_updates(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
                        const std::filesystem::path& worker, AssetId material_id, AssetId set_id,

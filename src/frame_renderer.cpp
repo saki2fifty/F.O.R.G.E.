@@ -119,7 +119,10 @@ void FrameRenderer::report(const Diagnostic& value) {
 }
 ITextureView* FrameRenderer::game(IDeviceContext* context, const nlohmann::json& source,
                                   unsigned width, unsigned height) {
-    auto scene = extract_render_scene(source);
+    return game(context, extract_render_scene(source), width, height);
+}
+ITextureView* FrameRenderer::game(IDeviceContext* context, RenderScene scene, unsigned width,
+                                  unsigned height) {
     const auto cameras = prepare_game_cameras(scene, width, height);
     auto* result = render(context, scene, cameras.cameras, width, height, scene.settings.exposure);
     for (const auto& error : cameras.diagnostics)

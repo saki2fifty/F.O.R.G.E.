@@ -1,4 +1,5 @@
 #include "game_presentation.hpp"
+#include "runtime_tile_map.hpp"
 #include <forge/navigation.hpp>
 namespace forge {
 namespace {
@@ -45,7 +46,9 @@ struct GamePresentation::Candidate final : GameScenePreparation {
             runtime_ready = true;
         }
         host.resources_->pump();
-        frame->game(host.context_, world.simulation.presentation(1), host.width_, host.height_);
+        auto scene = extract_render_scene(world.simulation.presentation(1));
+        detail::bind_runtime_tile_maps(world.engine.world(), scene);
+        frame->game(host.context_, std::move(scene), host.width_, host.height_);
         host.resources_->submit();
         // Pending work may emit a temporary unavailable diagnostic. Wait for its
         // terminal result, then reject errors/fallbacks instead of activating them.
@@ -101,7 +104,9 @@ Diligent::ITextureView* GamePresentation::draw(GameSession& game, double time) {
     if (!active_)
         return nullptr;
     resources_->pump();
-    auto* image = active_->game(context_, game.presentation(), width_, height_);
+    auto scene = extract_render_scene(game.presentation());
+    detail::bind_runtime_tile_maps(game.active().engine.world(), scene);
+    auto* image = active_->game(context_, std::move(scene), width_, height_);
     resources_->submit();
     const auto status = game.status();
     ui_.accept(runtime_ui(game.active())
