@@ -533,7 +533,9 @@ if(BUILD_TESTING)
  add_test(NAME editor_sequence_audio_cues COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cue_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cues")
  set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 210)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
- # The full authoring/export scenario includes native compilation and three
- # graph-worker preparations. Individual input/readiness deadlines remain bounded.
- set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 360)
+ # The 941-action authoring/export scenario includes native compilation and
+ # three graph-worker preparations. A slow WARP runner reached action877 at360s
+ # without a stalled action. Keep aggregate headroom; per-action12s and compiler/
+ # graph180s deadlines remain unchanged in the driver.
+ set_tests_properties(editor_input_workflow PROPERTIES TIMEOUT 480)
 endif()
