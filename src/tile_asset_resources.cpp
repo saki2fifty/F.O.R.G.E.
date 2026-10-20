@@ -10,17 +10,11 @@ namespace {
 using Json = nlohmann::json;
 struct Contract {
     const char *type, *importer, *format, *metadata, *file;
-    std::string recipe;
     std::size_t file_limit;
 };
 Contract set_contract() {
-    return {TileSetAsset::type,
-            tile_set_importer_id,
-            tile_set_cooked_format,
-            "forge.tile_set",
-            tile_set_artifact_file,
-            tile_set_recipe_revision(),
-            tile_set_cooked_metadata_limit + 24};
+    return {TileSetAsset::type, tile_set_importer_id,   tile_set_cooked_format,
+            "forge.tile_set",   tile_set_artifact_file, tile_set_cooked_metadata_limit + 24};
 }
 Contract map_contract() {
     return {TileMapAsset::type,
@@ -28,7 +22,6 @@ Contract map_contract() {
             tile_map_cooked_format,
             "forge.tile_map",
             tile_map_artifact_file,
-            tile_map_recipe_revision(),
             tile_map_cooked_metadata_limit + tile_map_cooked_payload_limit + 24};
 }
 void require(bool value, const char* why) {
@@ -42,7 +35,7 @@ const Json& selection(const AssetRecord& record, const Contract& contract) {
     const auto& generation = selected.at("generation");
     require(selected.at("version").is_number_integer() && selected.at("version") == 1 &&
                 selected.at("importer") == contract.importer &&
-                selected.at("importer_revision") == contract.recipe &&
+                valid_content_digest(selected.at("importer_revision").get<std::string>()) &&
                 selected.at("output_format") == contract.format &&
                 selected.at("output_version").is_number_integer() &&
                 selected.at("output_version") == 1 &&

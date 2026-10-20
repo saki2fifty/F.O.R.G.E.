@@ -19,6 +19,7 @@
 #ifdef FORGE_ENABLE_NATIVE_SDK
 #include "sdk_tile_map_tests.hpp"
 #endif
+#include <forge/derived_cache.hpp>
 #include <forge/engine_texture_assets.hpp>
 #include <forge/render_components.hpp>
 #include <forge/render_scene.hpp>
@@ -64,6 +65,24 @@ TileMapData load_map(const std::filesystem::path& root, std::shared_ptr<const As
     const auto lease = pool.acquire(ticket);
     require(bool(lease), "Tile Map lease missing");
     return lease.get();
+}
+void selected_recipe_integrity(const std::filesystem::path& root, const AssetCatalog& catalog,
+                               AssetId set_id, AssetId map_id) {
+    DerivedDataCache cache(root);
+    for (const auto id : {set_id, map_id}) {
+        auto record = catalog.records().at(id);
+        const auto artifact = cache.load_selected(
+            record.metadata.at("forge.import").at("key").get<std::string>(), [](const auto&) {});
+        const auto admit = [&] {
+            if (id == set_id)
+                (void)admit_tile_set_artifact(artifact, record);
+            else
+                (void)admit_tile_map_artifact(artifact, record);
+        };
+        admit();
+        record.metadata["forge.import"]["importer_revision"] = std::string(64, '0');
+        reject(admit);
+    }
 }
 void recipe_guards(const TileSetSource& set, const TileMapSource& map) {
     const auto snapshot = [](std::string text) {
@@ -775,10 +794,20 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     const auto map_id = map->source().asset();
     const std::array<TileMapCellEdit, 3> cells{
         {{1, {-1, -1}, {2, 0}}, {1, {32, 0}, {3, 4}}, {1, {INT32_MAX, INT32_MIN}, {5, 7}}}};
+    std::cerr << "Checking sparse source paint and signed-limit chunk keys\n";
     map->edit_source(map->revision(), "Original sparse cells", [&](auto& candidate) {
         candidate.document = candidate.document.paint(cells);
     });
+    const std::set<TileMapChunkKey> expected_chunks{
+        {1, {-1, -1}}, {1, {1, 0}}, {1, {67108863, -67108864}}};
+    map->source().document.for_each_chunk([&](auto key, auto, auto) {
+        require(expected_chunks.contains(key),
+                "Sparse source paint produced an unexpected chunk: " +
+                    std::to_string(key.address.x) + ":" + std::to_string(key.address.y));
+    });
+    std::cerr << "Checking sparse source save and re-admission\n";
     map->save();
+    std::cerr << "Checking direct sparse source cook and cooked decoding\n";
     recipe_guards(set->source(), map->source());
     done = publish(service, map->locator(), map_id, true);
     require(done.published, "Tile Map worker publication failed: " + done.diagnostic);
@@ -788,6 +817,7 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
                 map_data.cell(1, {INT32_MAX, INT32_MIN}) == TileMapCell{5, 7} &&
                 catalog->records().at(map_id).dependency_edges.size() == 2,
             "Published sparse map values or typed Tile Set dependency differ");
+    selected_recipe_integrity(root, *catalog, set_id, map_id);
     runtime_leases(root, set_id, map_id, true);
     runtime_instances(root, lease, worker, *map);
     catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));

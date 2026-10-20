@@ -15,7 +15,12 @@ template <class F> void reject(F&& action) {
     throw std::runtime_error("Expected invalid Tile Map coordinate rejection");
 }
 void verify(TileCellAddress cell) {
-    const auto address = tile_chunk_cell(cell);
+    // Keep an actual call as well as the optimizer's inline specialization.
+    // Asset writers receive runtime cell arrays across translation units.
+    static TileChunkCell (*volatile split)(TileCellAddress) = tile_chunk_cell;
+    const auto address = split(cell);
+    require(address == tile_chunk_cell(cell),
+            "Out-of-line Tile Map partition differs from its inline specialization");
     require(address.chunk.x == std::floor(double(cell.x) / 32) &&
                 address.chunk.y == std::floor(double(cell.y) / 32),
             "Negative Tile Map partition differs from independent floor oracle");

@@ -34,7 +34,12 @@ void runtime(const std::filesystem::path& root, AssetId scene_id, AssetId map_id
     do {
         frame = extract_render_scene(simulation.presentation(1));
         detail::bind_runtime_tile_maps(engine.world(), frame);
-        check(std::chrono::steady_clock::now() < end, "Gallery native map loading timed out");
+        std::string diagnostic;
+        for (const auto& map : frame.tile_maps)
+            if (!map.diagnostic.empty())
+                diagnostic += "; " + map.diagnostic;
+        check(std::chrono::steady_clock::now() < end,
+              "Gallery native map loading timed out" + diagnostic);
         if (frame.tile_maps.size() != 2 || !frame.tile_maps[0].cells || !frame.tile_maps[1].cells)
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
     } while (frame.tile_maps.size() != 2 || !frame.tile_maps[0].cells || !frame.tile_maps[1].cells);

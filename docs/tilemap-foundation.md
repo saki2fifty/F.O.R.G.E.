@@ -314,6 +314,14 @@ share the same record/recipe/generation/edge/file/manifest admission. These load
 inspect selected records rather than requiring authored source-file existence.
 CPU admission does not promise GPU/draw readiness.
 
+Importer implementation/toolchain fingerprints identify new builds and cache
+reuse during publication. Loading a selected cooked revision validates that
+record's producer fingerprint against its immutable manifest, alongside format,
+version, identity, hashes and dependencies. It does not require the reader's
+current importer fingerprint. The portable Tile Set/Map encodings remain readable
+after an importer or compiler change, including in a source-free standalone game;
+source reimport still uses the exact current recipe and supervised worker.
+
 Focused tests exercise real-worker publication, cached candidate reuse, invalid
 actual grid/missing-tile rejection, old strong leases across replacement, stale
 dependency rejection/recook, relocated content packages and offline source files.
