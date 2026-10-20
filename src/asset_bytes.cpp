@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "native_io_path.hpp"
+#include "native_read_file.hpp"
 #include <array>
 #include <bit>
 #include <cstdint>
@@ -7,6 +8,9 @@
 #include <stdexcept>
 namespace forge::asset_detail {
 std::vector<std::byte> read_bytes(const std::filesystem::path& path, std::size_t limit) {
+#ifdef _WIN32
+    return NativeReadFile(path).read(limit);
+#else
     std::ifstream in(native_io_path(path), std::ios::binary | std::ios::ate);
     if (!in)
         throw std::runtime_error("Cannot read asset input: " + path.string());
@@ -19,6 +23,7 @@ std::vector<std::byte> read_bytes(const std::filesystem::path& path, std::size_t
         in.peek() != std::char_traits<char>::eof())
         throw std::runtime_error("Asset input changed or was truncated while reading");
     return result;
+#endif
 }
 // SHA-256 content identity, not authentication or a trust signature.
 std::string content_digest(std::span<const std::byte> input) {

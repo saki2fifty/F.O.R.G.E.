@@ -67,6 +67,15 @@ stable subasset mapping rules.
 
 ## Commit point and interruption recovery
 
+Windows bounded asset readers open with read/write/delete sharing. An already
+opened reader retains its file revision while atomic publication replaces the
+directory entry; a later reader sees the new revision. Ordinary C++ file streams
+can deny that replacement while the source watcher or Content browser is reading
+the catalog. The reader still enforces its byte limit and rejects short reads or
+growth. Publication and source observation retain their existing revision/identity
+rechecks; opening a file is never permission to publish stale input. See
+[Windows file sharing](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew).
+
 Publication is one narrowly scoped asset operation, not scene Undo or a generic
 cross-document transaction framework. It coordinates exactly the import sidecar
 and `forge.assets.json`:

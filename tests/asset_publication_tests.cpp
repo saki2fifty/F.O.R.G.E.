@@ -1,4 +1,6 @@
 #include "asset_bytes.hpp"
+#include "asset_storage.hpp"
+#include "native_read_file.hpp"
 #include <cstdlib>
 #include <forge/asset_publication.hpp>
 #include <forge/engine_assets.hpp>
@@ -115,6 +117,26 @@ struct Fixture {
     }
 };
 void unit(const std::filesystem::path& root) {
+#ifdef _WIN32
+    {
+        const auto path = root / "shared-catalog.json";
+        std::filesystem::create_directories(root);
+        const std::string old_value = R"({"revision":"old"})";
+        const std::string new_value = R"({"revision":"new"})";
+        asset_storage::replace(path, old_value);
+        asset_detail::NativeReadFile reader(path);
+        // A deliberately retained actual reader must not deny atomic replace.
+        asset_storage::replace(path, new_value);
+        const auto retained = reader.read(1024);
+        require(std::string(reinterpret_cast<const char*>(retained.data()), retained.size()) ==
+                        old_value &&
+                    read(path) == new_value,
+                "Catalog reader blocked replacement or lost its opened revision");
+        rejects([&] { (void)asset_detail::read_bytes(path, new_value.size() - 1); });
+        asset_storage::replace(path, "");
+        require(asset_detail::read_bytes(path, 0).empty(), "Empty bounded metadata read failed");
+    }
+#endif
     {
         std::filesystem::create_directories(root / "initial-cancel");
         Fixture first_import(root / "initial-cancel");

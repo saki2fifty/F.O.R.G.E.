@@ -69,6 +69,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 editor.poll(project, message);
                 presentation.begin_frame();
                 test::ui_targets.clear();
+                // The generic renderer does not own platform IO/display sizing.
+                io.DisplaySize = {float(width), float(height)};
                 gui.NewFrame(width, height, Diligent::SURFACE_TRANSFORM_IDENTITY);
                 const float center = width * .67f;
                 ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
@@ -103,8 +105,23 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                       box.maximum.y - box.minimum.y > 120 * scale,
                   "Native Tile Map document clipped or collapsed its paint canvas");
             const auto pixels = readback(rtv);
+            // Preserve failed pixels too; layout rectangles alone cannot prove drawing.
             save(pixels, width, height,
                  images / ("tile-document-" + std::to_string(100 + index * 50) + ".ppm"));
+            unsigned inspector_text = 0, colored_cells = 0;
+            for (unsigned y = 0; y < height; ++y)
+                for (unsigned x = 0; x < width; ++x) {
+                    const auto& pixel = pixels[y * width + x];
+                    if (x > width * .67f)
+                        inspector_text += pixel[0] > 100 && pixel[1] > 100 && pixel[2] > 100;
+                    if (x >= box.minimum.x && x < box.maximum.x && y >= box.minimum.y &&
+                        y < box.maximum.y) {
+                        const auto [low, high] = std::minmax({pixel[0], pixel[1], pixel[2]});
+                        colored_cells += high > 100 && high - low > 60;
+                    }
+                }
+            check(inspector_text > 100 && colored_cells > 100,
+                  "Native Tile Map capture did not render Inspector text and colored cells");
         }
         check(asset_detail::read_bytes(source, tile_map_source_byte_limit) == baseline &&
                   !editor.dirty(),
