@@ -3,11 +3,12 @@
 #include "particle_effect_resource.hpp"
 #include "render_bounds.hpp"
 #include "shadow_renderer.hpp"
+#include "tile_asset_resources.hpp"
 #include "tile_draw_values.hpp"
 #include <forge/render_scene.hpp>
 namespace forge {
 struct MeshResourceInspection {
-    ResourceStatistics meshes, materials, textures, particles;
+    ResourceStatistics meshes, materials, textures, particles, tile_sets, tile_maps;
     GpuResidencyStats gpu_meshes, gpu_textures, environments;
     std::vector<ResourceInfo> revisions, requests;
 };
@@ -20,6 +21,8 @@ class MeshResourceHost {
     void preview_material(AssetRef<MaterialAsset>, MaterialResourceData);
     void preview_particle_effect(AssetRef<ParticleEffectAsset>, ParticleEffectData);
     void preview_mesh(AssetRef<MeshAsset>, MeshData);
+    void preview_tile_set(AssetRef<TileSetAsset>, std::shared_ptr<const TileSetData>);
+    void preview_tile_map(AssetRef<TileMapAsset>, std::shared_ptr<const TileMapData>);
     void catalog(std::shared_ptr<const AssetCatalog>);
     std::shared_ptr<const AssetCatalog> catalog() const {
         check_thread();
@@ -46,6 +49,10 @@ class MeshResourceHost {
     ResourcePool<TextureAsset> textures_;
     ResourcePool<ParticleEffectAsset> particles_{{1, 64, 256, 128 * 1024}};
     std::map<AssetId, std::shared_ptr<const ParticleEffectData>> particle_previews_;
+    ResourcePool<TileSetAsset> tile_sets_{{1, 64, 256, 16 * 1024 * 1024}};
+    ResourcePool<TileMapAsset> tile_maps_{{1, 64, 256, 64 * 1024 * 1024}};
+    std::map<AssetId, std::shared_ptr<const TileSetData>> tile_set_previews_;
+    std::map<AssetId, std::shared_ptr<const TileMapData>> tile_map_previews_;
     EnvironmentResidency environments_;
     GpuResidency<MeshAsset> gpu_meshes_;
     GpuResidency<TextureAsset> gpu_textures_;
@@ -160,6 +167,16 @@ class MeshSceneRenderer {
         std::uint32_t width = 0, height = 0;
     };
     struct TileDrawSource {
+        struct Load {
+            AssetRef<TileMapAsset> asset;
+            std::uint64_t epoch = UINT64_MAX;
+            ResourceTicket map_ticket, set_ticket;
+            ResourceLease<TileMapAsset> map_lease;
+            ResourceLease<TileSetAsset> set_lease;
+            std::shared_ptr<const TileMapData> cells;
+            std::shared_ptr<const TileSetData> definitions;
+            std::string error;
+        } load;
         RenderTileMap requested;
         std::shared_ptr<const TileMapData> cells;
         std::shared_ptr<const TileSetData> definitions;
@@ -176,6 +193,7 @@ class MeshSceneRenderer {
     std::map<EntityId, TileDrawSource> tile_sources_;
     std::vector<AffineTransform> tile_worlds_;
     std::vector<TileImageInput> prepare_tile_sources(const RenderScene&);
+    RenderTileMap resolve_tile_assets(TileDrawSource&, const RenderTileMap&);
     void adopt_tile_images();
     std::uint64_t tile_material_bytes() const;
     struct ParticleSource {

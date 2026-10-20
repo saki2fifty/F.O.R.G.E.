@@ -14,6 +14,111 @@ std::array<float, 4> tint(const TileMapRenderer& values) {
     return {values.tint_r, values.tint_g, values.tint_b, values.tint_a};
 }
 } // namespace
+void MeshResourceHost::preview_tile_set(AssetRef<TileSetAsset> ref,
+                                        std::shared_ptr<const TileSetData> data) {
+    check_thread();
+    require(isolated_source_preview_ && ref.id && data && data->asset() == ref.id &&
+                epoch_ != UINT64_MAX,
+            "Unsaved Tile Set requires an isolated host and matching source identity");
+    const auto found = tile_set_previews_.find(ref.id);
+    if (found != tile_set_previews_.end() && found->second == data)
+        return;
+    require(found != tile_set_previews_.end() || tile_set_previews_.empty(),
+            "Isolated Tile Set preview accepts one source at a time");
+    data->validate();
+    tile_set_previews_[ref.id] = std::move(data);
+    ++epoch_;
+}
+void MeshResourceHost::preview_tile_map(AssetRef<TileMapAsset> ref,
+                                        std::shared_ptr<const TileMapData> data) {
+    check_thread();
+    require(isolated_source_preview_ && ref.id && data && data->asset() == ref.id &&
+                epoch_ != UINT64_MAX,
+            "Unsaved Tile Map requires an isolated host and matching source identity");
+    const auto found = tile_map_previews_.find(ref.id);
+    if (found != tile_map_previews_.end() && found->second == data)
+        return;
+    require(found != tile_map_previews_.end() || tile_map_previews_.empty(),
+            "Isolated Tile Map preview accepts one source at a time");
+    data->validate();
+    tile_map_previews_[ref.id] = std::move(data);
+    ++epoch_;
+}
+RenderTileMap MeshSceneRenderer::resolve_tile_assets(TileDrawSource& source,
+                                                     const RenderTileMap& input) {
+    // A missing runtime snapshot is pending/failed runtime data, never permission
+    // to substitute authored cells for an independently edited running instance.
+    if (input.runtime_instance || input.cells || input.definitions) {
+        source.load = {};
+        return input;
+    }
+    auto result = input;
+    auto& load = source.load;
+    if (load.asset != input.renderer.map || load.epoch != host_->epoch_) {
+        load = {};
+        load.asset = input.renderer.map;
+        load.epoch = host_->epoch_;
+        try {
+            const auto preview = host_->tile_map_previews_.find(load.asset.id);
+            if (preview != host_->tile_map_previews_.end())
+                load.cells = preview->second;
+            else
+                load.map_ticket = request_tile_map(host_->tile_maps_, host_->project_,
+                                                   host_->catalog_, load.asset);
+        } catch (const std::exception& error) {
+            load.error = error.what();
+        }
+    }
+    try {
+        require(load.error.empty(), load.error.c_str());
+        if (!load.cells) {
+            load.map_lease = host_->tile_maps_.acquire(load.map_ticket);
+            if (!load.map_lease) {
+                const auto state = load.map_ticket.inspect();
+                if (resource_detail::terminal(state.state))
+                    throw std::runtime_error("Tile Map load failed: " + state.diagnostic);
+                result.pending = true;
+                return result;
+            }
+            // Keep the pool lease charged while an older complete draw uses its
+            // shared chunks. The copied pure root also survives scope retirement.
+            auto retained = std::make_shared<std::pair<ResourceLease<TileMapAsset>, TileMapData>>(
+                load.map_lease, load.map_lease.get());
+            load.cells = {retained, &retained->second};
+        }
+        if (!load.definitions) {
+            if (!load.set_ticket) {
+                const auto preview = host_->tile_set_previews_.find(load.cells->tile_set());
+                if (preview != host_->tile_set_previews_.end())
+                    load.definitions = preview->second;
+                else
+                    load.set_ticket = request_tile_set(host_->tile_sets_, host_->project_,
+                                                       host_->catalog_, {load.cells->tile_set()});
+            }
+            if (!load.definitions) {
+                load.set_lease = host_->tile_sets_.acquire(load.set_ticket);
+                if (!load.set_lease) {
+                    const auto state = load.set_ticket.inspect();
+                    if (resource_detail::terminal(state.state))
+                        throw std::runtime_error("Tile Set load failed: " + state.diagnostic);
+                    result.pending = true;
+                    return result;
+                }
+                auto retained =
+                    std::make_shared<std::pair<ResourceLease<TileSetAsset>, TileSetData>>(
+                        load.set_lease, load.set_lease.get());
+                load.definitions = {retained, &retained->second};
+            }
+        }
+        result.cells = load.cells;
+        result.definitions = load.definitions;
+    } catch (const std::exception& error) {
+        load.error = error.what();
+        result.pending = false;
+        result.diagnostic = load.error;
+    }
+    return result;
+}
 std::uint64_t MeshSceneRenderer::tile_material_bytes() const {
     std::uint64_t result = 0;
     for (const auto& [id, source] : tile_sources_) {
@@ -37,27 +142,30 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
     if (tile_sources_.empty())
         std::vector<AffineTransform>{}.swap(tile_worlds_);
     std::vector<TileImageInput> inputs;
-    for (const auto& map : scene.tile_maps) {
-        auto& source = tile_sources_[map.entity];
+    for (const auto& input : scene.tile_maps) {
+        auto& source = tile_sources_[input.entity];
+        if (!input.renderer.map.id || !input.renderer.enabled) {
+            source = {};
+            source.requested = input;
+            continue;
+        }
+        const auto map = resolve_tile_assets(source, input);
         const bool changed =
             source.requested.cells != map.cells || source.requested.definitions != map.definitions;
         source.requested = map;
         source.pending = map.pending;
         source.rejected = false;
-        if (!map.renderer.map.id || !map.renderer.enabled) {
-            source = {};
-            source.requested = map;
-            continue;
-        }
         try {
             detail::validate_tile_map_renderer(map.renderer);
             if (!map.diagnostic.empty() && !map.pending)
                 report(map.entity, map.diagnostic, DrawScope::TileMap);
             if (!map.cells || !map.definitions) {
-                if (!map.pending)
+                if (!map.pending && map.diagnostic.empty())
                     report(map.entity, "Tile Map data is unavailable", DrawScope::TileMap);
                 continue;
             }
+            require(map.cells->asset() == map.renderer.map.id,
+                    "Tile Map draw cells have a different root identity");
             require(map.cells->tile_set() == map.definitions->asset(),
                     "Tile Map cells and definitions have different bindings");
             if (changed) {

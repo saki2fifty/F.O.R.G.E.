@@ -39,6 +39,8 @@ class ResourceInspector {
                 cpu("Meshes", snapshot_.meshes);
                 cpu("Materials", snapshot_.materials);
                 cpu("Textures", snapshot_.textures);
+                cpu("Tile Sets", snapshot_.tile_sets);
+                cpu("Tile Maps", snapshot_.tile_maps);
                 auto gpu = [&](const char* name, const GpuResidencyStats& value) {
                     ImGui::TextWrapped("%s: %zu resident, %zu retiring | %.2f MiB", name,
                                        value.resident, value.retiring,

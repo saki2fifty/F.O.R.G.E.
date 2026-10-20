@@ -355,8 +355,43 @@ wide scoped keys, independent instances, layer order, camera masks, sparse frami
 far origins, image replacement failure/recovery and runtime cell changes. The
 maximum dense case renders all 262144 cells across steady frames and an edit.
 These checks establish correctness/capacity, not physical GPU FPS. Native typed
-snapshots are supported here; ordinary authoring map loading, unsaved previews and
-Editor Play transport still require their integrations.
+snapshots and ordinary cooked asset selections are supported here. Editor Play
+transport still requires its explicit runtime-view integration.
+
+### Authoring asset selection and isolated previews (development)
+
+MeshResourceHost loads ordinary map references through the existing typed request,
+resource-pool and immutable cooked-artifact admission paths. It requests the Map,
+then its selected Tile Set, then the existing Material/Texture draw resources.
+Loading runs on the resource workers. Catalog changes restart candidate selection;
+stale dependency revisions produce a terminal diagnostic and retain the last
+complete usable draw until a matching map recook is available. Runtime snapshots
+are authoritative: a running instance with missing cells never falls back to an
+authored map. Editor Play's separate copied projection remains unfinished.
+
+The host owns bounded 64 MiB Map and 16 MiB Set CPU resource pools. Inspection
+includes their requests, revisions and owned payload estimates. Pure view handles
+retain their pool leases while an old complete draw still uses the shared rows or
+chunks; candidate replacement cannot release the pool's accounting prematurely.
+Root/row handles copy once per selection, with shared immutable cell arrays, and
+remain safe independently of scope retirement. These are payload budgets, not RSS
+or total renderer-memory guarantees.
+
+An explicitly isolated preview host accepts one unsaved Map source and one Set
+source as immutable pure values with matching root identities. Reusing the same
+shared value is a no-op. Ordinary hosts reject draft injection; preview changes
+never publish the catalog or write authored files. A Map draft may use the normal
+published Set, or an isolated Set draft can replace it. The existing document,
+writer, history and Save/Publish owners remain authoritative. These preview APIs
+are groundwork for document tools, not a completed painting UI.
+
+Focused Linux software-Vulkan tests publish real original sources through the
+normal import worker, render ordinary asset references, inspect resources and
+select cells. They also cover stale Set dependencies, last-good draw retention,
+recook recovery, isolated Map/Set drafts, unchanged saved cells and missing-runtime
+snapshot rejection. Scoped sanitizer checks instrument the draw owner, resolver,
+upload/bundle and actual fixture; linked CPU/vendor archives and import workers
+remain normal. Physical Windows/UI acceptance is still pending.
 
 ### Internal cooked map data
 
@@ -415,12 +450,12 @@ Focused source tests cover malformed inputs, duplicate JSON keys, finite/range
 limits, negative/far addresses, exact uint64 keys, unknown data, detached paint,
 erase, ordered writes, layer isolation, allocation history and Save/reopen.
 The actual document owner also exercises a 262144-cell map with 16 paint strokes
-and complete Undo/Redo. These tests do not replace the future native-renderer,
-installed SDK, editor interaction and moved-game gates.
+and complete Undo/Redo. These source checks do not replace native-renderer,
+matching installed SDK, editor interaction and moved-game gates.
 
-The remaining complete feature includes Tile Set/Map document tools, authoring
-resource loading and unsaved previews, bounded Editor Play projection, palette/
-painting/history, complete source replacement UX, moved-game validation and
-original editable Gallery content. Native rendering/grid picking and bounded C++
-queries/edits have focused local evidence; they do not complete those workflows. No autotiling, animated tiles, 2D collision or streaming
-is implied by this source foundation.
+The remaining complete feature includes Tile Set/Map document tools using the
+isolated previews, bounded Editor Play projection, palette/painting/history,
+complete source replacement UX, moved-game validation and original editable
+Gallery content. Native rendering/grid picking and bounded C++ queries/edits have
+focused local evidence; they do not complete those workflows. No autotiling,
+animated tiles, 2D collision or streaming is implied by this source foundation.

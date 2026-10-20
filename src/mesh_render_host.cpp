@@ -51,6 +51,8 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     result.materials = materials_.statistics();
     result.textures = textures_.statistics();
     result.particles = particles_.statistics();
+    result.tile_sets = tile_sets_.statistics();
+    result.tile_maps = tile_maps_.statistics();
     result.gpu_meshes = gpu_meshes_.statistics();
     result.gpu_textures = gpu_textures_.statistics();
     result.environments = environments_.statistics();
@@ -64,6 +66,8 @@ MeshResourceInspection MeshResourceHost::inspect() const {
     append(materials_);
     append(textures_);
     append(particles_);
+    append(tile_sets_);
+    append(tile_maps_);
     return result;
 }
 std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
@@ -365,6 +369,10 @@ void MeshResourceHost::pump() {
     textures_.pump();
     particles_.pump();
     particles_.collect();
+    tile_sets_.pump();
+    tile_maps_.pump();
+    tile_sets_.collect();
+    tile_maps_.collect();
     environments_.collect();
     gpu_meshes_.collect();
     gpu_textures_.collect();
@@ -491,7 +499,6 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         sprites_.clear();
         tile_images_.clear();
         tile_sources_.clear();
-        tile_worlds_.clear();
         std::vector<AffineTransform>{}.swap(tile_worlds_);
         particle_sources_.clear();
         particle_instances_.clear();
