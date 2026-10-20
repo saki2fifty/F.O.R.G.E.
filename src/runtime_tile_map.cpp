@@ -91,14 +91,18 @@ std::uint64_t generation(Queue& values) {
             "Runtime Tile Map generation space exhausted");
     return values.next_generation++;
 }
-auto instance(WorldContext& context, EntityRef target) {
+auto target_entity(WorldContext& context, EntityRef target) {
     (void)queue(context);
     const auto resolved = context.resolve(target);
     require(resolved.state == WorldContext::ResolveState::Available,
             "Tile Map target is missing, unresolved or ambiguous");
     auto entity = context.world().entity(resolved.entity);
-    require(entity.has<TileMapRenderer>() && entity.has<RuntimeTileMapState>(),
-            "Target has no realized runtime Tile Map");
+    require(entity.has<TileMapRenderer>(), "Target has no Tile Map Renderer");
+    return entity;
+}
+auto instance(WorldContext& context, EntityRef target) {
+    auto entity = target_entity(context, target);
+    require(entity.has<RuntimeTileMapState>(), "Target has no realized runtime Tile Map");
     return std::pair{entity, entity.get<RuntimeTileMapState>().value};
 }
 bool ready(const RuntimeResourceStatus& status) {
@@ -216,9 +220,14 @@ void synchronize_runtime_tile_maps(WorldContext& context) {
     }
 }
 RuntimeTileMapStatus inspect_runtime_tile_map(WorldContext& context, EntityRef target) {
-    const auto [entity, state] = instance(context, target);
+    const auto entity = target_entity(context, target);
     RuntimeTileMapStatus status;
     status.requested = entity.get<TileMapRenderer>().map.id;
+    if (!entity.has<RuntimeTileMapState>()) {
+        status.diagnostic = "Tile Map is waiting for runtime synchronization";
+        return status;
+    }
+    const auto state = entity.get<RuntimeTileMapState>().value;
     status.requested_revision = state->requested_revision;
     status.diagnostic = state->diagnostic;
     if (const auto& snapshot = state->snapshot;

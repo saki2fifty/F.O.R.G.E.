@@ -16,7 +16,9 @@ enum class Capability : uint32_t {
     RuntimeEntities = FORGE_SDK_RUNTIME_ENTITIES,
     ControlInput = FORGE_SDK_CONTROL_INPUT,
     Game = FORGE_SDK_GAME,
-    Animation = FORGE_SDK_ANIMATION
+    Animation = FORGE_SDK_ANIMATION,
+    TileMaps = FORGE_SDK_TILE_MAPS,
+    TileMapEdits = FORGE_SDK_TILE_MAP_EDITS
 };
 class Client {
   public:
@@ -181,6 +183,57 @@ class Client {
     bool release_resource(uint64_t token) const {
         return callable(Capability::Resources) && host_->resource_release &&
                host_->resource_release(host_->context, token) == 1;
+    }
+    int32_t tile_map(const char* scene, const char* entity, ForgeSdkTileMapV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        out.version = 1;
+        return callable(Capability::TileMaps) && host_->tile_map_inspect
+                   ? host_->tile_map_inspect(host_->context, scene, entity, &out)
+                   : 0;
+    }
+    int32_t tile_layer(const char* scene, const char* entity, uint64_t generation, uint32_t index,
+                       ForgeSdkTileLayerV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        out.version = 1;
+        return callable(Capability::TileMaps) && host_->tile_map_layer
+                   ? host_->tile_map_layer(host_->context, scene, entity, generation, index, &out)
+                   : 0;
+    }
+    int32_t tile_cells(const char* scene, const char* entity, uint64_t generation,
+                       const ForgeSdkTileLocationV1* locations, ForgeSdkTileCellV1* out,
+                       uint32_t count) const {
+        if (callable(Capability::TileMaps) && host_->tile_map_cells)
+            return host_->tile_map_cells(host_->context, scene, entity, generation, locations, out,
+                                         count);
+        if (out && count && count <= FORGE_SDK_TILE_BATCH_LIMIT)
+            for (uint32_t i = 0; i < count; ++i)
+                out[i] = {};
+        return 0;
+    }
+    uint64_t write_tiles(const char* scene, const char* entity, uint64_t generation,
+                         const ForgeSdkTileWriteV1* writes, uint32_t count) const {
+        return callable(Capability::TileMapEdits) && host_->tile_map_write
+                   ? host_->tile_map_write(host_->context, scene, entity, generation, writes, count)
+                   : 0;
+    }
+    uint64_t reset_tiles(const char* scene, const char* entity, uint64_t generation) const {
+        return callable(Capability::TileMapEdits) && host_->tile_map_reset
+                   ? host_->tile_map_reset(host_->context, scene, entity, generation)
+                   : 0;
+    }
+    int32_t tile_edit(uint64_t token, ForgeSdkTileEditV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        out.version = 1;
+        return callable(Capability::TileMaps) && host_->tile_edit_inspect
+                   ? host_->tile_edit_inspect(host_->context, token, &out)
+                   : 0;
+    }
+    bool release_tile_edit(uint64_t token) const {
+        return callable(Capability::TileMaps) && host_->tile_edit_release &&
+               host_->tile_edit_release(host_->context, token) == 1;
     }
     uint64_t request_entity(const char* name, const char* scene = nullptr) const {
         return callable(Capability::RuntimeEntities) && host_->entity_request

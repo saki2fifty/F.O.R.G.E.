@@ -130,6 +130,45 @@ consumers are still under implementation. Rebuild modules after this exact SDK c
 
 ## Cooked resources in gameplay
 
+### Tile Map cells (development)
+
+An authored `TileMapRenderer` realizes an independent runtime map instance. Use
+`sdk::Client::tile_map(scene_uuid, entity_uuid, info)` to inspect its copied CPU
+status. Wait for `info.ready`; `info.current` separately indicates whether the
+adopted asset matches the requested revision. Layer enumeration returns scoped
+keys; cells use these keys and signed int32 local X/Y addresses. Cell queries and
+observation release work while paused; submissions require a fixed callback and
+the existing Resources permission/provider.
+
+```cpp
+ForgeSdkTileMapV1 info{};
+ForgeSdkTileLayerV1 layer{};
+if (client.tile_map(scene, entity, info) == 1 && info.ready &&
+    client.tile_layer(scene, entity, info.generation, 0, layer) == 1) {
+    ForgeSdkTileLocationV1 at{layer.key, -1, 0};
+    ForgeSdkTileCellV1 cell{};
+    if (client.tile_cells(scene, entity, info.generation, &at, &cell, 1) == 1) {
+        // In a fixed callback; tile_key is an admitted Tile Set definition key.
+        ForgeSdkTileWriteV1 write{at, {tile_key, 0, 0}};
+        token = client.write_tiles(scene, entity, info.generation, &write, 1);
+    }
+}
+```
+
+Retain a returned nonzero token only in this module/world. Inspect with
+`tile_edit`, then release it when finished. Pending release cancels; releasing
+Applied does not undo cells. Stop cancels outstanding owned commands. Submissions
+publish at the next fixed boundary and recheck the target/adopted generation.
+`reset_tiles` explicitly discards edits and adopts current assets. Reads return
+1 success, 0 unavailable/not ready, -1 invalid and -2 stale generation; an empty
+cell is a successful zero tile. Batches are atomic and limited to4096 entries.
+See the [development map contract](tilemap-foundation.md) for limits and readiness.
+Map rendering/painting and the complete editor/export workflow remain unfinished.
+
+This changes the exact SDK table/fingerprint; rebuild against the matching SDK.
+The installed `tile_map_probe.cpp` demonstrates copied reads and fixed submissions
+without private headers. It is an integration probe, not an editor or save format.
+
 For per-object surface values, include `forge/render_components.hpp`; its shared
 `MaterialParameter` DTO is installed in `forge/material_parameter.hpp`.
 `MeshRenderer.material_parameters` stores up to64 `{slot,key,parameter}` rows.

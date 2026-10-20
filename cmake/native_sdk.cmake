@@ -38,7 +38,7 @@ foreach(header IN LISTS FORGE_SDK_HEADERS)
  string(APPEND FORGE_SDK_CONTRACT_HASHES "${header}:${hash};")
 endforeach()
 # Exact bridge and value-support semantics are part of this private SDK contract.
-foreach(source src/native_sdk.cpp src/runtime_entity_creation.cpp src/runtime_entity_creation.hpp src/runtime_resources.cpp src/identity.cpp src/authored_schema.cpp src/authored_schema.hpp src/authored_component.cpp src/authored_component.hpp src/authored_generation.cpp src/authored_generation.hpp src/json_value_equal.hpp src/reflected_value.hpp src/reflected_string.hpp src/reconstructed_meta.hpp src/reflected_extensions.hpp src/reflected_value.cpp src/reflected_native.cpp src/reconstructed_meta.cpp src/reflected_extensions.cpp)
+foreach(source src/native_sdk.cpp src/runtime_entity_creation.cpp src/runtime_entity_creation.hpp src/runtime_resources.cpp src/runtime_tile_map.cpp src/runtime_tile_map.hpp src/tile_map_data.cpp src/tile_map_data.hpp src/tile_map_values.hpp src/tile_set_data.cpp src/tile_set_data.hpp src/tile_grid.hpp src/identity.cpp src/authored_schema.cpp src/authored_schema.hpp src/authored_component.cpp src/authored_component.hpp src/authored_generation.cpp src/authored_generation.hpp src/json_value_equal.hpp src/reflected_value.hpp src/reflected_string.hpp src/reconstructed_meta.hpp src/reflected_extensions.hpp src/reflected_value.cpp src/reflected_native.cpp src/reconstructed_meta.cpp src/reflected_extensions.cpp)
  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/${source}")
  file(SHA256 "${PROJECT_SOURCE_DIR}/${source}" hash)
  string(APPEND FORGE_SDK_CONTRACT_HASHES "${source}:${hash};")

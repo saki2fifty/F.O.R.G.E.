@@ -49,6 +49,16 @@ Exact clients use `sdk::Client::query(Capability)` or `query_capability`. Result
 
 Input is intrinsic to a runtime's fixed pipeline: query ID `FORGE_SDK_INPUT` is **not** a descriptor permission/provider bit. It reports availability after native startup and callability only during a fixed tick. Its read callback remains unavailable for a missing action. This preserves the existing ModuleContext input borrow instead of inventing a second input service/authority. Animation similarly uses authored Animator values and has no fabricated query service.
 
+Development Tile Map access uses intrinsic `FORGE_SDK_TILE_MAPS` and
+`FORGE_SDK_TILE_MAP_EDITS` query IDs. Both require the existing allowed Resources
+provider and runtime owner; only Edits requires a fixed tick. They add no service
+slot or descriptor permission. The bridge copies status/layers/cells and queues
+commands into the world's existing private ECS instance owner. Module Stop
+cancels its queued commands. No source document, resource pointer, per-cell
+authored entity or implicit game-save state crosses this boundary. The exact table
+size/fingerprint changes; matching module rebuilds are required. See
+[tilemap development](tilemap-foundation.md).
+
 Optional provider bits are allowed permissions, not dependencies. A module can discover a provider that starts later; operations requiring it at startup must declare that provider dependency and required bit. Rendering remains an unavailable marker in headless composition. UI action registration is startup-only; UI `callable` describes fixed publish/poll, not startup registration. Diagnostics/profiling remain usable during teardown while the borrowed host exists, so finalization callbacks can report safely.
 
 ## Results: deliberately retain domain meaning

@@ -4,7 +4,7 @@ These are internal source, cooked-data and asset-pipeline foundations. The
 programmatic import/publication/resource/content-package path has focused Linux
 tests. Discovery, Content reimport routes, command-line import and typed file/reference
 adapters are integrated in this development source; user-facing Tile Set/Tile Map
-document tools are still pending. There is no completed painting, tile rendering, C++ cell API or
+document tools are still pending. There is no completed painting, tile rendering or
 standalone game-export workflow from this foundation alone. The first
 complete workflow must integrate those consumers and the Feature Gallery before
 claiming a working tilemap feature.
@@ -26,7 +26,7 @@ stored in a second map database. Independent entities can share an immutable ass
 while changing their own snapshots. Initial asset adoption and unedited replacement
 can progress at the existing presentation/resource boundary while paused.
 
-Engine-only cell requests copy at most4096 ordered writes, bind a realized entity
+Native and exact-SDK cell requests copy at most4096 ordered writes, bind a realized entity
 and adopted generation, and validate the whole batch. The queue bounds observations
 to64/module and256/world and pending copied cells to4MiB. Applied observations
 release their copied input; releasing a pending observation cancels it. Publication
@@ -48,8 +48,57 @@ pass. A maximum-profile allocation probe validates4096 writes across1024chunks/
 262144cells: preflight requests335872heap bytes, while constructing the changed
 snapshot requests17203270bytes in Linux GCC12. These are requested allocation
 totals, not peak/RSS/GPU memory or frame-time evidence.
-The public copied C++ cell interface, Play transport projection, GPU drawing,
+Play transport projection, GPU drawing,
 painting tools and complete exported-game workflow remain unfinished.
+
+## Copied C++ cell interface (development)
+
+The exact SDK appends CPU map callbacks to the existing host table. Its changed
+table size and fingerprint require rebuilding modules with the matching SDK;
+ABI1 does not make an older table compatible. No private asset or snapshot pointer
+crosses the boundary. The header-only `sdk::Client` provides:
+
+- `tile_map`: copied requested/adopted map and Tile Set UUIDs, revision hashes,
+  readiness/current/edited flags, adopted generation, cell revision, cell dimensions,
+  layer count and diagnostic. A valid actor waiting for synchronization returns
+  success with `ready == 0`; reading never starts a load or creates an instance.
+- `tile_layer`: enumerate a layer by index, returning its stable scoped key,
+  name, visibility and signed ordering. The index is not an identity.
+- `tile_cells`: copy 1–4096 cell values at scoped layer keys and signed int32 local
+  addresses. Tile zero and flags zero mean an empty cell. Every address is checked
+  before any successful result is copied; a bad layer rejects the entire query.
+- `write_tiles` and `reset_tiles`: submit bounded copied commands at a fixed tick.
+  Their nonzero token observes Pending, Applied or Failed. Inspect/release through
+  `tile_edit`/`release_tile_edit`; releasing Pending cancels it, while releasing
+  Applied retains the already published cells.
+
+Queries target the existing Scene/entity UUID pair and require the inspected
+adopted generation for layer/cell access. Results are 1 success, 0 unavailable or
+not ready, -1 invalid arguments/context and -2 stale generation. Valid-size outputs
+are cleared on failure; invalid-size outputs and invalid-count arrays are untouched.
+Output structure versions are 1. Cell arrays have a maximum of 4096 entries;
+write flags are 0–7 and reserved fields must be zero. Diagnostics are bounded to
+1023 bytes plus terminator. These are trusted native callbacks, not pointer-safety
+checks for arbitrary C++ code.
+
+Intrinsic `TileMaps` capability discovery permits owner-thread runtime reads and
+observation release while paused. `TileMapEdits` additionally requires the fixed
+tick context. Both require the module's existing Resources permission and live
+provider; they are not new descriptor permission bits or GPU readiness. Stop
+releases all owned edit observations and cancels queued commands. A token belongs
+to its module and world and must never be persisted. The existing queue performs
+its ordinary generation/entity/definition recheck at publication.
+
+Focused Linux tests pass through an actually loaded matching module and an
+installed-only compiled module, including relocation. An ordinary saved Scene
+roots Map → Tile Set → Material closure; a moved package realizes the cells after
+authored tile sources are removed. Tests cover paused reads, fixed submissions,
+copied inputs, atomic rejection, two-instance isolation, reset generations,
+quotas, owner-thread/module checks and Stop cancellation. Scoped ASan/UBSan/leak
+checks instrument the bridge, instance queue, module and fixture; other linked
+CPU libraries and the child import worker remain normal. The shared Windows CI
+gate includes these new consumers; its execution and GPU/editor acceptance are
+still pending. This does not complete the visual tilemap workflow.
 
 ## Ownership
 

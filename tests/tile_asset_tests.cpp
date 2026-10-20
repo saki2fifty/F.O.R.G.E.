@@ -13,6 +13,9 @@
 #include "tile_asset_worker.hpp"
 #include "tile_map_document.hpp"
 #include "tile_set_document.hpp"
+#ifdef FORGE_ENABLE_NATIVE_SDK
+#include "sdk_tile_map_tests.hpp"
+#endif
 #include <forge/engine_texture_assets.hpp>
 #include <forge/render_components.hpp>
 #include <forge/runtime.hpp>
@@ -663,7 +666,8 @@ void file_workflows(const std::filesystem::path& root, std::shared_ptr<ProjectLe
     require(large_impact.references.size() == 4 && large_impact.uninspected.size() >= 2,
             "Large map references or opaque payloads escaped file-operation review");
 }
-void workflow(const std::filesystem::path& root, const std::filesystem::path& worker) {
+void workflow(const std::filesystem::path& root, const std::filesystem::path& worker,
+              const std::filesystem::path& sdk_library) {
     std::filesystem::create_directories(root / "Assets");
     auto lease = std::make_shared<ProjectLease>(root);
     const auto image_material = material(root, lease);
@@ -766,15 +770,74 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     automatic_updates(root, lease, worker, image_material, set_id, map_id);
     file_workflows(root, lease, worker, image_material, set_id, map_id);
     catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    // Package through an ordinary saved Scene, not a hand-selected Map root.
+    WorldContext author;
+    Scene saved(author);
+    auto scene_document = saved.document();
+    const auto schema = saved.schema();
+    Json components = Json::object();
+    for (const auto& type : schema.at("components"))
+        if (type.at("id") == "forge.tile_map_renderer")
+            for (const auto& field : type.at("fields"))
+                components["forge.tile_map_renderer"][field.at("id").get<std::string>()] =
+                    field.at("default");
+    components["forge.tile_map_renderer"]["map"] = map_id;
+    for (unsigned i = 0; i < 2; ++i)
+        scene_document["entities"].push_back({{"id", EntityId::generate()},
+                                              {"name", "Exported Tile Map " + std::to_string(i)},
+                                              {"components", components}});
+    saved.reset(scene_document);
+    scene_document = saved.document();
+    const auto scene_id = scene_document.at("asset_id").get<AssetId>();
+    atomic_write(root / "Scenes/Tiles.scene.json", scene_document.dump(2));
+    auto scene_catalog = AssetCatalog::open_project(root);
+    scene_catalog.add({scene_id, "scene", "Scenes/Tiles.scene.json", 3});
+    scene_catalog.save(AssetCatalog::project_index(root));
+    const std::array roots{scene_id};
+    prepare_runtime_content_catalog(*lease, roots, {}, schema);
+#ifdef FORGE_ENABLE_NATIVE_SDK
+    if (!sdk_library.empty())
+        test_sdk_tile_maps(root, scene_document, sdk_library, map_id, set_id);
+#else
+    require(sdk_library.empty(), "Tile SDK fixture requires an SDK-enabled producer");
+#endif
     const auto package = root / "package";
-    const std::array roots{map_id};
-    (void)package_runtime_content(root, package, roots, {"linux", "none"});
+    (void)package_runtime_content(root, package, roots, {"linux", "none"}, {}, {}, schema);
     const auto moved = root.parent_path() / "relocated cooked content";
     std::filesystem::rename(package, moved);
     std::filesystem::remove_all(root / "Assets");
     const auto packaged =
         std::make_shared<const AssetCatalog>(open_runtime_content(moved, {"linux", "none"}));
     runtime_leases(moved, set_id, map_id, false);
+    const auto scene_bytes =
+        asset_detail::read_bytes(moved / packaged->records().at(scene_id).source, 8 * 1024 * 1024);
+    require(
+        nlohmann::json::parse(std::string_view(reinterpret_cast<const char*>(scene_bytes.data()),
+                                               scene_bytes.size())) == scene_document,
+        "Relocated Scene or its typed Map closure was lost");
+    {
+        EngineContext runtime(WorldRole::Runtime, false, {runtime_resources_module(moved)});
+        Scene scene(runtime.world());
+        scene.reset(scene_document);
+        RuntimeSimulation simulation(runtime.world(), scene);
+        const auto reference =
+            scene.reference(scene_document.at("entities")[0].at("id").get<std::string>());
+        const auto end = std::chrono::steady_clock::now() + 15s;
+        while (true) {
+            (void)simulation.presentation(0);
+            if (detail::inspect_runtime_tile_map(runtime.world(), reference).current)
+                break;
+            require(std::chrono::steady_clock::now() < end, "Moved Scene's map did not realize");
+            std::this_thread::sleep_for(1ms);
+        }
+        require(detail::runtime_tile_map_snapshot(runtime.world(), reference)
+                        ->cells.cell(1, {-1, -1}) == TileMapCell{2, 0},
+                "Moved Scene did not load its source-free cooked cells");
+    }
+#ifdef FORGE_ENABLE_NATIVE_SDK
+    if (!sdk_library.empty())
+        test_sdk_tile_maps(moved, scene_document, sdk_library, map_id, set_id);
+#endif
     require(load_set(moved, packaged, set_id).tile(2).name == "Renamed" &&
                 load_map(moved, packaged, map_id).cell(1, {-1, -1}) == TileMapCell{2, 0} &&
                 !std::filesystem::exists(moved / "Assets/Original.tilemap.json"),
@@ -801,9 +864,11 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 3, "Expected native import worker and dedicated scratch root");
+        require(argc == 3 || argc == 4,
+                "Expected native import worker, scratch root, optional matching module");
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
-        workflow(root / "project with spaces", std::filesystem::absolute(argv[1]));
+        workflow(root / "project with spaces", std::filesystem::absolute(argv[1]),
+                 argc == 4 ? std::filesystem::absolute(argv[3]) : std::filesystem::path{});
         std::filesystem::remove_all(root);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

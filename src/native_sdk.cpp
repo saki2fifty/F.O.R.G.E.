@@ -1,6 +1,7 @@
 #include "authored_schema.hpp"
 #include "bounded_json.hpp"
 #include "runtime_entity_creation.hpp"
+#include "runtime_tile_map.hpp"
 #include <cmath>
 #include <cstring>
 #include <forge/animation_components.hpp>
@@ -94,6 +95,7 @@ struct Bridge {
     std::set<std::uint64_t> resources;
     std::set<std::uint64_t> entity_requests;
     std::set<std::uint64_t> game_requests;
+    std::set<std::uint64_t> tile_edits;
     std::map<std::string, UiAction> ui_events;
     bool game_callable() const {
         return context.role == WorldRole::Runtime && runtime_active() &&
@@ -134,6 +136,224 @@ struct Bridge {
     bool runtime_active() const {
         return stage == Stage::Starting || stage == Stage::Preparing || stage == Stage::Running;
     }
+    bool tile_maps_callable() const { return entities_callable() && resources_callable(); }
+    void release_tile_edits() {
+        if (context.owner)
+            for (auto token : tile_edits)
+                detail::release_runtime_tile_edit(*context.owner, context.id, token);
+        tile_edits.clear();
+    }
+    static EntityRef tile_target(const char* scene, const char* entity) {
+        return {AssetId::parse(bounded(scene, 36)), EntityId::parse(bounded(entity, 36))};
+    }
+    template <std::size_t N> static void copy_text(char (&out)[N], const std::string& text) {
+        const auto n = std::min(text.size(), N - 1);
+        std::memcpy(out, text.data(), n);
+        out[n] = 0;
+    }
+    std::shared_ptr<const detail::RuntimeTileMapSnapshot>
+    tile_snapshot(EntityRef target, uint64_t generation, int32_t& result) {
+        if (!generation)
+            throw std::runtime_error("Tile Map query requires an adopted generation");
+        if (!detail::inspect_runtime_tile_map(*context.owner, target).ready) {
+            result = 0;
+            return {};
+        }
+        auto snapshot = detail::runtime_tile_map_snapshot(*context.owner, target);
+        result = snapshot->generation == generation ? 1 : -2;
+        return result == 1 ? snapshot : nullptr;
+    }
+    uint64_t own_tile_edit(uint64_t token) {
+        try {
+            tile_edits.insert(token);
+        } catch (...) {
+            detail::release_runtime_tile_edit(*context.owner, context.id, token);
+            throw;
+        }
+        return token;
+    }
+    void configure_tile_maps() {
+        host.tile_map_inspect = [](void* p, const char* scene, const char* entity,
+                                   ForgeSdkTileMapV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            out->version = 1;
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.tile_maps_callable())
+                    return 0;
+                auto copied = *out;
+                const auto target = tile_target(scene, entity);
+                const auto value = detail::inspect_runtime_tile_map(*b.context.owner, target);
+                if (value.requested)
+                    copy_text(copied.requested_uuid, value.requested.str());
+                if (value.adopted)
+                    copy_text(copied.adopted_uuid, value.adopted.str());
+                if (value.tile_set)
+                    copy_text(copied.tile_set_uuid, value.tile_set.str());
+                copy_text(copied.requested_revision, value.requested_revision);
+                copy_text(copied.adopted_revision, value.adopted_revision);
+                copy_text(copied.diagnostic, value.diagnostic);
+                copied.ready = value.ready;
+                copied.current = value.current;
+                copied.edited = value.edited;
+                copied.generation = value.generation;
+                copied.revision = value.revision;
+                if (value.ready) {
+                    const auto snapshot =
+                        detail::runtime_tile_map_snapshot(*b.context.owner, target);
+                    copied.layer_count = static_cast<uint32_t>(snapshot->cells.layers().size());
+                    const auto size = snapshot->cells.cell_size();
+                    std::copy(size.begin(), size.end(), copied.cell_size);
+                }
+                *out = copied;
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.tile_map_layer = [](void* p, const char* scene, const char* entity,
+                                 uint64_t generation, uint32_t index,
+                                 ForgeSdkTileLayerV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            out->version = 1;
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.tile_maps_callable())
+                    return 0;
+                int32_t result;
+                const auto snapshot =
+                    b.tile_snapshot(tile_target(scene, entity), generation, result);
+                if (!snapshot)
+                    return result;
+                if (index >= snapshot->cells.layers().size())
+                    return -1;
+                const auto& layer = snapshot->cells.layers()[index];
+                out->key = layer.id;
+                out->visible = layer.visible;
+                out->order = layer.order;
+                copy_text(out->name, layer.name);
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.tile_map_cells = [](void* p, const char* scene, const char* entity,
+                                 uint64_t generation, const ForgeSdkTileLocationV1* locations,
+                                 ForgeSdkTileCellV1* out, uint32_t count) -> int32_t {
+            if (!out || !count || count > FORGE_SDK_TILE_BATCH_LIMIT)
+                return -1;
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.tile_maps_callable()) {
+                    std::fill_n(out, count, ForgeSdkTileCellV1{});
+                    return 0;
+                }
+                if (!locations)
+                    throw std::runtime_error("Null Tile Map locations");
+                int32_t result;
+                const auto snapshot =
+                    b.tile_snapshot(tile_target(scene, entity), generation, result);
+                if (!snapshot) {
+                    std::fill_n(out, count, ForgeSdkTileCellV1{});
+                    return result;
+                }
+                // Temporary values also allow locations/output to alias safely.
+                std::vector<ForgeSdkTileCellV1> values;
+                values.reserve(count);
+                for (uint32_t i = 0; i < count; ++i) {
+                    const auto& at = locations[i];
+                    const auto value = snapshot->cells.cell(at.layer, {at.x, at.y});
+                    values.push_back({value.tile, value.flags, 0});
+                }
+                std::copy(values.begin(), values.end(), out);
+                return 1;
+            } catch (...) {
+                std::fill_n(out, count, ForgeSdkTileCellV1{});
+                return -1;
+            }
+        };
+        host.tile_map_write = [](void* p, const char* scene, const char* entity,
+                                 uint64_t generation, const ForgeSdkTileWriteV1* writes,
+                                 uint32_t count) -> uint64_t {
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.tile_maps_callable() || !b.context.input || !writes || !count ||
+                    count > FORGE_SDK_TILE_BATCH_LIMIT || b.tile_edits.size() >= 64)
+                    return 0;
+                std::vector<TileMapCellEdit> copied;
+                copied.reserve(count);
+                for (uint32_t i = 0; i < count; ++i) {
+                    const auto& write = writes[i];
+                    if (write.value.reserved)
+                        return 0;
+                    copied.push_back({write.location.layer,
+                                      {write.location.x, write.location.y},
+                                      {write.value.tile, write.value.flags}});
+                }
+                return b.own_tile_edit(detail::request_runtime_tile_cells(
+                    *b.context.owner, b.context.id, tile_target(scene, entity), generation,
+                    copied));
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.tile_map_reset = [](void* p, const char* scene, const char* entity,
+                                 uint64_t generation) -> uint64_t {
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.tile_maps_callable() || !b.context.input || b.tile_edits.size() >= 64)
+                    return 0;
+                return b.own_tile_edit(detail::request_runtime_tile_reset(
+                    *b.context.owner, b.context.id, tile_target(scene, entity), generation));
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.tile_edit_inspect = [](void* p, uint64_t token, ForgeSdkTileEditV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            out->version = 1;
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.tile_maps_callable() || !b.tile_edits.contains(token))
+                    return 0;
+                const auto value =
+                    detail::inspect_runtime_tile_edit(*b.context.owner, b.context.id, token);
+                out->state = value.state == detail::RuntimeTileEditState::Pending
+                                 ? FORGE_SDK_TILE_EDIT_PENDING
+                             : value.state == detail::RuntimeTileEditState::Applied
+                                 ? FORGE_SDK_TILE_EDIT_APPLIED
+                                 : FORGE_SDK_TILE_EDIT_FAILED;
+                out->generation = value.generation;
+                out->revision = value.revision;
+                copy_text(out->diagnostic, value.diagnostic);
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.tile_edit_release = [](void* p, uint64_t token) -> int32_t {
+            try {
+                auto& b = Bridge::get(p);
+                if (!b.tile_maps_callable() || !b.tile_edits.contains(token))
+                    return 0;
+                const bool released =
+                    detail::release_runtime_tile_edit(*b.context.owner, b.context.id, token);
+                b.tile_edits.erase(token);
+                return released ? 1 : 0;
+            } catch (...) {
+                return 0;
+            }
+        };
+    }
 
     explicit Bridge(ModuleContext& c) : context(c) {
         host.size = sizeof(host);
@@ -141,6 +361,7 @@ struct Bridge {
         host.world = c.world.c_ptr();
         host.context = this;
         host.role = role_mask(c.role);
+        configure_tile_maps();
         for (auto cap : {Capability::Diagnostics, Capability::Profiling})
             if (c.services.available(cap))
                 host.capabilities |= capability(cap);
@@ -679,14 +900,15 @@ struct Bridge {
             try {
                 auto& b = Bridge::get(p);
                 if (!cap || (cap & (cap - 1)) ||
-                    (cap & ~(known_capabilities | FORGE_SDK_INPUT | FORGE_SDK_RUNTIME_ENTITIES |
-                             FORGE_SDK_CONTROL_INPUT)))
+                    (cap &
+                     ~(known_capabilities | FORGE_SDK_INPUT | FORGE_SDK_RUNTIME_ENTITIES |
+                       FORGE_SDK_CONTROL_INPUT | FORGE_SDK_TILE_MAPS | FORGE_SDK_TILE_MAP_EDITS)))
                     return 0;
                 out->version = FORGE_SDK_CAPABILITY_VERSION;
                 out->flags = FORGE_SDK_OWNER_THREAD;
                 bool fixed = cap == FORGE_SDK_INPUT || cap == FORGE_SDK_PHYSICS ||
                              cap == FORGE_SDK_AUDIO || cap == FORGE_SDK_NAVIGATION ||
-                             cap == FORGE_SDK_ANIMATION;
+                             cap == FORGE_SDK_ANIMATION || cap == FORGE_SDK_TILE_MAP_EDITS;
                 if (fixed)
                     out->flags |= FORGE_SDK_FIXED_ONLY;
                 if (cap == FORGE_SDK_CONTROL_INPUT)
@@ -700,6 +922,8 @@ struct Bridge {
                     available = b.resources_callable();
                 if (cap == FORGE_SDK_RUNTIME_ENTITIES)
                     available = b.entities_callable();
+                if (cap == FORGE_SDK_TILE_MAPS || cap == FORGE_SDK_TILE_MAP_EDITS)
+                    available = b.tile_maps_callable();
                 if (cap == FORGE_SDK_GAME)
                     available = b.game_callable();
                 if (fixed && !b.runtime_active())
@@ -1486,6 +1710,7 @@ EngineModule load_native_sdk(const std::filesystem::path& path, const std::strin
                 auto& bridge = *static_cast<Bridge*>(c.state.get());
                 bridge.release_entities();
                 bridge.release_resources();
+                bridge.release_tile_edits();
                 if (bridge.context.services.available(Capability::Game))
                     bridge.context.services.game()->revoke(bridge.context.id);
                 bridge.game_requests.clear();

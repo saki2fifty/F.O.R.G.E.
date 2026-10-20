@@ -47,6 +47,9 @@ typedef struct ecs_world_t ecs_world_t;
 #define FORGE_SDK_CONTROL_INPUT 1024u
 #define FORGE_SDK_GAME 2048u
 #define FORGE_SDK_ANIMATION 4096u
+/* Intrinsic CPU map access; not descriptor permissions or GPU readiness. */
+#define FORGE_SDK_TILE_MAPS 8192u
+#define FORGE_SDK_TILE_MAP_EDITS 16384u
 #define FORGE_SDK_CAPABILITY_VERSION 1u
 #define FORGE_SDK_FIXED_ONLY 1u
 #define FORGE_SDK_OWNER_THREAD 2u
@@ -197,6 +200,40 @@ typedef struct ForgeSdkEntityV1 {
     char scene_uuid[37], entity_uuid[37], diagnostic[1024];
     uint64_t native_entity; /* Borrowed Flecs handle in this world only when Ready. */
 } ForgeSdkEntityV1;
+typedef struct ForgeSdkTileMapV1 {
+    uint32_t size, version, ready, current, edited, layer_count;
+    uint64_t generation, revision;
+    double cell_size[2];
+    char requested_uuid[37], adopted_uuid[37], tile_set_uuid[37];
+    char requested_revision[65], adopted_revision[65], diagnostic[1024];
+} ForgeSdkTileMapV1;
+typedef struct ForgeSdkTileLayerV1 {
+    uint32_t size, version, visible;
+    int32_t order;
+    uint64_t key;
+    char name[129];
+} ForgeSdkTileLayerV1;
+typedef struct ForgeSdkTileLocationV1 {
+    uint64_t layer;
+    int32_t x, y;
+} ForgeSdkTileLocationV1;
+typedef struct ForgeSdkTileCellV1 {
+    uint64_t tile;            /* Zero means empty, with flags zero. */
+    uint32_t flags, reserved; /* Flags0..7; reserved must be zero. */
+} ForgeSdkTileCellV1;
+typedef struct ForgeSdkTileWriteV1 {
+    ForgeSdkTileLocationV1 location;
+    ForgeSdkTileCellV1 value;
+} ForgeSdkTileWriteV1;
+#define FORGE_SDK_TILE_EDIT_PENDING 1u
+#define FORGE_SDK_TILE_EDIT_APPLIED 2u
+#define FORGE_SDK_TILE_EDIT_FAILED 3u
+#define FORGE_SDK_TILE_BATCH_LIMIT 4096u
+typedef struct ForgeSdkTileEditV1 {
+    uint32_t size, version, state;
+    uint64_t generation, revision;
+    char diagnostic[1024];
+} ForgeSdkTileEditV1;
 typedef struct ForgeSdkWorldV1 {
     uint32_t size, version;
     ecs_world_t* world; /* borrowed; module must not destroy it */
@@ -395,6 +432,36 @@ typedef struct ForgeSdkWorldV1 {
        require a typed Runtime Dependency reachable from the loaded Scene. */
     uint64_t(FORGE_SDK_CALL* prefab_request)(void*, const char* prefab_uuid, const char* scene_uuid,
                                              const char* name);
+    /* Copied owner-thread runtime queries; paused reads allowed. Exact output
+       size, version1. 1 success,0 unavailable/not ready,-1 invalid,-2 stale
+       generation. Valid-size outputs clear on failure. Status1 can be not ready.
+       No query initializes an instance, performs IO or exposes a data pointer. */
+    int32_t(FORGE_SDK_CALL* tile_map_inspect)(void*, const char* scene, const char* entity,
+                                              ForgeSdkTileMapV1*);
+    /* Index only enumerates up to8 layers; key identifies a layer within this
+       adopted map. Generation must match an inspected ready instance. */
+    int32_t(FORGE_SDK_CALL* tile_map_layer)(void*, const char* scene, const char* entity,
+                                            uint64_t generation, uint32_t index,
+                                            ForgeSdkTileLayerV1*);
+    /* Count1..4096. All locations validated before copying any cell. Valid
+       output/count clears on failure; invalid pointer/count is not written.
+       Empty cells are successful values, distinct from unavailable maps. */
+    int32_t(FORGE_SDK_CALL* tile_map_cells)(void*, const char* scene, const char* entity,
+                                            uint64_t generation, const ForgeSdkTileLocationV1*,
+                                            ForgeSdkTileCellV1*, uint32_t count);
+    /* Fixed-only, copied atomic batch, next fixed boundary; ordered last write
+       wins. Returns owned observation token or0. Same generation is rechecked
+       at publication. 64 observations/module,256/world,4MiB pending writes.
+       Runtime edits never change authored files. Reset explicitly adopts latest
+       assets and discards edits. Stop cancels all pending owned observations. */
+    uint64_t(FORGE_SDK_CALL* tile_map_write)(void*, const char* scene, const char* entity,
+                                             uint64_t generation, const ForgeSdkTileWriteV1*,
+                                             uint32_t count);
+    uint64_t(FORGE_SDK_CALL* tile_map_reset)(void*, const char* scene, const char* entity,
+                                             uint64_t generation);
+    int32_t(FORGE_SDK_CALL* tile_edit_inspect)(void*, uint64_t token, ForgeSdkTileEditV1*);
+    /* Release pending cancels; release applied only forgets its observation. */
+    int32_t(FORGE_SDK_CALL* tile_edit_release)(void*, uint64_t token);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;
