@@ -153,6 +153,8 @@ jobs:
           if($LASTEXITCODE) { throw 'Shared standalone regressions failed' }
           python tests/standalone_package_test.py --build $b --kit "$b/runtime-kit" --module-kit "$b/module-kits/project.example" --evidence "$b/grid-test-images/shared-game" --source . --retain "$b/standalone-delivery/game"
           if($LASTEXITCODE) { throw 'Shared standalone export failed' }
+          python tests/sprite_image_standalone_test.py --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/sprite-image-export" --retain "$b/standalone-delivery/sprite-image-game"
+          if($LASTEXITCODE) { throw 'Shared Sprite image-fill export failed' }
           Copy-Item tests/standalone_relocated_probe.py "$b/standalone-delivery/probe.py"
           cmake -S samples/reference_game -B "$b/reference-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl -DFORGE_NATIVE_SDK="$b/installed-sdk"
           if($LASTEXITCODE) { throw 'Reference SDK consumer configure failed' }
@@ -245,7 +247,8 @@ jobs:
   relocated:
     needs: build
     runs-on: windows-2022
-    timeout-minutes: 10
+    # Five bounded host launches plus transfer/inventory checks need cleanup headroom.
+    timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -254,7 +257,7 @@ jobs:
       - name: Run without source checkout, original build or SDK
         shell: pwsh
         working-directory: ${{ runner.temp }}
-        run: python "Relocated FORGE Game/probe.py" "Relocated FORGE Game/game" "standalone-clean-room-evidence"
+        run: python "Relocated FORGE Game/probe.py" "Relocated FORGE Game/game" "standalone-clean-room-evidence" "Relocated FORGE Game/sprite-image-game"
       - name: Upload clean-room evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

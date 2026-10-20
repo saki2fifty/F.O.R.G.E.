@@ -51,10 +51,10 @@ cold compilation, testing, installation and cleanup without relaxing any test.
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new
 delivery number.
-The 941-action native input walkthrough has a480-second aggregate CTest budget.
-One full WARP run completed all941 actions in297.56 seconds; a slower runner
-completed877 before the former360-second aggregate cutoff, with normal actions
-still progressing. The driver's12-second action/readiness and180-second compiler/
+The 941-action native input walkthrough has a 480-second aggregate CTest budget.
+One full WARP run completed all 941 actions in 297.56 seconds; a slower runner
+completed 877 before the former 360-second aggregate cutoff, with normal actions
+still progressing. The driver's 12-second action/readiness and 180-second compiler/
 graph checks remain unchanged. The additional aggregate allowance removes no
 actions, pixel/source checks or acceptance requirements. Focused shader/input scopes remain explicitly separate. Numbered
 failures retain the full capture diagnostics and CTest logs, including the stalled
@@ -197,6 +197,16 @@ using the packaged static runtime kit, and runs the resulting standalone
 executable in startup-verification mode. The source-level `feature_gallery` test
 admits every gallery scene through the normal authoring API and checks durable
 identities and key components.
+
+The shared-runtime audit exports Gallery73 through the same Sprite image-fill
+helper used by final combined-package acceptance. It deletes its authored copy
+and copied kit before two relocated production launches with restricted PATH.
+The resulting game also travels to the separate runner with no checkout, build
+or SDK, where two more production launches and exact inventory checks run.
+These startup checks complement the independent Sprite pixel and installed C++
+value tests; they do not establish physical GPU acceptance. The fresh-runner job
+has 15 minutes for its five bounded host launches and transfer/cleanup; each host
+keeps its existing 120-second process deadline.
 
 The official artifact download action is pinned to v4 commit
 `d3f86a106a0bac45b974a628896c90dbdf5c8093`. Modified files, path escapes
