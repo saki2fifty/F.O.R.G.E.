@@ -32,6 +32,9 @@ struct RuntimeTileEditResult {
 void register_runtime_tile_maps(WorldContext&);
 // Asset adoption may progress while paused; this never publishes cell requests.
 void synchronize_runtime_tile_maps(WorldContext&);
+// Candidate readiness reads the instances already synchronized by the resource
+// owner. It does not advance the simulation or publish pending cell edits.
+bool prepare_runtime_tile_maps(WorldContext&);
 void bind_runtime_tile_maps(WorldContext&, RenderScene&);
 RuntimeTileMapStatus inspect_runtime_tile_map(WorldContext&, EntityRef);
 std::shared_ptr<const RuntimeTileMapSnapshot> runtime_tile_map_snapshot(WorldContext&, EntityRef);

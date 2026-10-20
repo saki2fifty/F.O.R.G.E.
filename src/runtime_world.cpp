@@ -1,4 +1,5 @@
 #include "particle_runtime.hpp"
+#include "runtime_tile_map.hpp"
 #include <exception>
 #include <forge/animation.hpp>
 #include <forge/audio.hpp>
@@ -39,6 +40,9 @@ bool RuntimeWorld::prepare_scene_resources() {
     // publish worlds, or touch GPU.
     if (engine.services().available(Capability::Resources))
         engine.services().resources()->synchronize();
+    detail::synchronize_runtime_tile_maps(engine.world());
+    if (!detail::prepare_runtime_tile_maps(engine.world()))
+        return false;
     if (!animation_runtime(engine.world())->prepare_initial_pose())
         return false;
     if (!particle_runtime(engine.world())->prepare())

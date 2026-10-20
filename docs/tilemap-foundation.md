@@ -72,6 +72,18 @@ snapshot requests17203270bytes in Linux GCC12. These are requested allocation
 totals, not peak/RSS/GPU memory or frame-time evidence.
 Play transport projection and the complete exported-game workflow remain unfinished.
 
+Scene preparation now progresses the existing runtime map synchronization and
+waits for the requested map binding before freezing a candidate. This does not
+tick gameplay or publish queued cell edits. A retained older root cannot satisfy
+readiness for a newly requested root.
+
+The private copied-presentation codec admits Map/Set headers through their existing
+cooked decoders. Pages contain at most four chunks and 256KiB; unchanged shared
+arrays produce no delta. Shrinking chunks precede growing chunks so a paged move
+at capacity remains valid. Full maximum-profile transfers, wide keys, malformed
+packets and scoped sanitizer checks pass locally. The codec alone does not wire
+either Editor Play process path or publish a runtime frame.
+
 The in-process graphical host now binds typed map presentation values to the
 same immutable snapshots read by native gameplay. This shares cell storage and
 admitted definition rows; it does not put cell arrays into `effective_scene` or

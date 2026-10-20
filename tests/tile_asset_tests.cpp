@@ -22,6 +22,7 @@
 #include <forge/render_scene.hpp>
 #include <forge/runtime.hpp>
 #include <forge/runtime_resources.hpp>
+#include <forge/runtime_world.hpp>
 #include <forge/scene.hpp>
 #include <future>
 #include <iostream>
@@ -232,6 +233,50 @@ void runtime_leases(const std::filesystem::path& root, AssetId set_id, AssetId m
         AssetCatalog restore(root);
         restore.restore(saved);
         restore.save(AssetCatalog::project_index(root));
+    }
+}
+void candidate_tile_readiness(const std::filesystem::path& root, const Json& source) {
+    RuntimeWorld world({}, {}, std::nullopt, root, false);
+    world.scene.reset(source);
+    const auto before = world.scene.document();
+    require(!detail::prepare_runtime_tile_maps(world.engine.world()),
+            "Candidate tile read started loading or invented an unsynchronized snapshot");
+    const auto end = std::chrono::steady_clock::now() + 10s;
+    while (!world.prepare_scene_resources()) {
+        require(std::chrono::steady_clock::now() < end, "Candidate tile readiness stalled");
+        std::this_thread::sleep_for(1ms);
+    }
+    const EntityRef target{world.scene.asset_id(),
+                           source.at("entities")[0].at("id").get<EntityId>()};
+    const auto snapshot = detail::runtime_tile_map_snapshot(world.engine.world(), target);
+    const std::array<TileMapCellEdit, 1> writes{{{1, {123, 456}, {2, 0}}}};
+    const auto token = detail::request_runtime_tile_cells(world.engine.world(), "project.prepare",
+                                                          target, snapshot->generation, writes);
+    require(world.prepare_scene_resources() && world.prepare_scene_resources() &&
+                detail::inspect_runtime_tile_edit(world.engine.world(), "project.prepare", token)
+                        .state == detail::RuntimeTileEditState::Pending &&
+                detail::runtime_tile_map_snapshot(world.engine.world(), target)->revision ==
+                    snapshot->revision &&
+                world.scene.document() == before,
+            "Candidate readiness advanced gameplay or changed the authored scene");
+    detail::release_runtime_tile_edit(world.engine.world(), "project.prepare", token);
+    auto missing = source;
+    missing["entities"][0]["components"]["forge.tile_map_renderer"]["map"] = AssetId::generate();
+    world.scene.reset(missing);
+    bool failed = false;
+    const auto failure_end = std::chrono::steady_clock::now() + 10s;
+    while (!failed) {
+        bool ready = false;
+        try {
+            ready = world.prepare_scene_resources();
+        } catch (const std::runtime_error&) {
+            failed = true;
+        }
+        require(!ready, "Missing map incorrectly passed candidate readiness");
+        require(std::chrono::steady_clock::now() < failure_end,
+                "Missing map did not report a terminal failure");
+        if (!failed)
+            std::this_thread::sleep_for(1ms);
     }
 }
 void runtime_instances(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
@@ -793,6 +838,7 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     scene_catalog.save(AssetCatalog::project_index(root));
     const std::array roots{scene_id};
     prepare_runtime_content_catalog(*lease, roots, {}, schema);
+    candidate_tile_readiness(root, scene_document);
 #ifdef FORGE_ENABLE_NATIVE_SDK
     if (!sdk_library.empty())
         test_sdk_tile_maps(root, scene_document, sdk_library, map_id, set_id);

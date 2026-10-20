@@ -232,6 +232,36 @@ void synchronize_runtime_tile_maps(WorldContext& context) {
         }
     }
 }
+bool prepare_runtime_tile_maps(WorldContext& context) {
+    if (context.role() != WorldRole::Runtime)
+        return true;
+    boundary(context);
+    bool pending = false;
+    std::string failure;
+    context.world().each([&](flecs::entity entity, const TileMapRenderer& renderer) {
+        if (!renderer.enabled || !renderer.map.id || !failure.empty())
+            return;
+        const auto reference = context.reference(entity.id());
+        if (!reference)
+            return;
+        try {
+            const auto status = inspect_runtime_tile_map(context, *reference);
+            if (!status.ready || status.adopted != status.requested) {
+                if (status.pending)
+                    pending = true;
+                else
+                    failure = status.diagnostic.empty() ? "Tile Map has no ready runtime snapshot"
+                                                        : status.diagnostic;
+            }
+        } catch (const std::exception& e) {
+            failure = e.what();
+        }
+    });
+    // Throw after iteration releases Flecs' table lock.
+    if (!failure.empty())
+        throw std::runtime_error("Scene preparation: " + failure);
+    return !pending;
+}
 RuntimeTileMapStatus inspect_runtime_tile_map(WorldContext& context, EntityRef target) {
     const auto entity = target_entity(context, target);
     RuntimeTileMapStatus status;

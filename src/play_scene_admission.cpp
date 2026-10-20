@@ -46,7 +46,7 @@ struct Adapter final : GameScenePreparation {
             throw std::runtime_error("Play scene admission: channel was closed");
         if (!runtime_ready) {
             if (!world.prepare_scene_resources())
-                return {false, "animation", 0, 4};
+                return {false, "resources", 0, 4};
             // Allow the host to reject publication of the envelope (e.g.
             // because the resulting post-activation response would not fit
             // the protocol bound). The thrown diagnostic propagates back to
