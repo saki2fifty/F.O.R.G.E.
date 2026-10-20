@@ -186,6 +186,14 @@ const Json& TileMapValue::metadata() const {
     validate();
     return metadata_->document;
 }
+void TileMapValue::for_each_chunk(
+    const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
+                             std::size_t)>& visit) const {
+    validate();
+    require(bool(visit), "Tile Map chunk visitor is empty");
+    for (const auto& [key, chunk] : chunks_)
+        visit(key, chunk->cells, chunk->occupied);
+}
 bool TileMapValue::has_layer(std::uint64_t id) const {
     return metadata_ && std::any_of(metadata_->layers.begin(), metadata_->layers.end(),
                                     [&](const auto& layer) { return layer.id == id; });

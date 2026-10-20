@@ -37,8 +37,12 @@ ClipCorners clip_corners(const RenderBounds& bounds, const CameraView& camera) {
 }
 } // namespace
 RenderBounds transform_bounds(const MeshBounds& bounds, const AffineTransform& world) {
-    validate({{bounds.minimum[0], bounds.minimum[1], bounds.minimum[2]},
-              {bounds.maximum[0], bounds.maximum[1], bounds.maximum[2]}});
+    return transform_render_bounds({{bounds.minimum[0], bounds.minimum[1], bounds.minimum[2]},
+                                    {bounds.maximum[0], bounds.maximum[1], bounds.maximum[2]}},
+                                   world);
+}
+RenderBounds transform_render_bounds(const RenderBounds& bounds, const AffineTransform& world) {
+    validate(bounds);
     for (const auto v : world.m)
         require(std::isfinite(v), "Render bounds require a finite world transform");
     RenderBounds result;

@@ -1,6 +1,7 @@
 #pragma once
 #include "tile_grid.hpp"
 #include <forge/identity.hpp>
+#include <functional>
 #include <map>
 #include <memory>
 #include <span>
@@ -46,6 +47,12 @@ class TileMapValue {
     std::size_t occupied() const;
     std::size_t chunk_count() const;
     const nlohmann::json& metadata() const;
+    // Borrowed immutable cells remain valid while this snapshot is alive.
+    // A later paint candidate cannot alter them. This is engine-internal data,
+    // not a pointer-returning runtime SDK contract.
+    void for_each_chunk(
+        const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
+                                 std::size_t occupied)>&) const;
     TileMapCell cell(std::uint64_t layer, TileCellAddress) const;
     // Detached candidate; ordered writes to one address use the last value.
     // Painting an existing cell preserves its unrecognized fields. Erase removes it.

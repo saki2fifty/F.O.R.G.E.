@@ -8,6 +8,8 @@ struct RenderBounds {
 };
 // Conservative affine AABB; works with reflection, shear and zero scale.
 RenderBounds transform_bounds(const MeshBounds&, const AffineTransform&);
+// Double local bounds for integer grids and other non-mesh numeric consumers.
+RenderBounds transform_render_bounds(const RenderBounds&, const AffineTransform&);
 // Copied, transient skin data. Matrices are ordered by the prepared draw palette,
 // already in world space (joint world * inverse bind); no inverse of the mesh
 // node is needed or permitted. Bounds enclose every positive normalized blend.

@@ -95,6 +95,28 @@ representation keeps unchanged data shared across saved values and history.
 
 ## Current evidence and remaining work
 
+### Read-only CPU presentation view
+
+`TileMapValue::for_each_chunk` exposes borrowed immutable cell spans to internal
+engine consumers. Unchanged chunks retain the same cell storage after a paint
+candidate; a changed chunk has separate storage. This is not an SDK API returning
+resource pointers.
+
+`visit_visible_tile_chunks` filters empty chunks and hidden layers, computes
+double-precision world bounds through the existing affine bounds owner, and uses
+the existing camera-frustum test. Multiple cameras form a union with one callback
+per visible chunk. No cameras produce no callbacks. Chunk bounds preserve full
+signed cell addresses, including the exclusive upper edge at 2147483648, without
+passing through float mesh bounds. Tests cover reflection, shear, nonuniform
+scale, negative chunks and a camera near a world origin of 1000000000000 meters.
+
+This is a CPU view and culling foundation. It does not yet draw tiles on a GPU,
+transport runtime changes to Editor Play or provide a runtime query/edit API.
+The existing Sprite draw owner is keyed by entity and draw scope; emitting many
+ordinary Sprites under one map entity would share that owner incorrectly. Tile
+rendering must integrate its image/chunk instances with that existing owner and
+the shared render queue, without creating authored entities for cells.
+
 Focused source tests cover malformed inputs, duplicate JSON keys, finite/range
 limits, negative/far addresses, exact uint64 keys, unknown data, detached paint,
 erase, ordered writes, layer isolation, allocation history and Save/reopen.
