@@ -1,5 +1,9 @@
 #include "asset_bytes.hpp"
+#include "asset_file_operations.hpp"
+#include "asset_reference_impact.hpp"
+#include "asset_reimport.hpp"
 #include "asset_storage.hpp"
+#include "editor/content_model.hpp"
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
 #include "runtime_package.hpp"
@@ -10,6 +14,7 @@
 #include "tile_set_document.hpp"
 #include <forge/engine_texture_assets.hpp>
 #include <iostream>
+#include <thread>
 
 using namespace forge;
 using namespace std::chrono_literals;
@@ -149,6 +154,198 @@ void recipe_guards(const TileSetSource& set, const TileMapSource& map) {
     bad.payload["source_digest"] = asset_detail::content_digest(bad.inputs[0].bytes);
     reject([&] { (void)asset_detail::execute_tile_recipe(bad); });
 }
+void automatic_updates(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
+                       const std::filesystem::path& worker, AssetId material_id, AssetId set_id,
+                       AssetId map_id) {
+    auto registry = tile_asset_import_registry(worker);
+    AssetReimportService automatic(
+        lease,
+        {{"forge.material.builtin",
+          {"linux", "none", "cpu"},
+          material_import_registry(),
+          [](auto& c, const auto& p, const auto&) { prepare_material_publication(c, p); }},
+         {tile_set_importer_id,
+          {"linux", "none", "cpu"},
+          registry,
+          [](auto& c, const auto& p, const auto&) { prepare_tile_set_publication(c, p); }},
+         {tile_map_importer_id,
+          {"linux", "none", "cpu"},
+          registry,
+          [](auto& c, const auto& p, const auto&) { prepare_tile_map_publication(c, p); }}},
+        {}, 10min, 20ms);
+    std::vector<AssetImportOutcome> outcomes;
+    const auto poll = [&] {
+        for (auto& outcome : automatic.poll())
+            outcomes.push_back(std::move(outcome));
+    };
+    const auto finish = [&] {
+        const auto deadline = std::chrono::steady_clock::now() + 30s;
+        do {
+            poll();
+            require(std::chrono::steady_clock::now() < deadline, "Tile reimport did not settle");
+            std::this_thread::sleep_for(1ms);
+        } while (!automatic.complete() || !automatic.settled() || automatic.scanning());
+    };
+    finish();
+    require(outcomes.empty(), "Unchanged tile assets rebuilt at watcher startup");
+    const auto before = automatic.catalog()->document();
+    auto source = MaterialSource::parse(
+        asset_detail::read_bytes(root / "Assets/Atlas.material.json", material_source_byte_limit));
+    source.document["overrides"]["double_sided"] = true;
+    atomic_write(root / "Assets/Atlas.material.json", source.document.dump());
+    bool blocked = true;
+    automatic.blocked = [&](AssetId id) { return blocked && id == material_id; };
+    automatic.rescan();
+    const auto deadline = std::chrono::steady_clock::now() + 10s;
+    while (!automatic.queued()) {
+        poll();
+        require(std::chrono::steady_clock::now() < deadline,
+                "Changed image Material did not queue");
+        std::this_thread::sleep_for(1ms);
+    }
+    require(outcomes.empty() && automatic.catalog()->document() == before,
+            "Blocked source draft changed tile publications");
+    blocked = false;
+    finish();
+    require(outcomes.size() == 3 && outcomes[0].job.asset == material_id &&
+                outcomes[1].job.asset == set_id && outcomes[2].job.asset == map_id,
+            "Tile dependency chain did not rebuild Material, Set, Map exactly once in order");
+    for (const auto& outcome : outcomes)
+        require(outcome.published,
+                "Automatic tile dependency rebuild failed: " + outcome.diagnostic);
+    require(load_map(root, automatic.catalog(), map_id).occupied() == 3,
+            "Automatic dependency recook changed map cells");
+}
+void file_workflows(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
+                    const std::filesystem::path& worker, AssetId material_id, AssetId set_id,
+                    AssetId map_id) {
+    const auto schema = nlohmann::json{{"components", nlohmann::json::array()}};
+    auto catalog = AssetCatalog::open_project(root);
+    auto sources = scan_asset_sources(root);
+    require(sources.complete &&
+                sources.files.at("Assets/Original.tileset.json").source_kind == "tile_set" &&
+                sources.files.at("Assets/Original.tilemap.json").source_kind == "tile_map",
+            "Tile sources were not recognized by ordinary discovery");
+    const auto content = ContentIndex::build(catalog, &sources);
+    require(content.types.contains(TileSetAsset::type) &&
+                content.types.contains(TileMapAsset::type),
+            "Published tile assets are absent from Content");
+    const auto impact = scan_asset_references(root, schema, {material_id, set_id});
+    require(impact.references.size() == 2 && !impact.uninspected.empty(),
+            "Known tile references or opaque source coverage disappeared");
+    auto definitions =
+        TileSetSource::parse(asset_detail::read_bytes(root / "Assets/Original.tileset.json",
+                                                      tile_set_source_byte_limit))
+            .document;
+    auto world = nlohmann::json::parse(
+        TileMapSource::parse(asset_detail::read_bytes(root / "Assets/Original.tilemap.json",
+                                                      tile_map_source_byte_limit))
+            .document.dump());
+    // Valid UUID text in extension data is still opaque, never a guessed reference.
+    definitions["opaque"] = material_id;
+    definitions["images"][0]["opaque"] = set_id;
+    definitions["images"][0]["grid"]["opaque"] = material_id;
+    definitions["tiles"][0]["opaque"] = set_id;
+    world["opaque"] = set_id;
+    world["layers"][0]["opaque"] = material_id;
+    auto& chunk = world["chunks"].begin().value();
+    chunk["opaque"] = set_id;
+    for (auto& cell : chunk["cells"])
+        if (!cell.is_null()) {
+            cell["opaque"] = material_id;
+            break;
+        }
+    const std::array documents{AssetReferenceDocument{"Assets/Original.tileset.json", definitions},
+                               AssetReferenceDocument{"Assets/Original.tilemap.json", world}};
+    const auto nested = inspect_asset_references(schema, documents, {material_id, set_id});
+    require(nested.references.size() == 2 && nested.uninspected.size() == 8,
+            "Nested tile extension UUIDs were guessed as references or lost opaque coverage");
+    require(std::any_of(nested.references.begin(), nested.references.end(),
+                        [&](const auto& hit) {
+                            return hit.target == material_id &&
+                                   hit.expected_type == MaterialAsset::type;
+                        }) &&
+                std::any_of(nested.references.begin(), nested.references.end(),
+                            [&](const auto& hit) {
+                                return hit.target == set_id &&
+                                       hit.expected_type == TileSetAsset::type;
+                            }),
+            "Known tile references lost their required types");
+    const auto broken = root / "Assets/Invalid.tilemap.json";
+    atomic_write(broken, R"({"format":"forge.tile-map","format":"forge.tile-map"})");
+    reject([&] { (void)scan_asset_references(root, schema, {set_id}); });
+    std::filesystem::remove(broken);
+    AssetImportService importer(lease, tile_asset_import_registry(worker),
+                                {"linux", "none", "cpu"});
+    for (const auto id : {set_id, map_id}) {
+        const bool map = id == map_id;
+        const std::filesystem::path destination =
+            map ? "Assets/Copy.tilemap.json" : "Assets/Copy.tileset.json";
+        auto plan = prepare_asset_file_operation(
+            root, {AssetFileAction::Duplicate, id, destination}, project_asset_file_rewriter(root));
+        require(plan.result != id && plan.duplicated.at(id) == plan.result,
+                "Tile duplication reused a root identity");
+        (void)AssetFileTransaction(*lease).commit(std::move(plan.changes), false);
+        const auto duplicate = AssetCatalog::open_project(root).records().at(plan.result);
+        require(!duplicate.metadata.contains("forge.import") &&
+                    !duplicate.metadata.contains(map ? "forge.tile_map" : "forge.tile_set"),
+                "Tile duplicate claimed an original cooked selection");
+        const auto outcome = publish(importer, destination, plan.result, map);
+        require(outcome.published, "Tile duplicate did not import: " + outcome.diagnostic);
+        auto selected = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+        if (map) {
+            require(load_map(root, selected, plan.result).tile_set() == set_id &&
+                        load_map(root, selected, plan.result).cell(1, {-1, -1}) ==
+                            TileMapCell{2, 0},
+                    "Map duplicate changed external definitions or scoped cells");
+            auto move = prepare_asset_file_operation(
+                root, {AssetFileAction::Move, plan.result, "Assets/Moved.tilemap.json"},
+                project_asset_file_rewriter(root));
+            (void)AssetFileTransaction(*lease).commit(std::move(move.changes), false);
+            require(!std::filesystem::exists(root / destination) &&
+                        AssetCatalog::open_project(root).records().at(plan.result).source ==
+                            "Assets/Moved.tilemap.json",
+                    "Tile Map move did not preserve its catalog identity");
+        } else {
+            const auto bytes =
+                asset_detail::read_bytes(root / destination, tile_set_source_byte_limit);
+            const auto source = TileSetSource::parse(bytes);
+            require(source.values().tiles[0].id == 2 && source.materials()[0].id == material_id &&
+                        source.document.at("opaque").at("preserve") == UINT64_MAX,
+                    "Tile Set copy changed scoped keys, external Material or opaque data");
+        }
+        reject([&] {
+            (void)prepare_asset_file_operation(root,
+                                               {AssetFileAction::Move, id, "Assets/Wrong.json"},
+                                               project_asset_file_rewriter(root));
+        });
+    }
+    auto large = TileMapSource::parse(asset_detail::read_bytes(
+        root / "Assets/Original.tilemap.json", tile_map_source_byte_limit));
+    auto metadata = large.document.metadata();
+    const auto large_id = AssetId::generate();
+    metadata["asset_id"] = large_id;
+    metadata["opaque"] = std::string(9 * 1024 * 1024, 'x');
+    large.document = large.document.with_metadata(std::move(metadata));
+    atomic_write(root / "Assets/Large.tilemap.json", large.document.dump());
+    catalog = AssetCatalog::open_project(root);
+    catalog.add({large_id, TileMapAsset::type, "Assets/Large.tilemap.json"});
+    catalog.save(AssetCatalog::project_index(root));
+    auto plan = prepare_asset_file_operation(
+        root, {AssetFileAction::Duplicate, large_id, "Assets/LargeCopy.tilemap.json"},
+        project_asset_file_rewriter(root));
+    (void)AssetFileTransaction(*lease).commit(std::move(plan.changes), false);
+    const auto copied = TileMapSource::parse(asset_detail::read_bytes(
+        root / "Assets/LargeCopy.tilemap.json", tile_map_source_byte_limit));
+    require(copied.asset() == plan.result &&
+                copied.document.metadata().at("opaque").get_ref<const std::string&>().size() ==
+                    9 * 1024 * 1024 &&
+                copied.document.cell(1, {-1, -1}) == TileMapCell{2, 0},
+            "Map beyond 8MiB lost identity, unknown data or cells during copy");
+    const auto large_impact = scan_asset_references(root, schema, {set_id});
+    require(large_impact.references.size() == 4 && large_impact.uninspected.size() >= 2,
+            "Large map references or opaque payloads escaped file-operation review");
+}
 void workflow(const std::filesystem::path& root, const std::filesystem::path& worker) {
     std::filesystem::create_directories(root / "Assets");
     auto lease = std::make_shared<ProjectLease>(root);
@@ -179,7 +376,7 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto first_set = load_set(root, catalog, set_id);
     require(first_set.tiles().size() == 4 && first_set.image(1).grid.columns == 2 &&
-                catalog->records().at(set_id).dependency_edges.size() == 1,
+                catalog->records().at(set_id).dependency_edges.size() == 2,
             "Published Tile Set values or typed Material dependency differ");
     done = publish(service, set->locator(), set_id, false);
     require(done.published && done.cache_hit,
@@ -201,7 +398,7 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     auto map_data = load_map(root, catalog, map_id);
     require(map_data.occupied() == 3 && map_data.tile_set() == set_id &&
                 map_data.cell(1, {INT32_MAX, INT32_MIN}) == TileMapCell{5, 7} &&
-                catalog->records().at(map_id).dependency_edges.size() == 1,
+                catalog->records().at(map_id).dependency_edges.size() == 2,
             "Published sparse map values or typed Tile Set dependency differ");
     const auto good_catalog = catalog->document();
     set->edit(set->revision(), "Grid that cannot divide its real texture",
@@ -246,6 +443,9 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     map_data = load_map(root, catalog, map_id);
     require(map_data.cell(1, {-1, -1}).tile == 2, "Recook remapped a stable tile key");
+    automatic_updates(root, lease, worker, image_material, set_id, map_id);
+    file_workflows(root, lease, worker, image_material, set_id, map_id);
+    catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto package = root / "package";
     const std::array roots{map_id};
     (void)package_runtime_content(root, package, roots, {"linux", "none"});

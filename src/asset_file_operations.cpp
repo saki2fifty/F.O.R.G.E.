@@ -3,6 +3,9 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "gltf_container.hpp"
+#include "tile_asset_types.hpp"
+#include "tile_map_source.hpp"
+#include "tile_set_source.hpp"
 #include <forge/animation_blend_space.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
@@ -182,7 +185,7 @@ AssetFilePlan prepare_asset_file_operation(const std::filesystem::path& project,
                 // These are selection/provenance claims, not user extension payloads.
                 for (const auto* field :
                      {"forge.import", "forge.model", "forge.mesh", "forge.terrain", "forge.texture",
-                      "forge.shader", "forge.audio"})
+                      "forge.shader", "forge.audio", "forge.tile_set", "forge.tile_map"})
                     record.metadata.erase(field);
             }
             records.push_back(std::move(record));
@@ -202,6 +205,30 @@ static std::string rewrite_authored_with_schema(const AssetRecord& record, std::
                                                 const std::filesystem::path& destination,
                                                 const std::map<AssetId, AssetId>& identities,
                                                 const Json& schema) {
+    if (record.type == TileSetAsset::type || record.type == TileMapAsset::type) {
+        const bool map = record.type == TileMapAsset::type;
+        if (!lower(path_utf8(destination)).ends_with(map ? ".tilemap.json" : ".tileset.json"))
+            throw std::runtime_error("Tile asset files must retain their complete source suffix");
+        const auto input = std::as_bytes(std::span(bytes));
+        if (map) {
+            auto source = TileMapSource::parse(input);
+            if (source.asset() != record.id)
+                throw std::runtime_error("Tile Map source/catalog identity mismatch");
+            if (identities.empty())
+                return std::string(bytes);
+            auto metadata = source.document.metadata();
+            metadata["asset_id"] = identities.at(record.id);
+            return source.document.with_metadata(std::move(metadata)).dump();
+        }
+        auto source = TileSetSource::parse(input);
+        if (source.asset() != record.id)
+            throw std::runtime_error("Tile Set source/catalog identity mismatch");
+        if (identities.empty())
+            return std::string(bytes);
+        source.document["asset_id"] = identities.at(record.id);
+        source.validate();
+        return source.document.dump();
+    }
     const bool terrain =
         record.type == MeshAsset::type && path_utf8(record.source).ends_with(".terrain.json");
     if (record.type != "scene" && record.type != "prefab" && record.type != "material" &&

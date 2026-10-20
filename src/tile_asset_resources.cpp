@@ -1,7 +1,9 @@
 #include "tile_asset_resources.hpp"
 #include "asset_bytes.hpp"
+#include <algorithm>
 #include <forge/engine_assets.hpp>
 #include <optional>
+#include <set>
 
 namespace forge {
 namespace {
@@ -67,8 +69,12 @@ const ArtifactFile& file(const CachedArtifact& artifact, const AssetRecord& reco
     auto cooked = input.at("dependencies").get<std::vector<AssetDependency>>();
     std::sort(edges.begin(), edges.end());
     std::sort(cooked.begin(), cooked.end());
+    auto runtime = cooked;
+    std::erase_if(runtime,
+                  [](const auto& edge) { return edge.kind != AssetDependencyKind::Runtime; });
     const auto& metadata = record.metadata.at(contract.metadata);
-    require(edges == cooked && input.at("source") == selected.at("source_digest") &&
+    require((edges == cooked || edges == runtime) &&
+                input.at("source") == selected.at("source_digest") &&
                 selected.at("artifact_digest") ==
                     asset_build_digest(artifact.manifest.at("files")) &&
                 metadata.at("version").is_number_integer() && metadata.at("version") == 1 &&
@@ -79,16 +85,22 @@ const ArtifactFile& file(const CachedArtifact& artifact, const AssetRecord& reco
 }
 using ExpectedEdges = std::map<std::string, std::pair<AssetId, std::string>>;
 void dependencies(const std::vector<AssetDependency>& edges, ExpectedEdges expected) {
-    require(edges.size() == expected.size(), "Tile asset dependency closure is incomplete");
+    require(edges.size() == expected.size() * 2, "Tile asset dependency closure is incomplete");
+    std::set<std::pair<std::string, AssetDependencyKind>> seen;
+    std::map<std::string, std::string> revisions;
     for (const auto& edge : edges) {
         const auto found = expected.find(edge.role);
-        require(found != expected.end() && edge.kind == AssetDependencyKind::Runtime &&
+        require(found != expected.end() &&
+                    (edge.kind == AssetDependencyKind::Build ||
+                     edge.kind == AssetDependencyKind::Runtime) &&
                     valid_content_digest(edge.revision) && edge.target == found->second.first &&
-                    edge.expected_type == found->second.second,
+                    edge.expected_type == found->second.second &&
+                    seen.emplace(edge.role, edge.kind).second,
                 "Tile asset dependency role/type/identity mismatch");
-        expected.erase(found);
+        const auto [revision, inserted] = revisions.emplace(edge.role, edge.revision);
+        require(inserted || revision->second == edge.revision,
+                "Tile asset build/runtime dependency revisions differ");
     }
-    require(expected.empty(), "Tile asset dependency roles are incomplete");
 }
 void current_dependencies(const AssetCatalog& catalog, const AssetRecord& record) {
     for (const auto& edge : record.dependency_edges) {
@@ -150,14 +162,17 @@ TileSetData admit_tile_set_artifact(const CachedArtifact& artifact, const AssetR
     for (const auto& material : data.materials())
         expected.emplace("tile_set.material." + material.id.str(),
                          std::pair{material.id, std::string(MaterialAsset::type)});
-    dependencies(record.dependency_edges, std::move(expected));
+    dependencies(
+        artifact.manifest.at("inputs").at("dependencies").get<std::vector<AssetDependency>>(),
+        std::move(expected));
     return data;
 }
 TileMapData admit_tile_map_artifact(const CachedArtifact& artifact, const AssetRecord& record) {
     const auto& selected = file(artifact, record, map_contract());
     auto data = decode_cooked_tile_map(selected.bytes, record.id);
-    dependencies(record.dependency_edges,
-                 {{"tile_map.tile_set", {data.tile_set(), TileSetAsset::type}}});
+    dependencies(
+        artifact.manifest.at("inputs").at("dependencies").get<std::vector<AssetDependency>>(),
+        {{"tile_map.tile_set", {data.tile_set(), TileSetAsset::type}}});
     return data;
 }
 ResourceTicket request_tile_set(ResourcePool<TileSetAsset>& pool,

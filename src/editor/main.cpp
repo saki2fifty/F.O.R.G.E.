@@ -12,6 +12,7 @@
 #include <backends/imgui_impl_sdl3.h>
 #endif
 #include "../install_paths.hpp"
+#include "../tile_asset_authoring.hpp"
 #include "Graphics/GraphicsEngineD3D12/interface/EngineFactoryD3D12.h"
 #include "ImGuiImplSDL3.hpp"
 #include "actions.hpp"
@@ -1238,6 +1239,16 @@ int main(int argc, char** argv) {
                 routes.push_back(std::move(route));
             for (auto route : shader_imports.automatic_routes())
                 routes.push_back(std::move(route));
+            const auto tiles = forge::tile_asset_import_registry(std::filesystem::path(base) /
+                                                                 "forge_asset_build.exe");
+            routes.push_back({forge::tile_set_importer_id, forge::desktop_texture_target(), tiles,
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_tile_set_publication(c, p);
+                              }});
+            routes.push_back({forge::tile_map_importer_id, forge::desktop_texture_target(), tiles,
+                              [](auto& c, const auto& p, const auto&) {
+                                  forge::prepare_tile_map_publication(c, p);
+                              }});
             routes.push_back({forge::particle_effect_importer, forge::desktop_texture_target(),
                               forge::particle_effect_import_registry(),
                               [](auto& candidate, const auto& plan, const auto&) {

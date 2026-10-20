@@ -2,8 +2,9 @@
 
 These are internal source, cooked-data and asset-pipeline foundations. The
 programmatic import/publication/resource/content-package path has focused Linux
-tests; editor/CLI automatic routing and user-facing Tile Set/Tile Map tools are
-still pending. There is no completed painting, tile rendering, C++ cell API or
+tests. Discovery, Content reimport routes, command-line import and typed file/reference
+adapters are integrated in this development source; user-facing Tile Set/Tile Map
+document tools are still pending. There is no completed painting, tile rendering, C++ cell API or
 standalone game-export workflow from this foundation alone. The first
 complete workflow must integrate those consumers and the Feature Gallery before
 claiming a working tilemap feature.
@@ -150,9 +151,12 @@ Requests bind expected UUIDs, source/dependency digests and a recipe fingerprint
 from the actual selected source/toolchain. The worker cannot publish a catalog
 or edit authored files.
 
-Publication stores one ordinary root record, immutable file and typed dependency
-edges: Map → Tile Set → unique Materials, continuing through their normal image
-dependencies. Local keys never become subassets. Loading and content packaging
+Publication stores one ordinary root record, immutable file and paired typed
+Build/Runtime dependency edges: Map → Tile Set → unique Materials, continuing
+through their normal image dependencies. Build edges order cooking against the
+selections it reads; Runtime edges define the shipped closure. The pairs bind the
+same revision. Runtime catalogs omit Build edges while their immutable artifact
+manifests retain that provenance. Local keys never become subassets. Loading and content packaging
 share the same record/recipe/generation/edge/file/manifest admission. These loads
 inspect selected records rather than requiring authored source-file existence.
 CPU admission does not promise GPU/draw readiness.
@@ -162,6 +166,31 @@ actual grid/missing-tile rejection, old strong leases across replacement, stale
 dependency rejection/recook, relocated content packages and offline source files.
 This is content-package backend evidence; it is not a running exported tile game
 or a completed editor workflow.
+
+### Discovery, import and file tools
+
+Ordinary source discovery recognizes `.tileset.json` and `.tilemap.json`, including
+uppercase suffixes. Published assets appear in the existing Content index. The
+editor's source-update service uses its existing dependency queue, dirty-document
+blocking and last-good publication behavior; it does not automatically allocate
+identities for unregistered authored sources.
+
+The normal `forge_tools --assets import-target PROJECT SOURCE TARGET_JSON` path
+reads the source-owned root UUID and uses the same tile importer/worker. Plain
+`import` uses the existing desktop target. Map packaging rejects a stale selected
+Tile Set revision until that map is recooked.
+
+File duplication creates a new root UUID, retains source-local image/tile/layer
+keys, cell addresses, unknown payloads and external Material/Tile Set references,
+and clears the copied cooked-selection claims. The copy needs its own import.
+Moving preserves identity and requires the complete tile source suffix. Map copies
+use their admitted 64MiB source profile through the ordinary file transaction,
+including sources larger than the catalog's unrelated default document limit.
+
+Reference review reports image Materials and a map's Tile Set as typed references.
+Unknown root, image/grid/tile, layer, chunk and occupied-cell fields remain opaque
+coverage warnings, never guessed references or UUID replacements. Malformed
+recognized tile JSON blocks review instead of silently losing reference coverage.
 
 ### Read-only CPU presentation view
 
@@ -220,8 +249,8 @@ The maximum-profile test uses all 1024 chunks and 262144 occupied cells. Its
 complete cooked artifact is 4215032 bytes. In the Linux GCC12 configuration its
 retained allocation estimate is 16883912 bytes. That estimate includes typed arrays, container capacity and
 conservative node/control storage; it is not a measured process RSS or performance
-guarantee. Programmatic cooking/publication and explicit-root content packaging
-use the ordinary asset pipeline. Editor routing and rendered game export remain
+guarantee. Cooking/publication and explicit-root content packaging
+use the ordinary asset pipeline. Tile document tools and rendered game export remain
 part of the complete workflow still to implement.
 
 Focused source tests cover malformed inputs, duplicate JSON keys, finite/range
@@ -231,8 +260,8 @@ The actual document owner also exercises a 262144-cell map with 16 paint strokes
 and complete Undo/Redo. These tests do not replace the future native-renderer,
 installed SDK, editor interaction and moved-game gates.
 
-The remaining complete feature includes editor/CLI routing, reimport and reference
-tools, GPU presentation consuming this immutable view, bounded C++ runtime
+The remaining complete feature includes Tile Set/Map document tools,
+GPU presentation consuming this immutable view, bounded C++ runtime
 queries/edits, palette/painting/picking, source replacement behavior and original
 editable Gallery content. No autotiling, animated tiles, 2D collision or streaming
 is implied by this source foundation.

@@ -4,6 +4,10 @@
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include "prefab_references.hpp"
+#include "tile_asset_types.hpp"
+#include "tile_map_source.hpp"
+#include "tile_set_source.hpp"
+#include <algorithm>
 #include <forge/animation_blend_space.hpp>
 #include <forge/animation_mask.hpp>
 #include <forge/animation_states.hpp>
@@ -11,6 +15,8 @@
 #include <forge/particle_effect_source.hpp>
 #include <forge/scene_render_settings.hpp>
 #include <forge/terrain_source.hpp>
+#include <initializer_list>
+#include <string_view>
 namespace forge {
 namespace {
 using Json = nlohmann::json;
@@ -32,6 +38,15 @@ struct Inspect {
         if (result.uninspected.size() >= max_entries)
             throw std::runtime_error("Reference inspection has too many opaque fields");
         result.uninspected.push_back(path_utf8(source) + " / " + owner + " / " + field);
+    }
+    void opaque_fields(const Json& value, std::initializer_list<std::string_view> known,
+                       const std::string& path = {}) {
+        budget();
+        for (const auto& [key, unused] : value.items()) {
+            (void)unused;
+            if (std::find(known.begin(), known.end(), key) == known.end())
+                unknown(path.empty() ? key : path + "." + key);
+        }
     }
     void reference(const Json& value, const std::string& property, const char* kind,
                    const std::string& expected_type) {
@@ -181,6 +196,39 @@ struct Inspect {
                     key != "members" && key != "revision" && key != "root" && key != "legacy_ids" &&
                     key != "rendering" && !(prefab && key == "dependencies"))
                     unknown(key);
+            }
+        } else if (doc.value("format", std::string{}) == "forge.tile-set") {
+            TileSetSource{doc}.validate();
+            opaque_fields(doc, {"format", "version", "asset_id", "next_id", "images", "tiles"});
+            for (std::size_t i = 0; i < doc.at("images").size(); ++i) {
+                const auto& row = doc.at("images")[i];
+                const auto path = "images." + std::to_string(i);
+                reference(row.at("material"), path + ".material", "Tile Set image material",
+                          MaterialAsset::type);
+                opaque_fields(row, {"id", "name", "material", "grid"}, path);
+                opaque_fields(row.at("grid"),
+                              {"columns", "rows", "margin_x", "margin_y", "spacing_x", "spacing_y"},
+                              path + ".grid");
+            }
+            for (std::size_t i = 0; i < doc.at("tiles").size(); ++i)
+                opaque_fields(doc.at("tiles")[i], {"id", "name", "image", "frame"},
+                              "tiles." + std::to_string(i));
+        } else if (doc.value("format", std::string{}) == "forge.tile-map") {
+            (void)TileMapValue::parse(doc);
+            reference(doc.at("tile_set"), "tile_set", "Tile Map definitions", TileSetAsset::type);
+            opaque_fields(doc, {"format", "version", "asset_id", "tile_set", "next_id", "cell_size",
+                                "layers", "chunks"});
+            for (std::size_t i = 0; i < doc.at("layers").size(); ++i)
+                opaque_fields(doc.at("layers")[i], {"id", "name", "visible", "order"},
+                              "layers." + std::to_string(i));
+            for (const auto& [key, chunk] : doc.at("chunks").items()) {
+                const auto path = "chunks." + key;
+                opaque_fields(chunk, {"cells"}, path);
+                const auto& cells = chunk.at("cells");
+                for (std::size_t i = 0; i < cells.size(); ++i)
+                    if (!cells[i].is_null())
+                        opaque_fields(cells[i], {"tile", "flags"},
+                                      path + ".cells." + std::to_string(i));
             }
         } else if (doc.value("format", std::string{}) == "forge.heightfield") {
             TerrainSource{doc}.validate();
@@ -396,7 +444,8 @@ AssetReferenceImpact scan_asset_references(const std::filesystem::path& project,
             doc =
                 asset_detail::parse_bounded_json(std::as_bytes(std::span(*data)), 64 * 1024 * 1024);
         } catch (const std::exception&) {
-            if (file.source_kind == "scene" || file.source_kind == "prefab" ||
+            if (file.source_kind == "tile_set" || file.source_kind == "tile_map" ||
+                file.source_kind == "scene" || file.source_kind == "prefab" ||
                 file.source_kind == "material" || path == "forge.project.json")
                 throw std::runtime_error("Authored reference source cannot be parsed: " +
                                          path_utf8(path));

@@ -6,6 +6,7 @@
 #include "tile_asset_worker.hpp"
 #include "tile_map_source.hpp"
 #include "tile_set_source.hpp"
+#include <set>
 #include <thread>
 
 namespace forge {
@@ -36,8 +37,9 @@ void dependency(AssetBuildInput& input, const AssetCatalog& catalog, AssetId id,
         revision = selected.at("key").get<std::string>();
     }
     require(valid_content_digest(revision), "Tile dependency has no immutable revision");
-    input.dependencies.push_back(
-        {id, type, AssetDependencyKind::Runtime, std::move(role), std::move(revision)});
+    // Cooking reads this exact selection; packaging also needs its runtime edge.
+    for (auto kind : {AssetDependencyKind::Build, AssetDependencyKind::Runtime})
+        input.dependencies.push_back({id, type, kind, role, revision});
 }
 void admit_images(const AssetImportRequest& request, std::shared_ptr<const AssetCatalog> catalog,
                   const TileSetValues& values, std::stop_token stop) {
@@ -250,16 +252,22 @@ void publish(AssetPublicationCandidate& candidate, const AssetImportPlan& plan, 
             expected.emplace("tile_set.material." + material.id.str(),
                              std::pair{material.id, std::string(MaterialAsset::type)});
     }
-    require(expected.size() == plan.input.dependencies.size(),
+    require(expected.size() * 2 == plan.input.dependencies.size(),
             "Tile publication dependency closure differs");
+    std::set<std::pair<std::string, AssetDependencyKind>> seen;
+    std::map<std::string, std::string> revisions;
     for (const auto& edge : plan.input.dependencies) {
         const auto found = expected.find(edge.role);
         require(found != expected.end() && edge.target == found->second.first &&
                     edge.expected_type == found->second.second &&
-                    edge.kind == AssetDependencyKind::Runtime &&
-                    valid_content_digest(edge.revision),
+                    (edge.kind == AssetDependencyKind::Build ||
+                     edge.kind == AssetDependencyKind::Runtime) &&
+                    valid_content_digest(edge.revision) &&
+                    seen.emplace(edge.role, edge.kind).second,
                 "Tile publication dependency role/type/identity mismatch");
-        expected.erase(found);
+        const auto [revision, inserted] = revisions.emplace(edge.role, edge.revision);
+        require(inserted || revision->second == edge.revision,
+                "Tile build/runtime dependency revisions differ");
     }
     auto& identity = candidate.sidecar.identity;
     identity.owner = candidate.ticket.owner;

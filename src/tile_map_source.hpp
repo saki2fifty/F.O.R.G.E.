@@ -9,7 +9,7 @@
 #include <vector>
 
 namespace forge {
-// Internal first source profile, not yet registered as an importable asset.
+// Internal first source profile, admitted through the ordinary tile importer.
 inline constexpr std::size_t tile_map_source_byte_limit = 64 * 1024 * 1024;
 inline constexpr std::size_t tile_map_source_event_limit = 4000000;
 class TileMapValue {

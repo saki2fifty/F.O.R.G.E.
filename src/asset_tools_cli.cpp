@@ -21,6 +21,9 @@
 #include "self_executable.hpp"
 #include "terrain_authoring.hpp"
 #include "texture_authoring.hpp"
+#include "tile_asset_authoring.hpp"
+#include "tile_map_source.hpp"
+#include "tile_set_source.hpp"
 #include "transform_animation_authoring.hpp"
 #endif
 #include <forge/asset_discovery.hpp>
@@ -215,7 +218,14 @@ int asset_tools_cli(int argc, char** argv) {
             const bool editable_mesh = path_utf8(source).ends_with(".mesh.json");
             const bool terrain = path_utf8(source).ends_with(".terrain.json");
             const bool particle_effect = path_utf8(source).ends_with(".particles.json");
-            auto registry = terrain                 ? terrain_import_registry()
+            auto tile_name = path_utf8(source);
+            for (auto& c : tile_name)
+                if (c >= 'A' && c <= 'Z')
+                    c = char(c - 'A' + 'a');
+            const bool tile_set = tile_name.ends_with(".tileset.json");
+            const bool tile_map = tile_name.ends_with(".tilemap.json");
+            auto registry = tile_set || tile_map    ? tile_asset_import_registry(worker)
+                            : terrain               ? terrain_import_registry()
                             : particle_effect       ? particle_effect_import_registry()
                             : animation_blend_space ? animation_blend_space_import_registry()
                             : animation_mask        ? animation_mask_import_registry()
@@ -236,7 +246,17 @@ int asset_tools_cli(int argc, char** argv) {
             }
             AssetImportService service(lease, registry, target);
             AssetId identity;
-            if (terrain)
+            if (tile_set)
+                identity = TileSetSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        tile_set_source_byte_limit))
+                               .asset();
+            else if (tile_map)
+                identity = TileMapSource::parse(
+                               asset_detail::read_bytes(ProjectPaths(project).resolve(source),
+                                                        tile_map_source_byte_limit))
+                               .asset();
+            else if (terrain)
                 identity = TerrainSource::parse(
                                asset_detail::read_bytes(ProjectPaths(project).resolve(source),
                                                         terrain_source_byte_limit))
@@ -317,9 +337,17 @@ int asset_tools_cli(int argc, char** argv) {
             service.submit(
                 std::move(draft),
                 [decisions, collision, material, editable_mesh, particle_effect, terrain,
-                 transform_animation, animation_states, animation_mask,
-                 animation_blend_space](auto& candidate, const auto& plan, const auto& catalog) {
-                    if (particle_effect) {
+                 transform_animation, animation_states, animation_mask, animation_blend_space,
+                 tile_set, tile_map](auto& candidate, const auto& plan, const auto& catalog) {
+                    if (tile_set || tile_map) {
+                        if (!decisions.empty())
+                            throw std::runtime_error(
+                                "Tile assets have no subasset correspondence decisions");
+                        if (tile_map)
+                            prepare_tile_map_publication(candidate, plan);
+                        else
+                            prepare_tile_set_publication(candidate, plan);
+                    } else if (particle_effect) {
                         if (!decisions.empty())
                             throw std::runtime_error(
                                 "Particle Effect has no subasset correspondence decisions");
