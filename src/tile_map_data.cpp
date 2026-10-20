@@ -256,4 +256,21 @@ std::size_t TileMapData::resident_bytes() const {
     return bytes + chunks_.size() * (sizeof(Chunk) + sizeof(TileMapChunkKey) +
                                      sizeof(std::shared_ptr<const Chunk>) + 64);
 }
+std::size_t TileMapData::resident_bytes(std::span<const TileMapData* const> views) {
+    std::set<const TileMapData*> values;
+    std::set<const Chunk*> arrays;
+    std::size_t bytes = 0;
+    for (const auto* value : views) {
+        require(value, "Tile Map memory estimate received a null view");
+        if (!values.insert(value).second)
+            continue;
+        bytes += value->resident_bytes() - value->chunks_.size() * sizeof(Chunk);
+        for (const auto& [key, chunk] : value->chunks_) {
+            (void)key;
+            if (arrays.insert(chunk.get()).second)
+                bytes += sizeof(Chunk);
+        }
+    }
+    return bytes;
+}
 } // namespace forge

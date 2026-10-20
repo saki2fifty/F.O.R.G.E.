@@ -1,4 +1,5 @@
 #include "cooked_envelope.hpp"
+#include "tile_map_play_projection.hpp"
 #include "tile_map_projection.hpp"
 #include <bit>
 #include <iostream>
@@ -105,6 +106,14 @@ int main() {
         const std::array<TileMapCellEdit, 1> edit{{{1, {0, 0}, {9, 7}}}};
         const auto changed = maximum.with_cells(edit, defs);
         const auto delta = tile_map_projection_changes(changed, &maximum);
+        const std::array<const TileMapData*, 3> same{{&maximum, &maximum, &maximum}};
+        const std::array<const TileMapData*, 2> shared{{&maximum, &changed}};
+        check(TileMapData::resident_bytes(same) == maximum.resident_bytes() &&
+                  TileMapData::resident_bytes(shared) > maximum.resident_bytes() &&
+                  TileMapData::resident_bytes(shared) <
+                      maximum.resident_bytes() + changed.resident_bytes(),
+              "Copied view accounting duplicated shared chunks or omitted a changed value");
+        check(TileMapData::resident_bytes({}) == 0, "Empty copied view budget was nonzero");
         check(delta.size() == 1 && tile_map_projection_changes(changed, &changed).empty(),
               "Unchanged or one-cell view retransmits the map");
         const auto patched =
@@ -193,8 +202,110 @@ int main() {
         for (const auto& page : malformed)
             rejects([&] { (void)apply_tile_map_projection_page(maximum, defs, page); });
         check(pointers(maximum) == baseline, "Rejected packet changed the admitted baseline");
+        TileMapPlaySource source;
+        const auto actor = EntityId::generate();
+        const auto scene = AssetId::generate();
+        TileMapPlayView view;
+        view.entity = actor;
+        view.requested = id;
+        view.generation = 1;
+        view.map_revision = "map-one";
+        view.set_revision = "set-one";
+        view.cells = std::make_shared<const TileMapData>(maximum);
+        view.definitions = std::make_shared<const TileSetData>(defs);
+        const auto manifest = source.capture(1, scene, std::span(&view, 1));
+        check(manifest.at("maps")[0].at("cells") == 262144 &&
+                  !manifest.at("maps")[0].contains("header") && manifest.dump().size() < 2048,
+              "Normal Play observation inlined cell arrays");
+        auto begin = source.begin(actor, 1, 0, 0, 0);
+        auto token = begin.at("token").get<std::uint64_t>();
+        check(begin.at("full") == true && begin.at("count") == 1024 && !source.acknowledge(token),
+              "Initial transfer accepted an incomplete acknowledgement");
+        rejects([&] { (void)source.page(token, 1); });
+        std::size_t cursor = 0;
+        while (cursor < 1024) {
+            const auto packet = source.page(token, cursor);
+            check(packet.at("cursor") == cursor && packet.at("token") == token,
+                  "Play page lost its correlation");
+            cursor = packet.at("next").get<std::size_t>();
+        }
+        check(source.acknowledge(token) && source.acknowledge(token),
+              "Completed transfer did not retain its idempotent baseline");
+        auto independent = view;
+        independent.entity = EntityId::generate();
+        independent.generation = 2;
+        independent.revision = 1;
+        independent.edited = true;
+        independent.cells = std::make_shared<const TileMapData>(changed);
+        const std::array shared_actors{view, independent};
+        source.capture(1, scene, shared_actors);
+        const auto shared_begin = source.begin(independent.entity, 2, 1, 2, 0);
+        check(shared_begin.at("full") == false && shared_begin.at("count") == 1,
+              "First edit of another actor retransmitted a known identical initial asset");
+        const auto shared_token = shared_begin.at("token").get<std::uint64_t>();
+        equal(
+            apply_tile_map_projection_page(maximum, defs, source.page(shared_token, 0).at("data")),
+            changed);
+        check(source.acknowledge(shared_token), "Shared initial baseline did not acknowledge");
+        view.cells = std::make_shared<const TileMapData>(changed);
+        view.revision = 1;
+        view.edited = true;
+        source.capture(1, scene, std::span(&view, 1));
+        begin = source.begin(actor, 1, 1, 1, 0);
+        const auto delta_token = begin.at("token").get<std::uint64_t>();
+        check(begin.at("full") == false && begin.at("count") == 1 && !begin.contains("header") &&
+                  source.acknowledge(shared_token) && !source.acknowledge(token),
+              "Acknowledged one-cell edit retransmitted the map or rejected a repeated old ack");
+        // A newer observation cannot alter the already frozen value/pages.
+        view.cells = std::make_shared<const TileMapData>(relocated);
+        view.revision = 2;
+        source.capture(1, scene, std::span(&view, 1));
+        const auto frozen = source.page(delta_token, 0);
+        equal(apply_tile_map_projection_page(maximum, defs, frozen.at("data")), changed);
+        check(source.acknowledge(delta_token) && source.retained_bytes() < 64 * 1024 * 1024,
+              "Frozen delta baseline or retained budget failed");
+        begin = source.begin(actor, 1, 2, 1, 1);
+        token = begin.at("token").get<std::uint64_t>();
+        check(source.cancel(token) && !source.cancel(token) && !source.acknowledge(token),
+              "Cancellation accepted stale transfer operations");
+        source.capture(1, scene, {});
+        check(source.retained_bytes() == 0 && source.begin(actor, 1, 2, 0, 0).at("stale") == true,
+              "Departed actor retained copied state or remained fetchable");
+        source.capture(2, scene, std::span(&view, 1));
+        check(!source.acknowledge(delta_token), "Old-world acknowledgement crossed scope reset");
+        auto partial = view;
+        partial.definitions.reset();
+        rejects([&] { (void)source.capture(3, scene, std::span(&partial, 1)); });
+        check(source.world() == 2 && source.scene() == scene,
+              "Rejected observation changed the transport scope");
+        bool foreign = false;
+        std::thread other([&] {
+            try {
+                source.clear();
+            } catch (const std::exception&) {
+                foreign = true;
+            }
+        });
+        other.join();
+        check(foreign && source.world() == 2, "Foreign thread mutated Play projection state");
+        // Empty maps exercise baseline eviction without a second large workload.
+        std::vector<TileMapPlayView> many(17, view);
+        for (auto& item : many) {
+            item.entity = EntityId::generate();
+            item.cells = std::make_shared<const TileMapData>(header.empty);
+        }
+        source.capture(4, scene, many);
+        for (const auto& item : many) {
+            begin = source.begin(item.entity, 1, 2, 0, 0);
+            check(begin.at("count") == 0 && source.acknowledge(begin.at("token")),
+                  "Empty map transfer required cell data");
+        }
+        begin = source.begin(many.front().entity, 1, 2, 1, 2);
+        check(begin.at("full") == true, "Bounded baseline cache retained every old actor");
+        source.clear();
+        check(source.retained_bytes() == 0, "Clear retained copied cell history");
         std::cout << "Bounded tile presentation headers/full pages/deltas/capacity moves/extreme "
-                     "keys/rejections passed\n";
+                     "keys/rejections and frozen acknowledged source transfers passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return 1;

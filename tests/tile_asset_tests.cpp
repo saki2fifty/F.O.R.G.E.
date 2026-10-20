@@ -13,6 +13,7 @@
 #include "tile_asset_resources.hpp"
 #include "tile_asset_worker.hpp"
 #include "tile_map_document.hpp"
+#include "tile_map_play_world.hpp"
 #include "tile_set_document.hpp"
 #ifdef FORGE_ENABLE_NATIVE_SDK
 #include "sdk_tile_map_tests.hpp"
@@ -241,6 +242,9 @@ void candidate_tile_readiness(const std::filesystem::path& root, const Json& sou
     const auto before = world.scene.document();
     require(!detail::prepare_runtime_tile_maps(world.engine.world()),
             "Candidate tile read started loading or invented an unsynchronized snapshot");
+    const auto waiting = tile_map_play_views(world.engine.world());
+    require(waiting.size() == 2 && !waiting[0].cells && !waiting[1].cells,
+            "Play observations started a load or invented unsynchronized map data");
     const auto end = std::chrono::steady_clock::now() + 10s;
     while (!world.prepare_scene_resources()) {
         require(std::chrono::steady_clock::now() < end, "Candidate tile readiness stalled");
@@ -249,6 +253,11 @@ void candidate_tile_readiness(const std::filesystem::path& root, const Json& sou
     const EntityRef target{world.scene.asset_id(),
                            source.at("entities")[0].at("id").get<EntityId>()};
     const auto snapshot = detail::runtime_tile_map_snapshot(world.engine.world(), target);
+    const auto observed = tile_map_play_views(world.engine.world());
+    require(observed.size() == 2 && observed[0].cells && observed[1].cells &&
+                observed[0].cells->asset() == snapshot->cells.asset() &&
+                !observed[0].map_revision.empty() && !observed[0].set_revision.empty(),
+            "Play observations lost the synchronized immutable binding");
     const std::array<TileMapCellEdit, 1> writes{{{1, {123, 456}, {2, 0}}}};
     const auto token = detail::request_runtime_tile_cells(world.engine.world(), "project.prepare",
                                                           target, snapshot->generation, writes);
@@ -260,6 +269,14 @@ void candidate_tile_readiness(const std::filesystem::path& root, const Json& sou
                 world.scene.document() == before,
             "Candidate readiness advanced gameplay or changed the authored scene");
     detail::release_runtime_tile_edit(world.engine.world(), "project.prepare", token);
+    TileMapPlaySource transport;
+    transport.capture(1, world.scene.asset_id(), observed);
+    const auto old_frame = observed[0].cells;
+    auto begin =
+        transport.begin(observed[0].entity, observed[0].generation, observed[0].revision, 0, 0);
+    require(begin.at("full") == true && old_frame->asset() == snapshot->cells.asset(),
+            "Real runtime observation did not begin a detached transfer");
+    transport.cancel(begin.at("token"));
     auto missing = source;
     missing["entities"][0]["components"]["forge.tile_map_renderer"]["map"] = AssetId::generate();
     world.scene.reset(missing);
@@ -278,6 +295,12 @@ void candidate_tile_readiness(const std::filesystem::path& root, const Json& sou
         if (!failed)
             std::this_thread::sleep_for(1ms);
     }
+    const auto missing_views = tile_map_play_views(world.engine.world());
+    const auto wrong = std::find_if(missing_views.begin(), missing_views.end(),
+                                    [&](const auto& view) { return view.entity == target.entity; });
+    require(wrong != missing_views.end() && !wrong->cells &&
+                old_frame->asset() == snapshot->cells.asset(),
+            "Missing requested root used old runtime data or invalidated a captured frame");
 }
 void runtime_instances(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
                        const std::filesystem::path& worker, TileMapDocument& source) {

@@ -84,6 +84,15 @@ at capacity remains valid. Full maximum-profile transfers, wide keys, malformed
 packets and scoped sanitizer checks pass locally. The codec alone does not wire
 either Editor Play process path or publish a runtime frame.
 
+The source-side transfer adapter has focused tests for immutable observations,
+frozen pages, matching cursors/tokens, cancellation and acknowledged baselines.
+It retains at most 16 baselines and 64MiB of copied values; shared arrays count
+once. Retained history copies pure values and does not pin asset-provider leases.
+A retained unedited baseline with matching adopted Map/Set revisions can also
+supply another actor's initial delta. Eviction falls back to a full paged transfer.
+The read-only world bridge uses existing synchronized instances and never starts
+loads or ticks. Neither runtime process nor the editor receiver is wired yet.
+
 The in-process graphical host now binds typed map presentation values to the
 same immutable snapshots read by native gameplay. This shares cell storage and
 admitted definition rows; it does not put cell arrays into `effective_scene` or

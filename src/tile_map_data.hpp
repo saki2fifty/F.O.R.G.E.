@@ -42,6 +42,9 @@ class TileMapData {
     // Retained allocation estimate; includes capacity and conservative node/control
     // storage, without claiming knowledge of allocator headers or process RSS.
     std::size_t resident_bytes() const;
+    // Conservative retained estimate for copied views: each distinct value's
+    // index/metadata, and each immutable shared chunk array exactly once.
+    static std::size_t resident_bytes(std::span<const TileMapData* const>);
 
   private:
     struct Chunk {
