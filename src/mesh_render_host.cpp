@@ -8,6 +8,8 @@
 #include "render_sort.hpp"
 #include "sprite_draw_selection.hpp"
 #include "sprite_render_values.hpp"
+#include "tile_map_pick.hpp"
+#include "tile_map_view.hpp"
 #include <forge/engine_assets.hpp>
 #include <set>
 namespace forge {
@@ -68,8 +70,7 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
     host_->check_thread();
     std::optional<RenderBounds> result;
     for (const auto& [id, entry] : entries_) {
-        (void)id;
-        if (!entry.ready)
+        if (!entry.ready || id.second == DrawScope::TileMap)
             continue;
         const auto box = mesh_instance_bounds(entry.pose, {0, 0, 0});
         if (!result)
@@ -89,6 +90,20 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds() const {
                 result->minimum[axis] = std::min(result->minimum[axis], box.minimum[axis]);
                 result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
             }
+    }
+    for (const auto& [id, source] : tile_sources_) {
+        (void)id;
+        for (const auto& [layer, local] : source.bounds) {
+            (void)layer;
+            const auto box = transform_render_bounds(local, source.requested.world);
+            if (!result)
+                result = box;
+            else
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    result->minimum[axis] = std::min(result->minimum[axis], box.minimum[axis]);
+                    result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
+                }
+        }
     }
     return result;
 }
@@ -146,6 +161,29 @@ std::optional<RenderBounds> MeshSceneRenderer::bounds(const RenderScene& scene,
                 result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
             }
     }
+    for (const auto& map : scene.tile_maps) {
+        if (selected.empty() ? !map.renderer.visible : !selected.contains(map.entity))
+            continue;
+        const auto found = tile_sources_.find(map.entity);
+        if (found == tile_sources_.end() || !found->second.cells)
+            return {};
+        const auto& source = found->second;
+        for (const auto& layer : source.cells->layers()) {
+            if (selected.empty() && !layer.visible)
+                continue;
+            const auto local = source.bounds.find(layer.id);
+            if (local == source.bounds.end())
+                continue;
+            const auto box = transform_render_bounds(local->second, source.requested.world);
+            if (!result)
+                result = box;
+            else
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    result->minimum[axis] = std::min(result->minimum[axis], box.minimum[axis]);
+                    result->maximum[axis] = std::max(result->maximum[axis], box.maximum[axis]);
+                }
+        }
+    }
     return result;
 }
 namespace {
@@ -165,7 +203,7 @@ MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera
     MeshPickBudget budget;
     EntityId selected;
     double nearest = 2;
-    std::int32_t selected_order = 0;
+    std::int64_t selected_order = 0;
     auto visit = [&](const RenderMesh& mesh, DrawScope draw_scope) {
         if (!mesh.selectable || !(mesh.renderer.layers & layers))
             return;
@@ -216,6 +254,30 @@ MeshSceneRenderer::pick_depth(const RenderScene& scene, const CameraView& camera
         visit(mesh, scope(mesh));
     for (const auto& mesh : sprites_)
         visit(mesh, DrawScope::Sprite);
+    for (const auto& map : scene.tile_maps) {
+        if (!map.selectable || !map.renderer.enabled || !(map.renderer.layers & layers))
+            continue;
+        const auto found = tile_sources_.find(map.entity);
+        if (found == tile_sources_.end() || !found->second.cells)
+            continue;
+        const auto& source = found->second;
+        const auto hit =
+            pick_tile_grid(source.cells->cell_size(), source.requested.world, camera, x, y);
+        if (!hit)
+            continue;
+        for (const auto& layer : source.cells->layers()) {
+            if (!layer.visible || !source.cells->cell(layer.id, hit->cell).tile)
+                continue;
+            const auto order = std::int64_t(map.renderer.order) + layer.order;
+            if (hit->depth < nearest ||
+                (hit->depth == nearest &&
+                 (order > selected_order || (order == selected_order && map.entity < selected)))) {
+                nearest = hit->depth;
+                selected = map.entity;
+                selected_order = order;
+            }
+        }
+    }
     return selected ? std::optional(std::pair{selected, nearest}) : std::nullopt;
 }
 MeshResourceHost::MeshResourceHost(DiligentPresentation& presentation,
@@ -338,7 +400,7 @@ std::uint64_t MeshSceneRenderer::Entry::material_bytes() const {
 }
 std::uint64_t MeshSceneRenderer::material_payload_bytes() const {
     host_->check_thread();
-    std::uint64_t bytes = 0;
+    std::uint64_t bytes = tile_material_bytes();
     for (const auto& [id, entry] : entries_) {
         (void)id;
         const auto count = entry.material_bytes();
@@ -350,7 +412,9 @@ std::uint64_t MeshSceneRenderer::material_payload_bytes() const {
 }
 std::uint64_t MeshSceneRenderer::pose_payload_bytes() const {
     host_->check_thread();
-    std::uint64_t bytes = 0;
+    std::uint64_t bytes = tile_worlds_.capacity() * sizeof(AffineTransform);
+    if (bytes > pose_budget_)
+        throw std::runtime_error("Tile draw transforms exceed the scene payload budget");
     for (const auto& [id, entry] : entries_) {
         (void)id;
         const auto count = entry.pose_bytes();
@@ -367,6 +431,7 @@ void MeshSceneRenderer::report(EntityId entity, const std::string& text, DrawSco
     }
     Diagnostic value{Severity::Error,
                      draw_scope == DrawScope::Sprite     ? "render.sprite.resource"
+                     : draw_scope == DrawScope::TileMap  ? "render.tile_map.resource"
                      : draw_scope == DrawScope::Particle ? "render.particles.resource"
                                                          : "render.mesh.resource",
                      text.substr(0, 4096),
@@ -374,6 +439,7 @@ void MeshSceneRenderer::report(EntityId entity, const std::string& text, DrawSco
     value.context.asset = scene_;
     value.context.entity = entity;
     value.context.property = draw_scope == DrawScope::Sprite     ? "forge.sprite_renderer"
+                             : draw_scope == DrawScope::TileMap  ? "forge.tile_map_renderer"
                              : draw_scope == DrawScope::Particle ? "forge.particle_emitter"
                                                                  : "forge.mesh_renderer";
     value.context.source = "presentation";
@@ -423,6 +489,10 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     if (scene_ != scene.scene) {
         entries_.clear();
         sprites_.clear();
+        tile_images_.clear();
+        tile_sources_.clear();
+        tile_worlds_.clear();
+        std::vector<AffineTransform>{}.swap(tile_worlds_);
         particle_sources_.clear();
         particle_instances_.clear();
         particle_bounds_.clear();
@@ -437,6 +507,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     changed |= update_environment(scene);
     const ModelSceneIndex model_index(scene);
     auto particle_sources = prepare_particle_sources(scene);
+    tile_images_ = prepare_tile_sources(scene);
     sprites_.resize(scene.sprites.size());
     for (std::size_t i = 0; i < scene.sprites.size(); ++i)
         update_sprite_mesh(sprites_[i], scene.sprites[i]);
@@ -444,18 +515,22 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         const RenderMesh* mesh;
         DrawScope scope;
         const SpriteRenderer* sprite = nullptr;
+        std::uint64_t image = 0;
     };
     std::vector<Input> inputs;
-    inputs.reserve(scene.meshes.size() + particle_sources.size() + sprites_.size());
+    inputs.reserve(scene.meshes.size() + particle_sources.size() + sprites_.size() +
+                   tile_images_.size());
     for (const auto& mesh : scene.meshes)
         inputs.push_back({&mesh, scope(mesh)});
     for (const auto& mesh : particle_sources)
         inputs.push_back({&mesh, DrawScope::Particle});
     for (std::size_t i = 0; i < sprites_.size(); ++i)
         inputs.push_back({&sprites_[i], DrawScope::Sprite, &scene.sprites[i].renderer});
+    for (const auto& image : tile_images_)
+        inputs.push_back({&image.mesh, DrawScope::TileMap, &image.sprite, image.image});
     std::set<DrawOwner> used;
     for (const auto& input : inputs)
-        used.insert({input.mesh->entity, input.scope});
+        used.insert({input.mesh->entity, input.scope, input.image});
     // Reclaim deleted instances before admitting this frame's replacements.
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
     std::erase_if(bundles_, [](const auto& row) { return row.second.expired(); });
@@ -463,7 +538,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     auto material_resident = material_payload_bytes();
     for (const auto& input : inputs) {
         const auto& mesh = *input.mesh;
-        auto& entry = entries_[{mesh.entity, input.scope}];
+        auto& entry = entries_[{mesh.entity, input.scope, input.image}];
         const auto previous_bytes = entry.pose_bytes();
         const auto previous_material_bytes = entry.material_bytes();
         if (input.sprite && !entry.sprite) {
@@ -537,8 +612,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 entry.candidate = std::make_unique<asset_detail::ModelDrawCandidate>(
                     host_->project_, host_->catalog_, host_->epoch_, renderer.mesh,
                     renderer.materials, host_->meshes_, host_->material_preview_,
-                    renderer.material_variant,
-                    input.scope != DrawScope::Sprite && (!entry.ready || entry.fallback),
+                    renderer.material_variant, !input.sprite && (!entry.ready || entry.fallback),
                     host_->mesh_preview_);
             } catch (const std::exception& e) {
                 entry.error = e.what();
@@ -738,6 +812,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
     }
     std::erase_if(entries_, [&](const auto& pair) { return !used.contains(pair.first); });
     update_particle_instances(scene);
+    adopt_tile_images();
     return changed;
 }
 bool MeshSceneRenderer::update_environment(const RenderScene& scene) {
@@ -819,7 +894,9 @@ bool MeshSceneRenderer::pending() const {
             return awaiting(source.effect_ticket, bool(source.effect_lease)) ||
                    awaiting(source.mesh_ticket, bool(source.mesh_lease));
         });
-    return particles || environment_candidate_.has_value() ||
+    const bool tiles = std::any_of(tile_sources_.begin(), tile_sources_.end(),
+                                   [](const auto& row) { return row.second.pending; });
+    return particles || tiles || environment_candidate_.has_value() ||
            std::any_of(entries_.begin(), entries_.end(), [](const auto& pair) {
                return pair.second.candidate &&
                       pair.second.candidate->state() == ResourceState::Loading;
@@ -841,6 +918,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         std::vector<int> shadow_slots;
         const SpriteDrawValues* sprite = nullptr;
         DrawScope scope = DrawScope::Mesh;
+        const AffineTransform* world = nullptr;
     };
     struct Item {
         RenderSortKey key;
@@ -869,6 +947,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 if (coverage <= entry.thresholds[i])
                     lod = i;
             Object object{&mesh, entry.ready.get(), &pose, entry.parameters, lod, {}, {}};
+            object.world = &pose.world;
             object.scope = draw_scope;
             if (draw_scope == DrawScope::Sprite) {
                 if (!entry.sprite || !entry.sprite->ready)
@@ -919,6 +998,121 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         append(mesh, DrawScope::Particle, &pose);
     for (const auto& mesh : sprites_)
         append(mesh, DrawScope::Sprite);
+    tile_worlds_.clear();
+    const auto tile_visible = [&](const auto& source) {
+        if (!source.cells || !source.definitions || !source.requested.renderer.visible ||
+            !(source.requested.renderer.layers & layers) || !source.visible_cells)
+            return false;
+        try {
+            for (const auto& layer : source.cells->layers())
+                if (layer.visible)
+                    if (const auto local = source.bounds.find(layer.id);
+                        local != source.bounds.end() &&
+                        bounds_visible(
+                            transform_render_bounds(local->second, source.requested.world), camera))
+                        return true;
+        } catch (const std::exception& error) {
+            report(source.requested.entity, error.what(), DrawScope::TileMap);
+        }
+        return false;
+    };
+    std::size_t tile_capacity = 0;
+    for (auto& [id, source] : tile_sources_) {
+        (void)id;
+        source.visible_this_view = tile_visible(source);
+        if (source.visible_this_view)
+            tile_capacity = std::min(tile_map_cell_limit, tile_capacity + source.visible_cells);
+    }
+    bool tile_capacity_ready = true;
+    try {
+        if (tile_capacity > tile_worlds_.capacity()) {
+            const auto extra = (tile_capacity - tile_worlds_.capacity()) * sizeof(AffineTransform);
+            if (extra > pose_budget_ - pose_payload_bytes())
+                throw std::runtime_error("Tile draw transforms exceed the scene payload budget");
+            tile_worlds_.reserve(tile_capacity);
+        }
+    } catch (const std::exception& error) {
+        report({}, error.what(), DrawScope::TileMap);
+        tile_capacity_ready = false;
+    }
+    if (tile_capacity_ready)
+        for (auto& [entity, source] : tile_sources_) {
+            const auto& map = source.requested;
+            if (!source.visible_this_view)
+                continue;
+            const auto queue_start = queue.size(), object_start = objects.size();
+            const auto world_start = tile_worlds_.size();
+            try {
+                std::uint64_t ordinal = 0;
+                visit_visible_tile_chunks(
+                    *source.cells, map.world, std::span(&camera, 1),
+                    [&](const TileMapChunkView& chunk) {
+                        const auto& available_layers = source.cells->layers();
+                        const auto layer = std::find_if(
+                            available_layers.begin(), available_layers.end(),
+                            [&](const auto& value) { return value.id == chunk.key.layer; });
+                        if (layer == available_layers.end())
+                            throw std::runtime_error("Tile draw chunk has no layer");
+                        for (std::uint32_t slot = 0; slot < tile_chunk_cells; ++slot) {
+                            const auto& cell = chunk.cells[slot];
+                            if (!cell.tile)
+                                continue;
+                            const auto& definition = source.definitions->tile(cell.tile);
+                            auto& image = source.images.at(definition.image);
+                            const auto world =
+                                tile_cell_world(tile_cell_address({chunk.key.address, slot}),
+                                                source.cells->cell_size(), map.world);
+                            const auto& part = image.bundle->parts(0)[0];
+                            const auto bounds = transform_bounds(part.bounds, world);
+                            if (!bounds_visible(bounds, camera))
+                                continue;
+                            if (tile_worlds_.size() == tile_map_cell_limit)
+                                throw std::runtime_error(
+                                    "Visible Tile Map cells exceed the 262144-instance profile");
+                            const auto key = std::pair{cell.tile, cell.flags};
+                            auto values = source.values.find(key);
+                            if (values == source.values.end()) {
+                                const auto bytes =
+                                    sizeof(decltype(source.values)::value_type) + 4 * sizeof(void*);
+                                if (bytes > material_budget_ - material_payload_bytes())
+                                    throw std::runtime_error(
+                                        "Tile image values exceed the scene payload budget");
+                                auto numeric =
+                                    tile_draw_values(*source.definitions, cell.tile, cell.flags,
+                                                     image.width, image.height, source.color);
+                                values =
+                                    source.values.emplace(key, std::move(numeric.sprite)).first;
+                            }
+                            tile_worlds_.push_back(
+                                world); // Capacity reserved before storing any pointers.
+                            image.mesh.renderer.layers = map.renderer.layers;
+                            Object object{&image.mesh, image.bundle.get(), nullptr, {}, 0, {}, {}};
+                            object.scope = DrawScope::TileMap;
+                            object.world = &tile_worlds_.back();
+                            object.sprite = &values->second;
+                            RenderSortKey sort{part.alpha,
+                                               transform_parity(world),
+                                               part.material,
+                                               image.bundle->mesh_identity().asset,
+                                               bounds_camera_depth(bounds, camera),
+                                               entity,
+                                               0};
+                            sort.sprite = true;
+                            sort.order = std::int64_t(map.renderer.order) + layer->order;
+                            sort.birth = ordinal++;
+                            validate_render_key(sort);
+                            queue.push_back({sort, objects.size(), false});
+                            objects.push_back(std::move(object));
+                        }
+                    });
+            } catch (const std::exception& error) {
+                queue.resize(queue_start);
+                objects.resize(object_start);
+                tile_worlds_.resize(world_start);
+                source.values.clear();
+                report(entity, error.what(), DrawScope::TileMap);
+            }
+        }
     std::sort(queue.begin(), queue.end(),
               [](const auto& a, const auto& b) { return render_key_less(a.key, b.key); });
     EnvironmentLighting lighting;
@@ -969,7 +1163,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         try {
             std::array<MeshDraw::Instance, MeshDraw::instance_limit> batch;
             std::size_t count = 1;
-            batch[0] = {object.pose->world, object.mesh->legacy_tint, object.sprite};
+            batch[0] = {*object.world, object.mesh->legacy_tint, object.sprite};
             const bool eligible = (item.key.alpha != MaterialAlpha::Blend || object.sprite) &&
                                   !item.transmission &&
                                   object.bundle->supports_instances(object.lod, item.key.part);
@@ -988,12 +1182,12 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         slot_parameters(next.parameters,
                                         next.bundle->slot(next.lod, next_item.key.part))))
                     break;
-                batch[count++] = {next.pose->world, next.mesh->legacy_tint, next.sprite};
+                batch[count++] = {*next.world, next.mesh->legacy_tint, next.sprite};
                 ++cursor;
             }
             object.bundle->draw_part(
-                host_->context_, object.mesh->world, camera, object.lights, object.lod,
-                item.key.part, environment_ready_ ? &lighting : nullptr,
+                host_->context_, *object.world, camera, object.lights, object.lod, item.key.part,
+                environment_ready_ ? &lighting : nullptr,
                 object.mesh->legacy_tint ? &*object.mesh->legacy_tint : nullptr,
                 &shadows_->lighting(), object.shadow_slots,
                 transmission.background ? &transmission : nullptr, object.pose,
@@ -1016,7 +1210,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 const auto& single = objects[failed_item.object];
                 try {
                     single.bundle->draw_part(
-                        host_->context_, single.pose->world, camera, single.lights, single.lod,
+                        host_->context_, *single.world, camera, single.lights, single.lod,
                         failed_item.key.part, environment_ready_ ? &lighting : nullptr,
                         single.mesh->legacy_tint ? &*single.mesh->legacy_tint : nullptr,
                         &shadows_->lighting(), single.shadow_slots, nullptr, single.pose, {},

@@ -5,6 +5,7 @@
 #include "sprite_image_render_tests.hpp"
 #include "sprite_projection_render_tests.hpp"
 #include "sprite_scene_render_tests.hpp"
+#include "tile_map_render_tests.hpp"
 #include <iostream>
 
 int main(int argc, char** argv) {
@@ -28,6 +29,8 @@ int main(int argc, char** argv) {
         forge::test_sprite_atlas_precision::exercise(presentation, context, read);
         forge::test_sprite_scene_render::exercise(presentation, context, read,
                                                   std::filesystem::path(argv[1]) / "scene");
+        forge::test_tile_map_render::exercise(presentation, context, read,
+                                              std::filesystem::path(argv[1]) / "tile-map");
         forge::test_sprite_projection::exercise(presentation, context, read,
                                                 std::filesystem::path(argv[1]) / "projection");
         if (argc == 3)

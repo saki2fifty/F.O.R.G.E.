@@ -14,4 +14,5 @@ ParticleEmitter particle_emitter_value(const Json&);
 SpriteRenderer sprite_renderer_value(const Json&);
 TileMapRenderer tile_map_renderer_value(const Json&);
 void validate_sprite_renderer(const SpriteRenderer&);
+void validate_tile_map_renderer(const TileMapRenderer&);
 } // namespace forge::detail

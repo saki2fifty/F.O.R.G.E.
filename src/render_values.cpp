@@ -3,10 +3,13 @@
 #include <forge/render_view.hpp>
 #include <stdexcept>
 namespace forge::detail {
-Json render_value(const TileMapRenderer& value) {
+void validate_tile_map_renderer(const TileMapRenderer& value) {
     for (const auto tint : {value.tint_r, value.tint_g, value.tint_b, value.tint_a})
         if (!std::isfinite(tint) || tint < 0 || tint > 1)
             throw std::invalid_argument("Tile Map tint must be finite linear RGBA in [0,1]");
+}
+Json render_value(const TileMapRenderer& value) {
+    validate_tile_map_renderer(value);
     return {{"map", value.map.id ? Json(value.map.id) : Json()},
             {"enabled", value.enabled},
             {"visible", value.visible},
@@ -29,7 +32,7 @@ TileMapRenderer tile_map_renderer_value(const Json& source) {
     value.tint_g = source.at("tint_g").get<float>();
     value.tint_b = source.at("tint_b").get<float>();
     value.tint_a = source.at("tint_a").get<float>();
-    (void)render_value(value);
+    validate_tile_map_renderer(value);
     return value;
 }
 void validate_sprite_renderer(const SpriteRenderer& value) {

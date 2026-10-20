@@ -20,5 +20,6 @@ set(forge_presentation_sources
  src/mesh_draw_bundle.cpp
  src/mesh_render_host.cpp
  src/mesh_render_particles.cpp
+ src/mesh_render_tiles.cpp
  src/gpu_residency.cpp
  src/sampler_backend.cpp)

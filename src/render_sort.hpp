@@ -17,7 +17,7 @@ struct RenderSortKey {
     unsigned part{};
     bool particle = false;
     std::uint64_t birth = 0;
-    std::int32_t order = 0;
+    std::int64_t order = 0;
     bool sprite = false;
     bool operator==(const RenderSortKey&) const = default;
 };

@@ -4,8 +4,9 @@ These are internal source, cooked-data and asset-pipeline foundations. The
 programmatic import/publication/resource/content-package path has focused Linux
 tests. Discovery, Content reimport routes, command-line import and typed file/reference
 adapters are integrated in this development source; user-facing Tile Set/Tile Map
-document tools are still pending. There is no completed painting, tile rendering or
-standalone game-export workflow from this foundation alone. The first
+document tools are still pending. Native map rendering is implemented and locally
+tested; there is no completed painting or standalone game-export workflow from
+this foundation alone. The first
 complete workflow must integrate those consumers and the Feature Gallery before
 claiming a working tilemap feature.
 
@@ -18,7 +19,7 @@ history, prefab composition and unknown source fields. Cell dimensions, layer
 definitions and cells remain in the referenced map; no per-cell entities are
 created. Native Meta checks the actual component member offsets. Render extraction
 produces a typed map item with the ordinary visibility/selectability policy and
-double affine transform; GPU consumption of that item is still pending.
+double affine transform; the shared native renderer consumes its admitted cells.
 
 Private runtime instance components own immutable cell snapshots and retained
 Map/Tile Set leases. Their state is not inherited, reflected into Scene source or
@@ -48,8 +49,8 @@ pass. A maximum-profile allocation probe validates4096 writes across1024chunks/
 262144cells: preflight requests335872heap bytes, while constructing the changed
 snapshot requests17203270bytes in Linux GCC12. These are requested allocation
 totals, not peak/RSS/GPU memory or frame-time evidence.
-Play transport projection, GPU drawing,
-painting tools and complete exported-game workflow remain unfinished.
+Play transport projection, painting tools and the complete exported-game workflow
+remain unfinished.
 
 The in-process graphical host now binds typed map presentation values to the
 same immutable snapshots read by native gameplay. This shares cell storage and
@@ -58,8 +59,8 @@ copy the map each frame. An older captured frame keeps its earlier cells. The
 snapshot retains pure definition values independently of retiring resource-lease
 storage, so detached values remain valid after provider shutdown. Pending asset
 loads are distinguished from terminal admission failures. `GamePresentation`
-passes this typed view through the existing `FrameRenderer`; map GPU consumption
-and the separate Editor Play process projection are still unfinished.
+passes this typed view through the existing `FrameRenderer`. The separate Editor
+Play process projection remains unfinished.
 
 ## Copied C++ cell interface (development)
 
@@ -206,7 +207,7 @@ transposes the frame-local UV axes before those mirrors. These eight combination
 include quarter-turns and reflections, without changing the cell's geometry.
 The numeric adapter lowers them to the existing Sprite atlas mapping. Its simple
 image profile uses one previously unused instance lane for transpose, preserving
-the instance stride. Tile Map scene drawing remains unfinished.
+the instance stride. Native map scene drawing uses this same profile.
 
 Each cell's identity is its layer key and signed int32 local X/Y address. Cells
 are not authored entities and receive no UUIDs. Chunks are derived storage rather
@@ -314,12 +315,48 @@ signed cell addresses, including the exclusive upper edge at 2147483648, without
 passing through float mesh bounds. Tests cover reflection, shear, nonuniform
 scale, negative chunks and a camera near a world origin of 1000000000000 meters.
 
-This is a CPU view and culling foundation. It does not yet draw tiles on a GPU,
-transport runtime changes to Editor Play or provide a runtime query/edit API.
-The existing Sprite draw owner is keyed by entity and draw scope; emitting many
-ordinary Sprites under one map entity would share that owner incorrectly. Tile
-rendering must integrate its image/chunk instances with that existing owner and
-the shared render queue, without creating authored entities for cells.
+### Native rendering and grid selection (development)
+
+The existing MeshSceneRenderer derives one scoped image draw owner per map actor
+and used image key. Image keys remain local uint64 values, including values beyond
+exact float representation. Each owner uses the shared Quad, ordinary unlit
+Material/Texture selection and Sprite draw profile. Per-cell matrices and numeric
+UV/color values enter the existing render queue and 64-instance batches. Cells
+receive no entities or UUIDs. Equal resources can share one complete draw bundle
+across image keys and independently edited map actors.
+
+The renderer retains a complete old image/bundle set while a new selection loads
+or fails grid admission. A map never adopts just some of its replacement images.
+Cell/definition snapshots remain shared immutable values; steady updates do not
+clone arrays. Chunk culling omits off-camera chunks and hidden layers. Sparse
+occupied bounds drive framing; explicit selection can frame hidden layers too.
+Renderer and layer order add in int64, preserving both signed int32 ranges.
+The current scene profile is at most 256 map actors and 262144 visible cell
+instances per camera, within the existing pose/material payload budgets.
+
+Sprite instance uploads use ordered default-buffer updates through the backend's
+paged upload owner. They do not retain a DISCARD allocation per cell batch in a
+fixed dynamic heap. Shader reflection suppresses unused light-list uploads for
+unlit draws. All mapped MeshDraw uploads check allocation success before writing.
+No device heap setting or dependency revision changes for this path.
+
+`pick_tile_grid` intersects the transformed local XY plane using the existing
+camera projection in camera-relative double precision. It returns local meters,
+the half-open signed cell address and ordinary projected depth. It does not
+invert the unused Z axis: a collapsed Z scale still allows selecting a valid XY
+surface. A collapsed XY plane, parallel ray, clipped intersection, invalid input
+or address outside int32 returns no hit. This grid query also permits empty cells
+for future paint tools. Actor picking looks up that single cell in each visible
+layer, respects selectability/camera masks, and compares depth/order with ordinary
+Mesh/Sprite selection. It does not expand or scan every tile triangle.
+
+Focused Linux tests include actual software-Vulkan readback for negative seams,
+wide scoped keys, independent instances, layer order, camera masks, sparse framing,
+far origins, image replacement failure/recovery and runtime cell changes. The
+maximum dense case renders all 262144 cells across steady frames and an edit.
+These checks establish correctness/capacity, not physical GPU FPS. Native typed
+snapshots are supported here; ordinary authoring map loading, unsaved previews and
+Editor Play transport still require their integrations.
 
 ### Internal cooked map data
 
@@ -381,8 +418,9 @@ The actual document owner also exercises a 262144-cell map with 16 paint strokes
 and complete Undo/Redo. These tests do not replace the future native-renderer,
 installed SDK, editor interaction and moved-game gates.
 
-The remaining complete feature includes Tile Set/Map document tools,
-GPU presentation consuming this immutable view, bounded C++ runtime
-queries/edits, palette/painting/picking, source replacement behavior and original
-editable Gallery content. No autotiling, animated tiles, 2D collision or streaming
+The remaining complete feature includes Tile Set/Map document tools, authoring
+resource loading and unsaved previews, bounded Editor Play projection, palette/
+painting/history, complete source replacement UX, moved-game validation and
+original editable Gallery content. Native rendering/grid picking and bounded C++
+queries/edits have focused local evidence; they do not complete those workflows. No autotiling, animated tiles, 2D collision or streaming
 is implied by this source foundation.

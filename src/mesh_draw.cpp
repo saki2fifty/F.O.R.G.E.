@@ -156,8 +156,13 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         desc.Name = "FORGE static instance transforms";
         desc.Size = instance_limit * (sprite_ ? 9 : 7) * sizeof(Row);
         desc.BindFlags = BIND_VERTEX_BUFFER;
-        desc.Usage = USAGE_DYNAMIC;
-        desc.CPUAccessFlags = CPU_ACCESS_WRITE;
+        // A full Tile Map uses many Sprite batches in one frame. Streaming
+        // those bytes through DISCARD would retain one allocation per batch
+        // in the backend's fixed dynamic heap until submission. Ordered buffer
+        // updates use its paged upload owner instead, without enlarging that
+        // heap or changing the admitted scene profile.
+        desc.Usage = sprite_ ? USAGE_DEFAULT : USAGE_DYNAMIC;
+        desc.CPUAccessFlags = sprite_ ? CPU_ACCESS_NONE : CPU_ACCESS_WRITE;
         device->CreateBuffer(desc, nullptr, &instances_);
         require(bool(instances_), "instance buffer allocation failed");
     }
@@ -301,7 +306,11 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             bind(SHADER_TYPE_VERTEX, "ForgeMorphWeights", morph_weights_);
         }
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
-        bind(SHADER_TYPE_PIXEL, "ForgeLights", lights_, false);
+        if (auto* variable =
+                bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeLights")) {
+            variable->Set(lights_);
+            lights_active_ = true;
+        }
         if (surface) {
             if (values)
                 bind(SHADER_TYPE_PIXEL, "ForgeSurfaceMaterial", values);
@@ -461,6 +470,7 @@ void MeshDraw::object_material_values(IDeviceContext* context,
     if (active) {
         MapHelper<std::byte> memory(context, material_dynamic_, MAP_WRITE, MAP_FLAG_DISCARD);
         auto* bytes = static_cast<std::byte*>(memory);
+        require(bytes != nullptr, "object material upload allocation failed");
         std::memcpy(bytes, material_defaults_.data(), material_defaults_.size());
         for (const auto& parameter : parameters)
             if (parameter.slot == slot)
@@ -521,6 +531,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                                 [](float value) { return std::isfinite(value); }),
                 "morph weights must be finite and match every target");
         MapHelper<Row> data(context, morph_weights_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(data) != nullptr, "morph upload allocation failed");
         std::fill_n(static_cast<Row*>(data), (morph_weights.size() + 3) / 4, Row{});
         for (std::size_t i = 0; i < morph_weights.size(); ++i)
             data[i / 4][i % 4] = morph_weights[i];
@@ -575,6 +586,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     "skinned volume thickness exceeds the finite GPU profile");
         }
         MapHelper<Row> mapped(context, skin_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(mapped) != nullptr, "skin upload allocation failed");
         std::copy(values.begin(), values.end(), static_cast<Row*>(mapped));
     } else
         require(!skin, "skin pose supplied to an unskinned mesh");
@@ -647,10 +659,12 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     }
     {
         MapHelper<Row> values(context, object_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(values) != nullptr, "object upload allocation failed");
         std::copy(object.begin(), object.end(), static_cast<Row*>(values));
     }
-    {
+    if (lights_active_) {
         MapHelper<Row> values(context, lights_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(values) != nullptr, "light upload allocation failed");
         std::copy(packed.begin(), packed.end(), static_cast<Row*>(values));
     }
     const auto parity = skin_ ? TransformParity::Positive : transform_parity(world);
@@ -677,6 +691,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                       float(std::sin(environment->rotation))};
         }
         MapHelper<Row> values(context, environment_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(values) != nullptr, "environment upload allocation failed");
         values[0] = params;
         for (const auto& [name, value] :
              {std::pair{"g_ForgeDiffuse", diffuse}, std::pair{"g_ForgeSpecular", specular},
@@ -687,6 +702,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     if (shadows_) {
         {
             MapHelper<Row> data(context, shadows_, MAP_WRITE, MAP_FLAG_DISCARD);
+            require(static_cast<Row*>(data) != nullptr, "shadow upload allocation failed");
             if (shadows)
                 std::copy(shadows->values.begin(), shadows->values.end(), static_cast<Row*>(data));
             else
@@ -705,6 +721,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                 "transmission background dimensions/format differ from its camera");
         {
             MapHelper<Row> data(context, transmission_, MAP_WRITE, MAP_FLAG_DISCARD);
+            require(static_cast<Row*>(data) != nullptr, "transmission upload allocation failed");
             data[0] = {float(v.x), float(v.y), 1.f / v.width, 1.f / v.height};
             data[1] = {float(desc.MipLevels - 1), 0, 0, 0};
         }
@@ -763,8 +780,12 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                 copied[i][6][3] = 1;
             }
         }
-        {
+        if (sprite_) {
+            context->UpdateBuffer(instances_, 0, selected.size() * rows * sizeof(Row),
+                                  copied.data(), RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
+        } else {
             MapHelper<Row> mapped(context, instances_, MAP_WRITE, MAP_FLAG_DISCARD);
+            require(static_cast<Row*>(mapped) != nullptr, "instance upload allocation failed");
             for (std::size_t i = 0; i < selected.size(); ++i)
                 std::copy_n(copied[i].begin(), rows, static_cast<Row*>(mapped) + i * rows);
         }

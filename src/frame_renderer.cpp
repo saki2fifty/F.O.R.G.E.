@@ -196,7 +196,8 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
         for (const auto& error : scene.diagnostics)
             report(error);
         omitted_ += scene.omitted_diagnostics;
-        if (!scene.meshes.empty() || !scene.particles.empty() || !scene.sprites.empty()) {
+        if (!scene.meshes.empty() || !scene.particles.empty() || !scene.sprites.empty() ||
+            !scene.tile_maps.empty()) {
             Diagnostic error{Severity::Error,
                              "render.resources.unavailable",
                              "Frame has renderable objects but no presentation resource host",

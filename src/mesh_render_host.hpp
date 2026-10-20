@@ -3,6 +3,7 @@
 #include "particle_effect_resource.hpp"
 #include "render_bounds.hpp"
 #include "shadow_renderer.hpp"
+#include "tile_draw_values.hpp"
 #include <forge/render_scene.hpp>
 namespace forge {
 struct MeshResourceInspection {
@@ -89,7 +90,7 @@ class MeshSceneRenderer {
     const EnvironmentLease& environment() const { return environment_ready_; }
 
   private:
-    enum class DrawScope { Mesh, Particle, Sprite };
+    enum class DrawScope { Mesh, Particle, Sprite, TileMap };
     static DrawScope scope(const RenderMesh& mesh) {
         return mesh.particle_source ? DrawScope::Particle : DrawScope::Mesh;
     }
@@ -139,10 +140,44 @@ class MeshSceneRenderer {
     std::optional<ResourceTicket> environment_candidate_;
     EnvironmentLease environment_ready_;
     std::string environment_error_;
-    using DrawOwner = std::pair<EntityId, DrawScope>;
+    struct DrawOwner {
+        EntityId first;
+        DrawScope second;
+        std::uint64_t image = 0; // Scoped Tile Set image key, never an entity UUID.
+        auto operator<=>(const DrawOwner&) const = default;
+    };
     std::map<DrawOwner, Entry> entries_;
     // Detached requested proxies. Entry owns admitted values/resources/poses.
     std::vector<RenderMesh> sprites_;
+    struct TileImageInput {
+        RenderMesh mesh;
+        SpriteRenderer sprite;
+        std::uint64_t image = 0;
+    };
+    struct TileImageDraw {
+        std::shared_ptr<MeshDrawBundle> bundle;
+        RenderMesh mesh;
+        std::uint32_t width = 0, height = 0;
+    };
+    struct TileDrawSource {
+        RenderTileMap requested;
+        std::shared_ptr<const TileMapData> cells;
+        std::shared_ptr<const TileSetData> definitions;
+        std::map<std::uint64_t, TileImageDraw> images;
+        std::vector<std::uint64_t> used_images;
+        std::map<std::uint64_t, RenderBounds> requested_bounds, bounds;
+        std::size_t requested_visible_cells = 0, visible_cells = 0;
+        std::map<std::pair<std::uint64_t, std::uint32_t>, SpriteDrawValues> values;
+        std::array<float, 4> color{};
+        bool pending = false, visible_this_view = false;
+        bool rejected = false;
+    };
+    std::vector<TileImageInput> tile_images_;
+    std::map<EntityId, TileDrawSource> tile_sources_;
+    std::vector<AffineTransform> tile_worlds_;
+    std::vector<TileImageInput> prepare_tile_sources(const RenderScene&);
+    void adopt_tile_images();
+    std::uint64_t tile_material_bytes() const;
     struct ParticleSource {
         AssetRef<ParticleEffectAsset> effect;
         std::uint64_t epoch = 0;
