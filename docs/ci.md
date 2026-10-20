@@ -76,6 +76,13 @@ stage and correlated Play command. These allowances do not bypass import or
 presentation readiness. The focused native workflow audit also builds and runs
 the audio-mixer and viewport captures, including Tile Map document controls.
 
+For a bounded Windows metadata diagnosis, dispatch `editor-audit.yml` with
+`workflow_only=true` and `publication_only=true`. This builds the existing
+publication fixture and runs only `asset_publication`, retaining its normal unit
+and interruption-recovery assertions and flushed reader/replacement stages. It
+cannot be combined with shader, capture or performance modes, records its limited
+scope and does not replace editor acceptance, the core/SDK matrix or a release gate.
+
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new
 delivery number.

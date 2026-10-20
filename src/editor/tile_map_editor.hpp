@@ -575,8 +575,13 @@ class TileMapEditor {
         const auto size = document_->source().document.cell_size();
         for (unsigned axis = 0; axis < 2; ++axis) {
             auto value = size[axis];
-            if (ImGui::InputDouble(axis ? "Cell height (m)" : "Cell width (m)", &value, 0, 0,
-                                   "%.6g", ImGuiInputTextFlags_EnterReturnsTrue))
+            const auto* label = axis ? "Cell height (m)" : "Cell width (m)";
+            ImGui::SetNextItemWidth(
+                std::max(20.f * ui::interface_scale, ImGui::GetContentRegionAvail().x -
+                                                         ImGui::CalcTextSize(label).x -
+                                                         ImGui::GetStyle().ItemInnerSpacing.x));
+            if (ImGui::InputDouble(label, &value, 0, 0, "%.6g",
+                                   ImGuiInputTextFlags_EnterReturnsTrue))
                 mutate("Resize map cells", [&](auto& source) {
                     auto meta = source.document.metadata();
                     meta["cell_size"][axis] = value;

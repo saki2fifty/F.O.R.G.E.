@@ -123,16 +123,25 @@ void unit(const std::filesystem::path& root) {
         std::filesystem::create_directories(root);
         const std::string old_value = R"({"revision":"old"})";
         const std::string new_value = R"({"revision":"new"})";
+        std::cout << "Windows metadata: create initial revision\n" << std::flush;
         asset_storage::replace(path, old_value);
-        asset_detail::NativeReadFile reader(path);
-        // A deliberately retained actual reader must not deny atomic replace.
-        asset_storage::replace(path, new_value);
-        const auto retained = reader.read(1024);
-        require(std::string(reinterpret_cast<const char*>(retained.data()), retained.size()) ==
-                        old_value &&
-                    read(path) == new_value,
-                "Catalog reader blocked replacement or lost its opened revision");
+        {
+            asset_detail::NativeReadFile reader(path);
+            // Hold the actual reader across publication, then finish its read.
+            std::cout << "Windows metadata: replace with opened reader\n" << std::flush;
+            asset_storage::replace(path, new_value);
+            std::cout << "Windows metadata: read retained revision\n" << std::flush;
+            const auto retained = reader.read(1024);
+            require(std::string(reinterpret_cast<const char*>(retained.data()), retained.size()) ==
+                        old_value,
+                    "Catalog reader lost its opened revision");
+            std::cout << "Windows metadata: read new revision with retained reader\n" << std::flush;
+            require(read(path) == new_value, "Catalog publication did not select new revision");
+        }
+        std::cout << "Windows metadata: read new revision after reader closes\n" << std::flush;
+        require(read(path) == new_value, "Catalog publication did not select new revision");
         rejects([&] { (void)asset_detail::read_bytes(path, new_value.size() - 1); });
+        std::cout << "Windows metadata: replace with empty revision\n" << std::flush;
         asset_storage::replace(path, "");
         require(asset_detail::read_bytes(path, 0).empty(), "Empty bounded metadata read failed");
     }

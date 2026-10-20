@@ -99,6 +99,12 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             } while (frames < 4 || !definitions_ready || preview.pending());
             check(editor.diagnostic().empty() && preview.diagnostics().empty(),
                   "Native Tile Map document capture has diagnostics");
+            for (const auto* field : {"tile_map:cell_width", "tile_map:cell_height"}) {
+                const auto& control = test::ui_targets.at(field);
+                check(control.maximum.x <= control.clip_maximum.x &&
+                          control.minimum.x >= control.clip_minimum.x,
+                      "Native Tile Map Inspector clipped its cell dimension control");
+            }
             const auto box = test::ui_targets.at("tile_map:preview_image");
             check(box.minimum.x >= 0 && box.minimum.y >= 0 && box.maximum.x <= width &&
                       box.maximum.y <= height && box.maximum.x - box.minimum.x > 200 * scale &&
