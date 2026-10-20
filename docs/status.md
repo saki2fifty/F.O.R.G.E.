@@ -14,8 +14,9 @@ two layers and mirrored instances of one map. Its five-asset content closure loa
 and accepts instance-specific edits after source removal and relocation. A native
 Game capture is included in the README. Scoped sanitizer/leak checks pass.
 
-The fresh installed SDK and coherent Windows/editor/production-game gates remain
-in progress. This work is newer than delivered Build261020-000194. Physical
+The fresh installed shared SDK and installed-only Tile Map module/helper compile
+and relocated fixture pass locally. Coherent Windows/editor/production-game gates
+remain in progress. This work is newer than delivered Build261020-000194. Physical
 Windows/GPU/listening acceptance remains deferred. See
 [the Tile Map contract](tilemap-foundation.md) and [user workflow](../manual/editor/tile-maps.md).
 

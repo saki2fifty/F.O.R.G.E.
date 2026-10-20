@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
+#include <string>
 
 namespace forge {
 // Private Tile Map addressing. Cells cover [x,x+1) x [y,y+1) in local XY;
@@ -42,7 +43,9 @@ inline TileCellAddress tile_cell_address(TileChunkCell address) {
     const auto axis = [](std::int32_t chunk, std::uint32_t offset) {
         const auto n = std::int64_t(chunk) * tile_chunk_side + offset;
         if (n < INT32_MIN || n > INT32_MAX)
-            throw std::invalid_argument("Tile chunk is outside signed cell coordinates");
+            throw std::invalid_argument(
+                "Tile chunk is outside signed cell coordinates: chunk=" + std::to_string(chunk) +
+                ", offset=" + std::to_string(offset) + ", cell=" + std::to_string(n));
         return std::int32_t(n);
     };
     return {axis(address.chunk.x, address.index % tile_chunk_side),

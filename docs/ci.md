@@ -198,15 +198,20 @@ executable in startup-verification mode. The source-level `feature_gallery` test
 admits every gallery scene through the normal authoring API and checks durable
 identities and key components.
 
-The shared-runtime audit exports Gallery73 through the same Sprite image-fill
-helper used by final combined-package acceptance. It deletes its authored copy
-and copied kit before two relocated production launches with restricted PATH.
-The resulting game also travels to the separate runner with no checkout, build
-or SDK, where two more production launches and exact inventory checks run.
-These startup checks complement the independent Sprite pixel and installed C++
-value tests; they do not establish physical GPU acceptance. The fresh-runner job
-has 15 minutes for its five bounded host launches and transfer/cleanup; each host
-keeps its existing 120-second process deadline.
+The shared-runtime audit exports Gallery73's Sprite fill and Gallery74's Tile Map
+through the same saved-project export helper. It deletes each authored copy and
+copied kit before two relocated production launches with restricted PATH. Both
+games travel to the separate runner with no checkout, build or SDK, where two
+more launches per game and exact inventory checks run. The shared build explicitly
+produces the tile Gallery and real Play-transport test executables before running
+them; an old cache cannot supply unbuilt acceptance fixtures. The installed-only
+Tile Map module uses the matching public SDK and exercises private runtime edits.
+These startup checks complement independent Sprite/Tile Map native pixels,
+document input and C++ value tests; they do not establish physical GPU acceptance.
+The fresh-runner job has 20 minutes for its seven bounded host launches and
+transfer/cleanup; each host keeps its existing 120-second process deadline.
+Final combined-package acceptance repeats both Gallery exports with the tools,
+Gallery content and shared runtime kit extracted from the delivery ZIP.
 
 The official artifact download action is pinned to v4 commit
 `d3f86a106a0bac45b974a628896c90dbdf5c8093`. Modified files, path escapes

@@ -499,6 +499,9 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
     from sprite_image_standalone_test import verify as verify_sprite_image
     verify_sprite_image(tools, gallery, root / 'runtime-kits/shared-native-sdk',
                         evidence / 'sprite-image-export')
+    from tile_map_standalone_test import verify as verify_tile_map
+    verify_tile_map(tools, gallery, root / 'runtime-kits/shared-native-sdk',
+                    evidence / 'tile-map-export')
     # Two skeletal clips must be discovered through the saved Animator references.
     blend_scene = 'Scenes/09-animation-blending.scene.json'
     blended = json.loads((gallery/blend_scene).read_text())

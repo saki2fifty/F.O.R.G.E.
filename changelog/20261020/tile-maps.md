@@ -24,7 +24,8 @@ and relocation. Software-Vulkan readbacks at two resolutions verify its actual
 layered markers and mirrored copy. The README includes an unmodified native Game
 capture.
 
-The coherent Windows/editor/production-game and fresh installed SDK gates remain
-outstanding. No physical graphics-card performance claim is made. This profile
+The fresh installed shared SDK passes an installed-only module/helper compile
+and relocated native fixture. The coherent Windows/editor/production-game gates
+remain in progress. No physical graphics-card performance claim is made. This profile
 does not add autotiling, animated tiles, 2D collision or streaming. Use matching
 engine/SDK/module builds. Delivered Build261020-000194 predates this work.

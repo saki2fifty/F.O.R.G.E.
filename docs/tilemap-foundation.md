@@ -1,11 +1,13 @@
 # Tile Set and Tile Map source foundation
 
 This development source includes the source, cooked-data, asset pipeline, native
-renderer and central Tile Set/Tile Map document tools. Focused Linux checks cover
-the pipeline and renderer; headless ImGui interaction checks cover the document
-controls at three interface scales. The complete Editor Play projection, original
-Feature Gallery scene and moved standalone game gate remain unfinished. This is
-not yet a completed delivered tilemap workflow or Windows acceptance claim.
+renderer, central Tile Set/Tile Map document tools and both Editor Play process
+paths. Original editable Gallery74 demonstrates layered maps and mirrored
+instances. Focused Linux checks cover the pipeline, document controls at three
+interface scales, real Play pipes, installed SDK consumers, native pixels and a
+relocated cooked-only Gallery closure. The coherent Windows editor and production
+game gates remain in progress. Delivered Build261020-000194 predates this work;
+physical Windows/GPU acceptance is deferred.
 
 ## Source documents (development)
 
@@ -70,7 +72,8 @@ pass. A maximum-profile allocation probe validates4096 writes across1024chunks/
 262144cells: preflight requests335872heap bytes, while constructing the changed
 snapshot requests17203270bytes in Linux GCC12. These are requested allocation
 totals, not peak/RSS/GPU memory or frame-time evidence.
-Play transport projection and the complete exported-game workflow remain unfinished.
+The copied Play transport and its budgets are described below. The coherent
+Windows exported-game gate remains in progress.
 
 Scene preparation now progresses the existing runtime map synchronization and
 waits for the requested map binding before freezing a candidate. This does not
@@ -81,8 +84,8 @@ The private copied-presentation codec admits Map/Set headers through their exist
 cooked decoders. Pages contain at most four chunks and 256KiB; unchanged shared
 arrays produce no delta. Shrinking chunks precede growing chunks so a paged move
 at capacity remains valid. Full maximum-profile transfers, wide keys, malformed
-packets and scoped sanitizer checks pass locally. The codec alone does not wire
-either Editor Play process path or publish a runtime frame.
+packets and scoped sanitizer checks pass locally. Both process hosts and the
+editor receiver use this codec through the existing correlated transport.
 
 The source-side transfer adapter has focused tests for immutable observations,
 frozen pages, matching cursors/tokens, cancellation and acknowledged baselines.
@@ -91,7 +94,8 @@ once. Retained history copies pure values and does not pin asset-provider leases
 A retained unedited baseline with matching adopted Map/Set revisions can also
 supply another actor's initial delta. Eviction falls back to a full paged transfer.
 The read-only world bridge uses existing synchronized instances and never starts
-loads or ticks. Neither runtime process nor the editor receiver is wired yet.
+loads or ticks. The process adapters carry these observations to the receiver;
+they introduce no additional world or mutable cell authority.
 
 The in-process graphical host now binds typed map presentation values to the
 same immutable snapshots read by native gameplay. This shares cell storage and
@@ -100,8 +104,8 @@ copy the map each frame. An older captured frame keeps its earlier cells. The
 snapshot retains pure definition values independently of retiring resource-lease
 storage, so detached values remain valid after provider shutdown. Pending asset
 loads are distinguished from terminal admission failures. `GamePresentation`
-passes this typed view through the existing `FrameRenderer`. The separate Editor
-Play process projection remains unfinished.
+passes this typed view through the existing `FrameRenderer`. Editor Play binds
+the receiver's admitted immutable values through the same typed presentation path.
 
 ## Copied C++ cell interface (development)
 
@@ -148,9 +152,10 @@ authored tile sources are removed. Tests cover paused reads, fixed submissions,
 copied inputs, atomic rejection, two-instance isolation, reset generations,
 quotas, owner-thread/module checks and Stop cancellation. Scoped ASan/UBSan/leak
 checks instrument the bridge, instance queue, module and fixture; other linked
-CPU libraries and the child import worker remain normal. The shared Windows CI
-gate includes these new consumers; its execution and GPU/editor acceptance are
-still pending. This does not complete the visual tilemap workflow.
+CPU libraries and the child import worker remain normal. A freshly built matching
+shared SDK also passes the installed-only module/helper compile and relocated
+native fixture. The shared Windows CI gate includes these consumers; its execution
+and the coherent editor/export gate remain pending.
 
 ## Ownership
 
@@ -266,8 +271,8 @@ Splitting and rejoining preserve the entire int32 cell range. Rejoining arbitrar
 out-of-range chunk coordinates rejects using int64 intermediate arithmetic.
 Local meter-to-cell conversion uses double precision, finite positive cell sizes
 and floor; non-finite or out-of-range results reject before integer conversion.
-This adds no world-origin system and makes no claim about completed transformed
-picking or GPU precision.
+Transformed picking and camera-relative native drawing use these helpers, as
+described below. This adds no world-origin system or physical GPU precision claim.
 
 The existing 64-entry/8MiB history policy remains. Map history weight counts
 encoded root metadata, snapshot references and old chunks replaced by an edit.
@@ -312,8 +317,9 @@ CPU admission does not promise GPU/draw readiness.
 Focused tests exercise real-worker publication, cached candidate reuse, invalid
 actual grid/missing-tile rejection, old strong leases across replacement, stale
 dependency rejection/recook, relocated content packages and offline source files.
-This is content-package backend evidence; it is not a running exported tile game
-or a completed editor workflow.
+This establishes the content-package path. The separate Windows production-game
+gate exports the editable Gallery and starts its relocated game without source
+or SDK; its result is recorded independently.
 
 ### Discovery, import and file tools
 
@@ -441,8 +447,9 @@ cache accounting, frozen updates, malformed/cancelled/stale transfers, actual
 published-asset SDK-host preparation and fixed-step edits, actual PlaySession/worker pipes in both legacy and matching shared-SDK hosts,
 published source replacement with a new instance generation, Stop/restart, and
 native observation through copied values into software-Vulkan pixel readback. Pending/cleared scopes,
-a black-cell edit and an immutable older magenta frame have pixel checks. Physical
-Windows acceptance and the coherent exported Gallery/game gate remain outstanding.
+a black-cell edit and an immutable older magenta frame have pixel checks. The
+coherent Windows editor/export gate remains in progress; physical Windows
+acceptance is deferred.
 
 ### Authoring asset selection and isolated previews (development)
 
