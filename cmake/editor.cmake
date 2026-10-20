@@ -528,9 +528,10 @@ if(BUILD_TESTING)
  add_test(NAME editor_animation_exits COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/animation_exits_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/animation-exits")
  set_tests_properties(editor_animation_exits PROPERTIES TIMEOUT 120)
  add_test(NAME editor_animation_root_motion COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/animation_root_motion_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/animation-root-motion")
- # All43 scaled images include admitted native animation/presentation readiness.
- # Keep the fixture's45s per-stage stall guard; allow aggregate WARP work/teardown.
- set_tests_properties(editor_animation_root_motion PROPERTIES TIMEOUT 240)
+ # Forty-three native 1080p WARP captures plus initial source admission.
+ # Preserve the fixture's per-stage stall guards and 600 s whole-process bound;
+ # let those write diagnostics before an outer Python/CTest deadline fires.
+ set_tests_properties(editor_animation_root_motion PROPERTIES TIMEOUT 660)
  add_test(NAME editor_audio_falloff COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_falloff_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-falloff")
  set_tests_properties(editor_audio_falloff PROPERTIES TIMEOUT 120)
  add_test(NAME editor_audio_cones COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cone_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cones")
@@ -540,13 +541,13 @@ if(BUILD_TESTING)
  add_test(NAME editor_audio_preview COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_preview_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-preview")
  set_tests_properties(editor_audio_preview PROPERTIES TIMEOUT 150)
  add_test(NAME editor_view_images COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/view_image_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/view-images")
- set_tests_properties(editor_view_images PROPERTIES TIMEOUT 210)
+ set_tests_properties(editor_view_images PROPERTIES TIMEOUT 660)
  add_test(NAME editor_sequence_frames COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/sequence_frame_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/sequence-frames")
  set_tests_properties(editor_sequence_frames PROPERTIES TIMEOUT 270)
  add_test(NAME editor_sprite_frames COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/sprite_frame_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/sprite-frames")
  set_tests_properties(editor_sprite_frames PROPERTIES TIMEOUT 210)
  add_test(NAME editor_sequence_audio_cues COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/audio_cue_editor_capture_test.py $<TARGET_FILE:forge_editor_fixture> "${CMAKE_CURRENT_SOURCE_DIR}/samples/projects/FeatureGallery" "${CMAKE_BINARY_DIR}/grid-test-images/audio-cues")
- set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 210)
+ set_tests_properties(editor_sequence_audio_cues PROPERTIES TIMEOUT 660)
  add_test(NAME editor_input_workflow COMMAND forge_editor_fixture "${CMAKE_BINARY_DIR}/grid-test-images/editor-workflow" --workflow)
  # The 941-action authoring/export scenario includes native compilation and
  # three graph-worker preparations. A slow WARP runner reached action877 at360s

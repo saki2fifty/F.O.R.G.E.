@@ -34,6 +34,18 @@ class ContentImports {
     std::map<AssetId, AssetJobState> activity() const {
         return service_ ? service_->activity() : std::map<AssetId, AssetJobState>{};
     }
+#ifdef FORGE_UI_FIXTURE
+    Json fixture_jobs() const {
+        Json result = Json::array();
+        if (service_)
+            for (const auto& job : service_->jobs())
+                result.push_back({{"asset", job.asset.str()},
+                                  {"state", unsigned(job.state)},
+                                  {"stage", job.stage},
+                                  {"progress", job.progress}});
+        return result;
+    }
+#endif
     std::shared_ptr<const SourceSnapshot> sources() const {
         return service_ ? service_->sources() : nullptr;
     }

@@ -42,7 +42,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture
     shutil.copytree(gallery, project)
     original = authored_files(project)
     result = subprocess.run([fixture, evidence, '--view-images', project],
-                            capture_output=True, text=True, timeout=180)
+                            capture_output=True, text=True, timeout=630)
     (evidence / 'capture.log').write_text(result.stdout + result.stderr)
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr

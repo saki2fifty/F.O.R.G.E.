@@ -2960,13 +2960,28 @@ int main(int argc, char** argv) {
             // Initial Play also starts the process and requests live playback status.
             const Uint64 fixture_stage_budget =
                 ((fixture.view_images && fixture.stage == 296 && !fixture.source_baseline_ready) ||
-                 (fixture.audio_cues && fixture.stage == 293 &&
-                  !fixture.audio_cues_sources_ready) ||
-                 (fixture.audio_preview && fixture.stage == 235 && !fixture.audio_preview_opened) ||
-                 (fixture.sprite_frames && !fixture.prepared))
+                 (fixture.audio_cues && fixture.stage == 293 && !fixture.audio_cues_sources_ready))
+                    ? 180000
+                : ((fixture.audio_preview && fixture.stage == 235 &&
+                    !fixture.audio_preview_opened) ||
+                   (fixture.sprite_frames && !fixture.prepared))
                     ? 90000
                 : fixture.root_motion && fixture.stage == 253 ? 75000
                                                               : 45000;
+            if (fixture.root_motion || fixture.audio_mixer || fixture.view_images ||
+                fixture.audio_cues) {
+                static Uint64 previous_wait_report = 0;
+                if (SDL_GetTicks() - previous_wait_report >= 10000) {
+                    previous_wait_report = SDL_GetTicks();
+                    const forge::Json progress{{"stage", fixture.stage},
+                                               {"stage_ms", SDL_GetTicks() - fixture.stage_started},
+                                               {"source_ready", content_imports.ready_for_play()},
+                                               {"content_refreshing", content.refreshing()},
+                                               {"import_jobs", content_imports.fixture_jobs()},
+                                               {"transport", play.fixture_transport_state()}};
+                    std::fprintf(stderr, "FORGE fixture wait %s\n", progress.dump().c_str());
+                }
+            }
             if ((!fixture.workflow || (fixture.sprite_frames && !fixture.prepared)) &&
                 !fixture.sdk_play && !fixture.sequence_frames &&
                 // The expanded capture suite exceeds four minutes under WARP.
@@ -2995,6 +3010,9 @@ int main(int argc, char** argv) {
                     {"play_log", play.log()},
                     {"play_active", play.active()},
                     {"control_ready", play.control_ready()},
+                    {"transport", play.fixture_transport_state()},
+                    {"import_jobs", content_imports.fixture_jobs()},
+                    {"audio_status", play.audio_status()},
                     {"play_timing", play.timing()},
                     {"animation_status", play.animation_status()},
                     {"animation_command_pending", play.animation_pending()},

@@ -19,7 +19,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='root-motion-captur
     shutil.copytree(gallery, project)
     try:
         result = subprocess.run([fixture, evidence, '--root-motion', project],
-                                capture_output=True, text=True, encoding='utf-8', timeout=230)
+                                capture_output=True, text=True, encoding='utf-8', timeout=630)
     except subprocess.TimeoutExpired as error:
         partial = ''.join(value.decode('utf-8', errors='replace') if isinstance(value, bytes)
                           else value or '' for value in (error.stdout, error.stderr))

@@ -57,6 +57,20 @@ class PlaySession {
     bool control_ready() const {
         return ready() && control_.empty() && (!waiting_ || sent_command_ == "snapshot");
     }
+#ifdef FORGE_UI_FIXTURE
+    Json fixture_transport_state() const {
+        return {{"stage", unsigned(stage_)},
+                {"sdk", sdk_game_},
+                {"ready", ready()},
+                {"waiting", waiting_},
+                {"command", sent_command_},
+                {"queued_control", control_},
+                {"request", request_id_},
+                {"snapshot", snapshot_version_},
+                {"tile_pending", active_tiles_.pending()},
+                {"model_refresh_pending", model_assets_changed_}};
+    }
+#endif
     void bind_tile_maps(RenderScene& scene, std::uint64_t ticket = 0) const {
         if (ticket && prepared_tiles_.world() == ticket)
             prepared_tiles_.bind(scene);

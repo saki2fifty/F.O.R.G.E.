@@ -42,7 +42,7 @@ at 100/150/200%. Software WARP results do not establish physical GPU performance
 Both full editor jobs allow 150 minutes overall. A cold Windows source audit
 measured 6 minutes of configuration, 63 minutes of compilation and 20.5 minutes of
 acceptance before standalone/benchmark work, exhausting the previous 90-minute
-job limit. Individual test deadlines and acceptance selections are unchanged.
+job limit. That job-level increase does not change test deadlines or selections.
 Core/SDK matrix jobs allow 75 minutes: a cold Windows core run completed all 145
 tests and Runtime installation just before its former 45-minute cleanup deadline,
 but the overall job was still cancelled. The additional budget covers complete
@@ -63,6 +63,18 @@ outside the aggregate CTest cutoff. Detailed dense-history stages flush to the
 retained log; source-byte comparisons use the existing bounded block reader.
 This diagnostic has a 35-minute job limit and does not replace the full matrix,
 editor, export or numbered-package gate.
+
+The expanded native animation capture has 43 scaled images. A Windows WARP run
+completed the first 39 captures in 208.15 seconds, then the old 230-second Python
+limit killed the process before its per-stage guard could report a stall.
+Animation, Save-image and sound-cue captures now retain the fixture's 600-second
+whole-process bound, with Python at 630 seconds and CTest at 660 seconds so the
+fixture can save failure evidence first. Save-image and sound-cue startup allow
+180 seconds for the normal Gallery import queue; their subsequent controls still
+have 45-second guards. Periodic fixture diagnostics record the active import
+stage and correlated Play command. These allowances do not bypass import or
+presentation readiness. The focused native workflow audit also builds and runs
+the audio-mixer and viewport captures, including Tile Map document controls.
 
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new
