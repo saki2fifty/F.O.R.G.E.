@@ -5,10 +5,20 @@
 namespace forge {
 struct MeshAsset;
 struct MaterialAsset;
+struct TileSetAsset;
+struct TileMapAsset;
 template <class T> class ResourceLease;
 // CPU admission only. Ready is not GPU/draw readiness. Tokens are process-local,
 // world-scoped subscriptions, never serialized asset identities or native pointers.
-enum class RuntimeResourceKind : unsigned { Mesh = 1, Material, Texture, Shader, Collision };
+enum class RuntimeResourceKind : unsigned {
+    Mesh = 1,
+    Material,
+    Texture,
+    Shader,
+    Collision,
+    TileSet,
+    TileMap
+};
 enum class RuntimeTextureVariant : unsigned { Automatic, Color, Data, Normal, HdrColor };
 struct RuntimeResourceStatus {
     std::string state, requested_revision, retained_revision, diagnostic;
@@ -28,5 +38,7 @@ class RuntimeResourceService {
     virtual void refresh() = 0;
     // Same retained-lease/read-only boundary as mesh(), for builtin consumers.
     virtual ResourceLease<MaterialAsset> material(std::uint64_t) const = 0;
+    virtual ResourceLease<TileSetAsset> tile_set(std::uint64_t) const = 0;
+    virtual ResourceLease<TileMapAsset> tile_map(std::uint64_t) const = 0;
 };
 } // namespace forge

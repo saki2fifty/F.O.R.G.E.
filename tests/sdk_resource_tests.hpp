@@ -34,6 +34,8 @@ inline void test_sdk_resources(const ForgeSdkWorldV1* host, forge::ServiceAccess
           "SDK accepted another module's resource token");
     services.resources()->release(foreign);
     check(!client.request_resource(FORGE_SDK_RESOURCE_MATERIAL, cube.c_str()) &&
+              !client.request_resource(FORGE_SDK_RESOURCE_TILE_SET, cube.c_str()) &&
+              !client.request_resource(FORGE_SDK_RESOURCE_TILE_MAP, cube.c_str()) &&
               !client.request_resource(99, cube.c_str()) &&
               !client.request_resource(FORGE_SDK_RESOURCE_MESH, "invalid") &&
               !client.request_resource(FORGE_SDK_RESOURCE_MESH, cube.c_str(), 2) &&

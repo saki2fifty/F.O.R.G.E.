@@ -1,4 +1,5 @@
 #include "model_render_resource.hpp"
+#include "tile_asset_resources.hpp"
 #include <forge/engine_assets.hpp>
 #include <forge/runtime_content_access.hpp>
 #include <forge/runtime_resources.hpp>
@@ -9,7 +10,8 @@
 namespace forge {
 namespace {
 using Lease = std::variant<ResourceLease<MeshAsset>, ResourceLease<MaterialAsset>,
-                           ResourceLease<TextureAsset>, ResourceLease<ShaderAsset>>;
+                           ResourceLease<TextureAsset>, ResourceLease<ShaderAsset>,
+                           ResourceLease<TileSetAsset>, ResourceLease<TileMapAsset>>;
 struct Subscription {
     RuntimeResourceKind kind;
     AssetId asset;
@@ -26,11 +28,15 @@ class RuntimeResources final : public RuntimeResourceService {
     ServiceAccess services_;
     RuntimeContentAccess access_;
     std::shared_ptr<const AssetCatalog> catalog_;
-    // Aggregate CPU budget512MiB; each family has one preparation worker.
+    // Aggregate retained CPU budget592MiB; one preparation worker per family.
+    // Linux GCC12 maximum-profile estimates: Map16883912B / Set759440B;
+    // map/set budgets deliberately include room for replacement and held leases.
     ResourcePool<MeshAsset> meshes_{{1, 64, 256, 128ull * 1024 * 1024}};
     ResourcePool<MaterialAsset> materials_{{1, 64, 256, 128ull * 1024 * 1024}};
     ResourcePool<TextureAsset> textures_{{1, 64, 256, 128ull * 1024 * 1024}};
     ResourcePool<ShaderAsset> shaders_{{1, 64, 256, 128ull * 1024 * 1024}};
+    ResourcePool<TileSetAsset> tile_sets_{{1, 64, 256, 16ull * 1024 * 1024}};
+    ResourcePool<TileMapAsset> tile_maps_{{1, 64, 256, 64ull * 1024 * 1024}};
     std::map<std::uint64_t, Subscription> subscriptions_;
     bool refresh_again_ = false, alive_ = true;
     // Last member: join file-only work before any owner state is destroyed.
@@ -58,6 +64,12 @@ class RuntimeResources final : public RuntimeResourceService {
             throw std::runtime_error("Collision admission belongs to the physics resource owner");
         case RuntimeResourceKind::Shader:
             expected = ShaderAsset::type;
+            break;
+        case RuntimeResourceKind::TileSet:
+            expected = TileSetAsset::type;
+            break;
+        case RuntimeResourceKind::TileMap:
+            expected = TileMapAsset::type;
             break;
         default:
             throw std::runtime_error("Unsupported runtime resource type");
@@ -104,12 +116,26 @@ class RuntimeResources final : public RuntimeResourceService {
             break;
         case RuntimeResourceKind::Shader:
             return request_shader(shaders_, project_, *catalog_, {asset});
+        case RuntimeResourceKind::TileSet:
+            return request_tile_set(tile_sets_, project_, catalog_, {asset});
+        case RuntimeResourceKind::TileMap:
+            return request_tile_map(tile_maps_, project_, catalog_, {asset});
         }
         throw std::runtime_error("Unsupported runtime resource type");
     }
     template <class T> void retain(ResourcePool<T>& pool, Subscription& value) {
         if (auto lease = pool.acquire(value.ticket))
             value.retained = std::move(lease);
+    }
+    template <class T> ResourceLease<T> lease(std::uint64_t token, RuntimeResourceKind kind) const {
+        check();
+        const auto found = subscriptions_.find(token);
+        if (found == subscriptions_.end())
+            throw std::runtime_error("Unknown or released runtime resource subscription");
+        if (found->second.kind != kind)
+            return {};
+        const auto* retained = std::get_if<ResourceLease<T>>(&found->second.retained);
+        return retained && *retained ? *retained : ResourceLease<T>{};
     }
 
   public:
@@ -133,6 +159,8 @@ class RuntimeResources final : public RuntimeResourceService {
         materials_.close();
         textures_.close();
         shaders_.close();
+        tile_sets_.close();
+        tile_maps_.close();
     }
     std::uint64_t request(RuntimeResourceKind kind, AssetId asset,
                           RuntimeTextureVariant variant) override {
@@ -204,24 +232,16 @@ class RuntimeResources final : public RuntimeResourceService {
         return result;
     }
     ResourceLease<MeshAsset> mesh(std::uint64_t token) const override {
-        check();
-        const auto found = subscriptions_.find(token);
-        if (found == subscriptions_.end())
-            throw std::runtime_error("Unknown or released runtime resource subscription");
-        if (found->second.kind != RuntimeResourceKind::Mesh)
-            return {};
-        const auto* lease = std::get_if<ResourceLease<MeshAsset>>(&found->second.retained);
-        return lease && *lease ? *lease : ResourceLease<MeshAsset>{};
+        return lease<MeshAsset>(token, RuntimeResourceKind::Mesh);
     }
     ResourceLease<MaterialAsset> material(std::uint64_t token) const override {
-        check();
-        const auto found = subscriptions_.find(token);
-        if (found == subscriptions_.end())
-            throw std::runtime_error("Unknown or released runtime resource subscription");
-        if (found->second.kind != RuntimeResourceKind::Material)
-            return {};
-        const auto* lease = std::get_if<ResourceLease<MaterialAsset>>(&found->second.retained);
-        return lease && *lease ? *lease : ResourceLease<MaterialAsset>{};
+        return lease<MaterialAsset>(token, RuntimeResourceKind::Material);
+    }
+    ResourceLease<TileSetAsset> tile_set(std::uint64_t token) const override {
+        return lease<TileSetAsset>(token, RuntimeResourceKind::TileSet);
+    }
+    ResourceLease<TileMapAsset> tile_map(std::uint64_t token) const override {
+        return lease<TileMapAsset>(token, RuntimeResourceKind::TileMap);
     }
     bool release(std::uint64_t token) override {
         check();
@@ -274,6 +294,8 @@ class RuntimeResources final : public RuntimeResourceService {
         materials_.pump();
         textures_.pump();
         shaders_.pump();
+        tile_sets_.pump();
+        tile_maps_.pump();
         for (auto& [token, value] : subscriptions_) {
             (void)token;
             if (!value.selection_error.empty())
@@ -292,6 +314,12 @@ class RuntimeResources final : public RuntimeResourceService {
                 break;
             case RuntimeResourceKind::Shader:
                 retain(shaders_, value);
+                break;
+            case RuntimeResourceKind::TileSet:
+                retain(tile_sets_, value);
+                break;
+            case RuntimeResourceKind::TileMap:
+                retain(tile_maps_, value);
                 break;
             }
         }

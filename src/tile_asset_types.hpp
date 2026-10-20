@@ -3,14 +3,8 @@
 #include <string>
 
 namespace forge {
-// Internal root tags until the complete scene/runtime SDK surface is admitted.
-// Local image/tile/layer/chunk/cell keys are not catalog asset types.
-struct TileSetAsset {
-    static constexpr const char* type = "tile_set";
-};
-struct TileMapAsset {
-    static constexpr const char* type = "tile_map";
-};
+// Root tags belong to the common AssetRef contract. Local image/tile/layer/
+// chunk/cell keys are not catalog asset types.
 inline constexpr const char* tile_set_importer_id = "forge.tileset";
 inline constexpr const char* tile_map_importer_id = "forge.tilemap";
 inline constexpr const char* tile_set_cooked_format = "forge.tile-set-cooked";

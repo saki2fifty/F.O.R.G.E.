@@ -240,8 +240,14 @@ of the current request ticket. Failed replacement therefore preserves the prior
 revision, and a newly admitted revision replaces that subscription's lease only
 at the owner synchronization boundary.
 
-The provider uses four pools with one preparation worker,64in-flight requests,
-256asset slots and128MiB resident CPU budget each. Subscriptions are bounded to
+The development provider uses six pools with one preparation worker,
+64in-flight requests and256asset slots each. Mesh/Material/Texture/Shader each
+retain their128MiB CPU budget; Tile Set has16MiB and Tile Map64MiB, for592MiB
+aggregate retained CPU budgets. The latter bounds are deliberate: the Linux GCC12
+maximum-profile estimates are759440bytes per Set and16883912bytes per Map, with
+room for replacement and held revisions. These are allocation estimates, not
+process RSS or GPU budgets; preparation scratch remains separate. Collision
+resources remain owned by Physics. Subscriptions are bounded to
 256per world and64per exact SDK module. Releasing a subscription releases its
 pin; the ordinary pool cache can retain selected bytes until eviction or close.
 CPU readiness does not represent GPU upload, dependency-complete material draws,
@@ -249,6 +255,14 @@ or shader pipeline readiness. No Diligent object crosses this contract.
 Texture subscriptions retain an explicit optional color/data/normal/HDR variant;
 the automatic choice is HDR when published, otherwise color. Refresh preserves
 that choice. A missing variant fails without treating another semantic as equivalent.
+
+Tile Set and Tile Map use common value-only AssetRef tags and the same scoped
+CPU request/status/release facade. Builtin instance consumers can retain their
+typed immutable leases; modules receive copied status, never raw cells or resource
+pointers through this facade. CPU map readiness alone does not establish an
+instance's complete Map/Tile Set selection, rendering or fixed-step mutation.
+The public header additions change the exact SDK fingerprint and require matching
+module rebuilds. A dedicated gameplay cell query/edit interface is still pending.
 
 Catalog refresh captures a new immutable selection on a file-only worker and
 reissues existing subscriptions on the owner. A selection failure reports an

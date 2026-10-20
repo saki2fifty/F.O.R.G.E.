@@ -10,6 +10,12 @@ struct CollisionAsset {
 struct ParticleEffectAsset {
     static constexpr const char* type = "particle_effect";
 };
+struct TileSetAsset {
+    static constexpr const char* type = "tile_set";
+};
+struct TileMapAsset {
+    static constexpr const char* type = "tile_map";
+};
 struct MaterialAsset {
     static constexpr const char* type = "material";
 };

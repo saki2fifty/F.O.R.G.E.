@@ -24,6 +24,13 @@
 namespace forge {
 namespace {
 using Json = nlohmann::json;
+static_assert(unsigned(RuntimeResourceKind::Mesh) == FORGE_SDK_RESOURCE_MESH &&
+              unsigned(RuntimeResourceKind::Material) == FORGE_SDK_RESOURCE_MATERIAL &&
+              unsigned(RuntimeResourceKind::Texture) == FORGE_SDK_RESOURCE_TEXTURE &&
+              unsigned(RuntimeResourceKind::Shader) == FORGE_SDK_RESOURCE_SHADER &&
+              unsigned(RuntimeResourceKind::Collision) == FORGE_SDK_RESOURCE_COLLISION &&
+              unsigned(RuntimeResourceKind::TileSet) == FORGE_SDK_RESOURCE_TILE_SET &&
+              unsigned(RuntimeResourceKind::TileMap) == FORGE_SDK_RESOURCE_TILE_MAP);
 static_assert(unsigned(AnimationControl::Play) == FORGE_SDK_ANIMATION_PLAY &&
               unsigned(AnimationControl::Pause) == FORGE_SDK_ANIMATION_PAUSE &&
               unsigned(AnimationControl::Restart) == FORGE_SDK_ANIMATION_RESTART);

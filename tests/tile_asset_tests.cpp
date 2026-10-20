@@ -13,6 +13,9 @@
 #include "tile_map_document.hpp"
 #include "tile_set_document.hpp"
 #include <forge/engine_texture_assets.hpp>
+#include <forge/runtime_resources.hpp>
+#include <forge/scene.hpp>
+#include <future>
 #include <iostream>
 #include <thread>
 
@@ -153,6 +156,119 @@ void recipe_guards(const TileSetSource& set, const TileMapSource& map) {
     bad.inputs[0].bytes = snapshot(missing.document.dump());
     bad.payload["source_digest"] = asset_detail::content_digest(bad.inputs[0].bytes);
     reject([&] { (void)asset_detail::execute_tile_recipe(bad); });
+}
+void runtime_leases(const std::filesystem::path& root, AssetId set_id, AssetId map_id,
+                    bool test_replacement) {
+    const auto saved = AssetCatalog::open_project(root).document();
+    ResourceLease<TileSetAsset> retained_set;
+    ResourceLease<TileMapAsset> retained_map;
+    std::shared_ptr<RuntimeResourceService> stopped;
+    {
+        EngineContext engine(WorldRole::Runtime, false, {runtime_resources_module(root)});
+        auto resources = engine.services().resources();
+        stopped = resources;
+        Scene scene(engine.world());
+        const auto before = scene.snapshot();
+        require(engine.services().available(Capability::Resources) &&
+                    !engine.services().available(Capability::Rendering),
+                "Tile CPU resources required a renderer");
+        const auto set = resources->request(RuntimeResourceKind::TileSet, set_id);
+        const auto map = resources->request(RuntimeResourceKind::TileMap, map_id);
+        const auto second = resources->request(RuntimeResourceKind::TileMap, map_id);
+        require(!resources->tile_set(set) && !resources->tile_map(map),
+                "Unadopted tile subscription exposed CPU data");
+        const auto wait = [&](std::uint64_t token, const auto& ready) {
+            const auto deadline = std::chrono::steady_clock::now() + 10s;
+            for (;;) {
+                resources->synchronize();
+                const auto status = resources->inspect(token);
+                if (ready(status))
+                    return status;
+                require(std::chrono::steady_clock::now() < deadline,
+                        "Runtime tile subscription stalled: " + status.state + " " +
+                            status.diagnostic);
+                std::this_thread::sleep_for(1ms);
+            }
+        };
+        const auto ready = [](const auto& status) {
+            return status.state == "ready" && !status.retained_revision.empty();
+        };
+        wait(set, ready);
+        const auto original = wait(map, ready);
+        wait(second, ready);
+        retained_set = resources->tile_set(set);
+        retained_map = resources->tile_map(map);
+        require(retained_set && retained_map && retained_map->occupied() == 3 &&
+                    &retained_map.get() == &resources->tile_map(second).get() &&
+                    retained_map->tile_set() == retained_set->asset(),
+                "Runtime tile resources lost typed data or coalesced leases");
+        require(!resources->tile_map(set) && !resources->tile_set(map),
+                "Runtime tile subscription exposed another resource type");
+        reject([&] { (void)resources->request(RuntimeResourceKind::TileMap, set_id); });
+        reject([&] {
+            (void)resources->request(RuntimeResourceKind::TileSet,
+                                     engine_texture(EngineTexture::Checker).id);
+        });
+        reject([&] {
+            (void)resources->request(RuntimeResourceKind::TileMap, map_id,
+                                     RuntimeTextureVariant::Color);
+        });
+        require(std::async(std::launch::async,
+                           [&] {
+                               try {
+                                   (void)resources->tile_map(map);
+                               } catch (const std::exception&) {
+                                   return true;
+                               }
+                               return false;
+                           })
+                    .get(),
+                "Off-thread runtime tile lease access was accepted");
+        {
+            EngineContext other(WorldRole::Runtime, false, {runtime_resources_module(root)});
+            reject([&] { (void)other.services().resources()->tile_map(map); });
+        }
+        if (test_replacement) {
+            auto catalog = AssetCatalog::open_project(root);
+            auto record = catalog.records().at(map_id);
+            auto& selected = record.metadata["forge.import"];
+            const auto generation = selected.at("generation").get<std::uint64_t>();
+            selected["generation"] = generation + 1;
+            selected["key"] = std::string(64, 'f');
+            catalog.replace(record);
+            catalog.save(AssetCatalog::project_index(root));
+            resources->refresh();
+            const auto failed =
+                wait(map, [](const auto& status) { return status.state == "failed"; });
+            require(failed.retained_revision == original.retained_revision &&
+                        !failed.diagnostic.empty() &&
+                        &retained_map.get() == &resources->tile_map(map).get(),
+                    "Failed tile replacement discarded the last-good CPU lease");
+            catalog.restore(saved);
+            record = catalog.records().at(map_id);
+            record.metadata["forge.import"]["generation"] = generation + 2;
+            catalog.replace(record);
+            catalog.save(AssetCatalog::project_index(root));
+            resources->refresh();
+            wait(map, [&](const auto& status) {
+                return ready(status) && status.source_generation == generation + 2;
+            });
+            require(resources->tile_map(map)->cell(1, {-1, -1}) == TileMapCell{2, 0},
+                    "Repaired runtime tile selection changed admitted cells");
+        }
+        require(resources->release(map) && !resources->release(map) && resources->tile_map(second),
+                "Releasing one observer cancelled another tile consumer");
+        reject([&] { (void)resources->tile_map(map); });
+        require(scene.snapshot() == before,
+                "Runtime tile resource access changed authored world data");
+    }
+    require(!retained_map && !retained_set, "Tile leases remained accessible after owner shutdown");
+    reject([&] { (void)stopped->tile_map(1); });
+    if (test_replacement) {
+        AssetCatalog restore(root);
+        restore.restore(saved);
+        restore.save(AssetCatalog::project_index(root));
+    }
 }
 void automatic_updates(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
                        const std::filesystem::path& worker, AssetId material_id, AssetId set_id,
@@ -400,6 +516,7 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
                 map_data.cell(1, {INT32_MAX, INT32_MIN}) == TileMapCell{5, 7} &&
                 catalog->records().at(map_id).dependency_edges.size() == 2,
             "Published sparse map values or typed Tile Set dependency differ");
+    runtime_leases(root, set_id, map_id, true);
     const auto good_catalog = catalog->document();
     set->edit(set->revision(), "Grid that cannot divide its real texture",
               [](auto& source) { source["images"][0]["grid"]["columns"] = 3; });
@@ -454,6 +571,7 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     std::filesystem::remove_all(root / "Assets");
     const auto packaged =
         std::make_shared<const AssetCatalog>(open_runtime_content(moved, {"linux", "none"}));
+    runtime_leases(moved, set_id, map_id, false);
     require(load_set(moved, packaged, set_id).tile(2).name == "Renamed" &&
                 load_map(moved, packaged, map_id).cell(1, {-1, -1}) == TileMapCell{2, 0} &&
                 !std::filesystem::exists(moved / "Assets/Original.tilemap.json"),

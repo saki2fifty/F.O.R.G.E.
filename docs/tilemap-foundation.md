@@ -130,8 +130,9 @@ representation keeps unchanged data shared across saved values and history.
 
 ### Ordinary asset publication and loading
 
-Internal `TileSetAsset`/`TileMapAsset` tags use the existing root AssetCatalog and
-ResourcePool contracts. `tile_asset_import_registry` supplies the two source
+Value-only `TileSetAsset`/`TileMapAsset` tags belong to the common AssetRef contract
+and use the existing root AssetCatalog and ResourcePool contracts. Their scene
+component and gameplay cell interface remain unfinished. `tile_asset_import_registry` supplies the two source
 importers to `AssetImportService`; no parallel catalog, dependency graph, history
 or loaded-handle database is introduced. Source bytes and selected dependencies
 are recaptured before cooking, and stale or failed candidates retain last-good
