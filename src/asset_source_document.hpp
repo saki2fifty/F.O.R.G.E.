@@ -1,14 +1,20 @@
 #pragma once
 #include "asset_bytes.hpp"
+#include <algorithm>
 #include <forge/assets.hpp>
 #include <forge/project_lease.hpp>
 #include <forge/scene.hpp>
 #include <functional>
 #include <thread>
+#include <type_traits>
+#include <utility>
 namespace forge {
 // UI-independent, single-document source/history owner. Publication is separate.
 template <class Traits> class AssetSourceDocument {
     using Source = typename Traits::Source;
+    using Value = std::remove_cvref_t<decltype(std::declval<Source>().document)>;
+    static_assert(std::is_nothrow_swappable_v<Value>,
+                  "Asset source saved-value adoption must not throw after file publication");
 
   public:
     AssetSourceDocument(std::shared_ptr<const ProjectLease>, std::filesystem::path source);
@@ -24,6 +30,9 @@ template <class Traits> class AssetSourceDocument {
     bool can_redo() const { return !redo_.empty(); }
     void edit(std::uint64_t expected, std::string label,
               const std::function<void(nlohmann::json&)>& mutation);
+    // Same validation/history owner for sources with an immutable typed value.
+    void edit_source(std::uint64_t expected, std::string label,
+                     const std::function<void(Source&)>& mutation);
     void undo();
     void redo();
     // Reject a changed on-disk baseline. Does not publish, import, or edit a scene.
@@ -39,7 +48,7 @@ template <class Traits> class AssetSourceDocument {
     std::filesystem::path project_, locator_;
     std::thread::id owner_;
     Source current_;
-    nlohmann::json saved_;
+    Value saved_;
     std::string disk_;
     std::uint64_t revision_ = 1;
     std::vector<Entry> undo_, redo_;
@@ -47,6 +56,8 @@ template <class Traits> class AssetSourceDocument {
     void check_identity() const;
     void history(std::vector<Entry>& from, std::vector<Entry>& to);
     static void bound(std::vector<Entry>&);
+    static std::size_t history_weight(const Source&, const Source&);
+    static constexpr std::size_t history_budget = 8 * 1024 * 1024;
     static std::string read(const std::filesystem::path& path) {
         const auto bytes = asset_detail::read_bytes(path, Traits::byte_limit);
         return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
@@ -127,21 +138,43 @@ template <class Traits> void AssetSourceDocument<Traits>::bound(std::vector<Entr
     std::size_t bytes = 0;
     for (const auto& e : entries)
         bytes += e.bytes;
-    while (entries.size() > 64 || bytes > 8 * 1024 * 1024) {
+    while (entries.size() > 64 || bytes > history_budget) {
         bytes -= entries.front().bytes;
         entries.erase(entries.begin());
     }
 }
 template <class Traits>
+std::size_t AssetSourceDocument<Traits>::history_weight(const Source& from, const Source& to) {
+    const std::size_t bytes = [&] {
+        if constexpr (requires { Traits::history_weight(from, to); })
+            return Traits::history_weight(from, to);
+        else
+            return from.document.dump().size();
+    }();
+    if (!bytes)
+        throw std::runtime_error("Asset source history weight must be positive");
+    // Larger entries are immediately evicted. Saturation also bounds summation
+    // when a source policy reports an exhausted/oversized weight.
+    return std::min(bytes, history_budget + 1);
+}
+template <class Traits>
 void AssetSourceDocument<Traits>::edit(std::uint64_t expected, std::string label,
                                        const std::function<void(nlohmann::json&)>& mutation) {
+    std::function<void(Source&)> update;
+    if (mutation)
+        update = [&](Source& candidate) { mutation(candidate.document); };
+    edit_source(expected, std::move(label), update);
+}
+template <class Traits>
+void AssetSourceDocument<Traits>::edit_source(std::uint64_t expected, std::string label,
+                                              const std::function<void(Source&)>& mutation) {
     check();
     if (expected != revision_)
         throw std::runtime_error("Asset source revision changed");
     if (!mutation || label.empty() || label.size() > 256)
         throw std::runtime_error("Invalid asset source edit operation");
     auto candidate = current_;
-    mutation(candidate.document);
+    mutation(candidate);
     candidate.validate();
     if constexpr (requires { Traits::validate_edit(current_, candidate); })
         Traits::validate_edit(current_, candidate);
@@ -149,7 +182,8 @@ void AssetSourceDocument<Traits>::edit(std::uint64_t expected, std::string label
         throw std::runtime_error("Asset source edit cannot change persistent identity");
     if (candidate.document == current_.document)
         return;
-    undo_.push_back({current_, std::move(label), current_.document.dump().size()});
+    const auto weight = history_weight(current_, candidate);
+    undo_.push_back({current_, std::move(label), weight});
     bound(undo_);
     redo_.clear();
     current_ = std::move(candidate);
@@ -164,7 +198,8 @@ void AssetSourceDocument<Traits>::history(std::vector<Entry>& from, std::vector<
     auto next = from.back().source;
     if constexpr (requires { Traits::restore_identity_metadata(next, current_); })
         Traits::restore_identity_metadata(next, current_);
-    to.push_back({current_, from.back().label, current_.document.dump().size()});
+    const auto weight = history_weight(current_, next);
+    to.push_back({current_, from.back().label, weight});
     bound(to);
     from.pop_back();
     current_ = std::move(next);
@@ -187,7 +222,8 @@ template <class Traits> void AssetSourceDocument<Traits>::save() {
     if (next_disk.size() > Traits::byte_limit)
         throw std::runtime_error("Formatted asset source exceeds byte limit");
     atomic_write(file, next_disk);
-    saved_.swap(next_saved);
+    using std::swap;
+    swap(saved_, next_saved);
     disk_.swap(next_disk);
 }
 } // namespace forge
