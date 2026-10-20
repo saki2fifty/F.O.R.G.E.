@@ -2,6 +2,8 @@
 #include "../animation_playback_access.hpp"
 #include "../audio_mix.hpp"
 #include "../runtime_property_tune.hpp"
+#include "../tile_map_play_receiver.hpp"
+#include "../tile_map_play_transport.hpp"
 #include "event_time.hpp"
 #include "play_transport_worker.hpp"
 #include <SDL3/SDL.h>
@@ -54,6 +56,16 @@ class PlaySession {
     }
     bool control_ready() const {
         return ready() && control_.empty() && (!waiting_ || sent_command_ == "snapshot");
+    }
+    void bind_tile_maps(RenderScene& scene, std::uint64_t ticket = 0) const {
+        if (ticket && prepared_tiles_.world() == ticket)
+            prepared_tiles_.bind(scene);
+        else if (!ticket || active_tiles_.world() == ticket)
+            active_tiles_.bind(scene);
+        else {
+            TileMapPlayReceiver missing;
+            missing.bind(scene);
+        }
     }
     const Json& timing() const { return timing_; }
     bool time_scale_pending() const {
@@ -778,360 +790,405 @@ class PlaySession {
                         static_cast<unsigned long long>(SDL_GetTicks()), sent_command_.c_str(),
                         static_cast<unsigned long long>(request_id_), receipt.payload.size(),
                         static_cast<unsigned long long>(receipt.received_at_ms));
-                // Branch BEFORE normal-snapshot parsing: a `candidate`
-                // response carries ONLY {protocol, session, id, ok,
-                // runtime_contract, candidate} — no scene, no timing, no
-                // recovery, no activation. The reference-driven fetch
-                // must not be confused with a healthy active world.
-                if (sent_command_ == "candidate") {
+                if (tile_map_play_command(sent_command_) &&
+                    !response.value("quit_requested", false)) {
+                    if (!response.value("ok", false))
+                        throw std::runtime_error(
+                            response.value("error", std::string{"Tile projection failed"}));
+                    if (tile_reply_)
+                        tile_reply_->receive(response.at("tile_projection"));
+                    tile_reply_ = nullptr;
+                } else {
+                    // Branch BEFORE normal-snapshot parsing: a `candidate`
+                    // response carries ONLY {protocol, session, id, ok,
+                    // runtime_contract, candidate} — no scene, no timing, no
+                    // recovery, no activation. The reference-driven fetch
+                    // must not be confused with a healthy active world.
+                    if (sent_command_ == "candidate") {
+                        if (!response.value("ok", false)) {
+                            // The expected benign race: the runtime
+                            // cancelled/replaced the referenced candidate
+                            // between the reference snapshot and our fetch.
+                            // Treat as expected: discard the stale ref and
+                            // any queued verdict, do NOT close the active
+                            // world or surface this as a runtime fault. Any
+                            // genuine runtime failure from `candidate`
+                            // carries a non-`not available` error string and
+                            // is propagated.
+                            const auto err = response.value("error", std::string{"unknown"});
+                            if (err.find("not available") != std::string::npos ||
+                                err.find("no longer live") != std::string::npos ||
+                                err.find("unknown candidate") != std::string::npos ||
+                                err.find("unknown ticket") != std::string::npos) {
+                                sdk_candidate_ticket_ = 0;
+                                sdk_candidate_fetched_ticket_ = 0;
+                                sdk_candidate_envelope_ = nullptr;
+                                prepared_tiles_.clear();
+                                sdk_pending_candidate_ack_ = false;
+                                sdk_candidate_ack_ = nullptr;
+                                sdk_ack_terminal_ticket_ = 0;
+                                sdk_ack_terminal_value_ = nullptr;
+                                return;
+                            }
+                            throw std::runtime_error("Candidate envelope retrieval failed: " + err);
+                        }
+                        const auto envelope = response.value("candidate", Json());
+                        if (!envelope.is_object())
+                            throw std::runtime_error("Candidate envelope is not a JSON object");
+                        const auto ticket = envelope.value("ticket", std::uint64_t{});
+                        const auto env_session = envelope.value("session", std::string{});
+                        if (ticket == 0 || env_session != session_)
+                            throw std::runtime_error(
+                                "Candidate envelope has invalid ticket/session");
+                        if (ticket != sdk_candidate_ticket_ && sdk_candidate_ticket_ != 0)
+                            throw std::runtime_error(
+                                "Candidate envelope ticket drifted from requested reference");
+                        sdk_candidate_envelope_ = envelope;
+                        if (envelope.contains("tile_maps"))
+                            prepared_tiles_.observe(envelope.at("tile_maps"));
+                        sdk_candidate_fetched_ticket_ = ticket;
+                        // NOTE: do NOT set sdk_expected_ticket_ here. A
+                        // successful fetch only proves the runtime has a
+                        // frozen envelope; GPU admission is the editor's
+                        // prepared verdict and is recorded on
+                        // submit_sdk_candidate_ack(accepted=true). The
+                        // expected ticket is the authoritative ticket for
+                        // which the editor has shipped a positive prepared
+                        // ack, retained until activation.generation
+                        // matches, and cleared on supersession / commit /
+                        // process close.
+                        return;
+                    }
+                    if (response.value("quit_requested", false)) {
+                        // Forward-compatible: runtime-initiated graceful stop.
+                        // Treated as a normal stop (not an exception/recovery),
+                        // so the editor authored source remains untouched.
+                        const std::string diagnostic =
+                            response.value("diagnostic", std::string{"Runtime requested quit"});
+                        close_process();
+                        status_ = diagnostic + ". Authored scene is safe; press Play to restart.";
+                        return;
+                    }
                     if (!response.value("ok", false)) {
-                        // The expected benign race: the runtime
-                        // cancelled/replaced the referenced candidate
-                        // between the reference snapshot and our fetch.
-                        // Treat as expected: discard the stale ref and
-                        // any queued verdict, do NOT close the active
-                        // world or surface this as a runtime fault. Any
-                        // genuine runtime failure from `candidate`
-                        // carries a non-`not available` error string and
-                        // is propagated.
-                        const auto err = response.value("error", std::string{"unknown"});
-                        if (err.find("not available") != std::string::npos ||
-                            err.find("no longer live") != std::string::npos ||
-                            err.find("unknown candidate") != std::string::npos ||
-                            err.find("unknown ticket") != std::string::npos) {
+                        const auto error = response.value("error", "Runtime rejected request");
+                        if (sent_command_ == "audio_mix" || sent_command_ == "audio_source" ||
+                            sent_command_ == "animation_playback" || sent_command_ == "profiling") {
+                            if (sent_command_ == "profiling")
+                                cpu_profile_error_ = error;
+                            else if (sent_command_ == "audio_mix")
+                                audio_mix_error_ = error;
+                            else if (sent_command_ == "animation_playback") {
+                                if (sent_animation_ == animation_watch_)
+                                    animation_error_ = error;
+                            } else if (sent_audio_source_ == audio_source_watch_)
+                                audio_source_error_ = error;
+                            send({{"command", "snapshot"}});
+                            return;
+                        }
+                        // Too-late SDK loading cancel: the runtime
+                        // reports the cancel ticket no longer matches
+                        // the prepared scene. This is a nonfatal race
+                        // (the user pressed Cancel just as the runtime
+                        // committed, either before or after the editor
+                        // observed publication), NOT a transport fault.
+                        //
+                        // Two valid outcomes depending on whether
+                        // publication actually won:
+                        //   * Editor has NOT observed activation
+                        //     (sdk_activation_active_ == false): the
+                        //     runtime may have published AFTER our last
+                        //     successful response and BEFORE processing
+                        //     the cancel. Refresh the snapshot now so the
+                        //     next pump observes the live state. Preserve
+                        //     sdk_expected_ticket_ so a follow-on
+                        //     publication can commit. Do NOT claim the
+                        //     world is retained until we actually observe
+                        //     it.
+                        //   * Editor HAS observed activation
+                        //     (sdk_activation_active_ == true): the
+                        //     published world is already ours to retain.
+                        //     Surface an actionable notice and keep Play
+                        //     alive.
+                        //
+                        // Either way, do NOT throw — throwing would tear
+                        // down a healthy world. Do NOT relax runtime
+                        // exact-ticket validation or fabricate a rollback.
+                        if (sent_command_ == "cancel" && sdk_game_ &&
+                            (error.find("cancel ticket does not match") != std::string::npos ||
+                             error.find("no longer live") != std::string::npos ||
+                             error.find("unknown ticket") != std::string::npos)) {
+                            if (sdk_activation_active_) {
+                                notice_ = "SDK loading cancel arrived after activation; "
+                                          "published world retained. ";
+                            } else {
+                                notice_ = "SDK loading cancel no longer applies; "
+                                          "refreshing snapshot to observe live state. ";
+                                // Force the next pump to issue a snapshot
+                                // immediately instead of waiting the
+                                // documented 8 ms cadence.
+                                sent_at_ = 0;
+                            }
+                            return;
+                        }
+                        if (sent_command_ == "time_scale") {
+                            notice_ = "Simulation rate change rejected: " + error + ". ";
+                            sent_at_ = 0;
+                            return;
+                        }
+                        if (sent_command_ == "property_tune") {
+                            property_tune_ack_ = {{"ok", false}, {"error", error}};
+                            notice_ = "Live property change rejected: " + error + ". ";
+                            sent_at_ = 0;
+                            return;
+                        }
+                        throw std::runtime_error(error);
+                    }
+                    if (sent_command_ == "property_tune")
+                        property_tune_ack_ = response.value("property_tune", Json());
+                    if (stage_ == Stage::Hello && (exact_sdk_ || sdk_game_)) {
+                        const auto info = response.value("runtime_contract", Json::object());
+                        if (info.value("profile", "") != "shared-native-sdk" ||
+                            !info.value("sdk_project", false) ||
+                            info.value("source_commit", "") != forge::source_commit)
+                            throw std::runtime_error(
+                                "SDK runtime does not match this editor source "
+                                "or shared SDK profile. Select the matching "
+                                "Native SDK installation in Build.");
+                        if (sdk_game_ && !info.value("sdk_play", false))
+                            throw std::runtime_error(
+                                "SDK Play runtime does not advertise the "
+                                "sdk_play profile. Rebuild against the matching "
+                                "Native SDK installation and retry.");
+                    }
+                    if (stage_ == Stage::Hello &&
+                        std::any_of(initial_.at("entities").begin(), initial_.at("entities").end(),
+                                    [](const Json& entity) {
+                                        return entity.value("components", Json::object())
+                                            .contains("forge.tile_map_renderer");
+                                    }) &&
+                        response.value("runtime_contract", Json::object())
+                                .value("tile_projection", 0u) != tile_map_play_protocol)
+                        throw std::runtime_error(
+                            "This Scene requires copied Tile Map presentation. Select the "
+                            "matching FORGE runtime and retry Play.");
+                    const auto diagnostics = response.value("diagnostics", Json::array());
+                    if (diagnostics != diagnostics_) {
+                        for (const auto& d : diagnostics) {
+                            if (std::find(diagnostics_.begin(), diagnostics_.end(), d) !=
+                                diagnostics_.end())
+                                continue;
+                            const auto line =
+                                d.value("category", "runtime") + ": " + d.value("text", "") + "\n";
+                            log_ += line;
+                            timed_log_.append(line);
+                        }
+                        if (log_.size() > 131072)
+                            log_.erase(0, log_.size() - 131072);
+                        diagnostics_ = diagnostics;
+                    }
+                    snapshot_ = response.at("scene");
+                    recovery_ = response.at("recovery");
+                    effective_ = response.at("effective_scene");
+                    if (response.contains("tile_maps")) {
+                        const auto& maps = response.at("tile_maps");
+                        if (maps.is_null())
+                            active_tiles_.clear();
+                        else {
+                            if (prepared_tiles_.world() == maps.at("world").get<std::uint64_t>()) {
+                                active_tiles_ = std::move(prepared_tiles_);
+                                prepared_tiles_.clear();
+                            }
+                            active_tiles_.observe(maps);
+                        }
+                    }
+                    runtime_schema_ = response.value("schema", Json());
+                    runtime_world_generation_ = response.value("world_generation", std::uint64_t{});
+                    timing_ = response.at("timing");
+                    if (response.contains("cpu_profile"))
+                        cpu_profile_ = response.at("cpu_profile");
+                    else if (cpu_profile_.value("world_generation", std::uint64_t{}) !=
+                             runtime_world_generation_)
+                        cpu_profile_ = Json::object();
+
+                    audio_status_ = response.value("audio", Json::object());
+                    if (response.contains("audio_source") &&
+                        response.at("audio_source").value("source", Json()) == audio_source_watch_)
+                        audio_source_status_ = response.at("audio_source");
+                    if (response.contains("animation_playback") &&
+                        response.at("animation_playback").value("source", Json()) ==
+                            animation_watch_)
+                        animation_status_ = response.at("animation_playback");
+                    input_status_ = response.value("input", Json::object());
+                    physics_status_ = response.value("physics", Json::object());
+                    // SDK Play transport observations. Stage/none responses
+                    // carry these as null or empty values; do not assume a
+                    // healthy active world exists.
+                    if (sdk_game_) {
+                        sdk_loading_ = response.value("loading", Json::object());
+                        sdk_platform_effects_ = response.value("platform_effects", Json::array());
+                        // Rebuild the offered-effects set from the latest
+                        // snapshot. Entries older than the new observation
+                        // are dropped along with any unsent acks that
+                        // referenced them.
+                        {
+                            std::unordered_set<EffectKey, EffectKeyHash> live;
+                            const auto live_epoch =
+                                sdk_editor_epoch_.is_object()
+                                    ? sdk_editor_epoch_.value("epoch", std::uint64_t{})
+                                    : sdk_editor_epoch_seen_;
+                            for (const auto& entry : sdk_platform_effects_) {
+                                if (!entry.is_object())
+                                    continue;
+                                const auto token = entry.value("token", std::uint64_t{});
+                                const auto sequence = entry.value("sequence", std::uint64_t{});
+                                const auto epoch = entry.value("epoch", std::uint64_t{});
+                                if (!token || !sequence || epoch != live_epoch)
+                                    continue;
+                                live.insert({token, sequence, epoch});
+                            }
+                            sdk_offered_effects_ = std::move(live);
+                        }
+                        sdk_release_required_ = response.value("release_required", false);
+                        const auto& activation_obs = response.at("activation");
+                        const auto observed_gen =
+                            activation_obs.value("generation", std::uint64_t{});
+                        const auto activation_state = activation_obs.value("state", std::string{});
+                        sdk_activation_active_ =
+                            (activation_state == "ready" || activation_state == "active") &&
+                            observed_gen != 0;
+                        if (sdk_activation_active_)
+                            sdk_activation_generation_ = observed_gen;
+                        const auto& candidate_ref = response.value("candidate", Json());
+                        if (candidate_ref.is_object()) {
+                            const auto ticket = candidate_ref.value("ticket", std::uint64_t{});
+                            if (ticket != sdk_candidate_ticket_) {
+                                // New pending reference: remember it. We do
+                                // NOT retire sdk_expected_ticket_ here — it
+                                // persists across the mid-prepare snapshot
+                                // where the ref may be cleared, so the
+                                // Preparing -> Running commit check has
+                                // authoritative evidence. Once the editor
+                                // has actually fetched a frozen envelope for
+                                // a positive ticket (handled in the
+                                // candidate-response branch above), that
+                                // ticket becomes sdk_expected_ticket_.
+                                sdk_candidate_ticket_ = ticket;
+                                sdk_candidate_fetched_ticket_ = 0;
+                                // The previously-fetched envelope (if any)
+                                // belongs to the prior world; drop it so a
+                                // later sdk_candidate_ticket() reflects the
+                                // current ref.
+                                sdk_candidate_envelope_ = nullptr;
+                                prepared_tiles_.clear();
+                                // Already-acks stale to the new ticket.
+                                sdk_pending_candidate_ack_ = false;
+                                sdk_candidate_ack_ = nullptr;
+                                sdk_ack_terminal_ticket_ = 0;
+                                sdk_ack_terminal_value_ = nullptr;
+                            }
+                        } else if (sdk_candidate_ticket_ != 0) {
+                            // Runtime cleared its reference (post-initial
+                            // admission / supersession). Drop the current
+                            // ref + fetched + envelope + un-shipped verdict,
+                            // but NEVER touch sdk_expected_ticket_ — that
+                            // is the editor-prepared ticket preserved
+                            // across this transition for the commit check.
                             sdk_candidate_ticket_ = 0;
                             sdk_candidate_fetched_ticket_ = 0;
                             sdk_candidate_envelope_ = nullptr;
+                            prepared_tiles_.clear();
                             sdk_pending_candidate_ack_ = false;
                             sdk_candidate_ack_ = nullptr;
                             sdk_ack_terminal_ticket_ = 0;
                             sdk_ack_terminal_value_ = nullptr;
+                        }
+                    }
+                    auto next_ui = response.value("ui", Json());
+                    if (!next_ui.is_null() && !ui_snapshot_.is_null() &&
+                        next_ui.at("generation") != ui_snapshot_.at("generation"))
+                        ui_command_ = ui_ack_ =
+                            nullptr; // Old queued requests cannot cross replacement.
+                    ui_snapshot_ = std::move(next_ui);
+                    if (response.contains("ui_ack"))
+                        ui_ack_ = response.at("ui_ack");
+                    ++snapshot_version_;
+                    sdk_editor_epoch_confirmed_ =
+                        std::max(sdk_editor_epoch_confirmed_, sent_editor_epoch_);
+                    if (stage_ == Stage::Hello) {
+                        stage_ = Stage::Replace;
+                        Json replacement = {{"command", "replace"}, {"scene", initial_}};
+                        if (!initial_recovery_.is_null()) {
+                            replacement["recovery"] = initial_recovery_;
+                            replacement["recovery_session"] = initial_recovery_.at("session");
+                            replacement["recovery_tick"] = initial_recovery_.at("tick");
+                        }
+                        send(std::move(replacement));
+                    } else if (stage_ == Stage::Replace) {
+                        if (sdk_game_) {
+                            // SDK Play initial opt-in: do NOT begin_running.
+                            // Poll additional snapshots until activation is
+                            // observed live. sdk_expected_ticket_ is set on
+                            // successful frozen-envelope fetch (in the
+                            // candidate-response branch), not here — the
+                            // initial replace response often publishes
+                            // candidate:null and the runtime prepares the
+                            // candidate afterwards.
+                            sdk_activation_active_ = false;
+                            sdk_activation_generation_ = 0;
+                            stage_ = Stage::Preparing;
+                        } else
+                            begin_running();
+                    } else if (stage_ == Stage::Preparing) {
+                        const auto& activation_value = response.at("activation");
+                        const auto state = activation_value.value("state", std::string{});
+                        const auto gen = activation_value.value("generation", std::uint64_t{});
+                        sdk_activation_generation_ = gen;
+                        const auto loading_value = response.value("loading", Json::object());
+                        const auto loading_state_str = loading_value.value("state", std::string{});
+                        if (loading_state_str == "failed" || loading_state_str == "cancelled") {
+                            // Initial opt-in has no healthy old world to
+                            // retain; surface a clean diagnostic, stop
+                            // cleanly without raising a process fault.
+                            sdk_candidate_ticket_ = 0;
+                            sdk_candidate_fetched_ticket_ = 0;
+                            sdk_candidate_envelope_ = nullptr;
+                            prepared_tiles_.clear();
+                            sdk_pending_candidate_ack_ = false;
+                            sdk_candidate_ack_ = nullptr;
+                            sdk_ack_terminal_ticket_ = 0;
+                            sdk_ack_terminal_value_ = nullptr;
+                            sdk_expected_ticket_ = 0;
+                            sdk_activation_active_ = false;
+                            status_ = "Initial SDK Play candidate " + loading_state_str + ": " +
+                                      loading_value.value("error", std::string{"unknown"});
+                            close_process();
                             return;
                         }
-                        throw std::runtime_error("Candidate envelope retrieval failed: " + err);
-                    }
-                    const auto envelope = response.value("candidate", Json());
-                    if (!envelope.is_object())
-                        throw std::runtime_error("Candidate envelope is not a JSON object");
-                    const auto ticket = envelope.value("ticket", std::uint64_t{});
-                    const auto env_session = envelope.value("session", std::string{});
-                    if (ticket == 0 || env_session != session_)
-                        throw std::runtime_error("Candidate envelope has invalid ticket/session");
-                    if (ticket != sdk_candidate_ticket_ && sdk_candidate_ticket_ != 0)
-                        throw std::runtime_error(
-                            "Candidate envelope ticket drifted from requested reference");
-                    sdk_candidate_envelope_ = envelope;
-                    sdk_candidate_fetched_ticket_ = ticket;
-                    // NOTE: do NOT set sdk_expected_ticket_ here. A
-                    // successful fetch only proves the runtime has a
-                    // frozen envelope; GPU admission is the editor's
-                    // prepared verdict and is recorded on
-                    // submit_sdk_candidate_ack(accepted=true). The
-                    // expected ticket is the authoritative ticket for
-                    // which the editor has shipped a positive prepared
-                    // ack, retained until activation.generation
-                    // matches, and cleared on supersession / commit /
-                    // process close.
-                    return;
-                }
-                if (response.value("quit_requested", false)) {
-                    // Forward-compatible: runtime-initiated graceful stop.
-                    // Treated as a normal stop (not an exception/recovery),
-                    // so the editor authored source remains untouched.
-                    const std::string diagnostic =
-                        response.value("diagnostic", std::string{"Runtime requested quit"});
-                    close_process();
-                    status_ = diagnostic + ". Authored scene is safe; press Play to restart.";
-                    return;
-                }
-                if (!response.value("ok", false)) {
-                    const auto error = response.value("error", "Runtime rejected request");
-                    if (sent_command_ == "audio_mix" || sent_command_ == "audio_source" ||
-                        sent_command_ == "animation_playback" || sent_command_ == "profiling") {
-                        if (sent_command_ == "profiling")
-                            cpu_profile_error_ = error;
-                        else if (sent_command_ == "audio_mix")
-                            audio_mix_error_ = error;
-                        else if (sent_command_ == "animation_playback") {
-                            if (sent_animation_ == animation_watch_)
-                                animation_error_ = error;
-                        } else if (sent_audio_source_ == audio_source_watch_)
-                            audio_source_error_ = error;
-                        send({{"command", "snapshot"}});
-                        return;
-                    }
-                    // Too-late SDK loading cancel: the runtime
-                    // reports the cancel ticket no longer matches
-                    // the prepared scene. This is a nonfatal race
-                    // (the user pressed Cancel just as the runtime
-                    // committed, either before or after the editor
-                    // observed publication), NOT a transport fault.
-                    //
-                    // Two valid outcomes depending on whether
-                    // publication actually won:
-                    //   * Editor has NOT observed activation
-                    //     (sdk_activation_active_ == false): the
-                    //     runtime may have published AFTER our last
-                    //     successful response and BEFORE processing
-                    //     the cancel. Refresh the snapshot now so the
-                    //     next pump observes the live state. Preserve
-                    //     sdk_expected_ticket_ so a follow-on
-                    //     publication can commit. Do NOT claim the
-                    //     world is retained until we actually observe
-                    //     it.
-                    //   * Editor HAS observed activation
-                    //     (sdk_activation_active_ == true): the
-                    //     published world is already ours to retain.
-                    //     Surface an actionable notice and keep Play
-                    //     alive.
-                    //
-                    // Either way, do NOT throw — throwing would tear
-                    // down a healthy world. Do NOT relax runtime
-                    // exact-ticket validation or fabricate a rollback.
-                    if (sent_command_ == "cancel" && sdk_game_ &&
-                        (error.find("cancel ticket does not match") != std::string::npos ||
-                         error.find("no longer live") != std::string::npos ||
-                         error.find("unknown ticket") != std::string::npos)) {
-                        if (sdk_activation_active_) {
-                            notice_ = "SDK loading cancel arrived after activation; "
-                                      "published world retained. ";
-                        } else {
-                            notice_ = "SDK loading cancel no longer applies; "
-                                      "refreshing snapshot to observe live state. ";
-                            // Force the next pump to issue a snapshot
-                            // immediately instead of waiting the
-                            // documented 8 ms cadence.
-                            sent_at_ = 0;
-                        }
-                        return;
-                    }
-                    if (sent_command_ == "time_scale") {
-                        notice_ = "Simulation rate change rejected: " + error + ". ";
-                        sent_at_ = 0;
-                        return;
-                    }
-                    if (sent_command_ == "property_tune") {
-                        property_tune_ack_ = {{"ok", false}, {"error", error}};
-                        notice_ = "Live property change rejected: " + error + ". ";
-                        sent_at_ = 0;
-                        return;
-                    }
-                    throw std::runtime_error(error);
-                }
-                if (sent_command_ == "property_tune")
-                    property_tune_ack_ = response.value("property_tune", Json());
-                if (stage_ == Stage::Hello && (exact_sdk_ || sdk_game_)) {
-                    const auto info = response.value("runtime_contract", Json::object());
-                    if (info.value("profile", "") != "shared-native-sdk" ||
-                        !info.value("sdk_project", false) ||
-                        info.value("source_commit", "") != forge::source_commit)
-                        throw std::runtime_error("SDK runtime does not match this editor source "
-                                                 "or shared SDK profile. Select the matching "
-                                                 "Native SDK installation in Build.");
-                    if (sdk_game_ && !info.value("sdk_play", false))
-                        throw std::runtime_error("SDK Play runtime does not advertise the "
-                                                 "sdk_play profile. Rebuild against the matching "
-                                                 "Native SDK installation and retry.");
-                }
-                const auto diagnostics = response.value("diagnostics", Json::array());
-                if (diagnostics != diagnostics_) {
-                    for (const auto& d : diagnostics) {
-                        if (std::find(diagnostics_.begin(), diagnostics_.end(), d) !=
-                            diagnostics_.end())
-                            continue;
-                        const auto line =
-                            d.value("category", "runtime") + ": " + d.value("text", "") + "\n";
-                        log_ += line;
-                        timed_log_.append(line);
-                    }
-                    if (log_.size() > 131072)
-                        log_.erase(0, log_.size() - 131072);
-                    diagnostics_ = diagnostics;
-                }
-                snapshot_ = response.at("scene");
-                recovery_ = response.at("recovery");
-                effective_ = response.at("effective_scene");
-                runtime_schema_ = response.value("schema", Json());
-                runtime_world_generation_ = response.value("world_generation", std::uint64_t{});
-                timing_ = response.at("timing");
-                if (response.contains("cpu_profile"))
-                    cpu_profile_ = response.at("cpu_profile");
-                else if (cpu_profile_.value("world_generation", std::uint64_t{}) !=
-                         runtime_world_generation_)
-                    cpu_profile_ = Json::object();
-
-                audio_status_ = response.value("audio", Json::object());
-                if (response.contains("audio_source") &&
-                    response.at("audio_source").value("source", Json()) == audio_source_watch_)
-                    audio_source_status_ = response.at("audio_source");
-                if (response.contains("animation_playback") &&
-                    response.at("animation_playback").value("source", Json()) == animation_watch_)
-                    animation_status_ = response.at("animation_playback");
-                input_status_ = response.value("input", Json::object());
-                physics_status_ = response.value("physics", Json::object());
-                // SDK Play transport observations. Stage/none responses
-                // carry these as null or empty values; do not assume a
-                // healthy active world exists.
-                if (sdk_game_) {
-                    sdk_loading_ = response.value("loading", Json::object());
-                    sdk_platform_effects_ = response.value("platform_effects", Json::array());
-                    // Rebuild the offered-effects set from the latest
-                    // snapshot. Entries older than the new observation
-                    // are dropped along with any unsent acks that
-                    // referenced them.
-                    {
-                        std::unordered_set<EffectKey, EffectKeyHash> live;
-                        const auto live_epoch =
-                            sdk_editor_epoch_.is_object()
-                                ? sdk_editor_epoch_.value("epoch", std::uint64_t{})
-                                : sdk_editor_epoch_seen_;
-                        for (const auto& entry : sdk_platform_effects_) {
-                            if (!entry.is_object())
-                                continue;
-                            const auto token = entry.value("token", std::uint64_t{});
-                            const auto sequence = entry.value("sequence", std::uint64_t{});
-                            const auto epoch = entry.value("epoch", std::uint64_t{});
-                            if (!token || !sequence || epoch != live_epoch)
-                                continue;
-                            live.insert({token, sequence, epoch});
-                        }
-                        sdk_offered_effects_ = std::move(live);
-                    }
-                    sdk_release_required_ = response.value("release_required", false);
-                    const auto& activation_obs = response.at("activation");
-                    const auto observed_gen = activation_obs.value("generation", std::uint64_t{});
-                    const auto activation_state = activation_obs.value("state", std::string{});
-                    sdk_activation_active_ =
-                        (activation_state == "ready" || activation_state == "active") &&
-                        observed_gen != 0;
-                    if (sdk_activation_active_)
-                        sdk_activation_generation_ = observed_gen;
-                    const auto& candidate_ref = response.value("candidate", Json());
-                    if (candidate_ref.is_object()) {
-                        const auto ticket = candidate_ref.value("ticket", std::uint64_t{});
-                        if (ticket != sdk_candidate_ticket_) {
-                            // New pending reference: remember it. We do
-                            // NOT retire sdk_expected_ticket_ here — it
-                            // persists across the mid-prepare snapshot
-                            // where the ref may be cleared, so the
-                            // Preparing -> Running commit check has
-                            // authoritative evidence. Once the editor
-                            // has actually fetched a frozen envelope for
-                            // a positive ticket (handled in the
-                            // candidate-response branch above), that
-                            // ticket becomes sdk_expected_ticket_.
-                            sdk_candidate_ticket_ = ticket;
-                            sdk_candidate_fetched_ticket_ = 0;
-                            // The previously-fetched envelope (if any)
-                            // belongs to the prior world; drop it so a
-                            // later sdk_candidate_ticket() reflects the
-                            // current ref.
+                        // Commit only when activation.generation matches
+                        // sdk_expected_ticket_ — the authoritative ticket
+                        // captured on the editor-prepared frozen envelope
+                        // (set in the candidate-response branch above).
+                        // sdk_expected_ticket_ is preserved exactly here
+                        // even if sdk_candidate_ticket_ has been zeroed
+                        // by an intervening null reference.
+                        if (state == "ready" && sdk_expected_ticket_ != 0 &&
+                            gen == sdk_expected_ticket_) {
                             sdk_candidate_envelope_ = nullptr;
-                            // Already-acks stale to the new ticket.
+                            prepared_tiles_.clear();
+                            sdk_candidate_ticket_ = 0;
+                            sdk_candidate_fetched_ticket_ = 0;
                             sdk_pending_candidate_ack_ = false;
                             sdk_candidate_ack_ = nullptr;
                             sdk_ack_terminal_ticket_ = 0;
                             sdk_ack_terminal_value_ = nullptr;
+                            sdk_expected_ticket_ = 0;
+                            sdk_activation_active_ = true;
+                            begin_running();
                         }
-                    } else if (sdk_candidate_ticket_ != 0) {
-                        // Runtime cleared its reference (post-initial
-                        // admission / supersession). Drop the current
-                        // ref + fetched + envelope + un-shipped verdict,
-                        // but NEVER touch sdk_expected_ticket_ — that
-                        // is the editor-prepared ticket preserved
-                        // across this transition for the commit check.
-                        sdk_candidate_ticket_ = 0;
-                        sdk_candidate_fetched_ticket_ = 0;
-                        sdk_candidate_envelope_ = nullptr;
-                        sdk_pending_candidate_ack_ = false;
-                        sdk_candidate_ack_ = nullptr;
-                        sdk_ack_terminal_ticket_ = 0;
-                        sdk_ack_terminal_value_ = nullptr;
                     }
+                    if (stage_ == Stage::Running && !probe_)
+                        update_status();
                 }
-                auto next_ui = response.value("ui", Json());
-                if (!next_ui.is_null() && !ui_snapshot_.is_null() &&
-                    next_ui.at("generation") != ui_snapshot_.at("generation"))
-                    ui_command_ = ui_ack_ =
-                        nullptr; // Old queued requests cannot cross replacement.
-                ui_snapshot_ = std::move(next_ui);
-                if (response.contains("ui_ack"))
-                    ui_ack_ = response.at("ui_ack");
-                ++snapshot_version_;
-                sdk_editor_epoch_confirmed_ =
-                    std::max(sdk_editor_epoch_confirmed_, sent_editor_epoch_);
-                if (stage_ == Stage::Hello) {
-                    stage_ = Stage::Replace;
-                    Json replacement = {{"command", "replace"}, {"scene", initial_}};
-                    if (!initial_recovery_.is_null()) {
-                        replacement["recovery"] = initial_recovery_;
-                        replacement["recovery_session"] = initial_recovery_.at("session");
-                        replacement["recovery_tick"] = initial_recovery_.at("tick");
-                    }
-                    send(std::move(replacement));
-                } else if (stage_ == Stage::Replace) {
-                    if (sdk_game_) {
-                        // SDK Play initial opt-in: do NOT begin_running.
-                        // Poll additional snapshots until activation is
-                        // observed live. sdk_expected_ticket_ is set on
-                        // successful frozen-envelope fetch (in the
-                        // candidate-response branch), not here — the
-                        // initial replace response often publishes
-                        // candidate:null and the runtime prepares the
-                        // candidate afterwards.
-                        sdk_activation_active_ = false;
-                        sdk_activation_generation_ = 0;
-                        stage_ = Stage::Preparing;
-                    } else
-                        begin_running();
-                } else if (stage_ == Stage::Preparing) {
-                    const auto& activation_value = response.at("activation");
-                    const auto state = activation_value.value("state", std::string{});
-                    const auto gen = activation_value.value("generation", std::uint64_t{});
-                    sdk_activation_generation_ = gen;
-                    const auto loading_value = response.value("loading", Json::object());
-                    const auto loading_state_str = loading_value.value("state", std::string{});
-                    if (loading_state_str == "failed" || loading_state_str == "cancelled") {
-                        // Initial opt-in has no healthy old world to
-                        // retain; surface a clean diagnostic, stop
-                        // cleanly without raising a process fault.
-                        sdk_candidate_ticket_ = 0;
-                        sdk_candidate_fetched_ticket_ = 0;
-                        sdk_candidate_envelope_ = nullptr;
-                        sdk_pending_candidate_ack_ = false;
-                        sdk_candidate_ack_ = nullptr;
-                        sdk_ack_terminal_ticket_ = 0;
-                        sdk_ack_terminal_value_ = nullptr;
-                        sdk_expected_ticket_ = 0;
-                        sdk_activation_active_ = false;
-                        status_ = "Initial SDK Play candidate " + loading_state_str + ": " +
-                                  loading_value.value("error", std::string{"unknown"});
-                        close_process();
-                        return;
-                    }
-                    // Commit only when activation.generation matches
-                    // sdk_expected_ticket_ — the authoritative ticket
-                    // captured on the editor-prepared frozen envelope
-                    // (set in the candidate-response branch above).
-                    // sdk_expected_ticket_ is preserved exactly here
-                    // even if sdk_candidate_ticket_ has been zeroed
-                    // by an intervening null reference.
-                    if (state == "ready" && sdk_expected_ticket_ != 0 &&
-                        gen == sdk_expected_ticket_) {
-                        sdk_candidate_envelope_ = nullptr;
-                        sdk_candidate_ticket_ = 0;
-                        sdk_candidate_fetched_ticket_ = 0;
-                        sdk_pending_candidate_ack_ = false;
-                        sdk_candidate_ack_ = nullptr;
-                        sdk_ack_terminal_ticket_ = 0;
-                        sdk_ack_terminal_value_ = nullptr;
-                        sdk_expected_ticket_ = 0;
-                        sdk_activation_active_ = true;
-                        begin_running();
-                    }
-                }
-                if (stage_ == Stage::Running && !probe_)
-                    update_status();
             }
             // Post-dispatch failure take. The worker is the
             // AUTHORITATIVE deadline owner: a receipt is only
@@ -1216,6 +1273,7 @@ class PlaySession {
                             ui_command_ = nullptr;
                             send({{"command", "ui"}, {"ui_command", std::move(command)}});
                         }
+                    } else if (send_tile_request()) {
                     } else if (SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 } else if (!sdk_game_ && stage_ == Stage::Running) {
@@ -1249,8 +1307,9 @@ class PlaySession {
                             ui_command_ = nullptr;
                             send({{"command", "ui"}, {"ui_command", std::move(command)}});
                         }
-                    } else if ((!probe_ || audio_source_watch_dirty_ || animation_watch_dirty_ ||
-                                cpu_profile_watch_) &&
+                    } else if (send_tile_request()) {
+                    } else if ((!probe_ || active_tiles_.pending() || audio_source_watch_dirty_ ||
+                                animation_watch_dirty_ || cpu_profile_watch_) &&
                                SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 }
@@ -1342,12 +1401,16 @@ class PlaySession {
         // candidate_ack. do this unconditionally because opt-in can be
         // turned on for one session and off for the next.
         sdk_candidate_envelope_ = nullptr;
+        prepared_tiles_.clear();
         sdk_candidate_ticket_ = 0;
         sdk_candidate_fetched_ticket_ = 0;
         sdk_activation_generation_ = 0;
         property_tune_command_ = property_tune_ack_ = runtime_schema_ = time_scale_command_ =
             nullptr;
         runtime_world_generation_ = 0;
+        active_tiles_.clear();
+        prepared_tiles_.clear();
+        tile_reply_ = nullptr;
         sdk_activation_active_ = false;
         sdk_expected_ticket_ = 0;
         sdk_loading_ = Json::object();
@@ -1467,6 +1530,21 @@ class PlaySession {
               {"input_map", input_map_},
               {"gravity", gravity_}});
     }
+    bool send_tile_request() {
+        if (sdk_game_ && sdk_candidate_fetched_ticket_ != 0) {
+            if (auto request = prepared_tiles_.next_request()) {
+                tile_reply_ = &prepared_tiles_;
+                send(std::move(*request));
+                return true;
+            }
+        }
+        if (auto request = active_tiles_.next_request()) {
+            tile_reply_ = &active_tiles_;
+            send(std::move(*request));
+            return true;
+        }
+        return false;
+    }
     void send(Json request) {
         sent_command_ = request.at("command").get<std::string>();
         if (cpu_profile_watch_ && sent_command_ == "snapshot")
@@ -1570,6 +1648,8 @@ class PlaySession {
     Stage stage_ = Stage::Hello;
     std::string executable_, notice_, session_, control_;
     Json initial_, snapshot_, effective_, timing_ = {{"paused", true}, {"tick", 0}};
+    TileMapPlayReceiver active_tiles_, prepared_tiles_;
+    TileMapPlayReceiver* tile_reply_ = nullptr;
     Json property_tune_command_, property_tune_ack_, runtime_schema_;
     Json time_scale_command_;
     std::uint64_t runtime_world_generation_ = 0;

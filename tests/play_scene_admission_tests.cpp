@@ -388,6 +388,32 @@ void envelope_size_bound() {
     check(!f.channel.acknowledge("size-bound", ticket, true),
           "Ack accepted for oversized envelope");
 }
+void copied_tile_manifest_is_frozen_and_budgeted() {
+    PlaySceneAdmission channel("tiles");
+    Json manifest{{"world", 1u}, {"maps", Json::array()}};
+    unsigned calls = 0;
+    GameSessionConfig config;
+    config.preparation = [&](std::uint64_t ticket) {
+        return channel.prepare(ticket, {}, [&] {
+            ++calls;
+            return manifest;
+        });
+    };
+    GameSession game(config);
+    auto ticket = game.prepare(scene_snapshot("first"));
+    game.poll_preparation(ticket);
+    const auto frozen = channel.snapshot();
+    check(frozen && frozen->at("tile_maps") == manifest, "Tile manifest missing from candidate");
+    manifest["world"] = 99u;
+    game.poll_preparation(ticket);
+    check(calls == 1 && channel.snapshot() == frozen, "Tile manifest changed after freezing");
+    game.cancel(ticket);
+    manifest = {{"payload", std::string(8 * 1024 * 1024, 'x')}};
+    ticket = game.prepare(scene_snapshot("too-large"));
+    rejects([&] { game.poll_preparation(ticket); });
+    check(!channel.snapshot() && !channel.acknowledge("tiles", ticket, true),
+          "Tile manifest bypassed the frozen candidate's 8 MiB budget");
+}
 void validator_runs_once_with_actual_world_and_exact_ticket() {
     // The optional publication validator must run exactly once on the
     // owner thread, receive the actual prepared RuntimeWorld and the
@@ -515,6 +541,7 @@ int main() {
         runtime_readiness_failure_discards_candidate_and_keeps_active();
         navigation_readiness_failure_discards_candidate_and_keeps_active();
         envelope_size_bound();
+        copied_tile_manifest_is_frozen_and_budgeted();
         validator_runs_once_with_actual_world_and_exact_ticket();
         throwing_validator_never_exports_or_acks();
     } catch (const std::exception& e) {

@@ -34,10 +34,12 @@ struct Adapter final : GameScenePreparation {
     std::thread::id owner = std::this_thread::get_id();
     std::string session;
     PlaySceneAdmission::PublicationValidator validator;
+    std::function<Json()> tile_projection;
     bool runtime_ready = false;
     Adapter(std::weak_ptr<PendingRecord> p, std::string s,
-            PlaySceneAdmission::PublicationValidator v)
-        : pending(std::move(p)), session(std::move(s)), validator(std::move(v)) {}
+            PlaySceneAdmission::PublicationValidator v, std::function<Json()> tiles)
+        : pending(std::move(p)), session(std::move(s)), validator(std::move(v)),
+          tile_projection(std::move(tiles)) {}
     GamePreparationProgress poll(RuntimeWorld& world) override {
         if (owner != std::this_thread::get_id())
             throw std::runtime_error("Play scene admission requires the owner thread");
@@ -60,6 +62,8 @@ struct Adapter final : GameScenePreparation {
             envelope["scene"] = world.simulation.presentation(1);
             const auto ui = runtime_ui_snapshot(world, session, record->ticket);
             envelope["ui"] = ui ? *ui : Json(nullptr);
+            if (tile_projection)
+                envelope["tile_maps"] = tile_projection();
             const auto bytes = envelope.dump().size();
             if (bytes > kPlaySceneAdmissionEnvelopeBytes)
                 throw std::runtime_error("Play scene admission envelope exceeded 8 MiB");
@@ -119,8 +123,9 @@ PlaySceneAdmission::~PlaySceneAdmission() noexcept {
         state_->pending->closed.store(true);
     state_.reset();
 }
-std::unique_ptr<GameScenePreparation> PlaySceneAdmission::prepare(std::uint64_t ticket,
-                                                                  PublicationValidator validator) {
+std::unique_ptr<GameScenePreparation>
+PlaySceneAdmission::prepare(std::uint64_t ticket, PublicationValidator validator,
+                            std::function<Json()> tile_projection) {
     if (!state_)
         throw std::runtime_error("Play scene admission channel is closed");
     state_->require_owner();
@@ -135,7 +140,7 @@ std::unique_ptr<GameScenePreparation> PlaySceneAdmission::prepare(std::uint64_t 
     auto record = std::make_shared<PendingRecord>();
     record->ticket = ticket;
     auto adapter = std::make_unique<Adapter>(std::weak_ptr<PendingRecord>(record), state_->session,
-                                             std::move(validator));
+                                             std::move(validator), std::move(tile_projection));
     state_->pending = record;
     state_->last_ticket = ticket;
     return adapter;

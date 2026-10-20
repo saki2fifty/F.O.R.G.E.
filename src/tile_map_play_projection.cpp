@@ -149,8 +149,12 @@ Json TileMapPlaySource::begin(EntityId entity, std::uint64_t generation, std::ui
                 {"count", transfer.chunks.size()},
                 {"cells", value->cells.occupied()},
                 {"chunks", value->cells.chunk_count()}};
-    if (full)
+    if (full) {
         result["header"] = tile_map_projection_header(value->cells, value->definitions);
+        result["keys"] = Json::array();
+        for (const auto key : transfer.chunks)
+            result["keys"].push_back({key.layer, key.address.x, key.address.y});
+    }
     transfer_ = std::move(transfer);
     ++sequence_;
     try {

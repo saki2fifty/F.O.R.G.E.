@@ -48,7 +48,8 @@ class PlaySceneAdmission {
     // `validator` runs once on the owner thread before the envelope is
     // frozen; throwing from it prevents publication.
     std::unique_ptr<GameScenePreparation> prepare(std::uint64_t ticket,
-                                                  PublicationValidator validator = {});
+                                                  PublicationValidator validator = {},
+                                                  std::function<Json()> tile_projection = {});
 
     // Returns a detached copy of the current pending envelope, or null when
     // no candidate is currently exposed (idle, exported-then-committed, or

@@ -9,7 +9,6 @@ std::vector<TileMapPlayView> tile_map_play_views(WorldContext& context) {
     if (!context.on_owner_thread() || context.role() != WorldRole::Runtime)
         throw std::runtime_error("Tile Play observations require their runtime world owner");
     std::vector<TileMapPlayView> result;
-    result.reserve(256);
     std::exception_ptr failure;
     context.world().each([&](flecs::entity entity, const TileMapRenderer& renderer) {
         if (failure || !renderer.enabled || !renderer.map.id)

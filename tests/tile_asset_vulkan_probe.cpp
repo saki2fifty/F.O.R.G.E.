@@ -1,12 +1,18 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
 #include "asset_bytes.hpp"
 #include "mesh_render_host.hpp"
+#include "runtime_tile_map.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include "tile_asset_fixture.hpp"
 #include "tile_map_cook.hpp"
 #include "tile_map_document.hpp"
+#include "tile_map_play_receiver.hpp"
+#include "tile_map_play_transport.hpp"
+#include "tile_map_play_world.hpp"
 #include "tile_set_cook.hpp"
 #include "tile_set_document.hpp"
+#include <forge/runtime.hpp>
+#include <forge/runtime_resources.hpp>
 #include <iostream>
 #include <thread>
 
@@ -184,6 +190,69 @@ int main(int argc, char** argv) {
         renderer->update(scene);
         check(renderer->pending() && renderer->bundle_count() == 0,
               "Missing runtime cells silently fell back to an authoring asset");
+        // Follow actual native resource adoption through the same copied adapter
+        // used by PlaySession, then draw its immutable values on Vulkan.
+        EngineContext runtime(WorldRole::Runtime, false, {runtime_resources_module(root)});
+        Scene native(runtime.world());
+        auto document = native.document();
+        document["asset_id"] = scene.scene;
+        Json components = Json::object();
+        const auto schema = native.schema();
+        for (const auto& type : schema.at("components")) {
+            const auto name = type.at("id").get<std::string>();
+            if (name == "forge.tile_map_renderer" || name == "forge.local_translation" ||
+                name == "forge.local_rotation" || name == "forge.local_scale")
+                for (const auto& field : type.at("fields"))
+                    components[name][field.at("id").get<std::string>()] = field.at("default");
+        }
+        components["forge.tile_map_renderer"]["map"] = map->source().asset();
+        components["forge.local_translation"]["z"] = 2;
+        document["entities"] = {
+            {{"id", actor.entity}, {"name", "Copied map"}, {"components", components}}};
+        native.reset(document);
+        RuntimeSimulation simulation(runtime.world(), native);
+        std::vector<TileMapPlayView> observed;
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+        do {
+            scene = extract_render_scene(simulation.presentation(0));
+            observed = tile_map_play_views(runtime.world());
+            check(std::chrono::steady_clock::now() < end, "Native tile snapshot did not load");
+            if (observed.empty() || !observed[0].cells)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } while (observed.empty() || !observed[0].cells);
+        TileMapPlaySource sender;
+        TileMapPlayReceiver receiver;
+        receiver.observe(sender.capture(1, native.asset_id(), observed));
+        receiver.bind(scene);
+        renderer->update(scene);
+        check(renderer->pending(), "Copied map rendered before transfer admission");
+        expect({32, 64, 128, 255});
+        const auto receive = [&] {
+            while (auto request = receiver.next_request())
+                receiver.receive(tile_map_play_dispatch(sender, *request));
+            check(!receiver.pending(), "Copied Vulkan map transfer did not finish");
+            receiver.bind(scene);
+            settle();
+        };
+        receive();
+        expect({255, 0, 255, 255});
+        const auto retained = scene;
+        detail::request_runtime_tile_cells(runtime.world(), "project.render_test",
+                                           {native.asset_id(), actor.entity},
+                                           observed[0].generation, black);
+        simulation.tick(1.f / 60.f);
+        scene = extract_render_scene(simulation.presentation(0));
+        observed = tile_map_play_views(runtime.world());
+        receiver.observe(sender.capture(1, native.asset_id(), observed));
+        receive();
+        expect({0, 0, 0, 255});
+        scene = retained;
+        settle();
+        expect({255, 0, 255, 255});
+        receiver.clear();
+        receiver.bind(scene);
+        renderer->update(scene);
+        expect({32, 64, 128, 255});
         std::cout << "Published tile assets and isolated unsaved previews rendered correctly\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

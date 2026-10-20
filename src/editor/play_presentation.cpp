@@ -144,7 +144,9 @@ void PlayPresentation::advance_renderer(PlaySession& play) {
     const auto w = clamp_dim(base_w, 1280u);
     const auto h = clamp_dim(base_h, 720u);
     try {
-        staged_renderer_->game(context_, staged_envelope_.at("scene"), w, h);
+        auto scene = extract_render_scene(staged_envelope_.at("scene"));
+        play.bind_tile_maps(scene, staged_ticket_);
+        staged_renderer_->game(context_, std::move(scene), w, h);
     } catch (...) {
         // game() may throw on transient scene extraction failures;
         // surface as a local exception in poll() via the outer

@@ -396,7 +396,53 @@ far origins, image replacement failure/recovery and runtime cell changes. The
 maximum dense case renders all 262144 cells across steady frames and an edit.
 These checks establish correctness/capacity, not physical GPU FPS. Native typed
 snapshots and ordinary cooked asset selections are supported here. Editor Play
-transport still requires its explicit runtime-view integration.
+uses the explicit copied runtime projection described below.
+
+### Copied Editor Play presentation (development)
+
+Both process hosts advertise private `tile_projection: 1` support. Ordinary
+snapshots carry only a bounded manifest of actor identities, requested/adopted
+roots, instance generations, cell revisions and counts. They never inline a
+whole cell map. The existing correlated Play transport retrieves one frozen
+transfer at a time using begin/page/ack/cancel commands. A page contains at most
+four chunks and 256 KiB. A complete header, explicit full-transfer chunk keys,
+counts and all pages must validate before the receiver acknowledges and publishes
+an immutable frame. Partial packets cannot become visible map cells.
+
+The existing PlaySession owns separate active and prepared receiving state; the
+hosts retain corresponding derived sending state. These adapters own neither a
+simulation world nor a catalog, file loader or gameplay edit queue. The existing
+fixed-step map instance remains authoritative. An acknowledged compatible baseline
+allows structural chunk deltas. Eviction falls back to full pages. A full transfer
+can retain equal arrays from already received compatible values; it cannot load
+an authored asset as replacement for runtime data. Explicitly unedited initial
+instances with matching Map and Set revisions can share received storage.
+
+The sender retains at most 16 acknowledged baselines within a 64 MiB copied-value
+budget. The receiver admits at most 64 MiB of complete copied values, with one
+bounded candidate transfer in progress. Shared chunk arrays count once. These
+budgets cover the adapters' retained payload estimates, not total process RSS or
+external frames retained by a renderer. The manifest is limited to 256 actors.
+Full-transfer key lists permit dropped chunks to be removed before replacement
+chunks are admitted at the maximum map capacity.
+
+SDK candidate manifests are included before the existing 8 MiB envelope freeze;
+the ordinary 16 MiB process response limit remains unchanged. The staged renderer
+uses the candidate's exact copied scope before its presentation verdict. On
+activation, prepared receiving/sending state moves into the active scope, retaining
+its acknowledged baseline. Supersession, cancellation, scene/world replacement,
+instance-generation changes and Stop invalidate the affected data. The Game view
+always marks its maps as runtime instances. No authored-data fallback is permitted
+while a copied view is missing. Source documents and Scene view previews continue
+through their existing authoring paths.
+
+Focused Linux checks cover full/delta transfers, maximum maps, shared/private
+cache accounting, frozen updates, malformed/cancelled/stale transfers, actual
+published-asset SDK-host preparation and fixed-step edits, actual PlaySession/worker pipes in both legacy and matching shared-SDK hosts,
+published source replacement with a new instance generation, Stop/restart, and
+native observation through copied values into software-Vulkan pixel readback. Pending/cleared scopes,
+a black-cell edit and an immutable older magenta frame have pixel checks. Physical
+Windows acceptance and the coherent exported Gallery/game gate remain outstanding.
 
 ### Authoring asset selection and isolated previews (development)
 
@@ -407,7 +453,8 @@ Loading runs on the resource workers. Catalog changes restart candidate selectio
 stale dependency revisions produce a terminal diagnostic and retain the last
 complete usable draw until a matching map recook is available. Runtime snapshots
 are authoritative: a running instance with missing cells never falls back to an
-authored map. Editor Play's separate copied projection remains unfinished.
+authored map. A missing or changed runtime scope also retires the renderer's
+complete cached tile draw; clearing only its requested data is insufficient.
 
 The host owns bounded 64 MiB Map and 16 MiB Set CPU resource pools. Inspection
 includes their requests, revisions and owned payload estimates. Pure view handles
@@ -495,9 +542,8 @@ The actual document owner also exercises a 262144-cell map with 16 paint strokes
 and complete Undo/Redo. These source checks do not replace native-renderer,
 matching installed SDK, editor interaction and moved-game gates.
 
-The remaining complete feature gate includes bounded Editor Play projection,
-source replacement across that process boundary, moved-game validation and original
-editable Gallery content. The source documents and isolated canvas require the
+The remaining complete feature gate includes moved-game validation, a fresh
+matching installed SDK consumer and original editable Gallery content. The source documents and isolated canvas require the
 coherent Windows gate before delivery. Native rendering/grid picking and bounded C++ queries/edits have
 focused local evidence; they do not complete those workflows. No autotiling,
 animated tiles, 2D collision or streaming is implied by this source foundation.

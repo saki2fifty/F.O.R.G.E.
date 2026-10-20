@@ -8,6 +8,8 @@
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "runtime_scene_content.hpp"
+#include "tile_map_play_transport.hpp"
+#include "tile_map_play_world.hpp"
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -34,6 +36,7 @@
 #include <map>
 #include <stdexcept>
 #include <thread>
+#include <type_traits>
 namespace forge {
 namespace {
 using Json = nlohmann::json;
@@ -75,7 +78,8 @@ Json contract() {
                 {"fingerprint", FORGE_NATIVE_SDK_FINGERPRINT},
                 {"source_commit", forge::source_commit},
                 {"sdk_project", true},
-                {"sdk_play", true}};
+                {"sdk_play", true},
+                {"tile_projection", tile_map_play_protocol}};
 }
 } // namespace
 
@@ -104,6 +108,8 @@ struct SdkPlayRuntime::State {
     std::unique_ptr<GameStorage> storage;
     std::unique_ptr<PlaySceneAdmission> admission;
     std::unique_ptr<GameSession> game;
+    mutable TileMapPlaySource active_tiles, prepared_tiles;
+    mutable Json prepared_tile_manifest = nullptr;
     std::unique_ptr<GameHostControls> host;
     GamePlatformControls platform;
     std::thread::id owner_ = std::this_thread::get_id();
@@ -189,9 +195,12 @@ struct SdkPlayRuntime::State {
         session_config.modules = modules;
         session_config.controls = queue;
         session_config.preparation = [this](std::uint64_t ticket) {
-            return admission->prepare(ticket, [this](RuntimeWorld& world, std::uint64_t t) {
-                validate_candidate_publication(world, t);
-            });
+            return admission->prepare(
+                ticket,
+                [this](RuntimeWorld& world, std::uint64_t t) {
+                    validate_candidate_publication(world, t);
+                },
+                [this] { return prepared_tile_manifest; });
         };
         game = std::make_unique<GameSession>(std::move(session_config));
         configure_platform();
@@ -560,13 +569,21 @@ struct SdkPlayRuntime::State {
     // validator, so the projected post-activation size is computed with
     // the exact same helpers the wire response will use.
     WorldBody build_world_body(RuntimeWorld& world, std::uint64_t generation,
-                               const std::string& snapshot_session,
-                               const Json& status_value) const {
+                               const std::string& snapshot_session, const Json& status_value,
+                               bool projected = false) const {
         WorldBody out;
         try {
             out.body["scene"] = world.scene.snapshot();
             out.body["effective_scene"] =
                 world.simulation.presentation(status_value.at("clock").value("alpha", 1.0));
+            const auto views = tile_map_play_views(world.engine.world());
+            if (projected) {
+                TileMapPlaySource temporary;
+                out.body["tile_maps"] =
+                    temporary.capture(generation, world.scene.asset_id(), views);
+            } else
+                out.body["tile_maps"] =
+                    active_tiles.capture(generation, world.scene.asset_id(), views);
             out.body["schema"] = world.scene.schema();
             out.body["input"] = world.simulation.input_status();
         } catch (const std::exception& e) {
@@ -650,7 +667,7 @@ struct SdkPlayRuntime::State {
                       {"timing", status_value.value("clock", Json::object())}};
         envelope["activation"] = {
             {"state", "ready"}, {"generation", generation}, {"ticket", generation}};
-        auto world_body = build_world_body(world, generation, session, status_value);
+        auto world_body = build_world_body(world, generation, session, status_value, true);
         for (auto it = world_body.body.begin(); it != world_body.body.end(); ++it)
             envelope[it.key()] = it.value();
         try {
@@ -679,6 +696,8 @@ struct SdkPlayRuntime::State {
             throw std::runtime_error(
                 "Scene preparation: projected post-activation response would exceed 16 MiB; "
                 "active world retained, candidate rejected");
+        prepared_tile_manifest = prepared_tiles.capture(ticket, world.scene.asset_id(),
+                                                        tile_map_play_views(world.engine.world()));
     }
     Json snapshot_response(std::uint64_t id) const {
         Json response{
@@ -688,6 +707,10 @@ struct SdkPlayRuntime::State {
         // gameplay Quit (or an explicit protocol quit) every subsequent
         // response carries quit_requested=true until the process exits.
         response["quit_requested"] = quit || quit_latched;
+        if (!admission->reference()) {
+            prepared_tiles.clear();
+            prepared_tile_manifest = nullptr;
+        }
         const auto status_value = game->status();
         const auto state = status_value.value("state", std::string{});
         const bool empty = session_is_empty(status_value);
@@ -741,6 +764,8 @@ struct SdkPlayRuntime::State {
             response["physics"] = Json{{"state", "disabled"}};
             response["audio"] = Json{{"output", "disabled"}};
             response["ui"] = nullptr;
+            response["tile_maps"] = nullptr;
+            active_tiles.clear();
         } else {
             auto world_body =
                 build_world_body(game->active(), active_generation, session, status_value);
@@ -799,11 +824,21 @@ struct SdkPlayRuntime::State {
     // strictly increasing per session, so the activated ticket IS the
     // authoritative generation; monotonic() against a fake counter would
     // double-bump whenever the host pump also bumps the loading state.
+    void adopt_tile_scope(std::uint64_t ticket) {
+        if (prepared_tiles.world() == ticket) {
+            static_assert(std::is_nothrow_move_assignable_v<TileMapPlaySource>);
+            active_tiles = std::move(prepared_tiles);
+            prepared_tiles.clear();
+            prepared_tile_manifest = nullptr;
+        } else
+            active_tiles.clear();
+    }
     void detect_gameplay_activation() {
         const auto loading = game->loading_state();
         const auto state = loading.state;
         const auto ticket = loading.ticket;
         if (state == "activated" && ticket != 0 && ticket != last_loading_ticket) {
+            adopt_tile_scope(ticket);
             active_generation = ticket;
             ui_commands.reset(session, active_generation);
             last_loading_ticket = ticket;
@@ -891,6 +926,7 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& b
                 // so the value is published verbatim and the bookkeeping
                 // counter is updated so subsequent detect_gameplay_activation
                 // calls do not double-publish.
+                s.adopt_tile_scope(s.initial_ticket);
                 s.active_generation = s.initial_ticket;
                 s.last_loading_ticket = s.initial_ticket;
                 s.ui_commands.reset(s.session, s.active_generation);
@@ -1241,6 +1277,27 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             } else
                 response["schema"] = empty_scene_schema();
             return response;
+        }
+        if (tile_map_play_command(command)) {
+            if (!request.contains("world") || !is_unsigned_int(request.at("world")))
+                return s.build_error(id, "Tile Play world must be an unsigned integer");
+            const auto world = request.at("world").get<std::uint64_t>();
+            TileMapPlaySource* source = nullptr;
+            if (world == s.active_generation && s.active_tiles.world() == world)
+                source = &s.active_tiles;
+            else if (const auto reference = s.admission->reference();
+                     reference && reference->at("ticket") == world &&
+                     s.prepared_tiles.world() == world)
+                source = &s.prepared_tiles;
+            Json response{{"protocol", 2},
+                          {"session", s.session},
+                          {"id", id},
+                          {"runtime_contract", contract()},
+                          {"ok", true},
+                          {"quit_requested", s.quit || s.quit_latched},
+                          {"tile_projection", source ? tile_map_play_dispatch(*source, request)
+                                                     : Json{{"stale", true}}}};
+            return s.enforce_response_size(std::move(response));
         }
         if (command == "candidate") {
             // Correlated retrieval of the currently pending frozen

@@ -7,6 +7,8 @@
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "sdk_play_runtime.hpp"
+#include "tile_map_play_transport.hpp"
+#include "tile_map_play_world.hpp"
 #include <forge/build.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/native_sdk.hpp>
@@ -169,6 +171,7 @@ int main(int argc, char** argv) {
         const std::string session = std::to_string(random()) + "-" + std::to_string(random()) +
                                     "-" + std::to_string(random()) + "-" + std::to_string(random());
         std::uint64_t last_id = 0, ui_generation = 1;
+        forge::TileMapPlaySource tile_projection;
         forge::ui_protocol::CommandGate ui_commands;
         ui_commands.reset(session, ui_generation);
         bool initialized = false, quit = false, tick_failed = false;
@@ -268,7 +271,8 @@ int main(int argc, char** argv) {
                             {"profile", FORGE_NATIVE_SDK_PROFILE},
                             {"fingerprint", FORGE_NATIVE_SDK_FINGERPRINT},
                             {"source_commit", forge::source_commit},
-                            {"sdk_project", sdk_profile}};
+                            {"sdk_project", sdk_profile},
+                            {"tile_projection", forge::tile_map_play_protocol}};
                     } else if (!initialized || request.value("session", "") != session)
                         throw std::runtime_error("Stale or missing runtime session");
                     last_id = id; // Consume valid-session attempts, including rejected controls.
@@ -476,80 +480,94 @@ int main(int argc, char** argv) {
                         clock.pause(forge::RuntimeClock::Clock::now());
                         quit = true;
                         quit_deadline = forge::RuntimeClock::Clock::now() + std::chrono::seconds(1);
+                    } else if (forge::tile_map_play_command(command)) {
+                        response["tile_projection"] =
+                            forge::tile_map_play_dispatch(tile_projection, request);
                     } else if (command != "hello" && command != "snapshot" && command != "ping" &&
                                command != "schema")
                         throw std::runtime_error("Unknown command");
                     response["ok"] = true;
-                    response["scene"] = runtime->scene.snapshot();
-                    if (!tick_failed)
-                        response["recovery"] = capture();
-                    response["physics"] = runtime->physics()->status();
-                    if (request.contains("physics_debug")) {
-                        try {
-                            const auto ref = request.at("physics_debug").get<forge::EntityRef>();
-                            const auto c = runtime->physics()->character(ref);
-                            response["physics"]["character_debug"] = {
-                                {"entity", ref.entity},
-                                {"ground", unsigned(c.ground)},
-                                {"velocity", c.velocity},
-                                {"ground_normal", c.ground_normal},
-                                {"ground_position", c.ground_position},
-                                {"ground_velocity", c.ground_velocity},
-                                {"crouched", c.crouched},
-                                {"shape_blocked", c.shape_change_blocked}};
-                            if (c.supporting_entity)
-                                response["physics"]["character_debug"]["support"] =
-                                    *c.supporting_entity;
-                        } catch (const std::exception& e) {
-                            response["physics"]["debug_diagnostic"] = e.what();
+                    if (!forge::tile_map_play_command(command)) {
+                        response["scene"] = runtime->scene.snapshot();
+                        if (!tick_failed)
+                            response["recovery"] = capture();
+                        response["physics"] = runtime->physics()->status();
+                        if (request.contains("physics_debug")) {
+                            try {
+                                const auto ref =
+                                    request.at("physics_debug").get<forge::EntityRef>();
+                                const auto c = runtime->physics()->character(ref);
+                                response["physics"]["character_debug"] = {
+                                    {"entity", ref.entity},
+                                    {"ground", unsigned(c.ground)},
+                                    {"velocity", c.velocity},
+                                    {"ground_normal", c.ground_normal},
+                                    {"ground_position", c.ground_position},
+                                    {"ground_velocity", c.ground_velocity},
+                                    {"crouched", c.crouched},
+                                    {"shape_blocked", c.shape_change_blocked}};
+                                if (c.supporting_entity)
+                                    response["physics"]["character_debug"]["support"] =
+                                        *c.supporting_entity;
+                            } catch (const std::exception& e) {
+                                response["physics"]["debug_diagnostic"] = e.what();
+                            }
                         }
-                    }
-                    response["audio"] =
-                        runtime->engine.services().available(forge::Capability::Audio)
-                            ? std::static_pointer_cast<forge::AudioRuntime>(
-                                  runtime->engine.services().audio())
-                                  ->status()
-                            : forge::Json{{"output", "disabled"}};
-                    if (request.contains("audio_source_watch")) {
-                        const auto& watched = request.at("audio_source_watch");
-                        try {
-                            if (!runtime->engine.services().available(forge::Capability::Audio))
-                                throw std::runtime_error("Audio output is disabled");
-                            response["audio_source"] = forge::AudioSourceAccess::status(
-                                *std::static_pointer_cast<forge::AudioRuntime>(
-                                    runtime->engine.services().audio()),
-                                watched.get<forge::EntityRef>());
-                        } catch (const std::exception& error) {
-                            response["audio_source"] = {
-                                {"source", watched}, {"available", false}, {"error", error.what()}};
+                        response["audio"] =
+                            runtime->engine.services().available(forge::Capability::Audio)
+                                ? std::static_pointer_cast<forge::AudioRuntime>(
+                                      runtime->engine.services().audio())
+                                      ->status()
+                                : forge::Json{{"output", "disabled"}};
+                        if (request.contains("audio_source_watch")) {
+                            const auto& watched = request.at("audio_source_watch");
+                            try {
+                                if (!runtime->engine.services().available(forge::Capability::Audio))
+                                    throw std::runtime_error("Audio output is disabled");
+                                response["audio_source"] = forge::AudioSourceAccess::status(
+                                    *std::static_pointer_cast<forge::AudioRuntime>(
+                                        runtime->engine.services().audio()),
+                                    watched.get<forge::EntityRef>());
+                            } catch (const std::exception& error) {
+                                response["audio_source"] = {{"source", watched},
+                                                            {"available", false},
+                                                            {"error", error.what()}};
+                            }
                         }
-                    }
-                    if (request.contains("animation_watch")) {
-                        const auto& watched = request.at("animation_watch");
-                        try {
-                            if (!runtime->engine.services().available(forge::Capability::Animation))
-                                throw std::runtime_error("Animation is disabled");
-                            response["animation_playback"] = forge::AnimationPlaybackAccess::status(
-                                *std::static_pointer_cast<forge::AnimationRuntime>(
-                                    runtime->engine.services().animation()),
-                                watched.get<forge::EntityRef>());
-                        } catch (const std::exception& error) {
-                            response["animation_playback"] = {
-                                {"source", watched}, {"available", false}, {"error", error.what()}};
+                        if (request.contains("animation_watch")) {
+                            const auto& watched = request.at("animation_watch");
+                            try {
+                                if (!runtime->engine.services().available(
+                                        forge::Capability::Animation))
+                                    throw std::runtime_error("Animation is disabled");
+                                response["animation_playback"] =
+                                    forge::AnimationPlaybackAccess::status(
+                                        *std::static_pointer_cast<forge::AnimationRuntime>(
+                                            runtime->engine.services().animation()),
+                                        watched.get<forge::EntityRef>());
+                            } catch (const std::exception& error) {
+                                response["animation_playback"] = {{"source", watched},
+                                                                  {"available", false},
+                                                                  {"error", error.what()}};
+                            }
                         }
+                        response["effective_scene"] =
+                            runtime->simulation.presentation(clock.alpha());
+                        response["tile_maps"] = tile_projection.capture(
+                            ui_generation, runtime->scene.asset_id(),
+                            forge::tile_map_play_views(runtime->engine.world()));
+                        response["schema"] = runtime->scene.schema();
+                        response["input"] = runtime->simulation.input_status();
+                        if (ui_enabled)
+                            response["ui"] = std::static_pointer_cast<forge::UiRuntime>(
+                                                 runtime->engine.services().ui())
+                                                 ->snapshot(runtime->scene, session, ui_generation,
+                                                            clock.tick(), clock.paused());
+                        response["diagnostics"] = runtime->engine.services().diagnostics();
+                        if (forge::cpu_profile_watch(request) || command == "profiling")
+                            response["cpu_profile"] = forge::observed_cpu_profile(
+                                runtime->engine.services(), ui_generation);
                     }
-                    response["effective_scene"] = runtime->simulation.presentation(clock.alpha());
-                    response["schema"] = runtime->scene.schema();
-                    response["input"] = runtime->simulation.input_status();
-                    if (ui_enabled)
-                        response["ui"] = std::static_pointer_cast<forge::UiRuntime>(
-                                             runtime->engine.services().ui())
-                                             ->snapshot(runtime->scene, session, ui_generation,
-                                                        clock.tick(), clock.paused());
-                    response["diagnostics"] = runtime->engine.services().diagnostics();
-                    if (forge::cpu_profile_watch(request) || command == "profiling")
-                        response["cpu_profile"] =
-                            forge::observed_cpu_profile(runtime->engine.services(), ui_generation);
                 } catch (const std::exception& error) {
                     response["ok"] = false;
                     response["error"] = error.what();

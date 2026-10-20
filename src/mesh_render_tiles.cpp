@@ -144,6 +144,13 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
     std::vector<TileImageInput> inputs;
     for (const auto& input : scene.tile_maps) {
         auto& source = tile_sources_[input.entity];
+        // A runtime scope change retires its complete draw as well as its
+        // requested snapshot. An empty copied view cannot retain old-world tiles.
+        if (input.runtime_instance &&
+            (!input.cells || !input.definitions || !source.requested.runtime_instance ||
+             source.requested.generation != input.generation ||
+             source.requested.renderer.map != input.renderer.map))
+            source = {};
         if (!input.renderer.map.id || !input.renderer.enabled) {
             source = {};
             source.requested = input;

@@ -14,6 +14,7 @@
 #include "tile_asset_worker.hpp"
 #include "tile_map_document.hpp"
 #include "tile_map_play_world.hpp"
+#include "tile_play_runtime_tests.hpp"
 #include "tile_set_document.hpp"
 #ifdef FORGE_ENABLE_NATIVE_SDK
 #include "sdk_tile_map_tests.hpp"
@@ -862,6 +863,7 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     const std::array roots{scene_id};
     prepare_runtime_content_catalog(*lease, roots, {}, schema);
     candidate_tile_readiness(root, scene_document);
+    test_tile_play_runtime(root, scene_document);
 #ifdef FORGE_ENABLE_NATIVE_SDK
     if (!sdk_library.empty())
         test_sdk_tile_maps(root, scene_document, sdk_library, map_id, set_id);

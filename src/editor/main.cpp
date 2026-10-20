@@ -5937,10 +5937,14 @@ int main(int argc, char** argv) {
                         const auto render_height =
                             fixed_extent ? fixed_extent->height
                                          : unsigned(std::max(1.0f, size.y * render_scale));
+                        auto copied_game_scene = game_view ? forge::extract_render_scene(rendered)
+                                                           : forge::RenderScene{};
+                        if (game_view)
+                            play.bind_tile_maps(copied_game_scene);
                         auto* texture =
                             game_view
-                                ? game_viewport->game(context, rendered, render_width,
-                                                      render_height)
+                                ? game_viewport->game(context, std::move(copied_game_scene),
+                                                      render_width, render_height)
                                 : viewport.render(context, rendered, render_width, render_height,
                                                   view_camera, view_cache.generation(),
                                                   performance.continuous,
