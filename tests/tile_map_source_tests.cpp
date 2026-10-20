@@ -1,6 +1,7 @@
 #include "tile_map_document.hpp"
 #include <fstream>
 #include <iostream>
+#include <type_traits>
 
 using namespace forge;
 namespace {
@@ -78,6 +79,22 @@ void values_and_paint() {
     require(roundtrip(far).cell(1, {INT32_MIN, INT32_MAX}) == TileMapCell{123, 0} &&
                 roundtrip(far).cell(1, {16777216, 16777217}) == TileMapCell{124, 0},
             "Full signed/far local addresses lost exact cells");
+}
+void saved_value_swap_is_complete() {
+    static_assert(std::is_nothrow_swappable_v<TileMapValue>);
+    auto first = example();
+    auto second = paint(TileMapValue::create(AssetId::generate(), AssetId::generate()),
+                        {{1, {42, -17}, {99, 3}}});
+    const auto before_first = first, before_second = second;
+    using std::swap;
+    swap(first, second);
+    first.validate();
+    second.validate();
+    require(first == before_second && second == before_first &&
+                first.dump() == before_second.dump() && second.dump() == before_first.dump(),
+            "Saved-value swap lost identity, cells, opaque metadata or size accounting");
+    swap(first, first);
+    require(first == before_second, "Saved-value self-swap changed source");
 }
 void malformed() {
     const auto baseline = Json::parse(example().dump());
@@ -267,6 +284,7 @@ int main(int argc, char** argv) {
     try {
         require(argc == 2, "Expected a dedicated Tile Map test directory");
         values_and_paint();
+        saved_value_swap_is_complete();
         malformed();
         sparse_and_layer_limits();
         structural_budget();

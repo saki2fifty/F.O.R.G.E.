@@ -26,9 +26,9 @@ inline std::optional<TileGridPick> pick_tile_grid(std::array<double, 2> size,
             return {};
     auto relative = view;
     relative.position = {};
-    const auto near = unproject_render_point(relative, x, y, 0);
-    const auto far = unproject_render_point(relative, x, y, 1);
-    if (!near || !far)
+    const auto near_point = unproject_render_point(relative, x, y, 0);
+    const auto far_point = unproject_render_point(relative, x, y, 1);
+    if (!near_point || !far_point)
         return {};
     const auto cross = [](Double3 a, Double3 b) -> Double3 {
         return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]};
@@ -42,8 +42,8 @@ inline std::optional<TileGridPick> pick_tile_grid(std::array<double, 2> size,
         scale_u = std::max(scale_u, std::abs(u[axis]));
         scale_v = std::max(scale_v, std::abs(v[axis]));
         origin[axis] = world.m[axis * 4 + 3] - view.position[axis];
-        direction[axis] = (*far)[axis] - (*near)[axis];
-        to_plane[axis] = origin[axis] - (*near)[axis];
+        direction[axis] = (*far_point)[axis] - (*near_point)[axis];
+        to_plane[axis] = origin[axis] - (*near_point)[axis];
     }
     if (scale_u == 0 || scale_v == 0)
         return {};
@@ -60,7 +60,7 @@ inline std::optional<TileGridPick> pick_tile_grid(std::array<double, 2> size,
         return {};
     Double3 point{}, offset{};
     for (unsigned axis = 0; axis < 3; ++axis) {
-        point[axis] = (*near)[axis] + t * direction[axis];
+        point[axis] = (*near_point)[axis] + t * direction[axis];
         offset[axis] = point[axis] - origin[axis];
     }
     const std::array<double, 2> local{dot(cross(offset, v), normal) / area / scale_u,

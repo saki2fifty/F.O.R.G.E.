@@ -6,6 +6,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace forge {
@@ -40,6 +41,17 @@ class TileMapValue {
     std::string dump(int indent = -1) const;
     static std::size_t history_weight(const TileMapValue&, const TileMapValue&);
     friend bool operator==(const TileMapValue&, const TileMapValue&);
+    // The document owner adopts saved values after atomic file publication.
+    // Member swaps keep that operation nonthrowing on every supported STL;
+    // generic swap may instead invoke an allocating tree move constructor.
+    friend void swap(TileMapValue& a, TileMapValue& b) noexcept {
+        static_assert(noexcept(a.chunks_.swap(b.chunks_)));
+        a.metadata_.swap(b.metadata_);
+        a.chunks_.swap(b.chunks_);
+        std::swap(a.occupied_, b.occupied_);
+        std::swap(a.encoded_bytes_, b.encoded_bytes_);
+        std::swap(a.json_events_, b.json_events_);
+    }
 
   private:
     struct Chunk {

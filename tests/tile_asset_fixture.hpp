@@ -28,7 +28,8 @@ inline AssetImportOutcome publish(AssetImportService& service, const std::filesy
     check(results.size() == 1, "Tile asset publication receipt missing");
     return std::move(results[0]);
 }
-inline AssetId material(const std::filesystem::path& root, std::shared_ptr<const ProjectLease> lease) {
+inline AssetId material(const std::filesystem::path& root,
+                        std::shared_ptr<const ProjectLease> lease) {
     const auto id = AssetId::generate();
     auto source = MaterialSource::create(id);
     source.document["overrides"]["model"] = "forge.gltf.unlit.v1";

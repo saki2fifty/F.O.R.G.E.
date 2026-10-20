@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <forge/geometry.hpp>
 #include <stdexcept>
 inline void test_geometry() {
@@ -71,8 +72,13 @@ inline void test_geometry() {
     const auto unchanged_identity = scene.document();
     require(scene.document() == forge::migrate_scene(doc, &unchanged_identity),
             "New components/unknown data round trip");
-    require(scene.schema()["components"].size() == 34 &&
-                scene.schema()["components"][1]["id"] == "forge.local_rotation",
+    const auto schema = scene.schema();
+    const auto& components = schema.at("components");
+    require(components.size() == 35 && components[1]["id"] == "forge.local_rotation" &&
+                std::any_of(components.begin(), components.end(),
+                            [](const auto& component) {
+                                return component.at("id") == "forge.tile_map_renderer";
+                            }),
             "Reflected transform schema");
     const auto unchanged = scene.document();
     for (auto bad : {0.0f, -1.0f, 10001.0f}) {

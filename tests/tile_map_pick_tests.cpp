@@ -1,4 +1,10 @@
+// Windows headers define these empty legacy macros. Keep this header usable
+// in that include environment on every build platform.
+#define near
+#define far
 #include "tile_map_pick.hpp"
+#undef far
+#undef near
 #include <forge/render_components.hpp>
 #include <iostream>
 #include <limits>

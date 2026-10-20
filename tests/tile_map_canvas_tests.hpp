@@ -1,11 +1,11 @@
 #pragma once
 #include "editor/tile_map_preview.hpp"
 #include "sprite_draw_render_tests.hpp"
+#include "texture_authoring.hpp"
 #include "tile_asset_fixture.hpp"
 #include "tile_map_cook.hpp"
 #include "tile_map_document.hpp"
 #include "tile_set_document.hpp"
-#include "texture_authoring.hpp"
 #include <imgui_internal.h>
 #include <thread>
 
