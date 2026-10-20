@@ -185,53 +185,60 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             for (unsigned frame = 0; frame < 2; ++frame)
                 for (bool flip_x : {false, true})
                     for (bool flip_y : {false, true})
-                        for (bool tint : {false, true}) {
-                            SpriteDrawValues values{
-                                sprite_region_mapping(sprite_grid_region(8, 4, {2, 1}, frame), 8, 4,
-                                                      flip_x, flip_y),
-                                tint ? std::array<float, 4>{.5f, .75f, .25f, .5f}
-                                     : std::array<float, 4>{1, 1, 1, 1}};
-                            begin(true);
-                            submit(values);
-                            const auto pixels = end();
-                            check(pixels.size() == 4096, "Sprite target extent differs");
-                            for (unsigned y = 0; y < 64; ++y)
-                                for (unsigned x = 0; x < 64; ++x) {
-                                    auto u = (x + .5) / 64, v = (y + .5) / 64;
-                                    auto sampled = filtered(frame, flip_x ? 1 - u : u,
-                                                            flip_y ? 1 - v : v, linear);
-                                    for (unsigned lane = 0; lane < 4; ++lane)
-                                        sampled[lane] *= values.color[lane];
-                                    const auto& actual = pixels[y * 64 + x];
-                                    for (unsigned lane = 0; lane < 4; ++lane) {
-                                        double expected = sampled[lane];
-                                        if (alpha == MaterialAlpha::Mask && sampled[3] < .5)
-                                            expected = background[lane];
-                                        else if (alpha == MaterialAlpha::Blend)
-                                            expected = (lane == 3 ? sampled[3]
-                                                                  : sampled[lane] * sampled[3]) +
-                                                       background[lane] * (1 - sampled[3]);
-                                        else if (lane == 3)
-                                            expected = 1;
-                                        check(std::abs(int(actual[lane]) -
-                                                       int(std::lround(expected * 255))) <= 1,
-                                              "Sprite pixels differ from independent "
-                                              "frame/color/alpha oracle");
+                        for (bool transpose : {false, true})
+                            for (bool tint : {false, true}) {
+                                SpriteDrawValues values{
+                                    sprite_region_mapping(sprite_grid_region(8, 4, {2, 1}, frame),
+                                                          8, 4, flip_x, flip_y),
+                                    tint ? std::array<float, 4>{.5f, .75f, .25f, .5f}
+                                         : std::array<float, 4>{1, 1, 1, 1}};
+                                values.transpose_uv = transpose;
+                                begin(true);
+                                submit(values);
+                                const auto pixels = end();
+                                check(pixels.size() == 4096, "Sprite target extent differs");
+                                for (unsigned y = 0; y < 64; ++y)
+                                    for (unsigned x = 0; x < 64; ++x) {
+                                        auto u = (x + .5) / 64, v = (y + .5) / 64;
+                                        if (transpose)
+                                            std::swap(u, v);
+                                        auto sampled = filtered(frame, flip_x ? 1 - u : u,
+                                                                flip_y ? 1 - v : v, linear);
+                                        for (unsigned lane = 0; lane < 4; ++lane)
+                                            sampled[lane] *= values.color[lane];
+                                        const auto& actual = pixels[y * 64 + x];
+                                        for (unsigned lane = 0; lane < 4; ++lane) {
+                                            double expected = sampled[lane];
+                                            if (alpha == MaterialAlpha::Mask && sampled[3] < .5)
+                                                expected = background[lane];
+                                            else if (alpha == MaterialAlpha::Blend)
+                                                expected =
+                                                    (lane == 3 ? sampled[3]
+                                                               : sampled[lane] * sampled[3]) +
+                                                    background[lane] * (1 - sampled[3]);
+                                            else if (lane == 3)
+                                                expected = 1;
+                                            check(std::abs(int(actual[lane]) -
+                                                           int(std::lround(expected * 255))) <= 1,
+                                                  "Sprite pixels differ from independent "
+                                                  "frame/color/alpha oracle");
+                                        }
                                     }
+                                if (!tint && !flip_x && !flip_y && alpha == MaterialAlpha::Blend) {
+                                    std::ofstream file(
+                                        images / (std::string(linear ? "linear-" : "nearest-") +
+                                                  (transpose ? "transpose-" : "") +
+                                                  std::to_string(frame) + ".ppm"),
+                                        std::ios::binary);
+                                    file << "P6\n64 64\n255\n";
+                                    for (const auto& pixel : pixels)
+                                        file.write(reinterpret_cast<const char*>(pixel.data()), 3);
                                 }
-                            if (!tint && !flip_x && !flip_y && alpha == MaterialAlpha::Blend) {
-                                std::ofstream file(
-                                    images / (std::string(linear ? "linear-" : "nearest-") +
-                                              std::to_string(frame) + ".ppm"),
-                                    std::ios::binary);
-                                file << "P6\n64 64\n255\n";
-                                for (const auto& pixel : pixels)
-                                    file.write(reinterpret_cast<const char*>(pixel.data()), 3);
+                                ++cases;
                             }
-                            ++cases;
-                        }
             if (alpha == MaterialAlpha::Blend) {
                 SpriteDrawValues first{sprite_region_mapping({0, 0, 4, 4}, 8, 4), {1, 1, 1, .5f}};
+                first.transpose_uv = true;
                 SpriteDrawValues second{sprite_region_mapping({4, 0, 4, 4}, 8, 4, true),
                                         {.5f, 1, .75f, .75f}};
                 begin(true);
@@ -260,6 +267,6 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 check(ordinary_pixels() == ordinary_before,
                       "Sprite profile leaked UV/alpha/instance state into ordinary draws");
         }
-    check(cases == 96, "Sprite profile case coverage differs");
+    check(cases == 192, "Sprite profile case coverage differs");
 }
 } // namespace forge::test_sprite_draw

@@ -97,6 +97,7 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
     vs += "[unroll]for(uint i=0;i<" + std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];";
     if (sprite_profile)
         vs += "float2 local=float2(v.UV[0].x,1-v.UV[0].y);"
+              "if(instance.B2.w!=0)local=local.yx;"
               "o.UV[0]=instance.B2.x==0?instance.Atlas.xy+local*instance.Atlas.zw:local;"
               "o.SpriteX=instance.B0;o.SpriteY=instance.B1;o.SpriteImage=instance.B2;"
               "o.SpriteAtlas=instance.Atlas;o.SpriteClamp=instance.AtlasClamp;"

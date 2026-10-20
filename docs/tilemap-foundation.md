@@ -190,8 +190,13 @@ promise. Save also checks the actual formatted byte size.
 For example, `1:-1:0` is layer 1, chunk X -1, chunk Y 0. Leading zeros, negative
 zero, missing fields, overflow and chunks outside the signed cell range reject.
 Each chunk holds exactly 1024 `cells` slots. A slot is null or an object containing
-an exact positive uint64 `tile` and integer `flags` in 0–7. These transform flags
-are only stored/validated here; rendering their transforms remains unimplemented.
+an exact positive uint64 `tile` and integer `flags` in 0–7. Bit0 mirrors the
+frame's horizontal texture axis; bit1 mirrors its vertical texture axis; bit2
+transposes the frame-local UV axes before those mirrors. These eight combinations
+include quarter-turns and reflections, without changing the cell's geometry.
+The numeric adapter lowers them to the existing Sprite atlas mapping. Its simple
+image profile uses one previously unused instance lane for transpose, preserving
+the instance stride. Tile Map scene drawing remains unfinished.
 
 Each cell's identity is its layer key and signed int32 local X/Y address. Cells
 are not authored entities and receive no UUIDs. Chunks are derived storage rather

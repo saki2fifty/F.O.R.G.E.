@@ -12,10 +12,13 @@ struct SpriteDrawValues {
     SpriteRegionMapping region;
     std::array<float, 4> color{1, 1, 1, 1}; // Linear straight RGBA modulation.
     SpriteImageMapping image{};
+    bool transpose_uv = false; // Swap frame-local axes before atlas flips; simple mode only.
 };
 inline void validate_sprite_draw_values(const SpriteDrawValues& values) {
     if (values.image.mode > 2)
         throw std::invalid_argument("Sprite draw image mode is unsupported");
+    if (values.transpose_uv && values.image.mode)
+        throw std::invalid_argument("Transposed Sprite UVs require the simple image mode");
     for (const auto& axis : values.image.axes) {
         for (const auto span :
              {axis.source_low, axis.source_high, axis.target_low, axis.target_high})

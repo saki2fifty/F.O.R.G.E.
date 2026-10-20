@@ -745,7 +745,7 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                                            gpu(mapping.target_low), gpu(mapping.target_high)};
                 }
                 copied[i][5] = {float(values.image.mode), gpu(values.image.axes[0].repeat),
-                                gpu(values.image.axes[1].repeat), 0};
+                                gpu(values.image.axes[1].repeat), values.transpose_uv ? 1.f : 0.f};
                 copied[i][6] = values.color;
                 for (unsigned axis = 0; axis < 2; ++axis) {
                     copied[i][7][axis] = gpu(values.region.origin[axis]);
