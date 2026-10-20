@@ -47,6 +47,10 @@ Core/SDK matrix jobs allow 75 minutes: a cold Windows core run completed all 145
 tests and Runtime installation just before its former 45-minute cleanup deadline,
 but the overall job was still cancelled. The additional budget covers complete
 cold compilation, testing, installation and cleanup without relaxing any test.
+The Tile Map source fixture keeps all dense-capacity, history and four-million-
+event checks. Linux Debug measured 104.92 seconds; Windows Debug exceeded its
+former 120-second aggregate cutoff. This fixture allows 300 seconds in Debug and
+retains 120 seconds in other configurations, with flushed phase diagnostics.
 
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new

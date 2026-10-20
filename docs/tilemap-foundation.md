@@ -259,7 +259,14 @@ Each cell's identity is its layer key and signed int32 local X/Y address. Cells
 are not authored entities and receive no UUIDs. Chunks are derived storage rather
 than additional catalog identities. A cell covers the half-open local XY area
 `[x,x+1) × [y,y+1)` before multiplication by cell size. Y increases upward.
-The shared helpers use floor division into 32×32 chunks and row-major slots:
+The shared helpers use floor division into 32×32 chunks and row-major slots.
+
+Partitioning widens the signed cell coordinate before applying its negative
+floor-division bias. The chunk quotient is `trunc((n - 31) / 32)` for negative
+`n`, and `trunc(n / 32)` otherwise; the remainder is `n - 32 * quotient` in
+0–31. All intermediate arithmetic is int64, including at `INT32_MIN`. Narrowing
+occurs only after those quotient/remainder bounds are established. Grid and real
+source-paint fixtures independently check negative seams and both signed limits.
 
 | Cell X/Y | Chunk X/Y | Slot |
 | --- | --- | --- |

@@ -283,13 +283,17 @@ void history_and_limits(const std::filesystem::path& root) {
 int main(int argc, char** argv) {
     try {
         require(argc == 2, "Expected a dedicated Tile Map test directory");
+        std::cout << "Checking source values, signed coordinates and atomic swaps" << std::endl;
         values_and_paint();
         saved_value_swap_is_complete();
+        std::cout << "Checking malformed sources and sparse/layer limits" << std::endl;
         malformed();
         sparse_and_layer_limits();
+        std::cout << "Checking the maximum structural-event budget" << std::endl;
         structural_budget();
         const auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
+        std::cout << "Checking dense-capacity history, Save and reopen" << std::endl;
         history_and_limits(root);
         std::filesystem::remove_all(root);
         std::cout << "Internal Tile Map source, immutable paint, dense history, identity and "

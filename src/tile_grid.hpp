@@ -27,12 +27,12 @@ struct TileChunkCell {
 };
 inline TileChunkCell tile_chunk_cell(TileCellAddress cell) {
     const auto split = [](std::int32_t n) {
-        auto quotient = n / tile_chunk_side, remainder = n % tile_chunk_side;
-        if (remainder < 0) {
-            --quotient;
-            remainder += tile_chunk_side;
-        }
-        return std::array{quotient, remainder};
+        // Floor division in a wide intermediate also covers INT32_MIN without
+        // narrowing the negative bias or coupling signed quotient/remainder.
+        const auto value = std::int64_t(n);
+        const auto quotient = (value < 0 ? value - (tile_chunk_side - 1) : value) / tile_chunk_side;
+        const auto remainder = value - quotient * tile_chunk_side;
+        return std::array{std::int32_t(quotient), std::int32_t(remainder)};
     };
     const auto x = split(cell.x), y = split(cell.y);
     return {{x[0], y[0]}, std::uint32_t(y[1] * tile_chunk_side + x[1])};
