@@ -24,6 +24,7 @@
 #include "sprite_scene_render_tests.hpp"
 #include "tile_gallery_render_tests.hpp"
 #include "tile_map_canvas_tests.hpp"
+#include "tile_map_editor_render_tests.hpp"
 #include "tile_map_render_tests.hpp"
 #include "viewport.hpp"
 #include "widgets.hpp"
@@ -369,6 +370,13 @@ int main(int argc, char** argv) {
             });
         check_imgui(device, context, images);
         forge::DiligentPresentation presentation(device);
+        forge::test_tile_editor_render::exercise(
+            presentation, context, FORGE_TEST_GALLERY, images / "tile-editor",
+            std::filesystem::absolute(argv[0]).parent_path() / "forge_asset_build.exe",
+            [&](ITextureView* view) { return readback(device, context, view); },
+            [&](const auto& pixels, unsigned w, unsigned h, const auto& path) {
+                save(pixels, w, h, path);
+            });
         forge::Viewport viewport(presentation);
         forge::EngineContext scene_engine;
         forge::Scene live_scene(scene_engine.world());
