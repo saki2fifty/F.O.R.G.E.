@@ -52,9 +52,14 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sequence-frame-edi
         assert capture['fixed_output'] == [320, 180] and capture['ordinary_target_restored'], capture
         assert capture['ordinary_output'] != [320, 180] and all(capture['ordinary_output']), capture
         assert (evidence / f'editor-sequence-frame-ordinary-restored-{scale}.ppm').is_file()
-        assert capture['resizes'] == [
+        assert [{key: resize[key] for key in ('window', 'target')}
+                for resize in capture['resizes']] == [
             {'window': [1400, 900], 'target': [320, 180]},
             {'window': [1680, 1000], 'target': [320, 180]}], capture
+        for resize in capture['resizes']:
+            x, y, width, height = resize['modal_bounds']
+            assert resize['cancel_visible'] and x >= 0 and y >= 0
+            assert x + width <= resize['window'][0] and y + height <= resize['window'][1], resize
         image = evidence / f'editor-sequence-frame-settings-{scale}.ppm'
         assert image.is_file() and image.stat().st_size > 1920 * 1080, image
         image = evidence / f'editor-sequence-frame-fixed-settings-{scale}.ppm'

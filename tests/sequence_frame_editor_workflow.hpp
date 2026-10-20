@@ -311,13 +311,29 @@ class SequenceFrameEditorWorkflow {
                 SDL_GetWindowSize(window, &width, &height);
                 const auto display = ImGui::GetIO().DisplaySize;
                 const bool drawn_at_window_size = display.x == width && display.y == height;
+                const auto* modal = ImGui::FindWindowByName("Export sequence frames");
+                const auto cancel = ui_targets.find("frame-export:cancel");
+                const bool modal_bounded = modal && modal->Active && modal->Pos.x >= 0 &&
+                                           modal->Pos.y >= 0 &&
+                                           modal->Pos.x + modal->Size.x <= display.x &&
+                                           modal->Pos.y + modal->Size.y <= display.y;
+                if (resize_ && drawn_at_window_size &&
+                    (!modal_bounded || cancel == ui_targets.end() || !visible(cancel->second)))
+                    fail("Sequence progress modal or Cancel escaped the resized viewport");
+                const auto resize_record = [&] {
+                    return Json{{"window", {width, height}},
+                                {"target", {320, 180}},
+                                {"modal_bounds",
+                                 {modal->Pos.x, modal->Pos.y, modal->Size.x, modal->Size.y}},
+                                {"cancel_visible", true}};
+                };
                 if (resize_ == 0 && task.status().starts_with("Rendering sequence frame")) {
                     SDL_SetWindowSize(window, 1400, 900);
                     resize_ = 1;
                 } else if (resize_ == 1 && width == 1400 && height == 900 && drawn_at_window_size) {
                     if (resized_.empty()) {
                         capture("sequence-frame-fixed-resize-a-" + suffix);
-                        resized_.push_back({{"window", {width, height}}, {"target", {320, 180}}});
+                        resized_.push_back(resize_record());
                     }
                     if (task.status().starts_with("Saving sequence frame")) {
                         SDL_SetWindowSize(window, 1680, 1000);
@@ -326,7 +342,7 @@ class SequenceFrameEditorWorkflow {
                 } else if (resize_ == 2 && width == 1680 && height == 1000 &&
                            drawn_at_window_size && resized_.size() == 1) {
                     capture("sequence-frame-fixed-resize-b-" + suffix);
-                    resized_.push_back({{"window", {width, height}}, {"target", {320, 180}}});
+                    resized_.push_back(resize_record());
                 }
             }
         } else if (step_ == Step::Wait && !task.busy()) {
