@@ -11,6 +11,8 @@ project = json.loads((project_root / 'forge.project.json').read_text(encoding="u
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
+                       ('Assets/Tiles/Directions.tileset.json', 'tileset.bin'),
+                       ('Assets/Tiles/ArrowCourse.tilemap.json', 'tilemap.bin'),
                        ('Assets/Sprites/Badge.material.json', 'material.values'),
                        ('Assets/Sprites/SignalSheet.material.json', 'material.values'),
                        ('Assets/Sprites/Panel.material.json', 'material.values'),
@@ -71,7 +73,12 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
             asset['metadata']['forge.import']['key'] / cooked).is_file()
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
-        '73-sprite-image-fill.scene.json'} <= {p.name for p in scenes}
+        '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json'} <= {p.name for p in scenes}
+tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
+maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
+        if 'forge.tile_map_renderer' in row['components']]
+assert len(maps) == 2 and {row['map'] for row in maps} == {
+    by_source['Assets/Tiles/ArrowCourse.tilemap.json']['id']}
 panel_scene = json.loads((project_root / 'Scenes/73-sprite-image-fill.scene.json').read_text(encoding='utf-8'))
 panels = [row['components']['forge.sprite_renderer'] for row in panel_scene['entities']
           if 'forge.sprite_renderer' in row['components']]

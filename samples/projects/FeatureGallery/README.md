@@ -1,5 +1,28 @@
 # FORGE Feature Gallery
 
+## Tile Maps (development)
+
+Open **Scenes/74-tile-maps.scene.json**. The arrow course and smaller mirrored
+copy share **Assets/Tiles/ArrowCourse.tilemap.json**. The course uses negative
+grid coordinates, two layers and the original FORGE arrow sheet. The Scene
+includes its orthographic camera and needs no light.
+
+In Content, open the map, select **Loop across negative cells**, choose an arrow
+and drag to paint. Release for one Undo step; try Undo/Redo and Escape to cancel
+a held stroke. Try Erase, wheel zoom and middle-button pan. **Corner markers**
+overlays the loop. Choose **Save / Publish** and return to Scene: both instances
+show your saved edit. Stop Play before editing source cells.
+
+Open **Assets/Tiles/Directions.tileset.json** to inspect the four stable named
+definitions and their shared image material. Cell dimensions use local meters;
+the right instance's Scene transform creates the reflected, smaller copy.
+
+Select this Scene as startup before export. Its complete prepared dependency
+closure ships with the game; it needs no project C++ module. Optional
+**CodeExamples/TileMapEdits.hpp** shows one instance-specific queued C++ cell
+write. See [Tile Maps](../../../manual/editor/tile-maps.md) for the full workflow.
+This Scene is newer than Build261020-000194; use a delivery that includes it.
+
 ## World sprites
 
 The Sprite scenes open with a front orthographic Scene bookmark and an XY

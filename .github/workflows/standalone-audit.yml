@@ -149,12 +149,14 @@ jobs:
           if($LASTEXITCODE) { throw 'Installed consumer build failed' }
           cmake --install "$b/module-build" --component GameplayRuntime --prefix "$b/module-kits"
           if($LASTEXITCODE) { throw 'Module kit install failed' }
-          ctest --test-dir $b -R '^(standalone_manifest|standalone_module_export|runtime_ui_package|native_sdk|native_sdk_package|tile_assets_sdk|native_sdk_tile_maps_installed|standalone_game_workflow|game_frame_statistics|ui_frame_statistics|presentation_rate|game_launch|audio_mix_transport)$' --output-on-failure
+          ctest --test-dir $b -R '^(standalone_manifest|standalone_module_export|runtime_ui_package|native_sdk|native_sdk_package|tile_assets_sdk|tile_gallery|tile_play_transport|native_sdk_tile_maps_installed|standalone_game_workflow|game_frame_statistics|ui_frame_statistics|presentation_rate|game_launch|audio_mix_transport)$' --output-on-failure
           if($LASTEXITCODE) { throw 'Shared standalone regressions failed' }
           python tests/standalone_package_test.py --build $b --kit "$b/runtime-kit" --module-kit "$b/module-kits/project.example" --evidence "$b/grid-test-images/shared-game" --source . --retain "$b/standalone-delivery/game"
           if($LASTEXITCODE) { throw 'Shared standalone export failed' }
           python tests/sprite_image_standalone_test.py --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/sprite-image-export" --retain "$b/standalone-delivery/sprite-image-game"
           if($LASTEXITCODE) { throw 'Shared Sprite image-fill export failed' }
+          python tests/tile_map_standalone_test.py --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/tile-map-export" --retain "$b/standalone-delivery/tile-map-game"
+          if($LASTEXITCODE) { throw 'Shared Tile Map export failed' }
           Copy-Item tests/standalone_relocated_probe.py "$b/standalone-delivery/probe.py"
           cmake -S samples/reference_game -B "$b/reference-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl -DFORGE_NATIVE_SDK="$b/installed-sdk"
           if($LASTEXITCODE) { throw 'Reference SDK consumer configure failed' }
@@ -247,8 +249,8 @@ jobs:
   relocated:
     needs: build
     runs-on: windows-2022
-    # Five bounded host launches plus transfer/inventory checks need cleanup headroom.
-    timeout-minutes: 15
+    # Seven bounded host launches plus transfer/inventory checks need cleanup headroom.
+    timeout-minutes: 20
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -257,7 +259,7 @@ jobs:
       - name: Run without source checkout, original build or SDK
         shell: pwsh
         working-directory: ${{ runner.temp }}
-        run: python "Relocated FORGE Game/probe.py" "Relocated FORGE Game/game" "standalone-clean-room-evidence" "Relocated FORGE Game/sprite-image-game"
+        run: python "Relocated FORGE Game/probe.py" "Relocated FORGE Game/game" "standalone-clean-room-evidence" "Relocated FORGE Game/sprite-image-game" "Relocated FORGE Game/tile-map-game"
       - name: Upload clean-room evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

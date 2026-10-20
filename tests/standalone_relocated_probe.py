@@ -1,7 +1,7 @@
 """Fresh Windows runner: no source checkout, SDK, original project or build tree."""
 import hashlib,json,os,shutil,subprocess,sys
 from pathlib import Path
-assert len(sys.argv) in (3,4), "Expected game, evidence and optional Sprite game"
+assert len(sys.argv) in (3,4,5), "Expected game, evidence and optional Sprite/Tile Map games"
 root,evidence=map(lambda p:Path(p).resolve(),sys.argv[1:3])
 evidence.mkdir(parents=True,exist_ok=True)
 env=os.environ.copy();env['PATH']=str(Path(os.environ['SystemRoot'])/'System32')
@@ -32,8 +32,9 @@ assert restored['reopened'] and restored['root']==storage['root'] and restored['
 assert {p.relative_to(relocated).as_posix() for p in relocated.rglob('*') if p.is_file()}==set(manifest['files'])|{'forge.standalone.json'}
 (evidence/'fresh-runner.json').write_text(json.dumps({'engine':manifest['engine'],'production_startup':True,'fresh_runner_no_checkout_or_sdk':True,'installation_unchanged':True,'saves_settings_survive_second_move':True},indent=2))
 
-if len(sys.argv)==4:
- sprite=Path(sys.argv[3]).resolve()
+for index, gallery_path in enumerate(sys.argv[3:]):
+ label='sprite-image' if index==0 else 'tile-map'
+ sprite=Path(gallery_path).resolve()
  sprite_manifest=json.loads((sprite/'forge.standalone.json').read_text())
  assert sprite_manifest['engine']['profile']=='shared-native-sdk'
  assert not sprite_manifest['settings']['modules']
@@ -42,7 +43,7 @@ if len(sys.argv)==4:
   for name,info in sprite_manifest['files'].items():
    assert hashlib.sha256((sprite/name).read_bytes()).hexdigest()==info['sha256'],name
   result=subprocess.run([str(sprite/'forge_game.exe'),'--verify-startup'],cwd=sprite,env=env,text=True,capture_output=True,timeout=120)
-  (evidence/f'sprite-image-startup-{attempt}.log').write_text(result.stdout+'\n'+result.stderr)
+  (evidence/f'{label}-startup-{attempt}.log').write_text(result.stdout+'\n'+result.stderr)
   assert result.returncode==0,(result.returncode,result.stdout,result.stderr)
   assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr
   assert {p.relative_to(sprite).as_posix() for p in sprite.rglob('*') if p.is_file()}==set(sprite_manifest['files'])|{'forge.standalone.json'}
@@ -50,4 +51,4 @@ if len(sys.argv)==4:
    moved=sprite.with_name(sprite.name+' moved again')
    shutil.move(str(sprite),moved)
    sprite=moved
- (evidence/'sprite-image-fresh-runner.json').write_text(json.dumps({'engine':sprite_manifest['engine'],'production_startups':2,'fresh_runner_no_checkout_or_sdk':True,'installation_unchanged':True,'manifest_sha256':hashlib.sha256((sprite/'forge.standalone.json').read_bytes()).hexdigest()},indent=2))
+ (evidence/f'{label}-fresh-runner.json').write_text(json.dumps({'engine':sprite_manifest['engine'],'production_startups':2,'fresh_runner_no_checkout_or_sdk':True,'installation_unchanged':True,'manifest_sha256':hashlib.sha256((sprite/'forge.standalone.json').read_bytes()).hexdigest()},indent=2))

@@ -1,5 +1,16 @@
 # README screenshots
 
+## Native Tile Map render
+
+[Tile Map gallery](tile-maps.png) is a 1280×720 native Game rendering of
+`Scenes/74-tile-maps.scene.json` using Linux software Vulkan. It shows the two
+actual map instances, shared original arrow image, reflected transform and layer
+markers. `tests/tile_gallery_render_tests.hpp` captures this output and checks
+projected cell colors at two resolutions. The PPM readback was encoded as lossless
+PNG with its pixels and dimensions preserved. Windows execution is a separate gate.
+
+## Windows editor captures
+
 These are actual FORGE Windows editor captures. The original full-window pixels
 and dimensions are preserved; PPM captures were encoded as lossless PNG without
 cropping, retouching or generated interface elements.

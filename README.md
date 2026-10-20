@@ -47,6 +47,13 @@ Real Windows editor captures using small validation scenes. Click an image to op
 
 [Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
 
+## Tile Map gallery (development)
+
+The editable [Tile Map scene](manual/editor/tile-maps.md) uses two layers and a
+mirrored instance of the same map. Native Game rendering on Linux software Vulkan:
+
+[![Two arrow courses rendered from one Tile Map, including a smaller mirrored instance](docs/images/readme/tile-maps.png)](docs/images/readme/tile-maps.png)
+
 ## User manual
 
 Read the [FORGE User Manual](manual/README.md) for feature explanations and how-to guides. Windows packages include an offline edition under **Help → User Manual**. Technical implementation documents remain in `docs/`.

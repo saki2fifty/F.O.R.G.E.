@@ -18,6 +18,13 @@ with another startup scene to export a different demonstration.
 The gallery contains ordinary saved project content. Most scenes need no C++ compiler; optional C++ examples require the matching development tools to build. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
 
+## Tile Maps
+
+Development Scene **74-tile-maps** contains an editable two-layer arrow course and
+a mirrored copy of the same map. Open **Assets/Tiles/ArrowCourse.tilemap.json**
+from Content to paint, erase and try stroke Undo/Redo. Save/publish before Play or
+export. See [Tile Sets and Tile Maps](../editor/tile-maps.md).
+
 ## World sprites and frame animation
 
 Scene **71-world-sprites** compares image sizes, tints, mirrored images, pivots

@@ -1,0 +1,50 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "build",
+        "revision": "7fa82ab8505323132db1e6f0fa2473e62b078fe1b6fa6d322fbebe5e51bdda2e",
+        "role": "tile_map.tile_set",
+        "target": "7af59847-622f-480f-a403-f383a1a5890b",
+        "type": "tile_set"
+      },
+      {
+        "kind": "runtime",
+        "revision": "7fa82ab8505323132db1e6f0fa2473e62b078fe1b6fa6d322fbebe5e51bdda2e",
+        "role": "tile_map.tile_set",
+        "target": "7af59847-622f-480f-a403-f383a1a5890b",
+        "type": "tile_set"
+      }
+    ],
+    "importer": "forge.tilemap",
+    "importer_revision": "959d303dc2908e4ec80a4a65a48650a04088a93a613f5a31dda2876ef0bfbebf",
+    "key_version": 1,
+    "output_format": "forge.tile-map-cooked",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "56782a8c018bdb509166ffb8a8d9f70875761a83c216ebcfa544a13330209eab",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.tile-map.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "bde6f169-7b9a-481b-a0fc-5f50daa4ea7e",
+    "source": "Assets/Tiles/ArrowCourse.tilemap.json",
+    "source_digest": "56782a8c018bdb509166ffb8a8d9f70875761a83c216ebcfa544a13330209eab",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.tilemap",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

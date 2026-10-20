@@ -542,8 +542,13 @@ The actual document owner also exercises a 262144-cell map with 16 paint strokes
 and complete Undo/Redo. These source checks do not replace native-renderer,
 matching installed SDK, editor interaction and moved-game gates.
 
-The remaining complete feature gate includes moved-game validation, a fresh
-matching installed SDK consumer and original editable Gallery content. The source documents and isolated canvas require the
+Gallery74 contains original editable two-layer arrow data and mirrored instances,
+with source edit/history checks and an exact five-asset cooked closure that loads
+and edits independently after source removal/relocation. Native Game readbacks
+check layered markers and mirrored image cells at two resolutions.
+
+The remaining complete feature gate includes a source-free production game, a fresh
+matching installed SDK consumer and the coherent Windows gate. The source documents and isolated canvas require the
 coherent Windows gate before delivery. Native rendering/grid picking and bounded C++ queries/edits have
 focused local evidence; they do not complete those workflows. No autotiling,
 animated tiles, 2D collision or streaming is implied by this source foundation.

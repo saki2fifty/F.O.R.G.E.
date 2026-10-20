@@ -1312,6 +1312,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "1d76065d-01b2-427c-91c9-df10a61ee096",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/74-tile-maps.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "1ecc7bbd-1254-4628-bb8a-008337ae0b18",
       "metadata": {},
       "schema_version": 2,
@@ -4913,6 +4923,58 @@
       "type": "material"
     },
     {
+      "dependencies": [
+        "258b9537-c0f6-448d-af8c-818f150d67cf"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "9d9a5a8f183ab0f78846c7cbaa3e5ee0bfc9606e8859c05c4eb3d2bf6c032e24",
+          "role": "tile_set.material.258b9537-c0f6-448d-af8c-818f150d67cf",
+          "target": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "type": "material"
+        },
+        {
+          "kind": "runtime",
+          "revision": "9d9a5a8f183ab0f78846c7cbaa3e5ee0bfc9606e8859c05c4eb3d2bf6c032e24",
+          "role": "tile_set.material.258b9537-c0f6-448d-af8c-818f150d67cf",
+          "target": "258b9537-c0f6-448d-af8c-818f150d67cf",
+          "type": "material"
+        }
+      ],
+      "id": "7af59847-622f-480f-a403-f383a1a5890b",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "bb364e4fd14201022ccf625043118802972dd20588e3e0b330d7a4b8eabd9f76",
+          "backend": "d3d12",
+          "dependency_digest": "94daf517bd9a626482cae31804ac7983f633e21e548b50e20864553d3245e07b",
+          "generation": 1,
+          "importer": "forge.tileset",
+          "importer_revision": "a86c839b4be45faedc60b0bb935a19cc577ac814d4627dc1eca5fa9dc5c7273b",
+          "key": "7fa82ab8505323132db1e6f0fa2473e62b078fe1b6fa6d322fbebe5e51bdda2e",
+          "output_format": "forge.tile-set-cooked",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "ff157a6f613740aef34a76357abb82fa832ee470f685d8dfdb090d9e6db687f5",
+          "source_digest": "044e9c25325b6003cfca1a827f4fd0bcb2e2382968f1d7ac1a718c783e377ffd",
+          "version": 1
+        },
+        "forge.tile_set": {
+          "bytes": 477,
+          "file": "tileset.bin",
+          "sha256": "054267b07e98f5e4105cbd90d49a538a24c593f4d5306b4a8ccd6466e4533112",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/Directions.tileset.json",
+      "source_dependencies": [],
+      "type": "tile_set"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "7bb9e435-c783-44b2-8080-1037ee06ecfc",
@@ -7601,6 +7663,58 @@
       "source": "Scenes/55-layered-heightfield-terrain.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [
+        "7af59847-622f-480f-a403-f383a1a5890b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "7fa82ab8505323132db1e6f0fa2473e62b078fe1b6fa6d322fbebe5e51bdda2e",
+          "role": "tile_map.tile_set",
+          "target": "7af59847-622f-480f-a403-f383a1a5890b",
+          "type": "tile_set"
+        },
+        {
+          "kind": "runtime",
+          "revision": "7fa82ab8505323132db1e6f0fa2473e62b078fe1b6fa6d322fbebe5e51bdda2e",
+          "role": "tile_map.tile_set",
+          "target": "7af59847-622f-480f-a403-f383a1a5890b",
+          "type": "tile_set"
+        }
+      ],
+      "id": "bde6f169-7b9a-481b-a0fc-5f50daa4ea7e",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "b400c56005e6f4759ff63b6e0d947006b57e15707a47f4200b7321f1658f41e5",
+          "backend": "d3d12",
+          "dependency_digest": "4df5589f05ed8d49b386d06c9c972bf0483e622749472bcdd4ed29d7e838966e",
+          "generation": 1,
+          "importer": "forge.tilemap",
+          "importer_revision": "959d303dc2908e4ec80a4a65a48650a04088a93a613f5a31dda2876ef0bfbebf",
+          "key": "e4dd070d13753115110ef74b40060239db17ef1f97d6afce5555ad345cd6e51b",
+          "output_format": "forge.tile-map-cooked",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "f3ddf4d8ec4859dc7166f41523946917b5f0b173b7dfb69e0c4106d457ebce6d",
+          "source_digest": "56782a8c018bdb509166ffb8a8d9f70875761a83c216ebcfa544a13330209eab",
+          "version": 1
+        },
+        "forge.tile_map": {
+          "bytes": 1080,
+          "file": "tilemap.bin",
+          "sha256": "8b757cdf78445862881ab74f141350270ff24f38360e32ff7236d3e93479a315",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/ArrowCourse.tilemap.json",
+      "source_dependencies": [],
+      "type": "tile_map"
     },
     {
       "dependencies": [],

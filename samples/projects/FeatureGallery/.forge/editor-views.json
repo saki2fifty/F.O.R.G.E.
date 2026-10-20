@@ -2,43 +2,56 @@
   "version": 1,
   "views": {
     "Scenes/71-world-sprites.scene.json": {
+      "distance": 8,
+      "grid_plane": "xy",
+      "orthographic_height": 8,
+      "pitch": 0,
+      "projection": "orthographic",
       "target": [
         0,
         0,
         0
       ],
-      "yaw": 0,
-      "pitch": 0,
-      "distance": 8,
-      "projection": "orthographic",
-      "orthographic_height": 8,
-      "grid_plane": "xy"
+      "yaw": 0
     },
     "Scenes/72-sprite-frame-animation.scene.json": {
+      "distance": 8,
+      "grid_plane": "xy",
+      "orthographic_height": 8,
+      "pitch": 0,
+      "projection": "orthographic",
       "target": [
         0,
         0,
         0
       ],
-      "yaw": 0,
-      "pitch": 0,
-      "distance": 8,
-      "projection": "orthographic",
-      "orthographic_height": 8,
-      "grid_plane": "xy"
+      "yaw": 0
     },
     "Scenes/73-sprite-image-fill.scene.json": {
+      "distance": 12,
+      "grid_plane": "xy",
+      "orthographic_height": 12,
+      "pitch": 0,
+      "projection": "orthographic",
       "target": [
         0,
         0,
         0
       ],
-      "yaw": 0,
-      "pitch": 0,
+      "yaw": 0
+    },
+    "Scenes/74-tile-maps.scene.json": {
       "distance": 12,
-      "projection": "orthographic",
+      "grid_plane": "xy",
       "orthographic_height": 12,
-      "grid_plane": "xy"
+      "pitch": 0,
+      "projection": "orthographic",
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0
     }
   }
 }

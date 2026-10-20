@@ -1,0 +1,138 @@
+{
+  "asset_id": "1d76065d-01b2-427c-91c9-df10a61ee096",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 50.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 12.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -12.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "5347c9e1-5421-4fc5-902d-9cb8e2cb64a5",
+      "name": "Orthographic camera - two instances, one Tile Map",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -5.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tile_map_renderer": {
+          "enabled": true,
+          "layers": 4294967295,
+          "map": "bde6f169-7b9a-481b-a0fc-5f50daa4ea7e",
+          "order": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true
+        }
+      },
+      "id": "09e43990-65f0-4ce5-8925-0d03672e9e1a",
+      "name": "Editable course - open Assets/Tiles/ArrowCourse.tilemap.json",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": -0.75,
+          "y": 0.75,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 5.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tile_map_renderer": {
+          "enabled": true,
+          "layers": 4294967295,
+          "map": "bde6f169-7b9a-481b-a0fc-5f50daa4ea7e",
+          "order": 1,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.8999999761581421,
+          "tint_r": 0.800000011920929,
+          "visible": true
+        }
+      },
+      "id": "62854979-75ab-4d18-be34-9bdc3a3ce2ee",
+      "name": "Mirrored smaller copy - same Tile Map asset",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 5
+}

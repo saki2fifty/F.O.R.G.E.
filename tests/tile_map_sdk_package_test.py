@@ -24,6 +24,12 @@ def main():
             [cmake, "--install", str(build), "--prefix", str(stage), "--component", "NativeSdk"],
             check=True,
         )
+        # Compile the Gallery helper through this installed-only public boundary.
+        # The fixture still executes its existing full copied cell lifecycle.
+        assert (stage / "sdk/sample/TileMapEdits.hpp").is_file()
+        probe = stage / "sdk/sample/tile_map_probe.cpp"
+        probe.write_text('#include "TileMapEdits.hpp"\n' + probe.read_text(encoding="utf-8"),
+                         encoding="utf-8")
         subprocess.run(
             [cmake, "-S", str(stage / "sdk/sample"), "-B", str(client), "-G", "Ninja",
              "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_CXX_COMPILER=" + compiler,

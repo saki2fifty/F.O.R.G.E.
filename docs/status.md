@@ -1,3 +1,24 @@
+# Tile Maps — local validation in progress, 2026-10-20
+
+Development source adds Tile Set/Tile Map documents, palette/layers, bounded
+paint/erase strokes with Undo/Redo and cancellation, ordinary Content placement,
+native drawing/grid selection, and instance-specific C++ queries/queued edits.
+Both real Editor Play process hosts carry bounded immutable runtime map copies;
+Game views use that data without authored fallback. Prepared SDK candidates keep
+the existing 8 MiB envelope and 16 MiB process response limits.
+
+Focused Linux source/document/input/resource/SDK/process checks and software-Vulkan
+pixels pass, including maximum maps, shared/private copied budgets, fixed edits,
+replacement, retained frames and Stop/restart. Original editable Gallery74 has
+two layers and mirrored instances of one map. Its five-asset content closure loads
+and accepts instance-specific edits after source removal and relocation. A native
+Game capture is included in the README. Scoped sanitizer/leak checks pass.
+
+The fresh installed SDK and coherent Windows/editor/production-game gates remain
+in progress. This work is newer than delivered Build261020-000194. Physical
+Windows/GPU/listening acceptance remains deferred. See
+[the Tile Map contract](tilemap-foundation.md) and [user workflow](../manual/editor/tile-maps.md).
+
 # Scalable Sprite image fill — validated source, 2026-10-20
 
 Development source adds Simple/Sliced/Tiled fill, pixel-density and border fields

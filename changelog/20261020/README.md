@@ -1,5 +1,12 @@
 # 2026-10-20
 
+## Tile Map foundation — development source
+
+Original Tile Set/Tile Map authoring, native C++ cells, copied Editor Play,
+rendering and editable Gallery74 are implemented with focused local checks.
+Installed SDK and Windows production-game validation remain in progress.
+See [Tile Map details](tile-maps.md). These changes postdate Build261020-000194.
+
 ## Combined orthographic and Sprite source validation
 
 - Orthographic Scene views, six axis directions, XY/XZ/YZ grids and saved view bookmarks.

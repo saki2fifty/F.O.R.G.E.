@@ -22,6 +22,7 @@
 #include "sprite_image_render_tests.hpp"
 #include "sprite_projection_render_tests.hpp"
 #include "sprite_scene_render_tests.hpp"
+#include "tile_gallery_render_tests.hpp"
 #include "tile_map_canvas_tests.hpp"
 #include "tile_map_render_tests.hpp"
 #include "viewport.hpp"
@@ -283,6 +284,12 @@ int main(int argc, char** argv) {
                                                         images / "projection");
                 forge::test_sprite_gallery_render::exercise(isolated, context, read,
                                                             FORGE_TEST_GALLERY, images / "gallery");
+            } else if (selected == "tile-gallery") {
+                const auto read = [&](ITexture* texture) {
+                    return forge::test_sprite_draw::read_pixels(device, context, texture);
+                };
+                forge::test_tile_gallery_render::exercise(isolated, context, read,
+                                                          FORGE_TEST_GALLERY, images);
             } else if (selected == "tile-canvas") {
                 forge::test_tile_canvas::exercise(isolated, context,
                                                   std::filesystem::absolute(argv[0]).parent_path() /
