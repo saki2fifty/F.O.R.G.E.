@@ -245,6 +245,20 @@ libraries. The source-side view is a separate adapter to the same culling helper
 A runtime-only test links the cooked decoder/view and consumes a hand-authored
 binary fixture; symbol/link checks verify that map authoring code is absent.
 
+The internal native `with_cells` operation creates a detached cooked-data
+candidate against an admitted matching Tile Set. It validates every written layer,
+tile key and flag, accepts at most 4096 ordered writes, and uses the last write to
+an address. It checks the final cell/chunk counts before allocating chunk arrays,
+so a valid atomic move at capacity is allowed. Erasing the last cell removes the
+runtime chunk; unknown authoring payloads are absent from this cooked value.
+Unchanged and no-op chunks share their existing immutable arrays. Separate
+candidates cannot change each other or the original asset snapshot.
+
+This operation validates written cells; selecting a compatible baseline/Tile Set
+revision remains the asset/instance owner's responsibility. It does not publish
+to a world, queue a gameplay command, persist a game save or provide a public SDK
+interface. The world owner and its fixed-step boundary still need integration.
+
 The maximum-profile test uses all 1024 chunks and 262144 occupied cells. Its
 complete cooked artifact is 4215032 bytes. In the Linux GCC12 configuration its
 retained allocation estimate is 16883912 bytes. That estimate includes typed arrays, container capacity and

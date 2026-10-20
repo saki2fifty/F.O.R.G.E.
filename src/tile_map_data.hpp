@@ -8,6 +8,7 @@
 #include <vector>
 
 namespace forge {
+class TileSetData;
 inline constexpr std::array<std::byte, 8> tile_map_cooked_magic{
     std::byte{'F'}, std::byte{'T'}, std::byte{'I'}, std::byte{'L'},
     std::byte{'E'}, std::byte{'M'}, std::byte{'A'}, std::byte{'P'}};
@@ -25,6 +26,10 @@ class TileMapData {
     std::size_t occupied() const;
     std::size_t chunk_count() const;
     TileMapCell cell(std::uint64_t layer, TileCellAddress) const;
+    // Detached native candidate: ordered writes, last value wins at one address.
+    // Validate written cells against this map's admitted definitions before changing
+    // any snapshot. The eventual world owner controls fixed-phase publication.
+    TileMapData with_cells(std::span<const TileMapCellEdit>, const TileSetData&) const;
     void for_each_chunk(
         const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
                                  std::size_t occupied)>&) const;

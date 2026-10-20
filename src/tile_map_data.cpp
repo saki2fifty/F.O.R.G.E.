@@ -1,5 +1,7 @@
 #include "tile_map_data.hpp"
 #include "cooked_envelope.hpp"
+#include "tile_set_data.hpp"
+#include <algorithm>
 #include <bit>
 #include <optional>
 #include <set>
@@ -156,6 +158,71 @@ TileMapCell TileMapData::cell(std::uint64_t layer, TileCellAddress cell) const {
     const auto address = tile_chunk_cell(cell);
     const auto found = chunks_.find({layer, address.chunk});
     return found == chunks_.end() ? TileMapCell{} : found->second->cells[address.index];
+}
+TileMapData TileMapData::with_cells(std::span<const TileMapCellEdit> writes,
+                                    const TileSetData& definitions) const {
+    validate();
+    require(definitions.asset() == tile_set_, "Runtime Tile Map definitions have a different root");
+    require(writes.size() <= tile_map_edit_limit, "Runtime Tile Map edit batch exceeds its limit");
+    struct Patch {
+        std::map<std::size_t, TileMapCell> cells;
+        std::size_t occupied = 0;
+    };
+    std::map<TileMapChunkKey, Patch> patches;
+    for (const auto& write : writes) {
+        require(has_layer(write.layer), "Runtime Tile Map edit has no matching layer");
+        require(write.value.flags <= 7 && (write.value.tile || !write.value.flags),
+                "Runtime Tile Map edit has invalid cell flags");
+        if (write.value.tile)
+            (void)definitions.tile(write.value.tile);
+        const auto address = tile_chunk_cell(write.address);
+        patches[{write.layer, address.chunk}].cells[address.index] = write.value;
+    }
+    // Count the final state before allocating chunk arrays. This permits moves
+    // at capacity and bounds scratch work by the copied edit batch, rather than
+    // allocating a full chunk for each arbitrary input address before rejection.
+    auto occupied = occupied_;
+    auto chunks = chunks_.size();
+    for (auto& [key, patch] : patches) {
+        const auto old = chunks_.find(key);
+        const auto count = old == chunks_.end() ? 0 : old->second->occupied;
+        patch.occupied = count;
+        for (const auto& [index, cell] : patch.cells) {
+            if (old != chunks_.end() && old->second->cells[index].tile)
+                --patch.occupied;
+            if (cell.tile)
+                ++patch.occupied;
+        }
+        occupied = occupied - count + patch.occupied;
+        if (old != chunks_.end() && !patch.occupied)
+            --chunks;
+        else if (old == chunks_.end() && patch.occupied)
+            ++chunks;
+    }
+    require(occupied <= tile_map_cell_limit && chunks <= tile_map_chunk_limit,
+            "Runtime Tile Map edit exceeds its cell/chunk profile");
+    auto next = *this;
+    for (const auto& [key, patch] : patches) {
+        const auto old = chunks_.find(key);
+        if (!patch.occupied) {
+            next.chunks_.erase(key);
+            continue;
+        }
+        if (old != chunks_.end() &&
+            std::all_of(patch.cells.begin(), patch.cells.end(), [&](const auto& cell) {
+                return old->second->cells[cell.first] == cell.second;
+            }))
+            continue;
+        auto chunk = old == chunks_.end() ? std::make_shared<Chunk>()
+                                          : std::make_shared<Chunk>(*old->second);
+        for (const auto& [index, cell] : patch.cells)
+            chunk->cells[index] = cell;
+        chunk->occupied = patch.occupied;
+        next.chunks_[key] = std::move(chunk);
+    }
+    next.occupied_ = occupied;
+    next.validate();
+    return next;
 }
 void TileMapData::for_each_chunk(
     const std::function<void(TileMapChunkKey, std::span<const TileMapCell, tile_chunk_cells>,
