@@ -1,4 +1,4 @@
-# Scalable Sprite image fill — development, Windows/export validation pending
+# Scalable Sprite image fill — validated source, 2026-10-20
 
 Development source adds Simple/Sliced/Tiled fill, pixel-density and border fields
 to the existing Sprite component. The same settings support Source history and
@@ -9,9 +9,24 @@ and installed-only C++/cold recovery checks pass locally, including scoped
 sanitizer/leak inspection. The existing Sprite GPU stride and shared resource keys
 remain; compatible mixed modes instance together. Public fields require matching
 SDK/module rebuilds, with ABI1 unchanged. Build193 lacks these modes and Scene73.
-Full Windows/export acceptance remains pending; see [world sprites](sprites.md).
+Automated Windows/export acceptance passes; see [world sprites](sprites.md).
 
-# Visual Sprite frame selection — Windows validation pending
+The combined [full Windows source audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39345839790)
+passes 280/280 editor tests, standalone-only 2/2 and 12 matched process samples at
+compiled source `31759ff0f129e5a12abfca4a6d16d05337c693a9`. Actual walkthroughs
+complete 941/941 general actions and 117/117 sheet/fill actions. Nineteen native
+captures were reviewed, including three UI scales and the corrected resized export
+modal. The [shared SDK/export audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39350795981)
+passes at `2a7b5ff58a03695c914dd00b6368cca2ac140d8e`, including Gallery73 source/kit
+removal, two relocated production launches and two further launches on a separate
+runner without source or SDK. Production C++/headers/assets are identical between
+these two sources; the intervening changes concern CI and acceptance tests/budgets.
+The Linux/Windows core 154 and SDK 187 matrix also passes at the unchanged portable
+implementation. These changes are absent from the latest delivered ZIP, Build193.
+Physical Windows/GPU/OS-picker/listening acceptance remains deferred. See
+[the validation record](../changelog/20261020/README.md).
+
+# Visual Sprite frame selection — validated source
 
 Development source adds a sheet preview beside numeric Sprite Frame controls in
 Inspector, temporary live fields, prefab drafts and targeted Timeline key fields.
@@ -20,17 +35,19 @@ dimensions. Existing Undo, live submission, draft publication and key applicatio
 own the edits. Stale/failed image revisions cannot authorize a selection. Focused
 input/owner checks and native software-Vulkan UI images pass normally and with
 affected-own-unit sanitizer/leak inspection; six captures were visually reviewed.
-Full Windows acceptance is pending. Build193
-does not include the chooser. See [the guide](../manual/editor/sprites.md#select-frames-from-a-sheet).
+The combined Windows gate above passes the real-host picker/fill walkthrough at
+three scales, with authored values and AssetIds preserved. Build193 does not
+include the chooser. See [the guide](../manual/editor/sprites.md#select-frames-from-a-sheet).
 
-# Orthographic Scene editing — Windows validation pending
+# Orthographic Scene editing — validated source
 
 Development source adds Perspective/Orthographic Scene views, six axis presets,
 XY/XZ/YZ grids, matching picking/tools/navigation and saved view bookmarks.
 Gallery71/72 include front orthographic editor bookmarks. These personal views
 leave authored Game cameras and exported content unchanged. Local input, placement,
-native rendering and sanitizer checks pass; full Windows editor acceptance is
-pending. These changes are not included in Build193. See
+native rendering and sanitizer checks pass. The combined Windows gate above also
+passes the actual editor workflow, native grid/Sprite pixels and bookmark checks;
+representative native captures were reviewed. These changes are absent from Build193. See
 [the user guide](../manual/editor/viewport.md#orthographic-editing).
 
 # Windows delivery — 2026-10-19

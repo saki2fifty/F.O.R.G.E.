@@ -1,5 +1,8 @@
 # 2026-10-19
 
+The development entries below record their status on this date. Their combined
+automated Windows validation is recorded in [the 2026-10-20 update](../20261020/README.md).
+
 ## Scalable Sprite image fill — development, Windows/export validation pending
 
 - Simple stretch, Sliced borders and Tiled whole-cell fill share the existing Sprite and Material path. Density uses pixels per meter; undersized borders compress together and flips mirror partial repeats.

@@ -32,8 +32,9 @@ Development Scene **73-sprite-image-fill** compares complete-image stretch,
 preserved borders and repeated image fill. Two smaller examples show compressed
 borders and mirrored partial repeats. Its original panel art uses one shared
 Material. Try Image fill, Width and Height in Inspector; choose the Scene as
-startup before exporting. Scene73 and these modes are absent from Build193;
-Windows/export acceptance remains pending.
+startup before exporting. Scene73 and these modes are absent from Build193.
+Automated Windows and source-free exported-game checks pass; physical testing
+remains deferred.
 
 ## Sequence sound cues
 

@@ -36,7 +36,7 @@ restore it. Try wheel zoom, right-drag pan and **Fit image**; Cancel changes not
 The same control during Play changes only the temporary live value. On Timeline,
 choose the large signal as Preview object: selecting an image fills its pending
 Sprite frame field, and **Add / Update key at playhead** commits the key. These
-visual controls are not in Build193; their Windows validation is pending.
+visual controls are absent from Build193; automated Windows input checks pass.
 
 These scenes use ordinary materials and built-in components. Choose the desired
 scene as startup before export. Their prepared images, materials and animation
@@ -61,8 +61,9 @@ selected image cell. Opposing sliced borders must leave a positive image center.
 
 Choose this Scene as startup before export and use the matching build's runtime
 kit. Its prepared image and material ship with the game; no project C++ module is
-needed. These fill modes and Scene73 are development work and are absent from
-Build193; final Windows and exported-game acceptance remain pending.
+needed. These fill modes and Scene73 are absent from Build193. Automated Windows
+input/render checks and source-free production exports pass, including relocation
+to a fresh runner without source or SDK. Physical testing remains deferred.
 
 ## Sequence sound cues
 

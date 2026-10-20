@@ -80,8 +80,10 @@ the complete admitted configuration under the existing numeric-value budget.
 Development Gallery73 compares the modes using original panel art. Local normal
 and sanitizer checks cover mapped pixels, shared-resource retention/recovery,
 actual HDR Game rendering, Source/live Inspector controls and installed-only C++
-field access/cold recovery. Build193 does not include these modes or Scene73;
-Windows/export acceptance and the coherent final gate remain pending.
+field access/cold recovery. Build193 does not include these modes or Scene73.
+The combined full Windows editor/native gate and shared SDK/export/fresh-runner
+checks pass; see [validation status](status.md). Physical GPU and desktop
+acceptance remain separate.
 
 `order` is a numeric priority in the existing draw queue. Transparent
 camera depth remains authoritative before equal-depth priority; higher priorities
@@ -190,7 +192,8 @@ and with ASan/UBSan/leak inspection of the affected own units; pinned/CPU librar
 remain normal. Three scales, a small window, Scene Undo/cancel, prefab discard,
 live restoration, Timeline pending-key application and image revision failure/
 recovery are covered. Six native chooser captures were visually reviewed.
-Actual Windows shell acceptance remains pending. Build193 does not include this control. There is no
+Actual Windows shell input and native capture review now pass at all three scales;
+see [validation status](status.md). Build193 does not include this control. There is no
 irregular slicing, atlas packing, atlas mip generation, tilemap or new animation
 clock in this change.
 

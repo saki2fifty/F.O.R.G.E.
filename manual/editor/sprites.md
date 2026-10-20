@@ -40,8 +40,8 @@ testing Play or export; the Scene view's editor camera is independent.
 
 ## Resize borders or repeat an image (development)
 
-These Image fill controls are in development source and are absent from Build193.
-Windows and exported-game acceptance remain pending.
+These Image fill controls are available in source after Build193. Automated
+Windows and exported-game checks pass; physical desktop testing remains deferred.
 
 Choose an **Image mode** under **Image fill**:
 
@@ -56,8 +56,8 @@ their normal behavior. Stop restores the authored fill settings.
 
 ## Select frames from a sheet
 
-The visual **Choose frame...** controls are in development source; Build193 uses
-numeric frame selection. Windows validation of the visual controls is pending.
+The visual **Choose frame...** controls are available in source after Build193;
+Build193 uses numeric frame selection. Automated Windows input checks pass.
 
 Use **Sheet frames** to set columns, rows, outer pixel margins and pixel spacing.
 The cells must divide the selected image into whole positive pixel rectangles.
