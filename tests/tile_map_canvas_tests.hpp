@@ -10,8 +10,9 @@
 #include <thread>
 
 namespace forge::test_tile_canvas {
-inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
-                     const std::filesystem::path& worker, const std::filesystem::path& root) {
+inline void exercise_project(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+                             const std::filesystem::path& worker,
+                             const std::filesystem::path& root) {
     using test_tile_asset_io::check;
     std::filesystem::create_directories(root / "Assets");
     auto lease = std::make_shared<ProjectLease>(root);
@@ -158,5 +159,15 @@ inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContex
           "Canvas navigation modified authored cells");
     test::observe_ui = false;
     ImGui::DestroyContext();
+}
+inline void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
+                     const std::filesystem::path& worker, const std::filesystem::path& directory) {
+    // The output directory survives CI cache restores. Each run authors a new
+    // project rather than replacing registered assets with freshly minted IDs.
+    const auto root = directory.parent_path() / ("canvas-" + AssetId::generate().str());
+    exercise_project(presentation, context, worker, root);
+    // Native resources and the writer lease are released before cleanup. A failed
+    // exercise retains its isolated source/catalog for diagnosis.
+    std::filesystem::remove_all(root);
 }
 } // namespace forge::test_tile_canvas

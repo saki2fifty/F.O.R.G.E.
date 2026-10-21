@@ -306,10 +306,13 @@ int main(int argc, char** argv) {
                         save(pixels, w, h, path);
                     });
             } else if (selected == "tile-canvas") {
-                forge::test_tile_canvas::exercise(isolated, context,
-                                                  std::filesystem::absolute(argv[0]).parent_path() /
-                                                      "forge_asset_build.exe",
-                                                  images / "project");
+                // Exercise the same cached output path twice, including resource
+                // and project-lease retirement between the two authored projects.
+                for (unsigned run = 0; run < 2; ++run)
+                    forge::test_tile_canvas::exercise(
+                        isolated, context,
+                        std::filesystem::absolute(argv[0]).parent_path() / "forge_asset_build.exe",
+                        images / "project");
             } else if (selected == "optics") {
                 std::string bloom_failures;
                 for (const auto compiler : {SHADER_COMPILER_DXC, SHADER_COMPILER_FXC}) {
