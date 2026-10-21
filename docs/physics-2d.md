@@ -3,7 +3,8 @@
 **Implementation in progress.** This is the target contract for the current
 integration, not a guide to an available editor feature. The Build261021-000195 pipeline targets the
 Tile Map milestone and contains no 2D physics. Private XY conversion and native backend/profile fixtures have executed FORGE
-tests; body realization is not implemented. [ADR024](decisions/024-2d-physics.md)
+tests. The distinct authored components now have native reflection and scene
+save/reopen checks; body realization is not implemented. [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
 
 ## Native boundary
@@ -30,7 +31,7 @@ with an enabled 3D body or Character Controller. Disabled choices remain authore
 | Surface | Friction default 0.6, restitution default 0; stored on the existing body value |
 | Gravity / drag | Existing Project gravity XY times default multiplier 1; native linear/angular damping default 0 per second |
 | Layers | Existing named slots 0..31 and uint32 collision mask; native 64-bit filter adapted explicitly |
-| Flags | Enabled, sensor, sleep permission, rotation lock and bullet mode; inactive choices preserved |
+| Flags | Enabled, sensor, sleep permission, Dynamic world X/Y/rotation locks and bullet mode; inactive choices preserved |
 | Box | Full XY dimensions centered at entity origin |
 | Circle | Radius centered at entity origin |
 | Capsule | Radius and straight segment height along local Y; total height is segment plus diameter |
@@ -40,8 +41,11 @@ Effective full box dimensions are 0.01..1000 m; circle radius 0.005..500 m. Caps
 require effective straight height at least 0.01 m and total height at most 1000 m.
 The pin rejects a capsule segment at or below its native slop threshold; no
 implicit conversion to a circle is promised. Density is 0.001..10000 kg/m² and
-mass override 0..1000000 kg. Friction is 0..10, restitution 0..1, gravity factor 0..10,
+mass override 0..1000000 kg. Friction is 0..10, restitution 0..1, gravity factor -10..10,
 and damping 0..10000/s. These are input guards, not universal stability guarantees.
+A negative gravity factor reverses Project gravity. Authored collider scalar
+dimensions allow 0.000001..10000 m; the tighter effective physical dimensions are
+checked after world scale is applied, so source geometry can use different units.
 
 The original native range probe checks 90 box/circle/capsule cases at 0/±1000000m,
 including dimensions 0.01..1000 m, densities 0.001..10000 kg/m², positive finite

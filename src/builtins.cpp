@@ -197,13 +197,34 @@ template <class T> Json encode(const T& p) {
                 {"max_linear_velocity", p.max_linear_velocity},
                 {"max_angular_velocity", p.max_angular_velocity},
                 {"allow_sleeping", p.allow_sleeping}};
+    else if constexpr (std::is_same_v<T, PhysicsBody2D>)
+        return {{"motion", p.motion},
+                {"density", p.density},
+                {"mass", p.mass},
+                {"friction", p.friction},
+                {"restitution", p.restitution},
+                {"gravity_factor", p.gravity_factor},
+                {"enabled", p.enabled},
+                {"sensor", p.sensor},
+                {"layer", p.layer},
+                {"mask", p.mask},
+                {"linear_damping", p.linear_damping},
+                {"angular_damping", p.angular_damping},
+                {"allow_sleeping", p.allow_sleeping},
+                {"lock_x", p.lock_x},
+                {"lock_y", p.lock_y},
+                {"lock_rotation", p.lock_rotation},
+                {"bullet", p.bullet}};
+    else if constexpr (std::is_same_v<T, BoxCollider2D>)
+        return {{"x", p.x}, {"y", p.y}};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_value(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
         return {{"asset", p.asset.id ? Json(p.asset.id) : Json()}};
-    else if constexpr (std::is_same_v<T, SphereCollider>)
+    else if constexpr (std::is_same_v<T, SphereCollider> || std::is_same_v<T, CircleCollider2D>)
         return {{"radius", p.radius}};
-    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider>)
+    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider> ||
+                       std::is_same_v<T, CapsuleCollider2D>)
         return {{"radius", p.radius}, {"height", p.height}};
     else if constexpr (std::is_same_v<T, Primitive>)
         return {{"kind", p.kind}};
@@ -490,14 +511,37 @@ template <class T> Value decode(const Json& p) {
                  p.value("max_linear_velocity", 500.f),
                  p.value("max_angular_velocity", 2700.f),
                  p.value("allow_sleeping", true)};
+    else if constexpr (std::is_same_v<T, PhysicsBody2D>) {
+        T v;
+        v.motion = p.value("motion", v.motion);
+        v.density = p.value("density", v.density);
+        v.mass = p.value("mass", v.mass);
+        v.friction = p.value("friction", v.friction);
+        v.restitution = p.value("restitution", v.restitution);
+        v.gravity_factor = p.value("gravity_factor", v.gravity_factor);
+        v.enabled = p.value("enabled", v.enabled);
+        v.sensor = p.value("sensor", v.sensor);
+        v.layer = p.value("layer", v.layer);
+        v.mask = p.value("mask", v.mask);
+        v.linear_damping = p.value("linear_damping", v.linear_damping);
+        v.angular_damping = p.value("angular_damping", v.angular_damping);
+        v.allow_sleeping = p.value("allow_sleeping", v.allow_sleeping);
+        v.lock_x = p.value("lock_x", v.lock_x);
+        v.lock_y = p.value("lock_y", v.lock_y);
+        v.lock_rotation = p.value("lock_rotation", v.lock_rotation);
+        v.bullet = p.value("bullet", v.bullet);
+        return v;
+    } else if constexpr (std::is_same_v<T, BoxCollider2D>)
+        return T{p.at("x"), p.at("y")};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_from_value(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
         return T{p.at("asset").is_null() ? AssetRef<CollisionAsset>{}
                                          : p.at("asset").get<AssetRef<CollisionAsset>>()};
-    else if constexpr (std::is_same_v<T, SphereCollider>)
+    else if constexpr (std::is_same_v<T, SphereCollider> || std::is_same_v<T, CircleCollider2D>)
         return T{p.at("radius")};
-    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider>)
+    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider> ||
+                       std::is_same_v<T, CapsuleCollider2D>)
         return T{p.at("radius"), p.at("height")};
     else if constexpr (std::is_same_v<T, Primitive>)
         return T{p.at("kind").get<std::uint32_t>()};
@@ -948,6 +992,26 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("max_linear_velocity")
             .template member<float>("max_angular_velocity")
             .template member<bool>("allow_sleeping");
+    else if constexpr (std::is_same_v<T, PhysicsBody2D>)
+        c.template member<std::uint32_t>("motion")
+            .template member<float>("density")
+            .template member<float>("mass")
+            .template member<float>("friction")
+            .template member<float>("restitution")
+            .template member<float>("gravity_factor")
+            .template member<bool>("enabled")
+            .template member<bool>("sensor")
+            .template member<std::uint32_t>("layer")
+            .template member<std::uint32_t>("mask")
+            .template member<float>("linear_damping")
+            .template member<float>("angular_damping")
+            .template member<bool>("allow_sleeping")
+            .template member<bool>("lock_x")
+            .template member<bool>("lock_y")
+            .template member<bool>("lock_rotation")
+            .template member<bool>("bullet");
+    else if constexpr (std::is_same_v<T, BoxCollider2D>)
+        c.template member<float>("x").template member<float>("y");
     else if constexpr (std::is_same_v<T, PhysicsJoint>) {
         (void)authoring_value_adapters(w);
         c.template member<bool>("enabled")
@@ -988,9 +1052,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
     } else if constexpr (std::is_same_v<T, AssetCollider>) {
         register_asset_ref<CollisionAsset>(w, "forge.collision_ref");
         c.template member<AssetRef<CollisionAsset>>("asset");
-    } else if constexpr (std::is_same_v<T, SphereCollider>)
+    } else if constexpr (std::is_same_v<T, SphereCollider> || std::is_same_v<T, CircleCollider2D>)
         c.template member<float>("radius");
-    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider>)
+    else if constexpr (std::is_same_v<T, CapsuleCollider> || std::is_same_v<T, CylinderCollider> ||
+                       std::is_same_v<T, CapsuleCollider2D>)
         c.template member<float>("radius").template member<float>("height");
     else if constexpr (std::is_same_v<T, Primitive>)
         c.template member<std::uint32_t>("kind");
@@ -1217,7 +1282,31 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<AudioCue>(
             "forge.audio_cue", "Request an Audio Source one-shot at a Scene sequence time",
             "unitless", {}, {},
-            [](flecs::world& w) { return register_type<AudioCue>(w, "forge.audio_cue"); })};
+            [](flecs::world& w) { return register_type<AudioCue>(w, "forge.audio_cue"); }),
+        descriptor<PhysicsBody2D>(
+            "forge.physics_body_2d",
+            "2D body motion: Static, Kinematic, Dynamic. Mass 0 uses area-density.", "unitless", 0,
+            1000000,
+            [](flecs::world&
+                   w) { return register_type<PhysicsBody2D>(w, "forge.physics_body_2d"); }),
+        descriptor<BoxCollider2D>(
+            "forge.box_collider_2d",
+            "Centered XY box full dimensions; effective shape scale is checked at realization",
+            "meters", .000001f, 10000,
+            [](flecs::world&
+                   w) { return register_type<BoxCollider2D>(w, "forge.box_collider_2d"); }),
+        descriptor<CircleCollider2D>(
+            "forge.circle_collider_2d",
+            "Centered XY circle radius; equal absolute XY scale required", "meters", .000001f,
+            10000,
+            [](flecs::world&
+                   w) { return register_type<CircleCollider2D>(w, "forge.circle_collider_2d"); }),
+        descriptor<CapsuleCollider2D>(
+            "forge.capsule_collider_2d",
+            "XY capsule along local Y; height excludes the caps; equal absolute XY scale required",
+            "meters", .000001f, 10000, [](flecs::world& w) {
+                return register_type<CapsuleCollider2D>(w, "forge.capsule_collider_2d");
+            })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -1514,6 +1603,55 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] =
                 "Permit automatic sleep when motion settles. Disabling keeps Dynamic bodies "
                 "active and uses more physics work; it does not apply a force.";
+    }
+    if (name == "forge.physics_body_2d") {
+        if (field == "enabled" || field == "sensor" || field == "allow_sleeping" ||
+            field == "lock_x" || field == "lock_y" || field == "lock_rotation" ||
+            field == "bullet") {
+            value.erase("minimum");
+            value.erase("maximum");
+        }
+        if (field == "motion")
+            value["maximum"] = 2;
+        if (field == "density") {
+            value["minimum"] = .001;
+            value["maximum"] = 10000;
+            value["unit"] = "kg/m^2";
+        }
+        if (field == "mass")
+            value["unit"] = "kg (0 uses area-density)";
+        if (field == "friction")
+            value["maximum"] = 10;
+        if (field == "restitution")
+            value["maximum"] = 1;
+        if (field == "gravity_factor") {
+            value["minimum"] = -10;
+            value["maximum"] = 10;
+            value["description"] = "Multiply Project gravity in XY; a negative value reverses it";
+        }
+        if (field == "layer") {
+            value["maximum"] = 31;
+            value["description"] = "Existing named project collision layer, slot 0..31";
+        }
+        if (field == "mask") {
+            value["maximum"] = UINT32_MAX;
+            value["description"] = "Collision mask; both 2D bodies must permit the other layer";
+        }
+        if (field == "linear_damping" || field == "angular_damping") {
+            value["maximum"] = 10000;
+            value["unit"] = "per second";
+            value["description"] = "Native 2D velocity drag at fixed substeps; zero retains motion";
+        }
+        if (field == "lock_x" || field == "lock_y" || field == "lock_rotation")
+            value["description"] =
+                "Restrict Dynamic world-axis motion; inactive choices are preserved";
+        if (field == "bullet")
+            value["description"] =
+                "Extra Dynamic-solid continuous checks against moving bodies. Ordinary native "
+                "continuous collision remains enabled. Inactive choices are preserved.";
+        if (field == "allow_sleeping")
+            value["description"] =
+                "Allow Dynamic bodies to sleep when settled; disabling uses more physics work";
     }
     if (name == "forge.audio_source") {
         static const std::map<std::string, const char*> help = {
@@ -2132,8 +2270,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
                name == "forge.audio_cue" || name == "forge.two_bone_ik" || name == "forge.aim_ik")
                 ? 3u
             : name.starts_with("forge.audio_") ? 2u
-            : (name == "forge.physics_body" || name == "forge.physics_joint" ||
-               name == "forge.character_controller" || name.ends_with("_collider"))
+            : (name == "forge.physics_body" || name == "forge.physics_body_2d" ||
+               name == "forge.physics_joint" || name == "forge.character_controller" ||
+               name.ends_with("_collider") || name.ends_with("_collider_2d"))
                 ? 1u
                 : 0u;
         if (category != family)
