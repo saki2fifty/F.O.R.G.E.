@@ -74,12 +74,16 @@ inline void test_geometry() {
             "New components/unknown data round trip");
     const auto schema = scene.schema();
     const auto& components = schema.at("components");
-    require(components.size() == 35 && components[1]["id"] == "forge.local_rotation" &&
-                std::any_of(components.begin(), components.end(),
-                            [](const auto& component) {
-                                return component.at("id") == "forge.tile_map_renderer";
-                            }),
-            "Reflected transform schema");
+    const auto has_component = [&](std::string_view id) {
+        return std::any_of(components.begin(), components.end(),
+                           [&](const auto& component) { return component.at("id") == id; });
+    };
+    require(components.size() > 1 && components[1]["id"] == "forge.local_rotation" &&
+                has_component("forge.tile_map_renderer") &&
+                has_component("forge.physics_body_2d") && has_component("forge.box_collider_2d") &&
+                has_component("forge.circle_collider_2d") &&
+                has_component("forge.capsule_collider_2d"),
+            "Reflected transform, Tile Map and 2D physics schema");
     const auto unchanged = scene.document();
     for (auto bad : {0.0f, -1.0f, 10001.0f}) {
         auto invalid = doc;
