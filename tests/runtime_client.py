@@ -8,8 +8,8 @@ from pathlib import Path
 
 class Runtime:
     """Bounded requests to a disposable runtime; never load native code here."""
-    def __init__(self, executable: Path):
-        self.process = subprocess.Popen([str(executable)], stdin=subprocess.PIPE,
+    def __init__(self, executable: Path, arguments=()):
+        self.process = subprocess.Popen([str(executable), *map(str, arguments)], stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE, text=True, bufsize=1)
         self.lines: queue.Queue[str | None] = queue.Queue(maxsize=2)
         self.session = ""

@@ -42,6 +42,18 @@ Runtime protocol 2 carries correlated JSON-line requests. The runtime owns its
 fixed clock; Step means one fixed tick. Editor FPS and transport polling never
 supply simulation time. Source save and scene save have separate document history.
 
+## Typed 2D physics
+
+The existing Physics permission includes distinct XY movement/load/velocity,
+state, ray/overlap and current-tick collision callbacks. `sdk::Client` wraps the
+copied C boundary; no vendor physics headers or native handles are required.
+Positions use meters and angular values use radians. Commands share the existing
+body FIFO; reads do not flush it. The exact header/table fingerprint changes, so
+rebuild project modules with the matching installed SDK. Native ABI1 remains.
+See [2D physics](physics-2d.md#matching-c-sdk) for sizes, limits, units, retirement
+and process/recovery scope. Editor guides, Gallery and export acceptance remain
+part of the unfinished 2D milestone.
+
 ## Managed source and registration
 
 **Set up C++ code** copies the matching installed SDK template into

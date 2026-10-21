@@ -144,6 +144,39 @@ typedef struct ForgeSdkPhysicsContactV1 {
     char first_scene_uuid[37], first_entity_uuid[37];
     char second_scene_uuid[37], second_entity_uuid[37];
 } ForgeSdkPhysicsContactV1;
+/* Distinct XY-domain values. World metres, radians and seconds; never native IDs. */
+typedef struct ForgeSdkPhysicsHit2DV1 {
+    uint32_t size;
+    char scene[37], entity[37];
+    double position[2], normal[2], fraction;
+} ForgeSdkPhysicsHit2DV1;
+typedef struct ForgeSdkPhysicsBodyState2DV1 {
+    uint32_t size, motion, active;
+    uint64_t epoch; /* Private simulation realization, not a durable identity. */
+    double position[2], centre_of_mass[2], linear_velocity[2];
+    double angle, angular_velocity, mass, rotational_inertia;
+} ForgeSdkPhysicsBodyState2DV1;
+typedef struct ForgeSdkPhysicsLoad2DV1 {
+    uint32_t size, kind, at_point;
+    /* FORCE/IMPULSE use linear; TORQUE/ANGULAR_IMPULSE use angular.
+       Unused channels/point must be zero. at_point is0/1, linear loads only.
+       Linear N/N*s, angular N*m/N*m*s, optional absolute world XY point. */
+    double linear[2], angular, point[2];
+} ForgeSdkPhysicsLoad2DV1;
+#define FORGE_SDK_PHYSICS_2D_BOX 0u
+#define FORGE_SDK_PHYSICS_2D_CIRCLE 1u
+#define FORGE_SDK_PHYSICS_2D_CAPSULE 2u
+typedef struct ForgeSdkOverlap2DV1 {
+    uint32_t size, shape, layer_mask, include_sensors;
+    double dimensions[2], origin[2],
+        angle; /* Full box XY; circle radius,0; capsule radius,straight height. */
+} ForgeSdkOverlap2DV1;
+typedef struct ForgeSdkPhysicsContact2DV1 {
+    uint32_t size, begin, sensor, first_available, second_available;
+    uint64_t tick, first_epoch, second_epoch;
+    char first_scene_uuid[37], first_entity_uuid[37];
+    char second_scene_uuid[37], second_entity_uuid[37];
+} ForgeSdkPhysicsContact2DV1;
 typedef struct ForgeSdkActionV1 {
     uint32_t size;
     uint32_t held, pressed, released;
@@ -462,6 +495,39 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* tile_edit_inspect)(void*, uint64_t token, ForgeSdkTileEditV1*);
     /* Release pending cancels; release applied only forgets its observation. */
     int32_t(FORGE_SDK_CALL* tile_edit_release)(void*, uint64_t token);
+    /* XY physics: same owner/fixed/Physics permission and4096-command FIFO.
+       motion0 teleport,1 kinematic target; clear_velocity0/1, teleport only.
+       Position +/-1e6m, angle +/-1e6rad.1 queued,0 invalid/context/unavailable. */
+    int32_t(FORGE_SDK_CALL* physics_move_2d)(void*, const char* scene, const char* entity,
+                                             const double position[2], double angle,
+                                             uint32_t motion, uint32_t clear_velocity);
+    int32_t(FORGE_SDK_CALL* physics_apply_2d)(void*, const char* scene, const char* entity,
+                                              const ForgeSdkPhysicsLoad2DV1*);
+    int32_t(FORGE_SDK_CALL* physics_set_linear_velocity_2d)(void*, const char* scene,
+                                                            const char* entity,
+                                                            const double velocity[2]);
+    int32_t(FORGE_SDK_CALL* physics_set_angular_velocity_2d)(void*, const char* scene,
+                                                             const char* entity, double velocity);
+    /* Reads never flush commands or wake bodies. Exact output size; valid-size
+       outputs clear on failure.1 available,0 unavailable,-1 invalid/context. */
+    int32_t(FORGE_SDK_CALL* physics_body_state_2d)(void*, const char* scene, const char* entity,
+                                                   ForgeSdkPhysicsBodyState2DV1*);
+    int32_t(FORGE_SDK_CALL* physics_point_velocity_2d)(void*, const char* scene, const char* entity,
+                                                       const double point[2],
+                                                       double out_velocity[2]);
+    int32_t(FORGE_SDK_CALL* physics_raycast_2d)(void*, const double origin[2],
+                                                const double displacement[2], uint32_t mask,
+                                                uint32_t include_sensors, ForgeSdkPhysicsHit2DV1*);
+    /* Same complete-results/capacity1..256/-2 insufficient/-1 invalid contract
+       as physics_overlap_shape. Sorted canonical copied references. */
+    int32_t(FORGE_SDK_CALL* physics_overlap_shape_2d)(void*, const ForgeSdkOverlap2DV1*,
+                                                      ForgeSdkEntityRefV1*, uint32_t capacity);
+    /* Current fixed-tick broadcast; sensor first/visitor second, solids in
+       canonical order. Retired Ends retain UUID/epoch with availability false.
+       Count0..16384,-1 invalid; event1 copied,0 absent/stale,-1 invalid. */
+    int32_t(FORGE_SDK_CALL* physics_contact_count_2d)(void*);
+    int32_t(FORGE_SDK_CALL* physics_contact_event_2d)(void*, uint32_t index,
+                                                      ForgeSdkPhysicsContact2DV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

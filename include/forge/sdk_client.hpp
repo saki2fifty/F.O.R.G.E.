@@ -126,6 +126,80 @@ class Client {
                    ? host_->shape_cast(host_->context, &request, &out)
                    : -1;
     }
+    bool move_2d(const char* scene, const char* entity, const double position[2], double angle,
+                 bool kinematic = false, bool clear_velocity = false) const {
+        return callable(Capability::Physics) && host_->physics_move_2d &&
+               host_->physics_move_2d(host_->context, scene, entity, position, angle,
+                                      kinematic ? 1u : 0u, clear_velocity ? 1u : 0u) == 1;
+    }
+    bool apply_2d(const char* scene, const char* entity, ForgeSdkPhysicsLoad2DV1 load) const {
+        load.size = sizeof(load);
+        return callable(Capability::Physics) && host_->physics_apply_2d &&
+               host_->physics_apply_2d(host_->context, scene, entity, &load) == 1;
+    }
+    bool set_linear_velocity_2d(const char* scene, const char* entity,
+                                const double velocity[2]) const {
+        return callable(Capability::Physics) && host_->physics_set_linear_velocity_2d &&
+               host_->physics_set_linear_velocity_2d(host_->context, scene, entity, velocity) == 1;
+    }
+    bool set_angular_velocity_2d(const char* scene, const char* entity, double velocity) const {
+        return callable(Capability::Physics) && host_->physics_set_angular_velocity_2d &&
+               host_->physics_set_angular_velocity_2d(host_->context, scene, entity, velocity) == 1;
+    }
+    int32_t body_state_2d(const char* scene, const char* entity,
+                          ForgeSdkPhysicsBodyState2DV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Physics) && host_->physics_body_state_2d
+                   ? host_->physics_body_state_2d(host_->context, scene, entity, &out)
+                   : -1;
+    }
+    int32_t point_velocity_2d(const char* scene, const char* entity, const double point[2],
+                              double out[2]) const {
+        if (!out)
+            return -1;
+        // Let the bridge copy the input before clearing an aliased output.
+        if (callable(Capability::Physics) && host_->physics_point_velocity_2d)
+            return host_->physics_point_velocity_2d(host_->context, scene, entity, point, out);
+        out[0] = out[1] = 0;
+        return -1;
+    }
+    int32_t raycast_2d(const double origin[2], const double displacement[2], uint32_t mask,
+                       bool sensors, ForgeSdkPhysicsHit2DV1& out) const {
+        if (callable(Capability::Physics) && host_->physics_raycast_2d) {
+            out.size = sizeof(out);
+            return host_->physics_raycast_2d(host_->context, origin, displacement, mask,
+                                             sensors ? 1u : 0u, &out);
+        }
+        out = {};
+        out.size = sizeof(out);
+        return -1;
+    }
+    int32_t overlap_shape_2d(ForgeSdkOverlap2DV1 request, ForgeSdkEntityRefV1* out,
+                             uint32_t capacity) const {
+        if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_OVERLAP_LIMIT)
+            return -1;
+        request.size = sizeof(request);
+        for (uint32_t i = 0; i < capacity; ++i) {
+            out[i] = {};
+            out[i].size = sizeof(out[i]);
+        }
+        return callable(Capability::Physics) && host_->physics_overlap_shape_2d
+                   ? host_->physics_overlap_shape_2d(host_->context, &request, out, capacity)
+                   : -1;
+    }
+    int32_t contact_count_2d() const {
+        return callable(Capability::Physics) && host_->physics_contact_count_2d
+                   ? host_->physics_contact_count_2d(host_->context)
+                   : -1;
+    }
+    int32_t contact_event_2d(uint32_t index, ForgeSdkPhysicsContact2DV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Physics) && host_->physics_contact_event_2d
+                   ? host_->physics_contact_event_2d(host_->context, index, &out)
+                   : -1;
+    }
     bool navigation(const char* asset, uint32_t operation, const double start[3],
                     const double end[3], ForgeSdkNavResultV1& out) const {
         out.count = 0;

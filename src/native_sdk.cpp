@@ -25,6 +25,9 @@
 namespace forge {
 namespace {
 using Json = nlohmann::json;
+static_assert(unsigned(PhysicsOverlap2D::Shape::Box) == FORGE_SDK_PHYSICS_2D_BOX &&
+              unsigned(PhysicsOverlap2D::Shape::Circle) == FORGE_SDK_PHYSICS_2D_CIRCLE &&
+              unsigned(PhysicsOverlap2D::Shape::Capsule) == FORGE_SDK_PHYSICS_2D_CAPSULE);
 static_assert(unsigned(RuntimeResourceKind::Mesh) == FORGE_SDK_RESOURCE_MESH &&
               unsigned(RuntimeResourceKind::Material) == FORGE_SDK_RESOURCE_MATERIAL &&
               unsigned(RuntimeResourceKind::Texture) == FORGE_SDK_RESOURCE_TEXTURE &&
@@ -1468,6 +1471,265 @@ struct Bridge {
                 return static_cast<int32_t>(values.size());
             } catch (...) {
                 clear();
+                return -1;
+            }
+        };
+        host.physics_move_2d = [](void* p, const char* scene, const char* entity,
+                                  const double* position, double angle, uint32_t motion,
+                                  uint32_t clear) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !position || motion > 1 || clear > 1 || (motion && clear))
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                auto service = c.services.physics();
+                const Double2 target{position[0], position[1]};
+                if (motion)
+                    service->move_kinematic_2d(ref, target, angle);
+                else
+                    service->teleport_2d(ref, target, angle, clear != 0);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.physics_apply_2d = [](void* p, const char* scene, const char* entity,
+                                   const ForgeSdkPhysicsLoad2DV1* request) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !request || request->size != sizeof(*request))
+                    return 0;
+                const auto value = *request;
+                if (value.kind > FORGE_SDK_PHYSICS_ANGULAR_IMPULSE || value.at_point > 1 ||
+                    (!value.at_point && (value.point[0] != 0 || value.point[1] != 0)) ||
+                    (value.kind < FORGE_SDK_PHYSICS_TORQUE
+                         ? value.angular != 0
+                         : (value.linear[0] != 0 || value.linear[1] != 0 || value.at_point)))
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                std::optional<Double2> point;
+                if (value.at_point)
+                    point = Double2{value.point[0], value.point[1]};
+                auto service = c.services.physics();
+                switch (value.kind) {
+                case FORGE_SDK_PHYSICS_FORCE:
+                    service->add_force_2d(ref, {value.linear[0], value.linear[1]}, point);
+                    break;
+                case FORGE_SDK_PHYSICS_IMPULSE:
+                    service->add_impulse_2d(ref, {value.linear[0], value.linear[1]}, point);
+                    break;
+                case FORGE_SDK_PHYSICS_TORQUE:
+                    service->add_torque_2d(ref, value.angular);
+                    break;
+                case FORGE_SDK_PHYSICS_ANGULAR_IMPULSE:
+                    service->add_angular_impulse_2d(ref, value.angular);
+                    break;
+                }
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.physics_set_linear_velocity_2d = [](void* p, const char* scene, const char* entity,
+                                                 const double* velocity) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !velocity)
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                c.services.physics()->set_linear_velocity_2d(ref, {velocity[0], velocity[1]});
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.physics_set_angular_velocity_2d = [](void* p, const char* scene, const char* entity,
+                                                  double velocity) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return 0;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                c.services.physics()->set_angular_velocity_2d(ref, velocity);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
+        host.physics_body_state_2d = [](void* p, const char* scene, const char* entity,
+                                        ForgeSdkPhysicsBodyState2DV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return -1;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                const auto state = c.services.physics()->body_state_2d(ref);
+                if (!state)
+                    return 0;
+                out->motion = state->motion;
+                out->active = state->active;
+                out->epoch = state->epoch;
+                for (unsigned i = 0; i < 2; ++i) {
+                    out->position[i] = state->position[i];
+                    out->centre_of_mass[i] = state->centre_of_mass[i];
+                    out->linear_velocity[i] = state->linear_velocity[i];
+                }
+                out->angle = state->angle;
+                out->angular_velocity = state->angular_velocity;
+                out->mass = state->mass;
+                out->rotational_inertia = state->rotational_inertia;
+                return 1;
+            } catch (...) {
+                *out = {};
+                out->size = sizeof(*out);
+                return -1;
+            }
+        };
+        host.physics_point_velocity_2d = [](void* p, const char* scene, const char* entity,
+                                            const double* point, double* out) -> int32_t {
+            if (!out)
+                return -1;
+            const auto at = point ? Double2{point[0], point[1]} : Double2{};
+            out[0] = out[1] = 0;
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !point)
+                    return -1;
+                const EntityRef ref{AssetId::parse(bounded(scene, 36)),
+                                    EntityId::parse(bounded(entity, 36))};
+                const auto velocity = c.services.physics()->point_velocity_2d(ref, at);
+                if (!velocity)
+                    return 0;
+                out[0] = (*velocity)[0];
+                out[1] = (*velocity)[1];
+                return 1;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.physics_raycast_2d = [](void* p, const double* origin, const double* displacement,
+                                     uint32_t mask, uint32_t sensors,
+                                     ForgeSdkPhysicsHit2DV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            const auto from = origin ? Double2{origin[0], origin[1]} : Double2{};
+            const auto delta = displacement ? Double2{displacement[0], displacement[1]} : Double2{};
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !origin || !displacement || sensors > 1)
+                    return -1;
+                const auto hit =
+                    c.services.physics()->raycast_2d(from, delta, {mask, sensors != 0});
+                if (!hit)
+                    return 0;
+                std::memcpy(out->scene, hit->entity.scene.str().c_str(), 37);
+                std::memcpy(out->entity, hit->entity.entity.str().c_str(), 37);
+                for (unsigned i = 0; i < 2; ++i) {
+                    out->position[i] = hit->position[i];
+                    out->normal[i] = hit->normal[i];
+                }
+                out->fraction = hit->fraction;
+                return 1;
+            } catch (...) {
+                *out = {};
+                out->size = sizeof(*out);
+                return -1;
+            }
+        };
+        host.physics_overlap_shape_2d = [](void* p, const ForgeSdkOverlap2DV1* request,
+                                           ForgeSdkEntityRefV1* out, uint32_t capacity) -> int32_t {
+            if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_OVERLAP_LIMIT)
+                return -1;
+            for (uint32_t i = 0; i < capacity; ++i)
+                if (out[i].size != sizeof(out[i]))
+                    return -1;
+            const bool valid = request && request->size == sizeof(*request);
+            const auto input = valid ? *request : ForgeSdkOverlap2DV1{};
+            const auto clear = [&] {
+                for (uint32_t i = 0; i < capacity; ++i) {
+                    out[i] = {};
+                    out[i].size = sizeof(out[i]);
+                }
+            };
+            clear();
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !valid || input.include_sensors > 1)
+                    return -1;
+                PhysicsOverlap2D shape;
+                shape.shape = PhysicsOverlap2D::Shape(input.shape);
+                shape.dimensions = {input.dimensions[0], input.dimensions[1]};
+                shape.origin = {input.origin[0], input.origin[1]};
+                shape.angle = input.angle;
+                const auto values = c.services.physics()->overlap_shape_2d(
+                    shape, {input.layer_mask, input.include_sensors != 0});
+                if (values.size() > capacity)
+                    return -2;
+                for (std::size_t i = 0; i < values.size(); ++i) {
+                    out[i].version = 1;
+                    std::memcpy(out[i].scene_uuid, values[i].scene.str().c_str(), 37);
+                    std::memcpy(out[i].entity_uuid, values[i].entity.str().c_str(), 37);
+                }
+                return static_cast<int32_t>(values.size());
+            } catch (...) {
+                clear();
+                return -1;
+            }
+        };
+        host.physics_contact_count_2d = [](void* p) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return -1;
+                const auto service = c.services.physics();
+                const auto count = service->contact_count_2d();
+                if (count > 16384)
+                    return -1;
+                const auto first = service->contact_event_2d(0);
+                return first && first->tick == c.input->tick ? static_cast<int32_t>(count) : 0;
+            } catch (...) {
+                return -1;
+            }
+        };
+        host.physics_contact_event_2d = [](void* p, uint32_t index,
+                                           ForgeSdkPhysicsContact2DV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return -1;
+                const auto event = c.services.physics()->contact_event_2d(index);
+                if (!event || event->tick != c.input->tick)
+                    return 0;
+                out->tick = event->tick;
+                out->begin = event->begin;
+                out->sensor = event->sensor;
+                out->first_epoch = event->first_epoch;
+                out->second_epoch = event->second_epoch;
+                out->first_available = event->first_available;
+                out->second_available = event->second_available;
+                std::memcpy(out->first_scene_uuid, event->first.scene.str().c_str(), 37);
+                std::memcpy(out->first_entity_uuid, event->first.entity.str().c_str(), 37);
+                std::memcpy(out->second_scene_uuid, event->second.scene.str().c_str(), 37);
+                std::memcpy(out->second_entity_uuid, event->second.entity.str().c_str(), 37);
+                return 1;
+            } catch (...) {
+                *out = {};
+                out->size = sizeof(*out);
                 return -1;
             }
         };

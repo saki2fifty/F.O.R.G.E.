@@ -30,7 +30,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as temporary:
             position = left['scene']['entities'][0]['components']['forge.local_translation']
             assert abs(position['x']-tick*5/60) < 3e-6 and position['y'] == position['z'] == 0
             pending = left['recovery']['physics']['commands']
-            assert left['recovery']['physics']['version'] == 4
+            assert left['recovery']['physics']['version'] == 5
             assert [c['kind'] for c in pending] == [6, 7], pending
             if b:
                 right = b.request('step')

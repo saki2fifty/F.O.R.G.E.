@@ -5,8 +5,9 @@ integration, not a guide to an available editor feature. Build261021-000195 targ
 the Tile Map milestone and contains no 2D physics. Local CPU tests cover authored
 reflection, scene save/reopen, initial native body simulation, domain separation,
 signed/flat parent frames, typed engine controls, queries, copied state/events and
-rejected partial steps and private fresh-candidate recovery. The matching SDK bridge and editor/export
-acceptance remain incomplete.
+rejected partial steps, and private fresh-candidate recovery. Matching installed
+SDK modules also pass local checks through both process hosts. Editor presentation,
+Windows and source-free export acceptance remain incomplete.
 [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
 
@@ -131,6 +132,50 @@ replacement epoch with the same UUID. Native solver/sensor events are not a
 durable geometric-overlap history. No generic event manager is introduced.
 Adoption must complete before the next synchronization or step. This preserves
 native event-buffer lifetime, including Ends generated between simulation ticks.
+
+## Matching C++ SDK
+
+The existing Physics capability now includes distinct 2D callbacks at the tail of
+`ForgeSdkWorldV1`, with header-only `sdk::Client` helpers. Rebuild modules against
+the matching SDK fingerprint; native ABI 1 and authored identity formats remain
+unchanged. No Box2D header, native ID or application pointer enters this boundary.
+
+- `move_2d` queues an XY/radian teleport or Kinematic target. It preserves source
+  depth and signed scale; clear-velocity applies only to a teleport.
+- `apply_2d` takes `ForgeSdkPhysicsLoad2DV1`. Force/Impulse use the two linear
+  components (N/N*s); Torque/AngularImpulse use the angular scalar (N*m/N*m*s).
+  Unused channels and unused point values must be zero. An optional absolute XY
+  point is supported for linear loads only.
+- Separate linear/angular velocity helpers use m/s and radians/s. State and point
+  velocity reads copy current realized values without flushing commands or waking
+  sleeping bodies. State includes the private simulation epoch.
+- Ray and box/circle/capsule overlap queries copy results with existing project
+  layer masks and optional sensor inclusion. Overlaps return complete sorted,
+  unique canonical references, at most 256. Insufficient caller capacity returns `-2`
+  with cleared valid output slots. Invalid size/capacity buffers are not written.
+- PostPhysics collision reads expose the current tick's stable, nonconsuming
+  slots. Sensor is first, visitor second; solid pairs are canonical. Retired End
+  events retain their UUIDs/epochs and report availability separately. No old
+  fixed-tick notification is replayed in Gameplay.
+
+Calls require the fixed owner thread and Physics permission. Commands return `1`
+when queued and `0` when rejected. Sized reads return `1` available, `0` unavailable and `-1`
+invalid/context. Valid-size outputs clear on a miss or failure; point and ray
+inputs may share their output storage. All body commands retain one shared FIFO.
+
+The original `sdk/sample/physics_2d_probe.cpp` is a boundary acceptance fixture.
+It checks load equations, output clearing, aliases, stable event slots, replacement
+epochs and context/permission rejection through both actual process hosts. Its
+headless SDK Play fixture uses the normal candidate fetch/acknowledgement and a
+simulated editor release observation; it is not physical cursor/GPU acceptance.
+The ordinary native-process host retains known reflected/solver recovery. Exact
+SDK Play still rejects arbitrary native-state recovery and publishes no recovery
+payload; this integration does not add that feature.
+
+An installed-only external CMake project compiles both fixture variants through
+`ForgeNativeSdk::Client` and runs the same checks against the matching runtime.
+The SDK install retains the exact Box2D MIT notice and contains no Box2D headers.
+This is local GCC/shared-Flecs evidence, not Windows package acceptance.
 
 ## Capacity, recovery and packaging
 
