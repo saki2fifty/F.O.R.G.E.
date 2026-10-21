@@ -119,5 +119,7 @@ Build261021-000199 delivered the body-only integration after automated Windows
 editor, installed SDK and standalone relocation gates. Physical acceptance remains
 separate. The connected-body extension has local runtime, authoring, actual
 three-scale Inspector, moved cooked-content and installed SDK checks through both
-process hosts; its native images/Windows/export milestone remains pending. See the
+process hosts. Its complete Linux/Windows matrix, native editor/source acceptance
+and same-runner benchmark, reviewed images and shared source-free/fresh-runner
+exports pass. Physical acceptance and numbered delivery remain separate. See the
 [2D integration contract](../physics-2d.md).

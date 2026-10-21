@@ -157,8 +157,18 @@ and checkpoint budgets below remain unchanged. Local checks cover equations,
 signed frames, moving anchors/locked bodies, motors/sleep/reversal, collision
 retirement, mixed joint capacity, malformed/fresh recovery, authored/Prefab
 ownership, actual three-scale Inspector controls, source-free moved content and
-installed-only both-host C++. Native image and Windows export acceptance for this
-extension remain pending. Build261021-000199 contains bodies, not these joints.
+installed-only both-host C++. The complete automated Linux/Windows core/SDK matrix
+passes, along with Windows installed-SDK, source-free export and independent
+checkout-free relocation checks. Native Scene/Inspector captures for all three
+kinds at100/150/200% and Game poses at640/1280 have been reviewed. The complete
+editor source gate passes321 checks and its same-runner benchmark comparison.
+One earlier audio-mixer walkthrough hit the real5s runtime hello guard; the
+unchanged full repeat passed, with no deadline or assertion changes. That failure
+is retained as validation evidence, not presented as a fixed engine bug.
+[Editor source gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39678469846)
+and [shared export gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39658737670)
+record those scopes. Numbered delivery and physical acceptance remain separate.
+Build261021-000199 contains bodies, not these joints.
 No other native joint types, position drives, breaking or character controllers
 are included in this extension.
 

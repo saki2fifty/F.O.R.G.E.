@@ -1,6 +1,6 @@
 # 2026-10-21
 
-## Connected 2D bodies — development, Windows gate pending
+## Connected 2D bodies — source accepted, delivery pending
 
 - Added distinct Distance, Hinge and Slider 2D joints, with elastic Distance
   springs, optional limits, bounded velocity motors and connected collision policy.
@@ -9,9 +9,13 @@
 - Added kind-specific Inspector fields, 2D body pickers and readonly Scene guides,
   using the normal property history and portable Prefab reference adapters.
 - Added original editable Gallery76 and installed C++ motor/spring helpers.
-  Local checks cover both real Play hosts, installed-only Client use and moved
-  cooked content after source removal. Native image/Windows EXE export checks
-  remain pending; this extension is not in Build261021-000199.
+  Checks cover both real Play hosts, installed-only Client use and moved cooked
+  content after source removal. Linux/Windows core185/185 and SDK220/220 pass;
+  native editor321 checks, reviewed100/150/200% images, shared EXE exports/fresh
+  runner and same-runner benchmark comparison pass. One earlier audio-mixer
+  startup timeout is retained; the unchanged repeat passed without altering the
+  runtime deadline. Numbered delivery/physical testing remain pending; this
+  extension is not in Build261021-000199.
 
 ## 2D physics development milestone
 
