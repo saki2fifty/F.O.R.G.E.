@@ -29,8 +29,7 @@ choose **+ Add Component → Physics Body 2D**, then add one of:
 
 - **Box Collider 2D**: full width and height, centered on the entity.
 - **Circle Collider 2D**: radius, centered on the entity.
-- **Capsule Collider 2D**: radius and straight segment height along local Y.
-  Total height includes both rounded ends.
+- **Capsule Collider 2D**: radius and straight segment height along local Y. Total height includes both rounded ends.
 
 Set **Spatial binding** to **World** before choosing Dynamic. Static bodies
 stay in place; Kinematic bodies follow supported authored/animated targets;
@@ -58,8 +57,7 @@ units, permissions and registration context.
 
 Bullet improves high-speed solid collision with supported receivers. It does
 not guarantee exact projectile timing or every fast sensor crossing. The native
-continuous sensor path retains eight candidates per fast body per step. The
-[technical contract](../../docs/physics-2d.md) describes the bounds and limitations.
+continuous sensor path retains eight candidates per fast body per step.
 
 ## Export
 
