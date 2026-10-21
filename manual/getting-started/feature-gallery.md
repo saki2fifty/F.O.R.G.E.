@@ -20,7 +20,7 @@ remains a separate combined gameplay example.
 
 ## Tile Maps
 
-Development Scene **74-tile-maps** contains an editable two-layer arrow course and
+Scene **74-tile-maps** contains an editable two-layer arrow course and
 a mirrored copy of the same map. Open **Assets/Tiles/ArrowCourse.tilemap.json**
 from Content to paint, erase and try stroke Undo/Redo. Save/publish before Play or
 export. See [Tile Sets and Tile Maps](../editor/tile-maps.md).
@@ -35,11 +35,12 @@ clip under **Assets/Sprites** in Timeline. Save before exporting either scene.
 See [World sprites and image sheets](../editor/sprites.md). These examples are
 included in Build261019-000193 and later; build192 predates them.
 
-Development Scene **73-sprite-image-fill** compares complete-image stretch,
+Scene **73-sprite-image-fill** compares complete-image stretch,
 preserved borders and repeated image fill. Two smaller examples show compressed
 borders and mirrored partial repeats. Its original panel art uses one shared
 Material. Try Image fill, Width and Height in Inspector; choose the Scene as
-startup before exporting. Scene73 and these modes are absent from Build193.
+startup before exporting. Scene73 and these modes are included in
+Build261020-000194 and later.
 Automated Windows and source-free exported-game checks pass; physical testing
 remains deferred.
 

@@ -9,6 +9,20 @@ markers. `tests/tile_gallery_render_tests.hpp` captures this output and checks
 projected cell colors at two resolutions. The PPM readback was encoded as lossless
 PNG with its pixels and dimensions preserved. Windows execution is a separate gate.
 
+## Native Tile Map authoring controls
+
+[Tile Map authoring](tile-map-authoring.png) preserves the complete 1280×800
+Windows D3D12 WARP capture from source
+`0b9397cf1852fa1db71f4ddcc9040fdc2984365f`,
+[full editor audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519971030),
+artifact `FORGE-Editor-Source-Audit` (`12314486767`), entry
+`grid-test-images/tile-editor/tile-document-100.ppm`.
+The fixture draws the real Tile Map document, native preview and Inspector using
+original Gallery74 data; it stages those two panels rather than recording a
+manually operated desktop session. The PPM was encoded as lossless PNG with all
+pixels and dimensions preserved. Captures at 100/150/200 percent were visually
+reviewed for visible controls, canvas and complete cell-dimension labels.
+
 ## Windows editor captures
 
 These are actual FORGE Windows editor captures. The original full-window pixels

@@ -1,10 +1,11 @@
 # 2026-10-20
 
-## Tile Map foundation — development source
+## Tile Map foundation — validated source
 
 Original Tile Set/Tile Map authoring, native C++ cells, copied Editor Play,
 rendering and editable Gallery74 are implemented with focused local checks.
-Installed SDK and Windows production-game validation remain in progress.
+Windows core/SDK, full editor and shared runtime/export checks pass. Native
+Tile Map controls were visually reviewed at three interface scales.
 See [Tile Map details](tile-maps.md). These changes postdate Build261020-000194.
 
 ## Combined orthographic and Sprite source validation
@@ -49,8 +50,10 @@ previous slower runner reached 877/941 at the former 360-second cutoff. Its 12-s
 action checks, 180-second compiler/graph checks and all assertions remain unchanged.
 The successful full run above still used the stricter 360-second aggregate budget.
 
-Build261019-000193 remains the latest delivered ZIP and predates these additions.
-No new numbered delivery is claimed here. Physical Windows/GPU, OS picker and
+Build261020-000194 delivers these additions from source
+`2d4c674c9491b2dccbb7ff168c75872d4a06f012`; its
+[Windows delivery gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39355800878)
+passes. Physical Windows/GPU, OS picker and
 listening acceptance remain deferred. Public Sprite fields require rebuilding
 native modules against the matching SDK; C ABI version 1 remains unchanged. This bundle adds original FORGE
 code and artwork; existing attributed dependencies are unchanged.

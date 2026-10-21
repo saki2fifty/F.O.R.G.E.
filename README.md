@@ -47,10 +47,16 @@ Real Windows editor captures using small validation scenes. Click an image to op
 
 [Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
 
-## Tile Map gallery (development)
+## Tile Maps
 
-The editable [Tile Map scene](manual/editor/tile-maps.md) uses two layers and a
-mirrored instance of the same map. Native Game rendering on Linux software Vulkan:
+[Tile Set and Tile Map tools](manual/editor/tile-maps.md) provide palette selection,
+layered painting, stroke Undo/Redo and Inspector settings. These are the actual
+Windows document controls rendered by the native validation fixture:
+
+[![Tile Map document with arrow palette, painting controls, layered canvas and cell-size Inspector](docs/images/readme/tile-map-authoring.png)](docs/images/readme/tile-map-authoring.png)
+
+The editable Gallery scene uses two layers and a mirrored instance of the same
+map. Native Game rendering on Linux software Vulkan:
 
 [![Two arrow courses rendered from one Tile Map, including a smaller mirrored instance](docs/images/readme/tile-maps.png)](docs/images/readme/tile-maps.png)
 

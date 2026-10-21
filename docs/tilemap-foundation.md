@@ -1,15 +1,15 @@
-# Tile Set and Tile Map source foundation
+# Tile Sets and Tile Maps
 
-This development source includes the source, cooked-data, asset pipeline, native
-renderer, central Tile Set/Tile Map document tools and both Editor Play process
-paths. Original editable Gallery74 demonstrates layered maps and mirrored
-instances. Focused Linux checks cover the pipeline, document controls at three
-interface scales, real Play pipes, installed SDK consumers, native pixels and a
-relocated cooked-only Gallery closure. The coherent Windows editor and production
-game gates remain in progress. Delivered Build261020-000194 predates this work;
-physical Windows/GPU acceptance is deferred.
+Tile Sets define named cells from ordinary image materials. Sparse Tile Maps
+store layered grid cells without an entity per cell. FORGE provides central
+source-document tools, native rendering and grid selection, independent runtime
+instances, copied C++ cell queries/queued edits and both Editor Play hosts.
+Original editable Gallery74 demonstrates two layers and mirrored instances.
 
-## Source documents (development)
+The source format, cooked profile and runtime budgets below describe implemented
+behavior. [Validation](#validation) records passing automated checks and their scope. Build261020-000194 predates this feature.
+
+## Source documents
 
 Content creates and opens `.tileset.json` and `.tilemap.json` in central document
 tabs. Tile Set images reference ordinary Materials. Grid dimensions and selected
@@ -33,9 +33,9 @@ or assigned to a Tile Map Renderer. `render.tile_map` uses the existing entity
 recipe catalog and reflected defaults. Placement commits one Scene Undo step;
 neither the canvas nor placement creates an entity for each occupied cell.
 
-## Scene and instance integration (development)
+## Scene and instance integration
 
-The development `forge.tile_map_renderer` component stores a typed map reference,
+The `forge.tile_map_renderer` component stores a typed map reference,
 enabled/visible flags, a uint32 camera-layer mask, signed int32 ordering offset and
 linear RGBA tint in [0,1]. The ordinary Scene owns entity identity, transforms,
 history, prefab composition and unknown source fields. Cell dimensions, layer
@@ -72,8 +72,9 @@ pass. A maximum-profile allocation probe validates4096 writes across1024chunks/
 262144cells: preflight requests335872heap bytes, while constructing the changed
 snapshot requests17203270bytes in Linux GCC12. These are requested allocation
 totals, not peak/RSS/GPU memory or frame-time evidence.
-The copied Play transport and its budgets are described below. The coherent
-Windows exported-game gate remains in progress.
+The copied Play transport and its budgets are described below. The Windows
+export gate passes ordinary Gallery74 export, two source-free production starts
+and two further starts on a separate runner without a checkout or SDK.
 
 Scene preparation now progresses the existing runtime map synchronization and
 waits for the requested map binding before freezing a candidate. This does not
@@ -107,7 +108,7 @@ loads are distinguished from terminal admission failures. `GamePresentation`
 passes this typed view through the existing `FrameRenderer`. Editor Play binds
 the receiver's admitted immutable values through the same typed presentation path.
 
-## Copied C++ cell interface (development)
+## Copied C++ cell interface
 
 The exact SDK appends CPU map callbacks to the existing host table. Its changed
 table size and fingerprint require rebuilding modules with the matching SDK;
@@ -154,8 +155,8 @@ quotas, owner-thread/module checks and Stop cancellation. Scoped ASan/UBSan/leak
 checks instrument the bridge, instance queue, module and fixture; other linked
 CPU libraries and the child import worker remain normal. A freshly built matching
 shared SDK also passes the installed-only module/helper compile and relocated
-native fixture. The shared Windows CI gate includes these consumers; its execution
-and the coherent editor/export gate remain pending.
+native fixture. Installed-only consumers and exported games use the ordinary SDK
+and packaging paths. Current configuration coverage is listed under [Validation](#validation).
 
 ## Ownership
 
@@ -286,7 +287,7 @@ encoded root metadata, snapshot references and old chunks replaced by an edit.
 It is an encoded retention policy, not a process RSS cap. The immutable chunk
 representation keeps unchanged data shared across saved values and history.
 
-## Current evidence and remaining work
+## Asset and presentation integration
 
 ### Ordinary asset publication and loading
 
@@ -376,7 +377,7 @@ signed cell addresses, including the exclusive upper edge at 2147483648, without
 passing through float mesh bounds. Tests cover reflection, shear, nonuniform
 scale, negative chunks and a camera near a world origin of 1000000000000 meters.
 
-### Native rendering and grid selection (development)
+### Native rendering and grid selection
 
 The existing MeshSceneRenderer derives one scoped image draw owner per map actor
 and used image key. Image keys remain local uint64 values, including values beyond
@@ -419,7 +420,7 @@ These checks establish correctness/capacity, not physical GPU FPS. Native typed
 snapshots and ordinary cooked asset selections are supported here. Editor Play
 uses the explicit copied runtime projection described below.
 
-### Copied Editor Play presentation (development)
+### Copied Editor Play presentation
 
 Both process hosts advertise private `tile_projection: 1` support. Ordinary
 snapshots carry only a bounded manifest of actor identities, requested/adopted
@@ -462,11 +463,10 @@ cache accounting, frozen updates, malformed/cancelled/stale transfers, actual
 published-asset SDK-host preparation and fixed-step edits, actual PlaySession/worker pipes in both legacy and matching shared-SDK hosts,
 published source replacement with a new instance generation, Stop/restart, and
 native observation through copied values into software-Vulkan pixel readback. Pending/cleared scopes,
-a black-cell edit and an immutable older magenta frame have pixel checks. The
-coherent Windows editor/export gate remains in progress; physical Windows
-acceptance is deferred.
+a black-cell edit and an immutable older magenta frame have pixel checks.
+Configuration coverage is listed under [Validation](#validation).
 
-### Authoring asset selection and isolated previews (development)
+### Authoring asset selection and isolated previews
 
 MeshResourceHost loads ordinary map references through the existing typed request,
 resource-pool and immutable cooked-artifact admission paths. It requests the Map,
@@ -491,8 +491,9 @@ source as immutable pure values with matching root identities. Reusing the same
 shared value is a no-op. Ordinary hosts reject draft injection; preview changes
 never publish the catalog or write authored files. A Map draft may use the normal
 published Set, or an isolated Set draft can replace it. The existing document,
-writer, history and Save/Publish owners remain authoritative. These preview APIs
-are groundwork for document tools, not a completed painting UI.
+writer, history and Save/Publish owners remain authoritative. The central Tile
+Set/Map documents use these isolated previews for authoring; the Map canvas and
+its stroke lifecycle are described under Source documents.
 
 Focused Linux software-Vulkan tests publish real original sources through the
 normal import worker, render ordinary asset references, inspect resources and
@@ -500,7 +501,7 @@ select cells. They also cover stale Set dependencies, last-good draw retention,
 recook recovery, isolated Map/Set drafts, unchanged saved cells and missing-runtime
 snapshot rejection. Scoped sanitizer checks instrument the draw owner, resolver,
 upload/bundle and actual fixture; linked CPU/vendor archives and import workers
-remain normal. Physical Windows/UI acceptance is still pending.
+remain normal. Physical acceptance is tracked separately from these checks.
 
 ### Internal cooked map data
 
@@ -554,8 +555,8 @@ complete cooked artifact is 4215032 bytes. In the Linux GCC12 configuration its
 retained allocation estimate is 16883912 bytes. That estimate includes typed arrays, container capacity and
 conservative node/control storage; it is not a measured process RSS or performance
 guarantee. Cooking/publication and explicit-root content packaging
-use the ordinary asset pipeline. The complete rendered game-export gate remains
-unfinished.
+use the ordinary asset pipeline. The Windows production-game gate passes the
+ordinary export and relocated source-free startup paths.
 
 Focused source tests cover malformed inputs, duplicate JSON keys, finite/range
 limits, negative/far addresses, exact uint64 keys, unknown data, detached paint,
@@ -569,8 +570,25 @@ with source edit/history checks and an exact five-asset cooked closure that load
 and edits independently after source removal/relocation. Native Game readbacks
 check layered markers and mirrored image cells at two resolutions.
 
-The remaining complete feature gate includes a source-free production game, a fresh
-matching installed SDK consumer and the coherent Windows gate. The source documents and isolated canvas require the
-coherent Windows gate before delivery. Native rendering/grid picking and bounded C++ queries/edits have
-focused local evidence; they do not complete those workflows. No autotiling,
-animated tiles, 2D collision or streaming is implied by this source foundation.
+## Validation
+
+Focused tests cover source/identity/history, real worker publication and resources,
+native C++ requests, installed-only module compilation, both actual Play pipes,
+maximum maps, immutable full/delta copies, native pixels and relocated source-free
+content. Scope and allocation measurements above refer to their stated fixtures,
+not physical hardware performance.
+
+| Configuration / boundary | Evidence |
+| --- | --- |
+| Linux core and SDK | [Core 169/169](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39513094910/job/118938662185) and [SDK 202/202](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39513094910/job/118938662333) pass; current Windows-only metadata correction leaves these implementations unchanged |
+| Windows metadata replacement and recovery | [Actual retained-reader publication, stale/ownership checks and interruption recovery pass](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519316597) |
+| Windows core and SDK | [Core 169/169 and SDK 202/202 pass](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519967945) |
+| Full Windows editor and three-scale native controls | [301/301 editor checks, 2/2 standalone-only checks and 12 matched process samples pass](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519971030); actual Tile Map document/Inspector captures reviewed at 100/150/200 percent |
+| Matching installed SDK and exported game on a fresh runner | [Installed-only module/helper, shared consumers and source-free export/startup pass](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519973866); Gallery74 retains the same manifest across two starts on each of two runners |
+
+The final Windows gates compile source
+`0b9397cf1852fa1db71f4ddcc9040fdc2984365f`; subsequent reconciliation changes
+documentation and a genuine README screenshot only.
+
+Physical Windows/GPU, listening and OS file-picker acceptance remain deferred.
+No autotiling, animated tiles, 2D collision or streaming is implied by this profile.

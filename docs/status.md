@@ -1,4 +1,4 @@
-# Tile Maps — local validation in progress, 2026-10-20
+# Tile Maps — validated source, 2026-10-21
 
 Development source adds Tile Set/Tile Map documents, palette/layers, bounded
 paint/erase strokes with Undo/Redo and cancellation, ordinary Content placement,
@@ -14,10 +14,18 @@ two layers and mirrored instances of one map. Its five-asset content closure loa
 and accepts instance-specific edits after source removal and relocation. A native
 Game capture is included in the README. Scoped sanitizer/leak checks pass.
 
-The fresh installed shared SDK and installed-only Tile Map module/helper compile
-and relocated fixture pass locally. Coherent Windows/editor/production-game gates
-remain in progress. This work is newer than delivered Build261020-000194. Physical
-Windows/GPU/listening acceptance remains deferred. See
+The [Windows core 169/169 and SDK 202/202 gates](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519967945)
+pass. The [shared runtime gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519973866)
+passes installed-only module/helper compilation, normal Gallery74 export and two
+source-free starts; the unchanged game passes two further starts on a separate
+runner without checkout or SDK. The [full Windows editor audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519971030)
+passes 301/301 checks, standalone-only 2/2 and 12 matched process samples. Actual
+Tile Map document/Inspector images were reviewed at 100/150/200 percent; the README
+includes a genuine Windows authoring capture. Windows retained-reader metadata
+replacement and interruption recovery also pass. Compiled source is
+`0b9397cf1852fa1db71f4ddcc9040fdc2984365f`; final documentation/image changes
+leave the implementation unchanged. This source is newer than delivered
+Build261020-000194. Physical Windows/GPU/listening acceptance remains deferred. See
 [the Tile Map contract](tilemap-foundation.md) and [user workflow](../manual/editor/tile-maps.md).
 
 # Scalable Sprite image fill — validated source, 2026-10-20
@@ -30,7 +38,8 @@ pixels, shared resource retention, HDR Game rendering, three-scale Inspector inp
 and installed-only C++/cold recovery checks pass locally, including scoped
 sanitizer/leak inspection. The existing Sprite GPU stride and shared resource keys
 remain; compatible mixed modes instance together. Public fields require matching
-SDK/module rebuilds, with ABI1 unchanged. Build193 lacks these modes and Scene73.
+SDK/module rebuilds, with ABI1 unchanged. These modes and Scene73 shipped in
+Build261020-000194.
 Automated Windows/export acceptance passes; see [world sprites](sprites.md).
 
 The combined [full Windows source audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39345839790)
@@ -44,7 +53,8 @@ removal, two relocated production launches and two further launches on a separat
 runner without source or SDK. Production C++/headers/assets are identical between
 these two sources; the intervening changes concern CI and acceptance tests/budgets.
 The Linux/Windows core 154 and SDK 187 matrix also passes at the unchanged portable
-implementation. These changes are absent from the latest delivered ZIP, Build193.
+implementation. Build261020-000194 includes these changes and passes its
+[Windows delivery gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39355800878).
 Physical Windows/GPU/OS-picker/listening acceptance remains deferred. See
 [the validation record](../changelog/20261020/README.md).
 
@@ -96,7 +106,7 @@ Sprite entities use ordinary image Materials, size/pivot/flip/tint controls,
 geometric picking and ordered instancing. Timeline animates whole Sprite frames
 with step interpolation. Gallery71/72 demonstrate still images and four-frame
 signals. Linux/Windows core154/154 and Native SDK187/187 pass. The full Windows
-editor audit passed279/279 and standalone-only2/2 before the documentation-only
+editor audit passed279/279 and standalone-only 2/2 before the documentation-only
 final candidate; the numbered source/package gates above also pass. Exact SDK
 fingerprints change, requiring matching C++ module rebuilds; ABI1 callback tables
 are unchanged. See [the contract](sprites.md) and
