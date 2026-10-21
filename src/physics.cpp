@@ -5,6 +5,7 @@
 #include "builtins.hpp"
 #include "collision_selection.hpp"
 #include "collision_shape.hpp"
+#include "physics_2d.hpp"
 #include "physics_character.hpp"
 #include "physics_debug.hpp"
 #include "physics_joint_value.hpp"
@@ -535,6 +536,13 @@ struct PhysicsRuntime::Impl {
         LocalTransform last;
     };
     std::map<std::uint64_t, Body> bodies;
+    // Same owner and fixed phases; the subordinate XY backend stays lazy.
+    std::unique_ptr<physics_detail::Native2D> native_2d;
+    physics_detail::Desired2D
+    desired_2d(const std::map<std::uint64_t, TransformNode>* nodes = nullptr) {
+        return physics_detail::desired_bodies_2d(context, config,
+                                                 nodes ? *nodes : context.transform_nodes());
+    }
     struct JointDesired {
         PhysicsJoint config;
         std::uint64_t a, b;
@@ -622,6 +630,7 @@ struct PhysicsRuntime::Impl {
                 throw std::runtime_error(
                     "Character requires unambiguous authored scene membership");
             if ((e.has<PhysicsBody>() && e.get<PhysicsBody>().enabled) ||
+                (e.has<PhysicsBody2D>() && e.get<PhysicsBody2D>().enabled) ||
                 !e.has<SpatialBinding>() || e.get<SpatialBinding>().mode != SpatialMode::World)
                 throw std::runtime_error("Character requires Child space: World and cannot share "
                                          "an enabled Physics Body");
@@ -931,6 +940,8 @@ struct PhysicsRuntime::Impl {
         if (!active || thread != std::this_thread::get_id())
             throw std::runtime_error(
                 "Physics service is stopped or accessed outside its owning thread");
+        if (native_2d)
+            native_2d->check();
     }
     const Body* find_body(EntityRef ref) const {
         check();
@@ -1015,6 +1026,8 @@ struct PhysicsRuntime::Impl {
                     const bool character_ancestor = ancestor.has<CharacterController>() &&
                                                     ancestor.get<CharacterController>().enabled;
                     if (character_ancestor ||
+                        (ancestor.has<PhysicsBody2D>() && ancestor.get<PhysicsBody2D>().enabled &&
+                         ancestor.get<PhysicsBody2D>().motion == 2) ||
                         (ancestor.has<PhysicsBody>() && ancestor.get<PhysicsBody>().enabled &&
                          ancestor.get<PhysicsBody>().motion == 2)) {
                         const auto ancestor_ref = context.reference(parent);
@@ -1359,6 +1372,7 @@ void PhysicsRuntime::stop() noexcept {
         return;
     impl_->clear_joints();
     impl_->characters.clear();
+    impl_->native_2d.reset();
     impl_->character_commands.clear();
     impl_->collision_observers.clear();
     while (!impl_->bodies.empty())
@@ -1374,7 +1388,8 @@ void PhysicsRuntime::configure(PhysicsConfig config) {
     auto& s = *impl_;
     s.check();
     config.validate();
-    if (!s.bodies.empty() || !s.characters.empty() || s.tick)
+    if (!s.bodies.empty() || !s.characters.empty() || (s.native_2d && s.native_2d->realized()) ||
+        s.tick)
         throw std::runtime_error("Configure physics before content realization");
     s.config = config;
     s.system.SetGravity(
@@ -1385,6 +1400,19 @@ void PhysicsRuntime::validate_transform_candidate(
     auto& s = *impl_;
     s.check();
     const auto candidate = s.desired(&nodes);
+    const auto candidate_2d = s.desired_2d(&nodes);
+    if (s.native_2d)
+        s.native_2d->validate(candidate_2d);
+    const auto original_2d = s.desired_2d();
+    for (const auto& [id, value] : candidate_2d)
+        if (value.config.body.motion == 2) {
+            const auto& previous = original_2d.at(id).pose;
+            if (!equivalent(LocalTranslation{value.pose.translation.x, value.pose.translation.y, 0},
+                            LocalTranslation{previous.translation.x, previous.translation.y, 0}) ||
+                !equivalent(value.pose.rotation, previous.rotation))
+                throw std::runtime_error("Dynamic 2D starting XY/rotation cannot be driven by "
+                                         "animation; use a Kinematic body or visual child");
+        }
     (void)s.desired_joints(candidate);
     s.validate_dynamic_writes(candidate);
     const auto chars = s.desired_characters(&nodes), original_chars = s.desired_characters();
@@ -1418,7 +1446,8 @@ void PhysicsRuntime::synchronize(float dt) {
     if (!s.prepare_assets(true))
         throw std::runtime_error("Required collision assets are still preparing");
     const auto initial = s.desired();
-    if (initial.size() + s.desired_characters().size() > max_bodies)
+    const auto initial_2d = s.desired_2d();
+    if (initial.size() + initial_2d.size() + s.desired_characters().size() > max_bodies)
         throw std::runtime_error("Combined rigid/character body capacity exceeded");
     auto nodes = s.context.transform_nodes();
     std::set<std::uint64_t> commanded;
@@ -1453,6 +1482,9 @@ void PhysicsRuntime::synchronize(float dt) {
         commanded.insert(id);
     }
     const auto desired = s.desired(&nodes);
+    const auto desired_2d = s.desired_2d(&nodes);
+    if (s.native_2d)
+        s.native_2d->validate(desired_2d, dt);
     const auto desired_joints = s.desired_joints(desired);
     auto excluded_pairs = Impl::joint_collision_pairs(desired_joints);
     // Same solver ownership check used by reject-before-write animation admission.
@@ -1473,6 +1505,8 @@ void PhysicsRuntime::synchronize(float dt) {
     // admitted boundary can retire/recreate the same UUID, so expire that list
     // before any writes; retain it if complete preflight rejected the boundary.
     s.events.clear();
+    if (!s.native_2d && !desired_2d.empty())
+        s.native_2d = std::make_unique<physics_detail::Native2D>(s.config);
     for (auto id : commanded) {
         auto e = s.context.world().entity(id);
         const auto before = s.context.get_local_transform(e);
@@ -1591,6 +1625,8 @@ void PhysicsRuntime::synchronize(float dt) {
     s.commands.clear();
     s.realize_joints(desired_joints);
     s.adopt_joint_collision_pairs(std::move(excluded_pairs));
+    if (s.native_2d)
+        s.native_2d->synchronize(desired_2d, dt, s.snaps);
     s.synchronize_characters();
 }
 void PhysicsRuntime::step(float dt) {
@@ -1604,11 +1640,18 @@ void PhysicsRuntime::step(float dt) {
         throw std::runtime_error("Jolt capacity exceeded during fixed tick");
     for (auto& [id, character] : s.characters)
         character.owner->step(dt, s.config.gravity);
+    if (s.native_2d) {
+        auto planar_profile = s.context.services().profile("physics", "Box2DUpdate", s.tick + 1);
+        s.native_2d->step(dt);
+    }
     ++s.tick;
 }
 void PhysicsRuntime::adopt() {
     auto& s = *impl_;
     s.check();
+    // Validate every copied XY result before either native domain writes ECS.
+    const auto poses_2d =
+        s.native_2d ? s.native_2d->adopted_poses() : std::map<std::uint64_t, LocalTransform>{};
     auto& api = s.system.GetBodyInterface();
     // Update has joined all workers. Only this owner-thread phase may touch Flecs.
     s.events.clear();
@@ -1637,6 +1680,16 @@ void PhysicsRuntime::adopt() {
             e.set<LocalTranslation>(body.last.translation);
             e.set<LocalRotation>(body.last.rotation);
         }
+    for (const auto& [id, pose] : poses_2d) {
+        const auto entity = s.context.world().entity(id);
+        const auto previous = s.context.get_local_transform(entity);
+        if (!equivalent(previous.translation, pose.translation))
+            entity.set<LocalTranslation>(pose.translation);
+        if (!equivalent(previous.rotation, pose.rotation))
+            entity.set<LocalRotation>(pose.rotation);
+    }
+    if (s.native_2d)
+        s.native_2d->accept_poses(poses_2d);
     for (auto& [id, c] : s.characters) {
         const auto p = c.owner->native().GetPosition();
         const LocalTranslation position{p.GetX(), p.GetY(), p.GetZ()};
@@ -2012,6 +2065,8 @@ Json PhysicsRuntime::status() const {
             {"characters", s.characters.size()},
             {"collision_resources", std::move(resources)},
             {"bodies", s.bodies.size()},
+            {"bodies_2d", s.native_2d ? s.native_2d->size() : 0},
+            {"native_2d_realized", s.native_2d && s.native_2d->realized()},
             {"active_dynamic", active},
             {"sleeping_dynamic", sleeping},
             {"tick", s.tick},
@@ -2021,6 +2076,10 @@ Json PhysicsRuntime::status() const {
 Json PhysicsRuntime::checkpoint() const {
     auto& s = *impl_;
     s.check();
+    // Explicit until the exact-build candidate format integrates both domains.
+    if ((s.native_2d && s.native_2d->realized()) || !s.desired_2d().empty())
+        throw std::runtime_error(
+            "2D physics checkpoint integration is not available in this development branch");
     const auto desired = s.desired();
     if (desired.size() != s.bodies.size())
         throw std::runtime_error("Physics checkpoint requires synchronized content; write body "

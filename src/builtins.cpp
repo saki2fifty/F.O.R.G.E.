@@ -2408,6 +2408,10 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
 namespace {
 Json admitted_builtin_source(const Builtin& type, const Json& source) {
     auto current = source;
+    if (std::string_view(type.name) == "forge.physics_body_2d")
+        for (const auto& [field, value] : type.defaults.items())
+            if (!current.contains(field))
+                current[field] = value;
     if (std::string_view(type.name) == "forge.sprite_renderer")
         for (const auto* field : {"image_mode", "pixels_per_meter", "border_left", "border_right",
                                   "border_top", "border_bottom"})

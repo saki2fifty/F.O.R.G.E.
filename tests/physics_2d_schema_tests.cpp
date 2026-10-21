@@ -64,6 +64,8 @@ void scalar_admission(EngineContext& engine) {
     const auto& body = spec("forge.physics_body_2d");
     require(detail::canonical_builtin_value(body, Json::object()) == body.defaults,
             "Missing body fields did not backfill current defaults");
+    detail::validate_components({{body.name, Json::object()}});
+    detail::validate_components({{body.name, {{"density", .001}}}});
     for (const char* name : {"forge.physics_body_2d", "forge.box_collider_2d",
                              "forge.circle_collider_2d", "forge.capsule_collider_2d"}) {
         const auto& type = spec(name);
@@ -78,6 +80,9 @@ void scalar_admission(EngineContext& engine) {
     detail::validate_reflected_value(boundary, BoxCollider2D{.000001f, .000001f});
     detail::validate_reflected_value(boundary, CircleCollider2D{.000001f});
     detail::validate_reflected_value(boundary, CapsuleCollider2D{.000001f, .000001f});
+    PhysicsBody2D minimum_density;
+    minimum_density.density = .001f;
+    detail::validate_reflected_value(boundary, minimum_density);
     boundary.destruct();
     for (const auto& [field, value] : {std::pair<std::string, Json>{"motion", 3},
                                        {"motion", 1.25},

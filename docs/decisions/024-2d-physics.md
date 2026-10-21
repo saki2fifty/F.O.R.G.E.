@@ -16,7 +16,8 @@ Select Box2D 3.2.0, immutable revision
 `178495ba35695aefe9c321e569d2277f06db3b90`, for the implementation. Use private
 static C17 linkage, double world positions, normal float geometry/velocities,
 one native worker, native Debug validation and unchanged default length units. Preserve
-its MIT notice. Private dependency/build integration is present; runtime body integration is pending.
+its MIT notice. Private dependency/build integration and the initial body adapter
+are present; the complete controls/events/recovery workflow remains pending.
 Vendor headers and handles do not enter the gameplay SDK.
 
 ## Coordinates and authority
@@ -85,6 +86,7 @@ configuration. This supports the smaller initial profile without enlarging the
 existing recovery budgets. It does not prove complete runtime integration.
 
 The private derived XY mapping and native dependency/profile fixtures have local
-CPU/CMake tests; package-notice retention checks also pass. Body realization, events, controls, recovery, editor, installed
-SDK and Windows/export acceptance remain incomplete. See the
+CPU/CMake tests; package-notice retention checks also pass. Initial native body
+simulation and detached admission have local CPU tests. Events, controls,
+recovery, editor, installed SDK and Windows/export acceptance remain incomplete. See the
 [2D integration contract](../physics-2d.md).

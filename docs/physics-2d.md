@@ -1,17 +1,20 @@
 # 2D physics integration contract
 
 **Implementation in progress.** This is the target contract for the current
-integration, not a guide to an available editor feature. The Build261021-000195 pipeline targets the
-Tile Map milestone and contains no 2D physics. Private XY conversion and native backend/profile fixtures have executed FORGE
-tests. The distinct authored components now have native reflection and scene
-save/reopen checks; body realization is not implemented. [ADR024](decisions/024-2d-physics.md)
+integration, not a guide to an available editor feature. Build261021-000195 targets
+the Tile Map milestone and contains no 2D physics. Local CPU tests cover authored
+reflection, scene save/reopen, initial native body simulation, domain separation,
+signed/flat parent frames and rejected partial steps. C++ controls/observations,
+copied events, recovery, matching SDK and editor/export acceptance remain incomplete.
+[ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
 
 ## Native boundary
 
 Box2D 3.2.0 is selected at immutable
-`178495ba35695aefe9c321e569d2277f06db3b90`; CMake builds the private backend and wires its license notices. Runtime integration
-is pending. It will remain a private static dependency of the current PhysicsRuntime,
+`178495ba35695aefe9c321e569d2277f06db3b90`; CMake builds the private backend and
+wires its license notices. The initial body adapter is subordinate to PhysicsRuntime;
+the full runtime workflow remains incomplete. It is a private static dependency,
 with double world positions and ordinary float geometry, rotations and velocity.
 The initial native world is single-worker and created only when needed. Existing
 3D Jolt behavior, the fixed clock and Physics capability remain authoritative.
@@ -46,6 +49,8 @@ and damping 0..10000/s. These are input guards, not universal stability guarante
 A negative gravity factor reverses Project gravity. Authored collider scalar
 dimensions allow 0.000001..10000 m; the tighter effective physical dimensions are
 checked after world scale is applied, so source geometry can use different units.
+An omitted Body2D source field takes its current schema default; unknown source
+fields retain the existing opaque-extension behavior.
 
 The original native range probe checks 90 box/circle/capsule cases at 0/±1000000m,
 including dimensions 0.01..1000 m, densities 0.001..10000 kg/m², positive finite
@@ -79,6 +84,15 @@ Validate final configurations/geometry before authored writes or native retireme
 Then use the existing PrePhysics, Physics, Adoption and PostPhysics phases. Explicit
 teleports reset the existing presentation history. Native capacity failures stop
 the affected simulation; do not silently adopt a filtered or partially stepped world.
+
+Kinematic targets must fit the selected native speed and rotation bounds for that
+fixed tick: default world linear speed 400 m/s and at most 45 degrees of rotation
+per tick. The native target API promises a close result, not exact arrival; an
+oversized move clamps internally. FORGE rejects such a target during detached
+admission so it cannot silently display an unreachable pose. Teleports use a
+separate discontinuous placement path. Quaternion/native rotations convert
+directly from their unit bases; native approximate angle helpers do not define
+FORGE's authored transform values.
 
 ## C++ control and observations
 
