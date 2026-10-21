@@ -1,6 +1,6 @@
 """Build from installed SDK, inspect binary dependencies, run from a relocated clean package."""
 from pathlib import Path
-import hashlib,json,os,shutil,subprocess,sys
+import hashlib,json,os,re,shutil,subprocess,sys
 build=Path(sys.argv[1]).resolve();cmake=sys.argv[2];ninja=sys.argv[3]
 cache=dict(line.split('=',1) for line in (build/'CMakeCache.txt').read_text().splitlines() if '=' in line and not line.startswith(('//','#')))
 compiler=next(value for key,value in cache.items() if key.startswith('CMAKE_CXX_COMPILER:'))
@@ -17,6 +17,15 @@ result=subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(bad),'-G','Ni
 assert result.returncode!=0 and 'compiler flags mismatch' in result.stdout+result.stderr,result.stdout+result.stderr
 assert not (stage/'sdk/include/forge/assets.hpp').exists(), 'Private AssetCatalog leaked into installed SDK'
 assert (stage/'sdk/docs/extension-guide.md').exists()
+# The new planar guide must remain usable from the installed-only SDK.
+for relative in ('docs/physics-2d.md', 'docs/decisions/024-2d-physics.md'):
+    document=stage/'sdk'/relative
+    assert document.is_file(), f'Missing installed 2D guide: {relative}'
+    for target in re.findall(r'\[[^\]]+\]\(([^)]+)\)', document.read_text(encoding='utf-8')):
+        path=target.split('#',1)[0]
+        if path and '://' not in path:
+            resolved=(document.parent/path).resolve()
+            assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 assert (stage/'sdk/include/forge/engine_assets.hpp').exists()
 assert (stage/'sdk/include/forge/engine_texture_assets.hpp').exists()
 assert (stage/'sdk/include/forge/texture_dimension.hpp').exists()

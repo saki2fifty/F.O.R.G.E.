@@ -1,7 +1,8 @@
 # 2D physics integration contract
 
-**Implemented in development source; delivery validation is pending.**
-Build261021-000195 targets the Tile Map milestone and contains no 2D physics.
+2D bodies use the world's XY plane through the existing physics owner, with
+typed authoring, C++ controls, collision outlines and standalone export.
+Build261021-000195 predates this feature and contains no 2D physics.
 CPU/process checks cover authored reflection, scene save/reopen, native simulation,
 domain separation, signed/flat parent frames, controls, queries, copied events,
 rejected partial steps and private fresh-candidate recovery. Matching installed
@@ -9,8 +10,8 @@ SDK modules run through both process hosts. The focused Windows audit passes
 Game rendering and Scene/Inspector captures at100/150/200%; the shared-game gate
 also runs exported games after source/SDK removal and fresh-runner relocation.
 These scoped results do not replace the complete milestone gate or physical
-Windows/GPU acceptance. See the [user guide](../manual/editor/physics-2d.md)
-for the implemented editor workflow.
+Windows/GPU acceptance. The editor's **Help → User Manual → 2D physics** explains
+the authoring workflow.
 [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
 
@@ -165,7 +166,7 @@ Engine-facing typed controls, queries and copied state/events have local CPU tes
 area-mass/inertia load units, point velocity, owner-thread checks, sleeping reads,
 shared command capacity and FIFO target conversion beneath flat/reflected parents.
 Matching gameplay SDK callbacks are implemented and exercised through both
-process hosts; a verified delivery containing this milestone is still required.
+process hosts. Use a matching SDK and runtime containing this integration.
 
 Add explicitly typed 2D methods through the current service/SDK: copied body
 state, world XY velocity and angular velocity, forces/impulses with optional
