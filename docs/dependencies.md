@@ -18,17 +18,18 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
 | Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, distance/hinge/point/fixed constraints, body loads, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
+| Box2D | v3.2.0 / `178495ba35695aefe9c321e569d2277f06db3b90` | Private 2D backend integration in progress; no completed FORGE body API yet | [Official source](https://github.com/erincatto/box2d/tree/178495ba35695aefe9c321e569d2277f06db3b90) |
 | Flecs | v4.1.6 / `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8` | ECS/Meta/Doc/Units/Ranges, ordered hierarchies/prefabs, queries/timers, Script Math, optional diagnostics | [Source/docs](https://github.com/SanderMertens/flecs/tree/v4.1.6/docs) |
 | nlohmann/json | v3.12.0 / `55f93686c01528224f448c19128836e7df245f72` | Scene and IPC JSON | [Official docs](https://json.nlohmann.me/) |
 | Diligent Engine | `a279e5fa8593cbc758ec46ea1eba0b435cbc2f06` and its submodules | D3D12 device, swapchain, textures, shaders, ImGui integration | [Source](https://github.com/DiligentGraphics/DiligentEngine/tree/a279e5fa8593cbc758ec46ea1eba0b435cbc2f06) |
 | SDL3 | release-3.4.16 / `fa2c02bb6e21974a89ea9824bc53c9932abe5f9c` | Windows, events, preference paths, dialogs, process pipes | [Official release](https://github.com/libsdl-org/SDL/releases/tag/release-3.4.16) |
 | Dear ImGui | v1.92.9b-docking / `b48d1afbe8ee8b238e2961dc363a949dd7304e23` | Docking, tables, controls, texture-backed preview | [Source](https://github.com/ocornut/imgui/tree/v1.92.9b-docking) |
 
-Ozz, Jolt, Flecs, JSON and ImGui use MIT; miniaudio uses its MIT-0 option; SDL uses zlib; Diligent uses Apache-2.0 with separately licensed third-party dependencies. Preserve upstream notices when distributing binaries. The Runtime install component includes the Flecs and JSON license texts. A complete editor distribution notice bundle remains a release gate. Diligent's native Metal backend is commercial; this build selects D3D12 only. Phase7 composes the native DiligentFX PBR utility subset described below; other advanced upstream capabilities are not implicitly enabled.
+Ozz, Jolt, Box2D, Flecs, JSON and ImGui use MIT; miniaudio uses its MIT-0 option; SDL uses zlib; Diligent uses Apache-2.0 with separately licensed third-party dependencies. Preserve upstream notices when distributing binaries. The Runtime install component includes the Flecs and JSON license texts. A complete editor distribution notice bundle remains a release gate. Diligent's native Metal backend is commercial; this build selects D3D12 only. Phase7 composes the native DiligentFX PBR utility subset described below; other advanced upstream capabilities are not implicitly enabled.
 
 Build tooling: CMake presets, Ninja incremental targets, Python 3.10+ subprocess/path tooling, MSVC for Windows and GCC for portable tests. Formatting uses clang-format 23.1.1. GitHub Actions uses pinned checkout/setup actions and an explicit Windows compiler environment. Tool versions and host SDK versions should be recorded with release evidence.
 
-Future selections (not fetched or integrated): GLM, Tracy, Catch2, Box2D and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
+Future selections (not fetched or integrated): GLM, Tracy, Catch2 and GameNetworkingSockets. Resolve versions and license requirements before adding them. Current behavior tests use CTest with simple C++ assertions and Python subprocess fixtures; Catch2 integration remains deferred.
 
 Flecs 4.1.6 compatibility: FORGE authoring types now explicitly request member entities for Doc/Units/ranges and member-based tooling. Global automatic member creation remains disabled. See the [integration contract](flecs-integration.md) for ownership, selected options and live-documentation exceptions. Phase5 uses `Parent` for validated structured prefab interiors and retains dynamic `ChildOf` attachments and component-granular inheritance. Phase3 independent local TRS and derived world transforms remain the spatial authority.
 
@@ -407,3 +408,39 @@ implementation changes. Codec errors/longjmp stay inside C. Source-only headless
 configuration builds these software codecs without Diligent graphics backends.
 UI normalization, alpha, last-good reload and raw/cooked export ownership are
 specified in [Runtime UI](runtime-ui.md#bitmap-normalization).
+
+
+## 2D backend selection — 2026-10-21 (integration in progress)
+
+Box2D 3.2.0 is the official stable release published 2026-10-19, selected at immutable
+`178495ba35695aefe9c321e569d2277f06db3b90`. Its exact source, API declarations,
+matching unit-test application and original native boundary probes were inspected.
+Private product dependency integration is present; the runtime body/SDK/editor/export
+family is incomplete. See [ADR024](decisions/024-2d-physics.md) and the
+[target contract](physics-2d.md). Build195 does not include this work.
+
+| Selection | Contract |
+| --- | --- |
+| Build | Private static C17 target; matched FORGE CRT; position-independent code; upstream install rules excluded from the parent installation |
+| Precision | BOX2D_DOUBLE_PRECISION=ON; native public definition propagates only to private consumers; native position doubles do not imply an all-double solver |
+| SIMD | Upstream default runtime dispatch; AVX2 selection checks CPU/OS state and otherwise uses its four-wide path; no unconditional whole-program AVX2 flag |
+| Validation | BOX2D_VALIDATE=ON, effective only without NDEBUG; Debug has native heavy validation, ordinary Release does not; FORGE input preflight remains mandatory |
+| Disabled | Upstream samples, unit-test distribution, benchmarks, docs, Tracy profiling and separate vendor sanitizer configuration |
+| World | Lazy private native world; one worker; native default length units; existing fixed clock and physics owner |
+| Boundary | Public supported C API only, no modified opaque IDs; native snapshots scrub hooks and have an experimental exact-version format |
+| Distribution | MIT notice included in editor, runtime-kit, Runtime install and matching SDK notice paths; no vendor headers installed into the gameplay SDK |
+
+The upstream capacities are allocation reserves, not hard limits. Original dense
+probes found that 8192-body snapshots require approximately 5.8 MB even with a small
+pair guard. The planned initial 1024-body/4096-pair profile retains the existing
+aggregate recovery budgets; native callback overflow must fault a step before
+adoption rather than silently dropping collisions. CCD and all native allocation
+paths still require complete integration proof.
+
+The selected source's default native debug-name capacity is 10. Snapshot rebinds
+must respect that bound and restore application hooks using the existing runtime
+record owner. Source version macros alone do not establish the pin; CMake locks
+the complete commit. Tests of the standalone research build are not installed
+SDK or Windows feature acceptance. Local CMake/backend/profile checks pass two fixtures; package notice checks pass
+three fixtures, including retention of the previous ZIP on missing notice.
+Actual installed SDK, Windows, body/recovery and game-export gates remain pending.

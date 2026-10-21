@@ -29,7 +29,7 @@ class GalleryPackageTest(unittest.TestCase):
         # An unrecognized extension must survive without another allowlist change.
         self.write(self.gallery/'Assets/next-format.resource', b'\x00\x01\r\n\xff')
         for name in ('flecs', 'json', 'sdl', 'imgui_source', 'cpp_text_editor', 'diligent',
-                     'jolt', 'miniaudio', 'ozz', 'recast', 'rmlui', 'freetype', 'ktx',
+                     'jolt', 'box2d', 'miniaudio', 'ozz', 'recast', 'rmlui', 'freetype', 'ktx',
                      'webp', 'meshoptimizer', 'draco'):
             self.write(self.dependencies/(name+'-src')/'LICENSE.txt', b'Packaging test notice\n')
         metadata = dict(build_id='260101-000001', source_commit='1'*40)
@@ -77,6 +77,17 @@ class GalleryPackageTest(unittest.TestCase):
                 self.assertEqual(manifest[name], hashlib.sha256(content).hexdigest(), name)
             self.assertIn('Examples/Other/main.scene.json', manifest)
             self.assertNotIn('Examples/Other/build/local.obj', manifest)
+            notice = 'licenses/box2d-src/LICENSE.txt'
+            self.assertEqual(archive.read(notice), b'Packaging test notice\n')
+            self.assertEqual(manifest[notice], hashlib.sha256(archive.read(notice)).hexdigest())
+
+    def test_missing_backend_notice_retains_previous_archive(self):
+        self.package()
+        before = self.archive.read_bytes()
+        (self.dependencies/'box2d-src/LICENSE.txt').unlink()
+        with self.assertRaisesRegex(ValueError, 'No license notice found'):
+            self.package()
+        self.assertEqual(self.archive.read_bytes(), before)
 
     def test_gallery_link_rejection_retains_previous_archive(self):
         link = self.gallery/'Assets/linked.resource'

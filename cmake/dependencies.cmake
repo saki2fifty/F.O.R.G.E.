@@ -45,6 +45,23 @@ FetchContent_Declare(jolt GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.g
  GIT_TAG e77f175595e64cb44218cc9d9d56fc365ad0e36a SOURCE_SUBDIR Build) # 5.6.0
 FetchContent_MakeAvailable(jolt)
 
+# Private 2D backend. Keep default native units/SIMD dispatch and the SDK free
+# of vendor headers. EXCLUDE_FROM_ALL also excludes upstream install rules.
+foreach(option BOX2D_PROFILE BOX2D_SANITIZE BOX2D_SAMPLES BOX2D_UNIT_TESTS
+ BOX2D_BENCHMARKS BOX2D_DOCS BOX2D_DISABLE_SIMD BOX2D_COMPILE_WARNING_AS_ERROR)
+ set(${option} OFF CACHE BOOL "FORGE Box2D configuration" FORCE)
+endforeach()
+set(BOX2D_DOUBLE_PRECISION ON CACHE BOOL "FORGE double 2D world positions" FORCE)
+# Upstream heavy validation is effective in Debug, not NDEBUG Release.
+set(BOX2D_VALIDATE ON CACHE BOOL "Native debug validation" FORCE)
+set(_forge_shared_before_box2d "${BUILD_SHARED_LIBS}")
+set(BUILD_SHARED_LIBS OFF)
+FetchContent_Declare(box2d GIT_REPOSITORY https://github.com/erincatto/box2d.git
+ GIT_TAG 178495ba35695aefe9c321e569d2277f06db3b90 EXCLUDE_FROM_ALL) # 3.2.0
+FetchContent_MakeAvailable(box2d)
+set(BUILD_SHARED_LIBS "${_forge_shared_before_box2d}")
+set_target_properties(box2d PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
 # miniaudio implementation is private to audio/runtime and the isolated WAV cooker.
 # No miniaudio headers or ownership types are installed in the SDK.
 FetchContent_Declare(miniaudio GIT_REPOSITORY https://github.com/mackron/miniaudio.git
