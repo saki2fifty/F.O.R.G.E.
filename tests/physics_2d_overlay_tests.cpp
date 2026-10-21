@@ -81,13 +81,13 @@ void exercise(const std::filesystem::path& project, float scale) {
         }
     };
     const auto snapshot = scene.effective_document();
-    require(await(snapshot, true) > 0 && overlay.status() == "2D sensor — authored outline",
+    require(await(snapshot, true) > 0 && overlay.status() == "2D sensor - authored outline",
             "Actual planar overlay/status missing");
     // Disabled 3D asset choices must not start resource IO or hide the 2D shape.
     auto mixed = snapshot;
     mixed["entities"][0]["components"]["forge.physics_body"] = {{"enabled", false}};
     mixed["entities"][0]["components"]["forge.asset_collider"] = {{"asset", nullptr}};
-    require(await(mixed, true) > 0 && overlay.status() == "2D sensor — authored outline",
+    require(await(mixed, true) > 0 && overlay.status() == "2D sensor - authored outline",
             "Inactive 3D asset collider blocked planar preview");
     auto invalid = snapshot;
     invalid["entities"][0]["world_affine"][5] = 2;
@@ -97,7 +97,7 @@ void exercise(const std::filesystem::path& project, float scale) {
     auto disabled = snapshot;
     disabled["entities"][0]["components"]["forge.physics_body_2d"]["enabled"] = false;
     require(await(disabled, true) > 0 &&
-                overlay.status() == "2D collision disabled — authored outline",
+                overlay.status() == "2D collision disabled - authored outline",
             "Disabled planar source preview lost its status");
     auto removed = snapshot;
     removed["entities"][0]["components"].erase("forge.physics_body_2d");

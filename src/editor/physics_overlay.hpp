@@ -182,10 +182,10 @@ class PhysicsOverlay {
                 note = disabled ? "Collision disabled — authored shape preview"
                                 : "Collision geometry — selected object";
                 if (show_planar)
-                    note = disabled ? "2D collision disabled — authored outline"
+                    note = disabled ? "2D collision disabled - authored outline"
                                     : (components["forge.physics_body_2d"].value("sensor", false)
-                                           ? "2D sensor — authored outline"
-                                           : "2D collision — authored outline");
+                                           ? "2D sensor - authored outline"
+                                           : "2D collision - authored outline");
             }
         } catch (const std::exception& e) {
             error_ = e.what();

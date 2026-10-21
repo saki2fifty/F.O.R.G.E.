@@ -2061,14 +2061,16 @@ ecs_entity_t field_unit(flecs::world& world, const std::string& name) {
         return EcsMeters;
     if (name == "meters/second")
         return EcsMetersPerSecond;
-    if (name == "kg (0 uses density)")
+    if (name == "kg (0 uses density)" || name == "kg (0 uses area-density)")
         return EcsKiloGrams;
-    if (name == "kg/m^3") {
-        auto unit = world.lookup("forge.units.KilogramsPerCubicMeter");
+    if (name == "kg/m^3" || name == "kg/m^2") {
+        const char* path = name == "kg/m^2" ? "forge.units.KilogramsPerSquareMeter"
+                                            : "forge.units.KilogramsPerCubicMeter";
+        auto unit = world.lookup(path);
         if (!unit) {
             ecs_unit_desc_t desc{};
-            desc.entity = world.entity("forge.units.KilogramsPerCubicMeter").id();
-            desc.symbol = "kg/m^3";
+            desc.entity = world.entity(path).id();
+            desc.symbol = name.c_str();
             if (!ecs_unit_init(world.c_ptr(), &desc))
                 throw std::runtime_error("Density unit registration failed");
             unit = world.entity(desc.entity);

@@ -76,6 +76,40 @@ void native_layout(EngineContext& engine) {
         }
     require(found_motion, "Missing Body2D motion choices");
 }
+void reflected_units(EngineContext& engine) {
+    auto& world = engine.world().world();
+    const auto schema = detail::builtin_schema();
+    auto check = [&](const char* component, const char* field, ecs_entity_t expected,
+                     const char* symbol) {
+        const auto type = world.lookup(component);
+        const auto member = type.lookup(field);
+        require(expected && member && member.has<EcsMember>(), "Missing physics unit metadata");
+        require(member.get<EcsMember>().unit == expected, "Physics member has the wrong unit");
+        const auto* unit = ecs_get(world.c_ptr(), expected, EcsUnit);
+        require(unit && unit->symbol && std::string_view(unit->symbol) == symbol,
+                "Physics unit symbol mismatch");
+        for (const auto& entry : schema.at("components"))
+            if (entry.at("id") == component)
+                for (const auto& property : entry.at("fields"))
+                    if (property.at("id") == field) {
+                        require(property.at("unit") == symbol,
+                                "Inspector schema lost the reflected physics unit");
+                        return;
+                    }
+        throw std::runtime_error("Physics field missing from Inspector schema");
+    };
+    const auto area_density = world.lookup("forge.units.KilogramsPerSquareMeter");
+    const auto volume_density = world.lookup("forge.units.KilogramsPerCubicMeter");
+    require(area_density && volume_density && area_density != volume_density,
+            "Area density and volume density must use separate units");
+    check("forge.physics_body_2d", "density", area_density, "kg/m^2");
+    check("forge.physics_body_2d", "mass", EcsKiloGrams, "kg");
+    check("forge.physics_body", "density", volume_density, "kg/m^3");
+    check("forge.physics_body", "mass", EcsKiloGrams, "kg");
+    check("forge.box_collider_2d", "x", EcsMeters, "m");
+    check("forge.circle_collider_2d", "radius", EcsMeters, "m");
+    check("forge.capsule_collider_2d", "height", EcsMeters, "m");
+}
 void scalar_admission(EngineContext& engine) {
     const auto& body = spec("forge.physics_body_2d");
     require(detail::canonical_builtin_value(body, Json::object()) == body.defaults,
@@ -195,6 +229,7 @@ int main(int argc, char** argv) {
         require(argc == 2, "Expected a private schema fixture directory");
         EngineContext engine(WorldRole::Authoring);
         native_layout(engine);
+        reflected_units(engine);
         scalar_admission(engine);
         source_round_trip(engine, argv[1]);
         std::cout << "2D authored layout, scalar rejection, source/identity/extension round trip "

@@ -1,15 +1,16 @@
 # 2D physics integration contract
 
-**Implementation in progress.** This is the target contract for the current
-integration, not a guide to an available editor feature. Build261021-000195 targets
-the Tile Map milestone and contains no 2D physics. Local CPU tests cover authored
-reflection, scene save/reopen, initial native body simulation, domain separation,
-signed/flat parent frames, typed engine controls, queries, copied state/events and
-rejected partial steps, and private fresh-candidate recovery. Matching installed
-SDK modules also pass local checks through both process hosts. Inspector controls
-and collision guides have actual ImGui CPU checks at100/150/200%; Gallery75 runs
-from relocated prepared content with its source project deleted. Native pixels,
-Windows and source-free executable export acceptance remain incomplete.
+**Implemented in development source; delivery validation is pending.**
+Build261021-000195 targets the Tile Map milestone and contains no 2D physics.
+CPU/process checks cover authored reflection, scene save/reopen, native simulation,
+domain separation, signed/flat parent frames, controls, queries, copied events,
+rejected partial steps and private fresh-candidate recovery. Matching installed
+SDK modules run through both process hosts. The focused Windows audit passes
+Game rendering and Scene/Inspector captures at100/150/200%; the shared-game gate
+also runs exported games after source/SDK removal and fresh-runner relocation.
+These scoped results do not replace the complete milestone gate or physical
+Windows/GPU acceptance. See the [user guide](../manual/editor/physics-2d.md)
+for the implemented editor workflow.
 [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
 
@@ -17,8 +18,8 @@ records the selected ownership, native boundary and recovery direction.
 
 Box2D 3.2.0 is selected at immutable
 `178495ba35695aefe9c321e569d2277f06db3b90`; CMake builds the private backend and
-wires its license notices. The initial body adapter is subordinate to PhysicsRuntime;
-the full runtime workflow remains incomplete. It is a private static dependency,
+wires its license notices. The body adapter is subordinate to PhysicsRuntime.
+It is a private static dependency,
 with double world positions and ordinary float geometry, rotations and velocity.
 The initial native world is single-worker and created only when needed. Existing
 3D Jolt behavior, the fixed clock and Physics capability remain authoritative.
@@ -26,12 +27,12 @@ There is no collision between the two native domains.
 
 ## Authored bodies and shapes
 
-Introduce distinct PhysicsBody2D, BoxCollider2D, CircleCollider2D and
-CapsuleCollider2D values in the existing builtin schema family. An enabled body
+Distinct PhysicsBody2D, BoxCollider2D, CircleCollider2D and
+CapsuleCollider2D values belong to the existing builtin schema family. An enabled body
 requires exactly one enabled-domain inline collider and cannot share its entity
 with an enabled 3D body or Character Controller. Disabled choices remain authored.
 
-| Setting | Planned meaning |
+| Setting | Meaning |
 | --- | --- |
 | Motion | Static, Kinematic or Dynamic; default Static |
 | Density / mass | Default 1 kg/m²; mass 0 uses area-density, positive kg overrides mass with proportionally scaled native inertia |
@@ -43,7 +44,7 @@ with an enabled 3D body or Character Controller. Disabled choices remain authore
 | Circle | Radius centered at entity origin |
 | Capsule | Radius and straight segment height along local Y; total height is segment plus diameter |
 
-The planned input profile bounds seed/target XY coordinates to ±1000000 meters.
+The supported input profile bounds seed/target XY coordinates to ±1000000 meters.
 Effective full box dimensions are 0.01..1000 m; circle radius 0.005..500 m. Capsules
 require effective straight height at least 0.01 m and total height at most 1000 m.
 The pin rejects a capsule segment at or below its native slop threshold; no
@@ -131,8 +132,10 @@ The Inspector reuses the existing **Static / Kinematic / Dynamic** motion select
 and Project Physics named-layer/mask controls. Layer names keep their stable slots
 across both domains. Component picker labels use **Physics Body 2D**, **Box Collider
 2D**, **Circle Collider 2D** and **Capsule Collider 2D**. Actual ImGui CPU input checks
-select motion and named mask bits and verify typed Undo/Redo at100/150/200% scale;
-native-window/pixel acceptance remains pending.
+select motion and named mask bits and verify typed Undo/Redo at100/150/200% scale.
+Mass and density units come from the registered Flecs member metadata: kilograms
+and kilograms per square meter, distinct from 3D volume density. Native Windows
+captures exercise the same controls and guides at all three scales.
 
 ## Editor collision outlines
 
@@ -152,16 +155,17 @@ ancestry. No simulation body, hidden entity or second spatial owner is created.
 
 Local analytic checks compare144 shape/parent combinations against full source
 affines. Actual unmodified ImGui CPU contexts exercise100/150/200% scale, async
-preparation, clipping, read-only source and correction/removal. Native-window
-rendering, pixel review and physical GPU acceptance remain separate gates.
+preparation, clipping, read-only source and correction/removal. Native Windows
+WARP captures cover the Scene outline and Inspector; software-rendered images
+do not establish physical GPU performance or acceptance.
 
 ## C++ control and observations
 
 Engine-facing typed controls, queries and copied state/events have local CPU tests, including
 area-mass/inertia load units, point velocity, owner-thread checks, sleeping reads,
 shared command capacity and FIFO target conversion beneath flat/reflected parents.
-Matching gameplay SDK callbacks remain in progress; this is not an available
-packaged workflow yet.
+Matching gameplay SDK callbacks are implemented and exercised through both
+process hosts; a verified delivery containing this milestone is still required.
 
 Add explicitly typed 2D methods through the current service/SDK: copied body
 state, world XY velocity and angular velocity, forces/impulses with optional
@@ -234,7 +238,8 @@ payload; this integration does not add that feature.
 An installed-only external CMake project compiles both fixture variants through
 `ForgeNativeSdk::Client` and runs the same checks against the matching runtime.
 The SDK install retains the exact Box2D MIT notice and contains no Box2D headers.
-This is local GCC/shared-Flecs evidence, not Windows package acceptance.
+Local GCC/shared-Flecs checks and the Windows shared-game gate exercise these
+modules. Neither alone establishes acceptance of the final combined editor ZIP.
 
 ## Capacity, recovery and packaging
 
@@ -267,7 +272,7 @@ budgets. Query required native size before allocating a byte buffer. All current
 world contents must fit the aggregate envelope; maximum component counts alone
 do not guarantee recoverability. A rejected candidate preserves the current
 published runtime. The first native work/capacity probes do not replace complete
-FORGE lifetime and end-to-end acceptance. Local recovery checks cover all inline shapes, initial/paused/sleeping/moving state, mixed-domain FIFO commands, empty-world epoch retention, native image and metadata rejection, the shared remaining-byte limit, and actual runtime process restart. The1024-body sensor profile restores current overlap state without replaying notifications, copies all8160 replacement transitions, and still faults excess pair work after restoration. These CPU checks do not claim installed SDK, Windows, editor or export acceptance.
+FORGE lifetime and end-to-end acceptance. Local recovery checks cover all inline shapes, initial/paused/sleeping/moving state, mixed-domain FIFO commands, empty-world epoch retention, native image and metadata rejection, the shared remaining-byte limit, and actual runtime process restart. The1024-body sensor profile restores current overlap state without replaying notifications, copies all8160 replacement transitions, and still faults excess pair work after restoration. These recovery checks remain distinct from installed-SDK, editor and export gates.
 
 Matching SDK modules, both real Play process hosts and ordinary source-free
 exports must use the same native integration. Package the MIT notice in editor,

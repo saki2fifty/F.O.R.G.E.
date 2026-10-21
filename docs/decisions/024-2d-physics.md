@@ -1,7 +1,8 @@
 # ADR 024 — Typed 2D physics within the existing physics owner
 
-Date: 2026-10-21. Accepted integration boundary; implementation is in progress.
-This record does not announce available 2D bodies or a packaged feature.
+Date: 2026-10-21. Accepted integration boundary.
+Implementation and delivery validation are described in the linked technical
+contract; this decision does not announce a packaged feature.
 
 ## Decision
 
@@ -16,11 +17,10 @@ Select Box2D 3.2.0, immutable revision
 `178495ba35695aefe9c321e569d2277f06db3b90`, for the implementation. Use private
 static C17 linkage, double world positions, normal float geometry/velocities,
 one native worker, native Debug validation and unchanged default length units. Preserve
-its MIT notice. Private dependency/build integration and the initial body adapter
-are present, with engine controls/events and private recovery implemented locally. Matching installed SDK modules have local CPU/process validation; editor presentation and export remain pending.
-Vendor headers and handles do not enter the gameplay SDK. Local typed authoring,
-Inspector/guide CPU checks and source-free Gallery content playback are also
-present; native pixels and Windows executable export validation remain pending.
+its MIT notice. The private body adapter, controls, events and recovery remain
+subordinate to the existing physics owner. Vendor headers and handles do not
+enter the gameplay SDK. Typed authoring, Inspector/guides, Gallery content and
+source-free export use the existing subsystem owners and acceptance gates.
 
 ## Coordinates and authority
 
