@@ -1,4 +1,5 @@
 #pragma once
+#include "physics_2d_joint.hpp"
 #include "physics_command.hpp"
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
@@ -47,10 +48,12 @@ class Native2D {
     ~Native2D();
     void check() const;
     void validate(const Desired2D&, float dt = 0, const std::set<std::uint64_t>& commanded = {},
-                  const std::map<std::uint64_t, LocalTransform>& placements = {}) const;
+                  const std::map<std::uint64_t, LocalTransform>& placements = {},
+                  const DesiredJoints2D& joints = {}) const;
     void synchronize(const Desired2D&, const Desired2D& initial, float,
                      const std::set<std::uint64_t>& commanded,
-                     std::vector<std::uint64_t>& discontinuities);
+                     std::vector<std::uint64_t>& discontinuities,
+                     const DesiredJoints2D& joints = {});
     void apply(std::uint64_t, const BodyCommand&, std::vector<std::uint64_t>& discontinuities);
     void finish_targets(float);
     std::optional<PhysicsBodyState2D> state(std::uint64_t, EntityRef) const;
@@ -68,9 +71,12 @@ class Native2D {
     std::map<std::uint64_t, LocalTransform> adopted_poses() const;
     void accept_poses(const std::map<std::uint64_t, LocalTransform>&);
     std::size_t size() const;
+    std::size_t joint_size() const;
     bool realized() const;
-    Native2DImage checkpoint(const Desired2D&, std::size_t remaining_bytes) const;
-    void restore(const Json&, const std::string&, const Desired2D&, std::uint64_t tick);
+    Native2DImage checkpoint(const Desired2D&, std::size_t remaining_bytes,
+                             const DesiredJoints2D& joints = {}) const;
+    void restore(const Json&, const std::string&, const Desired2D&, std::uint64_t tick,
+                 const DesiredJoints2D& joints = {});
 
   private:
     struct Impl;

@@ -402,7 +402,7 @@ when the installed header/bridge fingerprint changes; ABI1 and table sizes remai
 The matching SDK exposes separate 2D values and `forge::sdk::Client` methods.
 Request the existing Physics capability and depend on `forge.physics`; there is
 no separate 2D service or clock. `PhysicsBody2D`, `BoxCollider2D`,
-`CircleCollider2D` and `CapsuleCollider2D` are authored values in
+`CircleCollider2D`, `CapsuleCollider2D` and `PhysicsJoint2D` are authored values in
 `<forge/physics_components.hpp>`. Vendor headers and native handles stay private.
 
 Positions and linear velocities use world XY meters and meters per second.
@@ -427,6 +427,19 @@ These are validation probes with a specific fixture, not behaviors to attach
 unchanged to Gallery75. Gallery75 itself needs no optional module. Compiled
 project modules are included by the ordinary export path; players need no SDK
 or compiler.
+
+`sample/Physics2DJoints.hpp` provides typed Hinge/Slider velocity-motor and
+Distance-spring helpers. Register the engine's `forge.physics_joint_2d` alias and
+edit runtime values in the owner-thread fixed Gameplay phase before Physics.
+The existing Physics boundary validates and realizes the full candidate; these
+helpers neither update saved source nor synchronously call the native solver.
+Hinge/frame/limit values use degrees and Hinge motor speed uses degrees/s; Slider
+speed uses m/s, with N*m and N actuator budgets. The installed
+`physics_2d_joint_gameplay` target is a dedicated both-host acceptance fixture,
+not a behavior to attach unchanged to Gallery76. That Scene runs its authored
+settings without a module. Rebuild matching modules for the added builtin header
+fingerprint; ABI1 remains unchanged. See the contract for scalar limits and
+fresh-candidate checkpoint6.
 
 Use the matching SDK after this callback-table/fingerprint update; native ABI1
 is retained. The first domain profile supports 1024 2D bodies within the combined

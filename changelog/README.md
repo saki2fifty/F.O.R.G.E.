@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-21](20261021/README.md) — 2D bodies, colliders, controls, sensors, recovery, Scene guides and Gallery75; milestone validation and delivery pending.
+- [2026-10-21](20261021/README.md) — Build199 delivers 2D bodies, controls, sensors, recovery and Gallery75; connected 2D joints/Gallery76 are in development with Windows acceptance pending.
 
 - [2026-10-19](20261019/README.md) — Optional standalone FPS/frame-time display; Windows/Linux, shared-game and fresh-runner source validation passed; delivery pending.
 

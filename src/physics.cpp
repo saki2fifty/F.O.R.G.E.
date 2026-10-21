@@ -575,6 +575,10 @@ struct PhysicsRuntime::Impl {
         std::uint64_t a, b;
     };
     using JointDesiredMap = std::map<std::uint64_t, JointDesired>;
+    static void validate_joint_capacity(std::size_t spatial, std::size_t planar) {
+        if (spatial > 4096 || planar > 4096 - spatial)
+            throw std::runtime_error("Combined physics joint capacity4096 exceeded");
+    }
     static JointCollisionPairs joint_collision_pairs(const JointDesiredMap& desired) {
         JointCollisionPairs result;
         for (const auto& [id, joint] : desired)
@@ -1436,8 +1440,11 @@ void PhysicsRuntime::validate_transform_candidate(
     s.check();
     const auto candidate = s.desired(&nodes);
     const auto candidate_2d = s.desired_2d(&nodes);
+    const auto joints = s.desired_joints(candidate);
+    const auto joints_2d = physics_detail::desired_joints_2d(s.context, candidate_2d, s.tick);
+    Impl::validate_joint_capacity(joints.size(), joints_2d.size());
     if (s.native_2d)
-        s.native_2d->validate(candidate_2d);
+        s.native_2d->validate(candidate_2d, 0, {}, {}, joints_2d);
     const auto original_2d = s.desired_2d();
     for (const auto& [id, value] : candidate_2d)
         if (value.config.body.motion == 2) {
@@ -1448,7 +1455,6 @@ void PhysicsRuntime::validate_transform_candidate(
                 throw std::runtime_error("Dynamic 2D starting XY/rotation cannot be driven by "
                                          "animation; use a Kinematic body or visual child");
         }
-    (void)s.desired_joints(candidate);
     s.validate_dynamic_writes(candidate);
     const auto chars = s.desired_characters(&nodes), original_chars = s.desired_characters();
     for (const auto& [id, value] : chars) {
@@ -1559,11 +1565,13 @@ void PhysicsRuntime::synchronize(float dt) {
     }
     const auto desired = s.desired(&nodes);
     const auto desired_2d = s.desired_2d(&nodes);
+    const auto desired_joints = s.desired_joints(desired);
+    const auto desired_joints_2d = physics_detail::desired_joints_2d(s.context, desired_2d, s.tick);
+    Impl::validate_joint_capacity(desired_joints.size(), desired_joints_2d.size());
     if (!s.native_2d && !desired_2d.empty())
         s.native_2d = std::make_unique<physics_detail::Native2D>(s.config);
     if (s.native_2d)
-        s.native_2d->validate(desired_2d, dt, commanded, placements_2d);
-    const auto desired_joints = s.desired_joints(desired);
+        s.native_2d->validate(desired_2d, dt, commanded, placements_2d, desired_joints_2d);
     auto excluded_pairs = Impl::joint_collision_pairs(desired_joints);
     // Same solver ownership check used by reject-before-write animation admission.
     s.validate_dynamic_writes(desired, commanded);
@@ -1639,7 +1647,7 @@ void PhysicsRuntime::synchronize(float dt) {
         it->second.last = pose;
     }
     if (s.native_2d)
-        s.native_2d->synchronize(desired_2d, initial_2d, dt, commanded, s.snaps);
+        s.native_2d->synchronize(desired_2d, initial_2d, dt, commanded, s.snaps, desired_joints_2d);
     for (const auto& cmd : s.commands) {
         auto found = s.context.resolve(cmd.ref);
         if (cmd.planar) {
@@ -2247,6 +2255,7 @@ Json PhysicsRuntime::status() const {
               s.collision_errors.contains(id) ? s.collision_errors.at(id) : info.diagnostic}});
     }
     return {{"joints", s.joints.size()},
+            {"joints_2d", s.native_2d ? s.native_2d->joint_size() : 0},
             {"characters", s.characters.size()},
             {"collision_resources", std::move(resources)},
             {"bodies", s.bodies.size()},
@@ -2272,6 +2281,9 @@ Json PhysicsRuntime::checkpoint() const {
             throw std::runtime_error("Physics checkpoint configuration or pose changed after "
                                      "adoption; defer component/transform edits to Gameplay");
     const auto joints = s.desired_joints(desired);
+    const auto desired_2d = s.desired_2d();
+    const auto joints_2d = physics_detail::desired_joints_2d(s.context, desired_2d, s.tick);
+    Impl::validate_joint_capacity(joints.size(), joints_2d.size());
     if (joints.size() != s.joints.size())
         throw std::runtime_error("Joint checkpoint requires synchronized content");
     for (const auto& [id, j] : s.joints)
@@ -2297,7 +2309,7 @@ Json PhysicsRuntime::checkpoint() const {
         mapping.push_back({{"entity", b.ref},
                            {"body", b.id.GetIndexAndSequenceNumber()},
                            {"configuration", b.config.json()}});
-    Json out = {{"version", 5},
+    Json out = {{"version", 6},
                 {"build", build_id},
                 {"source", source_commit},
                 {"runtime", FORGE_NATIVE_SDK_FINGERPRINT},
@@ -2332,10 +2344,9 @@ Json PhysicsRuntime::checkpoint() const {
              {"crouched", c.owner->crouched()},
              {"shape_blocked", c.shape_blocked}});
     }
-    const auto desired_2d = s.desired_2d();
     physics_detail::Native2DImage planar;
     if (s.native_2d)
-        planar = s.native_2d->checkpoint(desired_2d, max_solver_bytes - native_bytes);
+        planar = s.native_2d->checkpoint(desired_2d, max_solver_bytes - native_bytes, joints_2d);
     else if (!desired_2d.empty())
         throw std::runtime_error("2D checkpoint requires synchronized content");
     out["planar"] = {{"metadata", std::move(planar.metadata)},
@@ -2377,7 +2388,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     auto checked = payload;
     auto checksum = checked.at("integrity").get<std::string>();
     checked.erase("integrity");
-    if (digest(checked.dump()) != checksum || checked.at("version") != 5 ||
+    if (digest(checked.dump()) != checksum || checked.at("version") != 6 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -2414,6 +2425,8 @@ void PhysicsRuntime::restore(const Json& payload) {
         pending.push_back({resolution.entity, body});
     }
     const auto desired_joints = s.desired_joints(desired);
+    const auto desired_joints_2d = physics_detail::desired_joints_2d(s.context, desired_2d, s.tick);
+    Impl::validate_joint_capacity(desired_joints.size(), desired_joints_2d.size());
     const auto& joint_data = checked.at("joints");
     if (!joint_data.is_array() || joint_data.size() != desired_joints.size())
         throw std::runtime_error("Joint checkpoint count mismatch");
@@ -2461,7 +2474,7 @@ void PhysicsRuntime::restore(const Json& payload) {
         throw std::runtime_error("Combined physics recovery solver byte limit exceeded");
     auto native_2d = std::make_unique<physics_detail::Native2D>(s.config);
     native_2d->restore(planar.at("metadata"), unhex(planar_hex), desired_2d,
-                       checked.at("tick").get<std::uint64_t>());
+                       checked.at("tick").get<std::uint64_t>(), desired_joints_2d);
     std::vector<Impl::CharacterCommand> character_commands;
     const auto& pending_characters = checked.at("character_commands");
     if (!pending_characters.is_array() || pending_characters.size() > 4096)

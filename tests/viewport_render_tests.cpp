@@ -299,12 +299,23 @@ int main(int argc, char** argv) {
                 };
                 forge::test_physics_2d_gallery_render::exercise(isolated, context, read,
                                                                 FORGE_TEST_GALLERY, images);
+                forge::test_physics_2d_gallery_render::exercise(
+                    isolated, context, read, FORGE_TEST_GALLERY, images / "connected-game", true);
                 forge::test_physics_2d_editor_render::exercise(
                     isolated, context, FORGE_TEST_GALLERY, images / "editor",
                     [&](ITextureView* view) { return readback(device, context, view); },
                     [&](const auto& pixels, unsigned w, unsigned h, const auto& path) {
                         save(pixels, w, h, path);
                     });
+                for (int kind : {0, 1, 2})
+                    forge::test_physics_2d_editor_render::exercise(
+                        isolated, context, FORGE_TEST_GALLERY,
+                        images / ("joint-editor-" + std::to_string(kind)),
+                        [&](ITextureView* view) { return readback(device, context, view); },
+                        [&](const auto& pixels, unsigned w, unsigned h, const auto& path) {
+                            save(pixels, w, h, path);
+                        },
+                        kind);
             } else if (selected == "tile-canvas") {
                 // Exercise the same cached output path twice, including resource
                 // and project-lease retirement between the two authored projects.

@@ -2,6 +2,7 @@
 #include "authored_schema.hpp"
 #include "material_parameter_overrides.hpp"
 #include "material_slot.hpp"
+#include "physics_joint_2d_value.hpp"
 #include "physics_joint_value.hpp"
 #include "reflected_extensions.hpp"
 #include "reflected_string.hpp"
@@ -219,6 +220,8 @@ template <class T> Json encode(const T& p) {
         return {{"x", p.x}, {"y", p.y}};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_value(p);
+    else if constexpr (std::is_same_v<T, PhysicsJoint2D>)
+        return physics_detail::joint_value_2d(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
         return {{"asset", p.asset.id ? Json(p.asset.id) : Json()}};
     else if constexpr (std::is_same_v<T, SphereCollider> || std::is_same_v<T, CircleCollider2D>)
@@ -535,6 +538,8 @@ template <class T> Value decode(const Json& p) {
         return T{p.at("x"), p.at("y")};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_from_value(p);
+    else if constexpr (std::is_same_v<T, PhysicsJoint2D>)
+        return physics_detail::joint_from_value_2d(p);
     else if constexpr (std::is_same_v<T, AssetCollider>)
         return T{p.at("asset").is_null() ? AssetRef<CollisionAsset>{}
                                          : p.at("asset").get<AssetRef<CollisionAsset>>()};
@@ -1012,7 +1017,33 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("bullet");
     else if constexpr (std::is_same_v<T, BoxCollider2D>)
         c.template member<float>("x").template member<float>("y");
-    else if constexpr (std::is_same_v<T, PhysicsJoint>) {
+    else if constexpr (std::is_same_v<T, PhysicsJoint2D>) {
+        (void)authoring_value_adapters(w);
+        c.template member<bool>("enabled")
+            .template member<std::uint32_t>("kind")
+            .template member<EntityRef>("body_a")
+            .template member<EntityRef>("body_b")
+            .template member<float>("anchor_a_x")
+            .template member<float>("anchor_a_y")
+            .template member<float>("anchor_b_x")
+            .template member<float>("anchor_b_y")
+            .template member<float>("frame_a_angle")
+            .template member<float>("frame_b_angle")
+            .template member<float>("distance")
+            .template member<float>("spring_frequency")
+            .template member<float>("spring_damping")
+            .template member<bool>("limits_enabled")
+            .template member<float>("min_angle")
+            .template member<float>("max_angle")
+            .template member<float>("min_travel")
+            .template member<float>("max_travel")
+            .template member<bool>("motor_enabled")
+            .template member<float>("hinge_motor_speed")
+            .template member<float>("slider_motor_speed")
+            .template member<float>("max_motor_torque")
+            .template member<float>("max_motor_force")
+            .template member<bool>("collide_connected");
+    } else if constexpr (std::is_same_v<T, PhysicsJoint>) {
         (void)authoring_value_adapters(w);
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("kind")
@@ -1152,6 +1183,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             "Connect two rigid bodies using distance, hinge, point, fixed or slider constraints",
             "unitless", {}, {},
             [](flecs::world& w) { return register_type<PhysicsJoint>(w, "forge.physics_joint"); }),
+        descriptor<PhysicsJoint2D>(
+            "forge.physics_joint_2d", "Connect two XY bodies with a Distance, Hinge or Slider",
+            "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<PhysicsJoint2D>(w, "forge.physics_joint_2d");
+            }),
         descriptor<BoxCollider>(
             "forge.box_collider", "Centered box full dimensions in meters", "meters", .001, 10000,
             [](flecs::world& w) { return register_type<BoxCollider>(w, "forge.box_collider"); }),
@@ -1203,9 +1240,8 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<TransformAnimator>(
             "forge.transform_animator", "Authored local transform keyframes during Play",
             "unitless", {}, {},
-            [](flecs::world& w) {
-                return register_type<TransformAnimator>(w, "forge.transform_animator");
-            }),
+            [](flecs::world&
+                   w) { return register_type<TransformAnimator>(w, "forge.transform_animator"); }),
         descriptor<Animator>(
             "forge.animator",
             "Skeletal animation with an optional two-clip blend; derived poses only", "unitless",
@@ -1447,6 +1483,80 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["maximum"] = 31;
         if (field == "mask")
             value["maximum"] = UINT32_MAX;
+    }
+    if (name == "forge.physics_joint_2d") {
+        if (field == "kind") {
+            value["minimum"] = 0;
+            value["maximum"] = 2;
+            value["description"] = "XY Distance, Hinge or Slider; independent of 3D joints";
+        }
+        if (field == "body_a" || field == "body_b")
+            value["description"] = "Enabled nonsensor 2D body in a loaded scene. Select two "
+                                   "different bodies, with at least one Dynamic body.";
+        if (field.starts_with("anchor_")) {
+            value["minimum"] = -10000;
+            value["maximum"] = 10000;
+            value["unit"] = "meters";
+            value["description"] = "Body-local origin anchor, including effective signed XY scale";
+        }
+        if (field == "frame_a_angle" || field == "frame_b_angle") {
+            value["minimum"] = -180;
+            value["maximum"] = 180;
+            value["unit"] = "degrees";
+            value["description"] = "Rigid body-local Z frame angle, independent of signed scale. "
+                                   "Slider travels along Frame A's X axis.";
+        }
+        if (field == "distance") {
+            value["minimum"] = physics_detail::minimum_joint_distance_2d;
+            value["maximum"] = 10000;
+            value["unit"] = "meters";
+            value["description"] =
+                "Distance joint's fixed length or elastic rest length in world metres";
+        }
+        if (field == "spring_frequency") {
+            value["minimum"] = 0;
+            value["maximum"] = 100;
+            value["unit"] = "Hz";
+            value["description"] = "Distance: 0 is rigid; 0.01 to 100 Hz enables an elastic spring";
+        }
+        if (field == "spring_damping") {
+            value["minimum"] = 0;
+            value["maximum"] = 10;
+            value["description"] =
+                "Distance spring damping ratio; 1 is critical, below 1 oscillates";
+        }
+        if (field == "min_angle" || field == "max_angle") {
+            value["minimum"] = -178;
+            value["maximum"] = 178;
+            value["unit"] = "degrees";
+            value["description"] = "Hinge: signed angle of Frame B relative to Frame A. "
+                                   "Minimum must not exceed maximum; inactive when limits are off.";
+        }
+        if (field == "min_travel" || field == "max_travel") {
+            value["minimum"] = -10000;
+            value["maximum"] = 10000;
+            value["unit"] = "meters";
+            value["description"] = "Slider: signed world distance along Frame A's X axis. "
+                                   "Minimum must not exceed maximum; inactive when limits are off.";
+        }
+        if (field == "hinge_motor_speed" || field == "slider_motor_speed") {
+            const bool hinge = field == "hinge_motor_speed";
+            value["minimum"] = hinge ? -36000 : -1000;
+            value["maximum"] = hinge ? 36000 : 1000;
+            value["unit"] = hinge ? "degrees/s" : "m/s";
+            value["description"] =
+                "Velocity drive: positive moves Body B relative to Body A's joint frame";
+        }
+        if (field == "max_motor_torque" || field == "max_motor_force") {
+            value["minimum"] = 0;
+            value["maximum"] = 1000000;
+            value["unit"] = field == "max_motor_torque" ? "N*m" : "N";
+            value["description"] = "Motor effort budget; zero coasts instead of locking";
+        }
+        if (field == "collide_connected")
+            value["description"] =
+                "Allow this body's connected pair to collide when project "
+                "layers/masks permit. Any enabled joint opt-out suppresses the pair.";
     }
     if (name == "forge.physics_joint") {
         if (field == "distance_spring_frequency") {
@@ -2059,8 +2169,28 @@ ecs_entity_t field_unit(flecs::world& world, const std::string& name) {
         return EcsRadians;
     if (name == "meters")
         return EcsMeters;
-    if (name == "meters/second")
+    if (name == "meters/second" || name == "m/s")
         return EcsMetersPerSecond;
+    if (name == "degrees")
+        return EcsDegrees;
+    if (name == "Hz")
+        return EcsHertz;
+    if (name == "N")
+        return EcsNewton;
+    if (name == "degrees/s" || name == "N*m") {
+        const char* path =
+            name == "degrees/s" ? "forge.units.DegreesPerSecond" : "forge.units.NewtonMeters";
+        auto unit = world.lookup(path);
+        if (!unit) {
+            ecs_unit_desc_t desc{};
+            desc.entity = world.entity(path).id();
+            desc.symbol = name == "degrees/s" ? "deg/s" : "N*m";
+            if (!ecs_unit_init(world.c_ptr(), &desc))
+                throw std::runtime_error("Physics unit registration failed");
+            unit = world.entity(desc.entity);
+        }
+        return unit.id();
+    }
     if (name == "kg (0 uses density)" || name == "kg (0 uses area-density)")
         return EcsKiloGrams;
     if (name == "kg/m^3" || name == "kg/m^2") {
@@ -2133,6 +2263,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.animator" && field == "root_motion") {
         type = "forge.RootMotionMode";
         names = {"Off", "Apply", "Extract"};
+    } else if (component == "forge.physics_joint_2d" && field == "kind") {
+        type = "forge.JointKind2D";
+        names = {"Distance", "Hinge", "Slider"};
     } else if (component == "forge.physics_joint" && field == "kind") {
         type = "forge.JointKind";
         names = {"Distance", "Hinge", "Point", "Fixed", "Slider", "Swing Twist"};
@@ -2276,8 +2409,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
                 ? 3u
             : name.starts_with("forge.audio_") ? 2u
             : (name == "forge.physics_body" || name == "forge.physics_body_2d" ||
-               name == "forge.physics_joint" || name == "forge.character_controller" ||
-               name.ends_with("_collider") || name.ends_with("_collider_2d"))
+               name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
+               name == "forge.character_controller" || name.ends_with("_collider") ||
+               name.ends_with("_collider_2d"))
                 ? 1u
                 : 0u;
         if (category != family)
@@ -2289,8 +2423,9 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
         }
         std::vector<ReflectedAdapter> references;
-        if (name == "forge.physics_joint" || name == "forge.transform_animator" ||
-            name == "forge.camera_shot" || name == "forge.audio_cue")
+        if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
+            name == "forge.transform_animator" || name == "forge.camera_shot" ||
+            name == "forge.audio_cue")
             references = authoring_value_adapters(world);
         // Native typed identity remains authoritative even when an earlier SDK
         // schema registered a reference before its builtin family used a label.

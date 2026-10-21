@@ -25,6 +25,62 @@ AssetId asset(const AssetCatalog& catalog, std::string_view source) {
             return id;
     throw std::runtime_error("2D Gallery asset missing: " + std::string(source));
 }
+void connected_playback(const std::filesystem::path& root, AssetId scene_id) {
+    EngineContext engine(WorldRole::Runtime, false, {physics_module()});
+    Scene scene(engine.world());
+    scene.restore_snapshot(load_game_scene(root, {scene_id}));
+    RuntimeSimulation simulation(engine.world(), scene);
+    const auto physics = std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+    physics->synchronize(0);
+    simulation.reset_presentation();
+    std::map<std::string, EntityRef> refs;
+    unsigned joints = 0;
+    const auto effective = scene.effective_document();
+    for (const auto& row : effective.at("entities")) {
+        refs.emplace(row.at("name").get<std::string>(),
+                     EntityRef{scene_id, row.at("id").get<EntityId>()});
+        joints += row.at("components").contains("forge.physics_joint_2d");
+    }
+    const auto state = [&](const char* name) {
+        const auto value = physics->body_state_2d(refs.at(name));
+        check(bool(value), "Connected 2D Gallery body missing");
+        return *value;
+    };
+    check(joints == 4 && physics->status().at("joints_2d") == 4 &&
+              physics->status().at("bodies_2d") == 8,
+          "Connected Gallery lost its four joints or body pairs");
+    double pendulum_left = -4, spring_top = -1;
+    for (unsigned tick = 0; tick < 480; ++tick) {
+        simulation.tick(1.f / 60);
+        const auto hinge = state("Cyan pendulum"), distance = state("Amber tethered body"),
+                   spring = state("Rose spring body"), slider = state("Green motor carriage");
+        // Independent world geometry: the hinge bob's local (-2,0) is its pivot.
+        check(std::hypot(hinge.position[0] - 2 * std::cos(hinge.angle) + 6,
+                         hinge.position[1] - 2 * std::sin(hinge.angle) - 2) < .003,
+              "Gallery pendulum detached from its authored pivot");
+        check(std::abs(std::hypot(distance.position[0] + 2, distance.position[1] - 2) - 2) < .005,
+              "Gallery rigid tether changed its two metre distance");
+        check(std::abs(slider.position[1] - 1) < .005 && slider.position[0] <= 7.51 &&
+                  slider.position[0] >= 5.99,
+              "Gallery motor carriage left its limited rail");
+        pendulum_left = std::min(pendulum_left, hinge.position[0]);
+        spring_top = std::max(spring_top, spring.position[1]);
+        const auto frame = extract_render_scene(simulation.presentation(1));
+        check(frame.diagnostics.empty() && frame.cameras.size() == 1 &&
+                  frame.sprites.size() == 14 && frame.meshes.empty(),
+              "Connected Gallery lost its Sprite camera/presentation");
+        const auto bob = scene.entity(refs.at("Cyan pendulum").entity.str());
+        const auto arm = scene.entity(refs.at("Pendulum arm - follows the bob").entity.str());
+        const auto expected = bob.get<WorldTransform>().affine.point({-1, 0, .02});
+        const auto actual = arm.get<WorldTransform>().affine.point({0, 0, 0});
+        check(std::hypot(expected[0] - actual[0], expected[1] - actual[1]) < 1e-5,
+              "Gallery arm did not follow the ordinary visual hierarchy");
+    }
+    check(pendulum_left < -7 && spring_top > .3 &&
+              std::abs(state("Rose spring body").position[1]) < .02 &&
+              std::abs(state("Green motor carriage").position[0] - 7.5) < .01,
+          "Connected Gallery did not demonstrate pendulum, elastic rest and limited motor");
+}
 void playback(const std::filesystem::path& root, const AssetCatalog& catalog, AssetId scene_id) {
     EngineContext engine(WorldRole::Runtime, false, {physics_module(), animation_module(root)});
     Scene scene(engine.world());
@@ -134,6 +190,7 @@ int main(int argc, char** argv) {
                               std::filesystem::copy_options::recursive);
         auto catalog = AssetCatalog::open_project(root);
         const auto scene = asset(catalog, "Scenes/75-2d-physics.scene.json");
+        const auto connected = asset(catalog, "Scenes/76-connected-2d-bodies.scene.json");
         const auto solid = asset(catalog, "Assets/Physics2D/Solid.material.json");
         const auto badge = asset(catalog, "Assets/Sprites/Badge.material.json");
         const auto clip = asset(catalog, "Assets/Physics2D/Platform.animation.json");
@@ -145,14 +202,18 @@ int main(int argc, char** argv) {
             const auto lease = std::make_shared<ProjectLease>(root);
             EngineContext author(WorldRole::Authoring, false, {physics_module()});
             Scene schema(author.world());
-            const std::array roots{scene};
+            const std::array roots{scene, connected};
             prepare_runtime_content_catalog(*lease, roots, {}, schema.schema());
         }
         catalog = AssetCatalog::open_project(root);
         playback(root, catalog, scene);
+        connected_playback(root, connected);
         const auto package = scratch / "prepared content";
         const std::array roots{scene};
         package_runtime_content(root, package, roots, {"windows", "d3d12"});
+        const auto connected_package = scratch / "connected prepared content";
+        const std::array connected_roots{connected};
+        package_runtime_content(root, connected_package, connected_roots, {"windows", "d3d12"});
         std::filesystem::remove_all(root);
         const auto moved = scratch / "relocated source-free content";
         std::filesystem::rename(package, moved);
@@ -170,6 +231,21 @@ int main(int argc, char** argv) {
                   "2D Gallery runtime package leaked authored assets or C++ source");
         }
         playback(moved, packed, scene);
+        const auto connected_moved = scratch / "connected relocated source-free content";
+        std::filesystem::rename(connected_package, connected_moved);
+        const auto connected_packed = open_runtime_content(connected_moved, {"windows", "d3d12"});
+        std::set<AssetId> connected_actual;
+        for (const auto& [id, record] : connected_packed.records())
+            connected_actual.insert(id);
+        check(connected_actual == std::set<AssetId>{connected, solid},
+              "Connected Gallery source-free package lost its exact closure");
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(connected_moved)) {
+            const auto name = path_utf8(entry.path().filename());
+            check(!name.ends_with(".material.json") && !name.ends_with(".cpp") &&
+                      !name.ends_with(".hpp"),
+                  "Connected Gallery package leaked authored source");
+        }
+        connected_playback(connected_moved, connected);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

@@ -105,6 +105,25 @@ struct PhysicsBody2D {
     bool bullet = false; // Additional Dynamic-solid CCD against moving bodies.
     bool operator==(const PhysicsBody2D&) const = default;
 };
+// Distinct XY-domain joint values; body-local anchors include signed XY scale.
+// Frame angles use each body's rigid rotation, independent of its shape scale.
+struct PhysicsJoint2D {
+    bool enabled = true;
+    std::uint32_t kind = 0; // Distance, Hinge, Slider. Independent of the 3D kind IDs.
+    EntityRef body_a, body_b;
+    float anchor_a_x = 0, anchor_a_y = 0, anchor_b_x = 0, anchor_b_y = 0;
+    float frame_a_angle = 0, frame_b_angle = 0; // Body-local Z angles, degrees.
+    float distance = 1; // World metres; also the elastic spring's rest length.
+    float spring_frequency = 0, spring_damping = 1; // Distance: Hz (0 is rigid), ratio.
+    bool limits_enabled = true;
+    float min_angle = -90, max_angle = 90; // Hinge frame angle, degrees.
+    float min_travel = -1, max_travel = 1; // Slider frame X displacement, world metres.
+    bool motor_enabled = false;
+    float hinge_motor_speed = 90, slider_motor_speed = 1; // Degrees/s, metres/s; B vs A.
+    float max_motor_torque = 10, max_motor_force = 100;   // N*m, N; zero coasts.
+    bool collide_connected = true; // Project layers/masks still apply to permitted pairs.
+    bool operator==(const PhysicsJoint2D&) const = default;
+};
 struct BoxCollider2D {
     float x = 1, y = 1; // Centered full dimensions in meters.
     bool operator==(const BoxCollider2D&) const = default;

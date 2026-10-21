@@ -59,6 +59,36 @@ Bullet improves high-speed solid collision with supported receivers. It does
 not guarantee exact projectile timing or every fast sensor crossing. The native
 continuous sensor path retains eight candidates per fast body per step.
 
+## Connect bodies
+
+Create a separate entity, add **Physics Joint 2D**, and choose **Body A** and
+**Body B** from the 2D-body pickers. Both must be enabled nonsensor bodies, and
+at least one must be Dynamic. The joint entity's own transform does not position
+the connection. **Anchor A/B X/Y** are points in each body's local coordinates.
+
+- **Distance** holds the anchors at a fixed distance. A positive **Spring
+  Frequency** makes it elastic; **Spring Damping** controls how quickly it settles.
+- **Hinge** keeps the anchors together and lets the bodies rotate. Frame angles
+  define the rest orientation; optional angle limits and a torque-limited speed
+  motor control rotation.
+- **Slider** allows travel along the joint frame's X axis. Optional travel limits
+  and a force-limited speed motor control its movement.
+
+Distances use metres; frame/limit angles use degrees. Hinge motor speed is
+degrees per second; Slider motor speed is metres per second. A positive speed
+moves Body B relative to Body A's frame. **Collide Connected** controls whether
+the pair can collide; ordinary body layers/masks still apply. If several joints
+connect the same pair, any joint disabling connected collision takes precedence.
+
+Select a joint in Scene to see its authored guide. These are editing aids, not
+live force measurements. Stop before editing saved settings, then Play to test.
+The same property history and Prefab reference behavior apply. Matching C++ can
+change runtime settings before Physics using **CodeExamples/Physics2DJoints.hpp**.
+
+Try **Scenes/76-connected-2d-bodies.scene.json**: a cyan pendulum, amber rigid
+tether, rose spring and green motor carriage. Stop, select **Slider - positive
+rail motor**, change its speed to `-0.9`, and Play to reverse its direction.
+
 ## Export
 
 Save the Scene and choose **Use saved current scene as startup** in Project
@@ -66,6 +96,6 @@ Settings. Export using the matching runtime kit. The saved bodies, Sprite
 materials and prepared animation clip travel with the game. Optional C++ behavior
 travels as its compiled module. Players need neither source code nor a compiler.
 
-This first profile does not generate collision from Tile Maps and does not add
-2D joints, 2D character controllers or 2D navigation. Build261021-000195 predates
-this feature; use a delivery containing the 2D physics milestone.
+This profile does not generate collision from Tile Maps or add 2D character
+controllers or navigation. Build261021-000199 includes the first body milestone;
+the connected-body extension requires a later delivery containing Physics Joint 2D.

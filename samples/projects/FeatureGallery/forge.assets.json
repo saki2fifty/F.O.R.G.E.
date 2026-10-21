@@ -3184,6 +3184,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "48b4197e-258b-4684-a06e-4177ac84e69f",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/76-connected-2d-bodies.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "492d8aa7-cdf0-467d-89cc-b1eb3729d79c",
       "metadata": {
         "forge.import": {

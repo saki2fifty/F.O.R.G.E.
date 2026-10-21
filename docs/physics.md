@@ -1,5 +1,10 @@
 # Physics module and transient recovery
 
+The connected 2D-body extension advances the shared private physics checkpoint
+from5 to6. Existing 3D body/joint/control encodings and authored formats retain
+their meanings; older exact-build checkpoints reject. See
+[2D connected bodies and recovery](physics-2d.md#connected-bodies).
+
 
 `forge.physics` separates reflected engine-owned authoring values from Jolt-owned simulation objects. `physics_components.hpp` contains engine-owned typed settings; `physics_service.hpp` contains owner-thread queries/commands. `physics.hpp` is host composition/internal runtime infrastructure, excluded from the experimental SDK distribution.
 
@@ -95,7 +100,7 @@ consumer without Physics capability is denied.
 Fresh paused recovery restores native contact-cache state without replaying the
 transient adopted list. C++ game-owned counters/reaction state can use existing
 reflected components; PostPhysics commands take effect at the next boundary.
-Private checkpoint5 and authored formats remain unchanged. The public header
+Private checkpoint6 and authored formats remain unchanged. The public header
 fingerprint changes, requiring a matching exact SDK/module rebuild; ABI1 remains.
 
 ## Instantaneous volume queries
@@ -123,7 +128,7 @@ Valid output arrays clear on failure and unused slots clear on success. Invalid
 capacity or any wrong-size output slot rejects without writing that array. The
 request is copied before outputs are cleared. No pointers or native handles are
 returned. C++ consumers must rebuild against the matching SDK fingerprint; ABI1,
-private checkpoint5 and authored formats remain unchanged.
+private checkpoint6 and authored formats remain unchanged.
 
 The editable `PhysicsVolumes` C++ example counts two static objects and a moving
 sensor in a sphere. Reflected game-owned observation/launch progress uses normal
@@ -198,7 +203,7 @@ The exact SDK tail `physics_set_velocity` accepts a copied three-double vector a
 channel `FORGE_SDK_PHYSICS_LINEAR_VELOCITY` or
 `FORGE_SDK_PHYSICS_ANGULAR_VELOCITY`. It returns1queued or0rejected and requires the
 fixed owner thread and Physics capability. PostPhysics queues for the following
-step. Existing load-kind meanings are unchanged. Private checkpoint5 retains strict
+step. Existing load-kind meanings are unchanged. Private checkpoint6 retains strict
 tags6/7 from version4; old ephemeral envelopes reject. ABI1 and durable authoring formats stay
 unchanged; rebuild project modules against the matching SDK.
 
@@ -563,7 +568,7 @@ and active frequency/damping without advancing simulation. Original Gallery 29
 compares low and critical damping; its two demo bodies disable sleeping so their
 full numerical response can be measured. Ordinary body sleeping defaults remain.
 C++ accesses the same typed fields before Physics and observes copied motion after.
-ABI 1/private checkpoint 5/authored formats remain unchanged; matching SDK
+ABI 1/private checkpoint 6/authored formats remain unchanged; matching SDK
 layout/fingerprint requires rebuilding modules. Existing connected collision policy
 and fresh recovery apply. Springs do not add breakage or vehicle ownership.
 
@@ -614,7 +619,7 @@ and angle values remain saved and bounded. Separate travel fields default to -1/
 when absent through the existing builtin admission hook and joint codec. Legacy
 kinds0..3 keep their meanings; older readers reject kind4. The added public fields
 change SDK layout and fingerprint, requiring a matching rebuild. Native ABI1,
-private checkpoint5 and authored formats remain unchanged. Native order, retirement
+private checkpoint6 and authored formats remain unchanged. Native order, retirement
 and recovery use the existing joint owner.
 
 Scene24 contains vertical and inclined carriages under gravity. Inspector travel
@@ -645,7 +650,7 @@ No new command queue, constraint manager or motion owner is introduced.
 C++ can write the existing typed PhysicsJoint in the fixed phase before Physics.
 Recovery capture still requires synchronized component values; unsynchronized
 motor edits reject like other joint edits. Matching configuration plus exact native
-solver state restore active drives through private checkpoint5. Public field layout
+solver state restore active drives through private checkpoint6. Public field layout
 and SDK fingerprint change, requiring matching modules; ABI1 and authored versions
 are unchanged. Position targets and spring drives are described below.
 
@@ -684,7 +689,7 @@ x_next=x+dt*v_next, with w=2*pi*f. Separate bounded-effort checks use F/m and to
 
 Mode/target/spring edits retain native geometry, manager order and warm state;
 inactive mode and kind values remain authored without driving or waking bodies.
-C++ writes the same typed controls before Physics. Synchronized checkpoint5 restores
+C++ writes the same typed controls before Physics. Synchronized checkpoint6 restores
 actual native spring trajectories in a fresh runtime; no additional owner, queue,
 public callback or durable state is introduced. Legacy values backfill Velocity,
 zero position targets and2Hz/ratio1. Matching public-layout/header fingerprint

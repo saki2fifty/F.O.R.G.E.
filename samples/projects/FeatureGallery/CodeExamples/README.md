@@ -1,5 +1,39 @@
 # Optional C++ behaviors
 
+## Connected 2D bodies
+
+Scene76 runs its saved joints without an optional module. Include
+`Physics2DJoints.hpp` in a project built against the matching SDK. Register the
+engine alias during your module's schema callback:
+
+```cpp
+flecs::world(host->world).component<forge::PhysicsJoint2D>("forge.physics_joint_2d");
+```
+
+In an owner-thread fixed Gameplay system before Physics, use an entity that
+already has that joint component:
+
+```cpp
+forge_gallery_drive_joint_2d(joint_entity, -45.f, 10.f); // Hinge: degrees/s, N*m
+forge_gallery_drive_joint_2d(slider_entity, -0.9f, 20.f); // Slider: metres/s, N
+forge_gallery_spring_joint_2d(distance_entity, 2.f, 1.2f, 0.15f); // metres, Hz, damping ratio
+```
+
+Each helper changes the typed runtime component. The existing Physics boundary
+validates the complete configuration and realizes the change. This does not
+change saved Scene/Prefab values or create a second command queue. Keep the
+`forge.physics` dependency and Physics permission; do not call helpers from a
+worker thread or assume a synchronous native-solver update. Register your system
+with the supplied fixed phase and tag, as for other gameplay behavior.
+
+Hinge/Slider speed is Body B relative to Body A's joint frame. Zero Distance
+frequency makes the connection rigid. The helpers require the corresponding
+joint kind and throw for the wrong type. `physics_2d_joint_gameplay` in the
+installed SDK sample is a dedicated acceptance fixture, not a module to attach
+unchanged to the Gallery. Joint angles and motor speeds use degrees; copied body
+angle/angular velocity from the SDK use radians. No vendor physics library or
+private engine header is needed.
+
 ## 2D bodies and sensors
 
 Scene75 runs its saved bodies and moving platform without an optional module.

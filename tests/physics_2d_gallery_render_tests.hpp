@@ -11,13 +11,15 @@ namespace forge::test_physics_2d_gallery_render {
 template <class Readback>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
               const Readback& readback, const std::filesystem::path& root,
-              const std::filesystem::path& images) {
+              const std::filesystem::path& images, bool connected = false) {
     using test_sprite_draw::check;
     std::filesystem::create_directories(images);
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     AssetId scene_id;
     for (const auto& [id, record] : catalog->records())
-        if (!record.subasset && record.source == "Scenes/75-2d-physics.scene.json")
+        if (!record.subasset &&
+            record.source == (connected ? "Scenes/76-connected-2d-bodies.scene.json"
+                                        : "Scenes/75-2d-physics.scene.json"))
             scene_id = id;
     check(bool(scene_id), "2D Gallery Scene missing");
     EngineContext engine(WorldRole::Runtime, false, {physics_module(), animation_module(root)});
@@ -37,9 +39,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     EntityRef amber, platform;
     const auto authored = scene.effective_document();
     for (const auto& row : authored.at("entities")) {
-        if (row.at("name") == "Dynamic amber box")
+        if (row.at("name") == (connected ? "Cyan pendulum" : "Dynamic amber box"))
             amber = {scene_id, row.at("id").get<EntityId>()};
-        if (row.at("components").contains("forge.transform_animator"))
+        if (connected ? row.at("name") == "Green motor carriage"
+                      : row.at("components").contains("forge.transform_animator"))
             platform = {scene_id, row.at("id").get<EntityId>()};
     }
     check(bool(amber.entity) && bool(platform.entity), "Native 2D Gallery participants missing");
@@ -69,11 +72,13 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
             } while (game.pending());
             check(game.diagnostics().empty() && game.game_scene() &&
-                      game.game_scene()->sprites.size() == 12 && game.game_scene()->meshes.empty(),
+                      game.game_scene()->sprites.size() == (connected ? 14u : 12u) &&
+                      game.game_scene()->meshes.empty(),
                   "Actual 2D Gallery Game renderer lost its Sprite material/profile");
             const auto sample = [&](Double2 point) {
-                const auto x = int(std::floor(width * .5 + point[0] * height / 12.));
-                const auto y = int(std::floor(height * .5 - point[1] * height / 12.));
+                const double extent = connected ? 11 : 12;
+                const auto x = int(std::floor(width * .5 + point[0] * height / extent));
+                const auto y = int(std::floor(height * .5 - point[1] * height / extent));
                 check(x >= 0 && y >= 0 && x < int(width) && y < int(height),
                       "2D Gallery body sample left the viewport");
                 return pixels[std::size_t(y) * width + unsigned(x)];
@@ -83,11 +88,15 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             check(body && moving && (target_tick == 0 || body->position[1] < 3),
                   "Native 2D Gallery body did not fall before its later capture");
             const auto gold = sample(body->position), blue = sample(moving->position);
-            check(gold[0] > gold[1] && gold[1] > gold[2] && blue[2] > blue[1] && blue[1] > blue[0],
+            check(connected ? gold[2] > gold[1] && gold[1] > gold[0] && blue[1] > blue[2] &&
+                                  blue[2] > blue[0]
+                            : gold[0] > gold[1] && gold[1] > gold[2] && blue[2] > blue[1] &&
+                                  blue[1] > blue[0],
                   "Actual Game pixels lost the simulated amber body or blue platform");
-            std::ofstream file(images / ("gallery75-tick" + std::to_string(target_tick) + "-" +
-                                         std::to_string(width) + ".ppm"),
-                               std::ios::binary);
+            std::ofstream file(
+                images / (std::string(connected ? "gallery76-tick" : "gallery75-tick") +
+                          std::to_string(target_tick) + "-" + std::to_string(width) + ".ppm"),
+                std::ios::binary);
             file << "P6\n" << width << ' ' << height << "\n255\n";
             for (const auto pixel : pixels)
                 file.write(reinterpret_cast<const char*>(pixel.data()), 3);

@@ -57,11 +57,34 @@ Validate unique bindings, canonical identities, geometry/configuration and all
 limits before rebinding private hooks and publishing a candidate. This private
 checkpoint binding introduces no authored ID or general lookup owner.
 
-Private physics checkpoint 5 adds the typed 2D block, epoch mapping and tagged
-commands. Retain the combined 2 MiB raw solver, 6 MiB physics, 8 MiB checkpoint and
+Private physics checkpoint 5 introduced the typed 2D block, epoch mapping and
+tagged commands. The connected-body extension deliberately advances it to 6.
+Joint metadata contains complete canonical references/configuration/scaled anchors
+and the native joint enumeration order visited by canonical body reference.
+Reacquire fresh joint handles using supported body-joint/body endpoint APIs;
+validate complete native configuration and count before candidate publication.
+Duplicate configurations remain distinct through that recorded order. No opaque
+ID editing, durable identity or additional ownership registry is introduced.
+Retain the combined 2 MiB raw solver, 6 MiB physics, 8 MiB checkpoint and
 16 MiB process budgets. Older exact-build checkpoints reject; no durable source
 migration is involved. In-place restoration of the published native world is not
 an acceptable substitute for an unpublished candidate.
+
+## Connected-body extension
+
+PhysicsJoint2D is distinct from the existing 3D PhysicsJoint. Distance, Hinge and
+Slider use body-local XY anchors scaled by each body's signed physical scale;
+rigid frame angles remain independent of scale. Joint entity transforms have no
+solver authority. Only enabled nonsensor 2D bodies participate; at least one is
+Dynamic. Existing transform/animation admission still applies.
+
+The subordinate Native2D owns realized joints, retiring them before affected body
+replacement. Unchanged geometry preserves solver state; effective control changes
+wake connected bodies at the existing synchronization boundary. Any active
+collision opt-out wins for duplicate links. Native retirement/contact transitions
+share existing event adoption, capacity and checkpoint guards. The combined
+enabled-joint ceiling remains4096 across both domains. See the technical contract
+for the deliberately bounded scalar and motor profile.
 
 ## Capacity and failed native steps
 
@@ -91,5 +114,10 @@ The private derived XY mapping and native dependency/profile fixtures have local
 CPU/CMake tests; package-notice retention checks also pass. Initial native body
 simulation, detached admission, controls, queries and copied current/retired
 events have local CPU tests, including existing navigation/animation exclusions.
-Private fresh-candidate recovery has local CPU and actual process restart checks. Matching installed SDK modules have local checks through both process hosts. Editor presentation and Windows/export acceptance remain incomplete. See the
+Private fresh-candidate recovery has local CPU and actual process restart checks.
+Build261021-000199 delivered the body-only integration after automated Windows
+editor, installed SDK and standalone relocation gates. Physical acceptance remains
+separate. The connected-body extension has local runtime, authoring, actual
+three-scale Inspector, moved cooked-content and installed SDK checks through both
+process hosts; its native images/Windows/export milestone remains pending. See the
 [2D integration contract](../physics-2d.md).

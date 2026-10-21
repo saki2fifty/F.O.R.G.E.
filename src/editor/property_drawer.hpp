@@ -629,9 +629,12 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
         changed = prefab_member_property(label.c_str(), value);
     } else if (type == "entity_ref" && ui::editor_context && ui::editor_context->scene) {
         const auto property = field.value("property_id", std::string{});
-        changed = entity_ref_picker(*ui::editor_context->scene, value, label.c_str(),
-                                    property == "forge.physics_joint.body_a" ||
-                                        property == "forge.physics_joint.body_b");
+        const bool planar_body = property == "forge.physics_joint_2d.body_a" ||
+                                 property == "forge.physics_joint_2d.body_b";
+        changed = entity_ref_picker(
+            *ui::editor_context->scene, value, label.c_str(),
+            property == "forge.physics_joint.body_a" || property == "forge.physics_joint.body_b",
+            planar_body ? ui::editor_context->scene->world().id<PhysicsBody2D>() : 0);
     } else
         ImGui::TextWrapped("%s: unsupported reflected type %s (read only)", label.c_str(),
                            type.c_str());

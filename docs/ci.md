@@ -12,6 +12,13 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+The existing 2D viewport case also captures the connected-body Gallery76 Game
+poses and actual kind-specific joint Inspector/Scene guides at100/150/200%.
+The shared-game gate runs the installed joint Client fixture through both Play
+hosts, exports Gallery76 without a module, removes source/SDK dependencies and
+launches it after relocation. The separate clean runner repeats those startups.
+These are required executable checks, not physical Windows/GPU acceptance.
+
 The core and native-sdk presets leave `FORGE_BUILD_ASSET_TOOLS` disabled.
 `static_mesh_navigation` still exercises editable-Mesh publication, resource
 lifetimes, routing and source-free export in these profiles. Its imported-glTF

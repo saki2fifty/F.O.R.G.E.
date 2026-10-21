@@ -41,7 +41,7 @@ a, b = Runtime(runtime), Runtime(runtime)
 try:
     initial = a.request("replace", scene=scene)
     assert initial["physics"]["bodies_2d"] == 3
-    assert initial["recovery"]["physics"]["version"] == 5
+    assert initial["recovery"]["physics"]["version"] == 6
     assert motion(replace(b, initial)) == motion(initial)
     for _ in range(20):
         saved = a.request("step")

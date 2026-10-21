@@ -76,7 +76,7 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
 scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
-        '75-2d-physics.scene.json'} <= {p.name for p in scenes}
+        '75-2d-physics.scene.json', '76-connected-2d-bodies.scene.json'} <= {p.name for p in scenes}
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]

@@ -38,11 +38,26 @@ class PhysicsOverlay {
             }
         if (!row)
             return;
-        joint_selected_ = row->at("components").contains("forge.physics_joint");
+        const bool spatial_joint = row->at("components").contains("forge.physics_joint");
+        const bool planar_joint = row->at("components").contains("forge.physics_joint_2d");
+        joint_selected_ = spatial_joint || planar_joint;
         if (joint_selected_) {
-            if (joint_visible)
-                if (const auto guide = prepare_physics_joint_guide(scene, selected))
-                    draw_joint(*guide, camera, origin, area);
+            status_.clear();
+            if (joint_visible) {
+                float offset = 0;
+                std::string spatial_note;
+                if (spatial_joint)
+                    if (const auto guide = prepare_physics_joint_guide(scene, selected)) {
+                        offset = draw_joint(*guide, camera, origin, area);
+                        spatial_note = status_;
+                    }
+                if (planar_joint)
+                    if (const auto guide = prepare_physics_joint_2d_guide(scene, selected)) {
+                        draw_joint(*guide, camera, origin, area, offset);
+                        if (!spatial_note.empty())
+                            status_ = spatial_note + "\n" + status_;
+                    }
+            }
             return;
         }
         if (!visible || !catalog)
@@ -259,8 +274,8 @@ class PhysicsOverlay {
 
   private:
     bool joint_selected_ = false, body_selected_ = false;
-    void draw_joint(const PhysicsJointGuide& guide, const EditorCamera& camera, ImVec2 origin,
-                    ImVec2 area) {
+    float draw_joint(const PhysicsJointGuide& guide, const EditorCamera& camera, ImVec2 origin,
+                     ImVec2 area, float note_offset = 0) {
         static constexpr const char* kinds[] = {"Distance", "Hinge",  "Point",
                                                 "Fixed",    "Slider", "Swing Twist"};
         const auto color = !guide.error.empty() ? IM_COL32(255, 112, 120, 230)
@@ -269,8 +284,11 @@ class PhysicsOverlay {
                                                 : IM_COL32(255, 112, 120, 230);
         auto* draw = ImGui::GetWindowDrawList();
         draw->PushClipRect(origin, {origin.x + area.x, origin.y + area.y}, true);
-        std::string note = guide.kind < 6 ? std::string("Authored ") + kinds[guide.kind] + " joint"
-                                          : "Authored joint";
+        const std::string prefix = guide.planar ? "Authored 2D " : "Authored ";
+        std::string note =
+            guide.kind < 6 ? prefix + kinds[guide.kind] + " joint" : prefix + "joint";
+        if (guide.planar)
+            note += " | XY, depth ignored";
         if (!guide.enabled)
             note += " | disabled";
         if (!guide.error.empty())
@@ -347,7 +365,26 @@ class PhysicsOverlay {
                                               IM_COL32(242, 142, 240, 240));
                 }
             }
-            if (guide.kind == 4 && i == 0) {
+            if (guide.planar && guide.kind == 1 && i == 0 && guide.limits_enabled) {
+                const auto& x = body.axes[0];
+                const auto& y = body.axes[1];
+                Double3 previous{};
+                for (unsigned step = 0; step <= 32; ++step) {
+                    const auto degrees =
+                        guide.min_angle + (guide.max_angle - guide.min_angle) * (double(step) / 32);
+                    const auto angle = degrees * std::numbers::pi / 180;
+                    const auto point = helper_add(helper_add(body.anchor, x, .6 * std::cos(angle)),
+                                                  y, .6 * std::sin(angle));
+                    if (step)
+                        SpatialHelpers::draw_line(draw, camera, origin, area, previous, point,
+                                                  color);
+                    if (step == 0 || step == 32)
+                        SpatialHelpers::draw_line(draw, camera, origin, area, body.anchor, point,
+                                                  IM_COL32(242, 142, 240, 240));
+                    previous = point;
+                }
+            }
+            if (guide.kind == 4 && i == 0 && guide.limits_enabled) {
                 const auto low =
                     helper_add(body.anchor, body.axes[guide.axis[0]], guide.min_travel);
                 const auto high =
@@ -394,7 +431,9 @@ class PhysicsOverlay {
             const auto& a = guide.bodies[0].anchor;
             const auto& b = guide.bodies[1].anchor;
             SpatialHelpers::draw_line(draw, camera, origin, area, a, b, color);
-            const auto gap = helper_add(b, a, -1);
+            auto gap = helper_add(b, a, -1);
+            if (guide.planar)
+                gap[2] = 0;
             char metric[64];
             std::snprintf(metric, sizeof(metric), " | anchor gap %.3f m",
                           std::sqrt(gap[0] * gap[0] + gap[1] * gap[1] + gap[2] * gap[2]));
@@ -403,16 +442,33 @@ class PhysicsOverlay {
                 guide.collide_connected ? " | connected contacts on" : " | connected contacts off";
             if (guide.kind == 4) {
                 const auto& axis = guide.bodies[0].axes[guide.axis[0]];
-                std::snprintf(metric, sizeof(metric), " | travel %.3f m [%.3f, %.3f]",
-                              gap[0] * axis[0] + gap[1] * axis[1] + gap[2] * axis[2],
-                              guide.min_travel, guide.max_travel);
+                if (guide.limits_enabled)
+                    std::snprintf(metric, sizeof(metric), " | travel %.3f m [%.3f, %.3f]",
+                                  gap[0] * axis[0] + gap[1] * axis[1] + gap[2] * axis[2],
+                                  guide.min_travel, guide.max_travel);
+                else
+                    std::snprintf(metric, sizeof(metric), " | travel %.3f m, limits off",
+                                  gap[0] * axis[0] + gap[1] * axis[1] + gap[2] * axis[2]);
+                note += metric;
+            }
+            if (guide.planar && guide.kind == 1) {
+                if (guide.limits_enabled)
+                    std::snprintf(metric, sizeof(metric), " | limits [%.3f, %.3f] deg",
+                                  guide.min_angle, guide.max_angle);
+                else
+                    std::snprintf(metric, sizeof(metric), " | limits off");
                 note += metric;
             }
             if (guide.kind == 0) {
                 char limits[160];
-                std::snprintf(limits, sizeof(limits), " | %s range [%.3f, %.3f] m",
-                              guide.distance_spring_frequency > 0 ? "elastic" : "hard",
-                              guide.min_distance, guide.max_distance);
+                if (guide.planar)
+                    std::snprintf(limits, sizeof(limits), " | %s %.3f m",
+                                  guide.distance_spring_frequency > 0 ? "spring rest" : "length",
+                                  guide.min_distance);
+                else
+                    std::snprintf(limits, sizeof(limits), " | %s range [%.3f, %.3f] m",
+                                  guide.distance_spring_frequency > 0 ? "elastic" : "hard",
+                                  guide.min_distance, guide.max_distance);
                 note += limits;
                 if (guide.distance_spring_frequency > 0) {
                     std::snprintf(limits, sizeof(limits), " | spring %.3f Hz / %.3f ratio",
@@ -445,9 +501,10 @@ class PhysicsOverlay {
         }
         const auto width = std::max(40.f, area.x - 28.f);
         const auto extent = ImGui::CalcTextSize(note.c_str(), nullptr, false, width);
+        const float requested_y =
+            origin.y + area.y - extent.y - ImGui::GetTextLineHeight() - 12 - note_offset;
         const auto text =
-            ImVec2{origin.x + 10, std::max(origin.y + 10, origin.y + area.y - extent.y -
-                                                              ImGui::GetTextLineHeight() - 12)};
+            ImVec2{origin.x + 10, note_offset ? requested_y : std::max(origin.y + 10, requested_y)};
         draw->AddRectFilled({text.x - 4, text.y - 3},
                             {origin.x + area.x - 10, text.y + extent.y + 3},
                             IM_COL32(14, 20, 27, 225), 3);
@@ -455,6 +512,7 @@ class PhysicsOverlay {
                       width);
         draw->PopClipRect();
         status_ = note;
+        return extent.y + 10;
     }
     std::string entity_, key_, attempt_, good_, work_, error_, selection_, status_;
     std::string work_entity_;

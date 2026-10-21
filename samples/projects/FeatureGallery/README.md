@@ -1,5 +1,33 @@
 # FORGE Feature Gallery
 
+## Connected 2D bodies
+
+Open **Scenes/76-connected-2d-bodies.scene.json**, press Play and switch to Game.
+From left to right:
+
+- The cyan pendulum swings about its fixed anchor. Its thin arm is an ordinary
+  visual child of the moving body.
+- The amber body swings while its Distance joint keeps the two centers two metres apart.
+- The rose body oscillates toward a two-metre rest distance. Gravity is disabled
+  on this body so you can see the spring's rest length directly.
+- The green carriage travels right along its rail and stops at the travel limit.
+  The motor keeps pushing within its force budget; reversal needs an edit or C++.
+
+Stop before changing saved settings. Select **Slider - positive rail motor**,
+change **Slider Motor Speed** to `-0.9`, and Play again to travel left. Set
+**Max Travel** to `0.5` to shorten the rightward journey. Select
+**Distance - elastic two metre rest** and set **Spring Frequency** to `0`:
+the connection becomes rigid. Undo restores the spring. Increasing **Spring
+Damping** reduces the oscillation. Select a joint in Scene to see its authored
+anchors, limits and settings; these guides are absent from the exported game.
+
+The station strips and slider rail are visual markers. This demonstration disables
+body collisions to isolate the joint behavior. It needs no optional C++ module.
+**CodeExamples/Physics2DJoints.hpp** shows how a matching C++ fixed system can
+change motor targets and spring settings. Stop restores the saved starting state.
+Save, choose this Scene as startup and export using the matching runtime kit.
+The standalone game uses the same saved joint settings without source or a compiler.
+
 ## 2D physics
 
 Open **Scenes/75-2d-physics.scene.json**, press Play and switch to Game. Five

@@ -158,6 +158,8 @@ jobs:
           if($LASTEXITCODE) { throw 'Installed consumer build failed' }
           python tests/sdk_physics_2d_test.py "$b/forge_runtime.exe" "$b/module-build/physics_2d_gameplay.dll" "$b/module-build/physics_2d_denied_gameplay.dll"
           if($LASTEXITCODE) { throw 'Installed 2D physics SDK consumer failed' }
+          python tests/sdk_physics_2d_joint_test.py "$b/forge_runtime.exe" "$b/module-build/physics_2d_joint_gameplay.dll"
+          if($LASTEXITCODE) { throw 'Installed 2D joint SDK consumer failed' }
           cmake --install "$b/module-build" --component GameplayRuntime --prefix "$b/module-kits"
           if($LASTEXITCODE) { throw 'Module kit install failed' }
           ctest --test-dir $b -R '^(standalone_manifest|standalone_module_export|runtime_ui_package|native_sdk|native_sdk_package|tile_assets_sdk|tile_gallery|physics_2d_gallery|tile_play_transport|native_sdk_tile_maps_installed|standalone_game_workflow|game_frame_statistics|ui_frame_statistics|presentation_rate|game_launch|audio_mix_transport)$' --output-on-failure
@@ -170,6 +172,8 @@ jobs:
           if($LASTEXITCODE) { throw 'Shared Tile Map export failed' }
           python tests/physics_2d_standalone_test.py --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/physics-2d-export" --retain "$b/standalone-delivery/physics-2d-game"
           if($LASTEXITCODE) { throw 'Shared 2D physics export failed' }
+          python tests/physics_2d_standalone_test.py --connected --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/connected-2d-export" --retain "$b/standalone-delivery/connected-2d-game"
+          if($LASTEXITCODE) { throw 'Shared connected 2D export failed' }
           Copy-Item tests/standalone_relocated_probe.py "$b/standalone-delivery/probe.py"
           cmake -S samples/reference_game -B "$b/reference-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl -DFORGE_NATIVE_SDK="$b/installed-sdk"
           if($LASTEXITCODE) { throw 'Reference SDK consumer configure failed' }
@@ -272,7 +276,7 @@ jobs:
       - name: Run without source checkout, original build or SDK
         shell: pwsh
         working-directory: ${{ runner.temp }}
-        run: python "Relocated FORGE Game/probe.py" "Relocated FORGE Game/game" "standalone-clean-room-evidence" "Relocated FORGE Game/sprite-image-game" "Relocated FORGE Game/tile-map-game" "Relocated FORGE Game/physics-2d-game"
+        run: python "Relocated FORGE Game/probe.py" "Relocated FORGE Game/game" "standalone-clean-room-evidence" "Relocated FORGE Game/sprite-image-game" "Relocated FORGE Game/tile-map-game" "Relocated FORGE Game/physics-2d-game" "Relocated FORGE Game/connected-2d-game"
       - name: Upload clean-room evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

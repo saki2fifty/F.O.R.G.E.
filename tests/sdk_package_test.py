@@ -32,6 +32,7 @@ assert (stage/'sdk/include/forge/texture_dimension.hpp').exists()
 assert not (stage/'sdk/include/forge/texture_asset.hpp').exists(), 'Cooked texture API leaked into value-only SDK'
 assert (stage/'sdk/include/forge/primitive_catalog.hpp').exists()
 assert (stage/'sdk/include/forge/transform_components.hpp').exists()
+assert (stage/'sdk/sample/Physics2DJoints.hpp').is_file()
 subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(client),'-G','Ninja',compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,'-DFORGE_NATIVE_SDK='+str(stage)],check=True)
 subprocess.run([cmake,'--build',str(client),'--parallel','2'],check=True)
 windows=os.name=='nt';exe='.exe' if windows else '';ext='.dll' if windows else '.so'
@@ -92,6 +93,9 @@ finally:
 trace=(stage/'trace.txt').read_text();assert trace.count('tick\n')==2 and trace.endswith('unload\n'),trace
 print('Installed SDK client, PE/ELF shared dependency, relocated runtime, fixed ticks and unload verified')
 # Prove the installed audio headers and callback boundary from the relocated host too.
+subprocess.run([sys.executable,str(Path(__file__).with_name('sdk_physics_2d_joint_test.py')),
+                str(runtime),str(client/('physics_2d_joint_gameplay'+ext))],
+               env=env,cwd=stage,check=True,timeout=120)
 subprocess.run([sys.executable,str(Path(__file__).with_name('audio_process_test.py')),str(runtime),str(client/('audio_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=40)
 # Compile and load the installed Animator component across the same shared Flecs boundary.
 subprocess.run([sys.executable,str(Path(__file__).with_name('animation_process_test.py')),str(runtime),str(build/('forge_animation_tests'+exe)),str(build/'tools'/('gltf2ozz'+exe)),str(Path(__file__).resolve().parents[1]/'samples/animation/two-joints.gltf'),str(client/('animation_gameplay'+ext))],env=env,cwd=stage,check=True,timeout=60)

@@ -65,6 +65,19 @@
         0
       ],
       "yaw": 0
+    },
+    "Scenes/76-connected-2d-bodies.scene.json": {
+      "distance": 16,
+      "grid_plane": "xy",
+      "orthographic_height": 16,
+      "pitch": 0,
+      "projection": "orthographic",
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0
     }
   }
 }

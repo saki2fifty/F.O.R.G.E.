@@ -421,6 +421,20 @@ class ComponentInspector {
             std::string_view group;
             for (const auto& field : *fields) {
                 const std::string name = field.at("id");
+                if (key == "forge.physics_joint_2d") {
+                    const auto kind = values.at(key).at("kind").get<unsigned>();
+                    if (((name == "distance" || name.starts_with("spring_")) && kind != 0) ||
+                        ((name.starts_with("frame_") || name == "limits_enabled" ||
+                          name == "motor_enabled") &&
+                         kind == 0) ||
+                        ((name == "min_angle" || name == "max_angle" ||
+                          name == "hinge_motor_speed" || name == "max_motor_torque") &&
+                         kind != 1) ||
+                        ((name == "min_travel" || name == "max_travel" ||
+                          name == "slider_motor_speed" || name == "max_motor_force") &&
+                         kind != 2))
+                        continue;
+                }
                 if (key == "forge.physics_joint") {
                     const auto kind = values.at(key).at("kind").get<unsigned>();
                     const auto mode = values.at(key).at("motor_mode").get<unsigned>();

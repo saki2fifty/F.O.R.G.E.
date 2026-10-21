@@ -92,6 +92,76 @@ reconstruction preserves canonical references and opaque future fields, includin
 full unsigned64-bit values. Local checks also realize the saved authored body in
 an actual runtime while confirming that authoring worlds create no solver.
 
+## Connected bodies
+
+The connected-body extension adds distinct `PhysicsJoint2D` values through the
+same schema/authoring/Physics owners. It does not reinterpret existing 3D joint
+kinds. The joint entity's transform has no native authority. Enabled joints need
+two distinct enabled nonsensor 2D bodies and at least one Dynamic body. Disabled
+references may be empty/unavailable. Body/shape/transform admission remains intact.
+
+| Kind | Frame and control |
+| --- | --- |
+| Distance (0) | Anchors remain the authored world distance apart; optional frequency and damping provide a spring |
+| Hinge (1) | Anchors coincide; rigid local frame angles define rest orientation; optional angle limits and bounded velocity motor |
+| Slider (2) | Body B moves along Body A's joint-frame X; rigid relative frame orientation and perpendicular position constrained; optional travel limits and bounded velocity motor |
+
+Anchor X/Y are body-local metres, including each body's effective signed XY scale.
+Frame angles are rigid body-local Z degrees independent of scale. Positive motor
+motion means Body B relative to Body A's frame. Distances/travel are world metres,
+Hinge motor speed degrees/s, Slider speed m/s, torque N*m and force N. Copied SDK
+body angles/angular velocities continue to use radians/radians per second.
+
+Defaults are enabled Distance, one metre, empty references, zero anchors/frame
+angles, rigid frequency0/damping1, enabled limits [-90,90]deg or [-1,1]m, disabled
+motor with90deg/s or1m/s targets and10N*m/100N budgets, and connected collision
+enabled. Initial constraint violations are corrected iteratively. A joint is not
+a promise of zero numerical error or unlimited actuator force.
+
+The supported scalar profile is:
+
+- Distance0.005f..10000m, reflecting the native five-millimetre stable minimum;
+  local anchor coordinates within +/-10000m.
+- Frame angles +/-180deg, ordered Hinge limits within +/-178deg and ordered
+  Slider travel limits within +/-10000m. Limits may exclude the initial pose.
+- Spring frequency0 (rigid) or0.01..100Hz, damping ratio0..10.
+- Hinge velocity within +/-36000deg/s, Slider velocity within +/-1000m/s, and
+  torque/force budgets0..1000000 in their corresponding units.
+
+All stored scalar settings must be finite and valid, including inactive settings;
+unused values are preserved. Complete detached admission runs before either
+domain mutates. Runtime C++ edits are applied at the same Physics synchronization
+boundary as other typed values; no second command FIFO or clock is introduced.
+Geometry changes rebuild the affected joint, not its unchanged bodies. Body
+replacement retires/rebinds connected joints before native body destruction.
+Unchanged joints retain solver state; only effective control changes wake them.
+
+Connected collision also requires normal layers/masks. Any enabled joint opting
+out suppresses that pair even when another link opts in. Retiring the final
+opt-out restores the ordinary pair policy; resulting End/Begin transitions use
+the existing bounded copied-event/adoption window. A checkpoint rejects pending,
+unadopted retirement events, including those caused by joint edits.
+
+The Inspector uses the existing typed property history and 2D-body reference
+picker. Relevant settings follow the selected kind. Scene guides derive frames
+from copied authored spatial data, with signed/flat ancestry and XY-only physical
+measurements; they do not instantiate a solver, change source or measure live
+forces. Normal subtree/Prefab reference adapters preserve local binding and
+explicit property intent. Gallery76 demonstrates all three kinds, with a separate
+rigid tether and elastic Distance example. The installed
+`sample/Physics2DJoints.hpp` and `physics_2d_joint_gameplay` fixture exercise the
+matching shared Client without vendor physics headers/linkage.
+
+The combined enabled-joint ceiling remains4096 across 2D/3D. Body, pair, command
+and checkpoint budgets below remain unchanged. Local checks cover equations,
+signed frames, moving anchors/locked bodies, motors/sleep/reversal, collision
+retirement, mixed joint capacity, malformed/fresh recovery, authored/Prefab
+ownership, actual three-scale Inspector controls, source-free moved content and
+installed-only both-host C++. Native image and Windows export acceptance for this
+extension remain pending. Build261021-000199 contains bodies, not these joints.
+No other native joint types, position drives, breaking or character controllers
+are included in this extension.
+
 ## Transform admission and fixed ownership
 
 Use the existing effective spatial graph, evaluated double affines and signed
@@ -259,7 +329,7 @@ across ticks and copies all8160 End/Begin observations when1020 visitors are
 replaced. A separate16384 zero-dt retirement check rejects further replacement
 before native writes, then permits it after adoption releases that window.
 
-The development branch implements private checkpoint 5 to preserve native 2D bytes, admitted configuration, private epochs,
+Private checkpoint6 preserves native 2D bytes, admitted configuration, private epochs,
 next epoch and queued domain-tagged commands inside the existing owner. Native
 snapshots scrub hooks and do not provide fresh-world application bindings.
 Ten-character native debug tags encode the record epoch, bounded to 60 bits;
@@ -267,6 +337,15 @@ supported queries reacquire candidate handles before checked hook rebinding.
 Capture requires synchronized adopted state, including completed retirement events. A realized empty world retains its next epoch. Native Kinematic target and actual solver poses are preserved separately because target integration promises a close pose, not exact arrival.
 No native ID internals are modified, no authored identity is added and no native
 snapshot becomes a game-save format. Transient adopted events are not replayed.
+
+Joint metadata records complete identity/configuration/scaled anchors and native
+enumeration order visited by canonical body reference. Fresh supported body-joint
+APIs reacquire candidate handles; exact complete settings/endpoints/counts and
+default native profile are checked before publication. Duplicate same-pair,
+identical-configuration joints retain distinct authored bindings through the
+recorded order, including after deletion/recreation. Native body hooks are rebound
+only on the candidate; joint hooks stay null. Older exact-build checkpoint versions
+reject without changing the published world; no source-format migration is needed.
 
 Retain the combined 2 MiB raw solver / 6 MiB physics / 8 MiB outer checkpoint / 16 MiB process
 budgets. Query required native size before allocating a byte buffer. All current
@@ -280,5 +359,5 @@ exports must use the same native integration. Package the MIT notice in editor,
 runtime and SDK distributions; no Box2D header enters the gameplay SDK. Original
 editable Gallery content, Inspector/Scene guides, actual installed-only C++ and
 Windows/export gates are required before this feature is complete. Automatic Tile
-Map collision, 2D joints/controllers/navigation, durable saves and streaming are
+Map collision, 2D controllers/navigation, durable saves and streaming are
 separate work.

@@ -1,7 +1,9 @@
 #include "physics_2d.hpp"
 #include "builtins.hpp"
+#include "physics_2d_joint_native.hpp"
 #include "physics_2d_transform.hpp"
 #include "physics_debug.hpp"
+#include "physics_joint_2d_value.hpp"
 #include <algorithm>
 #include <box2d/box2d.h>
 #include <cmath>
@@ -42,11 +44,7 @@ LocalTransform planar_pose(std::uint64_t id, const std::map<std::uint64_t, Trans
         hint.scale.z *= local.scale.z == 0 ? 0.f : (std::signbit(local.scale.z) ? -1.f : 1.f);
     }
     const auto& affine = evaluated.at(id).affine;
-    (void)PlanarMapping(affine);
-    const auto result = decompose(affine, &hint);
-    planar_rotation(result.rotation);
-    valid_xy(result.translation);
-    return result;
+    return checked_planar_pose_2d(affine, hint);
 }
 float dimension(double value, double minimum, double maximum) {
     if (!std::isfinite(value) || value < minimum || value > maximum)
@@ -134,6 +132,14 @@ b2QueryFilter query_filter(PhysicsQueryFilter value) {
 }
 } // namespace
 
+void validate_planar_rotation_2d(LocalRotation rotation) { planar_rotation(rotation); }
+LocalTransform checked_planar_pose_2d(const AffineTransform& affine, const LocalTransform& hint) {
+    (void)PlanarMapping(affine);
+    const auto result = decompose(affine, &hint);
+    planar_rotation(result.rotation);
+    valid_xy(result.translation);
+    return result;
+}
 void validate_ray_2d(Double2 origin, Double2 displacement) {
     valid_xy({origin[0], origin[1], 0});
     valid_xy({origin[0] + displacement[0], origin[1] + displacement[1], 0});
@@ -337,6 +343,107 @@ struct Native2D::Impl {
         std::uint64_t epoch = 0;
     };
     std::map<std::uint64_t, Body> bodies;
+    struct Joint {
+        b2JointId id{};
+        Joint2DDesired admitted;
+    };
+    std::map<std::uint64_t, Joint> joints;
+    bool body_changes(std::uint64_t id, const Desired2D& desired) const {
+        const auto next = desired.find(id);
+        const auto old = bodies.find(id);
+        return next == desired.end() || old == bodies.end() ||
+               next->second.ref != old->second.admitted.ref ||
+               next->second.config != old->second.admitted.config;
+    }
+    std::size_t ending_joint_contacts(const DesiredJoints2D& joints,
+                                      const Desired2D& desired) const {
+        std::size_t ends = 0;
+        if (!joints.empty()) {
+            using Pair = std::pair<std::uint64_t, std::uint64_t>;
+            std::set<Pair> old_exclusions;
+            for (const auto& [id, joint] : this->joints)
+                if (!joint.admitted.config.collide_connected)
+                    old_exclusions.emplace(std::min(joint.admitted.a, joint.admitted.b),
+                                           std::max(joint.admitted.a, joint.admitted.b));
+            std::map<std::uint64_t, std::set<std::uint64_t>> new_exclusions;
+            for (const auto& [id, joint] : joints) {
+                const Pair pair{std::min(joint.a, joint.b), std::max(joint.a, joint.b)};
+                if (!joint.config.collide_connected && !old_exclusions.contains(pair) &&
+                    !body_changes(pair.first, desired) && !body_changes(pair.second, desired) &&
+                    bodies.contains(pair.first) && bodies.contains(pair.second))
+                    new_exclusions[pair.first].insert(b2StoreShapeId(bodies.at(pair.second).shape));
+            }
+            for (const auto& [id, others] : new_exclusions) {
+                const auto body = bodies.at(id).id;
+                const int capacity = b2Body_GetContactCapacity(body);
+                if (capacity < 0 || capacity > int(pair_limit))
+                    throw std::runtime_error("Native 2D connected contact capacity mismatch");
+                std::vector<b2ContactData> contacts(static_cast<std::size_t>(capacity));
+                const int count = b2Body_GetContactData(body, contacts.data(), capacity);
+                if (count < 0 || count > capacity)
+                    throw std::runtime_error("Native 2D connected contact enumeration mismatch");
+                for (int i = 0; i < count; ++i)
+                    if (others.contains(b2StoreShapeId(contacts[i].shapeIdA)) ||
+                        others.contains(b2StoreShapeId(contacts[i].shapeIdB)))
+                        ++ends;
+            }
+        }
+        return ends;
+    }
+    void retire_joints(const DesiredJoints2D& desired, const Desired2D& desired_bodies) {
+        for (auto old = joints.begin(); old != joints.end();) {
+            const auto next = desired.find(old->first);
+            if (next == desired.end() ||
+                !joint_same_geometry_2d(old->second.admitted, next->second) ||
+                body_changes(old->second.admitted.a, desired_bodies) ||
+                body_changes(old->second.admitted.b, desired_bodies)) {
+                retire_joint_2d(old->second.id);
+                old = joints.erase(old);
+            } else
+                ++old;
+        }
+    }
+    void realize_joints(const DesiredJoints2D& desired) {
+        for (const auto& [id, value] : desired) {
+            auto found = joints.find(id);
+            if (found == joints.end()) {
+                const auto native =
+                    create_joint_2d(world, value, bodies.at(value.a).id, bodies.at(value.b).id);
+                joints.emplace(id, Joint{native, value});
+            } else {
+                update_joint_2d(found->second.id, found->second.admitted.config, value.config);
+                found->second.admitted = value;
+            }
+        }
+    }
+    std::vector<b2JointId> joint_handles() const {
+        const auto count = b2World_GetCounters(world).jointCount;
+        if (count < 0 || count > 4096)
+            throw std::runtime_error("Native 2D joint capacity mismatch");
+        std::map<EntityRef, const Body*> ordered;
+        for (const auto& [id, body] : bodies)
+            if (!ordered.emplace(body.admitted.ref, &body).second)
+                throw std::runtime_error("Duplicate canonical 2D body in joint enumeration");
+        std::vector<b2JointId> result;
+        std::set<std::uint64_t> seen;
+        for (const auto& [ref, body] : ordered) {
+            const auto capacity = b2Body_GetJointCount(body->id);
+            if (capacity < 0 || capacity > count)
+                throw std::runtime_error("Invalid native 2D body joint count");
+            std::vector<b2JointId> attached(static_cast<std::size_t>(capacity));
+            if (b2Body_GetJoints(body->id, attached.data(), capacity) != capacity)
+                throw std::runtime_error("Incomplete native 2D joint enumeration");
+            for (const auto joint : attached)
+                if (B2_ID_EQUALS(b2Joint_GetBodyA(joint), body->id)) {
+                    if (!seen.insert(b2StoreJointId(joint)).second)
+                        throw std::runtime_error("Duplicate native 2D joint enumeration");
+                    result.push_back(joint);
+                }
+        }
+        if (result.size() != std::size_t(count))
+            throw std::runtime_error("Native 2D joint inventory is not closed over owned bodies");
+        return result;
+    }
     struct Binding {
         EntityRef ref;
         std::uint64_t epoch;
@@ -635,7 +742,8 @@ std::uint64_t recovery_epoch(const char* name) {
     return result;
 }
 } // namespace
-Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaining) const {
+Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaining,
+                                   const DesiredJoints2D& joints) const {
     const auto& self = *impl_;
     self.check();
     validate_step();
@@ -643,7 +751,7 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
         throw std::runtime_error("2D checkpoint requires adopted synchronized bodies");
     Native2DImage image;
     if (!realized()) {
-        if (!desired.empty())
+        if (!desired.empty() || !joints.empty())
             throw std::runtime_error("2D checkpoint has unrealized bodies");
         return image;
     }
@@ -661,6 +769,29 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
              {"target", recovery_pose(body.admitted.pose)},
              {"native", recovery_native_state(body.id, body.shape, body.admitted.config)}});
     }
+    if (joints.size() != self.joints.size())
+        throw std::runtime_error("2D joint checkpoint requires synchronized content");
+    std::map<std::uint64_t, const Impl::Joint*> bindings;
+    for (const auto& [id, joint] : self.joints) {
+        const auto found = joints.find(id);
+        if (found == joints.end() || found->second.config != joint.admitted.config ||
+            !joint_same_geometry_2d(found->second, joint.admitted) ||
+            !joint_matches_2d(joint.id, joint.admitted, self.bodies.at(joint.admitted.a).id,
+                              self.bodies.at(joint.admitted.b).id) ||
+            !bindings.emplace(b2StoreJointId(joint.id), &joint).second)
+            throw std::runtime_error("2D joint checkpoint configuration/binding mismatch");
+    }
+    Json joint_mapping = Json::array();
+    for (const auto native : self.joint_handles()) {
+        const auto found = bindings.find(b2StoreJointId(native));
+        if (found == bindings.end())
+            throw std::runtime_error("Unowned native 2D joint during checkpoint");
+        const auto& value = found->second->admitted;
+        joint_mapping.push_back({{"entity", value.ref},
+                                 {"configuration", joint_value_2d(value.config)},
+                                 {"anchor_a", value.anchor_a},
+                                 {"anchor_b", value.anchor_b}});
+    }
     const int required = b2World_GetSnapshot(self.world, nullptr, 0);
     if (required <= 0 || std::size_t(required) > remaining)
         throw std::runtime_error("Combined 2D/3D checkpoint exceeds solver byte budget");
@@ -670,17 +801,18 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
         throw std::runtime_error("Native 2D checkpoint capture failed");
     image.metadata = {{"pin", "178495ba35695aefe9c321e569d2277f06db3b90-double"},
                       {"next_epoch", self.next_epoch},
-                      {"mapping", std::move(mapping)}};
+                      {"mapping", std::move(mapping)},
+                      {"joints", std::move(joint_mapping)}};
     return image;
 }
 void Native2D::restore(const Json& metadata, const std::string& bytes, const Desired2D& desired,
-                       std::uint64_t tick) {
+                       std::uint64_t tick, const DesiredJoints2D& joints) {
     auto& self = *impl_;
     self.check();
-    if (realized() || !self.bodies.empty())
+    if (realized() || !self.bodies.empty() || !self.joints.empty())
         throw std::runtime_error("2D restoration requires a fresh unpublished owner");
     if (metadata.is_null()) {
-        if (!bytes.empty() || !desired.empty())
+        if (!bytes.empty() || !desired.empty() || !joints.empty())
             throw std::runtime_error("Missing 2D recovery image");
         return;
     }
@@ -691,9 +823,12 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
     auto candidate = std::make_unique<Impl>(self.config);
     candidate->next_epoch = metadata.at("next_epoch").get<std::uint64_t>();
     const auto& mapping = metadata.at("mapping");
+    const auto& joint_mapping = metadata.at("joints");
     if (!candidate->next_epoch || candidate->next_epoch > (std::uint64_t{1} << 60) ||
         !mapping.is_array() || mapping.size() != desired.size() || desired.size() > body_limit)
         throw std::runtime_error("2D recovery mapping capacity mismatch");
+    if (!joint_mapping.is_array() || joint_mapping.size() != joints.size() || joints.size() > 4096)
+        throw std::runtime_error("2D recovery joint mapping capacity mismatch");
     std::map<EntityRef, std::uint64_t> entities;
     for (const auto& [id, body] : desired)
         if (!entities.emplace(body.ref, id).second)
@@ -719,7 +854,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
     const auto counters = b2World_GetCounters(candidate->world);
     const auto gravity = b2World_GetGravity(candidate->world);
     if (counters.bodyCount != int(desired.size()) || counters.shapeCount != counters.bodyCount ||
-        counters.jointCount != 0 || counters.contactCount < 0 ||
+        counters.jointCount != int(joints.size()) || counters.contactCount < 0 ||
         counters.contactCount > int(pair_limit) || gravity.x != float(self.config.gravity[0]) ||
         gravity.y != float(self.config.gravity[1]) ||
         b2World_GetWorkerCount(candidate->world) != 1 ||
@@ -763,16 +898,45 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
     }
     if (!epochs.empty())
         throw std::runtime_error("Incomplete 2D recovery bindings");
+    // The selected snapshot preserves each body's native joint-list order. Visit
+    // bodies by canonical EntityRef so new ECS IDs do not affect that enumeration.
+    // Never reuse or rewrite an old world's opaque joint handles.
+    std::map<EntityRef, std::uint64_t> joint_entities;
+    for (const auto& [id, value] : joints)
+        if (!joint_entities.emplace(value.ref, id).second)
+            throw std::runtime_error("Duplicate canonical 2D joint identity");
+    const auto handles = candidate->joint_handles();
+    for (std::size_t index = 0; index < handles.size(); ++index) {
+        const auto& entry = joint_mapping.at(index);
+        const auto ref = entry.at("entity").get<EntityRef>();
+        const auto found = joint_entities.find(ref);
+        if (found == joint_entities.end())
+            throw std::runtime_error("Unknown/duplicate 2D joint recovery identity");
+        const auto id = found->second;
+        const auto& value = joints.at(id);
+        if (entry.at("configuration") != joint_value_2d(value.config) ||
+            entry.at("anchor_a") != Json(value.anchor_a) ||
+            entry.at("anchor_b") != Json(value.anchor_b) ||
+            !joint_matches_2d(handles[index], value, candidate->bodies.at(value.a).id,
+                              candidate->bodies.at(value.b).id))
+            throw std::runtime_error("2D joint recovery configuration/native order mismatch");
+        candidate->joints.emplace(id, Impl::Joint{handles[index], value});
+        joint_entities.erase(found);
+    }
+    if (!joint_entities.empty())
+        throw std::runtime_error("Incomplete 2D joint recovery bindings");
     candidate->last_step_tick = candidate->last_event_tick = tick;
     b2World_SetCustomFilterCallback(candidate->world, Impl::filter, candidate.get());
     impl_.swap(candidate);
 }
 void Native2D::check() const { impl_->check(); }
 std::size_t Native2D::size() const { return impl_->bodies.size(); }
+std::size_t Native2D::joint_size() const { return impl_->joints.size(); }
 bool Native2D::realized() const { return B2_IS_NON_NULL(impl_->world); }
 void Native2D::validate(const Desired2D& desired, float dt,
                         const std::set<std::uint64_t>& commanded,
-                        const std::map<std::uint64_t, LocalTransform>& placements) const {
+                        const std::map<std::uint64_t, LocalTransform>& placements,
+                        const DesiredJoints2D& joints) const {
     const auto& self = *impl_;
     self.check();
     std::size_t retired_count = 0, ends = self.pending_end_bound;
@@ -786,6 +950,11 @@ void Native2D::validate(const Desired2D& desired, float dt,
                 ends += std::size_t(b2Shape_GetSensorCapacity(body.shape));
         }
     }
+    if (joints.size() > 4096)
+        throw std::runtime_error("Combined physics joint capacity4096 exceeded");
+    // New pair exclusions can end contacts without replacing either body. Count
+    // each touching pair once, excluding those already covered by body retirement.
+    ends += self.ending_joint_contacts(joints, desired);
     // A step can end its old sensor overlaps and begin its new admitted pairs.
     // Reserve both windows in addition to pending native destruction Ends.
     if (retired_count + self.retired.size() > event_limit || ends > event_limit - 2 * pair_limit)
@@ -829,13 +998,15 @@ void Native2D::validate(const Desired2D& desired, float dt,
 }
 void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, float,
                            const std::set<std::uint64_t>& commanded,
-                           std::vector<std::uint64_t>& snaps) {
+                           std::vector<std::uint64_t>& snaps, const DesiredJoints2D& joints) {
     auto& self = *impl_;
     self.check();
     if (desired.empty() && self.bodies.empty())
         return;
     try {
         self.realize();
+        self.pending_end_bound += self.ending_joint_contacts(joints, desired);
+        self.retire_joints(joints, desired);
         for (auto old = self.bodies.begin(); old != self.bodies.end();) {
             if (!desired.contains(old->first)) {
                 self.retire(old->second);
@@ -883,6 +1054,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
             }
             old->second.admitted = value;
         }
+        self.realize_joints(joints);
     } catch (...) {
         self.fault = true;
         throw;
@@ -1115,6 +1287,14 @@ void Native2D::step(float dt, std::uint64_t tick) {
         self.fault = true;
         throw std::runtime_error(
             "2D pair work capacity 4096 exceeded; partial native step rejected");
+    }
+    for (const auto& [id, joint] : self.joints) {
+        const auto force = b2Joint_GetConstraintForce(joint.id);
+        const auto torque = b2Joint_GetConstraintTorque(joint.id);
+        if (!std::isfinite(force.x) || !std::isfinite(force.y) || !std::isfinite(torque)) {
+            self.fault = true;
+            throw std::runtime_error("Nonfinite native 2D joint reaction; step cannot be adopted");
+        }
     }
     self.last_step_tick = tick;
 }

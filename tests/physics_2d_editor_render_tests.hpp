@@ -1,5 +1,6 @@
 #pragma once
 #include "ImGuiImplDiligent.hpp"
+#include "editor/component_inspector.hpp"
 #include "editor/physics_overlay.hpp"
 #include "editor/property_drawer.hpp"
 #include "editor/viewport.hpp"
@@ -13,13 +14,15 @@ namespace forge::test_physics_2d_editor_render {
 template <class Readback, class Save>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
               const std::filesystem::path& root, const std::filesystem::path& images,
-              const Readback& readback, const Save& save) {
+              const Readback& readback, const Save& save, int joint_kind = -1) {
     using test_sprite_draw::check;
     std::filesystem::create_directories(images);
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     AssetId scene_id;
     for (const auto& [id, record] : catalog->records())
-        if (!record.subasset && record.source == "Scenes/75-2d-physics.scene.json")
+        if (!record.subasset &&
+            record.source == (joint_kind < 0 ? "Scenes/75-2d-physics.scene.json"
+                                             : "Scenes/76-connected-2d-bodies.scene.json"))
             scene_id = id;
     check(bool(scene_id), "2D editor Gallery Scene missing");
     EngineContext engine(WorldRole::Authoring, false, {physics_schema_module()});
@@ -28,11 +31,15 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     const auto source = scene.document(), effective = scene.effective_document();
     Json selected;
     for (const auto& row : effective.at("entities"))
-        if (row.at("components").contains("forge.capsule_collider_2d"))
+        if ((joint_kind < 0 && row.at("components").contains("forge.capsule_collider_2d")) ||
+            (joint_kind >= 0 && row.at("components").contains("forge.physics_joint_2d") &&
+             row.at("components").at("forge.physics_joint_2d").at("kind") == joint_kind))
             selected = row;
-    check(!selected.is_null(), "2D editor Gallery capsule missing");
+    check(!selected.is_null(), "2D editor Gallery selected component missing");
     const auto selected_id = selected.at("id").get<std::string>();
     const auto schema = scene.schema();
+    SceneDocument document(scene);
+    ComponentInspector inspector;
     auto host = std::make_shared<MeshResourceHost>(presentation, context, root);
     host->catalog(catalog);
     Viewport viewport(presentation);
@@ -40,10 +47,13 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     EditorCamera camera;
     camera.target = {0, 0, 0};
     camera.yaw = camera.pitch = 0;
-    camera.distance = camera.orthographic_height = 12;
+    camera.distance = camera.orthographic_height = joint_kind < 0 ? 12 : 16;
     camera.projection = CameraProjection::Orthographic;
     ui::PhysicsOverlay outline;
     outline.visible = true;
+    const auto guide_ready = [&] {
+        return joint_kind < 0 ? outline.ready() : outline.status().starts_with("Authored 2D ");
+    };
     Diligent::ImGuiImplDiligent gui(
         {presentation.device(), Diligent::TEX_FORMAT_RGBA8_UNORM, Diligent::TEX_FORMAT_UNKNOWN});
     auto& io = ImGui::GetIO();
@@ -76,7 +86,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
             ImGui::SetNextWindowSize({split, float(height)}, ImGuiCond_Always);
             ImGui::Begin("Scene - 2D physics", nullptr, ImGuiWindowFlags_NoScrollbar);
-            ImGui::TextUnformatted("Selected collision: capsule / XY view");
+            ImGui::TextUnformatted(joint_kind < 0 ? "Selected collision: capsule / XY view"
+                                                  : "Authored 2D joint / XY view");
             origin = ImGui::GetCursorScreenPos();
             area = ImGui::GetContentRegionAvail();
             auto* image = viewport.render(context, effective, unsigned(area.x), unsigned(area.y),
@@ -87,21 +98,27 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             ImGui::SetNextWindowPos({split, 0}, ImGuiCond_Always);
             ImGui::SetNextWindowSize({width - split, float(height)}, ImGuiCond_Always);
             ImGui::Begin("Inspector");
-            ImGui::TextWrapped("Dynamic lime capsule - visual children follow the body");
-            for (const auto component : {"forge.physics_body_2d", "forge.capsule_collider_2d"})
-                for (const auto& type : schema.at("components"))
-                    if (type.at("id") == component &&
-                        ImGui::CollapsingHeader(type.at("display_name").get<std::string>().c_str(),
-                                                ImGuiTreeNodeFlags_DefaultOpen))
-                        for (const auto& field : type.at("fields")) {
-                            ImGui::PushID(component);
-                            auto value = selected.at("components")
-                                             .at(component)
-                                             .at(field.at("id").get<std::string>());
-                            check(!property_field(root, field, value),
-                                  "Staged 2D Inspector unexpectedly edited a value");
-                            ImGui::PopID();
-                        }
+            if (joint_kind >= 0) {
+                ImGui::TextWrapped("%s", selected.at("name").get<std::string>().c_str());
+                inspector.draw(scene, document, selected_id);
+            } else {
+                ImGui::TextWrapped("Dynamic lime capsule - visual children follow the body");
+                for (const auto component : {"forge.physics_body_2d", "forge.capsule_collider_2d"})
+                    for (const auto& type : schema.at("components"))
+                        if (type.at("id") == component &&
+                            ImGui::CollapsingHeader(
+                                type.at("display_name").get<std::string>().c_str(),
+                                ImGuiTreeNodeFlags_DefaultOpen))
+                            for (const auto& field : type.at("fields")) {
+                                ImGui::PushID(component);
+                                auto value = selected.at("components")
+                                                 .at(component)
+                                                 .at(field.at("id").get<std::string>());
+                                check(!property_field(root, field, value),
+                                      "Staged 2D Inspector unexpectedly edited a value");
+                                ImGui::PopID();
+                            }
+            }
             ImGui::End();
             context->SetRenderTargets(1, &rtv, nullptr,
                                       Diligent::RESOURCE_STATE_TRANSITION_MODE_TRANSITION);
@@ -117,9 +134,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             ++frames;
             check(std::chrono::steady_clock::now() < deadline,
                   "Native 2D editor image/outline did not settle");
-            if (!outline.ready() || (viewport.meshes() && viewport.meshes()->pending()))
+            if (!guide_ready() || (viewport.meshes() && viewport.meshes()->pending()))
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        } while (frames < 3 || !outline.ready() ||
+        } while (frames < 3 || !guide_ready() ||
                  (viewport.meshes() && viewport.meshes()->pending()));
         const auto pixels = readback(rtv);
         save(pixels, width, height,
@@ -133,12 +150,15 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 else {
                     const float center_x = origin.x + area.x * .5f + 2.2f * area.y / 12;
                     const float center_y = origin.y + area.y * .5f - 4.6f * area.y / 12;
-                    if (std::abs(float(x) - center_x) < .6f * area.y / 12 &&
-                        std::abs(float(y) - center_y) < area.y / 12)
+                    if (joint_kind >= 0 || (std::abs(float(x) - center_x) < .6f * area.y / 12 &&
+                                            std::abs(float(y) - center_y) < area.y / 12))
                         guide += p[0] < 120 && p[1] > 190 && p[2] > 145;
                 }
             }
         check(text > 100 && guide > 20, "Native 2D Inspector text/collision guide pixels missing");
+        if (joint_kind >= 0)
+            check(outline.status().starts_with("Authored 2D "),
+                  "Native joint capture did not draw the actual authored guide");
     }
     check(scene.document() == source && !engine.services().available(Capability::Physics),
           "Staged 2D editor rendering changed source or created a solver");
