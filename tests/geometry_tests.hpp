@@ -74,7 +74,7 @@ inline void test_geometry() {
             "New components/unknown data round trip");
     const auto schema = scene.schema();
     const auto& components = schema.at("components");
-    const auto has_component = [&](std::string_view id) {
+    const auto has_component = [&](const char* id) {
         return std::any_of(components.begin(), components.end(),
                            [&](const auto& component) { return component.at("id") == id; });
     };
