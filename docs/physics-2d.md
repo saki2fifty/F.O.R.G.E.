@@ -105,6 +105,27 @@ separate discontinuous placement path. Quaternion/native rotations convert
 directly from their unit bases; native approximate angle helpers do not define
 FORGE's authored transform values.
 
+## Editor collision outlines
+
+The existing Scene **Selected collision** control includes 2D boxes, circles and
+capsules. These use copied closed outline segments in the same overlay as 3D
+collision geometry. The preview reports sensor/disabled status, physical scale
+errors and bounded geometry preparation. Disabled 3D asset choices do not block
+an active 2D preview or start unused asset loading. Removing the body or clearing
+the selection clears its ready state.
+
+Runtime admission and preview share effective shape conversion and native mass
+checks. The preview uses the existing affine decomposition and a derived planar
+sign preference to preserve contours beneath reflected or zero-depth parents;
+translation and rotation are applied after physical shape scaling. Outlines show
+authored geometry; runtime admission additionally checks World binding and body
+ancestry. No simulation body, hidden entity or second spatial owner is created.
+
+Local analytic checks compare144 shape/parent combinations against full source
+affines. Actual unmodified ImGui CPU contexts exercise100/150/200% scale, async
+preparation, clipping, read-only source and correction/removal. Native-window
+rendering, pixel review and physical GPU acceptance remain separate gates.
+
 ## C++ control and observations
 
 Engine-facing typed controls, queries and copied state/events have local CPU tests, including

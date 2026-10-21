@@ -6,6 +6,9 @@
 #include <memory>
 #include <set>
 
+namespace forge {
+struct PhysicsDebugGeometry;
+}
 namespace forge::physics_detail {
 struct Body2DConfiguration {
     PhysicsBody2D body;
@@ -20,6 +23,12 @@ struct Body2DDesired {
     LocalTransform pose;
 };
 using Desired2D = std::map<std::uint64_t, Body2DDesired>;
+// Callers admit scalar storage through the existing reflection/schema owner.
+// This shared conversion owns effective XY geometry/profile and native mass checks.
+Body2DConfiguration inline_configuration_2d(PhysicsBody2D, unsigned shape,
+                                            std::array<float, 2> raw_dimensions, LocalScale);
+PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit);
+LocalTransform debug_pose_2d(const AffineTransform&);
 struct Native2DImage {
     Json metadata;
     std::string bytes;

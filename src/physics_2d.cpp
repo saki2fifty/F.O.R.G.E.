@@ -1,10 +1,12 @@
 #include "physics_2d.hpp"
 #include "builtins.hpp"
 #include "physics_2d_transform.hpp"
+#include "physics_debug.hpp"
 #include <algorithm>
 #include <box2d/box2d.h>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <stdexcept>
 #include <tuple>
 
@@ -140,6 +142,111 @@ void validate_ray_2d(Double2 origin, Double2 displacement) {
         throw std::runtime_error("2D ray displacement must be finite and nonzero");
 }
 void validate_overlap_2d(const PhysicsOverlap2D& query) { (void)overlap_proxy(query); }
+Body2DConfiguration inline_configuration_2d(PhysicsBody2D body, unsigned shape,
+                                            std::array<float, 2> raw, LocalScale scale) {
+    if (!std::isfinite(scale.x) || !std::isfinite(scale.y) || !std::isfinite(scale.z))
+        throw std::runtime_error("2D collider scale must be finite");
+    Body2DConfiguration config{body, shape};
+    const double x = std::abs(scale.x), y = std::abs(scale.y);
+    if (shape == 0)
+        config.dimensions = {dimension(raw[0] * x, .01f, 1000), dimension(raw[1] * y, .01f, 1000)};
+    else {
+        if (shape > 2)
+            throw std::runtime_error("Unknown 2D collider kind");
+        if (std::abs(x - y) > 1e-6 * std::max(x, y))
+            throw std::runtime_error("Circle/Capsule Collider 2D requires equal absolute XY scale");
+        config.dimensions[0] = dimension(raw[0] * x, .005f, 500);
+        if (shape == 2) {
+            config.dimensions[1] = dimension(raw[1] * y, .01f, 1000);
+            if (double(config.dimensions[1]) + 2 * double(config.dimensions[0]) > 1000)
+                throw std::runtime_error("2D capsule total height exceeds 1000 metres");
+        } else if (raw[1] != 0)
+            throw std::runtime_error("Circle Collider 2D has an unused height");
+    }
+    (void)geometry(config);
+    return config;
+}
+LocalTransform debug_pose_2d(const AffineTransform& world) {
+    (void)PlanarMapping(world);
+    const double x = std::hypot(world.m[0], world.m[4]);
+    const double y = std::hypot(world.m[1], world.m[5]);
+    const double z = std::hypot(world.m[2], world.m[6], world.m[10]);
+    const double orientation =
+        (world.m[0] / x) * (world.m[5] / y) - (world.m[1] / y) * (world.m[4] / x);
+    const double half = .5 * std::atan2(world.m[4], world.m[0]);
+    LocalTransform hint;
+    // Centered inline2D shapes are symmetric under X/Y reflection. This sign
+    // choice yields identical contours and pure-Z rotation even beneath flat
+    // reflected ancestors, without reconstructing another spatial hierarchy.
+    hint.scale = {float(x), float(std::copysign(y, orientation)),
+                  float(std::copysign(z, world.m[10]))};
+    hint.rotation = {0, 0, float(std::sin(half)), float(std::cos(half))};
+    const auto pose = decompose(world, &hint);
+    planar_rotation(pose.rotation);
+    return pose;
+}
+PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, std::size_t limit) {
+    if (!limit || limit > 65536)
+        throw std::runtime_error("2D preview line budget must be1..65536");
+    const auto decoded = [&]<class T>(const char* key) -> T {
+        const auto& value = components.at(key);
+        detail::validate_components(Json{{key, value}});
+        for (const auto& type : detail::builtins())
+            if (std::string_view(type.name) == key)
+                return std::get<T>(type.decode(detail::canonical_builtin_value(type, value)));
+        throw std::runtime_error("Unknown 2D preview component");
+    };
+    const auto body = decoded.template operator()<PhysicsBody2D>("forge.physics_body_2d");
+    if (body.enabled)
+        for (const char* other : {"forge.physics_body", "forge.character_controller"})
+            if (components.contains(other) && components.at(other).value("enabled", true))
+                throw std::runtime_error("2D preview cannot share enabled simulation writers");
+    unsigned count = 0;
+    for (const char* name :
+         {"forge.box_collider_2d", "forge.circle_collider_2d", "forge.capsule_collider_2d"})
+        count += components.contains(name);
+    if (count != 1)
+        throw std::runtime_error("2D body preview requires exactly one inline 2D collider");
+    unsigned kind = 0;
+    std::array<float, 2> raw{};
+    if (components.contains("forge.box_collider_2d")) {
+        const auto value = decoded.template operator()<BoxCollider2D>("forge.box_collider_2d");
+        raw = {value.x, value.y};
+    } else if (components.contains("forge.circle_collider_2d")) {
+        kind = 1;
+        raw[0] = decoded.template operator()<CircleCollider2D>("forge.circle_collider_2d").radius;
+    } else {
+        kind = 2;
+        const auto value =
+            decoded.template operator()<CapsuleCollider2D>("forge.capsule_collider_2d");
+        raw = {value.radius, value.height};
+    }
+    const auto config = inline_configuration_2d(body, kind, raw, scale);
+    const auto& d = config.dimensions;
+    using Point = std::array<float, 3>;
+    std::vector<Point> outline;
+    if (kind == 0)
+        outline = {{-.5f * d[0], -.5f * d[1], 0},
+                   {.5f * d[0], -.5f * d[1], 0},
+                   {.5f * d[0], .5f * d[1], 0},
+                   {-.5f * d[0], .5f * d[1], 0}};
+    else {
+        const unsigned arcs = kind == 1 ? 1 : 2;
+        for (unsigned arc = 0; arc < arcs; ++arc)
+            for (unsigned i = 0; i < (kind == 1 ? 64u : 33u); ++i) {
+                const double angle =
+                    kind == 1 ? 2 * std::numbers::pi * i / 64 : std::numbers::pi * (arc + i / 32.);
+                const double center = kind == 1 ? 0 : (arc == 0 ? .5 : -.5) * d[1];
+                outline.push_back(
+                    {float(d[0] * std::cos(angle)), float(center + d[0] * std::sin(angle)), 0});
+            }
+    }
+    PhysicsDebugGeometry result;
+    result.truncated = outline.size() > limit;
+    for (std::size_t i = 0; i < std::min(outline.size(), limit); ++i)
+        result.lines.push_back({outline[i], outline[(i + 1) % outline.size()]});
+    return result;
+}
 
 Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings,
                             const std::map<std::uint64_t, TransformNode>& nodes) {
@@ -192,33 +299,26 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
             1)
             throw std::runtime_error(
                 "2D body requires exactly one Box, Circle or Capsule Collider 2D");
-        Body2DConfiguration config{body};
-        const double x = std::abs(pose.scale.x), y = std::abs(pose.scale.y);
+        unsigned kind = 0;
+        std::array<float, 2> raw{};
         if (entity.has<BoxCollider2D>()) {
             const auto value = entity.get<BoxCollider2D>();
             detail::validate_reflected_value(entity, value);
-            config.dimensions = {dimension(value.x * x, .01f, 1000),
-                                 dimension(value.y * y, .01f, 1000)};
+            raw = {value.x, value.y};
         } else {
-            if (std::abs(x - y) > 1e-6 * std::max(x, y))
-                throw std::runtime_error(
-                    "Circle/Capsule Collider 2D requires equal absolute XY scale");
-            config.shape = 1;
+            kind = 1;
             if (entity.has<CircleCollider2D>()) {
                 const auto value = entity.get<CircleCollider2D>();
                 detail::validate_reflected_value(entity, value);
-                config.dimensions[0] = dimension(value.radius * x, .005f, 500);
+                raw[0] = value.radius;
             } else {
                 const auto value = entity.get<CapsuleCollider2D>();
                 detail::validate_reflected_value(entity, value);
-                config.shape = 2;
-                config.dimensions = {dimension(value.radius * x, .005f, 500),
-                                     dimension(value.height * y, .01f, 1000)};
-                if (double(config.dimensions[1]) + 2 * double(config.dimensions[0]) > 1000)
-                    throw std::runtime_error("2D capsule total height exceeds 1000 metres");
+                kind = 2;
+                raw = {value.radius, value.height};
             }
         }
-        (void)geometry(config);
+        const auto config = inline_configuration_2d(body, kind, raw, pose.scale);
         result.emplace(id, Body2DDesired{*ref, config, pose});
     }
     return result;

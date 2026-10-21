@@ -16,7 +16,11 @@ struct PhysicsDebugGeometry {
     // translation only at presentation; no live native handles leave this adapter.
     std::vector<std::array<std::array<float, 3>, 3>> triangles;
     bool truncated = false;
+    std::vector<std::array<std::array<float, 3>, 2>> lines;
 };
+bool physics_debug_uses_planar(const nlohmann::json& components);
+LocalTransform physics_debug_pose(const nlohmann::json& components, const AffineTransform&,
+                                  const LocalTransform& local_hint);
 PhysicsDebugGeometry prepare_physics_debug(const nlohmann::json& components, LocalScale,
                                            PhysicsDebugCollision collision = {},
                                            bool crouched = false,

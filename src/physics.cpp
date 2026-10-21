@@ -400,18 +400,33 @@ snapshot_physics_debug_collision(const ResourceLease<CollisionAsset>& collision)
         return {};
     return {collision.identity().asset, collision->native};
 }
+bool physics_debug_uses_planar(const Json& components) {
+    return components.contains("forge.physics_body_2d") &&
+           (components.at("forge.physics_body_2d").value("enabled", true) ||
+            (!components.contains("forge.physics_body") &&
+             !components.contains("forge.character_controller")));
+}
 bool physics_debug_uses_character(const Json& components) {
+    if (physics_debug_uses_planar(components))
+        return false;
     if (!components.contains("forge.character_controller"))
         return false;
     return components.at("forge.character_controller").value("enabled", true) ||
            !components.contains("forge.physics_body") ||
            !components.at("forge.physics_body").value("enabled", true);
 }
+LocalTransform physics_debug_pose(const Json& components, const AffineTransform& world,
+                                  const LocalTransform& hint) {
+    return physics_debug_uses_planar(components) ? physics_detail::debug_pose_2d(world)
+                                                 : decompose(world, &hint);
+}
 PhysicsDebugGeometry prepare_physics_debug(const Json& components, LocalScale scale,
                                            PhysicsDebugCollision collision, bool crouched,
                                            std::size_t limit) {
     if (!limit || limit > 65536)
         throw std::runtime_error("Physics preview triangle budget must be1..65536");
+    if (physics_debug_uses_planar(components))
+        return physics_detail::prepare_debug_2d(components, scale, limit);
     const auto registration_lease = physics_detail::registration();
     auto decoded = [&]<class T>(const char* key) -> T {
         const auto& value = components.at(key);

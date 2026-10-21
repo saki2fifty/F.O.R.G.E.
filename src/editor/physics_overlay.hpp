@@ -15,7 +15,8 @@ class PhysicsOverlay {
     bool joint_visible = true;
     const std::string& status() const { return status_; }
     bool ready() const {
-        return visible && !joint_selected_ && !geometry_.triangles.empty() && good_ == key_ &&
+        return visible && body_selected_ && !joint_selected_ &&
+               (!geometry_.triangles.empty() || !geometry_.lines.empty()) && good_ == key_ &&
                error_.empty();
     }
     ~PhysicsOverlay() {
@@ -26,6 +27,7 @@ class PhysicsOverlay {
               ImVec2 origin, ImVec2 area, const std::filesystem::path& project,
               std::shared_ptr<const AssetCatalog> catalog, const Json& runtime = {}) {
         joint_selected_ = false;
+        body_selected_ = false;
         if (selected.empty())
             return;
         const Json* row = nullptr;
@@ -74,17 +76,21 @@ class PhysicsOverlay {
         }
         Json components = Json::object();
         for (const auto& [name, value] : row->at("components").items())
-            if (name == "forge.physics_body" || name == "forge.character_controller" ||
-                name.ends_with("_collider"))
+            if (name == "forge.physics_body" || name == "forge.physics_body_2d" ||
+                name == "forge.character_controller" || name.ends_with("_collider") ||
+                name.ends_with("_collider_2d"))
                 components[name] = value;
         if (!components.contains("forge.physics_body") &&
+            !components.contains("forge.physics_body_2d") &&
             !components.contains("forge.character_controller"))
             return;
+        body_selected_ = true;
         LocalTransform pose;
         bool disabled = false, stale = false, pose_valid = false;
         std::string note;
         const Json* character = nullptr;
         const bool show_character = physics_debug_uses_character(components);
+        const bool show_planar = physics_debug_uses_planar(components);
         if (show_character && runtime.is_object() && runtime.contains("character_debug") &&
             runtime["character_debug"].value("entity", std::string{}) == selected)
             character = &runtime["character_debug"];
@@ -104,12 +110,12 @@ class PhysicsOverlay {
                 const auto& v = c["forge.local_rotation"];
                 hint.rotation = {v.at("x"), v.at("y"), v.at("z"), v.at("w")};
             }
-            pose = decompose(world, &hint);
+            pose = physics_debug_pose(components, world, hint);
             pose_valid = true;
             const bool crouched = character && character->value("crouched", false);
             ResourceLease<CollisionAsset> collision;
             std::string revision;
-            if (!show_character && components.contains("forge.asset_collider")) {
+            if (!show_character && !show_planar && components.contains("forge.asset_collider")) {
                 const auto& reference = components["forge.asset_collider"]["asset"];
                 if (reference.is_null())
                     throw std::runtime_error("Choose a Collision asset in Asset Collider to "
@@ -149,9 +155,11 @@ class PhysicsOverlay {
                                    "is not the active collider";
                         }
             }
-            disabled = show_character
-                           ? !components["forge.character_controller"].value("enabled", true)
-                           : !components["forge.physics_body"].value("enabled", true);
+            disabled =
+                show_character
+                    ? !components["forge.character_controller"].value("enabled", true)
+                    : !components[show_planar ? "forge.physics_body_2d" : "forge.physics_body"]
+                           .value("enabled", true);
             key_ = components.dump() +
                    Json::array({pose.scale.x, pose.scale.y, pose.scale.z}).dump() + revision +
                    (crouched ? "crouched" : "standing");
@@ -170,9 +178,15 @@ class PhysicsOverlay {
                 if (note.empty())
                     note = error_.empty() ? "Preparing collision preview" : error_;
             }
-            if (note.empty())
+            if (note.empty()) {
                 note = disabled ? "Collision disabled — authored shape preview"
                                 : "Collision geometry — selected object";
+                if (show_planar)
+                    note = disabled ? "2D collision disabled — authored outline"
+                                    : (components["forge.physics_body_2d"].value("sensor", false)
+                                           ? "2D sensor — authored outline"
+                                           : "2D collision — authored outline");
+            }
         } catch (const std::exception& e) {
             error_ = e.what();
             note = error_;
@@ -187,7 +201,7 @@ class PhysicsOverlay {
         // Error/stale geometry is explicitly marked; it never claims realization.
         pose.scale = {1, 1, 1};
         const auto world = affine_transform(pose);
-        if (pose_valid)
+        if (pose_valid) {
             for (const auto& triangle : geometry_.triangles)
                 for (unsigned i = 0; i < 3; ++i) {
                     const auto& a = triangle[i];
@@ -196,8 +210,14 @@ class PhysicsOverlay {
                                               world.point({a[0], a[1], a[2]}),
                                               world.point({b[0], b[1], b[2]}), color);
                 }
+            for (const auto& line : geometry_.lines)
+                SpatialHelpers::draw_line(draw, camera, origin, area,
+                                          world.point({line[0][0], line[0][1], line[0][2]}),
+                                          world.point({line[1][0], line[1][1], line[1][2]}), color);
+        }
         if (geometry_.truncated)
-            note += " | preview triangle limit reached";
+            note +=
+                show_planar ? " | preview line limit reached" : " | preview triangle limit reached";
         if (character && character->contains("ground")) {
             static constexpr const char* grounds[] = {"On ground", "Steep ground", "Unsupported",
                                                       "In air"};
@@ -238,7 +258,7 @@ class PhysicsOverlay {
     }
 
   private:
-    bool joint_selected_ = false;
+    bool joint_selected_ = false, body_selected_ = false;
     void draw_joint(const PhysicsJointGuide& guide, const EditorCamera& camera, ImVec2 origin,
                     ImVec2 area) {
         static constexpr const char* kinds[] = {"Distance", "Hinge",  "Point",
