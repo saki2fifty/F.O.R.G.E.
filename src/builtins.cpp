@@ -2408,7 +2408,7 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
 namespace {
 Json admitted_builtin_source(const Builtin& type, const Json& source) {
     auto current = source;
-    if (std::string_view(type.name) == "forge.physics_body_2d")
+    if (std::string_view(type.name) == "forge.physics_body_2d" && current.is_object())
         for (const auto& [field, value] : type.defaults.items())
             if (!current.contains(field))
                 current[field] = value;

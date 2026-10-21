@@ -4,8 +4,9 @@
 integration, not a guide to an available editor feature. Build261021-000195 targets
 the Tile Map milestone and contains no 2D physics. Local CPU tests cover authored
 reflection, scene save/reopen, initial native body simulation, domain separation,
-signed/flat parent frames and rejected partial steps. C++ controls/observations,
-copied events, recovery, matching SDK and editor/export acceptance remain incomplete.
+signed/flat parent frames, typed engine controls/copied state and rejected partial
+steps. Queries, copied events, recovery, the matching SDK bridge and editor/export
+acceptance remain incomplete.
 [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
 
@@ -96,6 +97,12 @@ FORGE's authored transform values.
 
 ## C++ control and observations
 
+Engine-facing typed controls and copied state have local CPU tests, including
+area-mass/inertia load units, point velocity, owner-thread checks, sleeping reads,
+shared command capacity and FIFO target conversion beneath flat/reflected parents.
+Matching gameplay SDK callbacks, queries and copied collision events remain in
+progress; this is not an available packaged workflow yet.
+
 Add explicitly typed 2D methods through the current service/SDK: copied body
 state, world XY velocity and angular velocity, forces/impulses with optional
 world points, torque/angular impulse, teleports, kinematic targets, closest rays
@@ -108,6 +115,8 @@ Commands share the existing 4096-entry body FIFO with explicit domain tags.
 PostPhysics commands apply at the following admitted boundary. Limits reject
 without partial SDK output. Overlap results are sorted/unique, limited to 256
 bodies and 16384 callbacks. Reads neither wake bodies nor flush queued commands.
+A teleport's clear-velocity option clears linear and angular velocity; it does
+not silently discard earlier one-step loads from the command queue.
 
 Copy solid-contact and sensor Begin/End observations before native buffers expire.
 Keep stable slots for the tick and expire them at admitted synchronization. Each

@@ -280,26 +280,38 @@ Native2D::~Native2D() = default;
 void Native2D::check() const { impl_->check(); }
 std::size_t Native2D::size() const { return impl_->bodies.size(); }
 bool Native2D::realized() const { return B2_IS_NON_NULL(impl_->world); }
-void Native2D::validate(const Desired2D& desired, float dt) const {
+void Native2D::validate(const Desired2D& desired, float dt,
+                        const std::set<std::uint64_t>& commanded,
+                        const std::map<std::uint64_t, LocalTransform>& placements) const {
     const auto& self = *impl_;
     self.check();
     for (const auto& [id, value] : desired) {
         (void)geometry(value.config);
         const auto old = self.bodies.find(id);
-        if (dt > 0 && old != self.bodies.end() && old->second.admitted.ref == value.ref &&
-            old->second.admitted.config.body.motion == 1 && value.config.body.motion == 1) {
-            const auto position = b2Body_GetPosition(old->second.id);
-            const auto rotation = b2Body_GetRotation(old->second.id);
+        const bool prior_kinematic = old != self.bodies.end() &&
+                                     old->second.admitted.ref == value.ref &&
+                                     old->second.admitted.config.body.motion == 1;
+        if (dt > 0 && value.config.body.motion == 1 &&
+            (prior_kinematic || placements.contains(id))) {
+            const auto position = placements.contains(id) ? b2Pos{placements.at(id).translation.x,
+                                                                  placements.at(id).translation.y}
+                                                          : b2Body_GetPosition(old->second.id);
+            const auto rotation = placements.contains(id)
+                                      ? native_rotation(placements.at(id).rotation)
+                                      : b2Body_GetRotation(old->second.id);
             const double vx = float(value.pose.translation.x - position.x) / dt;
             const double vy = float(value.pose.translation.y - position.y) / dt;
-            if (std::hypot(vx, vy) > b2World_GetMaxLinearSpeed(self.world) ||
+            const float maximum = realized() ? b2World_GetMaxLinearSpeed(self.world)
+                                             : b2DefaultWorldDef().maximumLinearSpeed;
+            if (std::hypot(vx, vy) > maximum ||
                 std::abs(b2RelativeAngle(rotation, native_rotation(value.pose.rotation))) >
                     B2_MAX_ROTATION)
                 throw std::runtime_error("2D Kinematic target exceeds native per-tick "
                                          "speed/rotation limits; use a smaller move or teleport");
         }
         if (old != self.bodies.end() && old->second.admitted.ref == value.ref &&
-            old->second.admitted.config.body.motion == 2 && value.config.body.motion == 2) {
+            old->second.admitted.config.body.motion == 2 && value.config.body.motion == 2 &&
+            !commanded.contains(id)) {
             const auto& previous = old->second.admitted.pose;
             if (!equivalent({value.pose.translation.x, value.pose.translation.y, 0},
                             LocalTranslation{previous.translation.x, previous.translation.y, 0}) ||
@@ -309,7 +321,9 @@ void Native2D::validate(const Desired2D& desired, float dt) const {
         }
     }
 }
-void Native2D::synchronize(const Desired2D& desired, float dt, std::vector<std::uint64_t>& snaps) {
+void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, float,
+                           const std::set<std::uint64_t>& commanded,
+                           std::vector<std::uint64_t>& snaps) {
     auto& self = *impl_;
     self.check();
     if (desired.empty() && self.bodies.empty())
@@ -330,7 +344,7 @@ void Native2D::synchronize(const Desired2D& desired, float dt, std::vector<std::
                 b2Vec2 linear{};
                 float angular = 0;
                 bool preserve = false, awake = true;
-                auto pose = value.pose;
+                auto pose = commanded.contains(id) ? initial.at(id).pose : value.pose;
                 if (old != self.bodies.end()) {
                     preserve =
                         old->second.admitted.ref == value.ref &&
@@ -359,21 +373,112 @@ void Native2D::synchronize(const Desired2D& desired, float dt, std::vector<std::
                 old = self.bodies.emplace(id, std::move(body)).first;
                 snaps.push_back(id);
             }
-            if (value.config.body.motion == 0)
-                b2Body_SetTransform(old->second.id,
-                                    {value.pose.translation.x, value.pose.translation.y},
-                                    native_rotation(value.pose.rotation));
-            else if (value.config.body.motion == 1 && dt > 0)
-                b2Body_SetTargetTransform(old->second.id,
-                                          {{value.pose.translation.x, value.pose.translation.y},
-                                           native_rotation(value.pose.rotation)},
-                                          dt, true);
             old->second.admitted = value;
         }
     } catch (...) {
         self.fault = true;
         throw;
     }
+}
+void Native2D::apply(std::uint64_t entity, const BodyCommand& command,
+                     std::vector<std::uint64_t>& snaps) {
+    auto& self = *impl_;
+    self.check();
+    const auto& body = self.bodies.at(entity);
+    if (body.admitted.ref != command.ref || !command.planar)
+        throw std::runtime_error("Admitted 2D command generation/domain mismatch");
+    if (command.kind >= BodyCommandKind::Force && command.value == Double3{} &&
+        command.kind != BodyCommandKind::LinearVelocity &&
+        command.kind != BodyCommandKind::AngularVelocity)
+        return;
+    const b2Vec2 value{float(command.value[0]), float(command.value[1])};
+    const b2Pos point{command.p.x, command.p.y};
+    switch (command.kind) {
+    case BodyCommandKind::Teleport:
+        b2Body_SetTransform(body.id, point, native_rotation(command.q));
+        if (command.clear && body.admitted.config.body.motion != 0) {
+            b2Body_SetLinearVelocity(body.id, {0, 0});
+            b2Body_SetAngularVelocity(body.id, 0);
+        }
+        snaps.push_back(entity);
+        break;
+    case BodyCommandKind::Kinematic:
+        break; // Final admitted target is applied after FIFO placements/loads.
+    case BodyCommandKind::Force:
+        if (command.at_point)
+            b2Body_ApplyForce(body.id, value, point, true);
+        else
+            b2Body_ApplyForceToCenter(body.id, value, true);
+        break;
+    case BodyCommandKind::Impulse:
+        if (command.at_point)
+            b2Body_ApplyLinearImpulse(body.id, value, point, true);
+        else
+            b2Body_ApplyLinearImpulseToCenter(body.id, value, true);
+        break;
+    case BodyCommandKind::Torque:
+        b2Body_ApplyTorque(body.id, float(command.value[2]), true);
+        break;
+    case BodyCommandKind::AngularImpulse:
+        b2Body_ApplyAngularImpulse(body.id, float(command.value[2]), true);
+        break;
+    case BodyCommandKind::LinearVelocity:
+        b2Body_SetLinearVelocity(body.id, value);
+        break;
+    case BodyCommandKind::AngularVelocity:
+        b2Body_SetAngularVelocity(body.id, float(command.value[2]));
+        break;
+    }
+}
+void Native2D::finish_targets(float dt) {
+    auto& self = *impl_;
+    self.check();
+    for (const auto& [id, body] : self.bodies) {
+        const auto& pose = body.admitted.pose;
+        if (body.admitted.config.body.motion == 0) {
+            const auto position = b2Body_GetPosition(body.id);
+            const auto rotation = b2Body_GetRotation(body.id);
+            const auto target = native_rotation(pose.rotation);
+            if (position.x != pose.translation.x || position.y != pose.translation.y ||
+                rotation.c != target.c || rotation.s != target.s)
+                b2Body_SetTransform(body.id, {pose.translation.x, pose.translation.y}, target);
+        } else if (body.admitted.config.body.motion == 1 && dt > 0)
+            b2Body_SetTargetTransform(
+                body.id, {{pose.translation.x, pose.translation.y}, native_rotation(pose.rotation)},
+                dt, true);
+    }
+}
+std::optional<PhysicsBodyState2D> Native2D::state(std::uint64_t entity, EntityRef ref) const {
+    const auto& self = *impl_;
+    self.check();
+    const auto found = self.bodies.find(entity);
+    if (found == self.bodies.end() || found->second.admitted.ref != ref)
+        return {};
+    const auto& body = found->second;
+    const auto position = b2Body_GetPosition(body.id);
+    const auto centre = b2Body_GetWorldCenter(body.id);
+    const auto velocity = b2Body_GetLinearVelocity(body.id);
+    const auto rotation = b2Body_GetRotation(body.id);
+    return PhysicsBodyState2D{body.admitted.config.body.motion,
+                              b2Body_IsAwake(body.id),
+                              body.epoch,
+                              {position.x, position.y},
+                              {centre.x, centre.y},
+                              {velocity.x, velocity.y},
+                              std::atan2(double(rotation.s), double(rotation.c)),
+                              b2Body_GetAngularVelocity(body.id),
+                              b2Body_GetMass(body.id),
+                              b2Body_GetRotationalInertia(body.id)};
+}
+std::optional<Double2> Native2D::point_velocity(std::uint64_t entity, EntityRef ref,
+                                                Double2 point) const {
+    const auto& self = *impl_;
+    self.check();
+    const auto found = self.bodies.find(entity);
+    if (found == self.bodies.end() || found->second.admitted.ref != ref)
+        return {};
+    const auto value = b2Body_GetWorldPointVelocity(found->second.id, {point[0], point[1]});
+    return Double2{value.x, value.y};
 }
 void Native2D::step(float dt) {
     auto& self = *impl_;

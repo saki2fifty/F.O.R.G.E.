@@ -48,6 +48,17 @@ struct PhysicsBodyState {
     Double3 centre_of_mass{}, linear_velocity{}, angular_velocity{};
     bool operator==(const PhysicsBodyState&) const = default;
 };
+using Double2 = std::array<double, 2>;
+// Copied XY-domain state. Positions are world metres; angular values use radians.
+// Epoch identifies this simulation realization, not a durable source identity.
+struct PhysicsBodyState2D {
+    std::uint32_t motion{};
+    bool active{};
+    std::uint64_t epoch{};
+    Double2 position{}, centre_of_mass{}, linear_velocity{};
+    double angle{}, angular_velocity{}, mass{}, rotational_inertia{};
+    bool operator==(const PhysicsBodyState2D&) const = default;
+};
 // Owner-thread only; valid while this Runtime world's physics module is alive.
 class PhysicsService : public CharacterService {
   public:
@@ -88,5 +99,17 @@ class PhysicsService : public CharacterService {
     // Overflow rejects, never truncates. Surface meshes retain native semantics.
     virtual std::vector<EntityRef> overlap_shape(const PhysicsOverlap&,
                                                  PhysicsQueryFilter) const = 0;
+    // Distinct XY-domain controls, sharing the existing body-command FIFO.
+    // Target positions preserve authored Z/scale; angles are radians about +Z.
+    virtual void teleport_2d(EntityRef, Double2, double angle, bool clear_velocity) = 0;
+    virtual void move_kinematic_2d(EntityRef, Double2, double angle) = 0;
+    virtual void add_force_2d(EntityRef, Double2, std::optional<Double2> world_point = {}) = 0;
+    virtual void add_impulse_2d(EntityRef, Double2, std::optional<Double2> world_point = {}) = 0;
+    virtual void add_torque_2d(EntityRef, double) = 0;
+    virtual void add_angular_impulse_2d(EntityRef, double) = 0;
+    virtual void set_linear_velocity_2d(EntityRef, Double2) = 0;
+    virtual void set_angular_velocity_2d(EntityRef, double) = 0;
+    virtual std::optional<PhysicsBodyState2D> body_state_2d(EntityRef) const = 0;
+    virtual std::optional<Double2> point_velocity_2d(EntityRef, Double2 world_point) const = 0;
 };
 } // namespace forge

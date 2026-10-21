@@ -66,6 +66,8 @@ void scalar_admission(EngineContext& engine) {
             "Missing body fields did not backfill current defaults");
     detail::validate_components({{body.name, Json::object()}});
     detail::validate_components({{body.name, {{"density", .001}}}});
+    for (const Json& source : {Json(nullptr), Json::array(), Json("invalid")})
+        rejects([&] { detail::validate_components({{body.name, source}}); });
     for (const char* name : {"forge.physics_body_2d", "forge.box_collider_2d",
                              "forge.circle_collider_2d", "forge.capsule_collider_2d"}) {
         const auto& type = spec(name);

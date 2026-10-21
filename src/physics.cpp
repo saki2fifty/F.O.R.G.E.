@@ -6,6 +6,7 @@
 #include "collision_selection.hpp"
 #include "collision_shape.hpp"
 #include "physics_2d.hpp"
+#include "physics_2d_transform.hpp"
 #include "physics_character.hpp"
 #include "physics_debug.hpp"
 #include "physics_joint_value.hpp"
@@ -118,6 +119,17 @@ void valid_position(LocalTranslation p) {
     for (double v : {p.x, p.y, p.z})
         if (!std::isfinite(v) || std::abs(v) > 1e9)
             throw std::runtime_error("Physics position exceeds supported +/-1 billion meters");
+}
+void valid_position_2d(Double2 value) {
+    for (double coordinate : value)
+        if (!std::isfinite(coordinate) || std::abs(coordinate) > 1000000)
+            throw std::runtime_error(
+                "2D physics position must be finite and within +/-1000000 metres");
+}
+LocalRotation rotation_2d(double radians) {
+    if (!std::isfinite(radians) || std::abs(radians) > 1000000)
+        throw std::runtime_error("2D physics angle must be finite and within +/-1000000 radians");
+    return {0, 0, float(std::sin(.5 * radians)), float(std::cos(.5 * radians))};
 }
 struct Configuration {
     PhysicsBody body;
@@ -761,45 +773,52 @@ struct PhysicsRuntime::Impl {
         character_commands.push_back(std::move(command));
     }
 
-    enum class CommandKind : std::uint32_t {
-        Teleport,
-        Kinematic,
-        Force,
-        Impulse,
-        Torque,
-        AngularImpulse,
-        LinearVelocity,
-        AngularVelocity
-    };
-    struct Command {
-        EntityRef ref;
-        LocalTranslation p;
-        LocalRotation q;
-        CommandKind kind;
-        bool clear = false, at_point = false;
-        Double3 value{};
-    };
+    using CommandKind = physics_detail::BodyCommandKind;
+    using Command = physics_detail::BodyCommand;
     std::vector<Command> commands;
+    void queue_pose_2d(EntityRef ref, Double2 point, double angle, CommandKind kind,
+                       bool clear = false) {
+        check();
+        valid_position_2d(point);
+        const auto q = rotation_2d(angle);
+        if (commands.size() >= 4096)
+            throw std::runtime_error("Physics command queue full");
+        commands.push_back({ref, {point[0], point[1], 0}, q, kind, clear, false, {}, true});
+    }
     void queue_effect(EntityRef ref, Double3 value, CommandKind kind,
-                      std::optional<LocalTranslation> point = {}) {
+                      std::optional<LocalTranslation> point = {}, bool planar = false) {
         check();
         for (auto v : value)
             if (!std::isfinite(v) || std::abs(v) > 1000000)
                 throw std::runtime_error(
                     "Physics command vector must be finite and within +/-1000000");
-        if (point)
+        if (point) {
             valid_position(*point);
+            if (planar && (std::abs(point->x) > 1000000 || std::abs(point->y) > 1000000))
+                throw std::runtime_error("2D command point exceeds supported coordinate profile");
+        }
         const auto resolved = context.resolve(ref);
         if (resolved.state != WorldContext::ResolveState::Available)
             throw std::runtime_error("Physics command target is unavailable or ambiguous");
         const auto entity = context.world().entity(resolved.entity);
-        if (!entity.has<PhysicsBody>() || !entity.get<PhysicsBody>().enabled ||
-            entity.get<PhysicsBody>().motion != 2)
-            throw std::runtime_error("Physics vector command requires an enabled Dynamic Body");
+        const bool enabled_dynamic =
+            planar ? entity.has<PhysicsBody2D>() && entity.get<PhysicsBody2D>().enabled &&
+                         entity.get<PhysicsBody2D>().motion == 2
+                   : entity.has<PhysicsBody>() && entity.get<PhysicsBody>().enabled &&
+                         entity.get<PhysicsBody>().motion == 2;
+        if (!enabled_dynamic)
+            throw std::runtime_error(
+                "Physics vector command requires an enabled Dynamic body in its requested domain");
         if (commands.size() >= 4096)
             throw std::runtime_error("Physics command queue full");
-        commands.push_back(
-            {ref, point.value_or(LocalTranslation{}), {}, kind, false, point.has_value(), value});
+        commands.push_back({ref,
+                            point.value_or(LocalTranslation{}),
+                            {},
+                            kind,
+                            false,
+                            point.has_value(),
+                            value,
+                            planar});
     }
     std::vector<std::uint64_t> snaps;
     std::vector<PhysicsContact> events;
@@ -1392,6 +1411,7 @@ void PhysicsRuntime::configure(PhysicsConfig config) {
         s.tick)
         throw std::runtime_error("Configure physics before content realization");
     s.config = config;
+    s.native_2d.reset();
     s.system.SetGravity(
         JPH::Vec3(float(config.gravity[0]), float(config.gravity[1]), float(config.gravity[2])));
 }
@@ -1451,29 +1471,68 @@ void PhysicsRuntime::synchronize(float dt) {
         throw std::runtime_error("Combined rigid/character body capacity exceeded");
     auto nodes = s.context.transform_nodes();
     std::set<std::uint64_t> commanded;
+    std::map<std::uint64_t, LocalTransform> placements_2d;
+    for (const auto& [id, value] : initial_2d)
+        if (value.config.body.motion == 1) {
+            const auto old = s.native_2d ? s.native_2d->state(id, value.ref) : std::nullopt;
+            if (!old || old->motion != 1)
+                placements_2d.emplace(id, value.pose);
+        }
     for (const auto& cmd : s.commands) {
         const auto resolved = s.context.resolve(cmd.ref);
         if (resolved.state != WorldContext::ResolveState::Available ||
-            !initial.contains(resolved.entity))
-            throw std::runtime_error("Physics command target was removed or is unresolved");
+            (cmd.planar ? !initial_2d.contains(resolved.entity)
+                        : !initial.contains(resolved.entity)))
+            throw std::runtime_error(
+                "Physics command target was removed, unresolved or outside its domain");
         const auto id = resolved.entity;
+        const auto motion =
+            cmd.planar ? initial_2d.at(id).config.body.motion : initial.at(id).first.body.motion;
         if (cmd.kind >= Impl::CommandKind::Force) {
-            if (initial.at(id).first.body.motion != 2 || dt <= 0)
+            if (motion != 2 || dt <= 0)
                 throw std::runtime_error(
-                    "Physics vector command requires a Dynamic Body and fixed tick");
+                    "Physics vector command requires a Dynamic body and fixed tick");
             continue;
         }
-        if (cmd.kind == Impl::CommandKind::Kinematic &&
-            (initial.at(id).first.body.motion != 1 || dt <= 0))
-            throw std::runtime_error("Kinematic target requires a Kinematic Body and fixed tick");
+        if (cmd.kind == Impl::CommandKind::Kinematic && (motion != 1 || dt <= 0))
+            throw std::runtime_error("Kinematic target requires a Kinematic body and fixed tick");
         const auto evaluated = evaluate_transforms(nodes);
-        auto target = decompose(evaluated.at(id).affine, &nodes.at(id).local);
-        target.translation = cmd.p;
-        target.rotation = cmd.q;
-        auto affine = affine_transform(target);
-        if (nodes.at(id).parent)
-            affine = inverse(evaluated.at(nodes.at(id).parent).affine) * affine;
-        const auto local = decompose(affine, &nodes.at(id).local);
+        LocalTransform local;
+        if (cmd.planar) {
+            auto target = s.desired_2d(&nodes).at(id).pose;
+            target.translation.x = cmd.p.x;
+            target.translation.y = cmd.p.y;
+            target.rotation = cmd.q;
+            if (cmd.kind == Impl::CommandKind::Teleport)
+                placements_2d.insert_or_assign(id, target);
+            const auto world = affine_transform(target);
+            auto converted = affine_transform(nodes.at(id).local);
+            if (nodes.at(id).parent) {
+                const physics_detail::PlanarMapping parent(
+                    evaluated.at(nodes.at(id).parent).affine);
+                const auto point = parent.local_point({target.translation.x, target.translation.y});
+                converted.m[3] = point[0];
+                converted.m[7] = point[1];
+                for (unsigned column : {0u, 1u}) {
+                    const auto axis = parent.local_vector({world.m[column], world.m[4 + column]});
+                    converted.m[column] = axis[0];
+                    converted.m[4 + column] = axis[1];
+                }
+            } else {
+                for (unsigned index : {0u, 1u, 3u, 4u, 5u, 7u})
+                    converted.m[index] = world.m[index];
+            }
+            // Local depth and signed scale stay authored, including zero-depth parents.
+            local = decompose(converted, &nodes.at(id).local);
+        } else {
+            auto target = decompose(evaluated.at(id).affine, &nodes.at(id).local);
+            target.translation = cmd.p;
+            target.rotation = cmd.q;
+            auto affine = affine_transform(target);
+            if (nodes.at(id).parent)
+                affine = inverse(evaluated.at(nodes.at(id).parent).affine) * affine;
+            local = decompose(affine, &nodes.at(id).local);
+        }
         if (!equivalent(local.scale, nodes.at(id).local.scale))
             throw std::runtime_error("Physics target would change LocalScale under its spatial "
                                      "parent; choose a representable target or World binding");
@@ -1483,8 +1542,10 @@ void PhysicsRuntime::synchronize(float dt) {
     }
     const auto desired = s.desired(&nodes);
     const auto desired_2d = s.desired_2d(&nodes);
+    if (!s.native_2d && !desired_2d.empty())
+        s.native_2d = std::make_unique<physics_detail::Native2D>(s.config);
     if (s.native_2d)
-        s.native_2d->validate(desired_2d, dt);
+        s.native_2d->validate(desired_2d, dt, commanded, placements_2d);
     const auto desired_joints = s.desired_joints(desired);
     auto excluded_pairs = Impl::joint_collision_pairs(desired_joints);
     // Same solver ownership check used by reject-before-write animation admission.
@@ -1505,8 +1566,6 @@ void PhysicsRuntime::synchronize(float dt) {
     // admitted boundary can retire/recreate the same UUID, so expire that list
     // before any writes; retain it if complete preflight rejected the boundary.
     s.events.clear();
-    if (!s.native_2d && !desired_2d.empty())
-        s.native_2d = std::make_unique<physics_detail::Native2D>(s.config);
     for (auto id : commanded) {
         auto e = s.context.world().entity(id);
         const auto before = s.context.get_local_transform(e);
@@ -1560,8 +1619,14 @@ void PhysicsRuntime::synchronize(float dt) {
         }
         it->second.last = pose;
     }
+    if (s.native_2d)
+        s.native_2d->synchronize(desired_2d, initial_2d, dt, commanded, s.snaps);
     for (const auto& cmd : s.commands) {
         auto found = s.context.resolve(cmd.ref);
+        if (cmd.planar) {
+            s.native_2d->apply(found.entity, cmd, s.snaps);
+            continue;
+        }
         auto it = s.bodies.find(found.entity);
         if (found.state != WorldContext::ResolveState::Available || it == s.bodies.end() ||
             it->second.ref != cmd.ref)
@@ -1622,11 +1687,11 @@ void PhysicsRuntime::synchronize(float dt) {
         else if (body.config.body.motion == 1 && dt > 0)
             api.MoveKinematic(body.id, position(pose.translation), rotation(pose.rotation), dt);
     }
+    if (s.native_2d)
+        s.native_2d->finish_targets(dt);
     s.commands.clear();
     s.realize_joints(desired_joints);
     s.adopt_joint_collision_pairs(std::move(excluded_pairs));
-    if (s.native_2d)
-        s.native_2d->synchronize(desired_2d, dt, s.snaps);
     s.synchronize_characters();
 }
 void PhysicsRuntime::step(float dt) {
@@ -1947,6 +2012,53 @@ void PhysicsRuntime::set_linear_velocity(EntityRef ref, Double3 value) {
 void PhysicsRuntime::set_angular_velocity(EntityRef ref, Double3 value) {
     impl_->queue_effect(ref, value, Impl::CommandKind::AngularVelocity);
 }
+void PhysicsRuntime::teleport_2d(EntityRef ref, Double2 position, double angle, bool clear) {
+    impl_->queue_pose_2d(ref, position, angle, Impl::CommandKind::Teleport, clear);
+}
+void PhysicsRuntime::move_kinematic_2d(EntityRef ref, Double2 position, double angle) {
+    impl_->queue_pose_2d(ref, position, angle, Impl::CommandKind::Kinematic);
+}
+void PhysicsRuntime::add_force_2d(EntityRef ref, Double2 value, std::optional<Double2> point) {
+    impl_->queue_effect(ref, {value[0], value[1], 0}, Impl::CommandKind::Force,
+                        point ? std::optional<LocalTranslation>{{(*point)[0], (*point)[1], 0}}
+                              : std::nullopt,
+                        true);
+}
+void PhysicsRuntime::add_impulse_2d(EntityRef ref, Double2 value, std::optional<Double2> point) {
+    impl_->queue_effect(ref, {value[0], value[1], 0}, Impl::CommandKind::Impulse,
+                        point ? std::optional<LocalTranslation>{{(*point)[0], (*point)[1], 0}}
+                              : std::nullopt,
+                        true);
+}
+void PhysicsRuntime::add_torque_2d(EntityRef ref, double value) {
+    impl_->queue_effect(ref, {0, 0, value}, Impl::CommandKind::Torque, {}, true);
+}
+void PhysicsRuntime::add_angular_impulse_2d(EntityRef ref, double value) {
+    impl_->queue_effect(ref, {0, 0, value}, Impl::CommandKind::AngularImpulse, {}, true);
+}
+void PhysicsRuntime::set_linear_velocity_2d(EntityRef ref, Double2 value) {
+    impl_->queue_effect(ref, {value[0], value[1], 0}, Impl::CommandKind::LinearVelocity, {}, true);
+}
+void PhysicsRuntime::set_angular_velocity_2d(EntityRef ref, double value) {
+    impl_->queue_effect(ref, {0, 0, value}, Impl::CommandKind::AngularVelocity, {}, true);
+}
+std::optional<PhysicsBodyState2D> PhysicsRuntime::body_state_2d(EntityRef ref) const {
+    const auto& self = *impl_;
+    self.check();
+    const auto found = self.context.resolve(ref);
+    if (!self.native_2d || found.state != WorldContext::ResolveState::Available)
+        return {};
+    return self.native_2d->state(found.entity, ref);
+}
+std::optional<Double2> PhysicsRuntime::point_velocity_2d(EntityRef ref, Double2 point) const {
+    const auto& self = *impl_;
+    self.check();
+    valid_position_2d(point);
+    const auto found = self.context.resolve(ref);
+    if (!self.native_2d || found.state != WorldContext::ResolveState::Available)
+        return {};
+    return self.native_2d->point_velocity(found.entity, ref, point);
+}
 const std::vector<PhysicsContact>& PhysicsRuntime::contacts() const {
     impl_->check();
     return impl_->events;
@@ -2077,7 +2189,9 @@ Json PhysicsRuntime::checkpoint() const {
     auto& s = *impl_;
     s.check();
     // Explicit until the exact-build candidate format integrates both domains.
-    if ((s.native_2d && s.native_2d->realized()) || !s.desired_2d().empty())
+    if ((s.native_2d && s.native_2d->realized()) || !s.desired_2d().empty() ||
+        std::any_of(s.commands.begin(), s.commands.end(),
+                    [](const auto& command) { return command.planar; }))
         throw std::runtime_error(
             "2D physics checkpoint integration is not available in this development branch");
     const auto desired = s.desired();
@@ -2178,6 +2292,9 @@ Json PhysicsRuntime::checkpoint() const {
 void PhysicsRuntime::restore(const Json& payload) {
     auto& s = *impl_;
     s.check();
+    if (s.native_2d || !s.desired_2d().empty())
+        throw std::runtime_error(
+            "2D physics recovery integration is not available in this development branch");
     if (!s.bodies.empty() || !s.joints.empty() || !s.characters.empty() || s.tick ||
         !s.commands.empty() || !s.character_commands.empty())
         throw std::runtime_error("Physics restoration requires a fresh unpublished world");
