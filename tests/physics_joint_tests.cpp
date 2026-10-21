@@ -308,7 +308,7 @@ void lifecycle_and_recovery() {
     f.tick();
     auto snapshot = f.scene.snapshot();
     auto checkpoint = f.physics->checkpoint();
-    require(checkpoint.at("version") == 4, "Joint recovery envelope version");
+    require(checkpoint.at("version") == 5, "Joint recovery envelope version");
     require(checkpoint.at("joints").at(0).at("entity") == Json(f.ref("j3")),
             "Native swapped index order was lost");
     Fixture restored;

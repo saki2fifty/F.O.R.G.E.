@@ -77,8 +77,12 @@ void shapes_and_domains() {
         require(std::abs(position.y - resting) < .04, "2D collider fell through the solid floor");
         require(position.z == 7 && test.entity().get<LocalScale>() == LocalScale{-1, 1, 0},
                 "2D adoption changed authored depth or signed scale");
-        // Recovery is deliberately rejected until both domains join its format.
-        rejects([&] { (void)test.physics->checkpoint(); });
+        Fixture recovered;
+        recovered.scene.restore_snapshot(test.scene.snapshot());
+        recovered.physics->restore(test.physics->checkpoint());
+        require(recovered.physics->body_state_2d(recovered.scene.reference(test.actor))->active ==
+                    test.physics->body_state_2d(test.scene.reference(test.actor))->active,
+                "2D recovery changed the resting body's sleep state");
     }
     Fixture mixed;
     auto input = mixed.source();

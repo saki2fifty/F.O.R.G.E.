@@ -414,6 +414,259 @@ struct Native2D::Impl {
 };
 Native2D::Native2D(const PhysicsConfig& config) : impl_(std::make_unique<Impl>(config)) {}
 Native2D::~Native2D() = default;
+Json Body2DConfiguration::json() const {
+    return {
+        {"body", detail::encode_builtin_value(body)}, {"shape", shape}, {"dimensions", dimensions}};
+}
+namespace {
+Json recovery_pose(const LocalTransform& pose) {
+    return {{"position", {pose.translation.x, pose.translation.y, pose.translation.z}},
+            {"rotation", {pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w}},
+            {"scale", {pose.scale.x, pose.scale.y, pose.scale.z}}};
+}
+bool recovery_pose_matches(const Json& input, const LocalTransform& pose) {
+    for (const auto& [field, count] :
+         {std::pair{"position", 3u}, std::pair{"rotation", 4u}, std::pair{"scale", 3u}})
+        if (!input.at(field).is_array() || input.at(field).size() != count)
+            return false;
+    const auto p = input.at("position").get<std::array<double, 3>>();
+    const auto q = input.at("rotation").get<std::array<float, 4>>();
+    const auto s = input.at("scale").get<std::array<float, 3>>();
+    return equivalent(LocalTranslation{p[0], p[1], p[2]}, pose.translation) &&
+           equivalent(LocalRotation{q[0], q[1], q[2], q[3]}, pose.rotation) &&
+           equivalent(LocalScale{s[0], s[1], s[2]}, pose.scale);
+}
+bool same_vector(b2Vec2 a, b2Vec2 b) { return a.x == b.x && a.y == b.y; }
+// Validate supported public native properties, never native layouts or ID fields.
+Json recovery_native_state(b2BodyId id, b2ShapeId shape, const Body2DConfiguration& config) {
+    const auto& body = config.body;
+    const auto locks = b2Body_GetMotionLocks(id);
+    const auto filter = b2Shape_GetFilter(shape);
+    const auto defaults = b2DefaultBodyDef();
+    if (b2Body_GetType(id) != static_cast<b2BodyType>(body.motion) || !b2Body_IsEnabled(id) ||
+        b2Body_GetShapeCount(id) != 1 || b2Body_GetLinearDamping(id) != body.linear_damping ||
+        b2Body_GetAngularDamping(id) != body.angular_damping ||
+        b2Body_GetGravityScale(id) != body.gravity_factor ||
+        b2Body_IsSleepingEnabled(id) != body.allow_sleeping ||
+        locks.linearX != (body.motion == 2 && body.lock_x) ||
+        locks.linearY != (body.motion == 2 && body.lock_y) ||
+        locks.angularZ != (body.motion == 2 && body.lock_rotation) ||
+        b2Body_IsBullet(id) != (body.motion == 2 && !body.sensor && body.bullet) ||
+        b2Body_GetSleepThreshold(id) != defaults.sleepThreshold ||
+        b2Body_GetSafetyFactor(id) != defaults.safetyFactor ||
+        !b2Body_IsContactRecyclingEnabled(id) || b2Shape_IsSensor(shape) != body.sensor ||
+        b2Shape_GetDensity(shape) != body.density || b2Shape_GetFriction(shape) != body.friction ||
+        b2Shape_GetRestitution(shape) != body.restitution ||
+        filter.categoryBits != (std::uint64_t{1} << body.layer) ||
+        filter.maskBits != (std::uint64_t(body.mask) | query_category) || filter.groupIndex != 0 ||
+        !b2Shape_AreSensorEventsEnabled(shape) || !b2Shape_AreContactEventsEnabled(shape) ||
+        b2Shape_ArePreSolveEventsEnabled(shape) || b2Shape_AreHitEventsEnabled(shape))
+        throw std::runtime_error("2D recovery native body configuration mismatch");
+    const auto expected = geometry(config);
+    bool matches = false;
+    if (config.shape == 0 && b2Shape_GetType(shape) == b2_polygonShape) {
+        const auto actual = b2Shape_GetPolygon(shape);
+        matches = actual.count == expected.box.count && actual.radius == expected.box.radius &&
+                  same_vector(actual.centroid, expected.box.centroid);
+        for (int i = 0; matches && i < actual.count; ++i)
+            matches = same_vector(actual.vertices[i], expected.box.vertices[i]) &&
+                      same_vector(actual.normals[i], expected.box.normals[i]);
+    } else if (config.shape == 1 && b2Shape_GetType(shape) == b2_circleShape) {
+        const auto actual = b2Shape_GetCircle(shape);
+        matches = same_vector(actual.center, expected.circle.center) &&
+                  actual.radius == expected.circle.radius;
+    } else if (config.shape == 2 && b2Shape_GetType(shape) == b2_capsuleShape) {
+        const auto actual = b2Shape_GetCapsule(shape);
+        matches = same_vector(actual.center1, expected.capsule.center1) &&
+                  same_vector(actual.center2, expected.capsule.center2) &&
+                  actual.radius == expected.capsule.radius;
+    }
+    const auto mass = b2Body_GetMassData(id);
+    const auto near = [](float a, float b) {
+        return std::isfinite(a) && std::abs(double(a) - b) <= 1e-5 * std::max(1e-20, double(b));
+    };
+    if (!matches || !same_vector(mass.center, {0, 0}) ||
+        !near(mass.mass, body.motion == 2 ? expected.mass.mass : 0) ||
+        !near(mass.rotationalInertia,
+              body.motion == 2 && !body.lock_rotation ? expected.mass.rotationalInertia : 0))
+        throw std::runtime_error("2D recovery native geometry/mass mismatch");
+    const auto position = b2Body_GetPosition(id);
+    const auto rotation = b2Body_GetRotation(id);
+    const auto velocity = b2Body_GetLinearVelocity(id);
+    const auto angular = b2Body_GetAngularVelocity(id);
+    valid_xy({position.x, position.y, 0});
+    if (!b2IsValidRot(rotation) || !std::isfinite(velocity.x) || !std::isfinite(velocity.y) ||
+        !std::isfinite(angular))
+        throw std::runtime_error("2D recovery contains invalid native motion");
+    return {{"position", {position.x, position.y}},
+            {"rotation", {rotation.c, rotation.s}},
+            {"velocity", {velocity.x, velocity.y}},
+            {"angular", angular},
+            {"awake", b2Body_IsAwake(id)}};
+}
+struct RecoveryShapes {
+    std::array<b2ShapeId, body_limit> shapes{};
+    std::size_t count = 0;
+    bool overflow = false;
+    static bool append(b2ShapeId id, void* pointer) noexcept {
+        auto& self = *static_cast<RecoveryShapes*>(pointer);
+        if (self.count == self.shapes.size()) {
+            self.overflow = true;
+            return false;
+        }
+        self.shapes[self.count++] = id;
+        return true;
+    }
+};
+std::uint64_t recovery_epoch(const char* name) {
+    static constexpr std::string_view alphabet =
+        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
+    std::uint64_t result = 0;
+    if (!name)
+        throw std::runtime_error("Missing 2D recovery binding tag");
+    for (unsigned i = 0; i < 10; ++i) {
+        const auto index = alphabet.find(name[i]);
+        if (index == std::string_view::npos)
+            throw std::runtime_error("Invalid 2D recovery binding tag");
+        result = (result << 6) | index;
+    }
+    if (!result)
+        throw std::runtime_error("Zero 2D recovery binding epoch");
+    return result;
+}
+} // namespace
+Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaining) const {
+    const auto& self = *impl_;
+    self.check();
+    validate_step();
+    if (!self.retired.empty() || self.pending_end_bound || desired.size() != self.bodies.size())
+        throw std::runtime_error("2D checkpoint requires adopted synchronized bodies");
+    Native2DImage image;
+    if (!realized()) {
+        if (!desired.empty())
+            throw std::runtime_error("2D checkpoint has unrealized bodies");
+        return image;
+    }
+    Json mapping = Json::array();
+    for (const auto& [id, body] : self.bodies) {
+        const auto found = desired.find(id);
+        if (found == desired.end() || found->second.ref != body.admitted.ref ||
+            found->second.config != body.admitted.config ||
+            !recovery_pose_matches(recovery_pose(body.admitted.pose), found->second.pose))
+            throw std::runtime_error("2D checkpoint configuration/pose changed after adoption");
+        mapping.push_back(
+            {{"entity", body.admitted.ref},
+             {"epoch", body.epoch},
+             {"configuration", body.admitted.config.json()},
+             {"target", recovery_pose(body.admitted.pose)},
+             {"native", recovery_native_state(body.id, body.shape, body.admitted.config)}});
+    }
+    const int required = b2World_GetSnapshot(self.world, nullptr, 0);
+    if (required <= 0 || std::size_t(required) > remaining)
+        throw std::runtime_error("Combined 2D/3D checkpoint exceeds solver byte budget");
+    image.bytes.resize(std::size_t(required));
+    if (b2World_GetSnapshot(self.world, reinterpret_cast<std::uint8_t*>(image.bytes.data()),
+                            required) != required)
+        throw std::runtime_error("Native 2D checkpoint capture failed");
+    image.metadata = {{"pin", "178495ba35695aefe9c321e569d2277f06db3b90-double"},
+                      {"next_epoch", self.next_epoch},
+                      {"mapping", std::move(mapping)}};
+    return image;
+}
+void Native2D::restore(const Json& metadata, const std::string& bytes, const Desired2D& desired,
+                       std::uint64_t tick) {
+    auto& self = *impl_;
+    self.check();
+    if (realized() || !self.bodies.empty())
+        throw std::runtime_error("2D restoration requires a fresh unpublished owner");
+    if (metadata.is_null()) {
+        if (!bytes.empty() || !desired.empty())
+            throw std::runtime_error("Missing 2D recovery image");
+        return;
+    }
+    if (metadata.at("pin") != "178495ba35695aefe9c321e569d2277f06db3b90-double" ||
+        !metadata.at("next_epoch").is_number_unsigned() || bytes.empty() ||
+        bytes.size() > 2 * 1024 * 1024 || !b2IsDoublePrecision())
+        throw std::runtime_error("2D recovery pin/size mismatch");
+    auto candidate = std::make_unique<Impl>(self.config);
+    candidate->next_epoch = metadata.at("next_epoch").get<std::uint64_t>();
+    const auto& mapping = metadata.at("mapping");
+    if (!candidate->next_epoch || candidate->next_epoch > (std::uint64_t{1} << 60) ||
+        !mapping.is_array() || mapping.size() != desired.size() || desired.size() > body_limit)
+        throw std::runtime_error("2D recovery mapping capacity mismatch");
+    std::map<EntityRef, std::uint64_t> entities;
+    for (const auto& [id, body] : desired)
+        if (!entities.emplace(body.ref, id).second)
+            throw std::runtime_error("Duplicate canonical 2D identity");
+    std::map<std::uint64_t, std::pair<std::uint64_t, const Json*>> epochs;
+    std::set<std::uint64_t> seen;
+    for (const auto& entry : mapping) {
+        const auto ref = entry.at("entity").get<EntityRef>();
+        if (!entry.at("epoch").is_number_unsigned() || !entities.contains(ref))
+            throw std::runtime_error("Invalid 2D recovery identity/epoch");
+        const auto id = entities.at(ref), epoch = entry.at("epoch").get<std::uint64_t>();
+        const auto& body = desired.at(id);
+        if (!epoch || epoch >= candidate->next_epoch || !seen.insert(id).second ||
+            !epochs.emplace(epoch, std::pair{id, &entry}).second ||
+            entry.at("configuration") != body.config.json() ||
+            !recovery_pose_matches(entry.at("target"), body.pose))
+            throw std::runtime_error("2D recovery configuration/target/binding mismatch");
+    }
+    candidate->world = b2CreateWorldFromSnapshot(
+        reinterpret_cast<const std::uint8_t*>(bytes.data()), int(bytes.size()), 1);
+    if (!b2World_IsValid(candidate->world))
+        throw std::runtime_error("Native 2D recovery rejected candidate");
+    const auto counters = b2World_GetCounters(candidate->world);
+    const auto gravity = b2World_GetGravity(candidate->world);
+    if (counters.bodyCount != int(desired.size()) || counters.shapeCount != counters.bodyCount ||
+        counters.jointCount != 0 || counters.contactCount < 0 ||
+        counters.contactCount > int(pair_limit) || gravity.x != float(self.config.gravity[0]) ||
+        gravity.y != float(self.config.gravity[1]) ||
+        b2World_GetWorkerCount(candidate->world) != 1 ||
+        !b2World_IsContinuousEnabled(candidate->world) ||
+        !b2World_IsSleepingEnabled(candidate->world) ||
+        b2World_GetMaxLinearSpeed(candidate->world) != b2DefaultWorldDef().maximumLinearSpeed)
+        throw std::runtime_error("2D recovery native world profile mismatch");
+    RecoveryShapes shapes;
+    if (!desired.empty())
+        b2World_OverlapAABB(candidate->world, {0, 0}, b2World_GetBounds(candidate->world),
+                            query_filter({}), RecoveryShapes::append, &shapes);
+    if (shapes.overflow || shapes.count != desired.size())
+        throw std::runtime_error("2D recovery could not reacquire every shape");
+    for (std::size_t index = 0; index < shapes.count; ++index) {
+        const auto shape = shapes.shapes[index];
+        const auto native = b2Shape_GetBody(shape);
+        const auto epoch = recovery_epoch(b2Body_GetName(native));
+        const auto found = epochs.find(epoch);
+        if (found == epochs.end())
+            throw std::runtime_error("Unknown/duplicate native 2D recovery binding");
+        const auto [id, entry] = found->second;
+        const auto& body = desired.at(id);
+        b2ShapeId only{};
+        if (b2Body_GetShapes(native, &only, 1) != 1 || !B2_ID_EQUALS(only, shape) ||
+            b2Body_GetUserData(native) || b2Shape_GetUserData(shape) ||
+            entry->at("native") != recovery_native_state(native, shape, body.config))
+            throw std::runtime_error("2D recovery native binding/state mismatch");
+        if (body.config.body.motion == 2) {
+            const auto position = b2Body_GetPosition(native);
+            if (!equivalent(
+                    LocalTranslation{position.x, position.y, 0},
+                    LocalTranslation{body.pose.translation.x, body.pose.translation.y, 0}) ||
+                !equivalent(copied_rotation(b2Body_GetRotation(native)), body.pose.rotation))
+                throw std::runtime_error("2D recovered Dynamic pose differs from adopted source");
+        }
+        auto& record =
+            candidate->bodies.emplace(id, Impl::Body{native, shape, body, epoch}).first->second;
+        b2Body_SetUserData(native, &record);
+        b2Shape_SetUserData(shape, &record);
+        epochs.erase(found);
+    }
+    if (!epochs.empty())
+        throw std::runtime_error("Incomplete 2D recovery bindings");
+    candidate->last_step_tick = candidate->last_event_tick = tick;
+    b2World_SetCustomFilterCallback(candidate->world, Impl::filter, candidate.get());
+    impl_.swap(candidate);
+}
 void Native2D::check() const { impl_->check(); }
 std::size_t Native2D::size() const { return impl_->bodies.size(); }
 bool Native2D::realized() const { return B2_IS_NON_NULL(impl_->world); }

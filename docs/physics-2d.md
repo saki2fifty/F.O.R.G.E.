@@ -5,7 +5,7 @@ integration, not a guide to an available editor feature. Build261021-000195 targ
 the Tile Map milestone and contains no 2D physics. Local CPU tests cover authored
 reflection, scene save/reopen, initial native body simulation, domain separation,
 signed/flat parent frames, typed engine controls, queries, copied state/events and
-rejected partial steps. Recovery, the matching SDK bridge and editor/export
+rejected partial steps and private fresh-candidate recovery. The matching SDK bridge and editor/export
 acceptance remain incomplete.
 [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
@@ -149,11 +149,12 @@ across ticks and copies all8160 End/Begin observations when1020 visitors are
 replaced. A separate16384 zero-dt retirement check rejects further replacement
 before native writes, then permits it after adoption releases that window.
 
-Checkpoint 5 will preserve native 2D bytes, admitted configuration, private epochs,
+The development branch implements private checkpoint 5 to preserve native 2D bytes, admitted configuration, private epochs,
 next epoch and queued domain-tagged commands inside the existing owner. Native
 snapshots scrub hooks and do not provide fresh-world application bindings.
 Ten-character native debug tags encode the record epoch, bounded to 60 bits;
 supported queries reacquire candidate handles before checked hook rebinding.
+Capture requires synchronized adopted state, including completed retirement events. A realized empty world retains its next epoch. Native Kinematic target and actual solver poses are preserved separately because target integration promises a close pose, not exact arrival.
 No native ID internals are modified, no authored identity is added and no native
 snapshot becomes a game-save format. Transient adopted events are not replayed.
 
@@ -162,7 +163,7 @@ budgets. Query required native size before allocating a byte buffer. All current
 world contents must fit the aggregate envelope; maximum component counts alone
 do not guarantee recoverability. A rejected candidate preserves the current
 published runtime. The first native work/capacity probes do not replace complete
-FORGE recovery, lifetime or maximum-profile tests.
+FORGE lifetime and end-to-end acceptance. Local recovery checks cover all inline shapes, initial/paused/sleeping/moving state, mixed-domain FIFO commands, empty-world epoch retention, native image and metadata rejection, the shared remaining-byte limit, and actual runtime process restart. The1024-body sensor profile restores current overlap state without replaying notifications, copies all8160 replacement transitions, and still faults excess pair work after restoration. These CPU checks do not claim installed SDK, Windows, editor or export acceptance.
 
 Matching SDK modules, both real Play process hosts and ordinary source-free
 exports must use the same native integration. Package the MIT notice in editor,

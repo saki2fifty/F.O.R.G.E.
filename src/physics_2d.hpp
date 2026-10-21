@@ -12,6 +12,7 @@ struct Body2DConfiguration {
     unsigned shape = 0;                // Box, circle, capsule.
     std::array<float, 2> dimensions{}; // Effective world geometry, metres.
     bool operator==(const Body2DConfiguration&) const = default;
+    Json json() const;
 };
 struct Body2DDesired {
     EntityRef ref;
@@ -19,6 +20,10 @@ struct Body2DDesired {
     LocalTransform pose;
 };
 using Desired2D = std::map<std::uint64_t, Body2DDesired>;
+struct Native2DImage {
+    Json metadata;
+    std::string bytes;
+};
 // Reads the existing effective graph and schema. No native creation or ECS writes.
 Desired2D desired_bodies_2d(WorldContext&, const PhysicsConfig&,
                             const std::map<std::uint64_t, TransformNode>&);
@@ -55,6 +60,8 @@ class Native2D {
     void accept_poses(const std::map<std::uint64_t, LocalTransform>&);
     std::size_t size() const;
     bool realized() const;
+    Native2DImage checkpoint(const Desired2D&, std::size_t remaining_bytes) const;
+    void restore(const Json&, const std::string&, const Desired2D&, std::uint64_t tick);
 
   private:
     struct Impl;

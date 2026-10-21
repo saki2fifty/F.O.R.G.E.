@@ -131,7 +131,8 @@ void physics_load_tests() {
         original.physics->add_torque(ref, {0, 0, 2});
         original.physics->add_angular_impulse(ref, {0, 0, 1});
         const auto checkpoint = original.physics->checkpoint();
-        check(checkpoint.at("version") == 4 && checkpoint.at("commands").size() == 4,
+        check(checkpoint.at("version") == 5 && checkpoint.at("commands").size() == 4 &&
+                  checkpoint.at("commands").at(0).at("planar") == false,
               "Pending loads absent from tagged native recovery");
         Fixture recovered;
         auto config = PhysicsConfig{};

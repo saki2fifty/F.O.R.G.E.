@@ -2246,12 +2246,6 @@ Json PhysicsRuntime::status() const {
 Json PhysicsRuntime::checkpoint() const {
     auto& s = *impl_;
     s.check();
-    // Explicit until the exact-build candidate format integrates both domains.
-    if ((s.native_2d && s.native_2d->realized()) || !s.desired_2d().empty() ||
-        std::any_of(s.commands.begin(), s.commands.end(),
-                    [](const auto& command) { return command.planar; }))
-        throw std::runtime_error(
-            "2D physics checkpoint integration is not available in this development branch");
     const auto desired = s.desired();
     if (desired.size() != s.bodies.size())
         throw std::runtime_error("Physics checkpoint requires synchronized content; write body "
@@ -2288,7 +2282,7 @@ Json PhysicsRuntime::checkpoint() const {
         mapping.push_back({{"entity", b.ref},
                            {"body", b.id.GetIndexAndSequenceNumber()},
                            {"configuration", b.config.json()}});
-    Json out = {{"version", 4},
+    Json out = {{"version", 5},
                 {"build", build_id},
                 {"source", source_commit},
                 {"runtime", FORGE_NATIVE_SDK_FINGERPRINT},
@@ -2323,6 +2317,15 @@ Json PhysicsRuntime::checkpoint() const {
              {"crouched", c.owner->crouched()},
              {"shape_blocked", c.shape_blocked}});
     }
+    const auto desired_2d = s.desired_2d();
+    physics_detail::Native2DImage planar;
+    if (s.native_2d)
+        planar = s.native_2d->checkpoint(desired_2d, max_solver_bytes - native_bytes);
+    else if (!desired_2d.empty())
+        throw std::runtime_error("2D checkpoint requires synchronized content");
+    out["planar"] = {{"metadata", std::move(planar.metadata)},
+                     {"solver", hex(planar.bytes)},
+                     {"bytes", planar.bytes.size()}};
     out["character_commands"] = Json::array();
     for (const auto& c : s.character_commands)
         out["character_commands"].push_back(
@@ -2341,6 +2344,7 @@ Json PhysicsRuntime::checkpoint() const {
                                    {"kind", static_cast<std::uint32_t>(c.kind)},
                                    {"clear", c.clear},
                                    {"at_point", c.at_point},
+                                   {"planar", c.planar},
                                    {"value", c.value}});
     out["integrity"] = digest(out.dump());
     if (out.dump().size() > 6 * 1024 * 1024)
@@ -2350,10 +2354,7 @@ Json PhysicsRuntime::checkpoint() const {
 void PhysicsRuntime::restore(const Json& payload) {
     auto& s = *impl_;
     s.check();
-    if (s.native_2d || !s.desired_2d().empty())
-        throw std::runtime_error(
-            "2D physics recovery integration is not available in this development branch");
-    if (!s.bodies.empty() || !s.joints.empty() || !s.characters.empty() || s.tick ||
+    if (s.native_2d || !s.bodies.empty() || !s.joints.empty() || !s.characters.empty() || s.tick ||
         !s.commands.empty() || !s.character_commands.empty())
         throw std::runtime_error("Physics restoration requires a fresh unpublished world");
     if (payload.dump().size() > 6 * 1024 * 1024)
@@ -2361,7 +2362,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     auto checked = payload;
     auto checksum = checked.at("integrity").get<std::string>();
     checked.erase("integrity");
-    if (digest(checked.dump()) != checksum || checked.at("version") != 4 ||
+    if (digest(checked.dump()) != checksum || checked.at("version") != 5 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -2373,6 +2374,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     if (bytes.empty() || bytes.size() != checked.at("bytes").get<std::size_t>())
         throw std::runtime_error("Truncated physics checkpoint");
     auto desired = s.desired();
+    const auto desired_2d = s.desired_2d();
     const auto& mapping = checked.at("mapping");
     if (!mapping.is_array() || mapping.size() != desired.size())
         throw std::runtime_error("Physics checkpoint body count mismatch");
@@ -2413,6 +2415,8 @@ void PhysicsRuntime::restore(const Json& payload) {
         joint_order.push_back(found.entity);
     }
     const auto desired_chars = s.desired_characters();
+    if (desired.size() + desired_2d.size() + desired_chars.size() > max_bodies)
+        throw std::runtime_error("Combined physics recovery body limit exceeded");
     const auto& character_data = checked.at("characters");
     if (!character_data.is_array() || character_data.size() != desired_chars.size())
         throw std::runtime_error("Character checkpoint count mismatch");
@@ -2435,6 +2439,14 @@ void PhysicsRuntime::restore(const Json& payload) {
             native_bytes > max_solver_bytes)
             throw std::runtime_error("Character checkpoint identity/configuration/byte mismatch");
     }
+    const auto& planar = checked.at("planar");
+    const auto planar_size = planar.at("bytes").get<std::size_t>();
+    const auto& planar_hex = planar.at("solver").get_ref<const std::string&>();
+    if (planar_size > max_solver_bytes - native_bytes || planar_hex.size() != planar_size * 2)
+        throw std::runtime_error("Combined physics recovery solver byte limit exceeded");
+    auto native_2d = std::make_unique<physics_detail::Native2D>(s.config);
+    native_2d->restore(planar.at("metadata"), unhex(planar_hex), desired_2d,
+                       checked.at("tick").get<std::uint64_t>());
     std::vector<Impl::CharacterCommand> character_commands;
     const auto& pending_characters = checked.at("character_commands");
     if (!pending_characters.is_array() || pending_characters.size() > 4096)
@@ -2476,8 +2488,10 @@ void PhysicsRuntime::restore(const Json& payload) {
         valid_position(translation);
         auto ref = c.at("entity").get<EntityRef>();
         auto resolved = s.context.resolve(ref);
+        const bool is_planar = c.at("planar").get<bool>();
         if (resolved.state != WorldContext::ResolveState::Available ||
-            !desired.contains(resolved.entity))
+            (is_planar ? !desired_2d.contains(resolved.entity)
+                       : !desired.contains(resolved.entity)))
             throw std::runtime_error("Recovery command target mismatch");
         if (!c.at("kind").is_number_unsigned())
             throw std::runtime_error("Recovery physics command kind mismatch");
@@ -2491,10 +2505,12 @@ void PhysicsRuntime::restore(const Json& payload) {
                 throw std::runtime_error("Recovery physics load outside bounds");
         const bool clear = c.at("clear").get<bool>(), at_point = c.at("at_point").get<bool>();
         const auto command_rotation = normalized({q[0], q[1], q[2], q[3]});
-        if ((kind >= Impl::CommandKind::Force &&
-             desired.at(resolved.entity).first.body.motion != 2) ||
-            (kind == Impl::CommandKind::Kinematic &&
-             desired.at(resolved.entity).first.body.motion != 1) ||
+        const auto motion = is_planar ? desired_2d.at(resolved.entity).config.body.motion
+                                      : desired.at(resolved.entity).first.body.motion;
+        if (is_planar)
+            valid_position_2d({translation.x, translation.y});
+        if ((kind >= Impl::CommandKind::Force && motion != 2) ||
+            (kind == Impl::CommandKind::Kinematic && motion != 1) ||
             (clear && kind != Impl::CommandKind::Teleport) ||
             (at_point && kind != Impl::CommandKind::Force && kind != Impl::CommandKind::Impulse) ||
             (kind < Impl::CommandKind::Force && value != Double3{}) ||
@@ -2502,7 +2518,17 @@ void PhysicsRuntime::restore(const Json& payload) {
              (!equivalent(command_rotation, LocalRotation{}) ||
               (!at_point && translation != LocalTranslation{}))))
             throw std::runtime_error("Recovery physics command policy mismatch");
-        commands.push_back({ref, translation, command_rotation, kind, clear, at_point, value});
+        if (is_planar &&
+            (translation.z != 0 || command_rotation.x != 0 || command_rotation.y != 0 ||
+             ((kind == Impl::CommandKind::Force || kind == Impl::CommandKind::Impulse ||
+               kind == Impl::CommandKind::LinearVelocity) &&
+              value[2] != 0) ||
+             ((kind == Impl::CommandKind::Torque || kind == Impl::CommandKind::AngularImpulse ||
+               kind == Impl::CommandKind::AngularVelocity) &&
+              (value[0] != 0 || value[1] != 0))))
+            throw std::runtime_error("Recovery planar command has out-of-plane values");
+        commands.push_back(
+            {ref, translation, command_rotation, kind, clear, at_point, value, is_planar});
     }
     // Re-derive tokens in this fresh world's generations, before native restore.
     // GroupFilter pointers are intentionally absent from Jolt binary state.
@@ -2568,10 +2594,14 @@ void PhysicsRuntime::restore(const Json& payload) {
             throw std::runtime_error("Character checkpoint pose differs from restored scene");
     }
     s.character_commands = std::move(character_commands);
+    if (native_2d->realized())
+        s.native_2d = std::move(native_2d);
     s.tick = checked.at("tick").get<std::uint64_t>();
     adopt();
     s.commands = std::move(commands);
     for (const auto& [entity, b] : s.bodies)
+        s.snaps.push_back(entity);
+    for (const auto& [entity, b] : desired_2d)
         s.snaps.push_back(entity);
 }
 EngineModule physics_module(PhysicsConfig config, std::filesystem::path root) {

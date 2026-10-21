@@ -2465,9 +2465,11 @@ Json builtin_extensions(const Builtin& type, const Json& source) {
     const auto& schema = validation_schema(type.name);
     return reflected_extensions(schema, admitted_builtin_source(type, source));
 }
+Json encode_builtin_value(const Value& value) {
+    return std::visit([](const auto& item) { return encode(item); }, value);
+}
 Json canonical_builtin_value(const Builtin& type, const Json& source) {
-    return std::visit([](const auto& value) { return encode(value); },
-                      type.decode(admitted_builtin_source(type, source)));
+    return encode_builtin_value(type.decode(admitted_builtin_source(type, source)));
 }
 Json merge_builtin_extensions(const Builtin& type, const Json& known, const Json& extensions) {
     const auto& schema = validation_schema(type.name);

@@ -37,6 +37,7 @@ const std::array<Builtin, builtin_count>& builtins();
 Json register_builtins(flecs::world& world, unsigned family = 0);
 // Copied projection of the existing immutable native validation catalog.
 Json builtin_schema();
+Json encode_builtin_value(const Value&);
 Json canonical_builtin_value(const Builtin&, const Json& source);
 Json builtin_extensions(const Builtin&, const Json& source);
 Json merge_builtin_extensions(const Builtin&, const Json& known, const Json& extensions);

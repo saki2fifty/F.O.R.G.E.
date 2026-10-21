@@ -17,7 +17,7 @@ Select Box2D 3.2.0, immutable revision
 static C17 linkage, double world positions, normal float geometry/velocities,
 one native worker, native Debug validation and unchanged default length units. Preserve
 its MIT notice. Private dependency/build integration and the initial body adapter
-are present; the complete controls/events/recovery workflow remains pending.
+are present, with engine controls/events and private recovery implemented locally. The matching SDK/editor/export workflow remains pending.
 Vendor headers and handles do not enter the gameplay SDK.
 
 ## Coordinates and authority
@@ -55,7 +55,7 @@ Validate unique bindings, canonical identities, geometry/configuration and all
 limits before rebinding private hooks and publishing a candidate. This private
 checkpoint binding introduces no authored ID or general lookup owner.
 
-Private physics checkpoint 5 will add the typed 2D block, epoch mapping and tagged
+Private physics checkpoint 5 adds the typed 2D block, epoch mapping and tagged
 commands. Retain the combined 2 MiB raw solver, 6 MiB physics, 8 MiB checkpoint and
 16 MiB process budgets. Older exact-build checkpoints reject; no durable source
 migration is involved. In-place restoration of the published native world is not
@@ -89,5 +89,5 @@ The private derived XY mapping and native dependency/profile fixtures have local
 CPU/CMake tests; package-notice retention checks also pass. Initial native body
 simulation, detached admission, controls, queries and copied current/retired
 events have local CPU tests, including existing navigation/animation exclusions.
-Recovery, editor, installed SDK and Windows/export acceptance remain incomplete. See the
+Private fresh-candidate recovery has local CPU and actual process restart checks. Editor, installed SDK and Windows/export acceptance remain incomplete. See the
 [2D integration contract](../physics-2d.md).

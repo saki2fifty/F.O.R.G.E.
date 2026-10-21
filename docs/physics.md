@@ -58,7 +58,7 @@ is retained only when permitted; turning permission off wakes a previously
 sleeping Dynamic body and keeps it active without adding motion. Unchanged bodies
 are not rebuilt or reactivated. Native recovery mapping includes all five values;
 exact SDK fingerprint/layout changes require module rebuilds, while ABI1 and
-durable formats remain unchanged. Private recovery is version4 and exact-build
+durable formats remain unchanged. Private recovery is version5 and exact-build
 compatible. The existing generic Inspector, history and prefab intent own edits.
 
 Original compiler-free Gallery 23 compares gravity-driven free fall, damping,
@@ -95,7 +95,7 @@ consumer without Physics capability is denied.
 Fresh paused recovery restores native contact-cache state without replaying the
 transient adopted list. C++ game-owned counters/reaction state can use existing
 reflected components; PostPhysics commands take effect at the next boundary.
-Private checkpoint4 and authored formats remain unchanged. The public header
+Private checkpoint5 and authored formats remain unchanged. The public header
 fingerprint changes, requiring a matching exact SDK/module rebuild; ABI1 remains.
 
 ## Instantaneous volume queries
@@ -123,7 +123,7 @@ Valid output arrays clear on failure and unused slots clear on success. Invalid
 capacity or any wrong-size output slot rejects without writing that array. The
 request is copied before outputs are cleared. No pointers or native handles are
 returned. C++ consumers must rebuild against the matching SDK fingerprint; ABI1,
-private checkpoint4 and authored formats remain unchanged.
+private checkpoint5 and authored formats remain unchanged.
 
 The editable `PhysicsVolumes` C++ example counts two static objects and a moving
 sensor in a sphere. Reflected game-owned observation/launch progress uses normal
@@ -133,13 +133,15 @@ component recovery; the query itself adds no checkpoint state.
 
 Runtime protocol 2 adds an optional private recovery payload beside the existing scene response. The former movement-only ABI1 header has been retired. Controllers retain separate latest and pending-activation checkpoints; probes receive the corresponding checkpoint without advancing the live runtime.
 
-At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics envelope version4 preserves authored joint identities/settings in actual native constraint order, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending tagged FORGE body loads/movement/velocity, and Jolt StateRecorder bytes. It deliberately supersedes version3 to admit the two velocity command tags; version3 added loads and version2 added joint ordering. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
+At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics envelope version5 preserves authored joint identities/settings in actual native constraint order, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending tagged FORGE body loads/movement/velocity, and Jolt StateRecorder bytes. Version5 adds the private 2D native image, canonical body/configuration and epoch bindings, next epoch and explicit command-domain tags. Version4 added the two velocity tags; version3 added loads and version2 added joint ordering. Older exact-build envelopes reject; authored formats and ABI1 do not change. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
 
 Restoration constructs an unpublished candidate world, validates metadata and expected source session/tick/content, restores scene/configuration, validates unique body indices/sequences and EntityRefs/configs, constructs bodies with **CreateBodyWithID**, reconstructs constraints in captured native index order, then calls Jolt **RestoreState**. Only successful restoration swaps the candidate into use. BodyID is a transient reconstruction token. Jolt owns the solver encoding. See upstream [PhysicsSystem](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/PhysicsSystem.cpp), [BodyManager](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/Body/BodyManager.cpp), and [StateRecorderImpl](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/StateRecorderImpl.h).
 
 Paused restoration performs no Update. Clock tick is restored; elapsed/accumulator debt is reset; input is released; previous/current presentation samples coincide. Step advances one tick. Controllers resume only when prior policy calls for it. A failure leaves the prior published runtime intact where it exists, or reports that recovery failed and clean Play is needed.
 
-Limits: 8192 bodies, 16384 contact events, 2 MiB raw solver bytes, 6 MiB physics envelope, 8 MiB total checkpoint, existing 16 MiB transport. Exceeding limits is a diagnostic, not silent truncation. Checkpoints never enter scene/prefab/project files. No save/load-game UI, cross-build/platform compatibility, deterministic replay, or arbitrary native global/resource recovery is promised.
+The in-progress 2D integration restores a fresh native candidate through supported shape queries and bounded epoch tags, validates its bindings and configuration, then rebinds application hooks. It never rebases opaque native IDs or restores the published world in place. Native Kinematic target poses can legitimately differ slightly from the actual solver pose; both are retained. Capture rejects unadopted native retirement windows; transient observations are never replayed. See [2D physics](physics-2d.md) for the development and acceptance boundary.
+
+Limits: 8192 combined bodies (at most1024 in2D), 16384 contact events, 2 MiB raw solver bytes, 6 MiB physics envelope, 8 MiB total checkpoint, existing 16 MiB transport. Exceeding limits is a diagnostic, not silent truncation. Checkpoints never enter scene/prefab/project files. No save/load-game UI, cross-build/platform compatibility, deterministic replay, or arbitrary native global/resource recovery is promised.
 
 ## Experimental SDK
 
@@ -196,8 +198,8 @@ The exact SDK tail `physics_set_velocity` accepts a copied three-double vector a
 channel `FORGE_SDK_PHYSICS_LINEAR_VELOCITY` or
 `FORGE_SDK_PHYSICS_ANGULAR_VELOCITY`. It returns1queued or0rejected and requires the
 fixed owner thread and Physics capability. PostPhysics queues for the following
-step. Existing load-kind meanings are unchanged. Private checkpoint4 adds strict
-tags6/7; old ephemeral envelopes reject. ABI1 and durable authoring formats stay
+step. Existing load-kind meanings are unchanged. Private checkpoint5 retains strict
+tags6/7 from version4; old ephemeral envelopes reject. ABI1 and durable authoring formats stay
 unchanged; rebuild project modules against the matching SDK.
 
 The ordinary `Examples/PhysicsVelocity` C++ project demonstrates launch/coast,
@@ -561,7 +563,7 @@ and active frequency/damping without advancing simulation. Original Gallery 29
 compares low and critical damping; its two demo bodies disable sleeping so their
 full numerical response can be measured. Ordinary body sleeping defaults remain.
 C++ accesses the same typed fields before Physics and observes copied motion after.
-ABI 1/private checkpoint 4/authored formats remain unchanged; matching SDK
+ABI 1/private checkpoint 5/authored formats remain unchanged; matching SDK
 layout/fingerprint requires rebuilding modules. Existing connected collision policy
 and fresh recovery apply. Springs do not add breakage or vehicle ownership.
 
@@ -593,7 +595,7 @@ at a fixed display length and shows authored angular limits; it owns no simulati
 
 Structural frame/limit edits rebuild through existing native lifecycle/order;
 connected contact policy remains an in-place pair setting. Full admitted settings
-and native state use exact-build private4 recovery. ABI1/authored formats unchanged;
+and native state use exact-build private5 recovery. ABI1/authored formats unchanged;
 matching SDK modules require rebuilding. Original Gallery28 demonstrates wide and
 narrow gravity-driven pendulums starting inside their authored cone limits.
 
@@ -612,7 +614,7 @@ and angle values remain saved and bounded. Separate travel fields default to -1/
 when absent through the existing builtin admission hook and joint codec. Legacy
 kinds0..3 keep their meanings; older readers reject kind4. The added public fields
 change SDK layout and fingerprint, requiring a matching rebuild. Native ABI1,
-private checkpoint4 and authored formats remain unchanged. Native order, retirement
+private checkpoint5 and authored formats remain unchanged. Native order, retirement
 and recovery use the existing joint owner.
 
 Scene24 contains vertical and inclined carriages under gravity. Inspector travel
@@ -643,7 +645,7 @@ No new command queue, constraint manager or motion owner is introduced.
 C++ can write the existing typed PhysicsJoint in the fixed phase before Physics.
 Recovery capture still requires synchronized component values; unsynchronized
 motor edits reject like other joint edits. Matching configuration plus exact native
-solver state restore active drives through private checkpoint4. Public field layout
+solver state restore active drives through private checkpoint5. Public field layout
 and SDK fingerprint change, requiring matching modules; ABI1 and authored versions
 are unchanged. Position targets and spring drives are described below.
 
@@ -682,7 +684,7 @@ x_next=x+dt*v_next, with w=2*pi*f. Separate bounded-effort checks use F/m and to
 
 Mode/target/spring edits retain native geometry, manager order and warm state;
 inactive mode and kind values remain authored without driving or waking bodies.
-C++ writes the same typed controls before Physics. Synchronized checkpoint4 restores
+C++ writes the same typed controls before Physics. Synchronized checkpoint5 restores
 actual native spring trajectories in a fresh runtime; no additional owner, queue,
 public callback or durable state is introduced. Legacy values backfill Velocity,
 zero position targets and2Hz/ratio1. Matching public-layout/header fingerprint
@@ -712,7 +714,7 @@ owner data and never access Flecs. Ray/shape/volume queries still see excluded b
 
 Recovery derives the fresh world's pair set before native reconstruction; group
 filter pointers are not native serialized data. The existing exact-build mapping
-includes the new setting and native contact/activation state. ABI1, private4 and
+includes the new setting and native contact/activation state. ABI1, private5 and
 authored formats remain unchanged; matching SDK modules need a rebuild. Original
 Gallery27 compares mutual-contact suppression with normal contacts, while both
 pairs still land on an unrelated floor.
