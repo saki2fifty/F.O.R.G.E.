@@ -29,6 +29,8 @@ Json row(flecs::entity e, EntityId id) {
     }
     if (e.has<PhysicsBody>())
         c["forge.physics_body"] = {{"motion", e.get<PhysicsBody>().motion}};
+    if (e.has<PhysicsBody2D>())
+        c["forge.physics_body_2d"] = {{"motion", e.get<PhysicsBody2D>().motion}};
     if (e.has<NavigationAgent>())
         c["forge.navigation_agent"] = {{"enabled", e.get<NavigationAgent>().enabled}};
     const auto binding = e.has<SpatialBinding>() ? e.get<SpatialBinding>() : SpatialBinding{};

@@ -58,6 +58,12 @@ class PhysicsRuntime : public PhysicsService {
     void set_angular_velocity_2d(EntityRef, double) override;
     std::optional<PhysicsBodyState2D> body_state_2d(EntityRef) const override;
     std::optional<Double2> point_velocity_2d(EntityRef, Double2) const override;
+    std::optional<PhysicsHit2D> raycast_2d(Double2, Double2,
+                                           PhysicsQueryFilter = {}) const override;
+    std::vector<EntityRef> overlap_shape_2d(const PhysicsOverlap2D&,
+                                            PhysicsQueryFilter = {}) const override;
+    std::size_t contact_count_2d() const override;
+    std::optional<PhysicsContact2D> contact_event_2d(std::size_t) const override;
     CharacterState character(EntityRef) const override;
     void move_character(EntityRef, Double3) override;
     void jump_character(EntityRef, float) override;

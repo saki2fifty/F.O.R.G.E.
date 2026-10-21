@@ -59,6 +59,24 @@ struct PhysicsBodyState2D {
     double angle{}, angular_velocity{}, mass{}, rotational_inertia{};
     bool operator==(const PhysicsBodyState2D&) const = default;
 };
+struct PhysicsHit2D {
+    EntityRef entity;
+    Double2 position{}, normal{};
+    double fraction{};
+};
+struct PhysicsOverlap2D {
+    enum class Shape : std::uint32_t { Box, Circle, Capsule };
+    Shape shape = Shape::Circle;
+    // Full XY box size; circle radius in X; capsule radius/X, straight height/Y.
+    Double2 dimensions{.5, 0}, origin{};
+    double angle{}; // Radians about +Z.
+};
+struct PhysicsContact2D {
+    EntityRef first, second;
+    std::uint64_t first_epoch{}, second_epoch{}, tick{};
+    bool begin{}, sensor{}, first_available{}, second_available{};
+    bool operator==(const PhysicsContact2D&) const = default;
+};
 // Owner-thread only; valid while this Runtime world's physics module is alive.
 class PhysicsService : public CharacterService {
   public:
@@ -111,5 +129,13 @@ class PhysicsService : public CharacterService {
     virtual void set_angular_velocity_2d(EntityRef, double) = 0;
     virtual std::optional<PhysicsBodyState2D> body_state_2d(EntityRef) const = 0;
     virtual std::optional<Double2> point_velocity_2d(EntityRef, Double2 world_point) const = 0;
+    virtual std::optional<PhysicsHit2D> raycast_2d(Double2 origin, Double2 displacement,
+                                                   PhysicsQueryFilter = {}) const = 0;
+    virtual std::vector<EntityRef> overlap_shape_2d(const PhysicsOverlap2D&,
+                                                    PhysicsQueryFilter = {}) const = 0;
+    // Stable copied slots for this tick. Sensor first/visitor second; solid pairs
+    // use canonical ordering. Availability checks the current epoch on each read.
+    virtual std::size_t contact_count_2d() const = 0;
+    virtual std::optional<PhysicsContact2D> contact_event_2d(std::size_t) const = 0;
 };
 } // namespace forge

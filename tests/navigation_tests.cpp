@@ -92,6 +92,28 @@ int main(int argc, char** argv) {
         scene.entity("obstacle").set<LocalTranslation>({0, 2, 0});
         reject([&] { prepare({.4f, 2, .4f, 45, .001f, .1f}); });
         check(read(AssetCatalog::project_index(root)) == baseline, "Bad settings changed catalog");
+        for (unsigned motion : {1u, 2u}) {
+            auto moving_2d = PhysicsBody2D{};
+            moving_2d.motion = motion;
+            scene.entity("floor").set<PhysicsBody2D>(moving_2d);
+            reject([&] { prepare(); });
+            check(read(AssetCatalog::project_index(root)) == baseline,
+                  "Moving 2D source changed the navigation catalog");
+        }
+        scene.entity("floor").remove<PhysicsBody2D>();
+        const auto parent_2d_id =
+            authoring_command(scene, "entity.create", {{"name", "Moving 2D source parent"}})
+                .at("selected")
+                .get<std::string>();
+        scene.entity(parent_2d_id).set<PhysicsBody2D>({1});
+        const auto floor_binding = scene.entity("floor").get<SpatialBinding>();
+        scene.entity("floor").set<SpatialBinding>(
+            {SpatialMode::Explicit, scene.reference(parent_2d_id)});
+        reject([&] { prepare(); });
+        check(read(AssetCatalog::project_index(root)) == baseline,
+              "2D spatial ancestry changed the navigation catalog");
+        scene.entity("floor").set<SpatialBinding>(floor_binding);
+        scene.delete_subtree(parent_2d_id);
         std::stop_source cancelled;
         cancelled.request_stop();
         reject([&] {
@@ -304,6 +326,13 @@ int main(int argc, char** argv) {
                   !observe().sampled,
               "Physics conflict did not keep copied navigation failure");
         f.scene.entity("agent").remove<PhysicsBody>();
+        f.scene.entity("agent").set<PhysicsBody2D>({});
+        stop = f.position();
+        f.tick();
+        check(f.position() == stop && observe().phase == NavigationAgentPhase::Failed &&
+                  observe().status == NavStatus::Invalid,
+              "Navigation drove an entity with a 2D body");
+        f.scene.entity("agent").remove<PhysicsBody2D>();
         f.scene.entity("floor").set<LocalTranslation>({0, 1, 0});
         check(f.navigation->project_point({record.id}, {-8, .1, 0}).status == NavStatus::Stale,
               "Changed source not stale");
@@ -341,6 +370,14 @@ int main(int argc, char** argv) {
         stop = f.position();
         f.tick();
         check(f.position() == stop, "Agent followed Dynamic spatial ancestor");
+        parent.remove<PhysicsBody>();
+        for (unsigned motion : {1u, 2u}) {
+            parent.set<PhysicsBody2D>({motion});
+            f.tick();
+            check(f.position() == stop && observe().phase == NavigationAgentPhase::Failed &&
+                      observe().status == NavStatus::Invalid,
+                  "Agent followed moving 2D spatial ancestry");
+        }
         agent.add(flecs::ChildOf, parent);
         agent.set<SpatialBinding>({SpatialMode::World, {}});
         f.tick();

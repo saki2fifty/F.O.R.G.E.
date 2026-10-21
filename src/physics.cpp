@@ -1463,6 +1463,8 @@ void PhysicsRuntime::synchronize(float dt) {
     s.check();
     if (!std::isfinite(dt) || dt < 0)
         throw std::runtime_error("Physics synchronization requires finite nonnegative dt");
+    if (s.native_2d)
+        s.native_2d->validate_step();
     if (!s.prepare_assets(true))
         throw std::runtime_error("Required collision assets are still preparing");
     const auto initial = s.desired();
@@ -1566,6 +1568,8 @@ void PhysicsRuntime::synchronize(float dt) {
     // admitted boundary can retire/recreate the same UUID, so expire that list
     // before any writes; retain it if complete preflight rejected the boundary.
     s.events.clear();
+    if (s.native_2d)
+        s.native_2d->expire_events();
     for (auto id : commanded) {
         auto e = s.context.world().entity(id);
         const auto before = s.context.get_local_transform(e);
@@ -1699,15 +1703,20 @@ void PhysicsRuntime::step(float dt) {
     s.check();
     if (!std::isfinite(dt) || dt <= 0)
         throw std::runtime_error("Physics needs a positive fixed dt");
-    auto profile = s.context.services().profile("physics", "JoltUpdate", s.tick + 1);
-    auto error = s.system.Update(dt, 1, &s.allocator, &s.jobs);
+    if (s.native_2d)
+        s.native_2d->validate_step();
+    auto error = JPH::EPhysicsUpdateError::None;
+    {
+        auto profile = s.context.services().profile("physics", "JoltUpdate", s.tick + 1);
+        error = s.system.Update(dt, 1, &s.allocator, &s.jobs);
+    }
     if (error != JPH::EPhysicsUpdateError::None)
         throw std::runtime_error("Jolt capacity exceeded during fixed tick");
     for (auto& [id, character] : s.characters)
         character.owner->step(dt, s.config.gravity);
     if (s.native_2d) {
         auto planar_profile = s.context.services().profile("physics", "Box2DUpdate", s.tick + 1);
-        s.native_2d->step(dt);
+        s.native_2d->step(dt, s.tick + 1);
     }
     ++s.tick;
 }
@@ -1722,6 +1731,8 @@ void PhysicsRuntime::adopt() {
     s.events.clear();
     if (s.listener.overflow)
         throw std::runtime_error("Physics contact buffer exceeded 16384 events");
+    if (s.native_2d)
+        s.native_2d->adopt_events(s.tick);
     std::map<std::uint32_t, EntityRef> refs;
     for (const auto& [entity, b] : s.bodies)
         refs.emplace(b.id.GetIndexAndSequenceNumber(), b.ref);
@@ -2058,6 +2069,53 @@ std::optional<Double2> PhysicsRuntime::point_velocity_2d(EntityRef ref, Double2 
     if (!self.native_2d || found.state != WorldContext::ResolveState::Available)
         return {};
     return self.native_2d->point_velocity(found.entity, ref, point);
+}
+std::optional<PhysicsHit2D> PhysicsRuntime::raycast_2d(Double2 origin, Double2 displacement,
+                                                       PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    if (!self.native_2d) {
+        physics_detail::validate_ray_2d(origin, displacement);
+        return {};
+    }
+    return self.native_2d->raycast(origin, displacement, filter);
+}
+std::vector<EntityRef> PhysicsRuntime::overlap_shape_2d(const PhysicsOverlap2D& query,
+                                                        PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    if (!self.native_2d) {
+        physics_detail::validate_overlap_2d(query);
+        return {};
+    }
+    auto result = self.native_2d->overlap(query, filter);
+    std::erase_if(result, [&](EntityRef ref) {
+        const auto found = self.context.resolve(ref);
+        return found.state != WorldContext::ResolveState::Available ||
+               !self.native_2d->contains(found.entity, ref);
+    });
+    return result;
+}
+std::size_t PhysicsRuntime::contact_count_2d() const {
+    impl_->check();
+    return impl_->native_2d ? impl_->native_2d->event_count() : 0;
+}
+std::optional<PhysicsContact2D> PhysicsRuntime::contact_event_2d(std::size_t index) const {
+    const auto& self = *impl_;
+    self.check();
+    if (!self.native_2d)
+        return {};
+    auto result = self.native_2d->event(index);
+    if (!result)
+        return {};
+    auto available = [&](EntityRef ref, std::uint64_t epoch) {
+        const auto current = self.context.resolve(ref);
+        return current.state == WorldContext::ResolveState::Available &&
+               self.native_2d->current(current.entity, ref, epoch);
+    };
+    result->first_available = available(result->first, result->first_epoch);
+    result->second_available = available(result->second, result->second_epoch);
+    return result;
 }
 const std::vector<PhysicsContact>& PhysicsRuntime::contacts() const {
     impl_->check();

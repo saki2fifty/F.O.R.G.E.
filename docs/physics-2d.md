@@ -4,8 +4,8 @@
 integration, not a guide to an available editor feature. Build261021-000195 targets
 the Tile Map milestone and contains no 2D physics. Local CPU tests cover authored
 reflection, scene save/reopen, initial native body simulation, domain separation,
-signed/flat parent frames, typed engine controls/copied state and rejected partial
-steps. Queries, copied events, recovery, the matching SDK bridge and editor/export
+signed/flat parent frames, typed engine controls, queries, copied state/events and
+rejected partial steps. Recovery, the matching SDK bridge and editor/export
 acceptance remain incomplete.
 [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
@@ -97,11 +97,11 @@ FORGE's authored transform values.
 
 ## C++ control and observations
 
-Engine-facing typed controls and copied state have local CPU tests, including
+Engine-facing typed controls, queries and copied state/events have local CPU tests, including
 area-mass/inertia load units, point velocity, owner-thread checks, sleeping reads,
 shared command capacity and FIFO target conversion beneath flat/reflected parents.
-Matching gameplay SDK callbacks, queries and copied collision events remain in
-progress; this is not an available packaged workflow yet.
+Matching gameplay SDK callbacks remain in progress; this is not an available
+packaged workflow yet.
 
 Add explicitly typed 2D methods through the current service/SDK: copied body
 state, world XY velocity and angular velocity, forces/impulses with optional
@@ -110,6 +110,11 @@ and bounded shape overlaps. World positions use doubles; angular controls/state
 use radians and radians/s. No native pointer, handle or borrowed array crosses
 the boundary. Owner-thread, fixed-tick, capability and exact-size checks remain.
 Queries support the existing collision mask and sensor inclusion policy.
+Ray origins/endpoints and overlap origins use the supported XY coordinate range.
+The adapter reserves native category bit63 for queries and includes it in native
+shape masks, while body categories remain in the existing lower32 project slots.
+Queries therefore select project layers independently of a body's pair-collision
+mask. This does not add an authored layer or change body-pair collision selection.
 
 Commands share the existing 4096-entry body FIFO with explicit domain tags.
 PostPhysics commands apply at the following admitted boundary. Limits reject
@@ -124,15 +129,25 @@ pair includes canonical EntityRefs and simulation epochs. An End can identify a
 retired body with current availability false; it must never resolve through a
 replacement epoch with the same UUID. Native solver/sensor events are not a
 durable geometric-overlap history. No generic event manager is introduced.
+Adoption must complete before the next synchronization or step. This preserves
+native event-buffer lifetime, including Ends generated between simulation ticks.
 
 ## Capacity, recovery and packaging
 
 The first profile targets 1024 2D bodies within the existing 8192 combined rigid/
 character limit. Account retained contacts and new pair work against 4096 admitted
-checks. Native reserve hints do not bound allocation. A counting custom filter
+checks. Retained solid contacts reserve work; sensor overlaps are charged by the
+native query that rebuilds them each step, without counting retained sensors a
+second time. Native reserve hints do not bound allocation. A counting custom filter
 can reject excess pairs before native contact/sensor insertion; its overflow flag
 must fault the step before adoption. CCD and retirement paths remain validation
 requirements. The copied 2D event list is bounded to 16384 slots.
+Preflight also bounds retained retired-shape records to16384 and pending native
+destruction-End estimates to8192, reserving the remaining8192 for old sensor Ends
+and new admitted transitions. A local1024-body test maintains4092 sensor overlaps
+across ticks and copies all8160 End/Begin observations when1020 visitors are
+replaced. A separate16384 zero-dt retirement check rejects further replacement
+before native writes, then permits it after adoption releases that window.
 
 Checkpoint 5 will preserve native 2D bytes, admitted configuration, private epochs,
 next epoch and queued domain-tagged commands inside the existing owner. Native

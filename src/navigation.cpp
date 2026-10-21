@@ -158,7 +158,7 @@ struct NavigationRuntime::Impl {
         } catch (const std::exception& error) {
             throw NavigationFailure(NavStatus::Invalid, error.what());
         }
-        if (e.has<PhysicsBody>())
+        if (e.has<PhysicsBody>() || e.has<PhysicsBody2D>())
             throw NavigationFailure(NavStatus::Invalid,
                                     "NavigationAgent movement requires a nonphysics entity");
         if (e.has<NavigationSurface>() && e.get<NavigationSurface>().enabled)
@@ -176,7 +176,8 @@ struct NavigationRuntime::Impl {
                 throw NavigationFailure(NavStatus::Invalid,
                                         "Unresolved navigation spatial ancestry");
             auto ancestor = context.world().entity(current);
-            if (ancestor.has<PhysicsBody>() && ancestor.get<PhysicsBody>().motion != 0)
+            if ((ancestor.has<PhysicsBody>() && ancestor.get<PhysicsBody>().motion != 0) ||
+                (ancestor.has<PhysicsBody2D>() && ancestor.get<PhysicsBody2D>().motion != 0))
                 throw NavigationFailure(
                     NavStatus::Invalid,
                     "NavigationAgent cannot follow a moving physics ancestor: " +

@@ -937,6 +937,9 @@ Json Scene::unresolved_navigation_sources() const {
         if (components.contains("forge.physics_body"))
             out["forge.physics_body"] = {
                 {"motion", components.at("forge.physics_body").at("motion")}};
+        if (components.contains("forge.physics_body_2d"))
+            out["forge.physics_body_2d"] = {
+                {"motion", components.at("forge.physics_body_2d").at("motion")}};
         // There is no native entity/matrix. The shared geometry validator retains
         // its existing group/static/unresolved diagnostic, without copying opaque
         // extensions, unrelated components or an entire effective Scene.

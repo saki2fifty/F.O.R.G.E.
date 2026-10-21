@@ -579,7 +579,8 @@ players prevent a complete recovery checkpoint. A newly adopted clip also waits
 for its first successful pose application before recovery can be saved.
 
 Application builds a complete candidate transform map and invokes the existing
-physics validator before writing any enabled channel. Dynamic Physics Bodies,
+physics validator before writing any enabled channel. Dynamic Physics Bodies
+(both 3D and the in-progress 2D integration),
 Character Controllers, active navigation agents, skeletal Animators and animated
 model-node bindings cannot share a target with enabled transform channels. Property-only attachments
 do not claim movement ownership and can coexist with those controllers. A rejected

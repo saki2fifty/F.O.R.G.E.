@@ -45,9 +45,9 @@ Sources capture(const nlohmann::json& doc) {
         if (!c.contains("forge.primitive") && !c.contains("forge.mesh_renderer"))
             throw std::runtime_error("NavigationSurface requires mesh geometry, not a group: " +
                                      id.str());
-        if (c.contains("forge.physics_body") &&
-            c.at("forge.physics_body").at("motion").get<unsigned>() != 0)
-            throw std::runtime_error("NavigationSurface must be static: " + id.str());
+        for (const char* body : {"forge.physics_body", "forge.physics_body_2d"})
+            if (c.contains(body) && c.at(body).at("motion").get<unsigned>() != 0)
+                throw std::runtime_error("NavigationSurface must be static: " + id.str());
         if (!e.value("spatial_resolved", false) || !e.contains("world_affine"))
             throw std::runtime_error("Navigation requires resolved WorldTransform: " + id.str());
         std::set<std::string> ancestry;
@@ -57,10 +57,11 @@ Sources capture(const nlohmann::json& doc) {
             if (!ancestry.insert(node_id).second)
                 throw std::runtime_error("Navigation source spatial cycle");
             const auto& components = node->at("components");
-            if (components.contains("forge.physics_body") &&
-                components.at("forge.physics_body").at("motion").get<unsigned>() != 0)
-                throw std::runtime_error("Navigation source follows moving physics body: " +
-                                         node_id);
+            for (const char* body : {"forge.physics_body", "forge.physics_body_2d"})
+                if (components.contains(body) &&
+                    components.at(body).at("motion").get<unsigned>() != 0)
+                    throw std::runtime_error("Navigation source follows moving physics body: " +
+                                             node_id);
             if (components.contains("forge.navigation_agent") &&
                 components.at("forge.navigation_agent").at("enabled").get<bool>())
                 throw std::runtime_error("Navigation source follows an enabled NavigationAgent: " +

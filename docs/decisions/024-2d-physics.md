@@ -87,6 +87,7 @@ existing recovery budgets. It does not prove complete runtime integration.
 
 The private derived XY mapping and native dependency/profile fixtures have local
 CPU/CMake tests; package-notice retention checks also pass. Initial native body
-simulation and detached admission have local CPU tests. Events, controls,
-recovery, editor, installed SDK and Windows/export acceptance remain incomplete. See the
+simulation, detached admission, controls, queries and copied current/retired
+events have local CPU tests, including existing navigation/animation exclusions.
+Recovery, editor, installed SDK and Windows/export acceptance remain incomplete. See the
 [2D integration contract](../physics-2d.md).

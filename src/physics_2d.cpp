@@ -6,10 +6,15 @@
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <tuple>
 
 namespace forge::physics_detail {
 namespace {
 constexpr std::size_t body_limit = 1024, pair_limit = 4096;
+constexpr std::size_t query_work_limit = 16384, event_limit = 16384;
+// Private native query traffic bypasses body collision masks while retaining
+// the existing 32 named project layers. No extra authored layer is introduced.
+constexpr std::uint64_t query_category = std::uint64_t{1} << 63;
 void planar_rotation(LocalRotation value) {
     const auto q = normalized(value);
     if (std::abs(q.x) > 1e-6f || std::abs(q.y) > 1e-6f)
@@ -91,7 +96,50 @@ Geometry geometry(const Body2DConfiguration& config) {
         throw std::runtime_error("2D collider mass/inertia is not positive and finite");
     return result;
 }
+b2ShapeProxy overlap_proxy(const PhysicsOverlap2D& query) {
+    valid_xy({query.origin[0], query.origin[1], 0});
+    if (!std::isfinite(query.angle) || std::abs(query.angle) > 1000000)
+        throw std::runtime_error("2D overlap angle exceeds the supported radians profile");
+    const LocalRotation q{0, 0, float(std::sin(.5 * query.angle)),
+                          float(std::cos(.5 * query.angle))};
+    const auto rotation = native_rotation(q);
+    const auto& d = query.dimensions;
+    if (query.shape == PhysicsOverlap2D::Shape::Box) {
+        const float x = .5f * dimension(d[0], .01f, 1000), y = .5f * dimension(d[1], .01f, 1000);
+        const b2Vec2 points[] = {{-x, -y}, {x, -y}, {x, y}, {-x, y}};
+        return b2MakeOffsetProxy(points, 4, 0, {0, 0}, rotation);
+    }
+    const float radius = dimension(d[0], .005f, 500);
+    if (query.shape == PhysicsOverlap2D::Shape::Circle) {
+        const b2Vec2 point{0, 0};
+        if (d[1] != 0)
+            throw std::runtime_error("2D circle overlap has an unused nonzero height");
+        return b2MakeProxy(&point, 1, radius);
+    }
+    if (query.shape != PhysicsOverlap2D::Shape::Capsule)
+        throw std::runtime_error("Unknown 2D overlap shape kind");
+    const float height = dimension(d[1], .01f, 1000);
+    if (double(height) + 2 * double(radius) > 1000)
+        throw std::runtime_error("2D overlap capsule total height exceeds the profile");
+    const b2Vec2 points[] = {{0, -.5f * height}, {0, .5f * height}};
+    return b2MakeOffsetProxy(points, 2, radius, {0, 0}, rotation);
+}
+b2QueryFilter query_filter(PhysicsQueryFilter value) {
+    auto result = b2DefaultQueryFilter();
+    result.categoryBits = query_category;
+    result.maskBits = value.mask;
+    return result;
+}
 } // namespace
+
+void validate_ray_2d(Double2 origin, Double2 displacement) {
+    valid_xy({origin[0], origin[1], 0});
+    valid_xy({origin[0] + displacement[0], origin[1] + displacement[1], 0});
+    if (!std::isfinite(displacement[0]) || !std::isfinite(displacement[1]) ||
+        (displacement[0] == 0 && displacement[1] == 0))
+        throw std::runtime_error("2D ray displacement must be finite and nonzero");
+}
+void validate_overlap_2d(const PhysicsOverlap2D& query) { (void)overlap_proxy(query); }
 
 Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings,
                             const std::map<std::uint64_t, TransformNode>& nodes) {
@@ -189,6 +237,95 @@ struct Native2D::Impl {
         std::uint64_t epoch = 0;
     };
     std::map<std::uint64_t, Body> bodies;
+    struct Binding {
+        EntityRef ref;
+        std::uint64_t epoch;
+    };
+    std::map<std::uint64_t, Binding> retired;
+    std::vector<PhysicsContact2D> events;
+    std::size_t pending_end_bound = 0;
+    std::uint64_t last_step_tick = 0, last_event_tick = 0;
+    void retire(const Body& body) {
+        pending_end_bound += std::size_t(b2Body_GetContactCapacity(body.id));
+        if (body.admitted.config.body.sensor)
+            pending_end_bound += std::size_t(b2Shape_GetSensorCapacity(body.shape));
+        if (!retired.emplace(b2StoreShapeId(body.shape), Binding{body.admitted.ref, body.epoch})
+                 .second)
+            throw std::runtime_error("2D retired-shape generation alias");
+        b2DestroyBody(body.id);
+    }
+    const Body* owned(b2ShapeId shape) const noexcept {
+        if (!b2Shape_IsValid(shape))
+            return nullptr;
+        const auto* body = static_cast<const Body*>(b2Shape_GetUserData(shape));
+        return body && B2_ID_EQUALS(body->shape, shape) ? body : nullptr;
+    }
+    Binding binding(b2ShapeId shape) const {
+        if (const auto* body = owned(shape))
+            return {body->admitted.ref, body->epoch};
+        const auto old = retired.find(b2StoreShapeId(shape));
+        if (old != retired.end())
+            return old->second;
+        throw std::runtime_error("2D event has no current or retained native shape binding");
+    }
+    struct RayQuery {
+        const Impl* self;
+        PhysicsQueryFilter filter;
+        std::size_t work = 0;
+        bool failed = false;
+        std::optional<PhysicsHit2D> hit;
+    };
+    static float ray_hit(b2ShapeId shape, b2Pos point, b2Vec2 normal, float fraction,
+                         void* pointer) noexcept {
+        auto& query = *static_cast<RayQuery*>(pointer);
+        if (++query.work > query_work_limit) {
+            query.failed = true;
+            return 0;
+        }
+        const auto* body = query.self->owned(shape);
+        if (!body || !std::isfinite(point.x) || !std::isfinite(point.y) ||
+            !std::isfinite(normal.x) || !std::isfinite(normal.y) || !std::isfinite(fraction) ||
+            fraction < 0 || fraction > 1) {
+            query.failed = true;
+            return 0;
+        }
+        if (!query.filter.include_sensors && body->admitted.config.body.sensor)
+            return -1;
+        if (!query.hit || fraction < query.hit->fraction)
+            query.hit = PhysicsHit2D{
+                body->admitted.ref, {point.x, point.y}, {normal.x, normal.y}, fraction};
+        return float(query.hit->fraction);
+    }
+    struct OverlapQuery {
+        const Impl* self;
+        PhysicsQueryFilter filter;
+        std::size_t work = 0, count = 0;
+        bool failed = false;
+        std::array<EntityRef, physics_overlap_limit> refs{};
+    };
+    static bool overlap_hit(b2ShapeId shape, void* pointer) noexcept {
+        auto& query = *static_cast<OverlapQuery*>(pointer);
+        if (++query.work > query_work_limit) {
+            query.failed = true;
+            return false;
+        }
+        const auto* body = query.self->owned(shape);
+        if (!body) {
+            query.failed = true;
+            return false;
+        }
+        if (!query.filter.include_sensors && body->admitted.config.body.sensor)
+            return true;
+        const auto end = query.refs.begin() + query.count;
+        if (std::find(query.refs.begin(), end, body->admitted.ref) != end)
+            return true;
+        if (query.count == query.refs.size()) {
+            query.failed = true;
+            return false;
+        }
+        query.refs[query.count++] = body->admitted.ref;
+        return true;
+    }
     explicit Impl(const PhysicsConfig& value) : config(value) {}
     ~Impl() {
         if (B2_IS_NON_NULL(world))
@@ -254,7 +391,7 @@ struct Native2D::Impl {
         shape_definition.material.friction = value.friction;
         shape_definition.material.restitution = value.restitution;
         shape_definition.filter.categoryBits = std::uint64_t{1} << value.layer;
-        shape_definition.filter.maskBits = value.mask;
+        shape_definition.filter.maskBits = std::uint64_t(value.mask) | query_category;
         shape_definition.isSensor = value.sensor;
         shape_definition.enableSensorEvents = true;
         shape_definition.enableContactEvents = true;
@@ -285,6 +422,22 @@ void Native2D::validate(const Desired2D& desired, float dt,
                         const std::map<std::uint64_t, LocalTransform>& placements) const {
     const auto& self = *impl_;
     self.check();
+    std::size_t retired_count = 0, ends = self.pending_end_bound;
+    for (const auto& [id, body] : self.bodies) {
+        const auto next = desired.find(id);
+        if (next == desired.end() || next->second.ref != body.admitted.ref ||
+            next->second.config != body.admitted.config) {
+            ++retired_count;
+            ends += std::size_t(b2Body_GetContactCapacity(body.id));
+            if (body.admitted.config.body.sensor)
+                ends += std::size_t(b2Shape_GetSensorCapacity(body.shape));
+        }
+    }
+    // A step can end its old sensor overlaps and begin its new admitted pairs.
+    // Reserve both windows in addition to pending native destruction Ends.
+    if (retired_count + self.retired.size() > event_limit || ends > event_limit - 2 * pair_limit)
+        throw std::runtime_error(
+            "2D pending retirement/event capacity exceeded before native writes");
     for (const auto& [id, value] : desired) {
         (void)geometry(value.config);
         const auto old = self.bodies.find(id);
@@ -332,7 +485,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
         self.realize();
         for (auto old = self.bodies.begin(); old != self.bodies.end();) {
             if (!desired.contains(old->first)) {
-                b2DestroyBody(old->second.id);
+                self.retire(old->second);
                 old = self.bodies.erase(old);
             } else
                 ++old;
@@ -360,7 +513,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                         pose.translation.y = position.y;
                         pose.rotation = copied_rotation(rotation);
                     }
-                    b2DestroyBody(old->second.id);
+                    self.retire(old->second);
                     self.bodies.erase(old);
                 }
                 auto body = self.create(value, pose);
@@ -371,6 +524,8 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                         b2Body_SetAwake(body.id, false);
                 }
                 old = self.bodies.emplace(id, std::move(body)).first;
+                b2Body_SetUserData(old->second.id, &old->second);
+                b2Shape_SetUserData(old->second.shape, &old->second);
                 snaps.push_back(id);
             }
             old->second.admitted = value;
@@ -480,15 +635,126 @@ std::optional<Double2> Native2D::point_velocity(std::uint64_t entity, EntityRef 
     const auto value = b2Body_GetWorldPointVelocity(found->second.id, {point[0], point[1]});
     return Double2{value.x, value.y};
 }
-void Native2D::step(float dt) {
+std::optional<PhysicsHit2D> Native2D::raycast(Double2 origin, Double2 displacement,
+                                              PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    validate_ray_2d(origin, displacement);
+    if (!realized() || !filter.mask)
+        return {};
+    Impl::RayQuery query{&self, filter};
+    b2World_CastRay(self.world, {origin[0], origin[1]},
+                    {float(displacement[0]), float(displacement[1])}, query_filter(filter),
+                    Impl::ray_hit, &query);
+    if (query.failed)
+        throw std::runtime_error(
+            "2D ray query exceeded its work limit or hit an invalid native binding");
+    return query.hit;
+}
+std::vector<EntityRef> Native2D::overlap(const PhysicsOverlap2D& request,
+                                         PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    const auto proxy = overlap_proxy(request);
+    if (!realized() || !filter.mask)
+        return {};
+    Impl::OverlapQuery query{&self, filter};
+    b2World_OverlapShape(self.world, {request.origin[0], request.origin[1]}, &proxy,
+                         query_filter(filter), Impl::overlap_hit, &query);
+    if (query.failed)
+        throw std::runtime_error(
+            "2D overlap query exceeded its work/body limit or hit an invalid native binding");
+    std::vector<EntityRef> result(query.refs.begin(), query.refs.begin() + query.count);
+    std::sort(result.begin(), result.end());
+    return result;
+}
+bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
+    impl_->check();
+    const auto found = impl_->bodies.find(entity);
+    return found != impl_->bodies.end() && found->second.admitted.ref == ref &&
+           found->second.epoch == epoch;
+}
+bool Native2D::contains(std::uint64_t entity, EntityRef ref) const {
+    impl_->check();
+    const auto found = impl_->bodies.find(entity);
+    return found != impl_->bodies.end() && found->second.admitted.ref == ref;
+}
+void Native2D::expire_events() {
+    impl_->check();
+    impl_->events.clear();
+}
+std::size_t Native2D::event_count() const {
+    impl_->check();
+    return impl_->events.size();
+}
+std::optional<PhysicsContact2D> Native2D::event(std::size_t index) const {
+    impl_->check();
+    if (index >= impl_->events.size())
+        return {};
+    return impl_->events[index];
+}
+void Native2D::validate_step() const {
+    impl_->check();
+    if (impl_->last_step_tick != impl_->last_event_tick)
+        throw std::runtime_error("Adopt the completed 2D fixed step before starting another");
+}
+void Native2D::adopt_events(std::uint64_t tick) {
     auto& self = *impl_;
     self.check();
+    if (!realized() || self.last_step_tick != tick || self.last_event_tick == tick)
+        return;
+    try {
+        const auto contacts = b2World_GetContactEvents(self.world);
+        const auto sensors = b2World_GetSensorEvents(self.world);
+        if (contacts.beginCount < 0 || contacts.endCount < 0 || sensors.beginCount < 0 ||
+            sensors.endCount < 0 ||
+            std::uint64_t(contacts.beginCount) + contacts.endCount + sensors.beginCount +
+                    sensors.endCount >
+                event_limit)
+            throw std::runtime_error("2D copied event capacity 16384 exceeded");
+        std::vector<PhysicsContact2D> next;
+        next.reserve(std::size_t(contacts.beginCount) + contacts.endCount + sensors.beginCount +
+                     sensors.endCount);
+        auto append = [&](b2ShapeId a, b2ShapeId b, bool begin, bool sensor) {
+            auto first = self.binding(a), second = self.binding(b);
+            if (!sensor && std::tie(first.ref, first.epoch) > std::tie(second.ref, second.epoch))
+                std::swap(first, second);
+            next.push_back({first.ref, second.ref, first.epoch, second.epoch, tick, begin, sensor,
+                            false, false});
+        };
+        for (int i = 0; i < contacts.beginCount; ++i)
+            append(contacts.beginEvents[i].shapeIdA, contacts.beginEvents[i].shapeIdB, true, false);
+        for (int i = 0; i < contacts.endCount; ++i)
+            append(contacts.endEvents[i].shapeIdA, contacts.endEvents[i].shapeIdB, false, false);
+        for (int i = 0; i < sensors.beginCount; ++i)
+            append(sensors.beginEvents[i].sensorShapeId, sensors.beginEvents[i].visitorShapeId,
+                   true, true);
+        for (int i = 0; i < sensors.endCount; ++i)
+            append(sensors.endEvents[i].sensorShapeId, sensors.endEvents[i].visitorShapeId, false,
+                   true);
+        std::sort(next.begin(), next.end(), [](const auto& a, const auto& b) {
+            return std::tie(a.sensor, a.first, a.first_epoch, a.second, a.second_epoch, a.begin) <
+                   std::tie(b.sensor, b.first, b.first_epoch, b.second, b.second_epoch, b.begin);
+        });
+        self.events.swap(next);
+        self.retired.clear();
+        self.pending_end_bound = 0;
+        self.last_event_tick = tick;
+    } catch (...) {
+        self.fault = true;
+        throw;
+    }
+}
+void Native2D::step(float dt, std::uint64_t tick) {
+    auto& self = *impl_;
+    self.check();
+    validate_step();
     if (!realized())
         return;
     self.pair_work = std::size_t(b2World_GetCounters(self.world).contactCount);
-    for (const auto& [id, body] : self.bodies)
-        if (body.admitted.config.body.sensor)
-            self.pair_work += std::size_t(b2Shape_GetSensorCapacity(body.shape));
+    // Sensor overlaps are rebuilt by the native sensor query each step and are
+    // already charged by the custom callback. Reserve only retained solid
+    // contacts here; charging retained sensors again rejects unchanged worlds.
     self.overflow = self.pair_work > pair_limit;
     if (!self.overflow)
         b2World_Step(self.world, dt, 4);
@@ -497,6 +763,7 @@ void Native2D::step(float dt) {
         throw std::runtime_error(
             "2D pair work capacity 4096 exceeded; partial native step rejected");
     }
+    self.last_step_tick = tick;
 }
 std::map<std::uint64_t, LocalTransform> Native2D::adopted_poses() const {
     const auto& self = *impl_;

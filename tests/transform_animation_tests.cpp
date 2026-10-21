@@ -312,6 +312,19 @@ int main(int argc, char** argv) {
         conflict.scene.entity(actor).set<PhysicsBody>(body);
         rejects([&] { conflict.ready(); });
         near(conflict.scene.entity(actor).get<LocalTranslation>().x, 0);
+        Fixture conflict_2d(root);
+        conflict_2d.load(source);
+        conflict_2d.scene.entity(actor).set<PhysicsBody2D>({2});
+        rejects([&] { conflict_2d.ready(); });
+        near(conflict_2d.scene.entity(actor).get<LocalTranslation>().x, 0);
+        Fixture inactive_2d(root);
+        inactive_2d.load(source);
+        auto inactive_body = PhysicsBody2D{2};
+        inactive_body.enabled = false;
+        inactive_2d.scene.entity(actor).set<PhysicsBody2D>(inactive_body);
+        inactive_2d.ready();
+        inactive_2d.simulation.tick(.25f);
+        near(inactive_2d.scene.entity(actor).get<LocalTranslation>().x, 1);
         // Export from a saved scene: its component reference discovers the clip.
         atomic_write(root / "main.scene.json", source.dump(2));
         const std::array roots{scene.asset_id()};
