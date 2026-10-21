@@ -18,6 +18,14 @@ with another startup scene to export a different demonstration.
 The gallery contains ordinary saved project content. Most scenes need no C++ compiler; optional C++ examples require the matching development tools to build. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
 
+## 2D physics
+
+Scene **75-2d-physics** contains falling boxes, a circle and a capsule, a moving
+platform and a pass-through sensor. Change body settings in Inspector while
+stopped, then compare Play. **Selected collision** shows the authored collider.
+The ordinary Sprite children follow the capsule. Save and select this Scene as
+startup before export. See [2D physics](../editor/physics-2d.md).
+
 ## Tile Maps
 
 Scene **74-tile-maps** contains an editable two-layer arrow course and

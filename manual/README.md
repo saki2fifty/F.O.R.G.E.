@@ -65,6 +65,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Reference game](reference-game.md): standalone controls, menus, rebinding and saves.
 
 - [Physics](editor/physics.md): make bodies fall and collide, with Pause/Step and prefab support.
+- [2D physics](editor/physics-2d.md): Sprite bodies, box/circle/capsule colliders, sensors and the editable Gallery75 playground.
 - [C++ contact example](samples/physics-contacts.md): react to a sensor zone with editable speed and reversal settings.
 - [C++ volume example](samples/physics-volumes.md): count current objects inside a query shape, with sensor filtering.
 - [Play mode](editor/play-mode.md): run an isolated copy of your scene.

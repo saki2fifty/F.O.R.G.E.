@@ -4924,6 +4924,52 @@
     },
     {
       "dependencies": [
+        "af69e469-dd94-4545-a61f-682cafb574ee"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "faee8dd1b4ef85f29096a742630b7e342e7860753050764ecf1163a253f322e3",
+          "role": "material.texture:baseColorTexture",
+          "target": "af69e469-dd94-4545-a61f-682cafb574ee",
+          "type": "texture"
+        }
+      ],
+      "id": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "85ecd1a415570820dce5e12d806ef6f3e5d136cdad074022856d1973d897898a",
+          "backend": "d3d12",
+          "dependency_digest": "b040f4c451589534ded5fcbc60e79882dab684760124d8516f96d24ed5084294",
+          "generation": 2,
+          "importer": "forge.material.builtin",
+          "importer_revision": "be703c7f8e10178907ea0903676d94291e8ade38bbbf056bf69291f3d9e860ce",
+          "key": "aa28155ce9e7c5ebab344e5be122e789932f984533a786be2440d6fed190bfca",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "26700032469599f62947a2287be9a6934d487ca11e3097145cdc55ef20dd04e2",
+          "source_digest": "5a851b701809651568a7a754f6468d6f7f6136909f53e487b91d9831d9c20b07",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "af69e469-dd94-4545-a61f-682cafb574ee"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Physics2D/Solid.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
+      "dependencies": [
         "258b9537-c0f6-448d-af8c-818f150d67cf"
       ],
       "dependency_edges": [
@@ -8491,6 +8537,41 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "da50e938-f21b-4a87-b116-860bbbb7fdf3",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "a03744b68ecd04eb775a3e85ca2e652c719f21388f617d0dba9a986c57b6b622",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.animation.transform",
+          "importer_revision": "forge.animation.transform.v8",
+          "key": "d272422c60f230db8bb9edbafc5643e9e3f133345f103629bec4037c7fef300e",
+          "output_format": "forge.transform-clip",
+          "output_version": 5,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "bdbc6c3aa00da5b897b470d18104e74416539febcc7a15bf940ae796a2219a17",
+          "source_digest": "87dad1b8add60e24b1bccf873622dc8235f35c37947334ee04144a0279e54182",
+          "version": 1
+        },
+        "forge.transform_animation": {
+          "bytes": 689,
+          "file": "animation.clip",
+          "sha256": "34de49de8c21b112ef26aa9c7ee88fff5dd1cdac4fb8c3855b81c3bdfd5acbc9",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Physics2D/Platform.animation.json",
+      "source_dependencies": [],
+      "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "db5e6c73-94df-4051-b66f-4b2627c5f249",
       "metadata": {
         "forge.import": {
@@ -9910,6 +9991,16 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "ff6429b9-0da6-4fbb-8993-a7464593bec9",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/75-2d-physics.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     }
   ],
   "version": 2

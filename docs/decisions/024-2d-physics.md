@@ -18,7 +18,9 @@ static C17 linkage, double world positions, normal float geometry/velocities,
 one native worker, native Debug validation and unchanged default length units. Preserve
 its MIT notice. Private dependency/build integration and the initial body adapter
 are present, with engine controls/events and private recovery implemented locally. Matching installed SDK modules have local CPU/process validation; editor presentation and export remain pending.
-Vendor headers and handles do not enter the gameplay SDK.
+Vendor headers and handles do not enter the gameplay SDK. Local typed authoring,
+Inspector/guide CPU checks and source-free Gallery content playback are also
+present; native pixels and Windows executable export validation remain pending.
 
 ## Coordinates and authority
 

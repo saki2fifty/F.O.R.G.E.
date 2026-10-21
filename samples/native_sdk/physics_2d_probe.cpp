@@ -1,4 +1,5 @@
 // Original FORGE exact-SDK boundary fixture. No native physics linkage.
+#include "Physics2D.hpp"
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -137,7 +138,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
                 replacement.mass = 3;
                 entity.set<forge::PhysicsBody2D>(replacement);
             }
-            check(client.set_linear_velocity_2d(ref.scene_uuid, ref.entity_uuid, velocity) &&
+            check(forge_gallery_launch_2d(host, ref, velocity[0], velocity[1]) &&
                       client.set_angular_velocity_2d(ref.scene_uuid, ref.entity_uuid, .4),
                   "Planar SDK velocity controls failed");
             for (uint32_t kind = 0; kind < 4; ++kind) {
@@ -208,7 +209,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
             check(count >= 0 && count <= 16384, "Planar SDK contact count invalid");
             for (int32_t i = 0; i < count; ++i) {
                 ForgeSdkPhysicsContact2DV1 event{}, again{};
-                check(client.contact_event_2d(uint32_t(i), event) == 1 && event.sensor &&
+                check(forge_gallery_sensor_event_2d(host, uint32_t(i), event) &&
                           client.contact_event_2d(uint32_t(i), again) == 1 &&
                           event.tick == again.tick && event.first_epoch == again.first_epoch &&
                           event.second_epoch == again.second_epoch && event.begin == again.begin,

@@ -6,8 +6,10 @@ the Tile Map milestone and contains no 2D physics. Local CPU tests cover authore
 reflection, scene save/reopen, initial native body simulation, domain separation,
 signed/flat parent frames, typed engine controls, queries, copied state/events and
 rejected partial steps, and private fresh-candidate recovery. Matching installed
-SDK modules also pass local checks through both process hosts. Editor presentation,
-Windows and source-free export acceptance remain incomplete.
+SDK modules also pass local checks through both process hosts. Inspector controls
+and collision guides have actual ImGui CPU checks at100/150/200%; Gallery75 runs
+from relocated prepared content with its source project deleted. Native pixels,
+Windows and source-free executable export acceptance remain incomplete.
 [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
 
@@ -58,6 +60,26 @@ The original native range probe checks 90 box/circle/capsule cases at 0/±100000
 including dimensions 0.01..1000 m, densities 0.001..10000 kg/m², positive finite
 area-density mass/inertia, free motion and closest rays. It does not establish
 contact quality, CCD, large-world performance or all intermediate combinations.
+
+### High-speed collision and sensor limits
+
+The selected native world enables continuous collision. A Dynamic body's Bullet
+flag additionally tests against Kinematic and non-bullet Dynamic bodies. It does
+not provide bullet-versus-bullet CCD or exact projectile timing for two moving
+targets. Local engine tests drive all three inline shapes at100m/s through a
+0.05m receiver's location at60Hz, checking Static, Kinematic and massive Dynamic
+receivers independently. These examples do not establish every trajectory,
+initial overlap, timestep or relative-speed combination.
+
+Box2D3.2.0 also records continuous sensor candidates for a fast solid body. The
+visitor can pass completely through a thin sensor during a tick and still produce
+a Begin, followed by End on a later tick. The native implementation retains at
+most eight continuous sensor candidates per fast body per step; solid hits can
+discard later crossings. This is a bounded best-effort native observation, not a
+promise to detect every thin trigger along an arbitrary high-speed path. Use
+explicit queries when gameplay requires its own path checks. Sensors remain
+non-solid. The shared pair-work guard also runs in native continuous and sensor
+queries before their admitted pairs allocate event storage.
 
 The existing authoring commands own component addition, typed property changes,
 Undo/Redo and save/reopen. Prefab property intent stays separate from a complete

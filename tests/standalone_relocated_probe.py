@@ -1,7 +1,7 @@
 """Fresh Windows runner: no source checkout, SDK, original project or build tree."""
 import hashlib,json,os,shutil,subprocess,sys
 from pathlib import Path
-assert len(sys.argv) in (3,4,5), "Expected game, evidence and optional Sprite/Tile Map games"
+assert len(sys.argv) in (3,4,5,6), "Expected game, evidence and optional Sprite/Tile Map/2D physics games"
 root,evidence=map(lambda p:Path(p).resolve(),sys.argv[1:3])
 evidence.mkdir(parents=True,exist_ok=True)
 env=os.environ.copy();env['PATH']=str(Path(os.environ['SystemRoot'])/'System32')
@@ -33,7 +33,7 @@ assert {p.relative_to(relocated).as_posix() for p in relocated.rglob('*') if p.i
 (evidence/'fresh-runner.json').write_text(json.dumps({'engine':manifest['engine'],'production_startup':True,'fresh_runner_no_checkout_or_sdk':True,'installation_unchanged':True,'saves_settings_survive_second_move':True},indent=2))
 
 for index, gallery_path in enumerate(sys.argv[3:]):
- label='sprite-image' if index==0 else 'tile-map'
+ label=('sprite-image','tile-map','physics-2d')[index]
  sprite=Path(gallery_path).resolve()
  sprite_manifest=json.loads((sprite/'forge.standalone.json').read_text())
  assert sprite_manifest['engine']['profile']=='shared-native-sdk'

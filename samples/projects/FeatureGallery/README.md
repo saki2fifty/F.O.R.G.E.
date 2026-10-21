@@ -1,5 +1,32 @@
 # FORGE Feature Gallery
 
+## 2D physics
+
+Open **Scenes/75-2d-physics.scene.json**, press Play and switch to Game. Five
+colored bodies—three boxes, a circle and a capsule—fall, cross the translucent
+green sensor, and collide
+with the blue moving platform or the gray floor. The green strip lets bodies
+pass through. The platform repeats a four-second horizontal journey.
+
+Stop, select **Dynamic amber box**, and change **Physics Body 2D > Restitution**
+to `0.8`. Play again to compare the bounce. Stop to restore the saved starting
+positions. Change **Motion** to Static to hold that body in place, or adjust its
+box collider dimensions separately from the Sprite size. Select a body and
+enable **Selected collision** in the Scene view to compare its collision outline
+with the image. The capsule's three ordinary Sprite children follow its body.
+
+Select **Green sensor**, turn off **Sensor**, and Play to turn the strip into a
+solid shelf. Stop and Undo to restore the sensor. Its Begin/End crossings are
+available to C++; the strip does not change color automatically. The optional
+**CodeExamples/Physics2D.hpp** demonstrates queued launch velocity and copied
+sensor events. This scene runs without compiling an optional module.
+
+Save the Scene, choose it as the Project startup Scene, and export with the
+matching runtime kit. The exported game uses the saved bodies, Sprite materials
+and prepared platform clip. Source files and a C++ compiler are unnecessary on
+the player's machine. This scene requires a build containing the 2D physics
+milestone; Build261021-000195 does not contain it.
+
 ## Tile Maps (development)
 
 Open **Scenes/74-tile-maps.scene.json**. The arrow course and smaller mirrored

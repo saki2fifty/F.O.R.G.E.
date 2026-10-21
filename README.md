@@ -18,7 +18,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 | Rendering | Diligent Engine and selected DiligentFX utilities | Shared Scene/Game renderer, PBR materials and GPU resources; D3D12 editor with Vulkan validation probes. |
 | Shaders | HLSL | Surface shaders and shader generation from FORGE material graphs. |
 | Game interface and fonts | RmlUi and FreeType | Runtime HUD documents, input, text and bundled-font rendering. |
-| Physics | Jolt Physics | 3D rigid bodies, colliders, queries, constraints and character movement. |
+| Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, sensors and queries. |
 | Skeletal animation | Ozz Animation | Animation sampling, blending and glTF animation conversion. |
 | Navigation | Recast and Detour | Static navigation mesh generation, path queries and local steering. |
 | Audio | miniaudio | WAV decoding, playback, spatial sound and mixing. |

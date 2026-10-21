@@ -52,6 +52,19 @@
         0
       ],
       "yaw": 0
+    },
+    "Scenes/75-2d-physics.scene.json": {
+      "distance": 12,
+      "grid_plane": "xy",
+      "orthographic_height": 12,
+      "pitch": 0,
+      "projection": "orthographic",
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0
     }
   }
 }

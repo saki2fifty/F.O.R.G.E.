@@ -15,6 +15,8 @@
 #include "Graphics/GraphicsEngineD3D12/interface/RenderDeviceD3D12.h"
 #include "ImGuiImplDiligent.hpp"
 #include "authoring.hpp"
+#include "physics_2d_editor_render_tests.hpp"
+#include "physics_2d_gallery_render_tests.hpp"
 #include "shader_diligent_tests.hpp"
 #include "sprite_atlas_precision_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
@@ -291,6 +293,18 @@ int main(int argc, char** argv) {
                 };
                 forge::test_tile_gallery_render::exercise(isolated, context, read,
                                                           FORGE_TEST_GALLERY, images);
+            } else if (selected == "physics-2d") {
+                const auto read = [&](ITexture* texture) {
+                    return forge::test_sprite_draw::read_pixels(device, context, texture);
+                };
+                forge::test_physics_2d_gallery_render::exercise(isolated, context, read,
+                                                                FORGE_TEST_GALLERY, images);
+                forge::test_physics_2d_editor_render::exercise(
+                    isolated, context, FORGE_TEST_GALLERY, images / "editor",
+                    [&](ITextureView* view) { return readback(device, context, view); },
+                    [&](const auto& pixels, unsigned w, unsigned h, const auto& path) {
+                        save(pixels, w, h, path);
+                    });
             } else if (selected == "tile-canvas") {
                 forge::test_tile_canvas::exercise(isolated, context,
                                                   std::filesystem::absolute(argv[0]).parent_path() /

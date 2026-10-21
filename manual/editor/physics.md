@@ -1,6 +1,6 @@
 # Physics
 
-Physics makes objects fall, collide, and come to rest during Play. FORGE uses Jolt. The scene stores your body and collider settings; the running game owns movement, velocity, and sleeping state.
+Physics makes objects fall, collide, and come to rest during Play. FORGE uses Jolt for 3D bodies. The scene stores your body and collider settings; the running game owns movement, velocity, and sleeping state. For XY Sprite bodies, see [2D physics](physics-2d.md).
 
 ## Make a falling cube
 

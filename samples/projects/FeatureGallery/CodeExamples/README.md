@@ -1,5 +1,44 @@
 # Optional C++ behaviors
 
+## 2D bodies and sensors
+
+Scene75 runs its saved bodies and moving platform without an optional module.
+`Physics2D.hpp` provides small helpers for code in a matching SDK project. In a
+registered fixed system **before Physics**, obtain the actor's canonical
+`ForgeSdkEntityRefV1` with `host->entity_reference`, then call:
+
+```cpp
+forge_gallery_launch_2d(host, actor, 2.0, 5.0); // XY metres per second
+forge::sdk::Client(host).set_angular_velocity_2d(
+    actor.scene_uuid, actor.entity_uuid, 1.0); // radians per second about +Z
+```
+
+Call these when a gameplay action occurs; calling them every tick continually
+resets the body's velocity. Each call queues its own command. The module must
+request Physics permission, and the body must be an admitted enabled Dynamic.
+The changes affect runtime state, not the saved Scene.
+
+In a registered **PostPhysics** system, inspect the current tick's copied events:
+
+```cpp
+forge::sdk::Client client(host);
+for (int32_t i = 0, count = client.contact_count_2d(); i < count; ++i) {
+    ForgeSdkPhysicsContact2DV1 event{};
+    if (forge_gallery_sensor_event_2d(host, unsigned(i), event)) {
+        // event.begin distinguishes entering from leaving.
+        // first is the sensor; second is the visitor.
+        // Check availability and epoch before acting on a current body.
+    }
+}
+```
+
+Events are broadcast observations: reading them does not consume them. They
+expire at the next admitted synchronization. A retired body's End can have the
+same authored UUID as a replacement; its epoch distinguishes that realization.
+No vendor physics handles or headers are exposed. The installed SDK's
+**physics_2d_gameplay** sample compiles these helpers and exercises the real host;
+it is a validation probe, not a behavior to attach unchanged to Scene75.
+
 ## Sequence, camera-shot and sound-cue speed
 
 Scene68 runs its saved shots without a C++ module. From an ordinary owner-thread

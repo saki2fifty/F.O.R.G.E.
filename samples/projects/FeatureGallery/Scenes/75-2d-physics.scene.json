@@ -1,0 +1,1025 @@
+{
+  "asset_id": "ff6429b9-0da6-4fbb-8993-a7464593bec9",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.065,
+          "background_g": 0.04,
+          "background_r": 0.025,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 50.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 12.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -12.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "29710581-bc6f-4149-82a4-c23a6639c1d1",
+      "name": "Orthographic camera - XY physics",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 16.0,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -4.5,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.43,
+          "tint_g": 0.32,
+          "tint_r": 0.24,
+          "visible": true,
+          "width": 16.0
+        }
+      },
+      "id": "e8e8e1b2-b995-4f59-9d42-cf32e838de76",
+      "name": "Static floor",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 0.5,
+          "y": 8.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -8.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 8.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.43,
+          "tint_g": 0.32,
+          "tint_r": 0.24,
+          "visible": true,
+          "width": 0.5
+        }
+      },
+      "id": "0c49eeed-8bc0-4421-a744-ffcd42c80a91",
+      "name": "Static left wall",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 0.5,
+          "y": 8.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 8.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 8.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.43,
+          "tint_g": 0.32,
+          "tint_r": 0.24,
+          "visible": true,
+          "width": 0.5
+        }
+      },
+      "id": "0704d08c-e2f4-4fd8-a4d2-1183f6158e70",
+      "name": "Static right wall",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 3.0,
+          "y": 0.4
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -2.0,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 1,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 0.4,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.65,
+          "tint_r": 0.2,
+          "visible": true,
+          "width": 3.0
+        },
+        "forge.transform_animator": {
+          "clip": "da50e938-f21b-4a87-b116-860bbbb7fdf3",
+          "enabled": true,
+          "loop": true,
+          "play_on_start": true,
+          "playback_speed": 1.0,
+          "sequence": null,
+          "sequence_start_seconds": 0.0
+        }
+      },
+      "id": "03670a0f-86b8-446d-a1cd-6fd3fbcccb89",
+      "name": "Kinematic platform - edit the translation clip",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 13.0,
+          "y": 0.45
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.25,
+          "z": 0.1
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.15,
+          "sensor": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 0.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": -1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 0.3,
+          "tint_b": 0.55,
+          "tint_g": 1.0,
+          "tint_r": 0.2,
+          "visible": true,
+          "width": 13.0
+        }
+      },
+      "id": "bb4c763d-eb09-4c0d-8dae-956d9fa112d5",
+      "name": "Green sensor - bodies pass through",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 0.9,
+          "y": 0.9
+        },
+        "forge.local_rotation": {
+          "w": 0.9950041652780258,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.09983341664682815
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.6,
+          "y": 3.8,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 0.9,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.2,
+          "tint_g": 0.65,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 0.9
+        }
+      },
+      "id": "4c25c1a7-8c3b-4749-8b32-6fbd25af7012",
+      "name": "Dynamic amber box",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 0.75,
+          "y": 1.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9887710779360422,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.14943813247359922
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 4.8,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.5,
+          "tint_g": 0.3,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 0.75
+        }
+      },
+      "id": "7172aeee-71b9-4716-bbf1-f3daf3312c03",
+      "name": "Dynamic rose box",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 0.8,
+          "y": 0.8
+        },
+        "forge.local_rotation": {
+          "w": 0.9800665778412416,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.19866933079506122
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 4.6,
+          "y": 4.3,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 0.8,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.45,
+          "tint_r": 0.65,
+          "visible": true,
+          "width": 0.8
+        }
+      },
+      "id": "71fe8b43-74f2-4b1e-8c10-ba5c2c421bb4",
+      "name": "Dynamic violet box",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.circle_collider_2d": {
+          "radius": 0.4375
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -2.2,
+          "y": 4.6,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.85,
+          "tint_r": 0.2,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "1582ad4c-06d4-4981-aada-ec922e45d5e4",
+      "name": "Dynamic cyan circle",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.capsule_collider_2d": {
+          "height": 1.0,
+          "radius": 0.25
+        },
+        "forge.local_rotation": {
+          "w": 0.9950041652780258,
+          "x": 0.0,
+          "y": 0.0,
+          "z": -0.09983341664682815
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 2.2,
+          "y": 4.6,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "8577f550-c3c4-4c2b-94a1-3210fd3445ff",
+      "name": "Dynamic lime capsule - visual children follow the body",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 1.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.3,
+          "tint_g": 1.0,
+          "tint_r": 0.65,
+          "visible": true,
+          "width": 0.5
+        }
+      },
+      "id": "eb420fa3-6320-4f90-acd5-9ddbf3a2f617",
+      "name": "Capsule center sprite",
+      "parent": "8577f550-c3c4-4c2b-94a1-3210fd3445ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 0.5714285714285714,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.3,
+          "tint_g": 1.0,
+          "tint_r": 0.65,
+          "visible": true,
+          "width": 0.5714285714285714
+        }
+      },
+      "id": "38276260-e73f-47ee-b4c9-2422da6b26ca",
+      "name": "Capsule upper cap sprite",
+      "parent": "8577f550-c3c4-4c2b-94a1-3210fd3445ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.5,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 0.5714285714285714,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "7949266a-8b55-4b6e-beb6-37526ca79446",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.3,
+          "tint_g": 1.0,
+          "tint_r": 0.65,
+          "visible": true,
+          "width": 0.5714285714285714
+        }
+      },
+      "id": "f4f9af0b-a7f8-4348-8e75-aca1eb6fa448",
+      "name": "Capsule lower cap sprite",
+      "parent": "8577f550-c3c4-4c2b-94a1-3210fd3445ff",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 5
+}

@@ -206,12 +206,13 @@ void kinematic_limits_and_rotation_mapping() {
     test.tick();
 }
 void bounded_work_fault() {
-    for (bool sensor : {false, true}) {
+    for (unsigned profile : {0u, 1u, 2u}) {
         Fixture test;
         Json entities = Json::array();
         for (unsigned i = 0; i < 100; ++i) {
             auto body = row(EntityId::generate().str(), "Dense body", 0, 0, 2);
-            body["components"]["forge.physics_body_2d"]["sensor"] = sensor;
+            body["components"]["forge.physics_body_2d"]["sensor"] = profile == 2;
+            body["components"]["forge.physics_body_2d"]["bullet"] = profile == 1;
             entities.push_back(std::move(body));
         }
         test.load({{"version", 5}, {"asset_id", AssetId::generate()}, {"entities", entities}});

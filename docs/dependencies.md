@@ -18,7 +18,7 @@ CMake fetches immutable revisions. These selections are tested baselines, not cl
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
 | miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
 | Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, distance/hinge/point/fixed constraints, body loads, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
-| Box2D | v3.2.0 / `178495ba35695aefe9c321e569d2277f06db3b90` | Private 2D backend integration in progress; no completed FORGE body API yet | [Official source](https://github.com/erincatto/box2d/tree/178495ba35695aefe9c321e569d2277f06db3b90) |
+| Box2D | v3.2.0 / `178495ba35695aefe9c321e569d2277f06db3b90` | Private XY bodies/queries, copied sensors and recovery; milestone validation in progress | [Official source](https://github.com/erincatto/box2d/tree/178495ba35695aefe9c321e569d2277f06db3b90) |
 | Flecs | v4.1.6 / `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8` | ECS/Meta/Doc/Units/Ranges, ordered hierarchies/prefabs, queries/timers, Script Math, optional diagnostics | [Source/docs](https://github.com/SanderMertens/flecs/tree/v4.1.6/docs) |
 | nlohmann/json | v3.12.0 / `55f93686c01528224f448c19128836e7df245f72` | Scene and IPC JSON | [Official docs](https://json.nlohmann.me/) |
 | Diligent Engine | `a279e5fa8593cbc758ec46ea1eba0b435cbc2f06` and its submodules | D3D12 device, swapchain, textures, shaders, ImGui integration | [Source](https://github.com/DiligentGraphics/DiligentEngine/tree/a279e5fa8593cbc758ec46ea1eba0b435cbc2f06) |
@@ -415,8 +415,9 @@ specified in [Runtime UI](runtime-ui.md#bitmap-normalization).
 Box2D 3.2.0 is the official stable release published 2026-10-19, selected at immutable
 `178495ba35695aefe9c321e569d2277f06db3b90`. Its exact source, API declarations,
 matching unit-test application and original native boundary probes were inspected.
-Private product dependency integration is present; the runtime body/SDK/editor/export
-family is incomplete. See [ADR024](decisions/024-2d-physics.md) and the
+Private product dependency, body, matching SDK, authoring, Scene guide and Gallery
+integration are present. Windows/native image/export milestone validation remains
+in progress. See [ADR024](decisions/024-2d-physics.md) and the
 [target contract](physics-2d.md). Build195 does not include this work.
 
 | Selection | Contract |

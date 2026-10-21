@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v8",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 5,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "87dad1b8add60e24b1bccf873622dc8235f35c37947334ee04144a0279e54182",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "da50e938-f21b-4a87-b116-860bbbb7fdf3",
+    "source": "Assets/Physics2D/Platform.animation.json",
+    "source_digest": "87dad1b8add60e24b1bccf873622dc8235f35c37947334ee04144a0279e54182",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}
