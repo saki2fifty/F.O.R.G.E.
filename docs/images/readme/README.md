@@ -58,3 +58,13 @@ physical graphics-card performance measurements. Some fixture stages retain
 diagnostics from intentional failure checks. The small scenes demonstrate editor
 workflows rather than finished game artwork. Sample-content attribution remains
 in the [Feature Gallery](../../../samples/projects/FeatureGallery/README.md).
+
+## 2D physics Game render
+
+[2D physics](2d-physics-runtime.png) is a lossless PNG encoding of
+`grid-test-images/physics-2d/gallery75-tick180-1280.ppm` from full Windows run
+39559873949, source `984ce7d61b24c2a70abf79666b0b5be5f2d6bf04`. The actual Game
+renderer's six 2D captures passed pixel/pose checks. That candidate's Scene guide
+fixture and a separate image-export walkthrough failed, so the whole run is not
+accepted. This image documents the qualified Game render only. Original PPM
+pixels are unchanged; no generated art, overlays or semantic edits were applied.

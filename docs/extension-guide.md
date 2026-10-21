@@ -396,3 +396,42 @@ Effects follow source values, share PCM, honor game/source pause and retire at t
 end. Stop clears the source's effects; Restart affects its primary only. The
 audio_probe sample exercises these controls. Matching SDK rebuilds are required
 when the installed header/bridge fingerprint changes; ABI1 and table sizes remain.
+
+## XY 2D physics
+
+The matching SDK exposes separate 2D values and `forge::sdk::Client` methods.
+Request the existing Physics capability and depend on `forge.physics`; there is
+no separate 2D service or clock. `PhysicsBody2D`, `BoxCollider2D`,
+`CircleCollider2D` and `CapsuleCollider2D` are authored values in
+`<forge/physics_components.hpp>`. Vendor headers and native handles stay private.
+
+Positions and linear velocities use world XY meters and meters per second.
+Angles and angular velocity use radians about positive Z. Physical simulation
+preserves authored depth and presentation scale. Submit movement, forces,
+impulses and velocity commands from an owner-thread fixed system before Physics.
+Each command queues independently in the shared physics FIFO. Read copied body
+state, point velocity, filtered rays, complete overlaps and contact observations
+from the supported fixed contexts; PostPhysics observes the completed tick.
+
+`ForgeSdkPhysicsContact2DV1` carries canonical references, realization epochs,
+availability flags and the simulation tick. Reading a slot does not consume it.
+An End may refer to a retired realization while the same authored UUID already
+has a replacement: check its epoch and availability before acting on a current
+body. Observations expire at the next admitted synchronization. They are neither
+durable identities nor a general event bus.
+
+The installed `sample/Physics2D.hpp` contains stateless launch and sensor-reading
+helpers; `physics_2d_gameplay` and `physics_2d_denied_gameplay` in the installed
+sample CMake project exercise the real host with allowed and denied permissions.
+These are validation probes with a specific fixture, not behaviors to attach
+unchanged to Gallery75. Gallery75 itself needs no optional module. Compiled
+project modules are included by the ordinary export path; players need no SDK
+or compiler.
+
+Use the matching SDK after this callback-table/fingerprint update; native ABI1
+is retained. The first domain profile supports 1024 2D bodies within the combined
+body limit, the shared 4096-command FIFO, 256 complete overlap results and bounded
+copied events. Bullet does not provide exact projectile timing or bullet-to-bullet
+CCD. The native fast-sensor path retains eight candidates per body per step.
+See the installed [2D contract](physics-2d.md) for admission, bounds and recovery
+scope. Arbitrary native gameplay state still has no automatic SDK Play recovery.

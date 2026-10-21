@@ -111,6 +111,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             gui.Render(context);
             presentation.end_frame(context);
             host->submit();
+            context->Flush();
             context->FinishFrame();
             presentation.device()->ReleaseStaleResources();
             ++frames;

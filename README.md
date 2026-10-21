@@ -60,6 +60,14 @@ map. Native Game rendering on Linux software Vulkan:
 
 [![Two arrow courses rendered from one Tile Map, including a smaller mirrored instance](docs/images/readme/tile-maps.png)](docs/images/readme/tile-maps.png)
 
+## 2D physics
+
+The editable [2D physics gallery](manual/editor/physics-2d.md) combines falling
+Sprite shapes, a moving Kinematic platform and a pass-through sensor. This is an
+actual Windows Game render using the D3D12 WARP software adapter:
+
+[![Three boxes, a circle and a capsule rest inside a 2D physics playground below a green sensor and blue moving platform](docs/images/readme/2d-physics-runtime.png)](docs/images/readme/2d-physics-runtime.png)
+
 ## User manual
 
 Read the [FORGE User Manual](manual/README.md) for feature explanations and how-to guides. Windows packages include an offline edition under **Help → User Manual**. Technical implementation documents remain in `docs/`.
