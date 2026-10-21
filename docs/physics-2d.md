@@ -59,6 +59,15 @@ including dimensions 0.01..1000 m, densities 0.001..10000 kg/m², positive finit
 area-density mass/inertia, free motion and closest rays. It does not establish
 contact quality, CCD, large-world performance or all intermediate combinations.
 
+The existing authoring commands own component addition, typed property changes,
+Undo/Redo and save/reopen. Prefab property intent stays separate from a complete
+component override: an equal-valued mass edit remains explicit when the source
+changes, untouched density still follows the source, and Revert restores
+inheritance. Source publication uses the existing history boundary. Snapshot
+reconstruction preserves canonical references and opaque future fields, including
+full unsigned64-bit values. Local checks also realize the saved authored body in
+an actual runtime while confirming that authoring worlds create no solver.
+
 ## Transform admission and fixed ownership
 
 Use the existing effective spatial graph, evaluated double affines and signed
