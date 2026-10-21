@@ -2181,9 +2181,10 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
         const auto options = registration_options(type, m.name);
         m.unit = field_unit(world, options.at("unit"));
         const auto render_kind = builtin_enum(world, type.name, names[i]);
-        const bool enumeration =
-            render_kind || std::string(type.name) == "forge.primitive" ||
-            (std::string(type.name) == "forge.physics_body" && names[i] == "motion");
+        const bool enumeration = render_kind || std::string(type.name) == "forge.primitive" ||
+                                 ((std::string_view(type.name) == "forge.physics_body" ||
+                                   std::string_view(type.name) == "forge.physics_body_2d") &&
+                                  names[i] == "motion");
         if (enumeration)
             m.type = render_kind ? render_kind
                                  : enum_type(world, std::string(type.name) == "forge.primitive");
@@ -2221,10 +2222,12 @@ void annotate_type(flecs::world& world, flecs::entity component, const Builtin& 
             throw std::runtime_error("Native member metadata changed the typed component layout");
     }
     const std::string id = type.name;
-    const auto display = id == "forge.ui_document"   ? std::string("UI Document")
-                         : id == "forge.two_bone_ik" ? std::string("Two Bone IK")
-                         : id == "forge.aim_ik"      ? std::string("Aim IK")
-                                                     : friendly_name(id.substr(id.find('.') + 1));
+    auto display = id == "forge.ui_document"   ? std::string("UI Document")
+                   : id == "forge.two_bone_ik" ? std::string("Two Bone IK")
+                   : id == "forge.aim_ik"      ? std::string("Aim IK")
+                                               : friendly_name(id.substr(id.find('.') + 1));
+    if (id.ends_with("_2d"))
+        display.replace(display.size() - 2, 2, "2D");
     component.set_doc_name(display.c_str()).set_doc_brief(type.description);
     for (const auto& name : names) {
         auto member = component.lookup(name.c_str());

@@ -59,6 +59,22 @@ void native_layout(EngineContext& engine) {
          {"forge.box_collider_2d", "forge.circle_collider_2d", "forge.capsule_collider_2d"})
         require(world.lookup(name), "2D collider is outside the physics schema family");
     require(!engine.services().available(Capability::Physics), "Authored schema created a solver");
+    const auto schema = detail::builtin_schema();
+    bool found_motion = false;
+    for (const auto& component : schema.at("components"))
+        if (component.at("id") == "forge.physics_body_2d") {
+            require(component.at("display_name") == "Physics Body 2D", "2D component picker label");
+            for (const auto& field : component.at("fields"))
+                if (field.at("id") == "motion") {
+                    const auto& choices = field.at("choices");
+                    require(choices.size() == 3 && choices[0].at("label") == "Static" &&
+                                choices[1].at("label") == "Kinematic" &&
+                                choices[2].at("label") == "Dynamic",
+                            "2D motion did not reuse the existing named native enum");
+                    found_motion = true;
+                }
+        }
+    require(found_motion, "Missing Body2D motion choices");
 }
 void scalar_admission(EngineContext& engine) {
     const auto& body = spec("forge.physics_body_2d");

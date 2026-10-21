@@ -105,6 +105,13 @@ separate discontinuous placement path. Quaternion/native rotations convert
 directly from their unit bases; native approximate angle helpers do not define
 FORGE's authored transform values.
 
+The Inspector reuses the existing **Static / Kinematic / Dynamic** motion selector
+and Project Physics named-layer/mask controls. Layer names keep their stable slots
+across both domains. Component picker labels use **Physics Body 2D**, **Box Collider
+2D**, **Circle Collider 2D** and **Capsule Collider 2D**. Actual ImGui CPU input checks
+select motion and named mask bits and verify typed Undo/Redo at100/150/200% scale;
+native-window/pixel acceptance remains pending.
+
 ## Editor collision outlines
 
 The existing Scene **Selected collision** control includes 2D boxes, circles and

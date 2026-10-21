@@ -501,6 +501,7 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
     bool changed = false;
     const auto property = field.value("property_id", std::string{});
     if (property == "forge.physics_body.layer" || property == "forge.physics_body.mask" ||
+        property == "forge.physics_body_2d.layer" || property == "forge.physics_body_2d.mask" ||
         property == "forge.character_controller.layer" ||
         property == "forge.character_controller.mask") {
         try {
