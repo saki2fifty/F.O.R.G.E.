@@ -69,11 +69,15 @@ stable subasset mapping rules.
 
 Windows bounded asset readers open with read/write/delete sharing. An already
 opened reader retains its file revision while atomic publication replaces the
-directory entry; a later reader sees the new revision. Ordinary C++ file streams
-can deny that replacement while the source watcher or Content browser is reading
-the catalog. The reader still enforces its byte limit and rejects short reads or
-growth. Publication and source observation retain their existing revision/identity
-rechecks; opening a file is never permission to publish stale input. See
+directory entry; a later reader sees the new revision. The writer uses
+`FileRenameInfoEx` with replacement and POSIX semantics where supported, retaining
+the writable staging handle and flushing it before and after the rename. A reader
+may keep the prior file open; no reader receives partially written metadata.
+The legacy write-through move remains the fallback for SDK/OS/filesystem profiles
+without this capability, preserving their existing failure/last-good behavior.
+The reader enforces its byte limit and rejects short reads or growth. Publication
+and source observation retain their existing revision/identity rechecks; opening
+a file is never permission to publish stale input. See
 [Windows file sharing](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew).
 
 Publication is one narrowly scoped asset operation, not scene Undo or a generic
@@ -88,7 +92,8 @@ and `forge.assets.json`:
 5. Remove the completed recovery record.
 
 Staging uses unique exclusive-created files. Linux flushes files and parent
-directories; Windows flushes files and uses write-through replacement. Metadata
+directories; Windows flushes staged and replaced metadata, with write-through
+staging and the legacy write-through move on fallback profiles. Metadata
 paths must not redirect through symlinks/junctions. Reserved catalog, backup,
 sidecar and `.forge` source names are rejected across platform case conventions;
 catalog aliases are rejected too. The existing lease and content
