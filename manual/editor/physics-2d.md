@@ -66,13 +66,9 @@ Create a separate entity, add **Physics Joint 2D**, and choose **Body A** and
 at least one must be Dynamic. The joint entity's own transform does not position
 the connection. **Anchor A/B X/Y** are points in each body's local coordinates.
 
-- **Distance** holds the anchors at a fixed distance. A positive **Spring
-  Frequency** makes it elastic; **Spring Damping** controls how quickly it settles.
-- **Hinge** keeps the anchors together and lets the bodies rotate. Frame angles
-  define the rest orientation; optional angle limits and a torque-limited speed
-  motor control rotation.
-- **Slider** allows travel along the joint frame's X axis. Optional travel limits
-  and a force-limited speed motor control its movement.
+- **Distance** holds the anchors at a fixed distance. A positive **Spring Frequency** makes it elastic; **Spring Damping** controls how quickly it settles.
+- **Hinge** keeps the anchors together and lets the bodies rotate. Frame angles define the rest orientation; optional angle limits and a torque-limited speed motor control rotation.
+- **Slider** allows travel along the joint frame's X axis. Optional travel limits and a force-limited speed motor control its movement.
 
 Distances use metres; frame/limit angles use degrees. Hinge motor speed is
 degrees per second; Slider motor speed is metres per second. A positive speed

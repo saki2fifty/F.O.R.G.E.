@@ -28,6 +28,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     EngineContext engine(WorldRole::Authoring, false, {physics_schema_module()});
     Scene scene(engine.world());
     scene.restore_snapshot(load_game_scene(root, {scene_id}));
+    ui::EditorUiContext editor_context;
+    editor_context.scene = &scene;
+    ui::ContextScope ui_scope(editor_context);
     const auto source = scene.document(), effective = scene.effective_document();
     Json selected;
     for (const auto& row : effective.at("entities"))
