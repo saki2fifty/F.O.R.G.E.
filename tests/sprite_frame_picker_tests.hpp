@@ -185,10 +185,44 @@ inline void exercise(float scale, ImVec2 display = {1920, 1200}) {
     frame();
     check(!picker.open() && value == 2, "Disappearing field left an orphan popup");
     draw_field = true;
+    context.grid = {2, 1};
+    context.crop = SpritePixelRegion{16, 4, 32, 8};
+    value = 0;
+    const auto before_region = changes;
+    click("sprite:choose-frame");
+    canvas = box("sprite:sheet-canvas");
+    press_at({canvas.minimum.x + (canvas.maximum.x - canvas.minimum.x) * .125f,
+              (canvas.minimum.y + canvas.maximum.y) / 2});
+    check(picker.open() && value == 0 && changes == before_region,
+          "Click outside the cropped image published a frame");
+    press_at({canvas.minimum.x + (canvas.maximum.x - canvas.minimum.x) * .625f,
+              (canvas.minimum.y + canvas.maximum.y) / 2});
+    check(!picker.open() && value == 1 && changes == before_region + 1,
+          "Cropped image click did not choose its relative frame");
+    click("sprite:choose-frame");
+    context.crop = SpritePixelRegion{17, 4, 32, 8};
+    frame();
+    check(!picker.open() && value == 1 && changes == before_region + 1,
+          "Changed image region retained a selectable stale chooser");
+    context.crop = SpritePixelRegion{63, 4, 2, 8};
+    click("sprite:choose-frame");
+    check(!box("sprite:use-frame").enabled, "Out-of-image crop allowed frame publication");
+    key(ImGuiKey_Enter);
+    check(value == 1 && changes == before_region + 1, "Invalid crop accepted a keyboard frame");
+    click("sprite:cancel-frame");
+    context.crop = SpritePixelRegion{16, 0, 0, 0};
+    context.grid = {3, 1};
+    click("sprite:choose-frame");
+    key(ImGuiKey_End);
+    key(ImGuiKey_Enter);
+    check(!picker.open() && value == 2 && changes == before_region + 2,
+          "To-edge crop lost keyboard frame selection");
+    context.crop.reset();
     image_width = image_height = 4096;
     context.grid = {4096, 4096};
     click("sprite:choose-frame");
-    check(ImGui::GetDrawData()->TotalVtxCount < 16000 && value == 2,
+    check(box("sprite:use-frame").enabled && ImGui::GetDrawData()->TotalVtxCount < 16000 &&
+              value == 2,
           "Huge frame grid emitted a widget/rectangle for every cell");
     click("sprite:cancel-frame");
     test::observe_ui = false;

@@ -142,11 +142,55 @@ void sheet_selection() {
     rejects([] { (void)sprite_sheet_viewport(1024, 256, 0, 600, {}); });
     rejects([] { (void)sprite_sheet_viewport(1024, 256, 800, 600, {0}); });
 }
+void cropped_regions() {
+    const SpritePixelRegion area{5, 3, 24, 14};
+    const SpriteGridLayout grid{3, 2, 2, 1, 1, 2};
+    // A manually partitioned cropped image: x=[7,13),[14,20),[21,27),
+    // y=[4,9),[11,16). Outside pixels and the spaces between cells never select.
+    for (unsigned y = 0; y < 24; ++y)
+        for (unsigned x = 0; x < 40; ++x) {
+            const bool inside_x = (x >= 7 && x < 13) || (x >= 14 && x < 20) || (x >= 21 && x < 27);
+            const bool inside_y = (y >= 4 && y < 9) || (y >= 11 && y < 16);
+            const auto selected = sprite_sheet_frame_at(40, 24, grid, x + .5, y + .5, area);
+            check(bool(selected) == (inside_x && inside_y),
+                  "Cropped frame chooser selected outside its cells");
+            if (selected) {
+                const auto expected = (y >= 11 ? 3u : 0u) + (x >= 21 ? 2u : x >= 14 ? 1u : 0u);
+                check(*selected == expected, "Cropped frame order differs");
+                const auto region = sprite_grid_region(40, 24, grid, *selected, area);
+                check(x >= region.x && x < region.x + region.width && y >= region.y &&
+                          y < region.y + region.height,
+                      "Cropped render region and chooser disagree");
+            }
+        }
+    check(sprite_grid_region(40, 24, grid, 4, area) == SpritePixelRegion{14, 11, 6, 5},
+          "Cropped grid lost its image-relative origin");
+    check(sprite_grid_region(40, 24, {}, 0, SpritePixelRegion{5, 3, 0, 0}) ==
+              SpritePixelRegion{5, 3, 35, 21},
+          "Zero crop extent did not reach the image edge");
+    check(sprite_grid_region(40, 24, {}, 0, SpritePixelRegion{}) ==
+              sprite_grid_region(40, 24, {}, 0),
+          "Enabling a default region changed the image");
+    check(!sprite_sheet_frame_at(40, 24, grid, 13, 4, area) &&
+              sprite_sheet_frame_at(40, 24, grid, std::nextafter(13., 0.), 4, area) == 0 &&
+              !sprite_sheet_frame_at(40, 24, grid, 27, 4, area),
+          "Cropped frame edges are not half-open");
+    for (const auto bad : {SpritePixelRegion{40, 0, 0, 0}, SpritePixelRegion{0, 24, 0, 0},
+                           SpritePixelRegion{5, 3, 36, 1}, SpritePixelRegion{5, 3, 1, 22},
+                           SpritePixelRegion{UINT32_MAX, 0, 2, 1}})
+        rejects([&] { (void)sprite_grid_region(40, 24, {}, 0, bad); });
+    rejects([&] { (void)sprite_grid_region(40, 24, grid, 0, SpritePixelRegion{5, 3, 23, 14}); });
+    check(sprite_grid_region(UINT32_MAX, UINT32_MAX, {}, 0,
+                             SpritePixelRegion{UINT32_MAX - 1, UINT32_MAX - 1, 0, 0}) ==
+              SpritePixelRegion{UINT32_MAX - 1, UINT32_MAX - 1, 1, 1},
+          "Image-edge crop arithmetic overflowed");
+}
 } // namespace
 int main() {
     try {
         image_mapping();
         sheet_selection();
+        cropped_regions();
         check(sprite_grid_region(16, 8, {4, 2}, 0) == SpritePixelRegion{0, 0, 4, 4},
               "First frame differs");
         check(sprite_grid_region(16, 8, {4, 2}, 5) == SpritePixelRegion{4, 4, 4, 4},
