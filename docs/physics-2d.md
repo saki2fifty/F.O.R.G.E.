@@ -352,7 +352,8 @@ guarantee. The query shares the existing16384-callback bound and checked body
 bindings. It neither flushes queued commands, wakes bodies nor advances the clock.
 Authored body changes/removal adopt at the normal synchronization boundary.
 
-The original [Movement2D project](../samples/projects/Movement2D/README.md) supplies
+The original **Movement2D** project (see `Examples/Movement2D/README.md` in the
+combined editor package) supplies
 an editable C++ walk/jump consumer with painted and ordinary box floors, project
 input actions and Inspector settings. Its Dynamic capsule remains the sole pose
 writer. The support sweep does not introduce a native CharacterController2D,
