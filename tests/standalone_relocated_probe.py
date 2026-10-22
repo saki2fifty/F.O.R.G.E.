@@ -1,7 +1,7 @@
 """Fresh Windows runner: no source checkout, SDK, original project or build tree."""
 import hashlib,json,os,shutil,subprocess,sys
 from pathlib import Path
-assert len(sys.argv) in (3,4,5,6,7), "Expected game, evidence and optional Sprite/Tile Map/2D physics/connected2D games"
+assert 3 <= len(sys.argv) <= 8, "Expected game, evidence and optional Sprite/Tile Map/2D physics/connected2D/painted2D games"
 root,evidence=map(lambda p:Path(p).resolve(),sys.argv[1:3])
 evidence.mkdir(parents=True,exist_ok=True)
 env=os.environ.copy();env['PATH']=str(Path(os.environ['SystemRoot'])/'System32')
