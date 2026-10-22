@@ -88,7 +88,7 @@ Geometry geometry(const Body2DConfiguration& config) {
         result.mass = b2ComputeCircleMass(&result.circle, config.body.density);
     } else if (config.shape == 2) {
         result.capsule = {{0, -d[1] * .5f}, {0, d[1] * .5f}, d[0]};
-        if (config.mover_floor_y) {
+        if (config.mover_profile) {
             result.capsule.center1.y = d[0];
             result.capsule.center2.y = d[0] + d[1];
         }
@@ -119,13 +119,17 @@ std::size_t shape_count(const Body2DConfiguration& config) {
     return config.shape == 3 ? (config.parts ? config.parts->size() : 0) : 1;
 }
 void validate_geometry(const Body2DConfiguration& config) {
-    if (config.mover_floor_y) {
-        const auto floor = *config.mover_floor_y;
+    if (config.mover_profile) {
+        const auto& profile = *config.mover_profile;
+        const auto floor = profile.minimum_floor_y;
         if (config.shape != 2 || config.body.motion != 1 || config.body.sensor ||
             config.body.layer >= 32 || !std::isfinite(floor) ||
             (floor != -1 && (floor < 0 || floor > 1)))
             throw std::runtime_error(
                 "2D mover requires a solid Kinematic capsule and valid floor threshold");
+        if (!std::isfinite(profile.floor_probe) || profile.floor_probe < 0 ||
+            profile.floor_probe > 1)
+            throw std::runtime_error("2D mover floor probe must be0..1m");
         (void)dimension(config.dimensions[0], .02f, 500);
         (void)dimension(config.dimensions[1], .01f, 1000);
         if (double(config.dimensions[1]) + 2 * double(config.dimensions[0]) > 1000)
@@ -165,7 +169,7 @@ void validate_mover_candidates(const Desired2D& desired,
         return;
     std::size_t work = 0;
     for (const auto& [id, mover] : desired) {
-        if (!mover.config.mover_floor_y)
+        if (!mover.config.mover_profile)
             continue;
         const auto proxy = configured_proxy(mover.config);
         const auto test = [&](std::uint64_t other_id) {
@@ -578,6 +582,7 @@ struct Native2D::Impl {
         Body2DDesired admitted;
         std::uint64_t epoch = 0;
         Double2 mover_intent{}, mover_velocity{};
+        std::optional<MoverSupport2D> mover_support;
     };
     std::map<std::uint64_t, Body> bodies;
     // Derived iteration cache only; bodies remain the sole binding/state owner.
@@ -585,7 +590,7 @@ struct Native2D::Impl {
     void rebuild_mover_order() {
         mover_order.clear();
         for (const auto& [id, body] : bodies)
-            if (body.admitted.config.mover_floor_y)
+            if (body.admitted.config.mover_profile)
                 mover_order.push_back(id);
         std::sort(mover_order.begin(), mover_order.end(), [&](auto a, auto b) {
             return bodies.at(a).admitted.ref < bodies.at(b).admitted.ref;
@@ -594,7 +599,7 @@ struct Native2D::Impl {
     Body& mover(std::uint64_t id, EntityRef ref) {
         const auto found = bodies.find(id);
         if (found == bodies.end() || found->second.admitted.ref != ref ||
-            !found->second.admitted.config.mover_floor_y)
+            !found->second.admitted.config.mover_profile)
             throw std::runtime_error("2D controller is unavailable or has a different generation");
         return found->second;
     }
@@ -614,15 +619,50 @@ struct Native2D::Impl {
             const auto position = b2Body_GetPosition(body.id);
             auto request = mover_request(body, {position.x, position.y});
             request.displacement = {body.mover_intent[0] * dt, body.mover_intent[1] * dt};
-            const auto motion = motion_mover(request, {body.admitted.config.body.mask, false}, work,
-                                             std::uint64_t{1} << body.admitted.config.body.layer,
-                                             *body.admitted.config.mover_floor_y);
-            const Double2 next{position.x + motion.translation[0],
-                               position.y + motion.translation[1]};
-            valid_xy({next[0], next[1], 0});
-            body.mover_velocity = {motion.clipped_displacement[0] / dt,
+            const auto& profile = *body.admitted.config.mover_profile;
+            const PhysicsQueryFilter filter{body.admitted.config.body.mask, false};
+            const auto category = std::uint64_t{1} << body.admitted.config.body.layer;
+            const auto motion =
+                motion_mover(request, filter, work, category, profile.minimum_floor_y);
+            Double2 next{position.x + motion.translation[0], position.y + motion.translation[1]};
+            const Double2 velocity{motion.clipped_displacement[0] / dt,
                                    motion.clipped_displacement[1] / dt};
+            auto support = support_mover(body, next, body.mover_intent, work);
+            if ((!support || !support->walkable) && body.mover_support &&
+                body.mover_support->walkable && body.mover_intent[1] <= 0 &&
+                profile.floor_probe > 0) {
+                auto probe = mover_request(body, next);
+                probe.displacement = {0, -profile.floor_probe};
+                const auto hit = cast_mover(probe, filter, work, category);
+                if (hit && hit->normal[1] > mover_tolerance &&
+                    hit->normal[1] >= profile.minimum_floor_y) {
+                    // A vertical cast endpoint keeps requested X travel. A new
+                    // move/slide solve would add unrequested downhill movement.
+                    next[1] += probe.displacement[1] * hit->fraction;
+                    const auto landed = mover_request(body, next);
+                    if (penetration_mover({landed.shape, landed.dimensions, landed.origin, 0},
+                                          filter, body.admitted.ref, work,
+                                          category) > mover_slop + mover_tolerance)
+                        throw std::runtime_error("2D mover floor follow endpoint remains embedded");
+                    support = support_mover(body, next, body.mover_intent, work);
+                }
+            }
+            valid_xy({next[0], next[1], 0});
+            body.mover_velocity = velocity;
+            body.mover_support = support;
             b2Body_SetTransform(body.id, {next[0], next[1]}, b2Rot_identity);
+        }
+        // Later controllers may leave or approach an earlier controller's
+        // support. Publish observations from the completed movement phase.
+        if (mover_order.size() > 1)
+            refresh_mover_supports(work);
+    }
+    void refresh_mover_supports(std::size_t& work) {
+        for (auto id : mover_order) {
+            auto& body = bodies.at(id);
+            const auto position = b2Body_GetPosition(body.id);
+            body.mover_support =
+                support_mover(body, {position.x, position.y}, body.mover_intent, work);
         }
     }
     struct Joint {
@@ -957,6 +997,8 @@ struct Native2D::Impl {
         float minimum_floor_y = -1, requested_x = 0;
         bool block_uphill = false;
         double horizontal_limit = 0;
+        float support_floor_y = -1;
+        std::optional<MoverSupport2D> support;
     };
     static bool mover_plane_hit(b2ShapeId shape, const b2PlaneResult* value,
                                 void* pointer) noexcept {
@@ -986,6 +1028,42 @@ struct Native2D::Impl {
             return false;
         }
         const float converted = float(offset);
+        if (query.support_floor_y >= 0 && normal.y > mover_tolerance &&
+            value->plane.offset >= -.01f - mover_tolerance) {
+            const bool walkable = normal.y >= query.support_floor_y;
+            if (!query.support || walkable > query.support->walkable ||
+                (walkable == query.support->walkable &&
+                 (normal.y > query.support->normal[1] ||
+                  (normal.y == query.support->normal[1] &&
+                   body->admitted.ref < query.support->entity)))) {
+                // Box2D3.2.0 returns a core point in the obstacle body's frame,
+                // despite its surface/query-origin documentation. Transform it
+                // and include the admitted round skin. See dependency-known-issues.
+                const auto world_point = b2Body_GetWorldPoint(body->id, value->point);
+                const auto& configuration = body->admitted.config;
+                const float skin = configuration.shape == 1 || configuration.shape == 2
+                                       ? configuration.dimensions[0]
+                                       : 0;
+                const Double2 point{world_point.x + normal.x * skin,
+                                    world_point.y + normal.y * skin};
+                if (!std::isfinite(point[0]) || !std::isfinite(point[1])) {
+                    query.failed = true;
+                    return false;
+                }
+                const auto native_velocity =
+                    b2Body_GetWorldPointVelocity(body->id, {point[0], point[1]});
+                const auto velocity = body->admitted.config.mover_profile
+                                          ? body->mover_velocity
+                                          : Double2{native_velocity.x, native_velocity.y};
+                if (!std::isfinite(velocity[0]) || !std::isfinite(velocity[1])) {
+                    query.failed = true;
+                    return false;
+                }
+                query.support =
+                    MoverSupport2D{body->admitted.ref, body->epoch, {normal.x, normal.y}, point,
+                                   velocity,           walkable};
+            }
+        }
         for (std::size_t i = 0; i < query.count; ++i) {
             const auto& previous = query.values[i].plane;
             if (std::abs(previous.normal.x - normal.x) < mover_tolerance &&
@@ -1012,9 +1090,9 @@ struct Native2D::Impl {
         return true;
     }
     void gather_mover_planes(MoverPlanes& output, const PhysicsOverlap2D& shape, Double2 base,
-                             std::uint64_t category) const {
+                             std::uint64_t category, float contact_margin = 0) const {
         const auto proxy = overlap_proxy(shape);
-        const b2Capsule capsule{proxy.points[0], proxy.points[1], proxy.radius};
+        const b2Capsule capsule{proxy.points[0], proxy.points[1], proxy.radius + contact_margin};
         output.shift = {shape.origin[0] - base[0], shape.origin[1] - base[1]};
         b2World_CollideMover(world, {shape.origin[0], shape.origin[1]}, &capsule,
                              query_filter(output.filter, category), mover_plane_hit, &output);
@@ -1026,6 +1104,21 @@ struct Native2D::Impl {
             throw std::runtime_error(
                 "2D mover planes exceeded their work/plane limit or native binding/result");
         }
+    }
+    std::optional<MoverSupport2D> support_mover(const Body& body, Double2 feet, Double2 intent,
+                                                std::size_t& work) const {
+        const auto floor = body.admitted.config.mover_profile->minimum_floor_y;
+        if (floor < 0 || intent[1] > 0)
+            return {};
+        const auto request = mover_request(body, feet);
+        MoverPlanes planes{this, {body.admitted.config.body.mask, false}, body.admitted.ref, &work};
+        planes.support_floor_y = floor;
+        // The pin only reports actual overlaps. Expand this read-only support
+        // probe by the1cm contact band; never enlarge the native inner body.
+        gather_mover_planes(planes, {request.shape, request.dimensions, request.origin, 0},
+                            request.origin, std::uint64_t{1} << body.admitted.config.body.layer,
+                            .01f);
+        return planes.support;
     }
     static void check_mover_planes(const MoverPlanes& planes, b2Vec2 value) {
         if (!std::isfinite(value.x) || !std::isfinite(value.y))
@@ -1192,8 +1285,9 @@ Native2D::~Native2D() = default;
 Json Body2DConfiguration::json() const {
     Json result{
         {"body", detail::encode_builtin_value(body)}, {"shape", shape}, {"dimensions", dimensions}};
-    if (mover_floor_y)
-        result["mover_floor_y"] = *mover_floor_y;
+    if (mover_profile)
+        result["mover_profile"] = {{"minimum_floor_y", mover_profile->minimum_floor_y},
+                                   {"floor_probe", mover_profile->floor_probe}};
     if (shape == 3) {
         validate_geometry(*this);
         result["parts"] = Json::array();
@@ -1388,7 +1482,7 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
              {"configuration", body.admitted.config.json()},
              {"target", recovery_pose(body.admitted.pose)},
              {"native", recovery_native_state(body.id, body.shapes, body.admitted.config)}});
-        if (body.admitted.config.mover_floor_y)
+        if (body.admitted.config.mover_profile)
             mapping.back()["mover"] = {{"intent", body.mover_intent},
                                        {"velocity", body.mover_velocity}};
     }
@@ -1516,7 +1610,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
                         [](auto part) { return b2Shape_GetUserData(part) != nullptr; }) ||
             entry->at("native") != recovery_native_state(native, owned_shapes, body.config))
             throw std::runtime_error("2D recovery native binding/state mismatch");
-        if (body.config.body.motion == 2 || body.config.mover_floor_y) {
+        if (body.config.body.motion == 2 || body.config.mover_profile) {
             const auto position = b2Body_GetPosition(native);
             if (!equivalent(
                     LocalTranslation{position.x, position.y, 0},
@@ -1527,7 +1621,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
         auto& record =
             candidate->bodies.emplace(id, Impl::Body{native, std::move(owned_shapes), body, epoch})
                 .first->second;
-        if (body.config.mover_floor_y) {
+        if (body.config.mover_profile) {
             record.mover_intent = entry->at("mover").at("intent").get<Double2>();
             record.mover_velocity = entry->at("mover").at("velocity").get<Double2>();
             for (auto motion : {record.mover_intent, record.mover_velocity})
@@ -1575,6 +1669,8 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
         throw std::runtime_error("Incomplete 2D joint recovery bindings");
     candidate->last_step_tick = candidate->last_event_tick = tick;
     candidate->rebuild_mover_order();
+    std::size_t mover_work = 0;
+    candidate->refresh_mover_supports(mover_work);
     b2World_SetCustomFilterCallback(candidate->world, Impl::filter, candidate.get());
     impl_.swap(candidate);
 }
@@ -1620,7 +1716,7 @@ void Native2D::validate(const Desired2D& desired, float dt,
         throw std::runtime_error(
             "2D pending retirement/event capacity exceeded before native writes");
     const bool has_movers = std::any_of(desired.begin(), desired.end(), [](const auto& value) {
-        return bool(value.second.config.mover_floor_y);
+        return bool(value.second.config.mover_profile);
     });
     std::vector<std::uint64_t> changed;
     for (const auto& [id, value] : desired) {
@@ -1637,7 +1733,7 @@ void Native2D::validate(const Desired2D& desired, float dt,
                                           old->second.admitted.pose.translation.y, 0}) ||
              !equivalent(value.pose.rotation, old->second.admitted.pose.rotation)))
             changed.push_back(id);
-        if (value.config.mover_floor_y) {
+        if (value.config.mover_profile) {
             const auto q = normalized(value.pose.rotation);
             valid_xy(value.pose.translation);
             if (!std::isfinite(value.pose.scale.x) || !std::isfinite(value.pose.scale.y) ||
@@ -1651,7 +1747,7 @@ void Native2D::validate(const Desired2D& desired, float dt,
         const bool prior_kinematic = old != self.bodies.end() &&
                                      old->second.admitted.ref == value.ref &&
                                      old->second.admitted.config.body.motion == 1;
-        if (dt > 0 && value.config.body.motion == 1 && !value.config.mover_floor_y &&
+        if (dt > 0 && value.config.body.motion == 1 && !value.config.mover_profile &&
             (prior_kinematic || placements.contains(id))) {
             const auto position = placements.contains(id) ? b2Pos{placements.at(id).translation.x,
                                                                   placements.at(id).translation.y}
@@ -1671,7 +1767,7 @@ void Native2D::validate(const Desired2D& desired, float dt,
         }
         if (old != self.bodies.end() && old->second.admitted.ref == value.ref &&
             ((old->second.admitted.config.body.motion == 2 && value.config.body.motion == 2) ||
-             (old->second.admitted.config.mover_floor_y && value.config.mover_floor_y)) &&
+             (old->second.admitted.config.mover_profile && value.config.mover_profile)) &&
             !commanded.contains(id)) {
             const auto& previous = old->second.admitted.pose;
             if (!equivalent({value.pose.translation.x, value.pose.translation.y, 0},
@@ -1717,8 +1813,8 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                     preserve =
                         old->second.admitted.ref == value.ref &&
                         old->second.admitted.config.body.motion == value.config.body.motion &&
-                        bool(old->second.admitted.config.mover_floor_y) ==
-                            bool(value.config.mover_floor_y) &&
+                        bool(old->second.admitted.config.mover_profile) ==
+                            bool(value.config.mover_profile) &&
                         value.config.body.motion != 0;
                     if (preserve) {
                         mover_intent = old->second.mover_intent;
@@ -1755,6 +1851,10 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
         if (bindings_changed)
             self.rebuild_mover_order();
         self.realize_joints(joints);
+        if (bindings_changed) {
+            std::size_t work = 0;
+            self.refresh_mover_supports(work);
+        }
     } catch (...) {
         self.fault = true;
         throw;
@@ -1765,7 +1865,7 @@ void Native2D::apply(std::uint64_t entity, const BodyCommand& command,
     auto& self = *impl_;
     self.check();
     const auto& body = self.bodies.at(entity);
-    if (body.admitted.ref != command.ref || !command.planar || body.admitted.config.mover_floor_y)
+    if (body.admitted.ref != command.ref || !command.planar || body.admitted.config.mover_profile)
         throw std::runtime_error("Admitted 2D command generation/domain mismatch");
     if (command.kind >= BodyCommandKind::Force && command.value == Double3{} &&
         command.kind != BodyCommandKind::LinearVelocity &&
@@ -1814,7 +1914,7 @@ void Native2D::finish_targets(float dt) {
     auto& self = *impl_;
     self.check();
     for (const auto& [id, body] : self.bodies) {
-        if (body.admitted.config.mover_floor_y)
+        if (body.admitted.config.mover_profile)
             continue;
         const auto& pose = body.admitted.pose;
         if (body.admitted.config.body.motion == 0) {
@@ -1859,6 +1959,8 @@ std::optional<Double2> Native2D::point_velocity(std::uint64_t entity, EntityRef 
     const auto found = self.bodies.find(entity);
     if (found == self.bodies.end() || found->second.admitted.ref != ref)
         return {};
+    if (found->second.admitted.config.mover_profile)
+        return found->second.mover_velocity;
     const auto value = b2Body_GetWorldPointVelocity(found->second.id, {point[0], point[1]});
     return Double2{value.x, value.y};
 }
@@ -2082,7 +2184,12 @@ void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity)
     if (!std::isfinite(velocity[0]) || !std::isfinite(velocity[1]) ||
         std::hypot(velocity[0], velocity[1]) > 1000000)
         throw std::runtime_error("2D controller velocity must be finite and at most1000000m/s");
-    self.mover(entity, ref).mover_intent = velocity;
+    auto& body = self.mover(entity, ref);
+    const auto position = b2Body_GetPosition(body.id);
+    std::size_t work = 0;
+    const auto support = self.support_mover(body, {position.x, position.y}, velocity, work);
+    body.mover_intent = velocity;
+    body.mover_support = support;
 }
 bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bool clear_velocity) {
     auto& self = *impl_;
@@ -2096,7 +2203,10 @@ bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bo
                                std::uint64_t{1} << body.admitted.config.body.layer) >
         mover_slop + mover_tolerance)
         return false;
+    const auto support =
+        self.support_mover(body, feet, clear_velocity ? Double2{} : body.mover_intent, work);
     b2Body_SetTransform(body.id, {feet[0], feet[1]}, b2Rot_identity);
+    body.mover_support = support;
     if (clear_velocity)
         body.mover_intent = body.mover_velocity = {};
     return true;
@@ -2106,12 +2216,15 @@ std::optional<MoverState2D> Native2D::mover_state(std::uint64_t entity, EntityRe
     self.check();
     const auto found = self.bodies.find(entity);
     if (found == self.bodies.end() || found->second.admitted.ref != ref ||
-        !found->second.admitted.config.mover_floor_y)
+        !found->second.admitted.config.mover_profile)
         return {};
     const auto& body = found->second;
     const auto position = b2Body_GetPosition(body.id);
-    return MoverState2D{
-        {position.x, position.y}, body.mover_intent, body.mover_velocity, body.epoch};
+    return MoverState2D{{position.x, position.y},
+                        body.mover_intent,
+                        body.mover_velocity,
+                        body.epoch,
+                        body.mover_support};
 }
 bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
     impl_->check();
@@ -2232,7 +2345,7 @@ std::map<std::uint64_t, LocalTransform> Native2D::adopted_poses() const {
     std::map<std::uint64_t, LocalTransform> result;
     try {
         for (const auto& [id, body] : self.bodies)
-            if (body.admitted.config.body.motion == 2 || body.admitted.config.mover_floor_y) {
+            if (body.admitted.config.body.motion == 2 || body.admitted.config.mover_profile) {
                 const auto position = b2Body_GetPosition(body.id);
                 const auto rotation = b2Body_GetRotation(body.id);
                 auto pose = body.admitted.pose;

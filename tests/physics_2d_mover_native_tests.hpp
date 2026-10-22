@@ -8,7 +8,7 @@ struct MoverNativeFixture : MoverGeometryFixture {
         PhysicsBody2D inner;
         inner.motion = 1;
         auto config = physics_detail::inline_configuration_2d(inner, 2, {.3f, .6f}, {1, 1, 1});
-        config.mover_floor_y = floor_y;
+        config.mover_profile = physics_detail::MoverProfile2D{floor_y, .1f};
         return add(config, x, y);
     }
     std::uint64_t id(EntityRef ref) const {
@@ -110,13 +110,13 @@ inline void test_mover_native_admission() {
     const auto ref = test.actor(0, 0);
     test.synchronize();
     const auto id = test.id(ref);
-    for (unsigned invalid = 0; invalid != 8; ++invalid) {
+    for (unsigned invalid = 0; invalid != 11; ++invalid) {
         const auto before = test.image();
         auto candidate = test.desired;
         auto& body = candidate.at(id);
         switch (invalid) {
         case 0:
-            body.config.mover_floor_y = std::numeric_limits<float>::quiet_NaN();
+            body.config.mover_profile->minimum_floor_y = std::numeric_limits<float>::quiet_NaN();
             break;
         case 1:
             body.config.body.motion = 2;
@@ -138,6 +138,15 @@ inline void test_mover_native_admission() {
             break;
         case 7:
             body.config.dimensions[0] = .01f;
+            break;
+        case 8:
+            body.config.mover_profile->floor_probe = -1;
+            break;
+        case 9:
+            body.config.mover_profile->floor_probe = 1.01f;
+            break;
+        case 10:
+            body.config.mover_profile->floor_probe = std::numeric_limits<float>::quiet_NaN();
             break;
         }
         bool rejected = false;
@@ -166,14 +175,14 @@ inline void test_mover_native_admission() {
     check_mover_unchanged(test, before);
     test.native.move_mover(id, ref, {1, 0});
     const auto prior_epoch = test.native.mover_state(id, ref)->epoch;
-    test.desired.at(id).config.mover_floor_y = .7f;
+    test.desired.at(id).config.mover_profile->minimum_floor_y = .7f;
     test.synchronize();
     check_mover(test.native.mover_state(id, ref)->intent == Double2{1, 0} &&
                     test.native.mover_state(id, ref)->epoch != prior_epoch,
                 "Controller setting edit lost motion or retained the retired epoch");
     test.advance();
     const auto previous = test.native.mover_state(id, ref)->position;
-    test.desired.at(id).config.mover_floor_y.reset();
+    test.desired.at(id).config.mover_profile.reset();
     test.synchronize();
     check_mover(!test.native.mover_state(id, ref),
                 "Rigid representation retained controller state");
@@ -303,7 +312,7 @@ inline void test_mover_native_recovery() {
                 if (corruption == 0)
                     entry["mover"]["intent"] = {1000001, 0};
                 else if (corruption == 1)
-                    entry["configuration"].erase("mover_floor_y");
+                    entry["configuration"].erase("mover_profile");
                 else
                     entry["mover"].erase("velocity");
             }

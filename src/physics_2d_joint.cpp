@@ -36,7 +36,7 @@ DesiredJoints2D desired_joints_2d(WorldContext& context, const Desired2D& bodies
                 throw std::runtime_error("2D joint requires two different bodies");
             const auto& first = bodies.at(a.entity);
             const auto& second = bodies.at(b.entity);
-            if (first.config.mover_floor_y || second.config.mover_floor_y ||
+            if (first.config.mover_profile || second.config.mover_profile ||
                 first.config.body.sensor || second.config.body.sensor ||
                 (first.config.body.motion != 2 && second.config.body.motion != 2))
                 throw std::runtime_error(

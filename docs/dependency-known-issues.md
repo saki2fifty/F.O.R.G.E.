@@ -16,6 +16,26 @@ See[dependency policy](dependency-policy.md).
 Verified2026-09-20. The[texture contract](texture-assets.md) distinguishes bounded
 CPU admission, native processing, supported integration and actual codec tests.
 
+## Box2D3.2.0 mover contact-point coordinates
+
+Exact `178495ba35695aefe9c321e569d2277f06db3b90`, double-position build,
+verified2026-10-22. `include/box2d/collision.h::b2PlaneResult` describes the
+point as relative to the query origin. At this pin, `src/shape.c::b2CollideMover`
+returns the narrow-phase core point in the obstacle body's local frame and rotates
+only the normal. `src/geometry.c::b2CollideMoverAndPolygon` obtains that point
+from the obstacle proxy in its local frame. The world adapter passes it through.
+
+An original FORGE fixture reproduced the mismatch with a flat floor whose top
+is worldY=0: adding the query origin produced Y=1.1 for the purported support
+point. The private controller adapter instead uses the supported
+`b2Body_GetWorldPoint` on the bound obstacle, then adds its admitted circle/capsule
+radius along the world normal to obtain the physical surface. Native plane separation and rotated
+normals retain their existing meaning. Tests check points against the actual
+floor plane at0/30/75degrees and0/±999990m, plus round and controller supports; controller integration/delivery status
+remains separate. No vendor implementation, patch or dependency upgrade is used.
+Recheck this boundary deliberately if the pin changes; applying this correction
+after an upstream coordinate fix would transform the point twice.
+
 ## KTX Software4.4.2 selection
 
 Exact4d6fc70eaf62ad0558e63e8d97eb9766118327a6, verified2026-09-20:

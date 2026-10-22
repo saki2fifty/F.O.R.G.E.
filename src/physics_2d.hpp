@@ -20,6 +20,10 @@ struct BoxPart2D {
     std::array<float, 2> center{}, dimensions{}; // Scaled body-local metres; full dimensions.
     bool operator==(const BoxPart2D&) const = default;
 };
+struct MoverProfile2D {
+    float minimum_floor_y = -1, floor_probe = .1f;
+    bool operator==(const MoverProfile2D&) const = default;
+};
 struct Body2DConfiguration {
     PhysicsBody2D body;
     unsigned shape = 0;                // Box, circle, capsule, static compound boxes.
@@ -27,10 +31,10 @@ struct Body2DConfiguration {
     std::shared_ptr<const std::vector<BoxPart2D>> parts{};
     // Derived controller role, not an authored PhysicsBody2D. The capsule's
     // native/local origin is at its feet; -1 selects floating move/slide.
-    std::optional<float> mover_floor_y{};
+    std::optional<MoverProfile2D> mover_profile{};
     bool operator==(const Body2DConfiguration& other) const {
         return body == other.body && shape == other.shape && dimensions == other.dimensions &&
-               mover_floor_y == other.mover_floor_y &&
+               mover_profile == other.mover_profile &&
                (parts == other.parts || (parts && other.parts && *parts == *other.parts));
     }
     Json json() const;
@@ -63,9 +67,17 @@ struct MoverMotion2D {
     Double2 translation{}, clipped_displacement{};
     unsigned iterations = 0;
 };
+struct MoverSupport2D {
+    EntityRef entity;
+    std::uint64_t epoch = 0;
+    Double2 normal{}, point{}, velocity{};
+    bool walkable = false;
+    bool operator==(const MoverSupport2D&) const = default;
+};
 struct MoverState2D {
     Double2 position{}, intent{}, velocity{};
     std::uint64_t epoch = 0;
+    std::optional<MoverSupport2D> support;
 };
 // Reads the existing effective graph and schema. No native creation or ECS writes.
 class Native2D;
