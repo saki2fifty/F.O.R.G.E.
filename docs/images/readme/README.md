@@ -1,5 +1,21 @@
 # README screenshots
 
+## C++ 2D movement
+
+[Movement](2d-movement-runtime.png) preserves the complete 1280×720 exported-game
+capture from source `dfe0a6555beec36c4d25014be16909325f7decac`,
+[Build261022-000204](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39761476803),
+artifact `FORGE-Physics-Loads-Example` (`12422715584`), entry
+`movement-2d/movement-2d-jump.ppm`. Original PPM SHA256:
+`9a7f427d9839d2c9705eda3f7307440132cbc519ece5d3de77686ce52a9434c3`.
+The fixture observes the actual exported GameSession and injects SDL keyboard
+events. It does not write body state or advance a test clock. The authored copy
+and temporary runtime kit were deleted before production startup and relocated
+game execution. Walking, painted support, a 1.822136 m jump, held-jump suppression
+and all three rest/jump/landed captures pass; those images were visually reviewed.
+The PNG is lossless, with no pixel or dimension edits. D3D12 WARP execution is
+separate from physical GPU performance or manually operated desktop acceptance.
+
 ## Native Tile Map render
 
 [Tile Map gallery](tile-maps.png) is a 1280×720 native Game rendering of

@@ -30,6 +30,7 @@ choose **+ Add Component → Physics Body 2D**, then add one of:
 - **Box Collider 2D**: full width and height, centered on the entity.
 - **Circle Collider 2D**: radius, centered on the entity.
 - **Capsule Collider 2D**: radius and straight segment height along local Y. Total height includes both rounded ends.
+- **Tile Map Collider 2D**: rectangular collision from one published Tile Map layer, on a Static nonsensor body.
 
 Set **Spatial binding** to **World** before choosing Dynamic. Static bodies
 stay in place; Kinematic bodies follow supported authored/animated targets;
@@ -63,7 +64,7 @@ ignoring itself and sensors. Painted floors and a separate box stepping stone
 both support it. Stop restores saved state; save/publish before export. See the
 project's **README.md** for the
 experiment, C++ source and matching runtime/module-kit export workflow. This
-requires the swept-query integration after Build201; it does not add a native
+is included in Build204; it does not add a native
 character-controller component, automatic stairs or 2D navigation.
 
 Bullet improves high-speed solid collision with supported receivers. It does
@@ -96,6 +97,25 @@ Try **Scenes/76-connected-2d-bodies.scene.json**: a cyan pendulum, amber rigid
 tether, rose spring and green motor carriage. Stop, select **Slider - positive
 rail motor**, change its speed to `-0.9`, and Play to reverse its direction.
 
+## Painted Tile Map collision
+
+Open **Scenes/77-painted-2d-collision.scene.json** and Play. Colored bodies fall
+onto the green painted floors; the blue decorative arrows let them pass through.
+Stop and open **Assets/Tiles/PaintedPlatforms.tilemap.json**. Choose **Solid
+platforms**, erase the left raised platform, then **Save / Publish**. On the next
+Play, the amber box drops to the lowest floor. Undo the source edit and
+**Save / Publish** again to restore it.
+
+For your own Map, put **Tile Map Renderer**, a Static nonsensor **Physics Body 2D**
+and **Tile Map Collider 2D** on the same entity. Choose its **Solid layer** in the
+Inspector. Use this collider instead of a Box, Circle or Capsule Collider 2D.
+Publish the Map before Play or export. **Selected collision** outlines the
+published layer; unsaved painting is not yet the active collision.
+
+Each occupied cell contributes its rectangle, including transparent image pixels.
+This profile supports Static rectangular Map collision; moving Maps, per-tile
+slopes and one-way platforms are not available.
+
 ## Export
 
 Save the Scene and choose **Use saved current scene as startup** in Project
@@ -103,6 +123,5 @@ Settings. Export using the matching runtime kit. The saved bodies, Sprite
 materials and prepared animation clip travel with the game. Optional C++ behavior
 travels as its compiled module. Players need neither source code nor a compiler.
 
-This profile does not generate collision from Tile Maps or add 2D character
-controllers or navigation. Build261021-000199 includes the first body milestone;
-the connected-body extension requires a later delivery containing Physics Joint 2D.
+Build204 includes connected bodies, painted Map collision and the C++ movement
+example. Native 2D character-controller components and 2D navigation remain planned.

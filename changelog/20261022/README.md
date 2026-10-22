@@ -1,6 +1,6 @@
 # 2026-10-22
 
-## Swept 2D queries and C++ movement — delivery gate pending
+## Build261022-000204 — swept 2D queries and C++ movement
 
 - Added read-only closest box/circle/capsule sweeps through the existing Physics
   owner and exact C++ SDK, including canonical body exclusion, sensor/layer filters
@@ -10,15 +10,19 @@
   Inspector speed/jump settings, painted and box floors, walls and a sensor.
   Physics Body2D owns motion; this example does not add a native controller.
 - Focused Linux query/compound checks and installed-SDK movement checks pass in
-  ordinary and prepared Play hosts. Speed6/8m/s jumps rise about1.82/3.25m, a held
+  ordinary and prepared Play hosts. Launch speeds6/8m/s rise about1.82/3.25m, a held
   jump does not repeat, and initial side-wall contacts do not hide ground support.
 - The Windows delivery gate builds the example against its installed SDK, imports
   its assets through the normal owner and includes it under Examples/Movement2D.
   Its new source-free relocated-game workflow checks native keyboard input and
-  records rest/jump/landing images. This Windows gate has not yet run; Build201
-  excludes this extension. Physical Windows/GPU testing remains deferred.
+  records rest/jump/landing images. All three actual WARP captures were reviewed.
+- The [complete delivery gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39761476803)
+  passes core188 and SDK224 on each OS, editor326, shared/fresh-runner exports,
+  combined-package relocation and the final editor C++ workflow. All 1668 manifest
+  digests, 75 x64 PE files, 529 Gallery files/77 scenes and Movement2D source/asset
+  identities were verified. Physical Windows/GPU testing remains deferred.
 
-## Runtime UI preparation — validated source
+## Runtime UI preparation — included in Build204
 
 - Skip UI catalog admission when a Scene has no enabled, assigned UI document.
   Active and hidden documents retain fresh availability checks; repaired catalogs
@@ -35,8 +39,8 @@
   RmlUi geometry/resource admission and the matching C++ UI module in both ordinary
   and prepared Editor Play hosts. Full formatting and the
   [Linux/Windows source gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39734839251)
-  pass188 core/224 SDK tests on each OS. This work is separate from Build201's
-  frozen source and will enter a later Windows delivery.
+  pass188 core/224 SDK tests on each OS. Build204 includes this work; Build201
+  predates it. The local CPU measurements above remain separate from Windows FPS.
 
 ## Build261022-000201 — painted 2D collision and connected bodies
 

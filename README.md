@@ -65,8 +65,12 @@ map. Native Game rendering on Linux software Vulkan:
 The original [C++ 2D Movement project](samples/projects/Movement2D/README.md) adds
 editable walking/jumping on painted and ordinary floors, using capsule support
 sweeps and the existing Dynamic body. Speed and jump settings are Inspector
-properties. This extension follows Build201; Windows delivery acceptance is
-tracked separately from its passing local core/installed-SDK both-host checks.
+properties. Build204 includes the prepared project and matching compiled C++.
+Its [Windows acceptance](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39761476803)
+checks both Play hosts and the relocated exported game with native keyboard input.
+The actual exported game's jump, rendered with D3D12 WARP:
+
+[![Amber player jumping through a translucent sensor above painted platforms and a blue stepping stone](docs/images/readme/2d-movement-runtime.png)](docs/images/readme/2d-movement-runtime.png)
 
 The editable [2D physics gallery](manual/editor/physics-2d.md) combines falling
 Sprite shapes, a moving Kinematic platform and a pass-through sensor. This is an

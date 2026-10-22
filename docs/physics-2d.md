@@ -358,8 +358,12 @@ an editable C++ walk/jump consumer with painted and ordinary box floors, project
 input actions and Inspector settings. Its Dynamic capsule remains the sole pose
 writer. The support sweep does not introduce a native CharacterController2D,
 automatic stair climbing, navigation or a second physics owner. Core and matching
-installed-SDK both-host checks cover the consumer; Windows rendering/export
-acceptance is a separate delivery gate. Windows Build201 predates this extension.
+installed-SDK both-host checks cover the consumer.
+[Build261022-000204](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39761476803)
+passes the complete Windows/Linux source matrix, native editor, combined-package
+and final editor C++ workflow gates. The source-free relocated game checks native
+SDL movement, a 1.822136 m jump, painted support and held-jump suppression; its three
+rest/jump/landed WARP captures were reviewed. Physical GPU acceptance is separate.
 
 ## Matching C++ SDK
 
