@@ -18,6 +18,9 @@ namespace forge::physics_detail {
 namespace {
 constexpr std::size_t body_limit = 1024, pair_limit = 4096, shape_limit = 4096;
 constexpr std::size_t query_work_limit = 16384, event_limit = 16384;
+constexpr float mover_slop = .005f, mover_tolerance = .00001f;
+constexpr std::size_t mover_plane_limit = 64;
+constexpr unsigned mover_iteration_limit = 8;
 // Private native query traffic bypasses body collision masks while retaining
 // the existing 32 named project layers. No extra authored layer is introduced.
 constexpr std::uint64_t query_category = std::uint64_t{1} << 63;
@@ -161,9 +164,9 @@ b2ShapeProxy sweep_proxy(const PhysicsSweep2D& query) {
         throw std::runtime_error("2D sweep exclusion requires a complete canonical reference");
     return overlap_proxy({query.shape, query.dimensions, query.origin, query.angle});
 }
-b2QueryFilter query_filter(PhysicsQueryFilter value) {
+b2QueryFilter query_filter(PhysicsQueryFilter value, std::uint64_t category = query_category) {
     auto result = b2DefaultQueryFilter();
-    result.categoryBits = query_category;
+    result.categoryBits = category;
     result.maskBits = value.mask;
     return result;
 }
@@ -629,6 +632,14 @@ struct Native2D::Impl {
             return old->second;
         throw std::runtime_error("2D event has no current or retained native shape binding");
     }
+    static bool charge_query_work(std::size_t& local, std::size_t* shared = nullptr) noexcept {
+        if (local >= query_work_limit || (shared && *shared >= query_work_limit))
+            return false;
+        ++local;
+        if (shared)
+            ++*shared;
+        return true;
+    }
     struct RayQuery {
         const Impl* self;
         PhysicsQueryFilter filter;
@@ -637,11 +648,12 @@ struct Native2D::Impl {
         std::size_t work = 0;
         bool failed = false;
         std::optional<PhysicsHit2D> hit;
+        std::size_t* shared_work = nullptr;
     };
     static float ray_hit(b2ShapeId shape, b2Pos point, b2Vec2 normal, float fraction,
                          void* pointer) noexcept {
         auto& query = *static_cast<RayQuery*>(pointer);
-        if (++query.work > query_work_limit) {
+        if (!charge_query_work(query.work, query.shared_work)) {
             query.failed = true;
             return 0;
         }
@@ -672,7 +684,7 @@ struct Native2D::Impl {
         auto& query = result.query;
         if (query.failed || (query.hit && query.hit->fraction == 0))
             return false;
-        if (++query.work > query_work_limit) {
+        if (!charge_query_work(query.work, query.shared_work)) {
             query.failed = true;
             return false;
         }
@@ -738,12 +750,13 @@ struct Native2D::Impl {
         std::size_t work = 0;
         bool failed = false;
         double depth = 0;
+        std::size_t* shared_work = nullptr;
     };
     static bool mover_penetration_hit(b2ShapeId shape, void* pointer) noexcept {
         auto& query = *static_cast<PenetrationQuery*>(pointer);
         if (query.failed)
             return false;
-        if (++query.work > query_work_limit) {
+        if (!charge_query_work(query.work, query.shared_work)) {
             query.failed = true;
             return false;
         }
@@ -794,14 +807,125 @@ struct Native2D::Impl {
         }
         for (int i = 0; i < manifold.pointCount; ++i) {
             const auto& point = manifold.points[i];
-            if (++query.work > query_work_limit || !std::isfinite(point.point.x) ||
-                !std::isfinite(point.point.y) || !std::isfinite(point.separation)) {
+            if (!charge_query_work(query.work, query.shared_work) ||
+                !std::isfinite(point.point.x) || !std::isfinite(point.point.y) ||
+                !std::isfinite(point.separation)) {
                 query.failed = true;
                 return false;
             }
             query.depth = std::max(query.depth, -double(point.separation));
         }
         return true;
+    }
+    struct MoverPlanes {
+        const Impl* self;
+        PhysicsQueryFilter filter;
+        std::optional<EntityRef> ignore;
+        std::size_t* shared_work;
+        std::array<b2CollisionPlane, mover_plane_limit> values{};
+        Double2 shift{};
+        std::size_t count = 0, work = 0;
+        bool failed = false;
+        float minimum_floor_y = -1, requested_x = 0;
+        bool block_uphill = false;
+        double horizontal_limit = 0;
+    };
+    static bool mover_plane_hit(b2ShapeId shape, const b2PlaneResult* value,
+                                void* pointer) noexcept {
+        auto& query = *static_cast<MoverPlanes*>(pointer);
+        if (query.failed)
+            return false;
+        if (!charge_query_work(query.work, query.shared_work) || !value || !value->hit) {
+            query.failed = true;
+            return false;
+        }
+        const auto* body = query.self->owned(shape);
+        if (!body) {
+            query.failed = true;
+            return false;
+        }
+        if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
+            (query.ignore && body->admitted.ref == *query.ignore))
+            return true;
+        const auto normal = value->plane.normal;
+        const double length_squared = double(normal.x) * normal.x + double(normal.y) * normal.y;
+        const double offset =
+            double(value->plane.offset) + normal.x * query.shift[0] + normal.y * query.shift[1];
+        if (!std::isfinite(length_squared) || std::abs(length_squared - 1) > .001 ||
+            !std::isfinite(offset) || std::abs(offset) > std::numeric_limits<float>::max() ||
+            !std::isfinite(value->point.x) || !std::isfinite(value->point.y)) {
+            query.failed = true;
+            return false;
+        }
+        const float converted = float(offset);
+        for (std::size_t i = 0; i < query.count; ++i) {
+            const auto& previous = query.values[i].plane;
+            if (std::abs(previous.normal.x - normal.x) < mover_tolerance &&
+                std::abs(previous.normal.y - normal.y) < mover_tolerance &&
+                std::abs(previous.offset - converted) < mover_tolerance)
+                return true;
+        }
+        if (query.minimum_floor_y >= 0 && normal.y > mover_tolerance &&
+            normal.y < query.minimum_floor_y && normal.x * query.requested_x < 0) {
+            if (!query.block_uphill)
+                query.horizontal_limit = query.shift[0];
+            else if (query.requested_x > 0)
+                query.horizontal_limit = std::min(query.horizontal_limit, query.shift[0]);
+            else
+                query.horizontal_limit = std::max(query.horizontal_limit, query.shift[0]);
+            query.block_uphill = true;
+        }
+        if (query.count == query.values.size()) {
+            query.failed = true;
+            return false;
+        }
+        query.values[query.count++] = {
+            {normal, converted}, std::numeric_limits<float>::max(), 0, true};
+        return true;
+    }
+    void gather_mover_planes(MoverPlanes& output, const PhysicsOverlap2D& shape, Double2 base,
+                             std::uint64_t category) const {
+        const auto proxy = overlap_proxy(shape);
+        const b2Capsule capsule{proxy.points[0], proxy.points[1], proxy.radius};
+        output.shift = {shape.origin[0] - base[0], shape.origin[1] - base[1]};
+        b2World_CollideMover(world, {shape.origin[0], shape.origin[1]}, &capsule,
+                             query_filter(output.filter, category), mover_plane_hit, &output);
+        if (output.failed) {
+            if (output.shared_work && *output.shared_work >= query_work_limit)
+                throw std::runtime_error("2D mover query work capacity 16384 exceeded");
+            if (output.count == output.values.size())
+                throw std::runtime_error("2D mover plane capacity 64 exceeded");
+            throw std::runtime_error(
+                "2D mover planes exceeded their work/plane limit or native binding/result");
+        }
+    }
+    static void check_mover_planes(const MoverPlanes& planes, b2Vec2 value) {
+        if (!std::isfinite(value.x) || !std::isfinite(value.y))
+            throw std::runtime_error("2D mover returned nonfinite motion");
+        for (std::size_t i = 0; i < planes.count; ++i)
+            if (b2PlaneSeparation(planes.values[i].plane, value) < -mover_slop - mover_tolerance)
+                throw std::runtime_error("2D mover native plane constraints are infeasible");
+    }
+    static b2Vec2 solve_mover_planes(MoverPlanes& planes, b2Vec2 target) {
+        const auto solved = b2SolvePlanes(target, planes.values.data(), int(planes.count));
+        if (solved.iterationCount < 0 || solved.iterationCount > 20)
+            throw std::runtime_error("2D mover native solver iteration count is invalid");
+        check_mover_planes(planes, solved.delta);
+        return solved.delta;
+    }
+    static b2Vec2 clip_mover_motion(const MoverPlanes& planes, b2Vec2 target) {
+        const auto clipped = b2ClipVector(target, planes.values.data(), int(planes.count));
+        if (!std::isfinite(clipped.x) || !std::isfinite(clipped.y))
+            throw std::runtime_error("2D mover native clipping returned nonfinite motion");
+        // The native clip is one pass. Oblique opposing planes can reintroduce
+        // an earlier blocked direction; stopping is a conservative valid result.
+        for (std::size_t i = 0; i < planes.count; ++i) {
+            const auto& plane = planes.values[i];
+            if (plane.clipVelocity && plane.push > 0 &&
+                b2Dot(clipped, plane.plane.normal) < -mover_tolerance)
+                return {};
+        }
+        return clipped;
     }
     struct OverlapQuery {
         const Impl* self;
@@ -833,6 +957,14 @@ struct Native2D::Impl {
         query.refs[query.count++] = body->admitted.ref;
         return true;
     }
+    std::optional<PhysicsHit2D> cast_mover(const PhysicsSweep2D&, PhysicsQueryFilter,
+                                           std::size_t& work,
+                                           std::uint64_t category = query_category) const;
+    double penetration_mover(const PhysicsOverlap2D&, PhysicsQueryFilter, std::optional<EntityRef>,
+                             std::size_t& work, std::uint64_t category = query_category) const;
+    MoverMotion2D motion_mover(const PhysicsSweep2D&, PhysicsQueryFilter, std::size_t& work,
+                               std::uint64_t category = query_category,
+                               float minimum_floor_y = -1) const;
     explicit Impl(const PhysicsConfig& value) : config(value) {}
     ~Impl() {
         if (B2_IS_NON_NULL(world))
@@ -1593,14 +1725,15 @@ std::optional<PhysicsHit2D> Native2D::shape_cast(const PhysicsSweep2D& request,
             "2D sweep exceeded its work limit or hit an invalid native binding");
     return query.hit;
 }
-std::optional<PhysicsHit2D> Native2D::mover_cast(const PhysicsSweep2D& request,
-                                                 PhysicsQueryFilter filter) const {
-    const auto& self = *impl_;
+std::optional<PhysicsHit2D> Native2D::Impl::cast_mover(const PhysicsSweep2D& request,
+                                                       PhysicsQueryFilter filter, std::size_t& work,
+                                                       std::uint64_t category) const {
+    const auto& self = *this;
     self.check();
     if (request.shape != PhysicsOverlap2D::Shape::Capsule)
         throw std::runtime_error("2D mover cast requires a capsule");
     const auto mover = sweep_proxy(request);
-    if (!realized() || !filter.mask)
+    if (B2_IS_NULL(self.world) || !filter.mask)
         return {};
     const b2Vec2 displacement{float(request.displacement[0]), float(request.displacement[1])};
     // Form bounds in double, then round outwards. Both ends of the native
@@ -1625,35 +1758,137 @@ std::optional<PhysicsHit2D> Native2D::mover_cast(const PhysicsSweep2D& request,
                                 mover,
                                 {request.origin[0], request.origin[1]},
                                 displacement};
+    candidates.query.shared_work = &work;
     b2World_OverlapAABB(self.world, {request.origin[0], request.origin[1]}, bounds,
-                        query_filter(filter), Impl::mover_candidate, &candidates);
-    if (candidates.query.failed)
+                        query_filter(filter, category), Impl::mover_candidate, &candidates);
+    if (candidates.query.failed) {
+        if (work >= query_work_limit)
+            throw std::runtime_error("2D mover query work capacity 16384 exceeded");
         throw std::runtime_error(
             "2D mover cast exceeded its work limit or native geometry/binding");
+    }
     return candidates.query.hit;
 }
-double Native2D::mover_penetration(const PhysicsOverlap2D& request, PhysicsQueryFilter filter,
-                                   std::optional<EntityRef> ignore) const {
-    const auto& self = *impl_;
+double Native2D::Impl::penetration_mover(const PhysicsOverlap2D& request, PhysicsQueryFilter filter,
+                                         std::optional<EntityRef> ignore, std::size_t& work,
+                                         std::uint64_t category) const {
+    const auto& self = *this;
     self.check();
     if (request.shape != PhysicsOverlap2D::Shape::Capsule)
         throw std::runtime_error("2D mover penetration requires a capsule");
     if (ignore && (!ignore->scene || !ignore->entity))
         throw std::runtime_error("2D mover exclusion requires a complete canonical reference");
     const auto proxy = overlap_proxy(request);
-    if (!realized() || !filter.mask)
+    if (B2_IS_NULL(self.world) || !filter.mask)
         return 0;
     Impl::PenetrationQuery query{&self,
                                  filter,
                                  ignore,
                                  {proxy.points[0], proxy.points[1], proxy.radius},
                                  {request.origin[0], request.origin[1]}};
-    b2World_OverlapShape(self.world, query.origin, &proxy, query_filter(filter),
+    query.shared_work = &work;
+    b2World_OverlapShape(self.world, query.origin, &proxy, query_filter(filter, category),
                          Impl::mover_penetration_hit, &query);
-    if (query.failed)
+    if (query.failed) {
+        if (work >= query_work_limit)
+            throw std::runtime_error("2D mover query work capacity 16384 exceeded");
         throw std::runtime_error(
             "2D mover penetration exceeded its work limit or native manifold/binding");
+    }
     return query.depth;
+}
+MoverMotion2D Native2D::Impl::motion_mover(const PhysicsSweep2D& request, PhysicsQueryFilter filter,
+                                           std::size_t& work, std::uint64_t category,
+                                           float minimum_floor_y) const {
+    check();
+    if (request.shape != PhysicsOverlap2D::Shape::Capsule || request.ignore_initial_overlap)
+        throw std::runtime_error(
+            "2D mover motion requires a capsule with checked starting contacts");
+    if (!std::isfinite(minimum_floor_y) ||
+        (minimum_floor_y != -1 && (minimum_floor_y < 0 || minimum_floor_y > 1)))
+        throw std::runtime_error("2D mover floor-normal threshold must be -1 or0..1");
+    const auto proxy = sweep_proxy(request);
+    if (proxy.radius < .02f || std::hypot(request.displacement[0], request.displacement[1]) > 1000)
+        throw std::runtime_error("2D mover motion needs radius>=.02m and displacement<=1000m");
+    if (B2_IS_NULL(world) || !filter.mask)
+        return {request.displacement, request.displacement, 0};
+    PhysicsOverlap2D pose{request.shape, request.dimensions, request.origin, request.angle};
+    const auto penetration = [&] {
+        return penetration_mover(pose, filter, request.ignore, work, category);
+    };
+    const double recovery_limit = std::min(.05, double(proxy.radius) * .25);
+    if (penetration() > recovery_limit + mover_tolerance)
+        throw std::runtime_error("2D mover starts too deeply embedded for shallow recovery");
+    MoverPlanes recovery_planes{this, filter, request.ignore, &work};
+    gather_mover_planes(recovery_planes, pose, pose.origin, category);
+    const auto recovery = solve_mover_planes(recovery_planes, {});
+    pose.origin = {request.origin[0] + recovery.x, request.origin[1] + recovery.y};
+    if (penetration() > mover_slop + mover_tolerance)
+        throw std::runtime_error("2D mover shallow recovery did not produce a feasible pose");
+    const auto base = pose.origin;
+    MoverPlanes planes{this, filter, request.ignore, &work};
+    planes.minimum_floor_y = request.displacement[1] <= 0 ? minimum_floor_y : -1;
+    planes.requested_x = float(request.displacement[0]);
+    gather_mover_planes(planes, pose, base, category);
+    const b2Vec2 requested{float(request.displacement[0]), float(request.displacement[1])};
+    MoverMotion2D result{{recovery.x, recovery.y}, {}, 0};
+    for (unsigned iteration = 0; iteration < mover_iteration_limit; ++iteration) {
+        auto target = requested;
+        if (planes.block_uphill)
+            target.x = requested.x > 0 ? std::min(target.x, float(planes.horizontal_limit))
+                                       : std::max(target.x, float(planes.horizontal_limit));
+        const auto solved = solve_mover_planes(planes, target);
+        auto cast = request;
+        cast.origin = base;
+        cast.displacement = {solved.x, solved.y};
+        // Starting geometry was checked independently; retained planes constrain
+        // those shallow contacts while the cast finds new obstacles.
+        cast.ignore_initial_overlap = true;
+        const auto hit = cast_mover(cast, filter, work, category);
+        const float fraction = hit ? float(hit->fraction) : 1;
+        const b2Vec2 candidate{solved.x * fraction, solved.y * fraction};
+        check_mover_planes(planes, candidate);
+        pose.origin = {base[0] + candidate.x, base[1] + candidate.y};
+        if (penetration() > mover_slop + mover_tolerance)
+            throw std::runtime_error("2D mover cast endpoint remains embedded");
+        // Keep approach travel, then remove uphill horizontal intent. Downward
+        // motion can still project downhill along the physical surface.
+        auto intent = requested;
+        if (planes.block_uphill)
+            intent.x = 0;
+        const auto clipped = clip_mover_motion(planes, intent);
+        result = {{double(recovery.x) + candidate.x, double(recovery.y) + candidate.y},
+                  {clipped.x, clipped.y},
+                  iteration + 1};
+        if (!hit || fraction == 1)
+            return result;
+        const auto prior_count = planes.count;
+        gather_mover_planes(planes, pose, base, category);
+        check_mover_planes(planes, candidate);
+        // Float cast fractions can stop just short of a known contact. Keep
+        // its already checked tangent motion when no new constraint appears.
+        if (planes.count == prior_count)
+            return result;
+    }
+    // Iteration exhaustion discards remaining motion at the last independently
+    // verified safe endpoint. An infeasible native solve never reaches here.
+    result.clipped_displacement = {};
+    return result;
+}
+std::optional<PhysicsHit2D> Native2D::mover_cast(const PhysicsSweep2D& request,
+                                                 PhysicsQueryFilter filter) const {
+    std::size_t work = 0;
+    return impl_->cast_mover(request, filter, work);
+}
+double Native2D::mover_penetration(const PhysicsOverlap2D& request, PhysicsQueryFilter filter,
+                                   std::optional<EntityRef> ignore) const {
+    std::size_t work = 0;
+    return impl_->penetration_mover(request, filter, ignore, work);
+}
+MoverMotion2D Native2D::mover_motion(const PhysicsSweep2D& request, PhysicsQueryFilter filter,
+                                     float minimum_floor_y) const {
+    std::size_t work = 0;
+    return impl_->motion_mover(request, filter, work, query_category, minimum_floor_y);
 }
 bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
     impl_->check();

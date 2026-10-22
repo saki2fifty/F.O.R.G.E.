@@ -53,6 +53,12 @@ struct Native2DImage {
     Json metadata;
     std::string bytes;
 };
+struct MoverMotion2D {
+    // Metres relative to the requested origin; translation includes shallow
+    // recovery, while clipped_displacement contains only the requested motion.
+    Double2 translation{}, clipped_displacement{};
+    unsigned iterations = 0;
+};
 // Reads the existing effective graph and schema. No native creation or ECS writes.
 class Native2D;
 struct TileMap2DOverride {
@@ -98,6 +104,10 @@ class Native2D {
     // native normal is zero. Observes the current pose; performs no recovery.
     double mover_penetration(const PhysicsOverlap2D&, PhysicsQueryFilter,
                              std::optional<EntityRef> ignore = {}) const;
+    // -1 keeps floating move/slide. A floor-normal threshold also removes
+    // unrequested uphill intent on steeper upward faces.
+    MoverMotion2D mover_motion(const PhysicsSweep2D&, PhysicsQueryFilter,
+                               float minimum_floor_y = -1) const;
     void expire_events();
     void adopt_events(std::uint64_t tick);
     std::size_t event_count() const;
