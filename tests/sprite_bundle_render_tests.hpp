@@ -153,7 +153,16 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                                 check(
                                     std::abs(int(pixels[y * 64 + x][lane]) -
                                              int(std::lround(expected * 255))) <= 1,
-                                    "Cropped Sprite pixels differ from independent image sampling");
+                                    "Cropped Sprite pixels differ from independent image sampling: "
+                                    "mode=" +
+                                        std::to_string(mode) + " flip_x=" + std::to_string(flip_x) +
+                                        " flip_y=" + std::to_string(flip_y) +
+                                        " alpha=" + std::to_string(unsigned(alpha)) +
+                                        " x=" + std::to_string(x) + " y=" + std::to_string(y) +
+                                        " rx=" + std::to_string(rx) + " ry=" + std::to_string(ry) +
+                                        " lane=" + std::to_string(lane) +
+                                        " actual=" + std::to_string(pixels[y * 64 + x][lane]) +
+                                        " expected=" + std::to_string(std::lround(expected * 255)));
                             }
                         }
                 }
