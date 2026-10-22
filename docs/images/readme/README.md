@@ -126,3 +126,13 @@ observed after real fixed movement and a genuinely rejected placement. All three
 game rest/jump/landing captures. The complete gate passes 326 editor checks and the
 combined-package C++ workflow. This is a native fixture using software WARP, not
 physical GPU or a manually operated whole desktop. PNG encoding is lossless.
+
+## Sprite image regions
+
+`sprite-image-regions.png` is a lossless conversion of
+`grid-test-images/sprites/gallery/gallery78-frame0-wide.ppm` from the successful
+[focused Windows shader/native Sprite audit39857502853](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39857502853).
+Source50e311ada199b2dbfb257d8092513dc53ce5e704, Windows/D3D12WARP,640×360.
+This is a rendered Game capture using original FORGE Gallery78 content, not a
+whole-editor interaction screenshot or physical GPU performance evidence. No AI
+image generation or retouching. PNG SHA256: `ded497df30638e030ad255eb89077325535d36ec3b54011cacc301ddb2c109c4`.

@@ -18,7 +18,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 | Rendering | Diligent Engine and selected DiligentFX utilities | Shared Scene/Game renderer, PBR materials and GPU resources; D3D12 editor with Vulkan validation probes. |
 | Shaders | HLSL | Surface shaders and shader generation from FORGE material graphs. |
 | Game interface and fonts | RmlUi and FreeType | Runtime HUD documents, input, text and bundled-font rendering. |
-| Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, joints, sensors, queries and painted Tile Map collision. |
+| Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, joints, sensors, queries, painted Tile Map collision and native 2D character movement. |
 | Skeletal animation | Ozz Animation | Animation sampling, blending and glTF animation conversion. |
 | Navigation | Recast and Detour | Static navigation mesh generation, path queries and local steering. |
 | Audio | miniaudio | WAV decoding, playback, spatial sound and mixing. |
@@ -59,6 +59,15 @@ The editable Gallery scene uses two layers and a mirrored instance of the same
 map. Native Game rendering on Linux software Vulkan:
 
 [![Two arrow courses rendered from one Tile Map, including a smaller mirrored instance](docs/images/readme/tile-maps.png)](docs/images/readme/tile-maps.png)
+
+## Sprite image regions
+
+Sprite Renderer can select part of an existing image, animate frames inside it,
+resize its borders or repeat the selected area. Gallery78 contains editable
+examples. Build208 includes this workflow and the matching C++ SDK. The native
+Windows validation capture shows the actual whole-image, cropped and filled objects:
+
+[![Gallery78 with whole and cropped arrows, an animated strip, a bordered panel and mirrored repeated arrows](docs/images/readme/sprite-image-regions.png)](docs/images/readme/sprite-image-regions.png)
 
 ## 2D physics
 

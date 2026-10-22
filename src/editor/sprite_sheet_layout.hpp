@@ -8,15 +8,15 @@
 namespace forge {
 // Disposable editor view math. Texture/grid admission remains in sprite_region;
 // a hit proposes the existing U32 frame value, never a new atlas record.
-inline std::optional<std::uint32_t> sprite_sheet_frame_at(std::uint32_t width, std::uint32_t height,
-                                                          const SpriteGridLayout& grid, double x,
-                                                          double y) {
-    const auto first = sprite_grid_region(width, height, grid, 0);
-    if (!std::isfinite(x) || !std::isfinite(y) || x < grid.margin_x || y < grid.margin_y ||
-        x >= width || y >= height)
+inline std::optional<std::uint32_t>
+sprite_sheet_frame_at(std::uint32_t width, std::uint32_t height, const SpriteGridLayout& grid,
+                      double x, double y, std::optional<SpritePixelRegion> crop = {}) {
+    const auto first = sprite_grid_region(width, height, grid, 0, crop);
+    if (!std::isfinite(x) || !std::isfinite(y) || x < first.x || y < first.y || x >= width ||
+        y >= height)
         return {};
-    x -= grid.margin_x;
-    y -= grid.margin_y;
+    x -= first.x;
+    y -= first.y;
     const auto pitch_x = std::uint64_t(first.width) + grid.spacing_x;
     const auto pitch_y = std::uint64_t(first.height) + grid.spacing_y;
     const auto column = std::uint64_t(x / pitch_x), row = std::uint64_t(y / pitch_y);

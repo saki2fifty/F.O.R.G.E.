@@ -78,7 +78,8 @@ scenes = sorted((project_root / 'Scenes').glob('*.scene.json'))
 assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
         '75-2d-physics.scene.json', '76-connected-2d-bodies.scene.json',
-        '77-painted-2d-collision.scene.json'} <= {p.name for p in scenes}
+        '77-painted-2d-collision.scene.json',
+        '78-sprite-image-regions.scene.json'} <= {p.name for p in scenes}
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]
@@ -199,6 +200,9 @@ try:
                 sprite.setdefault('image_mode', 0)
                 sprite.setdefault('pixels_per_meter', 100.)
                 for field in ('border_left', 'border_right', 'border_top', 'border_bottom'):
+                    sprite.setdefault(field, 0)
+                sprite.setdefault('region_enabled', False)
+                for field in ('region_x', 'region_y', 'region_width', 'region_height'):
                     sprite.setdefault(field, 0)
             transform = row['components'].get('forge.transform_animator')
             if transform is not None:

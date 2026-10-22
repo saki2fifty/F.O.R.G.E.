@@ -794,7 +794,12 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("border_left")
             .template member<std::uint32_t>("border_right")
             .template member<std::uint32_t>("border_top")
-            .template member<std::uint32_t>("border_bottom");
+            .template member<std::uint32_t>("border_bottom")
+            .template member<bool>("region_enabled")
+            .template member<std::uint32_t>("region_x")
+            .template member<std::uint32_t>("region_y")
+            .template member<std::uint32_t>("region_width")
+            .template member<std::uint32_t>("region_height");
         for (const auto& [field, offset] :
              {std::pair{"material", offsetof(SpriteRenderer, material)},
               std::pair{"enabled", offsetof(SpriteRenderer, enabled)},
@@ -823,7 +828,12 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"border_left", offsetof(SpriteRenderer, border_left)},
               std::pair{"border_right", offsetof(SpriteRenderer, border_right)},
               std::pair{"border_top", offsetof(SpriteRenderer, border_top)},
-              std::pair{"border_bottom", offsetof(SpriteRenderer, border_bottom)}}) {
+              std::pair{"border_bottom", offsetof(SpriteRenderer, border_bottom)},
+              std::pair{"region_enabled", offsetof(SpriteRenderer, region_enabled)},
+              std::pair{"region_x", offsetof(SpriteRenderer, region_x)},
+              std::pair{"region_y", offsetof(SpriteRenderer, region_y)},
+              std::pair{"region_width", offsetof(SpriteRenderer, region_width)},
+              std::pair{"region_height", offsetof(SpriteRenderer, region_height)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("SpriteRenderer native Meta disagrees with typed layout");
@@ -1315,7 +1325,7 @@ const std::array<Builtin, builtin_count>& builtins() {
             "forge.mesh_renderer", "Mesh and logical material slot assignments", "unitless", {}, {},
             [](flecs::world& w) { return register_type<MeshRenderer>(w, "forge.mesh_renderer"); }),
         descriptor<SpriteRenderer>(
-            "forge.sprite_renderer", "World-space image or uniform sheet using a shared material",
+            "forge.sprite_renderer", "World-space image region or sheet using a shared material",
             "unitless", {}, {},
             [](flecs::world&
                    w) { return register_type<SpriteRenderer>(w, "forge.sprite_renderer"); }),
@@ -2107,6 +2117,15 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["nullable"] = true;
             value["description"] =
                 "Shared unlit image material; owns the texture and alpha/depth settings";
+        } else if (field == "region_enabled") {
+            value["description"] = "Select an image rectangle before subdividing it into frames";
+        } else if (field.starts_with("region_")) {
+            value["minimum"] = 0;
+            value["maximum"] = 16384;
+            value["unit"] = "pixels";
+            value["description"] = field == "region_width" || field == "region_height"
+                                       ? "Image region extent; zero reaches the image edge"
+                                       : "Image region offset from the texture top-left corner";
         } else if (field == "image_mode") {
             value["description"] =
                 "Simple stretches; Sliced preserves borders; Tiled repeats the selected frame";
@@ -2666,7 +2685,8 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
                 current[field] = value;
     if (std::string_view(type.name) == "forge.sprite_renderer")
         for (const auto* field : {"image_mode", "pixels_per_meter", "border_left", "border_right",
-                                  "border_top", "border_bottom"})
+                                  "border_top", "border_bottom", "region_enabled", "region_x",
+                                  "region_y", "region_width", "region_height"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.transform_animator")

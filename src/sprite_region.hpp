@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 
 namespace forge {
@@ -15,7 +16,18 @@ struct SpriteGridLayout {
     std::uint32_t margin_x = 0, margin_y = 0, spacing_x = 0, spacing_y = 0;
 };
 inline SpritePixelRegion sprite_grid_region(std::uint32_t width, std::uint32_t height,
-                                            const SpriteGridLayout& grid, std::uint64_t frame) {
+                                            const SpriteGridLayout& grid, std::uint64_t frame,
+                                            std::optional<SpritePixelRegion> crop = {}) {
+    auto area = crop.value_or(SpritePixelRegion{});
+    if (!width || !height || area.x >= width || area.y >= height || area.width > width - area.x ||
+        area.height > height - area.y)
+        throw std::invalid_argument("Sprite image region must fit its texture");
+    // Zero extent means the remaining image, so enabling a default region keeps
+    // the whole image. Margins, spacing and frames are relative to this area.
+    if (!area.width)
+        area.width = width - area.x;
+    if (!area.height)
+        area.height = height - area.y;
     const auto axis = [](std::uint32_t extent, std::uint32_t cells, std::uint32_t margin,
                          std::uint32_t spacing) -> std::uint32_t {
         if (!extent || !cells)
@@ -29,16 +41,16 @@ inline SpritePixelRegion sprite_grid_region(std::uint32_t width, std::uint32_t h
             throw std::invalid_argument("Sprite grid must divide into whole positive pixel frames");
         return std::uint32_t(available / cells);
     };
-    const auto cell_width = axis(width, grid.columns, grid.margin_x, grid.spacing_x);
-    const auto cell_height = axis(height, grid.rows, grid.margin_y, grid.spacing_y);
+    const auto cell_width = axis(area.width, grid.columns, grid.margin_x, grid.spacing_x);
+    const auto cell_height = axis(area.height, grid.rows, grid.margin_y, grid.spacing_y);
     if (frame >= std::uint64_t(grid.columns) * grid.rows)
         throw std::invalid_argument("Sprite frame is outside the grid");
     // Admission above proves both final coordinates fit the original extent.
     // Keep products wide until that bounded result is converted.
-    const auto x =
-        grid.margin_x + (frame % grid.columns) * (std::uint64_t(cell_width) + grid.spacing_x);
-    const auto y =
-        grid.margin_y + (frame / grid.columns) * (std::uint64_t(cell_height) + grid.spacing_y);
+    const auto x = std::uint64_t(area.x) + grid.margin_x +
+                   (frame % grid.columns) * (std::uint64_t(cell_width) + grid.spacing_x);
+    const auto y = std::uint64_t(area.y) + grid.margin_y +
+                   (frame / grid.columns) * (std::uint64_t(cell_height) + grid.spacing_y);
     return {std::uint32_t(x), std::uint32_t(y), cell_width, cell_height};
 }
 struct SpriteRegionMapping {

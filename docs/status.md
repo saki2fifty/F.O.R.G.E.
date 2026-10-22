@@ -1,4 +1,36 @@
-# Current Windows delivery — Build261022-000206
+# Current Windows delivery — Build261022-000208
+
+The editor and matching C++ SDK ZIP includes Sprite image regions and all78editable
+Gallery scenes. Sprite Renderer can crop an existing image before frame subdivision;
+Simple/Sliced/Tiled, flips, frame animation, normal source/Prefab/history and temporary
+Live controls share the existing owners. Width/height0 reaches the image edge.
+Gallery78 demonstrates whole, asymmetric, animated, to-edge, sliced and mirrored
+repeated selections with original FORGE images and animation. Native modules need
+the matching rebuilt experimental SDK. Compiled source is
+`50e311ada199b2dbfb257d8092513dc53ce5e704`.
+
+The [complete numbered gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39858733420)
+passes188core/225SDK tests on each OS,326editor checks plus the publication precheck,
+shared SDK/export/independent-runner checks and final packaged editor C++ acceptance.
+All1703manifest hashes,78x64PEfiles,18public SDK headers and530Galleryfiles/78scenes
+were checked against the immutable source. Windows SDK header comparison permits
+only checkoutCRLF→LF; curated Gallery/example source remains byte-exact.
+
+The independent source editor job passes another326checks. Its first comparison
+setup used the wrong baseline artifact owner; no performance measurements ran in
+that failed step. The [comparison-only retry](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39867572535)
+reuses the unchanged current executable and verified original baseline and completes
+same-runner responsive-window startup/idle measurements. These are neither first
+GPU-frame/gameFPS measurements nor proof of no performance regression.
+
+Four actual Windows region/Gallery images were reviewed and match the numbered
+run byte-for-byte; final packaged C++ Game/Inspector and three source-free native
+Character2D rest/jump/landed images were also reviewed. The complete package retains
+Build206's C++ Character2D/controller and Movement2D/UI improvements. Physical Windows /
+GPU/FPS/listening acceptance remains deferred. One-way platforms are unfinished
+local development and are not included in this ZIP.
+
+# Previous Windows delivery — Build261022-000206
 
 The editor and matching C++ SDK ZIP includes native Character Controller2D,
 the editable Character2D project and all 77 Gallery scenes. It retains the 2D sweeps,

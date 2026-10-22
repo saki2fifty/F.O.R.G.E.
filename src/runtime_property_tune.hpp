@@ -22,7 +22,9 @@ struct RuntimePropertyTune {
                property == "tint_b" || property == "tint_a" || property == "order" ||
                property == "image_mode" || property == "pixels_per_meter" ||
                property == "border_left" || property == "border_right" ||
-               property == "border_top" || property == "border_bottom";
+               property == "border_top" || property == "border_bottom" ||
+               property == "region_enabled" || property == "region_x" || property == "region_y" ||
+               property == "region_width" || property == "region_height";
     }
     static bool material_property(std::string_view property) {
         return property == "material_parameters";

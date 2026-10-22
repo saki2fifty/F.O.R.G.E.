@@ -64,6 +64,9 @@ struct SpriteRenderer {
     std::uint32_t image_mode = std::uint32_t(SpriteImageMode::Simple);
     double pixels_per_meter = 100; // Sliced border density and Tiled repeat density.
     std::uint32_t border_left = 0, border_right = 0, border_top = 0, border_bottom = 0;
+    // Optional image crop before grid subdivision. Zero extent reaches the image edge.
+    bool region_enabled = false;
+    std::uint32_t region_x = 0, region_y = 0, region_width = 0, region_height = 0;
     bool operator==(const SpriteRenderer&) const = default;
 };
 // One sparse map asset in the ordinary hierarchy. Cell sizes/layers/definitions

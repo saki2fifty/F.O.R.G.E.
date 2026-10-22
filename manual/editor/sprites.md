@@ -2,7 +2,7 @@
 
 A Sprite places an image in the scene. It uses the ordinary camera, scene
 transforms and Material assets, so it can appear beside meshes and move with a
-parent. It does not require C++ code. The Feature Gallery includes two examples.
+parent. It does not require C++ code. The Feature Gallery includes editable examples.
 
 ## Try the examples
 
@@ -11,8 +11,8 @@ Open **71-world-sprites** for image sizes, tints, transparency, mirroring and
 different pivots. Open **72-sprite-frame-animation** and press Play: the large
 arrow cycles up, right, down and left. The smaller arrows show the four frames.
 The Gallery's README describes the expected results and export steps.
-Development Scene **73-sprite-image-fill** compares stretch, preserved borders
-and repeated fill, with small and mirrored examples. It is absent from Build193.
+Scene **73-sprite-image-fill** compares stretch, preserved borders
+and repeated fill, with small and mirrored examples. It is included in Build208.
 
 ## Create an image material
 
@@ -38,10 +38,27 @@ Inspector edits use normal Scene Undo/Redo and saving. Picking uses the image's
 rectangle, including transparent pixels. Add a game Camera facing the image before
 testing Play or export; the Scene view's editor camera is independent.
 
-## Resize borders or repeat an image (development)
+## Choose an image region
 
-These Image fill controls are available in source after Build193. Automated
-Windows and exported-game checks pass; physical desktop testing remains deferred.
+Under **Image region**, enable the crop and set its pixel offset and size. The
+offset starts at the image's top-left. Width or height **0** reaches that image
+edge. Turn the crop off to show the whole image; its saved selection stays available
+when you turn it on again. World size and pivot use their separate controls.
+
+**Choose frame...** shows the image and outlines the cells inside the selected
+region. Pixels outside it cannot select a frame. A one-column, one-row grid shows
+the region itself; larger grids divide that rectangle. Sliced and Tiled also use
+the selected region. An invalid rectangle leaves the last valid picture visible
+and reports the problem.
+
+Open Gallery **78-sprite-image-regions** for whole-image, asymmetric, animated,
+to-edge, Sliced and mirrored Tiled examples. During Play, crop controls appear in
+**Live gameplay**. Those changes are temporary, including while frame animation runs.
+
+## Resize borders or repeat an image
+
+These controls and image regions are included in Build208. Automated Windows and
+exported-game checks pass; physical desktop testing remains deferred.
 
 Choose an **Image mode** under **Image fill**:
 
@@ -62,7 +79,8 @@ Build193 uses numeric frame selection. Automated Windows input checks pass.
 Use **Sheet frames** to set columns, rows, outer pixel margins and pixel spacing.
 The cells must divide the selected image into whole positive pixel rectangles.
 Frame zero is the top-left cell, then numbering continues across each row. A
-one-column, one-row grid shows the whole image. The Inspector limits the frame
+one-column, one-row grid shows the selected region, or the whole image when the
+region is off. The Inspector limits the frame
 index to the chosen grid.
 
 Choose **Choose frame...** beside Frame to see the published image with cell

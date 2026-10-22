@@ -169,7 +169,7 @@ jobs:
           python tests/standalone_package_test.py --build $b --kit "$b/runtime-kit" --module-kit "$b/module-kits/project.example" --evidence "$b/grid-test-images/shared-game" --source . --retain "$b/standalone-delivery/game"
           if($LASTEXITCODE) { throw 'Shared standalone export failed' }
           python tests/sprite_image_standalone_test.py --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/sprite-image-export" --retain "$b/standalone-delivery/sprite-image-game"
-          if($LASTEXITCODE) { throw 'Shared Sprite image-fill export failed' }
+          if($LASTEXITCODE) { throw 'Shared Sprite fill/region exports failed' }
           python tests/tile_map_standalone_test.py --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/tile-map-export" --retain "$b/standalone-delivery/tile-map-game"
           if($LASTEXITCODE) { throw 'Shared Tile Map export failed' }
           python tests/physics_2d_standalone_test.py --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/physics-2d-export" --retain "$b/standalone-delivery/physics-2d-game"
@@ -270,7 +270,7 @@ jobs:
   relocated:
     needs: build
     runs-on: windows-2022
-    # Seven bounded host launches plus transfer/inventory checks need cleanup headroom.
+    # Thirteen bounded host launches plus transfer/inventory checks need cleanup headroom.
     timeout-minutes: 20
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093

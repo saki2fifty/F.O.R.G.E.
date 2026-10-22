@@ -251,6 +251,68 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     scene.meshes.clear();
 
     scene.sprites = {image};
+    auto& region = scene.sprites[0].renderer;
+    region.columns = region.rows = 1;
+    region.region_enabled = true;
+    region.region_x = 1;
+    region.region_width = 2;
+    region.region_height = 1;
+    settle(renderer);
+    const auto cropped = render();
+    check(renderer.diagnostics().empty(), "Valid image region was not admitted");
+    for (unsigned y = 0; y < 64; ++y)
+        for (unsigned x = 0; x < 64; ++x)
+            check(cropped[y * 64 + x] == (x < 32 ? black[0] : magenta[0]),
+                  "Scene image-region pixels differ from the two selected source texels");
+    save(cropped, "scene-sprite-image-region.ppm");
+    const auto region_bounds = renderer.bounds(scene, {first}, {});
+    check(region_bounds && region_bounds->minimum == Double3{-1, -1, 2} &&
+              region_bounds->maximum == Double3{1, 1, 2},
+          "Image region changed the authored world size or pivot");
+    region.region_x = 3; // Source extent is4px: this complete2px selection cannot fit.
+    region.width = 4;    // Pose and image values must be admitted as one usable candidate.
+    settle(renderer);
+    const auto invalid_region_bounds = renderer.bounds(scene, {first}, {});
+    check(!renderer.diagnostics().empty() && render() == cropped && invalid_region_bounds &&
+              invalid_region_bounds->minimum == region_bounds->minimum &&
+              invalid_region_bounds->maximum == region_bounds->maximum,
+          "Invalid image region damaged complete last-good values or geometry");
+    region.region_x = 2;
+    settle(renderer);
+    const auto shifted = render();
+    const auto shifted_bounds = renderer.bounds(scene, {first}, {});
+    check(renderer.diagnostics().empty() && shifted != cropped && shifted_bounds &&
+              shifted_bounds->minimum == Double3{-2, -1, 2} &&
+              shifted_bounds->maximum == Double3{2, 1, 2} &&
+              host->inspect().gpu_meshes.resident == source_stats.gpu_meshes.resident &&
+              host->inspect().gpu_textures.resident == source_stats.gpu_textures.resident,
+          "Corrected numeric region failed to retry or duplicated resources");
+    auto other = scene.sprites[0];
+    other.entity = second;
+    other.renderer.region_x = 1;
+    other.renderer.order = 1;
+    scene.sprites.push_back(other);
+    settle(renderer);
+    check(render() == cropped && renderer.draw_stats().instances == 2 &&
+              renderer.draw_stats().calls == 1 && host->inspect().gpu_meshes.resident == 1 &&
+              host->inspect().gpu_textures.resident == 1,
+          "Mixed image regions lost ordered Sprite instancing or duplicated native resources");
+    scene.sprites.resize(1);
+    settle(renderer);
+    check(render() == shifted, "Image replacement crop setup differs");
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::White);
+    host->preview_material(material, surface);
+    settle(renderer);
+    check(!renderer.diagnostics().empty() && render() == shifted &&
+              host->inspect().gpu_textures.resident == source_stats.gpu_textures.resident,
+          "Active crop ignored a replacement image extent or damaged retained resources");
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::Checker);
+    host->preview_material(material, surface);
+    settle(renderer);
+    check(renderer.diagnostics().empty() && render() == shifted,
+          "Restored image extent did not retry the unchanged active crop");
+
+    scene.sprites = {image};
     scene.sprites[0].renderer.frame = 1;
     settle(renderer);
     check(render() == black, "Texture-extent replacement setup differs");

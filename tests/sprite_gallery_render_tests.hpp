@@ -27,8 +27,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     game.resources(host);
     auto* device = presentation.device();
     for (const auto source :
-         {"Scenes/71-world-sprites.scene.json", "Scenes/72-sprite-frame-animation.scene.json"}) {
-        const bool animated = std::string_view(source).starts_with("Scenes/72");
+         {"Scenes/71-world-sprites.scene.json", "Scenes/72-sprite-frame-animation.scene.json",
+          "Scenes/78-sprite-image-regions.scene.json"}) {
+        const bool regions = std::string_view(source).starts_with("Scenes/78");
+        const bool animated = regions || std::string_view(source).starts_with("Scenes/72");
         EngineContext engine(WorldRole::Runtime, false, {animation_module(root)});
         Scene scene(engine.world());
         scene.restore_snapshot(load_game_scene(root, {find(source)}));
@@ -62,17 +64,18 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                           "Native Gallery images did not settle");
                 } while (game.pending());
                 check(game.diagnostics().empty() && game.game_scene() &&
-                          game.game_scene()->sprites.size() == (animated ? 5u : 6u),
+                          game.game_scene()->sprites.size() == (regions || !animated ? 6u : 5u),
                       "Actual Gallery image/material/Game consumer failed");
                 const auto sample = [&](double x, double y) {
-                    const auto px = unsigned(std::floor(width * .5 + x * height / 8));
-                    const auto py = unsigned(std::floor(height * .5 - y * height / 8));
+                    const auto vertical = regions ? 10. : 8.;
+                    const auto px = unsigned(std::floor(width * .5 + x * height / vertical));
+                    const auto py = unsigned(std::floor(height * .5 - y * height / vertical));
                     check(px < width && py < height,
                           "Gallery sample escaped its orthographic view");
                     return pixels[std::size_t(py) * width + px];
                 };
                 if (animated) {
-                    const auto p = sample(0, 1.1);
+                    const auto p = sample(0, regions ? 0 : 1.1);
                     check(p[3] == 255 && (frame == 0   ? p[1] > p[2] && p[2] > p[0]
                                           : frame == 1 ? p[2] > p[1] && p[1] > p[0]
                                           : frame == 2 ? p[0] > p[1] && p[1] > p[2]
@@ -91,7 +94,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                               "Wide Gallery view lost the cyan image");
                     }
                 }
-                const auto name = std::string(animated ? "gallery72-frame" : "gallery71-frame") +
+                const auto name = std::string(regions    ? "gallery78-frame"
+                                              : animated ? "gallery72-frame"
+                                                         : "gallery71-frame") +
                                   std::to_string(frame) +
                                   (width > height ? "-wide.ppm" : "-tall.ppm");
                 std::ofstream file(images / name, std::ios::binary);

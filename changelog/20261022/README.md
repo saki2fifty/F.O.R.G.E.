@@ -1,5 +1,28 @@
 # 2026-10-22
 
+## Build261022-000208 — Sprite image regions
+
+- Added an optional pixel rectangle on Sprite Renderer. The existing sheet grid
+  subdivides that rectangle, including animated frames, Sliced/Tiled fill and flips.
+  Zero width/height reaches the image edge; disabled regions retain their values.
+- Added authored, Prefab, Undo/Redo, Inspector frame chooser and temporary Live
+  gameplay controls through the existing component and property owners. Old source
+  files keep their identities and admit default-off values. The public C++ layout
+  changes, so native modules require the matching experimental SDK rebuild.
+- Added editable Gallery78 using FORGE's existing original images and animation.
+  Linked Scene/history, actual Inspector input at three scales, software Vulkan,
+  installed C++ both hosts, all four source profiles and source-free/fresh-runner
+  exports pass. The focused Windows renderer passes after its point-sampling
+  fixture was moved away from permitted texel-addressing ties without dropping
+  assertions. The complete numbered gate passes188core/225SDK on each OS,
+  326editor checks, shared/source-free/fresh-runner exports and final packaged
+  editor C++ acceptance. All1703manifest hashes,78x64PEfiles,18SDKheaders and
+  530Galleryfiles/78scenes match source50e311a. The independent source editor also
+  passes326checks; its comparison-only retry corrects a baseline-owner reference
+  and completes matched startup/idle measurements, without a gameFPS/no-regression
+  claim. Four actual native region images and representative final package/example
+  images were reviewed. Physical Windows/GPU/FPS/listening tests remain deferred.
+
 ## Build261022-000206 — native 2D character movement
 
 - Added feet-origin Grounded/Floating Character Controller 2D under the existing

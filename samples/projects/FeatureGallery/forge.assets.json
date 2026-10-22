@@ -8822,6 +8822,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "e73043a0-eb10-4d5f-9375-640773df0bbe",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/78-sprite-image-regions.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "e7a40664-a742-4d12-a29f-236aa703ba7c",
       "metadata": {
         "forge.import": {

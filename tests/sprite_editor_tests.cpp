@@ -111,11 +111,14 @@ void exercise(const std::filesystem::path& scratch, float scale) {
         frame();
         check(test::ui_targets.contains(key), "Missing Sprite widget: " + key);
         auto box = test::ui_targets.at(key);
+        // Outside a window GetFontSize returns the base font. Require a usable
+        // scaled text body, not a thin clipped strip at the Inspector bottom.
+        const auto text_height = ImGui::GetFontSize() * scale;
         const auto visible_height = [&] {
             return std::min(box.maximum.y, box.clip_maximum.y) -
                    std::max(box.minimum.y, box.clip_minimum.y);
         };
-        if (visible_height() < ImGui::GetFontSize()) {
+        if (visible_height() < text_height) {
             auto* window = ImGui::FindWindowByName(prefab_mode ? "###Prefab source"
                                                    : content   ? "Content"
                                                                : "Inspector");
@@ -134,7 +137,7 @@ void exercise(const std::filesystem::path& scratch, float scale) {
         const auto visible_width = std::min(box.maximum.x, box.clip_maximum.x) -
                                    std::max(box.minimum.x, box.clip_minimum.x);
         check(box.enabled && visible_width >= std::min(40 * scale, box.maximum.x - box.minimum.x) &&
-                  visible_height() >= ImGui::GetFontSize(),
+                  visible_height() >= text_height,
               "Sprite widget clipped/disabled: " + key + " rect " + std::to_string(box.minimum.x) +
                   "," + std::to_string(box.minimum.y) + ".." + std::to_string(box.maximum.x) + "," +
                   std::to_string(box.maximum.y) + " clip " + std::to_string(box.clip_minimum.x) +
@@ -258,9 +261,48 @@ void exercise(const std::filesystem::path& scratch, float scale) {
         check(scene.undo(), "Image fill mode/history did not remain ordinary property edits");
     check(scene.document() == simple_image,
           "Image fill test did not restore its initial authored Scene");
+    check(!test::ui_targets.contains(field("region_x")),
+          "Disabled image region exposed inactive crop fields");
+    click(field("region_enabled"));
+    type(field("region_x"), "1");
+    type(field("region_y"), "1");
+    type(field("region_width"), "2");
+    type(field("region_height"), "2");
+    const auto cropped_image = scene.document();
+    const auto crop = scene.entity(selected).get<SpriteRenderer>();
+    check(crop.region_enabled && crop.region_x == 1 && crop.region_y == 1 &&
+              crop.region_width == 2 && crop.region_height == 2,
+          "Image region controls bypassed native authored values");
+    for (unsigned step = 0; step < 5; ++step)
+        check(scene.undo(), "Image region edit lost its ordinary Undo step");
+    check(scene.document() == simple_image, "Image region Undo changed unrelated source");
+    for (unsigned step = 0; step < 5; ++step)
+        check(scene.redo(), "Image region Redo failed");
+    check(scene.document() == cropped_image, "Image region Redo lost its pixel selection");
+    scene.save(root / "RegionInspector.scene.json");
+    Scene crop_reopened(engine.world());
+    crop_reopened.load(root / "RegionInspector.scene.json");
+    check(crop_reopened.document() == cropped_image,
+          "Image region Inspector values did not survive save/reopen");
+    click(field("region_enabled"));
+    frame();
+    check(!scene.entity(selected).get<SpriteRenderer>().region_enabled &&
+              scene.entity(selected).get<SpriteRenderer>().region_width == 2 &&
+              !test::ui_targets.contains(field("region_width")),
+          "Disabling the image region erased its values or exposed inactive controls");
+    check(scene.undo(), "Image region disable was not undoable");
+    for (unsigned step = 0; step < 5; ++step)
+        check(scene.undo(), "Image region test did not restore its baseline");
+    check(scene.document() == simple_image, "Image region history changed unrelated values");
     type(field("columns"), "2");
     type(field("rows"), "2");
+    check(scene.entity(selected).get<SpriteRenderer>().columns == 2 &&
+              scene.entity(selected).get<SpriteRenderer>().rows == 2,
+          "Inspector grid input failed at scale " + std::to_string(scale));
     type(field("frame"), "3");
+    check(scene.entity(selected).get<SpriteRenderer>().frame == 3,
+          "Inspector frame input failed at scale " + std::to_string(scale) + " " +
+              picker.diagnostics().dump());
     type(field("width"), "2");
     click(field("flip_x"));
     const auto before_tint = scene.document();
@@ -268,9 +310,18 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     const auto saved = scene.document();
     const auto native = scene.entity(selected).get<SpriteRenderer>();
     check(native.material.id == material_id && native.frame == 3 && native.width == 2 &&
-              native.flip_x && native.tint_a == .5f && scene.undo() &&
-              scene.document() == before_tint && scene.redo() && scene.document() == saved,
-          "Inspector values did not use typed Scene history");
+              native.flip_x && native.tint_a == .5f,
+          "Inspector values disagree with native Sprite: " + Json{{"scale", scale},
+                                                                  {"frame", native.frame},
+                                                                  {"width", native.width},
+                                                                  {"flip_x", native.flip_x},
+                                                                  {"tint_a", native.tint_a}}
+                                                                 .dump());
+    check(scene.undo(), "Inspector tint edit did not create an Undo step");
+    check(scene.document() == before_tint, "Inspector tint Undo changed another field: " +
+                                               Json::diff(before_tint, scene.document()).dump());
+    check(scene.redo() && scene.document() == saved,
+          "Inspector tint Redo did not restore the authored values");
     type(field("frame"), "4");
     check(scene.document() == saved, "Out-of-grid Inspector frame partially changed scene");
     const auto path = root / "main.scene.json";
@@ -295,6 +346,22 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     runtime.restore_snapshot(saved);
     live = true;
     frame();
+    click("runtime-field:forge.sprite_renderer:region_enabled");
+    type("runtime-field:forge.sprite_renderer:region_x", "1");
+    type("runtime-field:forge.sprite_renderer:region_y", "1");
+    type("runtime-field:forge.sprite_renderer:region_width", "2");
+    type("runtime-field:forge.sprite_renderer:region_height", "2");
+    const auto live_crop = runtime.entity(selected).get<SpriteRenderer>();
+    check(live_crop.region_enabled && live_crop.region_x == 1 && live_crop.region_y == 1 &&
+              live_crop.region_width == 2 && live_crop.region_height == 2 &&
+              scene.document() == saved,
+          "Live image region controls changed authored source or bypassed runtime values");
+    runtime.restore_snapshot(saved);
+    frame();
+    check(!runtime.entity(selected).get<SpriteRenderer>().region_enabled &&
+              runtime.entity(selected).get<SpriteRenderer>().region_width == 0 &&
+              !test::ui_targets.contains("runtime-field:forge.sprite_renderer:region_width"),
+          "Temporary region values survived authored snapshot restoration");
     click("runtime-field:forge.sprite_renderer:image_mode");
     key(ImGuiKey_DownArrow);
     key(ImGuiKey_Enter);

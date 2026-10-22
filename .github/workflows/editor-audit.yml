@@ -245,7 +245,7 @@ jobs:
       - name: Execute shader and material GPU acceptance
         if: inputs.shader_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics)$" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_sprites)$" --output-on-failure
       - name: Repeat additive pose diagnostics
         if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE

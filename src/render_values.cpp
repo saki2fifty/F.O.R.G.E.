@@ -50,6 +50,10 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
         value.margin_x > 16384 || value.margin_y > 16384 || value.spacing_x > 16384 ||
         value.spacing_y > 16384 || value.frame >= std::uint64_t(value.columns) * value.rows)
         throw std::invalid_argument("Sprite grid/frame is outside the supported integer range");
+    for (const auto pixel :
+         {value.region_x, value.region_y, value.region_width, value.region_height})
+        if (pixel > 16384)
+            throw std::invalid_argument("Sprite image region must use whole pixels in [0,16384]");
     if (value.image_mode > std::uint32_t(SpriteImageMode::Tiled))
         throw std::invalid_argument("Sprite image mode is unsupported");
     if (!std::isfinite(value.pixels_per_meter) || value.pixels_per_meter < .0001 ||
@@ -93,7 +97,12 @@ Json render_value(const SpriteRenderer& p) {
             {"border_left", p.border_left},
             {"border_right", p.border_right},
             {"border_top", p.border_top},
-            {"border_bottom", p.border_bottom}};
+            {"border_bottom", p.border_bottom},
+            {"region_enabled", p.region_enabled},
+            {"region_x", p.region_x},
+            {"region_y", p.region_y},
+            {"region_width", p.region_width},
+            {"region_height", p.region_height}};
 }
 SpriteRenderer sprite_renderer_value(const Json& p) {
     SpriteRenderer value;
@@ -126,6 +135,11 @@ SpriteRenderer sprite_renderer_value(const Json& p) {
     value.border_right = p.value("border_right", value.border_right);
     value.border_top = p.value("border_top", value.border_top);
     value.border_bottom = p.value("border_bottom", value.border_bottom);
+    value.region_enabled = p.value("region_enabled", value.region_enabled);
+    value.region_x = p.value("region_x", value.region_x);
+    value.region_y = p.value("region_y", value.region_y);
+    value.region_width = p.value("region_width", value.region_width);
+    value.region_height = p.value("region_height", value.region_height);
     validate_sprite_renderer(value);
     return value;
 }

@@ -17,7 +17,8 @@ void image_authoring(EngineContext& engine, Json legacy, EntityId actor,
                      const std::filesystem::path& root) {
     auto& image = legacy["entities"][0]["components"]["forge.sprite_renderer"];
     for (const auto* field : {"image_mode", "pixels_per_meter", "border_left", "border_right",
-                              "border_top", "border_bottom"})
+                              "border_top", "border_bottom", "region_enabled", "region_x",
+                              "region_y", "region_width", "region_height"})
         image.erase(field);
     image["future_image_extension"] = {{"keep", Json::array({7, 9})}};
     Scene scene(engine.world());
@@ -26,15 +27,25 @@ void image_authoring(EngineContext& engine, Json legacy, EntityId actor,
     const auto typed = scene.entity(actor.str()).get<SpriteRenderer>();
     check(typed.image_mode == std::uint32_t(SpriteImageMode::Simple) &&
               typed.pixels_per_meter == 100 && typed.border_left == 0 && typed.border_right == 0 &&
-              typed.border_top == 0 && typed.border_bottom == 0,
+              typed.border_top == 0 && typed.border_bottom == 0 && !typed.region_enabled &&
+              typed.region_x == 0 && typed.region_y == 0 && typed.region_width == 0 &&
+              typed.region_height == 0,
           "Old Sprite data did not admit additive Simple defaults");
     check(scene.document().at("asset_id") == legacy.at("asset_id") &&
               scene.document()["entities"][0]["id"].get<EntityId>() == actor &&
               scene.document()["entities"][0]["components"]["forge.sprite_renderer"]
                               ["future_image_extension"] == image["future_image_extension"],
           "Old Sprite admission changed identity or unknown data");
-    for (const auto& [field, value] : std::vector<std::pair<std::string, Json>>{
-             {"image_mode", 1}, {"pixels_per_meter", 32}, {"border_left", 2}, {"border_right", 1}})
+    for (const auto& [field, value] :
+         std::vector<std::pair<std::string, Json>>{{"image_mode", 1},
+                                                   {"pixels_per_meter", 32},
+                                                   {"border_left", 2},
+                                                   {"border_right", 1},
+                                                   {"region_enabled", true},
+                                                   {"region_x", 5},
+                                                   {"region_y", 3},
+                                                   {"region_width", 24},
+                                                   {"region_height", 14}})
         authoring_command(scene, "property.set",
                           {{"entity", actor},
                            {"component", "forge.sprite_renderer"},
@@ -43,12 +54,13 @@ void image_authoring(EngineContext& engine, Json legacy, EntityId actor,
     const auto changed = scene.document();
     const auto mapped = scene.entity(actor.str()).get<SpriteRenderer>();
     check(mapped.image_mode == 1 && mapped.pixels_per_meter == 32 && mapped.border_left == 2 &&
-              mapped.border_right == 1,
+              mapped.border_right == 1 && mapped.region_enabled && mapped.region_x == 5 &&
+              mapped.region_y == 3 && mapped.region_width == 24 && mapped.region_height == 14,
           "Image fill authoring bypassed typed component values");
-    for (unsigned step = 0; step < 4; ++step)
+    for (unsigned step = 0; step < 9; ++step)
         check(scene.undo(), "Image fill property did not create its ordinary Undo step");
     check(scene.document() == before, "Image fill Undo lost legacy/unknown intent");
-    for (unsigned step = 0; step < 4; ++step)
+    for (unsigned step = 0; step < 9; ++step)
         check(scene.redo(), "Image fill Redo failed");
     check(scene.document() == changed, "Image fill Redo changed admitted values");
     const auto path = root / "LegacyImage.scene.json";
@@ -111,6 +123,19 @@ void image_authoring(EngineContext& engine, Json legacy, EntityId actor,
               instance.document() == inherited &&
               instance.entity(root_entity).get<SpriteRenderer>().image_mode == 0,
           "Sprite image override/Undo changed prefab source or inherited defaults");
+    for (const auto& [field, value] :
+         std::vector<std::pair<std::string, Json>>{{"region_enabled", true}, {"region_x", 5}})
+        authoring_command(instance, "property.set",
+                          {{"entity", root_entity},
+                           {"component", "forge.sprite_renderer"},
+                           {"field", field},
+                           {"value", value}});
+    check(instance.entity(root_entity).get<SpriteRenderer>().region_enabled &&
+              instance.entity(root_entity).get<SpriteRenderer>().region_x == 5 &&
+              instance.prefab_sources().at(prefab.asset()) == prefab_source && instance.undo() &&
+              instance.undo() && instance.document() == inherited &&
+              !instance.entity(root_entity).get<SpriteRenderer>().region_enabled,
+          "Sprite region override/Undo changed the prefab or inherited values");
 }
 } // namespace
 int main(int argc, char** argv) {
@@ -233,6 +258,11 @@ int main(int argc, char** argv) {
                                                        {"border_left", -1},
                                                        {"border_top", .25},
                                                        {"border_bottom", 16385},
+                                                       {"region_enabled", 1},
+                                                       {"region_x", -1},
+                                                       {"region_y", .5},
+                                                       {"region_width", 16385},
+                                                       {"region_height", -4294967296LL},
                                                        {"enabled", 1},
                                                        {"material", "invalid"}}) {
             const auto revision = scene.revision();
@@ -291,6 +321,23 @@ int main(int argc, char** argv) {
                   runtime.entity(actor.str()).get<SpriteRenderer>().border_right == 2 &&
                   !runtime.undo() && !runtime.redo() && scene.document() == edited,
               "Live sprite tuning changed authoring state or failed native application");
+        for (const auto& [field, value] :
+             std::vector<std::pair<std::string, Json>>{{"border_right", 0},
+                                                       {"region_enabled", true},
+                                                       {"region_x", 2},
+                                                       {"region_y", 0},
+                                                       {"region_width", 4},
+                                                       {"region_height", 4}})
+            runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", field, value);
+        const auto cropped = runtime.entity(actor.str()).get<SpriteRenderer>();
+        check(cropped.region_enabled && cropped.region_x == 2 && cropped.region_y == 0 &&
+                  cropped.region_width == 4 && cropped.region_height == 4 &&
+                  scene.document() == edited && !runtime.undo(),
+              "Live image region did not apply only to runtime typed values");
+        const auto cropped_draw = sprite_draw_values(cropped, 8, 4);
+        check(cropped_draw.region.origin == std::array<double, 2>{.5, .5} &&
+                  cropped_draw.region.scale == std::array<double, 2>{-.25, .5},
+              "Typed cropped Sprite lost frame, image-relative UV or horizontal flip");
         runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "image_mode", 2);
         runtime.tune_runtime_property(actor.str(), "forge.sprite_renderer", "pixels_per_meter",
                                       262144);
