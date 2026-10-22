@@ -150,11 +150,12 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                                                clear[lane] * (1 - opacity);
                                 else if (lane == 3)
                                     expected = 1;
-                                check(
-                                    std::abs(int(pixels[y * 64 + x][lane]) -
-                                             int(std::lround(expected * 255))) <= 1,
-                                    "Cropped Sprite pixels differ from independent image sampling: "
-                                    "mode=" +
+                                if (std::abs(int(pixels[y * 64 + x][lane]) -
+                                             int(std::lround(expected * 255))) > 1)
+                                    throw std::runtime_error(
+                                        "Cropped Sprite pixels differ from independent image "
+                                        "sampling: "
+                                        "mode=" +
                                         std::to_string(mode) + " flip_x=" + std::to_string(flip_x) +
                                         " flip_y=" + std::to_string(flip_y) +
                                         " alpha=" + std::to_string(unsigned(alpha)) +
