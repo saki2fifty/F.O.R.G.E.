@@ -657,6 +657,7 @@ struct Native2D::Impl {
         std::uint64_t epoch = 0;
         Double2 mover_intent{}, mover_velocity{};
         std::optional<MoverSupport2D> mover_support;
+        bool mover_support_valid = false;
     };
     std::map<std::uint64_t, Body> bodies;
     // Derived iteration cache only; bodies remain the sole binding/state owner.
@@ -686,8 +687,7 @@ struct Native2D::Impl {
         request.ignore = body.admitted.ref;
         return request;
     }
-    void step_movers(float dt) {
-        std::size_t work = 0;
+    void step_movers(float dt, std::size_t& work) {
         for (auto id : mover_order) {
             auto& body = bodies.at(id);
             const auto position = b2Body_GetPosition(body.id);
@@ -724,6 +724,7 @@ struct Native2D::Impl {
             valid_xy({next[0], next[1], 0});
             body.mover_velocity = velocity;
             body.mover_support = support;
+            body.mover_support_valid = true;
             b2Body_SetTransform(body.id, {next[0], next[1]}, b2Rot_identity);
         }
         // Later controllers may leave or approach an earlier controller's
@@ -737,6 +738,7 @@ struct Native2D::Impl {
             const auto position = b2Body_GetPosition(body.id);
             body.mover_support =
                 support_mover(body, {position.x, position.y}, body.mover_intent, work);
+            body.mover_support_valid = true;
         }
     }
     struct Joint {
@@ -1743,8 +1745,6 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
         throw std::runtime_error("Incomplete 2D joint recovery bindings");
     candidate->last_step_tick = candidate->last_event_tick = tick;
     candidate->rebuild_mover_order();
-    std::size_t mover_work = 0;
-    candidate->refresh_mover_supports(mover_work);
     b2World_SetCustomFilterCallback(candidate->world, Impl::filter, candidate.get());
     impl_.swap(candidate);
 }
@@ -1912,14 +1912,11 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                 snaps.push_back(id);
             }
             old->second.admitted = value;
+            old->second.mover_support_valid = false;
         }
         if (bindings_changed)
             self.rebuild_mover_order();
         self.realize_joints(joints);
-        if (bindings_changed) {
-            std::size_t work = 0;
-            self.refresh_mover_supports(work);
-        }
     } catch (...) {
         self.fault = true;
         throw;
@@ -2250,11 +2247,8 @@ void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity)
         std::hypot(velocity[0], velocity[1]) > 1000000)
         throw std::runtime_error("2D controller velocity must be finite and at most1000000m/s");
     auto& body = self.mover(entity, ref);
-    const auto position = b2Body_GetPosition(body.id);
-    std::size_t work = 0;
-    const auto support = self.support_mover(body, {position.x, position.y}, velocity, work);
     body.mover_intent = velocity;
-    body.mover_support = support;
+    body.mover_support_valid = false;
 }
 bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bool clear_velocity) {
     auto& self = *impl_;
@@ -2268,10 +2262,8 @@ bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bo
                                std::uint64_t{1} << body.admitted.config.body.layer) >
         mover_slop + mover_tolerance)
         return false;
-    const auto support =
-        self.support_mover(body, feet, clear_velocity ? Double2{} : body.mover_intent, work);
     b2Body_SetTransform(body.id, {feet[0], feet[1]}, b2Rot_identity);
-    body.mover_support = support;
+    body.mover_support_valid = false;
     if (clear_velocity)
         body.mover_intent = body.mover_velocity = {};
     return true;
@@ -2285,11 +2277,13 @@ std::optional<MoverState2D> Native2D::mover_state(std::uint64_t entity, EntityRe
         return {};
     const auto& body = found->second;
     const auto position = b2Body_GetPosition(body.id);
-    return MoverState2D{{position.x, position.y},
-                        body.mover_intent,
-                        body.mover_velocity,
-                        body.epoch,
-                        body.mover_support};
+    std::size_t work = 0;
+    const auto support =
+        body.mover_support_valid
+            ? body.mover_support
+            : self.support_mover(body, {position.x, position.y}, body.mover_intent, work);
+    return MoverState2D{
+        {position.x, position.y}, body.mover_intent, body.mover_velocity, body.epoch, support};
 }
 bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
     impl_->check();
@@ -2376,6 +2370,16 @@ void Native2D::step(float dt, std::uint64_t tick) {
     validate_step();
     if (!realized())
         return;
+    // Capture previous support before rigid motion and charge it to the same
+    // fixed-step budget as movement/final observations. Commands and native
+    // binding creation do not perform hidden support queries.
+    std::size_t mover_work = 0;
+    try {
+        self.refresh_mover_supports(mover_work);
+    } catch (...) {
+        self.fault = true;
+        throw;
+    }
     self.pair_work = std::size_t(b2World_GetCounters(self.world).contactCount);
     // Sensor overlaps are rebuilt by the native sensor query each step and are
     // already charged by the custom callback. Reserve only retained solid
@@ -2397,7 +2401,7 @@ void Native2D::step(float dt, std::uint64_t tick) {
         }
     }
     try {
-        self.step_movers(dt);
+        self.step_movers(dt, mover_work);
     } catch (...) {
         self.fault = true;
         throw;

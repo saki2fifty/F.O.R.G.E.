@@ -197,4 +197,46 @@ inline void test_mover_support_recovery() {
                     "Floor-follow continuation diverged after fresh native recovery");
     }
 }
+inline void test_mover_support_fixed_budget() {
+    using namespace physics_detail;
+    MoverNativeFixture test;
+    for (unsigned i = 0; i < 65; ++i) {
+        const double angle = std::numbers::pi + std::numbers::pi * (i + .5) / 65;
+        test.add(inline_configuration_2d({}, 1, {.02f, 0}, {1, 1, 1}), .315 * std::cos(angle),
+                 -.3 + .315 * std::sin(angle));
+    }
+    const auto actor = test.actor(0, -.6, .7f);
+    const auto id = test.id(actor);
+    test.synchronize(); // Supported geometry admission is separate from step work.
+    const auto before = test.image();
+    std::string error;
+    try {
+        (void)test.native.mover_state(id, actor);
+    } catch (const std::exception& failure) {
+        error = failure.what();
+    }
+    check_mover(error.find("plane capacity 64") != std::string::npos,
+                "Uncached copied support observation did not enforce its query bound");
+    test.native.check(); // A failed read-only observation cannot fault simulation.
+    check_mover_unchanged(test, before);
+    test.native.move_mover(id, actor, {1, 0}); // Copies intent, performs no support query.
+    const auto after = test.image();
+    check_mover(after.bytes == before.bytes,
+                "Copied controller intent performed hidden native movement/query mutation");
+    error.clear();
+    try {
+        test.native.step(1.f / 60, 1);
+    } catch (const std::exception& failure) {
+        error = failure.what();
+    }
+    check_mover(error.find("plane capacity 64") != std::string::npos,
+                "Fixed-step support work did not enforce the plane bound");
+    bool faulted = false;
+    try {
+        (void)test.native.adopted_poses();
+    } catch (const std::exception&) {
+        faulted = true;
+    }
+    check_mover(faulted, "Failed fixed support work allowed partial pose adoption");
+}
 } // namespace forge::test

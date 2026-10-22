@@ -285,6 +285,7 @@ int main() {
         forge::test::test_mover_support_velocity_and_lifetime();
         forge::test::test_mover_support_curves();
         forge::test::test_mover_support_recovery();
+        forge::test::test_mover_support_fixed_budget();
         std::cout << "Native mover support/floor-follow/lifetime/recovery PASS\n";
         for (double offset : {0., 999000., -999000.})
             geometry_queries_and_recovery(offset);
