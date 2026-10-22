@@ -136,4 +136,9 @@ struct CapsuleCollider2D {
     float radius = .25f, height = 1; // Straight segment along Y, excluding the caps.
     bool operator==(const CapsuleCollider2D&) const = default;
 };
+struct TileMapCollider2D {
+    // Stable layer key in this entity's TileMapRenderer instance. Zero is unassigned.
+    std::uint64_t layer = 0;
+    bool operator==(const TileMapCollider2D&) const = default;
+};
 } // namespace forge

@@ -11,6 +11,7 @@
 #include "physics_debug.hpp"
 #include "physics_joint_value.hpp"
 #include "physics_registration.hpp"
+#include "runtime_tile_map.hpp"
 #include <Jolt/Core/JobSystemThreadPool.h>
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
@@ -422,11 +423,11 @@ LocalTransform physics_debug_pose(const Json& components, const AffineTransform&
 }
 PhysicsDebugGeometry prepare_physics_debug(const Json& components, LocalScale scale,
                                            PhysicsDebugCollision collision, bool crouched,
-                                           std::size_t limit) {
+                                           std::size_t limit, const TileMapData* tile_map) {
     if (!limit || limit > 65536)
         throw std::runtime_error("Physics preview triangle budget must be1..65536");
     if (physics_debug_uses_planar(components))
-        return physics_detail::prepare_debug_2d(components, scale, limit);
+        return physics_detail::prepare_debug_2d(components, scale, limit, tile_map);
     const auto registration_lease = physics_detail::registration();
     auto decoded = [&]<class T>(const char* key) -> T {
         const auto& value = components.at(key);
@@ -567,8 +568,8 @@ struct PhysicsRuntime::Impl {
     std::unique_ptr<physics_detail::Native2D> native_2d;
     physics_detail::Desired2D
     desired_2d(const std::map<std::uint64_t, TransformNode>* nodes = nullptr) {
-        return physics_detail::desired_bodies_2d(context, config,
-                                                 nodes ? *nodes : context.transform_nodes());
+        return physics_detail::desired_bodies_2d(
+            context, config, nodes ? *nodes : context.transform_nodes(), native_2d.get());
     }
     struct JointDesired {
         PhysicsJoint config;
@@ -1479,6 +1480,46 @@ void PhysicsRuntime::validate_transform_candidate(
                                      "use a Kinematic body or a separate visual child");
     }
 }
+void PhysicsRuntime::validate_tile_map_candidate(EntityRef target, const TileMapData& cells,
+                                                 bool edit) {
+    auto& s = *impl_;
+    s.check();
+    const auto resolved = s.context.resolve(target);
+    if (resolved.state != WorldContext::ResolveState::Available)
+        throw std::runtime_error("Tile Map collision candidate has an unavailable actor");
+    const auto entity = s.context.world().entity(resolved.entity);
+    if (!entity.has<TileMapCollider2D>() || !entity.has<PhysicsBody2D>() ||
+        !entity.get<PhysicsBody2D>().enabled)
+        return;
+    const auto nodes = s.context.transform_nodes();
+    const physics_detail::TileMap2DOverride candidate{resolved.entity, &cells};
+    const auto planar = physics_detail::desired_bodies_2d(s.context, s.config, nodes,
+                                                          s.native_2d.get(), &candidate, !edit);
+    physics_detail::validate_shape_capacity_2d(planar);
+    if (!edit) {
+        // Independent resource loads can finish in either order. Admit available
+        // geometry without waiting on another pending Map; complete world/joint
+        // admission still precedes all native writes at initial preparation.
+        if (!planar.contains(resolved.entity)) {
+            bool connected = false;
+            s.context.world().each([&](const PhysicsJoint2D& joint) {
+                connected |= joint.enabled && (joint.body_a == target || joint.body_b == target);
+            });
+            if (connected)
+                throw std::runtime_error(
+                    "An enabled 2D joint needs occupied collision on its connected Map");
+        }
+        return;
+    }
+    const auto spatial = s.desired(&nodes);
+    if (spatial.size() + planar.size() + s.desired_characters().size() > max_bodies)
+        throw std::runtime_error("Combined physics body capacity exceeded");
+    const auto joints = s.desired_joints(spatial);
+    const auto planar_joints = physics_detail::desired_joints_2d(s.context, planar, s.tick);
+    Impl::validate_joint_capacity(joints.size(), planar_joints.size());
+    if (s.native_2d)
+        s.native_2d->validate(planar, 0, {}, {}, planar_joints);
+}
 void PhysicsRuntime::synchronize(float dt) {
     auto& s = *impl_;
     s.check();
@@ -2260,6 +2301,7 @@ Json PhysicsRuntime::status() const {
             {"collision_resources", std::move(resources)},
             {"bodies", s.bodies.size()},
             {"bodies_2d", s.native_2d ? s.native_2d->size() : 0},
+            {"shapes_2d", s.native_2d ? s.native_2d->shape_size() : 0},
             {"native_2d_realized", s.native_2d && s.native_2d->realized()},
             {"active_dynamic", active},
             {"sleeping_dynamic", sleeping},
@@ -2644,8 +2686,18 @@ EngineModule physics_module(PhysicsConfig config, std::filesystem::path root) {
         auto service = std::make_shared<PhysicsRuntime>(*c.owner, config, root);
         c.state = service;
         c.services.publish_physics(service);
+        detail::set_tile_map_physics_admission(
+            *c.owner, [owner = std::weak_ptr<PhysicsRuntime>(service)](
+                          EntityRef target, const TileMapData& cells, bool edit) {
+                const auto physics = owner.lock();
+                if (!physics)
+                    throw std::runtime_error("Tile Map physics admission owner has stopped");
+                physics->validate_tile_map_candidate(target, cells, edit);
+            });
     };
     module.stop = [](ModuleContext& c) {
+        if (c.owner)
+            detail::set_tile_map_physics_admission(*c.owner, {});
         if (c.state)
             std::static_pointer_cast<PhysicsRuntime>(c.state)->stop();
         c.services.publish_physics({});

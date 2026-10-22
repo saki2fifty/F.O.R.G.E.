@@ -986,6 +986,15 @@ and Scene guides at 100/150/200%; final package starts exported Gallery32.
 
 ## Common audio mixer
 
+The audio-mixer capture enables the existing `FORGE_SDK_DIAGNOSTIC_DIR` opt-in in
+its retained evidence directory. The ordinary runtime now records a separate
+bounded bootstrap trace with UTC and monotonic elapsed milliseconds, covering
+argument/project/module setup, world construction, pipe setup, session creation
+and the first response queueing. SDK-host bootstrap records stop at host creation;
+its existing process diagnostics cover subsequent requests. This diagnoses early
+hello delays without changing the five-second request deadline. A queued response
+marker does not prove receipt. Default launches do not create these files.
+
 `audio` measures independent per-channel/Master power, summed actual voices,
 invalid atomic mix admission, missing-listener safety, mute/unmute sample time
 and exact PCM continuity during route changes. Existing prefab masks retain an

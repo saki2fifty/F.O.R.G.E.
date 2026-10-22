@@ -1,5 +1,23 @@
 # FORGE Feature Gallery
 
+## Painted 2D collision
+
+Open **Scenes/77-painted-2d-collision.scene.json**, press Play and open Game.
+Four colored bodies fall onto floors and platforms painted in one Tile Map.
+The blue decorative arrows let bodies pass through them.
+
+Stop and open **Assets/Tiles/PaintedPlatforms.tilemap.json**. On **Solid
+platforms**, erase the three cells of the left raised platform, then Save / Publish.
+Play again: the amber box drops to the lowest floor. Undo the source edit and
+publish to restore it. Select the Map actor's **Tile Map Collider 2D** to inspect
+its named solid layer and use the Scene collision outline to see the published boxes.
+
+The Scene needs no C++ module. **CodeExamples/PaintedCollision.hpp** demonstrates
+queued cell removal and a normal physics query for a matching compiled C++ module.
+Runtime edits disappear on Stop. Save/publish and save the Scene before exporting;
+the exported game uses the same prepared Map collision without the editor or source.
+This profile supports Static nonsensor Map bodies and rectangular occupied cells.
+
 ## Connected 2D bodies
 
 Open **Scenes/76-connected-2d-bodies.scene.json**, press Play and switch to Game.

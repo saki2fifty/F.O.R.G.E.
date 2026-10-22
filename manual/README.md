@@ -27,7 +27,7 @@ Start with [Your first scene](getting-started/first-scene.md), explore the [Feat
 - [Audio](editor/audio.md): WAV clips, sound sources, listeners, pause and prefabs.
 - [Particle effects](editor/particles.md): reusable mesh fountains and bursts with an isolated preview.
 - [World sprites and image sheets](editor/sprites.md): place images, choose sheet frames and animate them on Timeline.
-- [Tile Sets and Tile Maps](editor/tile-maps.md): define reusable tiles, paint layered maps, and export their prepared content.
+- [Tile Sets and Tile Maps](editor/tile-maps.md): define reusable tiles, paint layered maps and solid collision, and export their prepared content.
 
 - [Projects](editor/projects.md): create, open, and return to projects.
 - [Project settings](editor/project-settings.md): shared simulation frequency, startup scene, and controls.

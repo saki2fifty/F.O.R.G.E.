@@ -4,6 +4,8 @@
 #include "physics_2d_transform.hpp"
 #include "physics_debug.hpp"
 #include "physics_joint_2d_value.hpp"
+#include "runtime_tile_map.hpp"
+#include "tile_map_collision.hpp"
 #include <algorithm>
 #include <box2d/box2d.h>
 #include <cmath>
@@ -14,7 +16,7 @@
 
 namespace forge::physics_detail {
 namespace {
-constexpr std::size_t body_limit = 1024, pair_limit = 4096;
+constexpr std::size_t body_limit = 1024, pair_limit = 4096, shape_limit = 4096;
 constexpr std::size_t query_work_limit = 16384, event_limit = 16384;
 // Private native query traffic bypasses body collision masks while retaining
 // the existing 32 named project layers. No extra authored layer is introduced.
@@ -96,6 +98,33 @@ Geometry geometry(const Body2DConfiguration& config) {
         throw std::runtime_error("2D collider mass/inertia is not positive and finite");
     return result;
 }
+b2Polygon compound_box(const BoxPart2D& value) {
+    for (unsigned axis = 0; axis < 2; ++axis) {
+        (void)dimension(value.dimensions[axis], .01f, 1000);
+        if (!std::isfinite(value.center[axis]) ||
+            std::abs(double(value.center[axis])) + .5 * value.dimensions[axis] > 10000)
+            throw std::runtime_error("2D compound box exceeds supported local extent");
+    }
+    return b2MakeOffsetBox(value.dimensions[0] * .5f, value.dimensions[1] * .5f,
+                           {value.center[0], value.center[1]}, {1, 0});
+}
+std::size_t shape_count(const Body2DConfiguration& config) {
+    return config.shape == 3 ? (config.parts ? config.parts->size() : 0) : 1;
+}
+void validate_geometry(const Body2DConfiguration& config) {
+    if (config.shape != 3) {
+        if (config.parts)
+            throw std::runtime_error("Inline 2D collider has compound geometry");
+        (void)geometry(config);
+        return;
+    }
+    if (config.body.motion != 0 || config.body.sensor ||
+        config.dimensions != std::array<float, 2>{} || !config.parts || config.parts->empty() ||
+        config.parts->size() > shape_limit)
+        throw std::runtime_error("2D compound boxes require a bounded nonempty Static solid");
+    for (const auto& part : *config.parts)
+        (void)compound_box(part);
+}
 b2ShapeProxy overlap_proxy(const PhysicsOverlap2D& query) {
     valid_xy({query.origin[0], query.origin[1], 0});
     if (!std::isfinite(query.angle) || std::abs(query.angle) > 1000000)
@@ -172,6 +201,41 @@ Body2DConfiguration inline_configuration_2d(PhysicsBody2D body, unsigned shape,
     (void)geometry(config);
     return config;
 }
+Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapData& cells,
+                                              std::uint64_t layer, LocalScale scale) {
+    if (body.motion != 0 || body.sensor)
+        throw std::runtime_error("Tile Map Collider 2D requires a Static nonsensor body");
+    if (!std::isfinite(scale.x) || !std::isfinite(scale.y) || !std::isfinite(scale.z))
+        throw std::runtime_error("2D collider scale must be finite");
+    if (scale.x == 0 || scale.y == 0)
+        throw std::runtime_error("Tile Map collision requires nonzero XY scale");
+    const auto rectangles = tile_map_collision_rectangles(cells, layer);
+    const auto size = cells.cell_size();
+    std::vector<BoxPart2D> values;
+    values.reserve(rectangles.size());
+    for (const auto& rectangle : rectangles) {
+        const std::array<std::int32_t, 2> origin{rectangle.origin.x, rectangle.origin.y};
+        const std::array<std::uint32_t, 2> counts{rectangle.width, rectangle.height};
+        const std::array<float, 2> axes{scale.x, scale.y};
+        BoxPart2D box;
+        for (unsigned axis = 0; axis < 2; ++axis) {
+            const double full = double(counts[axis]) * size[axis] * std::abs(axes[axis]);
+            const double center =
+                (double(origin[axis]) + .5 * counts[axis]) * size[axis] * axes[axis];
+            box.dimensions[axis] = dimension(full, .01f, 1000);
+            if (!std::isfinite(center) || std::abs(center) + .5 * full > 10000)
+                throw std::runtime_error(
+                    "Tile Map collision exceeds supported scaled local extent");
+            box.center[axis] = float(center);
+        }
+        (void)compound_box(box);
+        values.push_back(box);
+    }
+    auto parts = std::make_shared<const std::vector<BoxPart2D>>(std::move(values));
+    Body2DConfiguration config{body, 3};
+    config.parts = std::move(parts);
+    return config;
+}
 LocalTransform debug_pose_2d(const AffineTransform& world) {
     (void)PlanarMapping(world);
     const double x = std::hypot(world.m[0], world.m[4]);
@@ -181,9 +245,9 @@ LocalTransform debug_pose_2d(const AffineTransform& world) {
         (world.m[0] / x) * (world.m[5] / y) - (world.m[1] / y) * (world.m[4] / x);
     const double half = .5 * std::atan2(world.m[4], world.m[0]);
     LocalTransform hint;
-    // Centered inline2D shapes are symmetric under X/Y reflection. This sign
-    // choice yields identical contours and pure-Z rotation even beneath flat
-    // reflected ancestors, without reconstructing another spatial hierarchy.
+    // The X-axis direction determines pure-Z rotation; the determinant fixes
+    // the Y sign. Applying these axes to offset boxes also preserves the exact
+    // affine map beneath reflected or flat ancestors.
     hint.scale = {float(x), float(std::copysign(y, orientation)),
                   float(std::copysign(z, world.m[10]))};
     hint.rotation = {0, 0, float(std::sin(half)), float(std::cos(half))};
@@ -191,7 +255,8 @@ LocalTransform debug_pose_2d(const AffineTransform& world) {
     planar_rotation(pose.rotation);
     return pose;
 }
-PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, std::size_t limit) {
+PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, std::size_t limit,
+                                      const TileMapData* tile_map) {
     if (!limit || limit > 65536)
         throw std::runtime_error("2D preview line budget must be1..65536");
     const auto decoded = [&]<class T>(const char* key) -> T {
@@ -208,11 +273,32 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
             if (components.contains(other) && components.at(other).value("enabled", true))
                 throw std::runtime_error("2D preview cannot share enabled simulation writers");
     unsigned count = 0;
-    for (const char* name :
-         {"forge.box_collider_2d", "forge.circle_collider_2d", "forge.capsule_collider_2d"})
+    for (const char* name : {"forge.box_collider_2d", "forge.circle_collider_2d",
+                             "forge.capsule_collider_2d", "forge.tile_map_collider_2d"})
         count += components.contains(name);
     if (count != 1)
-        throw std::runtime_error("2D body preview requires exactly one inline 2D collider");
+        throw std::runtime_error("2D body preview requires exactly one 2D collider");
+    if (components.contains("forge.tile_map_collider_2d")) {
+        const auto collider =
+            decoded.template operator()<TileMapCollider2D>("forge.tile_map_collider_2d");
+        const auto renderer =
+            decoded.template operator()<TileMapRenderer>("forge.tile_map_renderer");
+        if (!tile_map || tile_map->asset() != renderer.map.id)
+            throw std::runtime_error("Published Tile Map is not prepared for collision preview");
+        const auto config = tile_map_configuration_2d(body, *tile_map, collider.layer, scale);
+        PhysicsDebugGeometry result;
+        result.truncated = config.parts->size() > limit / 4;
+        for (const auto& part : *config.parts) {
+            const auto polygon = compound_box(part);
+            for (int i = 0; i < polygon.count; ++i) {
+                if (result.lines.size() == limit)
+                    return result;
+                const auto a = polygon.vertices[i], b = polygon.vertices[(i + 1) % polygon.count];
+                result.lines.push_back({{{a.x, a.y, 0}, {b.x, b.y, 0}}});
+            }
+        }
+        return result;
+    }
     unsigned kind = 0;
     std::array<float, 2> raw{};
     if (components.contains("forge.box_collider_2d")) {
@@ -255,7 +341,9 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
 }
 
 Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings,
-                            const std::map<std::uint64_t, TransformNode>& nodes) {
+                            const std::map<std::uint64_t, TransformNode>& nodes,
+                            const Native2D* previous, const TileMap2DOverride* candidate,
+                            bool allow_pending_maps) {
     std::vector<flecs::entity_t> candidates;
     auto query = context.world().query<const PhysicsBody2D>();
     query.each([&](flecs::entity entity, const PhysicsBody2D& body) {
@@ -301,10 +389,53 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
         if (nodes.at(id).parent)
             (void)PlanarMapping(evaluated.at(nodes.at(id).parent).affine);
         if (unsigned(entity.has<BoxCollider2D>()) + unsigned(entity.has<CircleCollider2D>()) +
-                unsigned(entity.has<CapsuleCollider2D>()) !=
+                unsigned(entity.has<CapsuleCollider2D>()) +
+                unsigned(entity.has<TileMapCollider2D>()) !=
             1)
             throw std::runtime_error(
-                "2D body requires exactly one Box, Circle or Capsule Collider 2D");
+                "2D body requires exactly one Box, Circle, Capsule or Tile Map Collider 2D");
+        if (entity.has<TileMapCollider2D>()) {
+            const auto collider = entity.get<TileMapCollider2D>();
+            detail::validate_reflected_value(entity, collider);
+            if (body.motion != 0 || body.sensor || !entity.has<TileMapRenderer>())
+                throw std::runtime_error(
+                    "Tile Map Collider 2D requires a Static nonsensor body and Tile Map Renderer");
+            const bool overridden = candidate && candidate->entity == id;
+            std::shared_ptr<const detail::RuntimeTileMapSnapshot> snapshot;
+            const TileMapData* cells = overridden ? candidate->cells : nullptr;
+            if (!overridden) {
+                const auto status = detail::inspect_runtime_tile_map(context, *ref);
+                if (!status.ready || status.adopted != entity.get<TileMapRenderer>().map.id) {
+                    if (allow_pending_maps)
+                        continue;
+                    throw std::runtime_error(
+                        "Tile Map Collider 2D requires its requested Map instance "
+                        "to be ready before simulation");
+                }
+                snapshot = detail::runtime_tile_map_snapshot(context, *ref);
+                cells = &snapshot->cells;
+            }
+            if (!cells || cells->asset() != entity.get<TileMapRenderer>().map.id)
+                throw std::runtime_error("Tile Map collision candidate has a different Map root");
+            const auto* old = previous ? previous->admitted(id) : nullptr;
+            std::shared_ptr<const std::vector<BoxPart2D>> parts;
+            if (!overridden && old && old->ref == *ref && old->tile_snapshot == snapshot &&
+                old->tile_layer == collider.layer && old->pose.scale.x == pose.scale.x &&
+                old->pose.scale.y == pose.scale.y && old->config.shape == 3)
+                parts = old->config.parts;
+            else {
+                parts = tile_map_configuration_2d(body, *cells, collider.layer, pose.scale).parts;
+            }
+            // An empty layer has no collision or native handle. Refilling it
+            // creates a new realization epoch; no hidden placeholder shape exists.
+            if (!parts || parts->empty())
+                continue;
+            Body2DConfiguration config{body, 3};
+            config.parts = std::move(parts);
+            result.emplace(id,
+                           Body2DDesired{*ref, std::move(config), pose, snapshot, collider.layer});
+            continue;
+        }
         unsigned kind = 0;
         std::array<float, 2> raw{};
         if (entity.has<BoxCollider2D>()) {
@@ -329,6 +460,17 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
     }
     return result;
 }
+void validate_shape_capacity_2d(const Desired2D& desired) {
+    if (desired.size() > body_limit)
+        throw std::runtime_error("2D physics body capacity1024 exceeded");
+    std::size_t shapes = 0;
+    for (const auto& [id, value] : desired) {
+        const auto count = shape_count(value.config);
+        if (count > shape_limit - shapes)
+            throw std::runtime_error("2D physics shape capacity4096 exceeded");
+        shapes += count;
+    }
+}
 
 struct Native2D::Impl {
     PhysicsConfig config;
@@ -338,7 +480,7 @@ struct Native2D::Impl {
     std::uint64_t next_epoch = 1;
     struct Body {
         b2BodyId id{};
-        b2ShapeId shape{};
+        std::vector<b2ShapeId> shapes;
         Body2DDesired admitted;
         std::uint64_t epoch = 0;
     };
@@ -371,7 +513,8 @@ struct Native2D::Impl {
                 if (!joint.config.collide_connected && !old_exclusions.contains(pair) &&
                     !body_changes(pair.first, desired) && !body_changes(pair.second, desired) &&
                     bodies.contains(pair.first) && bodies.contains(pair.second))
-                    new_exclusions[pair.first].insert(b2StoreShapeId(bodies.at(pair.second).shape));
+                    for (const auto shape : bodies.at(pair.second).shapes)
+                        new_exclusions[pair.first].insert(b2StoreShapeId(shape));
             }
             for (const auto& [id, others] : new_exclusions) {
                 const auto body = bodies.at(id).id;
@@ -454,18 +597,20 @@ struct Native2D::Impl {
     std::uint64_t last_step_tick = 0, last_event_tick = 0;
     void retire(const Body& body) {
         pending_end_bound += std::size_t(b2Body_GetContactCapacity(body.id));
-        if (body.admitted.config.body.sensor)
-            pending_end_bound += std::size_t(b2Shape_GetSensorCapacity(body.shape));
-        if (!retired.emplace(b2StoreShapeId(body.shape), Binding{body.admitted.ref, body.epoch})
-                 .second)
-            throw std::runtime_error("2D retired-shape generation alias");
+        for (const auto shape : body.shapes) {
+            if (body.admitted.config.body.sensor)
+                pending_end_bound += std::size_t(b2Shape_GetSensorCapacity(shape));
+            if (!retired.emplace(b2StoreShapeId(shape), Binding{body.admitted.ref, body.epoch})
+                     .second)
+                throw std::runtime_error("2D retired-shape generation alias");
+        }
         b2DestroyBody(body.id);
     }
     const Body* owned(b2ShapeId shape) const noexcept {
         if (!b2Shape_IsValid(shape))
             return nullptr;
         const auto* body = static_cast<const Body*>(b2Shape_GetUserData(shape));
-        return body && B2_ID_EQUALS(body->shape, shape) ? body : nullptr;
+        return body && B2_ID_EQUALS(body->id, b2Shape_GetBody(shape)) ? body : nullptr;
     }
     Binding binding(b2ShapeId shape) const {
         if (const auto* body = owned(shape))
@@ -576,6 +721,8 @@ struct Native2D::Impl {
             name[9 - i] = alphabet[(epoch >> (i * 6)) & 63];
         const auto& config = admitted.config;
         const auto& value = config.body;
+        std::vector<b2ShapeId> shapes;
+        shapes.reserve(shape_count(config));
         auto definition = b2DefaultBodyDef();
         definition.type = static_cast<b2BodyType>(value.motion);
         definition.position = {pose.translation.x, pose.translation.y};
@@ -592,7 +739,7 @@ struct Native2D::Impl {
         const auto id = b2CreateBody(world, &definition);
         if (!b2Body_IsValid(id))
             throw std::runtime_error("Native 2D body allocation failed");
-        const auto shape = geometry(config);
+        const auto shape = config.shape == 3 ? Geometry{} : geometry(config);
         auto shape_definition = b2DefaultShapeDef();
         shape_definition.density = value.density;
         shape_definition.material.friction = value.friction;
@@ -603,27 +750,41 @@ struct Native2D::Impl {
         shape_definition.enableSensorEvents = true;
         shape_definition.enableContactEvents = true;
         shape_definition.enableCustomFiltering = true;
-        b2ShapeId native{};
-        if (config.shape == 0)
-            native = b2CreatePolygonShape(id, &shape_definition, &shape.box);
-        else if (config.shape == 1)
-            native = b2CreateCircleShape(id, &shape_definition, &shape.circle);
-        else
-            native = b2CreateCapsuleShape(id, &shape_definition, &shape.capsule);
-        if (!b2Shape_IsValid(native)) {
-            b2DestroyBody(id);
-            throw std::runtime_error("Native 2D inline shape creation failed");
+        for (std::size_t index = 0; index < shape_count(config); ++index) {
+            b2ShapeId native{};
+            if (config.shape == 3) {
+                const auto box = compound_box(config.parts->at(index));
+                native = b2CreatePolygonShape(id, &shape_definition, &box);
+            } else if (config.shape == 0)
+                native = b2CreatePolygonShape(id, &shape_definition, &shape.box);
+            else if (config.shape == 1)
+                native = b2CreateCircleShape(id, &shape_definition, &shape.circle);
+            else
+                native = b2CreateCapsuleShape(id, &shape_definition, &shape.capsule);
+            if (!b2Shape_IsValid(native)) {
+                b2DestroyBody(id);
+                throw std::runtime_error("Native 2D shape creation failed");
+            }
+            shapes.push_back(native);
         }
         if (value.motion == 2 && value.mass > 0)
             b2Body_SetMassData(id, shape.mass);
-        return {id, native, admitted, epoch};
+        return {id, std::move(shapes), admitted, epoch};
     }
 };
 Native2D::Native2D(const PhysicsConfig& config) : impl_(std::make_unique<Impl>(config)) {}
 Native2D::~Native2D() = default;
 Json Body2DConfiguration::json() const {
-    return {
+    Json result{
         {"body", detail::encode_builtin_value(body)}, {"shape", shape}, {"dimensions", dimensions}};
+    if (shape == 3) {
+        validate_geometry(*this);
+        result["parts"] = Json::array();
+        for (const auto& part : *parts)
+            result["parts"].push_back(
+                {part.center[0], part.center[1], part.dimensions[0], part.dimensions[1]});
+    }
+    return result;
 }
 namespace {
 Json recovery_pose(const LocalTransform& pose) {
@@ -644,14 +805,31 @@ bool recovery_pose_matches(const Json& input, const LocalTransform& pose) {
            equivalent(LocalScale{s[0], s[1], s[2]}, pose.scale);
 }
 bool same_vector(b2Vec2 a, b2Vec2 b) { return a.x == b.x && a.y == b.y; }
+std::array<float, 20> polygon_key(const b2Polygon& value) {
+    if (value.count != 4)
+        throw std::runtime_error("2D compound recovery contains a nonbox polygon");
+    std::array<float, 20> key{float(value.count), value.radius, value.centroid.x, value.centroid.y};
+    for (unsigned i = 0; i < 4; ++i) {
+        key[4 + 4 * i] = value.vertices[i].x;
+        key[5 + 4 * i] = value.vertices[i].y;
+        key[6 + 4 * i] = value.normals[i].x;
+        key[7 + 4 * i] = value.normals[i].y;
+    }
+    if (std::any_of(key.begin(), key.end(), [](float scalar) { return !std::isfinite(scalar); }))
+        throw std::runtime_error("2D compound recovery contains nonfinite polygon geometry");
+    return key;
+}
 // Validate supported public native properties, never native layouts or ID fields.
-Json recovery_native_state(b2BodyId id, b2ShapeId shape, const Body2DConfiguration& config) {
+Json recovery_native_state(b2BodyId id, std::span<const b2ShapeId> shapes,
+                           const Body2DConfiguration& config) {
+    validate_geometry(config);
     const auto& body = config.body;
     const auto locks = b2Body_GetMotionLocks(id);
-    const auto filter = b2Shape_GetFilter(shape);
     const auto defaults = b2DefaultBodyDef();
-    if (b2Body_GetType(id) != static_cast<b2BodyType>(body.motion) || !b2Body_IsEnabled(id) ||
-        b2Body_GetShapeCount(id) != 1 || b2Body_GetLinearDamping(id) != body.linear_damping ||
+    if (shapes.size() != shape_count(config) ||
+        b2Body_GetType(id) != static_cast<b2BodyType>(body.motion) || !b2Body_IsEnabled(id) ||
+        b2Body_GetShapeCount(id) != int(shapes.size()) ||
+        b2Body_GetLinearDamping(id) != body.linear_damping ||
         b2Body_GetAngularDamping(id) != body.angular_damping ||
         b2Body_GetGravityScale(id) != body.gravity_factor ||
         b2Body_IsSleepingEnabled(id) != body.allow_sleeping ||
@@ -661,32 +839,57 @@ Json recovery_native_state(b2BodyId id, b2ShapeId shape, const Body2DConfigurati
         b2Body_IsBullet(id) != (body.motion == 2 && !body.sensor && body.bullet) ||
         b2Body_GetSleepThreshold(id) != defaults.sleepThreshold ||
         b2Body_GetSafetyFactor(id) != defaults.safetyFactor ||
-        !b2Body_IsContactRecyclingEnabled(id) || b2Shape_IsSensor(shape) != body.sensor ||
-        b2Shape_GetDensity(shape) != body.density || b2Shape_GetFriction(shape) != body.friction ||
-        b2Shape_GetRestitution(shape) != body.restitution ||
-        filter.categoryBits != (std::uint64_t{1} << body.layer) ||
-        filter.maskBits != (std::uint64_t(body.mask) | query_category) || filter.groupIndex != 0 ||
-        !b2Shape_AreSensorEventsEnabled(shape) || !b2Shape_AreContactEventsEnabled(shape) ||
-        b2Shape_ArePreSolveEventsEnabled(shape) || b2Shape_AreHitEventsEnabled(shape))
+        !b2Body_IsContactRecyclingEnabled(id))
         throw std::runtime_error("2D recovery native body configuration mismatch");
-    const auto expected = geometry(config);
+    for (const auto shape : shapes) {
+        if (!b2Shape_IsValid(shape) || !B2_ID_EQUALS(b2Shape_GetBody(shape), id))
+            throw std::runtime_error("2D recovery shape belongs to a different body");
+        const auto filter = b2Shape_GetFilter(shape);
+        if (b2Shape_IsSensor(shape) != body.sensor || b2Shape_GetDensity(shape) != body.density ||
+            b2Shape_GetFriction(shape) != body.friction ||
+            b2Shape_GetRestitution(shape) != body.restitution ||
+            filter.categoryBits != (std::uint64_t{1} << body.layer) ||
+            filter.maskBits != (std::uint64_t(body.mask) | query_category) ||
+            filter.groupIndex != 0 || !b2Shape_AreSensorEventsEnabled(shape) ||
+            !b2Shape_AreContactEventsEnabled(shape) || b2Shape_ArePreSolveEventsEnabled(shape) ||
+            b2Shape_AreHitEventsEnabled(shape))
+            throw std::runtime_error("2D recovery native shape configuration mismatch");
+    }
+    const auto expected = config.shape == 3 ? Geometry{} : geometry(config);
     bool matches = false;
-    if (config.shape == 0 && b2Shape_GetType(shape) == b2_polygonShape) {
-        const auto actual = b2Shape_GetPolygon(shape);
-        matches = actual.count == expected.box.count && actual.radius == expected.box.radius &&
-                  same_vector(actual.centroid, expected.box.centroid);
-        for (int i = 0; matches && i < actual.count; ++i)
-            matches = same_vector(actual.vertices[i], expected.box.vertices[i]) &&
-                      same_vector(actual.normals[i], expected.box.normals[i]);
-    } else if (config.shape == 1 && b2Shape_GetType(shape) == b2_circleShape) {
-        const auto actual = b2Shape_GetCircle(shape);
-        matches = same_vector(actual.center, expected.circle.center) &&
-                  actual.radius == expected.circle.radius;
-    } else if (config.shape == 2 && b2Shape_GetType(shape) == b2_capsuleShape) {
-        const auto actual = b2Shape_GetCapsule(shape);
-        matches = same_vector(actual.center1, expected.capsule.center1) &&
-                  same_vector(actual.center2, expected.capsule.center2) &&
-                  actual.radius == expected.capsule.radius;
+    if (config.shape == 3) {
+        std::vector<std::array<float, 20>> actual_parts, expected_parts;
+        for (const auto shape : shapes) {
+            if (b2Shape_GetType(shape) != b2_polygonShape)
+                throw std::runtime_error("2D compound recovery contains a nonpolygon shape");
+            actual_parts.push_back(polygon_key(b2Shape_GetPolygon(shape)));
+        }
+        for (const auto& part : *config.parts)
+            expected_parts.push_back(polygon_key(compound_box(part)));
+        // Shapes have no authored identities. Compare the complete geometry
+        // multiset; native enumeration order need not equal construction order.
+        std::sort(actual_parts.begin(), actual_parts.end());
+        std::sort(expected_parts.begin(), expected_parts.end());
+        matches = actual_parts == expected_parts;
+    } else {
+        const auto shape = shapes.front();
+        if (config.shape == 0 && b2Shape_GetType(shape) == b2_polygonShape) {
+            const auto actual = b2Shape_GetPolygon(shape);
+            matches = actual.count == expected.box.count && actual.radius == expected.box.radius &&
+                      same_vector(actual.centroid, expected.box.centroid);
+            for (int i = 0; matches && i < actual.count; ++i)
+                matches = same_vector(actual.vertices[i], expected.box.vertices[i]) &&
+                          same_vector(actual.normals[i], expected.box.normals[i]);
+        } else if (config.shape == 1 && b2Shape_GetType(shape) == b2_circleShape) {
+            const auto actual = b2Shape_GetCircle(shape);
+            matches = same_vector(actual.center, expected.circle.center) &&
+                      actual.radius == expected.circle.radius;
+        } else if (config.shape == 2 && b2Shape_GetType(shape) == b2_capsuleShape) {
+            const auto actual = b2Shape_GetCapsule(shape);
+            matches = same_vector(actual.center1, expected.capsule.center1) &&
+                      same_vector(actual.center2, expected.capsule.center2) &&
+                      actual.radius == expected.capsule.radius;
+        }
     }
     const auto mass = b2Body_GetMassData(id);
     const auto near = [](float a, float b) {
@@ -712,7 +915,7 @@ Json recovery_native_state(b2BodyId id, b2ShapeId shape, const Body2DConfigurati
             {"awake", b2Body_IsAwake(id)}};
 }
 struct RecoveryShapes {
-    std::array<b2ShapeId, body_limit> shapes{};
+    std::array<b2ShapeId, shape_limit> shapes{};
     std::size_t count = 0;
     bool overflow = false;
     static bool append(b2ShapeId id, void* pointer) noexcept {
@@ -767,7 +970,7 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
              {"epoch", body.epoch},
              {"configuration", body.admitted.config.json()},
              {"target", recovery_pose(body.admitted.pose)},
-             {"native", recovery_native_state(body.id, body.shape, body.admitted.config)}});
+             {"native", recovery_native_state(body.id, body.shapes, body.admitted.config)}});
     }
     if (joints.size() != self.joints.size())
         throw std::runtime_error("2D joint checkpoint requires synchronized content");
@@ -811,6 +1014,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
     self.check();
     if (realized() || !self.bodies.empty() || !self.joints.empty())
         throw std::runtime_error("2D restoration requires a fresh unpublished owner");
+    validate(desired, 0, {}, {}, joints);
     if (metadata.is_null()) {
         if (!bytes.empty() || !desired.empty() || !joints.empty())
             throw std::runtime_error("Missing 2D recovery image");
@@ -853,7 +1057,10 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
         throw std::runtime_error("Native 2D recovery rejected candidate");
     const auto counters = b2World_GetCounters(candidate->world);
     const auto gravity = b2World_GetGravity(candidate->world);
-    if (counters.bodyCount != int(desired.size()) || counters.shapeCount != counters.bodyCount ||
+    std::size_t expected_shapes = 0;
+    for (const auto& [id, body] : desired)
+        expected_shapes += shape_count(body.config);
+    if (counters.bodyCount != int(desired.size()) || counters.shapeCount != int(expected_shapes) ||
         counters.jointCount != int(joints.size()) || counters.contactCount < 0 ||
         counters.contactCount > int(pair_limit) || gravity.x != float(self.config.gravity[0]) ||
         gravity.y != float(self.config.gravity[1]) ||
@@ -866,21 +1073,28 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
     if (!desired.empty())
         b2World_OverlapAABB(candidate->world, {0, 0}, b2World_GetBounds(candidate->world),
                             query_filter({}), RecoveryShapes::append, &shapes);
-    if (shapes.overflow || shapes.count != desired.size())
+    if (shapes.overflow || shapes.count != expected_shapes)
         throw std::runtime_error("2D recovery could not reacquire every shape");
+    std::set<std::uint64_t> native_bodies;
     for (std::size_t index = 0; index < shapes.count; ++index) {
         const auto shape = shapes.shapes[index];
         const auto native = b2Shape_GetBody(shape);
+        if (!native_bodies.insert(b2StoreBodyId(native)).second)
+            continue;
         const auto epoch = recovery_epoch(b2Body_GetName(native));
         const auto found = epochs.find(epoch);
         if (found == epochs.end())
             throw std::runtime_error("Unknown/duplicate native 2D recovery binding");
         const auto [id, entry] = found->second;
         const auto& body = desired.at(id);
-        b2ShapeId only{};
-        if (b2Body_GetShapes(native, &only, 1) != 1 || !B2_ID_EQUALS(only, shape) ||
-            b2Body_GetUserData(native) || b2Shape_GetUserData(shape) ||
-            entry->at("native") != recovery_native_state(native, shape, body.config))
+        std::vector<b2ShapeId> owned_shapes(shape_count(body.config));
+        if (b2Body_GetShapeCount(native) != int(owned_shapes.size()) ||
+            b2Body_GetShapes(native, owned_shapes.data(), int(owned_shapes.size())) !=
+                int(owned_shapes.size()) ||
+            b2Body_GetUserData(native) ||
+            std::any_of(owned_shapes.begin(), owned_shapes.end(),
+                        [](auto part) { return b2Shape_GetUserData(part) != nullptr; }) ||
+            entry->at("native") != recovery_native_state(native, owned_shapes, body.config))
             throw std::runtime_error("2D recovery native binding/state mismatch");
         if (body.config.body.motion == 2) {
             const auto position = b2Body_GetPosition(native);
@@ -891,9 +1105,11 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
                 throw std::runtime_error("2D recovered Dynamic pose differs from adopted source");
         }
         auto& record =
-            candidate->bodies.emplace(id, Impl::Body{native, shape, body, epoch}).first->second;
+            candidate->bodies.emplace(id, Impl::Body{native, std::move(owned_shapes), body, epoch})
+                .first->second;
         b2Body_SetUserData(native, &record);
-        b2Shape_SetUserData(shape, &record);
+        for (const auto part : record.shapes)
+            b2Shape_SetUserData(part, &record);
         epochs.erase(found);
     }
     if (!epochs.empty())
@@ -931,23 +1147,33 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
 }
 void Native2D::check() const { impl_->check(); }
 std::size_t Native2D::size() const { return impl_->bodies.size(); }
+std::size_t Native2D::shape_size() const {
+    return realized() ? std::size_t(b2World_GetCounters(impl_->world).shapeCount) : 0;
+}
 std::size_t Native2D::joint_size() const { return impl_->joints.size(); }
 bool Native2D::realized() const { return B2_IS_NON_NULL(impl_->world); }
+const Body2DDesired* Native2D::admitted(std::uint64_t id) const {
+    impl_->check();
+    const auto found = impl_->bodies.find(id);
+    return found == impl_->bodies.end() ? nullptr : &found->second.admitted;
+}
 void Native2D::validate(const Desired2D& desired, float dt,
                         const std::set<std::uint64_t>& commanded,
                         const std::map<std::uint64_t, LocalTransform>& placements,
                         const DesiredJoints2D& joints) const {
     const auto& self = *impl_;
     self.check();
+    validate_shape_capacity_2d(desired);
     std::size_t retired_count = 0, ends = self.pending_end_bound;
     for (const auto& [id, body] : self.bodies) {
         const auto next = desired.find(id);
         if (next == desired.end() || next->second.ref != body.admitted.ref ||
             next->second.config != body.admitted.config) {
-            ++retired_count;
+            retired_count += body.shapes.size();
             ends += std::size_t(b2Body_GetContactCapacity(body.id));
             if (body.admitted.config.body.sensor)
-                ends += std::size_t(b2Shape_GetSensorCapacity(body.shape));
+                for (const auto shape : body.shapes)
+                    ends += std::size_t(b2Shape_GetSensorCapacity(shape));
         }
     }
     if (joints.size() > 4096)
@@ -961,8 +1187,10 @@ void Native2D::validate(const Desired2D& desired, float dt,
         throw std::runtime_error(
             "2D pending retirement/event capacity exceeded before native writes");
     for (const auto& [id, value] : desired) {
-        (void)geometry(value.config);
         const auto old = self.bodies.find(id);
+        if (old == self.bodies.end() || old->second.admitted.ref != value.ref ||
+            old->second.admitted.config != value.config)
+            validate_geometry(value.config);
         const bool prior_kinematic = old != self.bodies.end() &&
                                      old->second.admitted.ref == value.ref &&
                                      old->second.admitted.config.body.motion == 1;
@@ -1049,7 +1277,8 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                 }
                 old = self.bodies.emplace(id, std::move(body)).first;
                 b2Body_SetUserData(old->second.id, &old->second);
-                b2Shape_SetUserData(old->second.shape, &old->second);
+                for (const auto shape : old->second.shapes)
+                    b2Shape_SetUserData(shape, &old->second);
                 snaps.push_back(id);
             }
             old->second.admitted = value;

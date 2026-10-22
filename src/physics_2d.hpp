@@ -6,37 +6,65 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <vector>
 
 namespace forge {
 struct PhysicsDebugGeometry;
+class TileMapData;
+} // namespace forge
+namespace forge::detail {
+struct RuntimeTileMapSnapshot;
 }
 namespace forge::physics_detail {
+struct BoxPart2D {
+    std::array<float, 2> center{}, dimensions{}; // Scaled body-local metres; full dimensions.
+    bool operator==(const BoxPart2D&) const = default;
+};
 struct Body2DConfiguration {
     PhysicsBody2D body;
-    unsigned shape = 0;                // Box, circle, capsule.
+    unsigned shape = 0;                // Box, circle, capsule, static compound boxes.
     std::array<float, 2> dimensions{}; // Effective world geometry, metres.
-    bool operator==(const Body2DConfiguration&) const = default;
+    std::shared_ptr<const std::vector<BoxPart2D>> parts{};
+    bool operator==(const Body2DConfiguration& other) const {
+        return body == other.body && shape == other.shape && dimensions == other.dimensions &&
+               (parts == other.parts || (parts && other.parts && *parts == *other.parts));
+    }
     Json json() const;
 };
 struct Body2DDesired {
     EntityRef ref;
     Body2DConfiguration config;
     LocalTransform pose;
+    // Read-only cache provenance inside the existing realized-body record.
+    std::shared_ptr<const detail::RuntimeTileMapSnapshot> tile_snapshot{};
+    std::uint64_t tile_layer = 0;
 };
 using Desired2D = std::map<std::uint64_t, Body2DDesired>;
 // Callers admit scalar storage through the existing reflection/schema owner.
 // This shared conversion owns effective XY geometry/profile and native mass checks.
 Body2DConfiguration inline_configuration_2d(PhysicsBody2D, unsigned shape,
                                             std::array<float, 2> raw_dimensions, LocalScale);
-PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit);
+Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D, const TileMapData&,
+                                              std::uint64_t layer, LocalScale);
+PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit,
+                                      const TileMapData* = nullptr);
 LocalTransform debug_pose_2d(const AffineTransform&);
 struct Native2DImage {
     Json metadata;
     std::string bytes;
 };
 // Reads the existing effective graph and schema. No native creation or ECS writes.
+class Native2D;
+struct TileMap2DOverride {
+    std::uint64_t entity = 0;
+    const TileMapData* cells = nullptr;
+};
 Desired2D desired_bodies_2d(WorldContext&, const PhysicsConfig&,
-                            const std::map<std::uint64_t, TransformNode>&);
+                            const std::map<std::uint64_t, TransformNode>&,
+                            const Native2D* previous = nullptr,
+                            const TileMap2DOverride* candidate = nullptr,
+                            bool allow_pending_maps = false);
+void validate_shape_capacity_2d(const Desired2D&);
 void validate_ray_2d(Double2, Double2);
 void validate_overlap_2d(const PhysicsOverlap2D&);
 
@@ -71,8 +99,11 @@ class Native2D {
     std::map<std::uint64_t, LocalTransform> adopted_poses() const;
     void accept_poses(const std::map<std::uint64_t, LocalTransform>&);
     std::size_t size() const;
+    std::size_t shape_size() const;
     std::size_t joint_size() const;
     bool realized() const;
+    // Borrowed only during this owner's detached preflight, before native mutation.
+    const Body2DDesired* admitted(std::uint64_t) const;
     Native2DImage checkpoint(const Desired2D&, std::size_t remaining_bytes,
                              const DesiredJoints2D& joints = {}) const;
     void restore(const Json&, const std::string&, const Desired2D&, std::uint64_t tick,

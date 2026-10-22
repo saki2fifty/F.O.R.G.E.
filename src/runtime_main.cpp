@@ -6,9 +6,12 @@
 #include "particle_runtime.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
+#include "runtime_tile_map.hpp"
 #include "sdk_play_runtime.hpp"
 #include "tile_map_play_transport.hpp"
 #include "tile_map_play_world.hpp"
+#include <cstdlib>
+#include <ctime>
 #include <forge/build.hpp>
 #include <forge/game_settings.hpp>
 #include <forge/native_sdk.hpp>
@@ -18,6 +21,8 @@
 #include <forge/runtime_resources.hpp>
 #include <forge/runtime_ui.hpp>
 #include <forge/runtime_world.hpp>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <random>
 #include <thread>
@@ -27,6 +32,32 @@ void prepare_physics(forge::PhysicsRuntime& physics) {
     while (!physics.prepare_assets()) {
         if (std::chrono::steady_clock::now() >= deadline)
             throw std::runtime_error("Runtime collision preparation timed out");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+void prepare_tile_maps(forge::RuntimeWorld& runtime, const forge::Json* checkpoint = nullptr) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+    auto& context = runtime.engine.world();
+    for (;;) {
+        if (context.services().available(forge::Capability::Resources))
+            context.services().resources()->synchronize();
+        forge::detail::synchronize_runtime_tile_maps(context);
+        bool ready = forge::detail::prepare_runtime_tile_maps(context);
+        if (checkpoint)
+            for (const auto& row : checkpoint->at("entries")) {
+                const auto status = forge::detail::inspect_runtime_tile_map(
+                    context, row.at("entity").get<forge::EntityRef>());
+                if (!status.ready || !status.current) {
+                    if (!status.pending)
+                        throw std::runtime_error("Runtime Tile Map recovery preparation: " +
+                                                 status.diagnostic);
+                    ready = false;
+                }
+            }
+        if (ready)
+            return;
+        if (std::chrono::steady_clock::now() >= deadline)
+            throw std::runtime_error("Runtime Tile Map preparation timed out");
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
@@ -48,6 +79,45 @@ int main(int argc, char** argv) {
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
     try {
+        // Existing diagnostic opt-in, separate bounded bootstrap file: an early
+        // startup stall can precede both the protocol and SDK host's own trace.
+        // At most these fixed phase records are written; default startup does no IO.
+        const auto startup_begin = std::chrono::steady_clock::now();
+        std::ofstream startup_log;
+        if (const auto* directory = std::getenv("FORGE_SDK_DIAGNOSTIC_DIR");
+            directory && *directory) {
+            try {
+#ifdef _WIN32
+                const auto process = GetCurrentProcessId();
+#else
+                const auto process = getpid();
+#endif
+                startup_log.open(std::filesystem::u8path(directory) /
+                                 ("runtime-startup-" + std::to_string(process) + "-" +
+                                  std::to_string(startup_begin.time_since_epoch().count()) +
+                                  ".log"));
+            } catch (...) { /* Optional diagnostics cannot prevent startup. */
+            }
+        }
+        const auto startup_phase = [&](const char* phase) {
+            if (!startup_log.is_open() || !startup_log)
+                return;
+            const auto now = std::time(nullptr);
+            std::tm utc{};
+#ifdef _WIN32
+            if (gmtime_s(&utc, &now) != 0)
+                return;
+#else
+            if (!gmtime_r(&now, &utc))
+                return;
+#endif
+            startup_log << std::put_time(&utc, "%Y-%m-%dT%H:%M:%SZ") << " elapsed_ms="
+                        << std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::steady_clock::now() - startup_begin)
+                               .count()
+                        << " phase=" << phase << std::endl;
+        };
+        startup_phase("main");
         if (argc == 2 && std::string(argv[1]) == "--inspect-sdk-worker")
             return forge::detail::authored_inspection_worker();
         if (argc == 3 && std::string(argv[1]) == "--inspect-sdk") {
@@ -98,12 +168,15 @@ int main(int argc, char** argv) {
             } else
                 throw std::runtime_error("Unknown runtime option: " + option);
         }
+        startup_phase("arguments-parsed");
         if (!project_root.empty() && sdk_profile) {
             sdk_project.emplace(project_root);
+            startup_phase("project-settings-ready");
             if (!explicit_hz)
                 config.simulation_hz = sdk_project->simulation_hz();
             sdk_modules = forge::project_native_modules(project_root, sdk_project->document(),
                                                         bootstrap_services.access());
+            startup_phase("native-modules-ready");
         }
         if (sdk_play) {
             // Editor Play host path for exact-SDK projects. Requires
@@ -137,7 +210,10 @@ int main(int argc, char** argv) {
             host_config.audio = audio_config;
             host_config.ui = ui_enabled;
             host_config.input = sdk_project ? sdk_project->input() : forge::InputMap{};
+            startup_phase("sdk-host-begin");
             forge::SdkPlayRuntime host(std::move(host_config));
+            startup_phase("sdk-host-ready");
+            startup_log.close();
             host.process();
             return 0;
         }
@@ -163,13 +239,18 @@ int main(int argc, char** argv) {
             sdk_project ? sdk_project->physics() : forge::PhysicsConfig{};
         forge::RuntimeClock clock(config);
         using Runtime = forge::RuntimeWorld;
+        startup_phase("world-begin");
         auto runtime = std::make_unique<Runtime>(sdk_modules, physics_config, audio_config,
                                                  project_root, ui_enabled);
+        startup_phase("world-ready");
         forge::InputMap input_map = sdk_project ? sdk_project->input() : forge::InputMap{};
         forge::RuntimeIo io;
+        startup_phase("pipes-ready");
         std::random_device random;
         const std::string session = std::to_string(random()) + "-" + std::to_string(random()) +
                                     "-" + std::to_string(random()) + "-" + std::to_string(random());
+        startup_phase("session-ready");
+        bool startup_request_seen = false;
         std::uint64_t last_id = 0, ui_generation = 1;
         forge::TileMapPlaySource tile_projection;
         forge::ui_protocol::CommandGate ui_commands;
@@ -190,12 +271,16 @@ int main(int argc, char** argv) {
         auto capture = [&] {
             if (!forge::animation_runtime(runtime->engine.world())->checkpoint_ready())
                 return forge::Json(); // Incomplete or invalid bindings are not a checkpoint.
-            forge::Json checkpoint = {{"version", 1},
+            auto tile_maps = forge::detail::checkpoint_runtime_tile_maps(runtime->engine.world());
+            if (tile_maps.is_null())
+                return forge::Json(); // A binding/edit has not reached its admitted boundary.
+            forge::Json checkpoint = {{"version", 2},
                                       {"session", session},
                                       {"tick", clock.tick()},
                                       {"simulation_hz", clock.status().at("simulation_hz")},
                                       {"scene", runtime->scene.snapshot()},
                                       {"physics", runtime->physics()->checkpoint()}};
+            checkpoint["tile_maps"] = std::move(tile_maps);
             checkpoint["animation"] =
                 forge::animation_runtime(runtime->engine.world())->checkpoint();
             if (checkpoint["animation"].is_null())
@@ -235,6 +320,10 @@ int main(int argc, char** argv) {
                 break;
             std::string line;
             if (!quit && !io.pending() && io.receive(line)) {
+                if (!startup_request_seen) {
+                    startup_phase("first-request-received");
+                    startup_request_seen = true;
+                }
                 forge::Json response{{"protocol", 2}, {"session", session}, {"id", 0}};
                 try {
                     const auto request = forge::Json::parse(line);
@@ -309,7 +398,7 @@ int main(int argc, char** argv) {
                                 throw std::runtime_error("Recovery checkpoint exceeds 8 MiB");
                             auto checksum = recovery.at("integrity").get<std::string>();
                             recovery.erase("integrity");
-                            if (integrity(recovery) != checksum || recovery.at("version") != 1 ||
+                            if (integrity(recovery) != checksum || recovery.at("version") != 2 ||
                                 recovery.at("simulation_hz") !=
                                     clock.status().at("simulation_hz") ||
                                 recovery.at("scene") != request.at("scene") ||
@@ -320,6 +409,9 @@ int main(int argc, char** argv) {
                                                          "session or boundary mismatch");
                             candidate->scene.restore_snapshot(recovery.at("scene"));
                             candidate->engine.world().modules().scene_ready();
+                            prepare_tile_maps(*candidate, &recovery.at("tile_maps"));
+                            forge::detail::restore_runtime_tile_maps(candidate->engine.world(),
+                                                                     recovery.at("tile_maps"));
                             prepare_physics(*candidate->physics());
                             candidate->physics()->restore(recovery.at("physics"));
                             auto animation = forge::animation_runtime(candidate->engine.world());
@@ -338,6 +430,7 @@ int main(int argc, char** argv) {
                         } else {
                             candidate->scene.restore_snapshot(request.at("scene"));
                             candidate->engine.world().modules().scene_ready();
+                            prepare_tile_maps(*candidate);
                             prepare_physics(*candidate->physics());
                             candidate->physics()->synchronize(0);
                         }
@@ -598,6 +691,10 @@ int main(int argc, char** argv) {
                     bytes = response.dump() + "\n";
                 }
                 io.send(std::move(bytes));
+                if (initialized && startup_log.is_open()) {
+                    startup_phase("hello-response-queued");
+                    startup_log.close();
+                }
             }
             // Polling quantum only: steady_clock elapsed, never this sleep, drives ticks.
             std::this_thread::sleep_for(std::chrono::milliseconds(1));

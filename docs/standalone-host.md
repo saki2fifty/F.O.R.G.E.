@@ -63,6 +63,12 @@ tick, run control callbacks, publish worlds, or touch GPU. Standalone
 GPU/UI checks (steps 3..5) remain in this host and are not part of the
 helper.
 
+Before the first native realization, GameSession calls
+`RuntimeWorld::prepare_physics_assets()`: synchronize the existing resources/Map
+owner, wait for required Map instance cells, then prepare Collision assets.
+An unpublished candidate remains loading until this CPU boundary is ready.
+Native compound Map geometry must not be created against an unready Map instance.
+
 Old gameplay/presentation can continue while a replacement prepares. Failure or
 cancellation releases only the candidate. UI tickets reject stale activation;
 old commands cannot cross generations. Output-size changes require a new UI

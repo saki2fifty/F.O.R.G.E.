@@ -1,6 +1,8 @@
 #include "builtins.hpp"
 #include <cstddef>
 #include <filesystem>
+#include <forge/authoring.hpp>
+#include <forge/prefab_authoring.hpp>
 #include <forge/scene.hpp>
 #include <iostream>
 #include <limits>
@@ -9,6 +11,9 @@
 
 using namespace forge;
 namespace {
+struct BoundedLayerKey {
+    std::uint64_t value = 0;
+};
 void require(bool condition, const char* message) {
     if (!condition)
         throw std::runtime_error(message);
@@ -223,6 +228,103 @@ void source_round_trip(EngineContext& engine, const std::filesystem::path& paren
     require(!reopened_engine.services().available(Capability::Physics),
             "Reopening an authored 2D source created a native solver");
 }
+void tile_map_collider(EngineContext& engine, const std::filesystem::path& parent) {
+    constexpr auto layer = UINT64_MAX - 1;
+    const auto& type = spec("forge.tile_map_collider_2d");
+    auto& world = engine.world().world();
+    const auto native = world.lookup(type.name);
+    const auto* info = ecs_get_type_info(world.c_ptr(), native.id());
+    const auto* member = ecs_struct_get_member(world.c_ptr(), native.id(), "layer");
+    require(info && std::size_t(info->size) == sizeof(TileMapCollider2D) &&
+                std::size_t(info->alignment) == alignof(TileMapCollider2D) && member &&
+                member->offset == offsetof(TileMapCollider2D, layer) &&
+                member->type == world.id<std::uint64_t>(),
+            "Tile Map Collider 2D lost its actual native uint64 layout");
+    auto target = world.entity();
+    target.set<TileMapCollider2D>({layer});
+    detail::validate_reflected_value(target, target.get<TileMapCollider2D>());
+    require(type.read(target, false) == Json{{"layer", layer}} &&
+                std::get<TileMapCollider2D>(type.decode(Json{{"layer", layer}})).layer == layer,
+            "Tile Map layer key passed through float or a row index");
+    for (const Json invalid : {Json(-1), Json(1.5), Json(true), Json("1")})
+        rejects([&] { (void)type.decode({{"layer", invalid}}); });
+    target.destruct();
+    const auto bounded = world.component<BoundedLayerKey>("fixture.BoundedLayerKey");
+    ecs_struct_desc_t descriptor{};
+    descriptor.entity = bounded.id();
+    auto& field = descriptor.members[0];
+    field.name = "value";
+    field.type = world.id<std::uint64_t>();
+    field.offset = offsetof(BoundedLayerKey, value);
+    field.use_offset = true;
+    constexpr auto upper = std::uint64_t{1} << 63;
+    field.range = {0, double(upper)};
+    require(ecs_struct_init(world.c_ptr(), &descriptor) == bounded.id(),
+            "Native bounded uint64 fixture registration failed");
+    auto numeric = world.entity();
+    detail::validate_reflected_value(numeric, BoundedLayerKey{upper});
+    // upper+1 rounds to upper in double. Admission must compare the integer.
+    rejects([&] { detail::validate_reflected_value(numeric, BoundedLayerKey{upper + 1}); });
+    numeric.destruct();
+    Cleanup work{parent / ("tile-collider-" + AssetId::generate().str())};
+    std::filesystem::create_directories(work.root);
+    Scene scene(engine.world());
+    const auto id = EntityId::generate().str();
+    const auto map = AssetId::generate();
+    auto renderer = spec("forge.tile_map_renderer").defaults;
+    renderer["map"] = map;
+    const Json opaque{{"wide", UINT64_MAX}, {"preserve", Json::array({nullptr, "future"})}};
+    scene.reset({{"version", 5},
+                 {"asset_id", AssetId::generate()},
+                 {"entities", Json::array({{{"id", id},
+                                            {"name", "Map collision source"},
+                                            {"components",
+                                             {{"forge.tile_map_renderer", renderer},
+                                              {"forge.physics_body_2d", Json::object()},
+                                              {"forge.tile_map_collider_2d",
+                                               {{"layer", layer}, {"future", opaque}}}}}}})}});
+    const auto original = scene.document();
+    authoring_command(
+        scene, "property.set",
+        {{"entity", id}, {"component", type.name}, {"field", "layer"}, {"value", 1u}});
+    require(scene.entity(id).get<TileMapCollider2D>().layer == 1 && scene.undo() &&
+                scene.document() == original && scene.redo() &&
+                scene.entity(id).get<TileMapCollider2D>().layer == 1 && scene.undo(),
+            "Tile Map layer property did not use exact typed history");
+    const auto duplicate = scene.duplicate_subtree(id);
+    require(scene.entity(duplicate).get<TileMapCollider2D>().layer == layer &&
+                scene.entity(duplicate).get<TileMapRenderer>().map.id == map && scene.undo() &&
+                scene.document() == original,
+            "Map duplication remapped a layer key or changed the shared asset reference");
+    const auto definition = create_prefab_source(scene, id);
+    PrefabLibrary library(work.root);
+    const auto asset = library.create(scene, definition, "MapCollider.prefab.json");
+    const auto first = instantiate_prefab(scene, asset), second = instantiate_prefab(scene, asset);
+    for (const auto& instance : {first, second}) {
+        const auto document = scene.document();
+        for (const auto& row : document.at("entities"))
+            if (row.at("id") == instance) {
+                const auto actor = row.at("prefab_instance")
+                                       .at("members")
+                                       .at(definition.root().str())
+                                       .get<std::string>();
+                require(scene.entity(actor).get<TileMapCollider2D>().layer == layer &&
+                            scene.entity(actor).get<TileMapRenderer>().map.id == map,
+                        "Prefab realization changed Map-local keys or external asset identity");
+            }
+    }
+    const auto snapshot = scene.snapshot();
+    const auto path = work.root / "map-collider.scene.json";
+    scene.save(path);
+    EngineContext reopened_engine(WorldRole::Authoring);
+    Scene reopened(reopened_engine.world());
+    library.refresh(reopened);
+    reopened.load(path);
+    require(reopened.snapshot() == snapshot &&
+                reopened.entity(id).get<TileMapCollider2D>().layer == layer &&
+                !reopened_engine.services().available(Capability::Physics),
+            "Map collider source/Prefab reopening lost opaque data or created an authoring solver");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -232,6 +334,7 @@ int main(int argc, char** argv) {
         reflected_units(engine);
         scalar_admission(engine);
         source_round_trip(engine, argv[1]);
+        tile_map_collider(engine, argv[1]);
         std::cout << "2D authored layout, scalar rejection, source/identity/extension round trip "
                      "passed\n";
     } catch (const std::exception& error) {

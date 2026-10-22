@@ -293,6 +293,20 @@ int main(int argc, char** argv) {
                 };
                 forge::test_tile_gallery_render::exercise(isolated, context, read,
                                                           FORGE_TEST_GALLERY, images);
+            } else if (selected == "physics-tiles") {
+                forge::test_physics_2d_gallery_render::painted(
+                    isolated, context,
+                    [&](ITexture* texture) {
+                        return forge::test_sprite_draw::read_pixels(device, context, texture);
+                    },
+                    FORGE_TEST_GALLERY, images);
+                forge::test_physics_2d_editor_render::exercise(
+                    isolated, context, FORGE_TEST_GALLERY, images / "editor",
+                    [&](ITextureView* view) { return readback(device, context, view); },
+                    [&](const auto& pixels, unsigned w, unsigned h, const auto& path) {
+                        save(pixels, w, h, path);
+                    },
+                    -1, true);
             } else if (selected == "physics-2d") {
                 const auto read = [&](ITexture* texture) {
                     return forge::test_sprite_draw::read_pixels(device, context, texture);

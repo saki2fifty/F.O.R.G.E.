@@ -330,3 +330,12 @@ references and enable the component first. Targets are skeleton model-space mete
 the helper rejects missing components and nonfinite/out-of-profile coordinates.
 Choose nondegenerate target/pole directions. The matching native SDK fixture
 executes animated reach targets through real shared workers and recovery.
+
+## Painted collision
+
+`PaintedCollision.hpp` queues removal of Gallery77's three-cell left platform and
+queries the painted floor with the ordinary Physics2D ray API. Call the edit helper
+once from a registered fixed-step system, inspect its returned request on a later
+tick, and release it after completion. Source assets and the other Map instances
+remain independent. The matching SDK's `tile_physics_gameplay` sample exercises the
+helper through both Play hosts. No C++ module is required for Gallery77 itself.

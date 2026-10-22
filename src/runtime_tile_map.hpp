@@ -1,6 +1,7 @@
 #pragma once
 #include "tile_asset_resources.hpp"
 #include <forge/world.hpp>
+#include <functional>
 
 namespace forge {
 struct RenderScene;
@@ -47,4 +48,13 @@ RuntimeTileEditResult inspect_runtime_tile_edit(WorldContext&, const std::string
                                                 std::uint64_t token);
 bool release_runtime_tile_edit(WorldContext&, const std::string& module, std::uint64_t token);
 void publish_runtime_tile_edits(WorldContext&);
+// One validator supplied by the existing PhysicsRuntime owner. It checks detached
+// values before source adoption or fixed edit publication; it never publishes cells.
+using TileMapPhysicsAdmission = std::function<void(EntityRef, const TileMapData&, bool edit)>;
+void set_tile_map_physics_admission(WorldContext&, TileMapPhysicsAdmission);
+// Private same-build recovery, not authored source or a gameplay SDK token API.
+// A null capture means a binding or pending edit is not at a checkpoint boundary.
+Json checkpoint_runtime_tile_maps(WorldContext&);
+// Fresh unpublished world with synchronized resources; validate all before writes.
+void restore_runtime_tile_maps(WorldContext&, const Json&);
 } // namespace forge::detail

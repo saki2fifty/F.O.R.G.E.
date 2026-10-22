@@ -32,6 +32,14 @@ RuntimeWorld::RuntimeWorld(std::vector<EngineModule> modules, PhysicsConfig phys
 std::shared_ptr<PhysicsRuntime> RuntimeWorld::physics() {
     return std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
 }
+bool RuntimeWorld::prepare_physics_assets() {
+    if (engine.services().available(Capability::Resources))
+        engine.services().resources()->synchronize();
+    detail::synchronize_runtime_tile_maps(engine.world());
+    if (!detail::prepare_runtime_tile_maps(engine.world()))
+        return false;
+    return physics()->prepare_assets();
+}
 bool RuntimeWorld::prepare_scene_resources() {
     // Runtime-only readiness extracted from the legacy presentation candidate.
     // Mirrors Candidate::poll up to the point it begins touching the host's

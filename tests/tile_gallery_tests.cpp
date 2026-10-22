@@ -1,5 +1,6 @@
 #include "../samples/projects/FeatureGallery/CodeExamples/TileMapEdits.hpp"
 #include "asset_bytes.hpp"
+#include "physics_tile_gallery_tests.hpp"
 #include "runtime_package.hpp"
 #include "runtime_tile_map.hpp"
 #include "tile_map_document.hpp"
@@ -90,6 +91,8 @@ int main(int argc, char** argv) {
         const auto set = find(catalog, "Assets/Tiles/Directions.tileset.json");
         const auto material = find(catalog, "Assets/Sprites/SignalSheet.material.json");
         const auto texture = find(catalog, "Assets/Sprites/SignalSheet.png");
+        const auto painted_scene = find(catalog, "Scenes/77-painted-2d-collision.scene.json");
+        const auto painted_map = find(catalog, "Assets/Tiles/PaintedPlatforms.tilemap.json");
         const auto definitions = TileSetSource::parse(asset_detail::read_bytes(
             root / "Assets/Tiles/Directions.tileset.json", tile_set_source_byte_limit));
         const auto values = definitions.values();
@@ -119,6 +122,16 @@ int main(int argc, char** argv) {
             prepare_runtime_content_catalog(*lease, roots, {}, schema_owner.schema());
         }
         runtime(root, scene, map);
+        const auto painted_package = scratch / "painted cooked content";
+        {
+            auto lease = std::make_shared<ProjectLease>(root);
+            WorldContext author;
+            Scene schema(author);
+            const std::array painted_roots{painted_scene};
+            prepare_runtime_content_catalog(*lease, painted_roots, {}, schema.schema());
+            package_runtime_content(root, painted_package, painted_roots, {"windows", "d3d12"});
+        }
+        test_painted_collision_gallery(root, painted_scene, painted_map);
         const auto package = scratch / "cooked tile content";
         package_runtime_content(root, package, roots, {"windows", "d3d12"});
         std::filesystem::remove_all(root);
@@ -137,6 +150,14 @@ int main(int argc, char** argv) {
                   "Tile runtime content leaked authored source");
         }
         runtime(moved, scene, map);
+        const auto painted_moved = scratch / "relocated source-free painted content";
+        std::filesystem::rename(painted_package, painted_moved);
+        const auto painted_catalog = open_runtime_content(painted_moved, {"windows", "d3d12"});
+        check(painted_catalog.records().size() == 8 &&
+                  painted_catalog.records().contains(painted_scene) &&
+                  painted_catalog.records().contains(painted_map),
+              "Painted collision export lost its exact ordinary runtime dependency closure");
+        test_painted_collision_gallery(painted_moved, painted_scene, painted_map);
         std::filesystem::remove_all(scratch);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

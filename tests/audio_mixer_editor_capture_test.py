@@ -1,5 +1,6 @@
 """Capture actual source routing and project volume controls from a gallery copy."""
 from pathlib import Path
+import os
 import shutil
 import subprocess
 import sys
@@ -7,11 +8,14 @@ import tempfile
 
 fixture, gallery, evidence = (Path(p).resolve() for p in sys.argv[1:4])
 evidence.mkdir(parents=True, exist_ok=True)
+startup = evidence/'startup-diagnostics'
+startup.mkdir(exist_ok=True)
+environment = dict(os.environ, FORGE_SDK_DIAGNOSTIC_DIR=str(startup))
 with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='audio-mixer-capture-') as scratch:
     project = Path(scratch)/'Gallery'
     shutil.copytree(gallery, project)
     result = subprocess.run([fixture, evidence, '--audio-mixer', project],
-                            capture_output=True, text=True, timeout=160)
+                            capture_output=True, text=True, timeout=160, env=environment)
     (evidence/'capture.log').write_text(result.stdout+result.stderr)
     assert result.returncode == 0, (result.returncode, result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout+result.stderr

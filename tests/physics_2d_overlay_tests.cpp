@@ -1,4 +1,6 @@
+#include "builtins.hpp"
 #include "physics_overlay.hpp"
+#include "tile_map_cook.hpp"
 #include <chrono>
 #include <forge/physics.hpp>
 #include <imgui_internal.h>
@@ -40,6 +42,14 @@ void exercise(const std::filesystem::path& project, float scale) {
     ui::interface_scale = scale;
     ui::PhysicsOverlay overlay;
     overlay.visible = true;
+    ui::PublishedTileMapView map_view;
+    unsigned map_reads = 0;
+    const ui::PublishedTileMapReader read_map = [&](AssetRef<TileMapAsset> ref) {
+        require(map_view.cells && ref.id == map_view.cells->asset(),
+                "Overlay requested the wrong Map root");
+        ++map_reads;
+        return map_view;
+    };
     EditorCamera camera;
     camera.target = {0, 0, 7};
     camera.distance = 8;
@@ -51,7 +61,8 @@ void exercise(const std::filesystem::path& project, float scale) {
         const auto vertices = ImGui::GetWindowDrawList()->VtxBuffer.Size;
         const auto commands = ImGui::GetWindowDrawList()->CmdBuffer.Size;
         const auto active = ImGui::GetCurrentContext()->ActiveId;
-        overlay.draw(snapshot, selected, camera, {20, 40}, {760, 520}, project, catalog);
+        overlay.draw(snapshot, selected, camera, {20, 40}, {760, 520}, project, catalog, {},
+                     read_map);
         require(active == ImGui::GetCurrentContext()->ActiveId, "Planar guide claimed UI input");
         const auto added = ImGui::GetWindowDrawList()->VtxBuffer.Size - vertices;
         for (int i = commands; i < ImGui::GetWindowDrawList()->CmdBuffer.Size; ++i) {
@@ -108,6 +119,38 @@ void exercise(const std::filesystem::path& project, float scale) {
     require(!overlay.ready(), "Empty selection retained ready collision preview");
     require(scene.document() == authored && !engine.services().available(Capability::Physics),
             "Read-only planar preview mutated source or created a solver");
+    auto map_source = TileMapValue::create(AssetId::generate(), AssetId::generate());
+    const std::array<TileMapCellEdit, 1> painted{{{1, {1, -1}, {17, 7}}}};
+    map_source = map_source.paint(painted);
+    map_view = {std::make_shared<const TileMapData>(
+                    decode_cooked_tile_map(cook_tile_map(map_source), map_source.asset())),
+                "first-published", "", true};
+    auto map_scene = snapshot;
+    auto& components = map_scene["entities"][0]["components"];
+    components.erase("forge.circle_collider_2d");
+    components["forge.physics_body_2d"]["sensor"] = false;
+    components["forge.tile_map_collider_2d"] = {{"layer", 1}};
+    for (const auto& type : detail::builtins())
+        if (std::string_view(type.name) == "forge.tile_map_renderer")
+            components["forge.tile_map_renderer"] = type.defaults;
+    components["forge.tile_map_renderer"]["map"] = map_source.asset();
+    require(await(map_scene, true) > 0 && map_reads &&
+                overlay.status() == "Tile Map collision - published layer outline",
+            "Published Map did not reach the shared async Scene outline");
+    map_view.current = false;
+    map_view.status = "Preparing replacement published Map";
+    require(draw(map_scene, id) > 0 && !overlay.ready() && overlay.status() == map_view.status,
+            "Stale published Map claimed current ready geometry");
+    const std::array<TileMapCellEdit, 1> erase{{{1, {1, -1}, {}}}};
+    map_view.cells = std::make_shared<const TileMapData>(map_view.cells->with_erased_cells(erase));
+    map_view.revision = "second-published";
+    map_view.current = true;
+    await(map_scene, true);
+    require(overlay.ready() &&
+                overlay.status().find("selected layer is empty") != std::string::npos,
+            "Valid empty published layer retained old collision or failed readiness");
+    require(scene.document() == authored && !engine.services().available(Capability::Physics),
+            "Published Map outline changed authoring source or created a solver");
     ImGui::DestroyContext();
 }
 } // namespace

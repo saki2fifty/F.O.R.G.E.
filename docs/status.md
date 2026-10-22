@@ -1,3 +1,24 @@
+# Painted 2D collision — development source, 2026-10-22
+
+The current development batch adds a selected solid Map layer on Static nonsensor
+PhysicsBody2D actors, published-layer Inspector/Prefab choices and Scene outlines,
+fixed cell edits and edited-Map-before-Physics recovery. Original Gallery77 provides
+painted floors/platforms and separate decorative cells. Local CPU/content tests,
+three-scale ImGui controls, both real Play hosts and installed-only C++ helpers pass.
+Complete native Windows/editor/shared-export/fresh-runner validation remains pending;
+these results do not establish physical Windows/GPU acceptance or a delivery.
+
+Connected 2D joints/Gallery76 remain source-accepted on main. Numbered
+[Build200](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39684614599)
+failed its audio-mixer check: the runtime did not answer hello within the unchanged
+five-second guard. No ZIP was delivered. The retained startup diagnostic extension
+is not claimed as a fix. Build199 remains the delivered body-only 2D package;
+it has neither connected2D joints nor painted Map collision. Physical testing is
+still deferred. See the [painted Map workflow](../manual/editor/tile-maps.md) and
+[bounded technical profile](physics-2d.md).
+
+---
+
 # Tile Maps — validated source, 2026-10-21
 
 Development source adds Tile Set/Tile Map documents, palette/layers, bounded

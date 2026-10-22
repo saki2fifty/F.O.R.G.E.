@@ -3,6 +3,7 @@
 #include "../physics_debug.hpp"
 #include "physics_joint_guide.hpp"
 #include "spatial_helpers.hpp"
+#include "tile_map_inspector.hpp"
 #include <cstdio>
 #include <future>
 #include <numbers>
@@ -15,9 +16,8 @@ class PhysicsOverlay {
     bool joint_visible = true;
     const std::string& status() const { return status_; }
     bool ready() const {
-        return visible && body_selected_ && !joint_selected_ &&
-               (!geometry_.triangles.empty() || !geometry_.lines.empty()) && good_ == key_ &&
-               error_.empty();
+        return visible && body_selected_ && !joint_selected_ && !good_.empty() && good_ == key_ &&
+               error_.empty() && !stale_;
     }
     ~PhysicsOverlay() {
         if (job_.valid())
@@ -25,7 +25,8 @@ class PhysicsOverlay {
     }
     void draw(const Json& scene, const std::string& selected, const EditorCamera& camera,
               ImVec2 origin, ImVec2 area, const std::filesystem::path& project,
-              std::shared_ptr<const AssetCatalog> catalog, const Json& runtime = {}) {
+              std::shared_ptr<const AssetCatalog> catalog, const Json& runtime = {},
+              const PublishedTileMapReader& read_tile_map = {}) {
         joint_selected_ = false;
         body_selected_ = false;
         if (selected.empty())
@@ -95,6 +96,10 @@ class PhysicsOverlay {
                 name == "forge.character_controller" || name.ends_with("_collider") ||
                 name.ends_with("_collider_2d"))
                 components[name] = value;
+        if (components.contains("forge.tile_map_collider_2d") &&
+            row->at("components").contains("forge.tile_map_renderer"))
+            components["forge.tile_map_renderer"] =
+                row->at("components")["forge.tile_map_renderer"];
         if (!components.contains("forge.physics_body") &&
             !components.contains("forge.physics_body_2d") &&
             !components.contains("forge.character_controller"))
@@ -129,7 +134,23 @@ class PhysicsOverlay {
             pose_valid = true;
             const bool crouched = character && character->value("crouched", false);
             ResourceLease<CollisionAsset> collision;
+            std::shared_ptr<const TileMapData> tile_map;
             std::string revision;
+            const bool show_tile_map =
+                show_planar && components.contains("forge.tile_map_collider_2d");
+            if (show_tile_map) {
+                const auto& reference = components.at("forge.tile_map_renderer").at("map");
+                if (reference.is_null() || !read_tile_map)
+                    throw std::runtime_error("Assign a published Tile Map to preview collision.");
+                const auto view = read_tile_map({reference.get<AssetId>()});
+                tile_map = view.cells;
+                revision = view.revision;
+                stale = !view.current;
+                if (stale)
+                    note = view.status;
+                if (!tile_map)
+                    throw std::runtime_error(note.empty() ? "Preparing published Tile Map" : note);
+            }
             if (!show_character && !show_planar && components.contains("forge.asset_collider")) {
                 const auto& reference = components["forge.asset_collider"]["asset"];
                 if (reference.is_null())
@@ -183,10 +204,11 @@ class PhysicsOverlay {
                 work_ = attempt_ = key_;
                 work_entity_ = entity_;
                 work_project_ = project_;
-                job_ = std::async(
-                    std::launch::async, [components, scale = pose.scale, snapshot, crouched] {
-                        return prepare_physics_debug(components, scale, snapshot, crouched);
-                    });
+                job_ = std::async(std::launch::async,
+                                  [components, scale = pose.scale, snapshot, crouched, tile_map] {
+                                      return prepare_physics_debug(components, scale, snapshot,
+                                                                   crouched, 8192, tile_map.get());
+                                  });
             }
             if (good_ != key_) {
                 stale = true;
@@ -201,12 +223,21 @@ class PhysicsOverlay {
                                     : (components["forge.physics_body_2d"].value("sensor", false)
                                            ? "2D sensor - authored outline"
                                            : "2D collision - authored outline");
+                if (show_tile_map)
+                    note = disabled ? "Tile Map collision disabled - published layer outline"
+                                    : "Tile Map collision - published layer outline";
+                if (show_tile_map && good_ == key_ && geometry_.lines.empty())
+                    note += " | selected layer is empty";
+                if (show_tile_map && runtime.is_object() &&
+                    runtime.value("native_2d_realized", false))
+                    note += " | runtime cell edits are not shown here";
             }
         } catch (const std::exception& e) {
             error_ = e.what();
             note = error_;
             stale = true;
         }
+        stale_ = stale;
         auto* draw = ImGui::GetWindowDrawList();
         draw->PushClipRect(origin, {origin.x + area.x, origin.y + area.y}, true);
         const auto color = !error_.empty() ? IM_COL32(255, 112, 120, 230)
@@ -273,7 +304,7 @@ class PhysicsOverlay {
     }
 
   private:
-    bool joint_selected_ = false, body_selected_ = false;
+    bool joint_selected_ = false, body_selected_ = false, stale_ = true;
     float draw_joint(const PhysicsJointGuide& guide, const EditorCamera& camera, ImVec2 origin,
                      ImVec2 area, float note_offset = 0) {
         static constexpr const char* kinds[] = {"Distance", "Hinge",  "Point",

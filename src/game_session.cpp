@@ -53,7 +53,7 @@ std::uint64_t GameSession::prepare(const Json& snapshot,
         if (restore_supported_state)
             restore_supported_state(next->scene);
         next->engine.world().modules().restore_state(module_state);
-        const bool physics_ready = next->physics()->prepare_assets();
+        const bool physics_ready = next->prepare_physics_assets();
         if (physics_ready) {
             next->physics()->synchronize(0); // No elapsed physics time.
             next->simulation.restore_input_tick(0);
@@ -105,7 +105,7 @@ void GameSession::discard_candidate() {
 GamePreparationProgress GameSession::poll_candidate() {
     try {
         if (!candidate_initialized_) {
-            if (candidate_->physics()->prepare_assets()) {
+            if (candidate_->prepare_physics_assets()) {
                 candidate_->physics()->synchronize(0);
                 candidate_->simulation.restore_input_tick(0);
                 candidate_->simulation.reset_presentation();

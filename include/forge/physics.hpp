@@ -3,6 +3,7 @@
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
 namespace forge {
+class TileMapData;
 // Host composition API, not exported by the experimental gameplay SDK.
 EngineModule physics_module(PhysicsConfig config = {}, std::filesystem::path content_root = {});
 // Host-only error retaining identity through failed candidate-world destruction.
@@ -25,6 +26,8 @@ class PhysicsRuntime : public PhysicsService {
     // Read-only host admission of an animation transform candidate. Uses the
     // same shape/spatial/solver ownership rules as realization, before ECS writes.
     void validate_transform_candidate(const std::map<std::uint64_t, TransformNode>&);
+    // Host-only detached admission used by the existing Map instance owner.
+    void validate_tile_map_candidate(EntityRef, const TileMapData&, bool edit);
     void synchronize(float dt);
     void step(float dt);
     void adopt();

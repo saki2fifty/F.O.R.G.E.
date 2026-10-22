@@ -73,6 +73,7 @@ class ComponentInspector {
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     std::function<bool(const Json& mesh_renderer, Json& parameters)> material_parameters;
     ui::SpriteFrameField sprite_frames;
+    std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     std::function<void(const std::string&)> open_cpp_definition;
     std::function<void(const std::string&)> edit_rig_target;
     static bool runtime_type_available(const Json& type, const Json& components) {
@@ -490,13 +491,16 @@ class ComponentInspector {
                         display_field = &contextual;
                     }
                 }
-                bool changed = key == "forge.mesh_renderer" && name == "materials" && material_slots
-                                   ? material_slots(values.at(key), value)
-                               : key == "forge.mesh_renderer" && name == "material_parameters" &&
-                                       material_parameters
-                                   ? material_parameters(values.at(key), value)
-                                   : property_field(project.project(), *display_field, value, true,
-                                                    model_node_scope(values, key, field));
+                bool changed =
+                    key == "forge.tile_map_collider_2d" && name == "layer" && tile_map_layer
+                        ? tile_map_layer(values, value)
+                    : key == "forge.mesh_renderer" && name == "materials" && material_slots
+                        ? material_slots(values.at(key), value)
+                    : key == "forge.mesh_renderer" && name == "material_parameters" &&
+                            material_parameters
+                        ? material_parameters(values.at(key), value)
+                        : property_field(project.project(), *display_field, value, true,
+                                         model_node_scope(values, key, field));
                 FORGE_UI_PROBE("component-field:" + key + ":" + name);
                 if (changed)
                     edit_property(scene, entity, key, name, value);

@@ -377,6 +377,16 @@ void MeshResourceHost::pump() {
     gpu_meshes_.collect();
     gpu_textures_.collect();
 }
+ResourceTicket MeshResourceHost::request_tile_map_values(AssetRef<TileMapAsset> asset) {
+    check_thread();
+    if (!catalog_)
+        throw std::runtime_error("Tile Map inspection requires a project catalog");
+    return request_tile_map(tile_maps_, project_, catalog_, asset);
+}
+ResourceLease<TileMapAsset> MeshResourceHost::tile_map_values(const ResourceTicket& ticket) {
+    check_thread();
+    return tile_maps_.acquire(ticket);
+}
 void MeshResourceHost::submit() {
     check_thread();
     environments_.submit();

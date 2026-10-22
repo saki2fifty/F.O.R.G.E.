@@ -6,6 +6,7 @@
 #include "editor/content_model.hpp"
 #include "material_authoring.hpp"
 #include "material_selection.hpp"
+#include "physics_tile_map_tests.hpp"
 #include "runtime_package.hpp"
 #include "runtime_tile_map.hpp"
 #include "tile_asset_authoring.hpp"
@@ -14,6 +15,7 @@
 #include "tile_asset_worker.hpp"
 #include "tile_map_document.hpp"
 #include "tile_map_play_world.hpp"
+#include "tile_map_recovery_tests.hpp"
 #include "tile_play_runtime_tests.hpp"
 #include "tile_set_document.hpp"
 #ifdef FORGE_ENABLE_NATIVE_SDK
@@ -434,6 +436,8 @@ void runtime_instances(const std::filesystem::path& root, std::shared_ptr<Projec
                                          changed->generation + 100, subsequent);
     });
     require(scene.document() == authored, "Runtime map edits entered Scene source/history");
+    test_tile_map_recovery(root, authored, checkpoint_runtime_tile_maps(engine.world()));
+    test_tile_map_recovery_memory(root, authored, checkpoint_runtime_tile_maps(engine.world()));
 
     const auto stale = request_runtime_tile_cells(engine.world(), "project.cells", b,
                                                   original_b->generation, subsequent);
@@ -866,6 +870,8 @@ void workflow(const std::filesystem::path& root, const std::filesystem::path& wo
     require(map_data.cell(1, {-1, -1}).tile == 2, "Recook remapped a stable tile key");
     automatic_updates(root, lease, worker, image_material, set_id, map_id);
     file_workflows(root, lease, worker, image_material, set_id, map_id);
+    test_physics_tile_map(root, lease, worker, set_id);
+    test_tile_map_capture_expansion(root, lease, worker, set_id);
     catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     // Package through an ordinary saved Scene, not a hand-selected Map root.
     WorldContext author;

@@ -138,7 +138,17 @@ component recovery; the query itself adds no checkpoint state.
 
 Runtime protocol 2 adds an optional private recovery payload beside the existing scene response. The former movement-only ABI1 header has been retired. Controllers retain separate latest and pending-activation checkpoints; probes receive the corresponding checkpoint without advancing the live runtime.
 
-At a completed fixed boundary, the outer envelope captures scene plus available prefab source revisions, simulation frequency, source session and tick, and physics envelope. Physics envelope version5 preserves authored joint identities/settings in actual native constraint order, build/source/runtime fingerprint, exact Jolt configuration, gravity, tick, EntityRef-to-explicit-BodyID/config mapping, pending tagged FORGE body loads/movement/velocity, and Jolt StateRecorder bytes. Version5 adds the private 2D native image, canonical body/configuration and epoch bindings, next epoch and explicit command-domain tags. Version4 added the two velocity tags; version3 added loads and version2 added joint ordering. Older exact-build envelopes reject; authored formats and ABI1 do not change. A content checksum detects accidental alteration; this trusted local native-process transport is not an authentication/security boundary.
+At a completed fixed boundary, private outer envelope2 captures Scene/prefab
+revisions, simulation frequency, source session/tick and supported Physics,
+Animation, Navigation and Map state. Edited Map instance values restore before
+native collision. Physics envelope6 extends the version5 native2D image with
+complete connected-body bindings. It retains build/source/runtime fingerprints,
+exact native configuration, canonical body/configuration/epoch mapping, tagged
+FORGE commands and native solver bytes. Older exact-build envelopes reject;
+authored formats and ABI1 are unchanged. A content checksum detects accidental
+alteration; trusted local process transport is not an authentication boundary.
+See [2D physics](physics-2d.md) for compound Map geometry, cell-memory admission
+and the ordinary/SDK Play recovery boundary.
 
 Restoration constructs an unpublished candidate world, validates metadata and expected source session/tick/content, restores scene/configuration, validates unique body indices/sequences and EntityRefs/configs, constructs bodies with **CreateBodyWithID**, reconstructs constraints in captured native index order, then calls Jolt **RestoreState**. Only successful restoration swaps the candidate into use. BodyID is a transient reconstruction token. Jolt owns the solver encoding. See upstream [PhysicsSystem](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/PhysicsSystem.cpp), [BodyManager](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/Body/BodyManager.cpp), and [StateRecorderImpl](https://github.com/jrouwe/JoltPhysics/blob/v5.6.0/Jolt/Physics/StateRecorderImpl.h).
 

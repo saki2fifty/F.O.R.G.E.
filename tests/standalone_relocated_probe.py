@@ -33,7 +33,7 @@ assert {p.relative_to(relocated).as_posix() for p in relocated.rglob('*') if p.i
 (evidence/'fresh-runner.json').write_text(json.dumps({'engine':manifest['engine'],'production_startup':True,'fresh_runner_no_checkout_or_sdk':True,'installation_unchanged':True,'saves_settings_survive_second_move':True},indent=2))
 
 for index, gallery_path in enumerate(sys.argv[3:]):
- label=('sprite-image','tile-map','physics-2d','connected-2d')[index]
+ label=('sprite-image','tile-map','physics-2d','connected-2d','painted-2d')[index]
  sprite=Path(gallery_path).resolve()
  sprite_manifest=json.loads((sprite/'forge.standalone.json').read_text())
  assert sprite_manifest['engine']['profile']=='shared-native-sdk'

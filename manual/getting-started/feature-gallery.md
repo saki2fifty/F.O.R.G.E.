@@ -28,6 +28,12 @@ startup before export. See [2D physics](../editor/physics-2d.md).
 
 ## Tile Maps
 
+Scene **77-painted-2d-collision** lets ordinary 2D bodies land on painted floors
+and platforms. Open **Assets/Tiles/PaintedPlatforms.tilemap.json**, erase the
+left raised platform, save/publish and Play: the amber box falls to the lowest
+floor. Undo and publish to restore it. The Map actor's **Tile Map Collider 2D**
+chooses its solid layer by name; decoration stays on another layer.
+
 Scene **74-tile-maps** contains an editable two-layer arrow course and
 a mirrored copy of the same map. Open **Assets/Tiles/ArrowCourse.tilemap.json**
 from Content to paint, erase and try stroke Undo/Redo. Save/publish before Play or

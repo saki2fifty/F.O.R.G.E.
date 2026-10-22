@@ -36,6 +36,30 @@ then the affected map. A failed publication retains the last working result and
 reports the problem. The built-in profile supports up to 262144 occupied cells,
 1024 chunks and 8 layers per map; it does not stream an unlimited world.
 
+## Make painted floors and walls
+
+Open **Scenes/77-painted-2d-collision.scene.json** in the Feature Gallery, press
+Play and open Game. The amber box and cyan circle land on the raised painted
+platforms. The rose box and green circle land on the lowest floor. Blue decorative
+arrows do not stop the bodies.
+
+Stop, then open **Assets/Tiles/PaintedPlatforms.tilemap.json**. On **Solid
+platforms**, erase the three cells in the left raised platform. Save/publish and
+Play again: the amber box falls to the lowest floor. Undo the Map edit and publish
+to restore the platform.
+
+For your own Map actor:
+
+1. Add **Physics Body 2D** and leave **Motion** as Static. Turn Sensor off.
+2. Add **Tile Map Collider 2D**. Choose its **Solid layer** by name.
+3. Put decoration in a different layer. Every occupied cell in the selected layer is solid; hiding the layer or renderer does not remove collision.
+4. Turn on the Scene collision outline to inspect the selected published layer. Save the Scene, then test with ordinary Dynamic2D bodies.
+
+The first profile uses rectangular painted cells and Static Map bodies. It does
+not include slopes, one-way platforms or moving Map bodies. An empty solid layer
+has no collision. Excessively large or complex collision reports a problem and
+keeps the previous working runtime cells and collision.
+
 ## C++ runtime changes
 
 Each running map instance has its own cell state. C++ code can query cells and
@@ -47,6 +71,11 @@ Use the actor's Scene/entity IDs, layer key and a tile key from its set. Tile ze
 erases a cell. A returned token must be inspected on a later tick and released
 when it finishes. The matching installed SDK includes this helper and the tested
 `tile_map_gameplay` sample. The Gallery's default Scene needs no C++ module.
+
+**CodeExamples/PaintedCollision.hpp** shows removal of Gallery77's left platform
+and an ordinary physics ray query. An accepted cell edit updates collision at the
+same fixed-step boundary. Scene outlines show the published source; they do not
+display these temporary runtime edits. Stop restores the published Map.
 
 ## Export
 

@@ -27,6 +27,8 @@ for relative in ('docs/physics-2d.md', 'docs/decisions/024-2d-physics.md'):
             resolved=(document.parent/path).resolve()
             assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 assert (stage/'sdk/include/forge/engine_assets.hpp').exists()
+assert (stage/'sdk/sample/PaintedCollision.hpp').is_file()
+assert (stage/'sdk/sample/tile_physics_probe.cpp').is_file()
 assert (stage/'sdk/include/forge/engine_texture_assets.hpp').exists()
 assert (stage/'sdk/include/forge/texture_dimension.hpp').exists()
 assert not (stage/'sdk/include/forge/texture_asset.hpp').exists(), 'Cooked texture API leaked into value-only SDK'

@@ -1,13 +1,20 @@
 #include "runtime_tile_map.hpp"
+#include "tile_map_projection.hpp"
 #include <algorithm>
 #include <atomic>
+#include <forge/physics_components.hpp>
 #include <forge/render_components.hpp>
 #include <forge/render_scene.hpp>
 #include <limits>
+#include <set>
 
 namespace forge::detail {
 namespace {
 constexpr std::size_t pending_byte_limit = 4 * 1024 * 1024;
+constexpr std::size_t checkpoint_byte_limit = 8 * 1024 * 1024;
+// Same copied-cell profile as Play projection; compact sparse JSON must not
+// expand into unbounded chunk arrays during private reconstruction.
+constexpr std::size_t checkpoint_cell_limit = 64 * 1024 * 1024;
 void require(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
@@ -74,6 +81,7 @@ struct Queue {
     std::size_t pending_bytes = 0;
     std::uint64_t next_generation = 1;
     bool observing = false;
+    TileMapPhysicsAdmission physics_admission;
 };
 struct RuntimeTileMapHost {
     std::shared_ptr<Queue> queue;
@@ -119,7 +127,7 @@ void require_ready(Instance& state, const RuntimeResourceStatus& status, const c
     throw std::runtime_error(std::string(label) + ": " +
                              (status.diagnostic.empty() ? status.state : status.diagnostic));
 }
-void adopt(WorldContext& context, Instance& state, bool reset) {
+void adopt(WorldContext& context, Instance& state, bool reset, EntityRef target) {
     state.pending = false;
     require(bool(state.requested), "Tile Map has no assigned asset");
     require(context.services().available(Capability::Resources),
@@ -162,6 +170,8 @@ void adopt(WorldContext& context, Instance& state, bool reset) {
     candidate->asset = map;
     candidate->definitions = definitions;
     candidate->definition_values = definitions.get();
+    if (const auto& admission = queue(context).physics_admission)
+        admission(target, candidate->cells, reset);
     candidate->generation = generation(queue(context));
     state.snapshot = std::move(candidate);
     state.current = true;
@@ -172,6 +182,27 @@ Request& owned(Queue& values, const std::string& module, std::uint64_t token) {
     require(found != values.requests.end() && found->second.module == module,
             "Unknown, released or foreign runtime Tile Map request");
     return found->second;
+}
+std::vector<EntityRef> assigned_maps(WorldContext& context) {
+    std::vector<EntityRef> result;
+    context.world().each([&](flecs::entity entity, const TileMapRenderer& renderer) {
+        if (renderer.map.id)
+            if (const auto ref = context.reference(entity.id()))
+                result.push_back(*ref);
+    });
+    std::sort(result.begin(), result.end());
+    return result;
+}
+bool active_map(flecs::entity entity) {
+    return entity.get<TileMapRenderer>().enabled ||
+           (entity.has<TileMapCollider2D>() && entity.has<PhysicsBody2D>() &&
+            entity.get<PhysicsBody2D>().enabled);
+}
+std::uint64_t checkpoint_integer(const Json& value) {
+    require(value.is_number_unsigned() ||
+                (value.is_number_integer() && value.get<std::int64_t>() >= 0),
+            "Tile Map checkpoint requires an exact nonnegative integer");
+    return value.get<std::uint64_t>();
 }
 } // namespace
 void register_runtime_tile_maps(WorldContext& context) {
@@ -226,7 +257,7 @@ void synchronize_runtime_tile_maps(WorldContext& context) {
         }
         state.requested = requested;
         try {
-            adopt(context, state, false);
+            adopt(context, state, false, context.reference(id).value());
         } catch (const std::exception& error) {
             state.diagnostic = std::string(error.what()).substr(0, 1024);
         }
@@ -239,7 +270,7 @@ bool prepare_runtime_tile_maps(WorldContext& context) {
     bool pending = false;
     std::string failure;
     context.world().each([&](flecs::entity entity, const TileMapRenderer& renderer) {
-        if (!renderer.enabled || !renderer.map.id || !failure.empty())
+        if (!active_map(entity) || !renderer.map.id || !failure.empty())
             return;
         const auto reference = context.reference(entity.id());
         if (!reference)
@@ -394,13 +425,15 @@ void publish_runtime_tile_edits(WorldContext& context) {
                         entity.get<TileMapRenderer>().map.id == snapshot->cells.asset(),
                     "Runtime Tile Map target was removed, reassigned or replaced");
             if (command.reset)
-                adopt(context, *state, true);
+                adopt(context, *state, true, command.target);
             else {
                 require(snapshot->revision != std::numeric_limits<std::uint64_t>::max(),
                         "Runtime Tile Map cell revision exhausted");
                 auto candidate = std::make_shared<RuntimeTileMapSnapshot>(*snapshot);
                 candidate->cells =
                     snapshot->cells.with_cells(command.writes, snapshot->definitions.get());
+                if (const auto& admission = values.physics_admission)
+                    admission(command.target, candidate->cells, true);
                 ++candidate->revision;
                 candidate->edited = true;
                 state->snapshot = std::move(candidate);
@@ -416,5 +449,185 @@ void publish_runtime_tile_edits(WorldContext& context) {
         values.pending_bytes -= command.writes.size() * sizeof(TileMapCellEdit);
         std::vector<TileMapCellEdit>().swap(command.writes);
     }
+}
+void set_tile_map_physics_admission(WorldContext& context, TileMapPhysicsAdmission admission) {
+    boundary(context);
+    auto& slot = queue(context).physics_admission;
+    require(!admission || !slot, "Runtime Tile Map physics admission already has an owner");
+    slot = std::move(admission);
+}
+Json checkpoint_runtime_tile_maps(WorldContext& context) {
+    boundary(context);
+    const auto& values = queue(context);
+    for (const auto& [token, request] : values.requests)
+        if (request.result.state == RuntimeTileEditState::Pending)
+            return {};
+    Json entries = Json::array();
+    std::size_t bytes = 128; // Root fields, integer frontier and separators.
+    const auto charge = [&](std::size_t count) {
+        require(count <= checkpoint_byte_limit - bytes,
+                "Tile Map checkpoint exceeds whole recovery byte budget");
+        bytes += count;
+    };
+    std::vector<const TileMapData*> borrowed;
+    std::size_t reconstructed = 0;
+    for (const auto ref : assigned_maps(context)) {
+        const auto entity = target_entity(context, ref);
+        const bool edited = entity.has<RuntimeTileMapState>() &&
+                            entity.get<RuntimeTileMapState>().value->snapshot &&
+                            entity.get<RuntimeTileMapState>().value->snapshot->edited;
+        // An unused disabled renderer may intentionally reference an unavailable
+        // asset. It must not prevent unrelated active state from being recovered.
+        // Retain edited instances even when their renderer is disabled.
+        if (!active_map(entity) && !edited)
+            continue;
+        const auto status = inspect_runtime_tile_map(context, ref);
+        if (!status.ready || !status.current || status.requested != status.adopted)
+            return {};
+        const auto snapshot = runtime_tile_map_snapshot(context, ref);
+        // Full edited projections reconstruct independent arrays. Live COW
+        // sharing must not make an unrestorable checkpoint appear to fit.
+        if (snapshot->edited) {
+            const auto count = snapshot->cells.resident_bytes();
+            require(count <= checkpoint_cell_limit - reconstructed,
+                    "Tile Map checkpoint exceeds copied cell memory reconstruction profile");
+            reconstructed += count;
+        } else
+            borrowed.push_back(&snapshot->cells);
+        require(TileMapData::resident_bytes(borrowed) <= checkpoint_cell_limit - reconstructed,
+                "Tile Map checkpoint exceeds copied cell memory reconstruction profile");
+        Json cells;
+        if (snapshot->edited) {
+            cells = {{"header",
+                      tile_map_projection_header(snapshot->cells, snapshot->definition_values)},
+                     {"pages", Json::array()}};
+            charge(cells.dump().size());
+            const auto chunks = tile_map_projection_changes(snapshot->cells);
+            for (std::size_t at = 0; at < chunks.size(); at += tile_projection_page_chunks) {
+                auto page = tile_map_projection_page(
+                    snapshot->cells,
+                    std::span(chunks).subspan(
+                        at, std::min(tile_projection_page_chunks, chunks.size() - at)));
+                charge(page.dump().size() + 1);
+                cells["pages"].push_back(std::move(page));
+            }
+        }
+        Json entry{{"entity", ref},
+                   {"map", snapshot->cells.asset()},
+                   {"definitions", snapshot->cells.tile_set()},
+                   {"map_revision", snapshot->asset.identity().revision},
+                   {"set_revision", snapshot->definitions.identity().revision},
+                   {"generation", snapshot->generation},
+                   {"revision", snapshot->revision},
+                   {"edited", snapshot->edited},
+                   {"cells", nullptr}};
+        charge(entry.dump().size() + 1);
+        entry["cells"] = std::move(cells);
+        entries.push_back(std::move(entry));
+    }
+    Json result{{"version", 1},
+                {"next_generation", values.next_generation},
+                {"entries", std::move(entries)}};
+    require(result.dump().size() <= checkpoint_byte_limit,
+            "Tile Map checkpoint exceeds whole recovery byte budget");
+    return result;
+}
+void restore_runtime_tile_maps(WorldContext& context, const Json& input) {
+    boundary(context);
+    auto& values = queue(context);
+    require(values.requests.empty(), "Tile Map recovery requires a fresh request queue");
+    require(input.is_object() && input.size() == 3 && input.at("version").is_number_integer() &&
+                input.at("version") == 1 && input.dump().size() <= checkpoint_byte_limit,
+            "Invalid Tile Map checkpoint version/size/fields");
+    const auto next_generation = checkpoint_integer(input.at("next_generation"));
+    require(next_generation != 0, "Invalid Tile Map checkpoint generation frontier");
+    const auto& entries = input.at("entries");
+    const auto targets = assigned_maps(context);
+    require(entries.is_array() && entries.size() <= targets.size(),
+            "Tile Map checkpoint exceeds the assigned instances");
+    std::set<EntityRef> seen;
+    std::set<std::uint64_t> generations;
+    std::vector<std::pair<std::shared_ptr<Instance>, std::shared_ptr<const RuntimeTileMapSnapshot>>>
+        candidates;
+    std::vector<const TileMapData*> retained;
+    for (const auto& row : entries) {
+        require(row.is_object() && row.size() == 9, "Invalid Tile Map checkpoint instance fields");
+        const auto ref = row.at("entity").get<EntityRef>();
+        require(std::binary_search(targets.begin(), targets.end(), ref) && seen.insert(ref).second,
+                "Unknown or duplicate Tile Map checkpoint target");
+        const auto [entity, state] = instance(context, ref);
+        const auto selected = runtime_tile_map_snapshot(context, ref);
+        require(!selected->edited && selected->revision == 0 && state->current &&
+                    entity.get<TileMapRenderer>().map.id == selected->cells.asset() &&
+                    row.at("map").get<AssetId>() == selected->cells.asset() &&
+                    row.at("definitions").get<AssetId>() == selected->cells.tile_set() &&
+                    row.at("map_revision") == selected->asset.identity().revision &&
+                    row.at("set_revision") == selected->definitions.identity().revision,
+                "Tile Map recovery source binding differs or candidate is not fresh");
+        auto candidate = std::make_shared<RuntimeTileMapSnapshot>(*selected);
+        candidate->generation = checkpoint_integer(row.at("generation"));
+        candidate->revision = checkpoint_integer(row.at("revision"));
+        require(candidate->generation && candidate->generation < next_generation &&
+                    generations.insert(candidate->generation).second &&
+                    row.at("edited").is_boolean(),
+                "Invalid or duplicate Tile Map checkpoint generation");
+        candidate->edited = row.at("edited").get<bool>();
+        const auto& cells = row.at("cells");
+        require(candidate->edited ? candidate->revision != 0
+                                  : candidate->revision == 0 && cells.is_null(),
+                "Tile Map checkpoint edit revision/payload mismatch");
+        if (candidate->edited) {
+            require(cells.is_object() && cells.size() == 2 && cells.at("pages").is_array() &&
+                        cells.at("pages").size() <=
+                            (tile_map_chunk_limit + tile_projection_page_chunks - 1) /
+                                tile_projection_page_chunks,
+                    "Invalid Tile Map checkpoint cell pages");
+            const auto header = decode_tile_map_projection_header(
+                cells.at("header"), selected->cells.asset(), selected->cells.tile_set());
+            require(cells.at("header").at("definitions") ==
+                        tile_map_projection_header(selected->cells, selected->definition_values)
+                            .at("definitions"),
+                    "Tile Map checkpoint definitions differ from selected assets");
+            auto restored = header.empty;
+            std::set<TileMapChunkKey> chunks;
+            for (const auto& page : cells.at("pages")) {
+                const auto next =
+                    apply_tile_map_projection_page(restored, header.definitions, page);
+                retained.push_back(&next);
+                require(TileMapData::resident_bytes(retained) <= checkpoint_cell_limit,
+                        "Tile Map recovery exceeds copied cell memory profile");
+                retained.pop_back();
+                // Reuse the admitted codec to validate numeric key fields before
+                // inspecting them here. Full captures never repeat or erase chunks.
+                for (const auto& chunk : page) {
+                    const TileMapChunkKey key{
+                        chunk.at("layer").get<std::uint64_t>(),
+                        {chunk.at("x").get<std::int32_t>(), chunk.at("y").get<std::int32_t>()}};
+                    require(!chunk.at("cells").empty() && chunks.insert(key).second,
+                            "Tile Map checkpoint repeats or erases a full-capture chunk");
+                }
+                restored = next;
+            }
+            require(restored.occupied() == header.expected_cells &&
+                        restored.chunk_count() == header.expected_chunks,
+                    "Tile Map checkpoint cell/chunk totals differ");
+            // This existing delta-admission boundary checks immutable identity,
+            // layer definitions and cell dimensions against the selected asset.
+            (void)tile_map_projection_changes(restored, &selected->cells);
+            candidate->cells = std::move(restored);
+        }
+        retained.push_back(&candidate->cells);
+        require(TileMapData::resident_bytes(retained) <= checkpoint_cell_limit,
+                "Tile Map recovery exceeds copied cell memory profile");
+        candidates.emplace_back(state, std::move(candidate));
+    }
+    for (const auto ref : targets)
+        require(!active_map(target_entity(context, ref)) || seen.contains(ref),
+                "Tile Map checkpoint omits an active instance");
+    for (auto& [state, snapshot] : candidates)
+        state->snapshot = std::move(snapshot);
+    // Nonrestored disabled instances can have prepared newer generations in the
+    // fresh world. Never reuse those values for a later reset or replacement.
+    values.next_generation = std::max(next_generation, values.next_generation);
 }
 } // namespace forge::detail

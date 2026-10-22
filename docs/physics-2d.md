@@ -30,7 +30,7 @@ There is no collision between the two native domains.
 
 Distinct PhysicsBody2D, BoxCollider2D, CircleCollider2D and
 CapsuleCollider2D values belong to the existing builtin schema family. An enabled body
-requires exactly one enabled-domain inline collider and cannot share its entity
+requires exactly one enabled-domain collider and cannot share its entity
 with an enabled 3D body or Character Controller. Disabled choices remain authored.
 
 | Setting | Meaning |
@@ -91,6 +91,52 @@ inheritance. Source publication uses the existing history boundary. Snapshot
 reconstruction preserves canonical references and opaque future fields, including
 full unsigned64-bit values. Local checks also realize the saved authored body in
 an actual runtime while confirming that authoring worlds create no solver.
+
+## Painted Tile Map collision
+
+`TileMapCollider2D.layer` selects one exact uint64 layer key from the same entity's
+`TileMapRenderer` instance. Zero is unassigned. The Inspector and Prefab source
+editor show published layer names, including hidden layers, and preserve missing
+keys. Duplicate names never substitute a row index for the key. Source publication
+must finish before a new layer choice is offered.
+
+This profile requires a Static nonsensor PhysicsBody2D. The Map collider is mutually
+exclusive with inline colliders. Every occupied selected-layer cell is solid;
+renderer visibility, layer visibility and image orientation flags do not change
+collision. Decorative cells belong in another layer. Empty valid layers have no
+native body or placeholder shape; refilling creates a new private realization epoch.
+An enabled joint cannot retain an endpoint whose last solid cells are removed.
+
+One pure projection merges identical horizontal occupied runs through consecutive
+rows within each32×32 chunk. It produces nonoverlapping boxes, with no per-cell
+entities, identities, second Map database or native world. This is not a globally
+minimal rectangle cover or a promise of seamless character movement across joins.
+For a rectangle origin `(x,y)`, cell counts `(w,h)`, cell size `(cx,cy)` and admitted
+signed XY scale `(sx,sy)`, body-local metres are:
+
+```text
+center = ((x + w/2) * cx * sx, (y + h/2) * cy * sy)
+full size = (w * cx * abs(sx), h * cy * abs(sy))
+```
+
+The same checked conversion builds native shapes and copied Scene outlines.
+Each full dimension must be0.01..1000metres; each local box corner remains within
+±10000metres. The existing planar ancestry/pose admission applies, including signed
+and flat-depth transforms. Scene outlines show published geometry and explicitly
+exclude runtime cell edits. Geometry preparation runs on immutable copied input.
+
+The existing runtime Map owner retains cells and publishes fixed edits. Its one
+private admission callback delegates to the existing PhysicsRuntime before adopting
+candidate cells. Unsupported extent, aggregate native capacity or connected-empty
+geometry rejects the complete request. An incompatible source revision retains
+the instance's last admitted cells and collision with a diagnostic. Independent
+instances of one asset remain independent. Unchanged snapshots/layer/physical scale
+reuse immutable geometry inside the existing native-body record.
+
+There are at most4096 total native2D shapes across Map rectangles and inline bodies,
+within existing body, joint, pair and event limits. Empty Map actors do not consume
+native body/shape slots. This profile excludes Dynamic/Kinematic/sensor Maps,
+slopes, per-tile polygons, one-way platforms, navigation and character controllers.
 
 ## Connected bodies
 
@@ -347,6 +393,20 @@ supported queries reacquire candidate handles before checked hook rebinding.
 Capture requires synchronized adopted state, including completed retirement events. A realized empty world retains its next epoch. Native Kinematic target and actual solver poses are preserved separately because target integration promises a close pose, not exact arrival.
 No native ID internals are modified, no authored identity is added and no native
 snapshot becomes a game-save format. Transient adopted events are not replayed.
+
+For compound Maps, fresh supported body-shape enumeration must match the complete
+geometry multiset before rebinding every shape hook to its canonical body/epoch.
+Shape enumeration order and native shape IDs are not authored identities.
+The outer private ordinary-Play checkpoint is version2 and includes the existing
+Map owner's version1 block. Restore exact source/definition revisions and edited
+instance values on the unpublished candidate before restoring Physics. The admitted
+Map projection codec is reused; the block has an8MiB JSON budget and64MiB copied-cell
+budget within the unchanged whole-checkpoint limit. Capture counts edited values
+as independent reconstructions, even when their live chunks share storage;
+unedited source values retain resource sharing. Pending cell requests make
+capture unavailable; observations/tokens and arbitrary C++ globals are not restored.
+Authored Scene/Prefab/Map formats and ABI1 are unchanged; matching SDKs/modules
+must be rebuilt. This does not add arbitrary native recovery to the SDK Play host.
 
 Joint metadata records complete identity/configuration/scaled anchors and native
 enumeration order visited by canonical body reference. Fresh supported body-joint

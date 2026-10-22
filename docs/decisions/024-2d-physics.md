@@ -86,6 +86,25 @@ share existing event adoption, capacity and checkpoint guards. The combined
 enabled-joint ceiling remains4096 across both domains. See the technical contract
 for the deliberately bounded scalar and motor profile.
 
+## Painted collision extension
+
+Use the existing TileMapRenderer runtime instance as cell authority and one
+TileMapCollider2D stable layer key on the same Static nonsensor body. Derive bounded
+nonoverlapping chunk rectangles through one pure projection and one shared checked
+native/preview conversion. There are no per-cell entities or second Map database.
+All native shape lifetime, queries, event binding, connected-body exclusions and
+fresh-candidate geometry matching remain subordinate to the existing native body.
+An empty selected layer has no native body; refilling creates a new private epoch.
+
+The existing Map queue calls the current PhysicsRuntime through one private weak
+admission callback before publishing candidate cells. Failed physical admission
+preserves both previous cells and collision. The existing Map owner's private
+checkpoint codec restores edited values before Physics on an unpublished candidate.
+Advance the ordinary host's private whole checkpoint to2; the physics block stays6.
+This is exact-build transient recovery, not a new durable format or arbitrary C++
+state restoration. Authored identity/formats and ABI1 are unchanged. Bound total
+native2D shapes to4096 within existing shared body/joint/pair/event/byte budgets.
+
 ## Capacity and failed native steps
 
 The first profile targets 1024 2D bodies within the existing combined 8192-body

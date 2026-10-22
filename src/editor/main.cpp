@@ -70,6 +70,7 @@
 #include "play_presentation.hpp"
 #include "prefabs.hpp"
 #include "project_settings.hpp"
+#include "published_tile_map.hpp"
 #include "resource_inspector.hpp"
 #include "runtime_dependencies.hpp"
 #include "runtime_tuning_review.hpp"
@@ -985,6 +986,16 @@ int main(int argc, char** argv) {
         component_inspector.sprite_frames = choose_sprite_frame;
         prefab_editor.sprite_frames = choose_sprite_frame;
         animation_timeline.sprite_frames = choose_sprite_frame;
+        forge::ui::PublishedTileMapInspection published_tile_map;
+        const forge::ui::PublishedTileMapReader read_published_tile_map =
+            [&](forge::AssetRef<forge::TileMapAsset> asset) {
+                return published_tile_map.select(mesh_resources, asset);
+            };
+        component_inspector.tile_map_layer = [&](const forge::Json& components,
+                                                 forge::Json& layer) {
+            return forge::ui::tile_map_layer_field(read_published_tile_map, components, layer);
+        };
+        prefab_editor.tile_map_layer = component_inspector.tile_map_layer;
         forge::ui::ViewImageTask view_image; // Retires before its borrowed Timeline owner.
         forge::AnimationStatesEditor animation_states;
         forge::AnimationMaskEditor animation_mask;
@@ -6010,7 +6021,7 @@ int main(int argc, char** argv) {
                                                  size, files.document.project(),
                                                  mesh_resources ? mesh_resources->catalog()
                                                                 : nullptr,
-                                                 play.physics_status());
+                                                 play.physics_status(), read_published_tile_map);
                         play.physics_debug_selection =
                             physics_overlay.visible && !selected.empty()
                                 ? forge::Json{{"scene", scene.asset_id()}, {"entity", selected}}

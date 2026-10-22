@@ -4438,6 +4438,58 @@
     },
     {
       "dependencies": [
+        "7af59847-622f-480f-a403-f383a1a5890b"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "7fa82ab8505323132db1e6f0fa2473e62b078fe1b6fa6d322fbebe5e51bdda2e",
+          "role": "tile_map.tile_set",
+          "target": "7af59847-622f-480f-a403-f383a1a5890b",
+          "type": "tile_set"
+        },
+        {
+          "kind": "runtime",
+          "revision": "7fa82ab8505323132db1e6f0fa2473e62b078fe1b6fa6d322fbebe5e51bdda2e",
+          "role": "tile_map.tile_set",
+          "target": "7af59847-622f-480f-a403-f383a1a5890b",
+          "type": "tile_set"
+        }
+      ],
+      "id": "6aa10b03-1db1-42ea-a3e5-680819f94a98",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "2670c6110920f6de6342cbf14e14caf07778852e95133674384856c397262825",
+          "backend": "d3d12",
+          "dependency_digest": "4df5589f05ed8d49b386d06c9c972bf0483e622749472bcdd4ed29d7e838966e",
+          "generation": 1,
+          "importer": "forge.tilemap",
+          "importer_revision": "111603de905acf44686d85e37456dbadb92cadf6503a91b2e899c0ad190a5dab",
+          "key": "50e674396dae486fbc27054331035b9e478f79b751a2b5fb2c93284e9d81d65f",
+          "output_format": "forge.tile-map-cooked",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "1f55df324ec4c0200f776f02b3018781767969c8108ddc648dca5f54160cc04f",
+          "source_digest": "76c023ea6a3a7acf77c7c290913c7f4f87d7910e227b24d8e1b69568615d2051",
+          "version": 1
+        },
+        "forge.tile_map": {
+          "bytes": 813,
+          "file": "tilemap.bin",
+          "sha256": "bdef96a727550c27af10a0a7ca4f00a3047e8030a48a069040b0bd8600f8a2ea",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Tiles/PaintedPlatforms.tilemap.json",
+      "source_dependencies": [],
+      "type": "tile_map"
+    },
+    {
+      "dependencies": [
         "39bab1fe-073f-4b6f-abd2-6ee2fc780696",
         "80c55df2-1abb-42b0-9591-502e783cdc97"
       ],
@@ -4640,6 +4692,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6f2f93da-5ef5-4524-aadf-d4ebb8ef50ef",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/77-painted-2d-collision.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

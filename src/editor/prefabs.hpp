@@ -57,6 +57,7 @@ inline std::string prefab_member_label(const Json& document, const std::string& 
 class PrefabEditor {
   public:
     ui::SpriteFrameField sprite_frames;
+    std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     bool dirty() const { return open_ && !detail::json_value_equal(draft_, baseline_); }
     bool is_open() const { return open_; }
     Json migration_document() const {
@@ -631,7 +632,10 @@ class PrefabEditor {
                                 auto value = m["components"][key][f];
                                 PrefabPropertyScope prefab_properties(draft_);
                                 bool changed =
-                                    property_field(project.project(), field, value, false);
+                                    key == "forge.tile_map_collider_2d" && f == "layer" &&
+                                            tile_map_layer
+                                        ? tile_map_layer(m["components"], value)
+                                        : property_field(project.project(), field, value, false);
                                 if (key == "forge.sprite_renderer" && f == "frame" &&
                                     sprite_frames) {
                                     const auto owner =

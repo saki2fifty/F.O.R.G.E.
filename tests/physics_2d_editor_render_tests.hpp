@@ -3,6 +3,7 @@
 #include "editor/component_inspector.hpp"
 #include "editor/physics_overlay.hpp"
 #include "editor/property_drawer.hpp"
+#include "editor/published_tile_map.hpp"
 #include "editor/viewport.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include <forge/game_content.hpp>
@@ -14,15 +15,17 @@ namespace forge::test_physics_2d_editor_render {
 template <class Readback, class Save>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
               const std::filesystem::path& root, const std::filesystem::path& images,
-              const Readback& readback, const Save& save, int joint_kind = -1) {
+              const Readback& readback, const Save& save, int joint_kind = -1,
+              bool painted = false) {
     using test_sprite_draw::check;
     std::filesystem::create_directories(images);
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     AssetId scene_id;
     for (const auto& [id, record] : catalog->records())
         if (!record.subasset &&
-            record.source == (joint_kind < 0 ? "Scenes/75-2d-physics.scene.json"
-                                             : "Scenes/76-connected-2d-bodies.scene.json"))
+            record.source == (painted          ? "Scenes/77-painted-2d-collision.scene.json"
+                              : joint_kind < 0 ? "Scenes/75-2d-physics.scene.json"
+                                               : "Scenes/76-connected-2d-bodies.scene.json"))
             scene_id = id;
     check(bool(scene_id), "2D editor Gallery Scene missing");
     EngineContext engine(WorldRole::Authoring, false, {physics_schema_module()});
@@ -34,7 +37,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     const auto source = scene.document(), effective = scene.effective_document();
     Json selected;
     for (const auto& row : effective.at("entities"))
-        if ((joint_kind < 0 && row.at("components").contains("forge.capsule_collider_2d")) ||
+        if ((painted && row.at("components").contains("forge.tile_map_collider_2d")) ||
+            (!painted && joint_kind < 0 &&
+             row.at("components").contains("forge.capsule_collider_2d")) ||
             (joint_kind >= 0 && row.at("components").contains("forge.physics_joint_2d") &&
              row.at("components").at("forge.physics_joint_2d").at("kind") == joint_kind))
             selected = row;
@@ -45,12 +50,21 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     ComponentInspector inspector;
     auto host = std::make_shared<MeshResourceHost>(presentation, context, root);
     host->catalog(catalog);
+    ui::PublishedTileMapInspection map_view;
+    const ui::PublishedTileMapReader read_map = [&](AssetRef<TileMapAsset> asset) {
+        return map_view.select(host, asset);
+    };
+    inspector.tile_map_layer = [&](const Json& components, Json& value) {
+        return ui::tile_map_layer_field(read_map, components, value);
+    };
+    if (painted)
+        inspector.fixture_focus_component = "forge.tile_map_collider_2d";
     Viewport viewport(presentation);
     viewport.resources(host);
     EditorCamera camera;
     camera.target = {0, 0, 0};
     camera.yaw = camera.pitch = 0;
-    camera.distance = camera.orthographic_height = joint_kind < 0 ? 12 : 16;
+    camera.distance = camera.orthographic_height = painted || joint_kind >= 0 ? 16 : 12;
     camera.projection = CameraProjection::Orthographic;
     ui::PhysicsOverlay outline;
     outline.visible = true;
@@ -89,19 +103,20 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
             ImGui::SetNextWindowSize({split, float(height)}, ImGuiCond_Always);
             ImGui::Begin("Scene - 2D physics", nullptr, ImGuiWindowFlags_NoScrollbar);
-            ImGui::TextUnformatted(joint_kind < 0 ? "Selected collision: capsule / XY view"
-                                                  : "Authored 2D joint / XY view");
+            ImGui::TextUnformatted(painted ? "Selected collision: painted solid layer / XY view"
+                                   : joint_kind < 0 ? "Selected collision: capsule / XY view"
+                                                    : "Authored 2D joint / XY view");
             origin = ImGui::GetCursorScreenPos();
             area = ImGui::GetContentRegionAvail();
             auto* image = viewport.render(context, effective, unsigned(area.x), unsigned(area.y),
                                           camera, 1, false);
             ImGui::Image(ImTextureRef{reinterpret_cast<ImTextureID>(image)}, area);
-            outline.draw(effective, selected_id, camera, origin, area, root, catalog);
+            outline.draw(effective, selected_id, camera, origin, area, root, catalog, {}, read_map);
             ImGui::End();
             ImGui::SetNextWindowPos({split, 0}, ImGuiCond_Always);
             ImGui::SetNextWindowSize({width - split, float(height)}, ImGuiCond_Always);
             ImGui::Begin("Inspector");
-            if (joint_kind >= 0) {
+            if (painted || joint_kind >= 0) {
                 ImGui::TextWrapped("%s", selected.at("name").get<std::string>().c_str());
                 inspector.draw(scene, document, selected_id);
             } else {
@@ -153,8 +168,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 else {
                     const float center_x = origin.x + area.x * .5f + 2.2f * area.y / 12;
                     const float center_y = origin.y + area.y * .5f - 4.6f * area.y / 12;
-                    if (joint_kind >= 0 || (std::abs(float(x) - center_x) < .6f * area.y / 12 &&
-                                            std::abs(float(y) - center_y) < area.y / 12))
+                    if (painted || joint_kind >= 0 ||
+                        (std::abs(float(x) - center_x) < .6f * area.y / 12 &&
+                         std::abs(float(y) - center_y) < area.y / 12))
                         guide += p[0] < 120 && p[1] > 190 && p[2] > 145;
                 }
             }
@@ -162,6 +178,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
         if (joint_kind >= 0)
             check(outline.status().starts_with("Authored 2D "),
                   "Native joint capture did not draw the actual authored guide");
+        if (painted)
+            check(outline.status() == "Tile Map collision - published layer outline",
+                  "Painted Scene capture did not draw the published physical layer");
     }
     check(scene.document() == source && !engine.services().available(Capability::Physics),
           "Staged 2D editor rendering changed source or created a solver");

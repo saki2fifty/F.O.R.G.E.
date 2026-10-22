@@ -218,6 +218,8 @@ template <class T> Json encode(const T& p) {
                 {"bullet", p.bullet}};
     else if constexpr (std::is_same_v<T, BoxCollider2D>)
         return {{"x", p.x}, {"y", p.y}};
+    else if constexpr (std::is_same_v<T, TileMapCollider2D>)
+        return {{"layer", p.layer}};
     else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_value(p);
     else if constexpr (std::is_same_v<T, PhysicsJoint2D>)
@@ -536,7 +538,13 @@ template <class T> Value decode(const Json& p) {
         return v;
     } else if constexpr (std::is_same_v<T, BoxCollider2D>)
         return T{p.at("x"), p.at("y")};
-    else if constexpr (std::is_same_v<T, PhysicsJoint>)
+    else if constexpr (std::is_same_v<T, TileMapCollider2D>) {
+        const auto& layer = p.at("layer");
+        if (!layer.is_number_unsigned() &&
+            (!layer.is_number_integer() || layer.get<std::int64_t>() < 0))
+            throw std::runtime_error("Tile Map collision layer requires an exact uint64 key");
+        return T{layer.get<std::uint64_t>()};
+    } else if constexpr (std::is_same_v<T, PhysicsJoint>)
         return physics_detail::joint_from_value(p);
     else if constexpr (std::is_same_v<T, PhysicsJoint2D>)
         return physics_detail::joint_from_value_2d(p);
@@ -1017,6 +1025,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("bullet");
     else if constexpr (std::is_same_v<T, BoxCollider2D>)
         c.template member<float>("x").template member<float>("y");
+    else if constexpr (std::is_same_v<T, TileMapCollider2D>)
+        c.template member<std::uint64_t>("layer");
     else if constexpr (std::is_same_v<T, PhysicsJoint2D>) {
         (void)authoring_value_adapters(w);
         c.template member<bool>("enabled")
@@ -1340,9 +1350,16 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<CapsuleCollider2D>(
             "forge.capsule_collider_2d",
             "XY capsule along local Y; height excludes the caps; equal absolute XY scale required",
-            "meters", .000001f, 10000, [](flecs::world& w) {
-                return register_type<CapsuleCollider2D>(w, "forge.capsule_collider_2d");
-            })};
+            "meters", .000001f, 10000,
+            [](flecs::world&
+                   w) { return register_type<CapsuleCollider2D>(w, "forge.capsule_collider_2d"); }),
+        descriptor<TileMapCollider2D>("forge.tile_map_collider_2d",
+                                      "Solid occupied cells in one Tile Map layer; requires a "
+                                      "Static nonsensor Physics Body 2D",
+                                      "unitless", {}, {}, [](flecs::world& w) {
+                                          return register_type<TileMapCollider2D>(
+                                              w, "forge.tile_map_collider_2d");
+                                      })};
     return types;
 }
 Json registration_options(const Builtin& type, const std::string& field) {
@@ -1352,6 +1369,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (type.maximum)
         value["maximum"] = *type.maximum;
     const std::string name = type.name;
+    if (name == "forge.tile_map_collider_2d" && field == "layer") {
+        value["display_name"] = "Solid layer";
+        value["description"] = "Every occupied cell in this Tile Map layer is solid. "
+                               "Decorative layers and image flips do not change collision. "
+                               "Zero is unassigned.";
+    }
     if (name == "forge.mesh_renderer" && field == "material_variant") {
         value["description"] =
             "Imported material set from this mesh’s Model. None uses base materials. Explicit "
@@ -2500,6 +2523,18 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
         if (!primitive || primitive->kind == EcsBool)
             continue;
         const auto* ptr = static_cast<const std::byte*>(value) + m.offset;
+        const auto validate_enumeration = [&](std::uint64_t integer) {
+            if (!enumeration)
+                return;
+            const auto* constants = ecs_get(world.c_ptr(), m.type, EcsConstants);
+            const auto* values =
+                ecs_vec_first_t(&constants->ordered_constants, ecs_enum_constant_t);
+            bool found = false;
+            for (int j = 0; j < ecs_vec_count(&constants->ordered_constants); ++j)
+                found |= values[j].value_unsigned == integer;
+            if (!found)
+                throw std::runtime_error(std::string(m.name) + ": unsupported enum value");
+        };
         double number = 0;
         bool single = false;
         switch (primitive->kind) {
@@ -2525,19 +2560,28 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
             number = v;
             break;
         }
+        case EcsU64: {
+            std::uint64_t integer;
+            std::memcpy(&integer, ptr, sizeof(integer));
+            validate_enumeration(integer);
+            if (m.range.min != m.range.max) {
+                constexpr double past_maximum = 18446744073709551616.0; // 2^64, not UINT64_MAX.
+                const auto low = m.range.min, high = m.range.max;
+                if (!std::isfinite(low) || !std::isfinite(high) || low > high ||
+                    low >= past_maximum || high < 0 ||
+                    (low > 0 && integer < static_cast<std::uint64_t>(std::ceil(low))) ||
+                    (high < past_maximum && integer > static_cast<std::uint64_t>(std::floor(high))))
+                    throw std::runtime_error(std::string(ecs_get_name(world.c_ptr(), type)) + "." +
+                                             m.name + ": component field outside supported range");
+            }
+            // Preserve the integer throughout admission, including keys above2^53.
+            continue;
+        }
         default:
             throw std::runtime_error("Unsupported builtin validation storage");
         }
-        if (enumeration) {
-            const auto* constants = ecs_get(world.c_ptr(), m.type, EcsConstants);
-            const auto* values =
-                ecs_vec_first_t(&constants->ordered_constants, ecs_enum_constant_t);
-            bool found = false;
-            for (int j = 0; j < ecs_vec_count(&constants->ordered_constants); ++j)
-                found |= values[j].value_unsigned == static_cast<std::uint64_t>(number);
-            if (!found)
-                throw std::runtime_error(std::string(m.name) + ": unsupported enum value");
-        }
+        if (enumeration)
+            validate_enumeration(static_cast<std::uint64_t>(number));
         const double low = single ? double(float(m.range.min)) : m.range.min;
         if (!std::isfinite(number) ||
             (m.range.min != m.range.max && (number < low || number > m.range.max)))

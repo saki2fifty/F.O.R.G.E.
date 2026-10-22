@@ -31,6 +31,9 @@ class MeshResourceHost {
     void pump();
     void submit();
     MeshResourceInspection inspect() const;
+    // Read-only editor consumers share the host's existing published Map pool.
+    ResourceTicket request_tile_map_values(AssetRef<TileMapAsset>);
+    ResourceLease<TileMapAsset> tile_map_values(const ResourceTicket&);
 
   private:
     friend class MeshSceneRenderer;

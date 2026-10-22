@@ -9,6 +9,9 @@ class RuntimeWorld {
     RuntimeWorld(std::vector<EngineModule>, PhysicsConfig, const std::optional<AudioConfig>&,
                  const std::filesystem::path&, bool ui);
     std::shared_ptr<PhysicsRuntime> physics();
+    // Candidate CPU readiness before the first native realization. Map cells
+    // stay owned by the existing Map/resource adapters; no gameplay time advances.
+    bool prepare_physics_assets();
     // Runtime-only readiness extracted from the legacy presentation candidate.
     // Returns true once the candidate world is internally consistent for
     // gameplay tick 0. Physics collision assets must already be prepared by
