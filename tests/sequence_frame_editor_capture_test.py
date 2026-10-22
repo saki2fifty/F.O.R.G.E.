@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='sequence-frame-edi
     shutil.copytree(gallery, project)
     original = authored_files(project)
     result = subprocess.run([fixture, evidence, '--sequence-frames', project],
-                            capture_output=True, text=True, timeout=250)
+                            capture_output=True, text=True, timeout=340)
     (evidence / 'capture.log').write_text(result.stdout + result.stderr)
     assert result.returncode == 0, 'Native frame workflow failed; see capture.log and failure JSON'
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr

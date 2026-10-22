@@ -68,3 +68,24 @@ renderer's six 2D captures passed pixel/pose checks. That candidate's Scene guid
 fixture and a separate image-export walkthrough failed, so the whole run is not
 accepted. This image documents the qualified Game render only. Original PPM
 pixels are unchanged; no generated art, overlays or semantic edits were applied.
+
+## Painted Tile Map collision
+
+[Game](painted-collision-game.png) and [Inspector](painted-collision-inspector.png)
+preserve the complete 1280×720 and 1280×800 captures from source
+`27638989a1e506b9766dd1604a62aed38d1ce186`,
+[Windows audit39698636222](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39698636222),
+artifact `FORGE-Editor-Source-Audit` (`12396948531`). Original entries:
+
+- `grid-test-images/physics-tiles/gallery77-tick180-1280.ppm`
+- `grid-test-images/physics-tiles/editor/physics2d-editor-100.ppm`
+
+The native `editor_render_physics-tiles` and `physics_tile_map_editor` cases passed.
+All six Game captures at ticks 0/60/180 and widths 640/1280, and the three Inspector
+captures at 100/150/200 percent, were visually reviewed. The actual Game renderer
+simulates Gallery77; the Inspector fixture stages production controls and the
+readonly published-layer outline without creating an authoring solver.
+These are software WARP checks, not physical GPU or manually operated desktop
+acceptance. This audit failed its separate Save-image and sequence-frame input
+walkthroughs, so these images qualify the Map captures only. The original PPM
+pixels and dimensions are unchanged in their lossless PNG encodings.

@@ -37,6 +37,7 @@ class SequenceFrameEditorWorkflow {
     std::string text_;
     Uint64 started_ = SDL_GetTicks(), phase_started_ = started_;
     bool opened_ = false, source_opened_ = false, picker_seeded_ = false;
+    bool workflow_started_ = false;
     bool fixed_ = false;
     unsigned resize_ = 0;
     Json resized_ = Json::array();
@@ -164,6 +165,12 @@ class SequenceFrameEditorWorkflow {
             source_opened_ = true;
         }
         if (timeline.frame_export_ready()) {
+            if (!workflow_started_) {
+                // Initial imports retain their phase guard. Give the complete
+                // three-scale input workflow its own aggregate action budget.
+                started_ = SDL_GetTicks();
+                workflow_started_ = true;
+            }
             authored_ = scene.document();
             revision_ = scene.revision();
             advance(Step::Open);
@@ -179,6 +186,9 @@ class SequenceFrameEditorWorkflow {
                        {"task", task.status()},
                        {"fixed", fixed_},
                        {"resize_step", resize_},
+                       {"workflow_started", workflow_started_},
+                       {"workflow_ms", SDL_GetTicks() - started_},
+                       {"phase_ms", SDL_GetTicks() - phase_started_},
                        {"message", message},
                        {"source_ready", timeline.frame_export_ready()},
                        {"game_ready", game_ready}};

@@ -18,7 +18,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 | Rendering | Diligent Engine and selected DiligentFX utilities | Shared Scene/Game renderer, PBR materials and GPU resources; D3D12 editor with Vulkan validation probes. |
 | Shaders | HLSL | Surface shaders and shader generation from FORGE material graphs. |
 | Game interface and fonts | RmlUi and FreeType | Runtime HUD documents, input, text and bundled-font rendering. |
-| Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, sensors and queries. |
+| Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, joints, sensors, queries and painted Tile Map collision. |
 | Skeletal animation | Ozz Animation | Animation sampling, blending and glTF animation conversion. |
 | Navigation | Recast and Detour | Static navigation mesh generation, path queries and local steering. |
 | Audio | miniaudio | WAV decoding, playback, spatial sound and mixing. |
@@ -67,6 +67,17 @@ Sprite shapes, a moving Kinematic platform and a pass-through sensor. This is an
 actual Windows Game render using the D3D12 WARP software adapter:
 
 [![Three boxes, a circle and a capsule rest inside a 2D physics playground below a green sensor and blue moving platform](docs/images/readme/2d-physics-runtime.png)](docs/images/readme/2d-physics-runtime.png)
+
+### Painted collision
+
+Gallery77 uses a painted Tile Map layer for static floors and platforms. Four
+Dynamic shapes land on the green tiles; the blue arrows remain decorative.
+Select the solid layer in the Inspector and see its collision boxes in Scene.
+These Windows D3D12 WARP captures use the actual Game renderer and Inspector controls:
+
+| Game after simulation | Published layer outlines and Inspector |
+| :---: | :---: |
+| [![Four colored shapes resting on painted green platforms while blue arrows remain decorative](docs/images/readme/painted-collision-game.png)](docs/images/readme/painted-collision-game.png) | [![Scene outlines the painted platforms beside the Static Physics Body and Solid platforms layer selector](docs/images/readme/painted-collision-inspector.png)](docs/images/readme/painted-collision-inspector.png) |
 
 ## User manual
 

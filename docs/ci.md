@@ -104,6 +104,16 @@ state JSON, so a screenshot is not the only available readiness evidence.
 The sequence-frame input walkthrough waits for the real export callback to accept
 its request before entering settings. A consumed click during an asynchronous
 layout or tab change is retried within the original workflow deadline.
+The sequence-frame input walkthrough retains its 90-second phase guards and gives
+all three scales one 240-second action budget after initial source admission. In
+[run39698636222](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39698636222),
+initial importing consumed about 80 seconds. Ordinary and fixed exports
+at 100% and 150%, both resize checks and ordinary export at 200% completed before
+the old combined 240-second cutoff interrupted fixed export setup at 200%. Initial admission
+remains bounded by its original 90-second phase guard. Python allows 340 seconds and CTest 360
+to cover that initial phase, the complete action budget and failure cleanup. No
+input, output, pixel, resize, source-preservation or request-timeout assertion is removed.
+
 The shared selection includes `hdr_bloom` settings/control/Gallery checks and the
 `feature_gallery` CLI admission check. New display-color pixel checks also execute
 inside the existing native viewport fixtures. Final combined-package acceptance
@@ -987,10 +997,13 @@ and Scene guides at 100/150/200%; final package starts exported Gallery32.
 ## Common audio mixer
 
 The audio-mixer capture enables the existing `FORGE_SDK_DIAGNOSTIC_DIR` opt-in in
-its retained evidence directory. The ordinary runtime now records a separate
+its retained evidence directory. Save-image captures use the same opt-in to retain
+the first Play replacement's construction, Scene, Map, Physics, audio and publication
+phases, followed by response queueing. The ordinary runtime records a separate
 bounded bootstrap trace with UTC and monotonic elapsed milliseconds, covering
 argument/project/module setup, world construction, pipe setup, session creation
-and the first response queueing. SDK-host bootstrap records stop at host creation;
+and the first response queueing. The ordinary trace stops after its first replacement;
+later commands cannot grow it. SDK-host bootstrap records stop at host creation;
 its existing process diagnostics cover subsequent requests. This diagnoses early
 hello delays without changing the five-second request deadline. A queued response
 marker does not prove receipt. Default launches do not create these files.

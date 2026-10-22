@@ -1,6 +1,7 @@
 """Real native Save image commands; only the OS file-picker result is injected."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import struct
@@ -41,8 +42,11 @@ with tempfile.TemporaryDirectory(dir=evidence.parent, prefix='view-image-capture
     project = Path(scratch) / 'Gallery'
     shutil.copytree(gallery, project)
     original = authored_files(project)
+    diagnostics = evidence / 'startup-diagnostics'
+    diagnostics.mkdir(exist_ok=True)
+    environment = dict(os.environ, FORGE_SDK_DIAGNOSTIC_DIR=str(diagnostics))
     result = subprocess.run([fixture, evidence, '--view-images', project],
-                            capture_output=True, text=True, timeout=630)
+                            capture_output=True, text=True, timeout=630, env=environment)
     (evidence / 'capture.log').write_text(result.stdout + result.stderr)
     assert result.returncode == 0, (result.stdout, result.stderr)
     assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr

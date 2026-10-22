@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import sys
 import tempfile
+import uuid
 
 from runtime_client import Runtime
 
@@ -38,6 +39,29 @@ try:
                 for _ in range(10):
                     assert worker.request('ping')['ok']
                 assert files[0].read_text(encoding='utf-8') == data, 'Bootstrap trace grew after startup'
+                state = worker.request('replace', scene=dict(
+                    version=5, asset_id=str(uuid.uuid4()), entities=[]))
+                replacement = files[0].read_text(encoding='utf-8')
+                lines = replacement.splitlines()
+                assert 22 <= len(lines) <= 24 and len(replacement.encode()) <= 4096, replacement
+                parsed = [re.fullmatch(r'\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ '
+                                      r'elapsed_ms=(\d+) phase=([a-z-]+)', line) for line in lines]
+                assert all(parsed), replacement
+                elapsed = [int(row.group(1)) for row in parsed]
+                assert elapsed == sorted(elapsed), replacement
+                assert [row.group(2) for row in parsed[8:]] == [
+                    'replace-world-begin', 'replace-world-ready', 'replace-scene-begin',
+                    'replace-scene-ready', 'replace-maps-begin', 'replace-maps-ready',
+                    'replace-physics-begin', 'replace-physics-ready', 'replace-audio-begin',
+                    'replace-audio-ready', 'replace-published', 'replace-retired',
+                    'replace-state-ready', 'replace-response-queued']
+                checkpoint = state['recovery']
+                worker.request('replace', scene=state['scene'], recovery=checkpoint,
+                               recovery_session=checkpoint['session'],
+                               recovery_tick=checkpoint['tick'])
+                for _ in range(10):
+                    assert worker.request('ping')['ok']
+                assert files[0].read_text(encoding='utf-8') == replacement, 'Replacement trace grew'
             finally:
                 worker.close()
         # Optional diagnostics cannot create directories or make valid startup fail.
@@ -52,4 +76,4 @@ finally:
     else:
         os.environ[key] = previous
 
-print('Opt-in UTC/monotonic bounded startup trace, phase order, protocol and unavailable path passed')
+print('Opt-in UTC/monotonic bounded startup/first-replacement trace, protocol and unavailable path passed')

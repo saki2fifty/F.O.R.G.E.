@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     try {
         // Existing diagnostic opt-in, separate bounded bootstrap file: an early
         // startup stall can precede both the protocol and SDK host's own trace.
-        // At most these fixed phase records are written; default startup does no IO.
+        // Only startup and the first replacement are recorded; default startup does no IO.
         const auto startup_begin = std::chrono::steady_clock::now();
         std::ofstream startup_log;
         if (const auto* directory = std::getenv("FORGE_SDK_DIAGNOSTIC_DIR");
@@ -251,6 +251,7 @@ int main(int argc, char** argv) {
                                     "-" + std::to_string(random()) + "-" + std::to_string(random());
         startup_phase("session-ready");
         bool startup_request_seen = false;
+        bool startup_response_seen = false, replacement_seen = false;
         std::uint64_t last_id = 0, ui_generation = 1;
         forge::TileMapPlaySource tile_projection;
         forge::ui_protocol::CommandGate ui_commands;
@@ -325,6 +326,11 @@ int main(int argc, char** argv) {
                     startup_request_seen = true;
                 }
                 forge::Json response{{"protocol", 2}, {"session", session}, {"id", 0}};
+                bool trace_replacement = false;
+                const auto replacement_phase = [&](const char* phase) {
+                    if (trace_replacement)
+                        startup_phase(phase);
+                };
                 try {
                     const auto request = forge::Json::parse(line);
                     response["id"] = request.value("id", forge::Json(0));
@@ -388,10 +394,15 @@ int main(int argc, char** argv) {
                     } else if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
+                        trace_replacement = !replacement_seen && startup_log.is_open();
+                        replacement_seen = true;
+                        replacement_phase("replace-world-begin");
                         auto candidate = std::make_unique<Runtime>(
                             sdk_modules, physics_config, audio_config, project_root, ui_enabled);
+                        replacement_phase("replace-world-ready");
                         candidate->simulation.input().configure(input_map);
                         std::uint64_t recovered_tick = 0;
+                        replacement_phase("replace-scene-begin");
                         if (request.contains("recovery") && !request.at("recovery").is_null()) {
                             auto recovery = request.at("recovery");
                             if (recovery.dump().size() > 8 * 1024 * 1024)
@@ -409,11 +420,16 @@ int main(int argc, char** argv) {
                                                          "session or boundary mismatch");
                             candidate->scene.restore_snapshot(recovery.at("scene"));
                             candidate->engine.world().modules().scene_ready();
+                            replacement_phase("replace-scene-ready");
+                            replacement_phase("replace-maps-begin");
                             prepare_tile_maps(*candidate, &recovery.at("tile_maps"));
                             forge::detail::restore_runtime_tile_maps(candidate->engine.world(),
                                                                      recovery.at("tile_maps"));
+                            replacement_phase("replace-maps-ready");
+                            replacement_phase("replace-physics-begin");
                             prepare_physics(*candidate->physics());
                             candidate->physics()->restore(recovery.at("physics"));
+                            replacement_phase("replace-physics-ready");
                             auto animation = forge::animation_runtime(candidate->engine.world());
                             if (recovery.contains("animation"))
                                 animation->restore(recovery.at("animation"));
@@ -430,12 +446,18 @@ int main(int argc, char** argv) {
                         } else {
                             candidate->scene.restore_snapshot(request.at("scene"));
                             candidate->engine.world().modules().scene_ready();
+                            replacement_phase("replace-scene-ready");
+                            replacement_phase("replace-maps-begin");
                             prepare_tile_maps(*candidate);
+                            replacement_phase("replace-maps-ready");
+                            replacement_phase("replace-physics-begin");
                             prepare_physics(*candidate->physics());
                             candidate->physics()->synchronize(0);
+                            replacement_phase("replace-physics-ready");
                         }
                         candidate->simulation.restore_input_tick(recovered_tick);
                         candidate->simulation.reset_presentation();
+                        replacement_phase("replace-audio-begin");
                         candidate->simulation.sync_audio();
                         if (candidate->engine.services().available(forge::Capability::Audio)) {
                             auto audio = std::static_pointer_cast<forge::AudioRuntime>(
@@ -444,11 +466,13 @@ int main(int argc, char** argv) {
                                 throw std::runtime_error(
                                     "Scene preparation: audio failed or timed out");
                         }
+                        replacement_phase("replace-audio-ready");
                         // Publish only a complete validated reconstruction.
                         runtime.swap(candidate);
                         runtime->engine.services().profiling(profiling_enabled);
                         clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
                         ui_commands.reset(session, ++ui_generation);
+                        replacement_phase("replace-published");
                     } else if (command == "refresh_model_assets") {
                         auto animation = forge::animation_runtime(runtime->engine.world());
                         if (!animation || project_root.empty())
@@ -579,11 +603,13 @@ int main(int argc, char** argv) {
                     } else if (command != "hello" && command != "snapshot" && command != "ping" &&
                                command != "schema")
                         throw std::runtime_error("Unknown command");
+                    replacement_phase("replace-retired");
                     response["ok"] = true;
                     if (!forge::tile_map_play_command(command)) {
                         response["scene"] = runtime->scene.snapshot();
                         if (!tick_failed)
                             response["recovery"] = capture();
+                        replacement_phase("replace-state-ready");
                         response["physics"] = runtime->physics()->status();
                         if (request.contains("physics_debug")) {
                             try {
@@ -691,8 +717,12 @@ int main(int argc, char** argv) {
                     bytes = response.dump() + "\n";
                 }
                 io.send(std::move(bytes));
-                if (initialized && startup_log.is_open()) {
+                if (initialized && !startup_response_seen) {
                     startup_phase("hello-response-queued");
+                    startup_response_seen = true;
+                }
+                if (trace_replacement) {
+                    replacement_phase("replace-response-queued");
                     startup_log.close();
                 }
             }
