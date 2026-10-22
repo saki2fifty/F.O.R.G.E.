@@ -61,6 +61,57 @@ int main(int argc, char** argv) {
         scene.entity("hud").set<UiDocument>({{asset.id}, true, true, 2});
         const auto entity = scene.reference("hud").entity;
         auto service = std::static_pointer_cast<UiRuntime>(runtime.services().ui());
+        {
+            const auto unused = root / "unused-ui-project";
+            std::filesystem::create_directories(unused);
+            std::ofstream(unused / "forge.assets.json") << "{";
+            EngineContext isolated(WorldRole::Runtime, false, {ui_module(unused)});
+            Scene no_ui(isolated.world());
+            auto copied = std::static_pointer_cast<UiRuntime>(isolated.services().ui());
+            auto state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("documents").empty() && state.at("errors").empty(),
+                  "An empty UI snapshot unnecessarily admitted project assets");
+            no_ui.restore_snapshot({{"version", 1},
+                                    {"entities", Json::array({{{"id", "unused"},
+                                                               {"name", "Unused UI"},
+                                                               {"components", Json::object()}},
+                                                              {{"id", "unused2"},
+                                                               {"name", "Second UI"},
+                                                               {"components", Json::object()}}})}});
+            no_ui.entity("unused").set<UiDocument>({{asset.id}, false, true, 0});
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("documents").empty() && state.at("errors").empty(),
+                  "Disabled UI unnecessarily admitted project assets");
+            no_ui.entity("unused").set<UiDocument>({{}, true, true, 0});
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("documents").empty() && state.at("errors").empty(),
+                  "Unassigned UI unnecessarily admitted project assets");
+            // Visibility does not remove a live document's model/incarnation.
+            no_ui.entity("unused").set<UiDocument>({{asset.id}, true, false, 0});
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("documents").size() == 1 && state.at("errors").size() == 2,
+                  "A required hidden UI document bypassed catalog admission");
+            no_ui.entity("unused2").set<UiDocument>({{asset.id}, true, true, 0});
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("documents").size() == 2 && state.at("errors").size() == 3,
+                  "Failed catalog admission was retried for each UI document");
+            std::filesystem::copy_file(root / "forge.assets.json", unused / "forge.assets.json",
+                                       std::filesystem::copy_options::overwrite_existing);
+            std::ofstream(unused / "hud.rml") << rml;
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("errors").empty(), "UI did not retry a repaired catalog");
+            const auto incarnation = state.at("documents")[0].at("instance");
+            std::filesystem::remove(unused / "hud.rml");
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("errors").size() == 2 &&
+                      state.at("documents")[0].at("instance") == incarnation,
+                  "UI cached stale availability or replaced a surviving document");
+            std::ofstream(unused / "hud.rml") << rml;
+            state = copied->snapshot(no_ui, "isolated", 1, 0, true);
+            check(state.at("errors").empty() &&
+                      state.at("documents")[0].at("instance") == incarnation,
+                  "UI did not recover live availability without changing incarnation");
+        }
         bool foreign_rejected = false;
         std::thread foreign([&] {
             try {

@@ -29,6 +29,13 @@ The catalog records a schema-1 `ui_document` asset with an AssetId and project-r
 
 Protocol version 1 carries a runtime session, generation, monotonic snapshot revision and up to 16 document descriptors. Each has an entity/asset ID, document incarnation, visibility/layer, scalar model and allowed command names. RmlUi retains copies, never ECS storage or gameplay DLL callbacks. Native RmlUi data binding supplies read-only variables; no scripting language is enabled.
 
+Model snapshots admit the project catalog only when an enabled document has an
+assigned asset. Empty scenes, disabled documents and unassigned documents require
+no UI asset lookup. Each snapshot with active documents still admits a fresh
+catalog, including hidden documents, and retries after a previous failure. A failed
+catalog is attempted once for that snapshot; each affected document retains its
+own diagnostic. Live file availability and document incarnations remain distinct.
+
 The runtime publishes `tick` and `paused`. The experimental exact SDK's real `ui_probe.cpp` consumer registers `DecreaseHealth`, publishes a numeric `health`, and polls commands inside its fixed system. Health remains an ECS component, not a UI value authority. These private callbacks change the exact SDK fingerprint, not ABI1. The transient sample Health component is not a new general native-state recovery contract.
 
 Buttons use `data-event-click="command('Pause')"` (or another registered command). Actions take **no arguments** by default. An exact-SDK module may explicitly register an action that accepts one bounded string value; reserved Pause/Resume/Step remain argument-free. Host-reserved `command('TimeScale','0.5')` sets simulation speed through the existing clock, accepting a complete finite numeric string in0..4. Zero holds motion while controls remain responsive. The snapshot permits four host actions plus all29 custom actions. See [gameplay services](gameplay-services.md). Runtime validates the current document incarnation, visible/enabled configuration, typed asset availability and allowlisted command. Host controls execute at the control boundary. Gameplay actions queue for the module to poll in its fixed system or standalone control callback. Control callbacks can operate menus while paused or at zero rate without advancing simulation.

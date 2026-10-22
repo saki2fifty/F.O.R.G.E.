@@ -61,11 +61,7 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
     auto profile = services_.profile("ui", "ModelSnapshot", tick);
     Json docs = Json::array(), errors = Json::array();
     std::optional<AssetCatalog> catalog;
-    try {
-        catalog.emplace(AssetCatalog::open_project(project_));
-    } catch (const std::exception& e) {
-        errors.push_back({{"error", std::string(e.what()).substr(0, 256)}});
-    }
+    bool catalog_requested = false;
     std::set<EntityId> live, documents;
     const auto document = scene.effective_document();
     for (const auto& e : document.at("entities")) {
@@ -77,6 +73,14 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
         const auto& c = components.at("forge.ui_document");
         if (!c.at("enabled").get<bool>() || c.at("document").is_null())
             continue;
+        if (!catalog_requested) {
+            catalog_requested = true;
+            try {
+                catalog.emplace(AssetCatalog::open_project(project_));
+            } catch (const std::exception& e) {
+                errors.push_back({{"error", std::string(e.what()).substr(0, 256)}});
+            }
+        }
         const auto asset = c.at("document").get<AssetId>();
         const auto resolution =
             catalog ? catalog->resolve(asset, UiDocumentAsset::type) : AssetResolution{};

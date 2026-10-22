@@ -1,5 +1,18 @@
 # 2026-10-22
 
+## Runtime UI preparation — local validation
+
+- Skip UI catalog admission when a Scene has no enabled, assigned UI document.
+  Active and hidden documents retain fresh availability checks; repaired catalogs
+  and restored files recover without changing a surviving document's incarnation.
+- The same Release Linux CPU probe with the249-asset Gallery reduced an empty UI
+  snapshot from33–34ms to about0.76ms. This measures one copied-model operation;
+  it does not establish Windows latency, game FPS or physical GPU performance.
+- The regression fails before the correction and passes afterward. Nine focused
+  checks pass, including real host processes, the matching C++ UI module and RmlUi
+  gallery resource/geometry admission. Full formatting passes. Broader source validation remains pending;
+  this correction is separate from numbered Build201's frozen source.
+
 ## Painted 2D collision — validated source
 
 - Added an exact named Tile Map layer selector on Static nonsensor 2D bodies,
