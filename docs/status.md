@@ -1,4 +1,27 @@
-# Painted 2D collision — validated source, 2026-10-22
+# Windows delivery — Build261022-000201
+
+The combined editor/C++ SDK package is delivered from source `02a742d`, including
+all77 editable Feature Gallery scenes, connected2D joints and painted Tile Map
+collision. The [complete delivery run](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39726820668)
+passes Linux/Windows core188/SDK224 each,326 native editor tests, shared/export/
+independent-runner checks and final packaged editor/SDK acceptance. Every manifest
+digest and Gallery source file was checked; the reserved ZIP SHA256 is
+`fe49e926fa856adfe6967e9aa5a72c40273a086b6b0735ed4224ab565ef1c581`.
+Physical Windows/GPU/listening testing remains deferred.
+
+## Runtime/UI preparation — separate development source
+
+Source `40165fc` skips unused UI catalog admission and projects only UI rows through
+the existing Scene owner.21 focused checks pass, including Prefab/history parity,
+RmlUi geometry/resource admission and the matching C++ UI module in both runtime
+hosts. Its [cross-platform source gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39734839251)
+passes188 core and224 SDK tests on each OS, plus formatting. This work is not included in Build201. Local CPU observations in the
+[changelog](../changelog/20261022/README.md) do not establish Windows FPS or physical
+GPU performance.
+
+---
+
+# Painted 2D collision — delivered in Build201, 2026-10-22
 
 The batch adds a selected solid Map layer on Static nonsensor PhysicsBody2D actors,
 published-layer Inspector/Prefab choices and Scene outlines, fixed cell edits and
@@ -29,11 +52,11 @@ separates initial imports from the sequence-export walkthrough's action budget,
 preserving its phase guards and the runtime's five-second request deadline.
 Earlier intermittent hello/replacement delays are not claimed fixed.
 
-Connected 2D joints/Gallery76 remain source-accepted on main. Numbered
+Connected 2D joints/Gallery76 and painted collision/Gallery77 are included in the
+verified Build201 above. The earlier numbered
 [Build200](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39684614599)
-failed its audio-mixer hello guard and delivered no ZIP. Build199 remains the
-available body-only 2D package; it includes neither connected joints nor painted
-Map collision. No numbered delivery of this extension is claimed yet. Physical
+failed its audio-mixer hello guard and delivered no ZIP. Build199 was the
+preceding body-only2D delivery. Physical
 Windows/GPU/listening testing remains deferred. See the
 [painted Map workflow](../manual/editor/tile-maps.md) and
 [bounded technical profile](physics-2d.md).

@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-22](20261022/README.md) — Painted 2D collision, edited Map recovery and Gallery77 in development; local CPU/C++/Inspector checks pass, native Windows validation and delivery pending.
+- [2026-10-22](20261022/README.md) — Build201 delivers connected2D bodies, painted Map collision/recovery and77 editable Gallery scenes. Runtime/UI preparation improvements pass Linux/Windows source validation for a later delivery.
 
 - [2026-10-21](20261021/README.md) — Build199 delivers 2D bodies, controls, sensors, recovery and Gallery75; connected 2D joints/Gallery76 pass source/native/SDK/export gates, with numbered delivery and physical testing pending.
 
