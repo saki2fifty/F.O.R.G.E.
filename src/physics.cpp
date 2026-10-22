@@ -426,6 +426,21 @@ bool physics_debug_uses_character(const Json& components) {
            !components.contains("forge.physics_body") ||
            !components.at("forge.physics_body").value("enabled", true);
 }
+std::optional<EntityRef> physics_debug_character_watch(const Json& snapshot, AssetId authored_scene,
+                                                       std::string_view selected) {
+    if (!authored_scene || selected.empty() || !snapshot.is_object() ||
+        snapshot.value("asset_id", std::string{}) != authored_scene.str() ||
+        !snapshot.contains("entities") || !snapshot.at("entities").is_array())
+        return {};
+    for (const auto& row : snapshot.at("entities"))
+        if (row.value("id", std::string{}) == selected && row.contains("components")) {
+            const auto& values = row.at("components");
+            if (values.contains("forge.character_controller") ||
+                values.contains("forge.character_controller_2d"))
+                return EntityRef{authored_scene, EntityId::parse(std::string(selected))};
+        }
+    return {};
+}
 LocalTransform physics_debug_pose(const Json& components, const AffineTransform& world,
                                   const LocalTransform& hint) {
     if (physics_debug_uses_character_2d(components))

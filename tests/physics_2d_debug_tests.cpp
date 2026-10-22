@@ -47,6 +47,34 @@ void bounds(const PhysicsDebugGeometry& geometry, double x, double y, unsigned c
                 std::abs(maxy - y) < 1e-6,
             "Planar guide differs from physical effective shape bounds");
 }
+void character_watch_scope() {
+    const auto first = AssetId::generate(), second = AssetId::generate();
+    const auto entity = EntityId::generate();
+    Json snapshot{
+        {"asset_id", first},
+        {"entities",
+         Json::array({{{"id", entity},
+                       {"components", {{"forge.character_controller_2d", Json::object()}}}}})}};
+    const auto authored = snapshot;
+    require(physics_debug_character_watch(snapshot, first, entity.str()) ==
+                EntityRef{first, entity},
+            "Character watch lost the complete authored reference");
+    require(!physics_debug_character_watch(snapshot, second, entity.str()),
+            "Character watch ignored the authored Scene identity");
+    snapshot["asset_id"] = second; // Valid local EntityId reused by another Scene.
+    require(!physics_debug_character_watch(snapshot, first, entity.str()) &&
+                physics_debug_character_watch(snapshot, second, entity.str()) ==
+                    EntityRef{second, entity},
+            "Character watch followed a reused EntityId across a Scene switch");
+    snapshot = authored;
+    snapshot["entities"][0]["components"] = {{"forge.character_controller", Json::object()}};
+    require(physics_debug_character_watch(snapshot, first, entity.str()) ==
+                EntityRef{first, entity},
+            "Canonical character watch omitted the existing3D controller");
+    require(!physics_debug_character_watch(snapshot, first, "") &&
+                !physics_debug_character_watch(Json(), first, entity.str()),
+            "Empty or unavailable character selection produced a watch");
+}
 void outlines() {
     for (float z : {-2.f, 0.f, 3.f})
         for (float x : {-2.f, 2.f})
@@ -301,6 +329,7 @@ int main() {
         tile_map_outlines();
         parent_frames();
         controller_outline_and_frames();
+        character_watch_scope();
         std::cout << "Copied2D controller feet outline/domain/asset/frame checks PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

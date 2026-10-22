@@ -2,6 +2,8 @@
 #include "collision_resource.hpp"
 #include <forge/transform.hpp>
 #include <nlohmann/json_fwd.hpp>
+#include <optional>
+#include <string_view>
 namespace forge {
 class TileMapData;
 // Owner-thread extraction pins only immutable native shape data for a worker.
@@ -13,6 +15,10 @@ struct PhysicsDebugCollision {
 PhysicsDebugCollision snapshot_physics_debug_collision(const ResourceLease<CollisionAsset>&);
 bool physics_debug_uses_character(const nlohmann::json& components);
 bool physics_debug_uses_character_2d(const nlohmann::json& components);
+// An authored selection cannot follow a reused local EntityId into another Scene.
+std::optional<EntityRef> physics_debug_character_watch(const nlohmann::json& snapshot,
+                                                       AssetId authored_scene,
+                                                       std::string_view selected);
 struct PhysicsDebugGeometry {
     // Scaled local geometry in authored-origin coordinates. Apply rotation and
     // translation only at presentation; no live native handles leave this adapter.

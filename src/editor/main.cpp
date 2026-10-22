@@ -5297,30 +5297,28 @@ int main(int argc, char** argv) {
                 }
                 ImGui::End();
             }
+            const bool inspect_live_scene =
+                play.ready() && play.effective_snapshot().is_object() &&
+                play.effective_snapshot().value("asset_id", std::string{}) ==
+                    scene.asset_id().str();
             play.physics_debug_selection = forge::Json();
-            if (play.ready() && !selected.empty() &&
+            if (inspect_live_scene && !selected.empty() &&
                 (workspace.inspector || physics_overlay.visible))
-                for (const auto& row : play.effective_snapshot().at("entities"))
-                    if (row.at("id") == selected &&
-                        (row.at("components").contains("forge.character_controller") ||
-                         row.at("components").contains("forge.character_controller_2d"))) {
-                        play.physics_debug_selection =
-                            forge::Json{{"scene", play.effective_snapshot().at("asset_id")},
-                                        {"entity", selected}};
-                        break;
-                    }
+                if (const auto watch = forge::physics_debug_character_watch(
+                        play.effective_snapshot(), scene.asset_id(), selected))
+                    play.physics_debug_selection = *watch;
             const bool live_inspector_ready =
-                play.active() && play.ready() && editor.selection.entities().size() == 1 &&
+                play.active() && inspect_live_scene && editor.selection.entities().size() == 1 &&
                 forge::ComponentInspector::has_runtime_inspection(play.effective_snapshot(),
                                                                   play.runtime_schema(), selected,
                                                                   play.physics_status());
             const auto live_sound =
-                workspace.inspector && play.ready() && editor.selection.entities().size() == 1
+                workspace.inspector && inspect_live_scene && editor.selection.entities().size() == 1
                     ? forge::AudioSourceEditor::selected(play.effective_snapshot(), selected)
                     : std::optional<forge::EntityRef>{};
             play.watch_audio_source(live_sound);
             const auto live_animation =
-                workspace.inspector && play.ready() && editor.selection.entities().size() == 1
+                workspace.inspector && inspect_live_scene && editor.selection.entities().size() == 1
                     ? forge::AnimationPlaybackEditor::selected(play.effective_snapshot(), selected)
                     : std::optional<forge::EntityRef>{};
             play.watch_animation(live_animation);
