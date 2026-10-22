@@ -15,6 +15,13 @@ the authoring workflow.
 [ADR024](decisions/024-2d-physics.md)
 records the selected ownership, native boundary and recovery direction.
 
+Build261022-000206 delivers the native 2D controller and editable Character2D C++
+project. Its [complete gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39822638412)
+passes both OS profiles, full native editor acceptance, installed SDK, actual SDL
+input in the source-free exported game and final combined-package C++ workflows.
+The three controller Inspector and three exported-game captures were reviewed;
+software WARP checks do not establish physical GPU or frame-pacing performance.
+
 ## Native boundary
 
 Box2D 3.2.0 is selected at immutable

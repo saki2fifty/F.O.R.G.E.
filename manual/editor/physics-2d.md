@@ -118,6 +118,8 @@ slopes and one-way platforms are not available.
 
 ## Character movement
 
+Available in Build206.
+
 Open a writable copy of **Examples/Character2D** for a player controlled by C++ and
 **Character Controller 2D**. Build Project Code with the matching SDK, then Play.
 Capture Game input and use A/D or arrows to walk; press Space to jump. Holding

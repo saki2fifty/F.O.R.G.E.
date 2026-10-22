@@ -1,6 +1,6 @@
 # 2026-10-22
 
-## Unreleased — 2D character controller integration
+## Build261022-000206 — native 2D character movement
 
 - Added feet-origin Grounded/Floating Character Controller 2D under the existing
   physics owner, with bounded move/slide, slope support, downward floor following,
@@ -13,9 +13,16 @@
   floors, wall blocking, held-input behavior and speed/jump tuning. It uses FORGE's
   own existing visual assets; no competitor controller implementation was copied.
 - Added read-only Live gameplay movement feedback and selected Scene support/
-  velocity guides. Installed-only SDK, native editor/render and relocated Windows
-  export checks remain required before a numbered delivery; local source changes
-  are not a claim of Windows or physical acceptance.
+  velocity guides. All three actual Windows Inspector captures at 100/150/200% and
+  three exported Character2D rest/jump/landing images were visually reviewed.
+- The [complete delivery gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39822638412)
+  passes 188 core and 225 SDK tests on each OS, 326 native editor checks, shared SDK /
+  fresh-runner exports and final packaged editor C++ acceptance. The relocated
+  Character2D game uses actual SDL input, painted support and a 1.884325m jump;
+  holding Jump does not repeat. All 1698 manifest hashes, 78 x64 PE files, 18 matching
+  public SDK headers and 529 Gallery files/77 scenes were verified. Physical Windows /
+  GPU/FPS/listening acceptance remains deferred. Sprite image regions are separate
+  development work and are not in this ZIP.
 
 ## Build261022-000204 — swept 2D queries and C++ movement
 

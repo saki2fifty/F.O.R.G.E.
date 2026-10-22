@@ -62,6 +62,17 @@ map. Native Game rendering on Linux software Vulkan:
 
 ## 2D physics
 
+Build206 adds the editable [C++ Character2D project](samples/projects/Character2D/README.md).
+Its native 2D controller provides grounded movement, sliding, floor support and
+checked placement. Project C++ supplies gravity and jumping. The actual Windows
+Scene/Inspector capture shows copied ground, speed and blocked-placement feedback:
+
+[![Native 2D capsule supported by a moving platform, with ground and velocity feedback in the Live gameplay Inspector](docs/images/readme/2d-character-inspector.png)](docs/images/readme/2d-character-inspector.png)
+
+The [complete Build206 gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39822638412)
+passes the editor, matching C++ SDK and source-free exported game checks. These
+captures use software D3D12 WARP; physical GPU performance remains unmeasured.
+
 The original [C++ 2D Movement project](samples/projects/Movement2D/README.md) adds
 editable walking/jumping on painted and ordinary floors, using capsule support
 sweeps and the existing Dynamic body. Speed and jump settings are Inspector

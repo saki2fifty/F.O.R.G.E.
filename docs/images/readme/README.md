@@ -110,3 +110,19 @@ The corrected [full source audit](https://github.com/saki2fifty/F.O.R.G.E./actio
 at `375b9415df5bd70df7ed129481d9922f23e67b82` passes all 326 editor checks,
 including both walkthroughs, and two standalone-only checks. Rendering, Inspector
 and Gallery code are byte-unchanged from the captures attributed above.
+
+## Native 2D character feedback
+
+[Inspector](2d-character-inspector.png) preserves the complete 1280×800 capture from
+source `0d8489c13ba9cd7acbedc642695ac28d55b6d785`,
+[Build206](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39822638412), artifact
+`FORGE-Viewport-Checks` (`12451549767`). Original entry:
+`grid-test-images/physics-2d/character-editor/physics2d-editor-100.ppm`.
+
+The fixture uses the actual RuntimeWorld/controller before rendering the Scene and
+production Inspector controls. Ground, clipped velocity and blocked placement are
+observed after real fixed movement and a genuinely rejected placement. All three
+100/150/200% captures were reviewed, alongside three actual source-free Character2D
+game rest/jump/landing captures. The complete gate passes 326 editor checks and the
+combined-package C++ workflow. This is a native fixture using software WARP, not
+physical GPU or a manually operated whole desktop. PNG encoding is lossless.

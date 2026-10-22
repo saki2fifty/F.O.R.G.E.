@@ -1,4 +1,26 @@
-# Windows delivery — Build261022-000201
+# Current Windows delivery — Build261022-000206
+
+The editor and matching C++ SDK ZIP includes native Character Controller2D,
+the editable Character2D project and all 77 Gallery scenes. It retains the 2D sweeps,
+Movement2D and runtime UI improvements delivered in Build204. Compiled source is
+`0d8489c13ba9cd7acbedc642695ac28d55b6d785`.
+
+The [complete gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39822638412)
+passes Linux/Windows core188/SDK225 each, 326 editor checks, shared SDK/export /
+independent-runner checks and the final packaged editor C++ workflow. All 1698
+manifest digests, 78 x64 PE files, 18 public SDK headers and 529 Gallery files/77 scenes
+were checked against that source. Windows SDK headers retain their normal checkout
+CRLF endings; their normalized source content matches exactly.
+
+All three actual controller Inspector images at 100/150/200% and three source-free
+Character2D rest/jump/landed images were reviewed. Native SDL D/Space input, painted
+support and held-input behavior pass; the observed default jump rises 1.884325m.
+Physical Windows/GPU/FPS/listening testing remains deferred. Sprite image regions
+are separate development source and are not included in Build206.
+
+---
+
+# Previous Windows delivery — Build261022-000201
 
 The combined editor/C++ SDK package is delivered from source `02a742d`, including
 all77 editable Feature Gallery scenes, connected2D joints and painted Tile Map
