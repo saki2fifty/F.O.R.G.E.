@@ -168,6 +168,62 @@ void scalar_admission(EngineContext& engine) {
         rejects([&] { detail::validate_components({{name, bad}}); });
     }
 }
+void controller_schema(EngineContext& engine) {
+    const auto& type = spec("forge.character_controller_2d");
+    auto& world = engine.world().world();
+    const auto native = world.lookup(type.name);
+    const auto* info = ecs_get_type_info(world.c_ptr(), native.id());
+    require(info && std::size_t(info->size) == sizeof(CharacterController2D) &&
+                std::size_t(info->alignment) == alignof(CharacterController2D),
+            "2D controller has no matching reflected native layout");
+    for (const auto& [name, offset] :
+         {std::pair{"enabled", offsetof(CharacterController2D, enabled)},
+          std::pair{"mode", offsetof(CharacterController2D, mode)},
+          std::pair{"radius", offsetof(CharacterController2D, radius)},
+          std::pair{"height", offsetof(CharacterController2D, height)},
+          std::pair{"max_slope", offsetof(CharacterController2D, max_slope)},
+          std::pair{"floor_probe", offsetof(CharacterController2D, floor_probe)},
+          std::pair{"layer", offsetof(CharacterController2D, layer)},
+          std::pair{"mask", offsetof(CharacterController2D, mask)}}) {
+        const auto* member = ecs_struct_get_member(world.c_ptr(), native.id(), name);
+        require(member && std::size_t(member->offset) == offset,
+                "2D controller native member offset mismatch");
+    }
+    require(detail::canonical_builtin_value(type, Json::object()) == type.defaults,
+            "2D controller defaults were not backfilled by the shared schema");
+    bool mode_found = false;
+    const auto schema = detail::builtin_schema();
+    for (const auto& component : schema.at("components"))
+        if (component.at("id") == type.name) {
+            require(component.at("display_name") == "Character Controller 2D",
+                    "Controller picker label");
+            for (const auto& field : component.at("fields"))
+                if (field.at("id") == "mode") {
+                    mode_found = field.at("choices")[0].at("label") == "Grounded" &&
+                                 field.at("choices")[1].at("label") == "Floating";
+                }
+        }
+    require(mode_found, "2D controller mode choices missing");
+    for (const auto& [field, value] : {std::pair<std::string, Json>{"mode", 2},
+                                       {"mode", .5},
+                                       {"enabled", 1},
+                                       {"radius", .019},
+                                       {"height", .009},
+                                       {"radius", 500},
+                                       {"max_slope", 85.1},
+                                       {"floor_probe", -1},
+                                       {"floor_probe", 1.01},
+                                       {"layer", 32},
+                                       {"mask", -1},
+                                       {"mask", UINT64_MAX},
+                                       {"max_slope", std::numeric_limits<double>::quiet_NaN()}}) {
+        auto invalid = type.defaults;
+        invalid[field] = value;
+        rejects([&] { detail::validate_components({{type.name, invalid}}); });
+    }
+    require(!engine.services().available(Capability::Physics),
+            "Controller reflection created a native solver");
+}
 struct Cleanup {
     std::filesystem::path root;
     ~Cleanup() {
@@ -175,6 +231,60 @@ struct Cleanup {
         std::filesystem::remove_all(root, error);
     }
 };
+void controller_authoring(EngineContext& engine, const std::filesystem::path& parent) {
+    Cleanup work{parent / ("controller-" + AssetId::generate().str())};
+    std::filesystem::create_directories(work.root);
+    const auto& type = spec("forge.character_controller_2d");
+    Scene scene(engine.world());
+    const auto id = EntityId::generate().str();
+    const Json opaque{{"wide", UINT64_MAX}, {"future", Json::array({nullptr, "keep"})}};
+    scene.reset({{"version", 5},
+                 {"asset_id", AssetId::generate()},
+                 {"entities",
+                  Json::array({{{"id", id},
+                                {"name", "Controller source"},
+                                {"spatial", {{"mode", "world"}}},
+                                {"components",
+                                 {{type.name, {{"mode", 1}, {"future_options", opaque}}},
+                                  {"forge.local_scale", {{"x", -2}, {"y", 2}, {"z", 0}}}}}}})}});
+    const auto original = scene.document();
+    const auto value = scene.entity(id).get<CharacterController2D>();
+    authoring_command(
+        scene, "property.set",
+        {{"entity", id}, {"component", type.name}, {"field", "floor_probe"}, {"value", .25}});
+    require(scene.entity(id).get<CharacterController2D>().floor_probe == .25f && scene.undo() &&
+                scene.document() == original && scene.redo() &&
+                scene.entity(id).get<CharacterController2D>().floor_probe == .25f && scene.undo(),
+            "Controller Inspector edit did not preserve typed Undo/Redo and opaque data");
+    const auto definition = create_prefab_source(scene, id);
+    PrefabLibrary library(work.root);
+    const auto prefab = library.create(scene, definition, "Controller.prefab.json");
+    const auto instance = instantiate_prefab(scene, prefab);
+    const auto document = scene.document();
+    bool inherited = false;
+    for (const auto& row : document.at("entities"))
+        if (row.at("id") == instance) {
+            const auto actor = row.at("prefab_instance")
+                                   .at("members")
+                                   .at(definition.root().str())
+                                   .get<std::string>();
+            inherited = scene.entity(actor).get<CharacterController2D>() == value;
+        }
+    require(inherited, "Prefab realization did not inherit the controller settings");
+    const auto snapshot = scene.snapshot();
+    const auto path = work.root / "controller.scene.json";
+    scene.save(path);
+    EngineContext next(WorldRole::Authoring);
+    Scene reopened(next.world());
+    library.refresh(reopened);
+    reopened.load(path);
+    require(
+        reopened.snapshot() == snapshot && reopened.reference(id) == scene.reference(id) &&
+            reopened.entity(id).get<CharacterController2D>() == value &&
+            reopened.entity(id).get<LocalScale>() == LocalScale{-2, 2, 0} &&
+            !next.services().available(Capability::Physics),
+        "Controller source/Prefab reopening lost native settings, identity, extensions or scale");
+}
 void source_round_trip(EngineContext& engine, const std::filesystem::path& parent) {
     Cleanup work{parent / ("case-" + AssetId::generate().str())};
     std::filesystem::create_directories(work.root);
@@ -333,6 +443,11 @@ int main(int argc, char** argv) {
         native_layout(engine);
         reflected_units(engine);
         scalar_admission(engine);
+        std::cout << "Checking2D controller schema\n";
+        controller_schema(engine);
+        std::cout << "Checking2D controller authoring\n";
+        controller_authoring(engine, argv[1]);
+        std::cout << "2D controller schema/authoring PASS\n";
         source_round_trip(engine, argv[1]);
         tile_map_collider(engine, argv[1]);
         std::cout << "2D authored layout, scalar rejection, source/identity/extension round trip "

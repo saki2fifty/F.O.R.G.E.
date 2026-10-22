@@ -503,7 +503,9 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
     if (property == "forge.physics_body.layer" || property == "forge.physics_body.mask" ||
         property == "forge.physics_body_2d.layer" || property == "forge.physics_body_2d.mask" ||
         property == "forge.character_controller.layer" ||
-        property == "forge.character_controller.mask") {
+        property == "forge.character_controller.mask" ||
+        property == "forge.character_controller_2d.layer" ||
+        property == "forge.character_controller_2d.mask") {
         try {
             const auto config = ProjectSettings(root).physics();
             auto selected = value.get<std::uint32_t>();

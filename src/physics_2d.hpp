@@ -1,6 +1,7 @@
 #pragma once
 #include "physics_2d_joint.hpp"
 #include "physics_command.hpp"
+#include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/world.hpp>
 #include <map>
@@ -52,11 +53,13 @@ using Desired2D = std::map<std::uint64_t, Body2DDesired>;
 // This shared conversion owns effective XY geometry/profile and native mass checks.
 Body2DConfiguration inline_configuration_2d(PhysicsBody2D, unsigned shape,
                                             std::array<float, 2> raw_dimensions, LocalScale);
+Body2DConfiguration controller_configuration_2d(const CharacterController2D&, LocalScale);
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D, const TileMapData&,
                                               std::uint64_t layer, LocalScale);
 PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit,
                                       const TileMapData* = nullptr);
 LocalTransform debug_pose_2d(const AffineTransform&);
+LocalTransform controller_debug_pose_2d(const AffineTransform&, const LocalTransform& hint);
 struct Native2DImage {
     Json metadata;
     std::string bytes;

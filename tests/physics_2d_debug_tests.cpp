@@ -247,6 +247,52 @@ void parent_frames() {
     flat.m[0] = 0;
     rejects([&] { physics_debug_pose(components, flat, {}); });
 }
+void controller_outline_and_frames() {
+    const Json input{{"forge.character_controller_2d", {{"radius", .4}, {"height", 1.2}}}};
+    require(physics_debug_uses_planar(input) && physics_debug_uses_character_2d(input) &&
+                !physics_debug_uses_character(input),
+            "Controller preview selected the wrong domain");
+    const auto verify = [&](const Json& components) {
+        auto geometry = prepare_physics_debug(components, {-2, 2, 0});
+        for (auto& line : geometry.lines)
+            for (auto& point : line)
+                point[1] -= 2;
+        bounds(geometry, .8, 2, 66); // Physical feetY0, full height4m.
+    };
+    verify(input);
+    auto unused = input;
+    unused["forge.physics_body_2d"] = {{"enabled", false}};
+    unused["forge.tile_map_collider_2d"] = {{"layer", 1}};
+    unused["forge.tile_map_renderer"] = {{"map", nullptr}};
+    unused["forge.asset_collider"] = {{"asset", nullptr}};
+    verify(unused); // Unused colliders/assets need no preparation or native service.
+    unused["forge.physics_body_2d"]["enabled"] = true;
+    rejects([&] { prepare_physics_debug(unused, {-2, 2, 0}); });
+    Json choices{
+        {"forge.character_controller_2d", {{"enabled", false}, {"radius", .4}, {"height", 1.2}}},
+        {"forge.physics_body_2d", {{"enabled", true}}},
+        {"forge.circle_collider_2d", {{"radius", .5}}}};
+    require(!physics_debug_uses_character_2d(choices),
+            "Disabled controller hid enabled body preview");
+    bounds(prepare_physics_debug(choices, {1, 1, 0}), .5, .5, 64);
+    choices["forge.physics_body_2d"]["enabled"] = false;
+    verify(choices);
+    LocalTransform hint;
+    hint.translation = {999990, -999990, 7};
+    hint.scale = {-2, 2, 0};
+    const auto pose = physics_debug_pose(input, affine_transform(hint), hint);
+    require(equivalent(pose.translation, hint.translation) &&
+                equivalent(pose.rotation, hint.rotation) && equivalent(pose.scale, hint.scale),
+            "Controller guide changed signed upright feet frame");
+    hint.rotation = rotation_about_axis({0, 0, 1}, 10);
+    rejects([&] { physics_debug_pose(input, affine_transform(hint), hint); });
+    hint.rotation = {};
+    hint.scale.y = -2;
+    rejects([&] { physics_debug_pose(input, affine_transform(hint), hint); });
+    const auto truncated = prepare_physics_debug(input, {-2, 2, 0}, {}, false, 3);
+    require(truncated.truncated && truncated.lines.size() == 3,
+            "Controller guide ignored copied line budget");
+}
 } // namespace
 int main() {
     try {
@@ -254,6 +300,8 @@ int main() {
         domain_selection();
         tile_map_outlines();
         parent_frames();
+        controller_outline_and_frames();
+        std::cout << "Copied2D controller feet outline/domain/asset/frame checks PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

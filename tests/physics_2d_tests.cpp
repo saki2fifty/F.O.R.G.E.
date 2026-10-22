@@ -205,6 +205,60 @@ void kinematic_limits_and_rotation_mapping() {
     test.entity().set<LocalRotation>(starting);
     test.tick();
 }
+void authored_controller_ownership() {
+    for (unsigned command = 0; command != 2; ++command) {
+        Fixture test;
+        auto input = test.source();
+        auto& components = input["entities"][1]["components"];
+        components.erase("forge.physics_body_2d");
+        components.erase("forge.box_collider_2d");
+        components["forge.character_controller_2d"] = Json::object();
+        components["forge.local_translation"]["y"] = 2;
+        if (!command) {
+            test.scene.restore_snapshot(input);
+            const auto before = test.scene.snapshot();
+            auto nodes = test.engine.world().transform_nodes();
+            nodes.at(test.entity().id()).local.translation.x += 1;
+            rejects([&] { test.physics->validate_transform_candidate(nodes); });
+            require(
+                test.scene.snapshot() == before &&
+                    !test.physics->status().at("native_2d_realized").get<bool>(),
+                "Controller animation preflight wrote a starting pose or created a native world");
+        }
+        test.load(input);
+        test.tick(10);
+        const auto ref = test.scene.reference(test.actor);
+        require(test.entity().get<LocalTranslation>() == LocalTranslation{0, 2, 7} &&
+                    !test.entity().has<PhysicsBody2D>() && !test.physics->body_state_2d(ref) &&
+                    !test.physics->point_velocity_2d(ref, {0, 2}),
+                "Controller acquired authored body data, rigid-body API state or hidden gravity");
+        const auto hit = test.physics->raycast_2d({-2, 2.6}, {4, 0});
+        require(hit && hit->entity == ref && std::abs(hit->fraction - .425) < 1e-4,
+                "Controller inner capsule lost ordinary query presence or feet-origin geometry");
+        const auto before = test.scene.snapshot();
+        auto nodes = test.engine.world().transform_nodes();
+        nodes.at(test.entity().id()).local.translation.x += 1;
+        rejects([&] { test.physics->validate_transform_candidate(nodes); });
+        require(test.scene.snapshot() == before, "Animation acquired an active controller pose");
+        const auto checkpoint = test.physics->checkpoint();
+        Fixture recovered;
+        recovered.scene.restore_snapshot(before);
+        recovered.physics->restore(checkpoint);
+        recovered.simulation.reset_presentation();
+        recovered.tick();
+        require(recovered.scene.snapshot() == before && !recovered.physics->body_state_2d(ref) &&
+                    recovered.physics->raycast_2d({-2, 2.6}, {4, 0})->entity == ref,
+                "Typed controller source/recovery lost pose, query binding or representation");
+        if (command == 0)
+            test.physics->teleport_2d(ref, {5, 2}, 0, true);
+        else
+            test.physics->move_kinematic_2d(ref, {5, 2}, 0);
+        rejects([&] { test.physics->synchronize(1.f / 60); });
+        require(test.scene.snapshot() == before &&
+                    test.physics->checkpoint().at("planar") == checkpoint.at("planar"),
+                "Body command changed a controller pose or native state before rejection");
+    }
+}
 void bounded_work_fault() {
     for (unsigned profile : {0u, 1u, 2u}) {
         Fixture test;
@@ -231,6 +285,7 @@ int main() {
         settings_and_ownership();
         reject_before_retirement();
         kinematic_limits_and_rotation_mapping();
+        authored_controller_ownership();
         bounded_work_fault();
         std::cout << "2D fixed-phase bodies, domain separation, settings, writer admission and "
                      "work-fault checks passed\n";

@@ -257,6 +257,7 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
             (entity.has<PhysicsBody2D>() && entity.get<PhysicsBody2D>().enabled &&
              entity.get<PhysicsBody2D>().motion == 2) ||
             (entity.has<CharacterController>() && entity.get<CharacterController>().enabled) ||
+            (entity.has<CharacterController2D>() && entity.get<CharacterController2D>().enabled) ||
             (entity.has<NavigationAgent>() && entity.get<NavigationAgent>().enabled &&
              entity.get<NavigationAgent>().has_destination) ||
             (entity.has<Animator>() && entity.get<Animator>().enabled))

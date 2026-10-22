@@ -166,6 +166,11 @@ template <class T> Json encode(const T& p) {
                 {"doppler", p.doppler}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
+    else if constexpr (std::is_same_v<T, CharacterController2D>)
+        return {{"enabled", p.enabled},     {"mode", p.mode},
+                {"radius", p.radius},       {"height", p.height},
+                {"max_slope", p.max_slope}, {"floor_probe", p.floor_probe},
+                {"layer", p.layer},         {"mask", p.mask}};
     else if constexpr (std::is_same_v<T, CharacterController>)
         return {{"enabled", p.enabled},
                 {"shape", p.shape},
@@ -481,7 +486,17 @@ template <class T> Value decode(const Json& p) {
         return v;
     } else if constexpr (std::is_same_v<T, AudioListener>)
         return T{p.at("enabled")};
-    else if constexpr (std::is_same_v<T, CharacterController>) {
+    else if constexpr (std::is_same_v<T, CharacterController2D>) {
+        const T defaults{};
+        T value{
+            p.value("enabled", defaults.enabled),     p.value("mode", defaults.mode),
+            p.value("radius", defaults.radius),       p.value("height", defaults.height),
+            p.value("max_slope", defaults.max_slope), p.value("floor_probe", defaults.floor_probe),
+            p.value("layer", defaults.layer),         p.value("mask", defaults.mask)};
+        if (double(value.height) + 2 * double(value.radius) > 1000)
+            throw std::runtime_error("Character Controller 2D total capsule height exceeds1000m");
+        return value;
+    } else if constexpr (std::is_same_v<T, CharacterController>) {
         T v{p.at("enabled"),
             p.at("shape").get<std::uint32_t>(),
             p.at("radius"),
@@ -973,6 +988,15 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("doppler");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
+    else if constexpr (std::is_same_v<T, CharacterController2D>)
+        c.template member<bool>("enabled")
+            .template member<std::uint32_t>("mode")
+            .template member<float>("radius")
+            .template member<float>("height")
+            .template member<float>("max_slope")
+            .template member<float>("floor_probe")
+            .template member<std::uint32_t>("layer")
+            .template member<std::uint32_t>("mask");
     else if constexpr (std::is_same_v<T, CharacterController>)
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("shape")
@@ -1184,6 +1208,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) {
                 return register_type<CharacterController>(w, "forge.character_controller");
             }),
+        descriptor<CharacterController2D>(
+            "forge.character_controller_2d",
+            "XY capsule mechanics; feet origin, C++ velocity and gravity", "unitless", 0, 1000,
+            [](flecs::world& w) {
+                return register_type<CharacterController2D>(w, "forge.character_controller_2d");
+            }),
         descriptor<PhysicsBody>(
             "forge.physics_body", "Body motion: Static, Kinematic, Dynamic. Mass 0 uses density.",
             "unitless", 0, 1000000,
@@ -1241,9 +1271,8 @@ const std::array<Builtin, builtin_count>& builtins() {
         descriptor<AnimationSequence>(
             "forge.animation_sequence", "Coordinate object clips on one animation timeline",
             "unitless", {}, {},
-            [](flecs::world& w) {
-                return register_type<AnimationSequence>(w, "forge.animation_sequence");
-            }),
+            [](flecs::world&
+                   w) { return register_type<AnimationSequence>(w, "forge.animation_sequence"); }),
         descriptor<CameraShot>(
             "forge.camera_shot", "Select a camera during a Scene sequence interval", "unitless", {},
             {}, [](flecs::world& w) { return register_type<CameraShot>(w, "forge.camera_shot"); }),
@@ -1470,6 +1499,40 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.asset_collider" && field == "asset") {
         value["asset_type"] = CollisionAsset::type;
         value["nullable"] = true;
+    }
+    if (name == "forge.character_controller_2d") {
+        if (field == "enabled") {
+            value.erase("minimum");
+            value.erase("maximum");
+        }
+        if (field == "mode") {
+            value["maximum"] = 1;
+            value["description"] =
+                "Grounded floor/slope handling or Floating movement without floor following";
+        }
+        if (field == "radius" || field == "height") {
+            value["minimum"] = field == "radius" ? .02 : .01;
+            value["maximum"] = field == "radius" ? 500 : 1000;
+            value["unit"] = "meters";
+            value["description"] = field == "radius"
+                                       ? "Capsule radius; uniform absolute XY scale required"
+                                       : "Straight capsule height excluding both round caps";
+        }
+        if (field == "max_slope") {
+            value["maximum"] = 85;
+            value["unit"] = "degrees";
+            value["description"] = "Maximum walkable angle in Grounded mode";
+        }
+        if (field == "floor_probe") {
+            value["maximum"] = 1;
+            value["unit"] = "meters";
+            value["description"] = "World-space downward follow distance for an already grounded "
+                                   "controller; zero disables";
+        }
+        if (field == "layer")
+            value["maximum"] = 31;
+        if (field == "mask")
+            value["maximum"] = UINT32_MAX;
     }
     if (name == "forge.character_controller") {
         if (field == "enabled") {
@@ -2302,6 +2365,9 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.character_controller" && field == "shape") {
         type = "forge.CharacterShape";
         names = {"Capsule", "Cylinder"};
+    } else if (component == "forge.character_controller_2d" && field == "mode") {
+        type = "forge.CharacterMode2D";
+        names = {"Grounded", "Floating"};
     } else
         return 0;
     if (auto existing = world.lookup(type))
@@ -2433,8 +2499,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             : name.starts_with("forge.audio_") ? 2u
             : (name == "forge.physics_body" || name == "forge.physics_body_2d" ||
                name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
-               name == "forge.character_controller" || name.ends_with("_collider") ||
-               name.ends_with("_collider_2d"))
+               name == "forge.character_controller" || name == "forge.character_controller_2d" ||
+               name.ends_with("_collider") || name.ends_with("_collider_2d"))
                 ? 1u
                 : 0u;
         if (category != family)
@@ -2592,7 +2658,9 @@ void validate_reflected_value(flecs::world world, ecs_entity_t type, const void*
 namespace {
 Json admitted_builtin_source(const Builtin& type, const Json& source) {
     auto current = source;
-    if (std::string_view(type.name) == "forge.physics_body_2d" && current.is_object())
+    if ((std::string_view(type.name) == "forge.physics_body_2d" ||
+         std::string_view(type.name) == "forge.character_controller_2d") &&
+        current.is_object())
         for (const auto& [field, value] : type.defaults.items())
             if (!current.contains(field))
                 current[field] = value;

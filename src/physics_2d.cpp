@@ -35,6 +35,15 @@ void valid_xy(LocalTranslation value) {
         std::abs(value.y) > 1000000)
         throw std::runtime_error("2D physics position exceeds supported +/-1000000 metres");
 }
+void validate_mover_pose(const LocalTransform& pose) {
+    const auto q = normalized(pose.rotation);
+    valid_xy(pose.translation);
+    if (!std::isfinite(pose.scale.x) || !std::isfinite(pose.scale.y) || std::abs(q.x) > 1e-6 ||
+        std::abs(q.y) > 1e-6 || std::abs(q.z) > 1e-6 || !(pose.scale.y > 0) ||
+        std::abs(std::abs(pose.scale.x) - pose.scale.y) > 1e-6 * pose.scale.y)
+        throw std::runtime_error(
+            "2D controller requires upright rotation and uniform absoluteXY scale with positiveY");
+}
 LocalTransform planar_pose(std::uint64_t id, const std::map<std::uint64_t, TransformNode>& nodes,
                            const std::map<std::uint64_t, EvaluatedTransform>& evaluated) {
     auto hint = nodes.at(id).local;
@@ -299,6 +308,23 @@ Body2DConfiguration inline_configuration_2d(PhysicsBody2D body, unsigned shape,
     (void)geometry(config);
     return config;
 }
+Body2DConfiguration controller_configuration_2d(const CharacterController2D& value,
+                                                LocalScale scale) {
+    if (value.mode > 1 || !std::isfinite(value.max_slope) || value.max_slope < 0 ||
+        value.max_slope > 85)
+        throw std::runtime_error("2D controller mode or walkable slope is outside its profile");
+    validate_mover_pose({{}, {}, scale});
+    PhysicsBody2D inner;
+    inner.motion = 1;
+    inner.layer = value.layer;
+    inner.mask = value.mask;
+    auto config = inline_configuration_2d(inner, 2, {value.radius, value.height}, scale);
+    config.mover_profile = MoverProfile2D{
+        value.mode == 1 ? -1.f : float(std::cos(value.max_slope * std::numbers::pi / 180)),
+        value.floor_probe};
+    validate_geometry(config);
+    return config;
+}
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapData& cells,
                                               std::uint64_t layer, LocalScale scale) {
     if (body.motion != 0 || body.sensor)
@@ -353,6 +379,11 @@ LocalTransform debug_pose_2d(const AffineTransform& world) {
     planar_rotation(pose.rotation);
     return pose;
 }
+LocalTransform controller_debug_pose_2d(const AffineTransform& affine, const LocalTransform& hint) {
+    auto pose = checked_planar_pose_2d(affine, hint);
+    validate_mover_pose(pose);
+    return pose;
+}
 PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, std::size_t limit,
                                       const TileMapData* tile_map) {
     if (!limit || limit > 65536)
@@ -365,18 +396,23 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
                 return std::get<T>(type.decode(detail::canonical_builtin_value(type, value)));
         throw std::runtime_error("Unknown 2D preview component");
     };
-    const auto body = decoded.template operator()<PhysicsBody2D>("forge.physics_body_2d");
-    if (body.enabled)
-        for (const char* other : {"forge.physics_body", "forge.character_controller"})
-            if (components.contains(other) && components.at(other).value("enabled", true))
-                throw std::runtime_error("2D preview cannot share enabled simulation writers");
+    const bool controller = physics_debug_uses_character_2d(components);
+    const auto body = controller
+                          ? PhysicsBody2D{}
+                          : decoded.template operator()<PhysicsBody2D>("forge.physics_body_2d");
+    unsigned writers = 0;
+    for (const char* name : {"forge.physics_body", "forge.character_controller",
+                             "forge.physics_body_2d", "forge.character_controller_2d"})
+        writers += components.contains(name) && components.at(name).value("enabled", true);
+    if (writers > 1)
+        throw std::runtime_error("2D preview cannot share enabled simulation writers");
     unsigned count = 0;
     for (const char* name : {"forge.box_collider_2d", "forge.circle_collider_2d",
                              "forge.capsule_collider_2d", "forge.tile_map_collider_2d"})
         count += components.contains(name);
-    if (count != 1)
+    if (!controller && count != 1)
         throw std::runtime_error("2D body preview requires exactly one 2D collider");
-    if (components.contains("forge.tile_map_collider_2d")) {
+    if (!controller && components.contains("forge.tile_map_collider_2d")) {
         const auto collider =
             decoded.template operator()<TileMapCollider2D>("forge.tile_map_collider_2d");
         const auto renderer =
@@ -399,7 +435,13 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
     }
     unsigned kind = 0;
     std::array<float, 2> raw{};
-    if (components.contains("forge.box_collider_2d")) {
+    Body2DConfiguration config;
+    if (controller) {
+        kind = 2;
+        config = controller_configuration_2d(
+            decoded.template operator()<CharacterController2D>("forge.character_controller_2d"),
+            scale);
+    } else if (components.contains("forge.box_collider_2d")) {
         const auto value = decoded.template operator()<BoxCollider2D>("forge.box_collider_2d");
         raw = {value.x, value.y};
     } else if (components.contains("forge.circle_collider_2d")) {
@@ -411,7 +453,8 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
             decoded.template operator()<CapsuleCollider2D>("forge.capsule_collider_2d");
         raw = {value.radius, value.height};
     }
-    const auto config = inline_configuration_2d(body, kind, raw, scale);
+    if (!controller)
+        config = inline_configuration_2d(body, kind, raw, scale);
     const auto& d = config.dimensions;
     using Point = std::array<float, 3>;
     std::vector<Point> outline;
@@ -431,6 +474,9 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
                     {float(d[0] * std::cos(angle)), float(center + d[0] * std::sin(angle)), 0});
             }
     }
+    if (controller)
+        for (auto& point : outline)
+            point[1] += d[0] + .5f * d[1];
     PhysicsDebugGeometry result;
     result.truncated = outline.size() > limit;
     for (std::size_t i = 0; i < std::min(outline.size(), limit); ++i)
@@ -448,6 +494,11 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
         if (body.enabled)
             candidates.push_back(entity.id());
     });
+    context.world().query<const CharacterController2D>().each(
+        [&](flecs::entity entity, const CharacterController2D& controller) {
+            if (controller.enabled)
+                candidates.push_back(entity.id());
+        });
     if (candidates.size() > body_limit)
         throw std::runtime_error("2D physics body capacity 1024 exceeded");
     if (candidates.empty())
@@ -456,8 +507,21 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
     Desired2D result;
     for (auto id : candidates) {
         const auto entity = context.world().entity(id);
-        const auto body = entity.get<PhysicsBody2D>();
-        detail::validate_reflected_value(entity, body);
+        const bool mover =
+            entity.has<CharacterController2D>() && entity.get<CharacterController2D>().enabled;
+        PhysicsBody2D body;
+        if (mover) {
+            const auto value = entity.get<CharacterController2D>();
+            detail::validate_reflected_value(entity, value);
+            if (entity.has<PhysicsBody2D>() && entity.get<PhysicsBody2D>().enabled)
+                throw std::runtime_error("2D controller cannot share an enabled Physics Body2D");
+            body.motion = 1;
+            body.layer = value.layer;
+            body.mask = value.mask;
+        } else {
+            body = entity.get<PhysicsBody2D>();
+            detail::validate_reflected_value(entity, body);
+        }
         const auto ref = context.reference(id);
         if (!ref || context.resolve(*ref).state != WorldContext::ResolveState::Available)
             throw std::runtime_error("2D physics requires unambiguous authored scene membership");
@@ -468,9 +532,10 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
             throw std::runtime_error("2D body selects an unnamed project collision layer");
         if (!evaluated.contains(id) || !evaluated.at(id).resolved)
             throw std::runtime_error("2D body needs a resolved transform");
-        if (body.motion == 2 && (!entity.has<SpatialBinding>() ||
-                                 entity.get<SpatialBinding>().mode != SpatialMode::World))
-            throw std::runtime_error("Dynamic 2D body requires Child space: World");
+        if ((body.motion == 2 || mover) &&
+            (!entity.has<SpatialBinding>() ||
+             entity.get<SpatialBinding>().mode != SpatialMode::World))
+            throw std::runtime_error("Dynamic 2D body or controller requires Child space: World");
         if (body.motion != 2)
             for (auto parent = nodes.at(id).parent; parent; parent = nodes.at(parent).parent) {
                 const auto ancestor = context.world().entity(parent);
@@ -479,13 +544,22 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
                     (ancestor.has<PhysicsBody2D>() && ancestor.get<PhysicsBody2D>().enabled &&
                      ancestor.get<PhysicsBody2D>().motion == 2) ||
                     (ancestor.has<CharacterController>() &&
-                     ancestor.get<CharacterController>().enabled))
+                     ancestor.get<CharacterController>().enabled) ||
+                    (ancestor.has<CharacterController2D>() &&
+                     ancestor.get<CharacterController2D>().enabled))
                     throw std::runtime_error("Static/Kinematic 2D body cannot spatially follow a "
                                              "Dynamic body or Character");
             }
         const auto pose = planar_pose(id, nodes, evaluated);
         if (nodes.at(id).parent)
             (void)PlanarMapping(evaluated.at(nodes.at(id).parent).affine);
+        if (mover) {
+            validate_mover_pose(pose);
+            auto config =
+                controller_configuration_2d(entity.get<CharacterController2D>(), pose.scale);
+            result.emplace(id, Body2DDesired{*ref, std::move(config), pose});
+            continue;
+        }
         if (unsigned(entity.has<BoxCollider2D>()) + unsigned(entity.has<CircleCollider2D>()) +
                 unsigned(entity.has<CapsuleCollider2D>()) +
                 unsigned(entity.has<TileMapCollider2D>()) !=
@@ -1733,17 +1807,8 @@ void Native2D::validate(const Desired2D& desired, float dt,
                                           old->second.admitted.pose.translation.y, 0}) ||
              !equivalent(value.pose.rotation, old->second.admitted.pose.rotation)))
             changed.push_back(id);
-        if (value.config.mover_profile) {
-            const auto q = normalized(value.pose.rotation);
-            valid_xy(value.pose.translation);
-            if (!std::isfinite(value.pose.scale.x) || !std::isfinite(value.pose.scale.y) ||
-                std::abs(q.x) > 1e-6 || std::abs(q.y) > 1e-6 || std::abs(q.z) > 1e-6 ||
-                !(value.pose.scale.y > 0) ||
-                std::abs(std::abs(value.pose.scale.x) - value.pose.scale.y) >
-                    1e-6 * value.pose.scale.y)
-                throw std::runtime_error("2D controller requires upright rotation and uniform "
-                                         "absoluteXY scale with positiveY");
-        }
+        if (value.config.mover_profile)
+            validate_mover_pose(value.pose);
         const bool prior_kinematic = old != self.bodies.end() &&
                                      old->second.admitted.ref == value.ref &&
                                      old->second.admitted.config.body.motion == 1;

@@ -12,6 +12,7 @@ struct PhysicsDebugCollision {
 };
 PhysicsDebugCollision snapshot_physics_debug_collision(const ResourceLease<CollisionAsset>&);
 bool physics_debug_uses_character(const nlohmann::json& components);
+bool physics_debug_uses_character_2d(const nlohmann::json& components);
 struct PhysicsDebugGeometry {
     // Scaled local geometry in authored-origin coordinates. Apply rotation and
     // translation only at presentation; no live native handles leave this adapter.

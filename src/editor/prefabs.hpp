@@ -34,6 +34,8 @@ inline const char* prefab_component_label(const std::string& key) {
         return "Primitive";
     if (key == "forge.character_controller")
         return "Character Controller";
+    if (key == "forge.character_controller_2d")
+        return "Character Controller 2D";
     if (key == "forge.physics_body")
         return "Physics Body";
     if (key == "forge.box_collider")

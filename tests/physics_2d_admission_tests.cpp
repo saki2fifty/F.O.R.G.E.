@@ -3,6 +3,7 @@
 #include <forge/character_components.hpp>
 #include <forge/scene.hpp>
 #include <iostream>
+#include <numbers>
 
 using namespace forge;
 namespace {
@@ -142,12 +143,61 @@ void effective_profile() {
     require(!test.engine.services().available(Capability::Physics),
             "Body admission created an authoring solver");
 }
+void controller_profile_and_writers() {
+    Fixture test;
+    test.entity().remove<PhysicsBody2D>();
+    test.entity().set<CharacterController2D>({});
+    rejects([&] { test.desired(); });
+    test.entity().set<SpatialBinding>({SpatialMode::World});
+    test.entity().set<LocalScale>({-2, 2, 0});
+    test.entity().set<LocalTranslation>({999990, -999990, 7});
+    const auto desired = test.desired();
+    const auto& actor = desired.at(test.entity().id());
+    require(actor.config.mover_profile && actor.config.body.motion == 1 &&
+                actor.config.dimensions == std::array<float, 2>{.6f, 1.2f} &&
+                std::abs(actor.config.mover_profile->minimum_floor_y -
+                         std::cos(50 * std::numbers::pi / 180)) < 1e-6 &&
+                actor.config.mover_profile->floor_probe == .1f && actor.pose.translation.z == 7 &&
+                !test.entity().has<PhysicsBody2D>(),
+            "Authored controller did not produce one derived feet-origin native role");
+    test.entity().set<LocalRotation>(rotation_about_axis({0, 0, 1}, 10));
+    rejects([&] { test.desired(); });
+    test.entity().set<LocalRotation>({});
+    for (auto scale : {LocalScale{2, 3, 0}, LocalScale{-2, -2, 0}, LocalScale{.01f, .01f, 0}}) {
+        test.entity().set<LocalScale>(scale);
+        rejects([&] { test.desired(); });
+    }
+    test.entity().set<LocalScale>({1, 1, 1});
+    test.entity().set<PhysicsBody2D>({});
+    rejects([&] { test.desired(); });
+    test.entity().remove<PhysicsBody2D>();
+    test.entity().set<PhysicsBody>({});
+    rejects([&] { test.desired(); });
+    test.entity().remove<PhysicsBody>();
+    test.entity().set<CharacterController>({});
+    rejects([&] { test.desired(); });
+    test.entity().remove<CharacterController>();
+    auto floating = CharacterController2D{};
+    floating.mode = 1;
+    test.entity().set<CharacterController2D>(floating);
+    require(test.desired().at(test.entity().id()).config.mover_profile->minimum_floor_y == -1,
+            "Floating authoring did not select native floating motion");
+    Fixture ancestry;
+    ancestry.ancestor().set<SpatialBinding>({SpatialMode::World});
+    ancestry.ancestor().set<CharacterController2D>({});
+    rejects([&] { ancestry.desired(); });
+    ancestry.entity().set<SpatialBinding>({SpatialMode::World});
+    require(ancestry.desired().size() == 2, "World binding did not separate a controller ancestor");
+    require(!test.engine.services().available(Capability::Physics),
+            "Controller admission created an authoring solver");
+}
 } // namespace
 int main() {
     try {
         signed_parent_frames();
         invalid_frames_and_writers();
         effective_profile();
+        controller_profile_and_writers();
         std::cout
             << "2D detached signed-frame, ancestry/writer and effective profile admission passed\n";
     } catch (const std::exception& error) {

@@ -93,8 +93,8 @@ class PhysicsOverlay {
         Json components = Json::object();
         for (const auto& [name, value] : row->at("components").items())
             if (name == "forge.physics_body" || name == "forge.physics_body_2d" ||
-                name == "forge.character_controller" || name.ends_with("_collider") ||
-                name.ends_with("_collider_2d"))
+                name == "forge.character_controller" || name == "forge.character_controller_2d" ||
+                name.ends_with("_collider") || name.ends_with("_collider_2d"))
                 components[name] = value;
         if (components.contains("forge.tile_map_collider_2d") &&
             row->at("components").contains("forge.tile_map_renderer"))
@@ -102,7 +102,8 @@ class PhysicsOverlay {
                 row->at("components")["forge.tile_map_renderer"];
         if (!components.contains("forge.physics_body") &&
             !components.contains("forge.physics_body_2d") &&
-            !components.contains("forge.character_controller"))
+            !components.contains("forge.character_controller") &&
+            !components.contains("forge.character_controller_2d"))
             return;
         body_selected_ = true;
         LocalTransform pose;
@@ -110,6 +111,7 @@ class PhysicsOverlay {
         std::string note;
         const Json* character = nullptr;
         const bool show_character = physics_debug_uses_character(components);
+        const bool show_character_2d = physics_debug_uses_character_2d(components);
         const bool show_planar = physics_debug_uses_planar(components);
         if (show_character && runtime.is_object() && runtime.contains("character_debug") &&
             runtime["character_debug"].value("entity", std::string{}) == selected)
@@ -136,8 +138,8 @@ class PhysicsOverlay {
             ResourceLease<CollisionAsset> collision;
             std::shared_ptr<const TileMapData> tile_map;
             std::string revision;
-            const bool show_tile_map =
-                show_planar && components.contains("forge.tile_map_collider_2d");
+            const bool show_tile_map = show_planar && !show_character_2d &&
+                                       components.contains("forge.tile_map_collider_2d");
             if (show_tile_map) {
                 const auto& reference = components.at("forge.tile_map_renderer").at("map");
                 if (reference.is_null() || !read_tile_map)
@@ -191,11 +193,12 @@ class PhysicsOverlay {
                                    "is not the active collider";
                         }
             }
-            disabled =
-                show_character
-                    ? !components["forge.character_controller"].value("enabled", true)
-                    : !components[show_planar ? "forge.physics_body_2d" : "forge.physics_body"]
-                           .value("enabled", true);
+            disabled = show_character
+                           ? !components["forge.character_controller"].value("enabled", true)
+                           : !components[show_character_2d ? "forge.character_controller_2d"
+                                         : show_planar     ? "forge.physics_body_2d"
+                                                           : "forge.physics_body"]
+                                  .value("enabled", true);
             key_ = components.dump() +
                    Json::array({pose.scale.x, pose.scale.y, pose.scale.z}).dump() + revision +
                    (crouched ? "crouched" : "standing");

@@ -402,10 +402,20 @@ snapshot_physics_debug_collision(const ResourceLease<CollisionAsset>& collision)
     return {collision.identity().asset, collision->native};
 }
 bool physics_debug_uses_planar(const Json& components) {
-    return components.contains("forge.physics_body_2d") &&
-           (components.at("forge.physics_body_2d").value("enabled", true) ||
-            (!components.contains("forge.physics_body") &&
-             !components.contains("forge.character_controller")));
+    for (const char* name : {"forge.physics_body_2d", "forge.character_controller_2d"})
+        if (components.contains(name) && components.at(name).value("enabled", true))
+            return true;
+    return !components.contains("forge.physics_body") &&
+           !components.contains("forge.character_controller") &&
+           (components.contains("forge.physics_body_2d") ||
+            components.contains("forge.character_controller_2d"));
+}
+bool physics_debug_uses_character_2d(const Json& components) {
+    return physics_debug_uses_planar(components) &&
+           components.contains("forge.character_controller_2d") &&
+           (components.at("forge.character_controller_2d").value("enabled", true) ||
+            !components.contains("forge.physics_body_2d") ||
+            !components.at("forge.physics_body_2d").value("enabled", true));
 }
 bool physics_debug_uses_character(const Json& components) {
     if (physics_debug_uses_planar(components))
@@ -418,6 +428,8 @@ bool physics_debug_uses_character(const Json& components) {
 }
 LocalTransform physics_debug_pose(const Json& components, const AffineTransform& world,
                                   const LocalTransform& hint) {
+    if (physics_debug_uses_character_2d(components))
+        return physics_detail::controller_debug_pose_2d(world, hint);
     return physics_debug_uses_planar(components) ? physics_detail::debug_pose_2d(world)
                                                  : decompose(world, &hint);
 }
@@ -663,9 +675,10 @@ struct PhysicsRuntime::Impl {
                     "Character requires unambiguous authored scene membership");
             if ((e.has<PhysicsBody>() && e.get<PhysicsBody>().enabled) ||
                 (e.has<PhysicsBody2D>() && e.get<PhysicsBody2D>().enabled) ||
+                (e.has<CharacterController2D>() && e.get<CharacterController2D>().enabled) ||
                 !e.has<SpatialBinding>() || e.get<SpatialBinding>().mode != SpatialMode::World)
                 throw std::runtime_error("Character requires Child space: World and cannot share "
-                                         "an enabled Physics Body");
+                                         "an enabled body or other controller");
             if (!evaluated.contains(id) || !evaluated.at(id).resolved)
                 throw std::runtime_error("Character needs a resolved transform");
             const auto pose = decompose(evaluated.at(id).affine, &nodes.at(id).local);
@@ -1046,6 +1059,9 @@ struct PhysicsRuntime::Impl {
         for (auto id : candidates) {
             auto e = context.world().entity(id);
             const auto body = e.get<PhysicsBody>();
+            if (e.has<CharacterController2D>() && e.get<CharacterController2D>().enabled)
+                throw std::runtime_error(
+                    "Physics Body cannot share an enabled Character Controller2D");
             if (body.layer >= config.layers.size() || config.layers[body.layer].empty())
                 throw std::runtime_error("Physics Body selects an unnamed project collision layer");
             const auto ref = context.reference(e.id());
@@ -1062,8 +1078,10 @@ struct PhysicsRuntime::Impl {
                 // Traverse that same graph, including entities without physics components.
                 for (auto parent = nodes.at(id).parent; parent; parent = nodes.at(parent).parent) {
                     auto ancestor = context.world().entity(parent);
-                    const bool character_ancestor = ancestor.has<CharacterController>() &&
-                                                    ancestor.get<CharacterController>().enabled;
+                    const bool character_ancestor = (ancestor.has<CharacterController>() &&
+                                                     ancestor.get<CharacterController>().enabled) ||
+                                                    (ancestor.has<CharacterController2D>() &&
+                                                     ancestor.get<CharacterController2D>().enabled);
                     if (character_ancestor ||
                         (ancestor.has<PhysicsBody2D>() && ancestor.get<PhysicsBody2D>().enabled &&
                          ancestor.get<PhysicsBody2D>().motion == 2) ||
@@ -1448,13 +1466,14 @@ void PhysicsRuntime::validate_transform_candidate(
         s.native_2d->validate(candidate_2d, 0, {}, {}, joints_2d);
     const auto original_2d = s.desired_2d();
     for (const auto& [id, value] : candidate_2d)
-        if (value.config.body.motion == 2) {
+        if (value.config.body.motion == 2 || value.config.mover_profile) {
             const auto& previous = original_2d.at(id).pose;
             if (!equivalent(LocalTranslation{value.pose.translation.x, value.pose.translation.y, 0},
                             LocalTranslation{previous.translation.x, previous.translation.y, 0}) ||
                 !equivalent(value.pose.rotation, previous.rotation))
-                throw std::runtime_error("Dynamic 2D starting XY/rotation cannot be driven by "
-                                         "animation; use a Kinematic body or visual child");
+                throw std::runtime_error(
+                    "Dynamic 2D body/controller XY and rotation cannot be driven by "
+                    "animation; animate a separate visual child");
         }
     s.validate_dynamic_writes(candidate);
     const auto chars = s.desired_characters(&nodes), original_chars = s.desired_characters();
@@ -1537,7 +1556,7 @@ void PhysicsRuntime::synchronize(float dt) {
     std::set<std::uint64_t> commanded;
     std::map<std::uint64_t, LocalTransform> placements_2d;
     for (const auto& [id, value] : initial_2d)
-        if (value.config.body.motion == 1) {
+        if (value.config.body.motion == 1 && !value.config.mover_profile) {
             const auto old = s.native_2d ? s.native_2d->state(id, value.ref) : std::nullopt;
             if (!old || old->motion != 1)
                 placements_2d.emplace(id, value.pose);
@@ -1550,6 +1569,9 @@ void PhysicsRuntime::synchronize(float dt) {
             throw std::runtime_error(
                 "Physics command target was removed, unresolved or outside its domain");
         const auto id = resolved.entity;
+        if (cmd.planar && initial_2d.at(id).config.mover_profile)
+            throw std::runtime_error(
+                "Body commands cannot control a Character Controller2D; use character controls");
         const auto motion =
             cmd.planar ? initial_2d.at(id).config.body.motion : initial.at(id).first.body.motion;
         if (cmd.kind >= Impl::CommandKind::Force) {
@@ -2123,6 +2145,9 @@ std::optional<PhysicsBodyState2D> PhysicsRuntime::body_state_2d(EntityRef ref) c
     const auto found = self.context.resolve(ref);
     if (!self.native_2d || found.state != WorldContext::ResolveState::Available)
         return {};
+    if (const auto* body = self.native_2d->admitted(found.entity);
+        body && body->config.mover_profile)
+        return {};
     return self.native_2d->state(found.entity, ref);
 }
 std::optional<Double2> PhysicsRuntime::point_velocity_2d(EntityRef ref, Double2 point) const {
@@ -2131,6 +2156,9 @@ std::optional<Double2> PhysicsRuntime::point_velocity_2d(EntityRef ref, Double2 
     valid_position_2d(point);
     const auto found = self.context.resolve(ref);
     if (!self.native_2d || found.state != WorldContext::ResolveState::Available)
+        return {};
+    if (const auto* body = self.native_2d->admitted(found.entity);
+        body && body->config.mover_profile)
         return {};
     return self.native_2d->point_velocity(found.entity, ref, point);
 }
@@ -2573,6 +2601,8 @@ void PhysicsRuntime::restore(const Json& payload) {
             (is_planar ? !desired_2d.contains(resolved.entity)
                        : !desired.contains(resolved.entity)))
             throw std::runtime_error("Recovery command target mismatch");
+        if (is_planar && desired_2d.at(resolved.entity).config.mover_profile)
+            throw std::runtime_error("Recovery body command targets a2D controller");
         if (!c.at("kind").is_number_unsigned())
             throw std::runtime_error("Recovery physics command kind mismatch");
         const auto kind_value = c.at("kind").get<std::uint64_t>();
