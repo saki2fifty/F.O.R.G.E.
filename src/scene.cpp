@@ -22,6 +22,7 @@
 #include <map>
 #include <set>
 #include <stdexcept>
+#include <string_view>
 #include <system_error>
 #ifdef _WIN32
 #define NOMINMAX
@@ -947,8 +948,8 @@ Json Scene::unresolved_navigation_sources() const {
     }
     return result;
 }
-Json Scene::serialize(bool effective) const {
-    if (effective)
+Json Scene::serialize(bool effective, bool ui_only) const {
+    if (effective && !ui_only)
         context_.evaluate_world_transforms();
     // Seed only the copied view with source/instance extensions. Known values
     // below are still read from native Flecs storage; authored serialization
@@ -1018,6 +1019,18 @@ Json Scene::serialize(bool effective) const {
                   : detail::prefab_native_materializations(*input, prefab_sources_, schema(),
                                                            &reference_baselines);
     auto output = Json::array();
+    auto append = [&](Json item) {
+        if (ui_only) {
+            auto components = Json::object();
+            if (item.at("components").contains("forge.ui_document"))
+                components["forge.ui_document"] = item.at("components").at("forge.ui_document");
+            output.push_back({{"id", item.at("id")},
+                              {"prefab", item.value("prefab", false)},
+                              {"components", std::move(components)}});
+        } else {
+            output.push_back(std::move(item));
+        }
+    };
     std::map<std::string, const Json*> fragments;
     for (const auto& item : opaque_.at("entities"))
         fragments[item.at("id")] = &item;
@@ -1026,7 +1039,7 @@ Json Scene::serialize(bool effective) const {
         if (!e || !e.is_alive()) {
             if (item.contains("prefab_member")) {
                 item["missing_member"] = true;
-                output.push_back(std::move(item));
+                append(std::move(item));
             }
             continue;
         }
@@ -1049,6 +1062,8 @@ Json Scene::serialize(bool effective) const {
                 item[relation == flecs::ChildOf ? "parent" : "base"] = target.get<StableId>().value;
         }
         for (const auto& type : detail::builtins()) {
+            if (ui_only && std::string_view(type.name) != "forge.ui_document")
+                continue;
             const auto value = type.read(e, effective);
             if (value.is_null()) {
                 item["components"].erase(type.name);
@@ -1103,6 +1118,8 @@ Json Scene::serialize(bool effective) const {
             data = detail::merge_builtin_extensions(type, value, data);
         }
         for (const auto& codec : context_.authored_codecs()) {
+            if (ui_only)
+                continue;
             const auto key = codec.key();
             auto& components = item["components"];
             // A same-key unknown/incompatible envelope is opaque authored data,
@@ -1169,7 +1186,7 @@ Json Scene::serialize(bool effective) const {
             }
             components[key] = codec.merge(value, components.value(key, Json()));
         }
-        if (effective && e.has<LocalTranslation>()) {
+        if (effective && !ui_only && e.has<LocalTranslation>()) {
             const auto t = context_.get_local_transform(e);
             auto& c = item["components"];
             c["forge.position"] = c.at("forge.local_translation");
@@ -1180,7 +1197,7 @@ Json Scene::serialize(bool effective) const {
             item["world_affine"] = w.affine.m;
             item["spatial_resolved"] = w.resolved;
         }
-        output.push_back(std::move(item));
+        append(std::move(item));
     }
     // Keep inter-parent row slots stable for backwards-compatible round trips;
     // each sibling subsequence is projected from Flecs OrderedChildren, not names.
@@ -1200,12 +1217,15 @@ Json Scene::serialize(bool effective) const {
             if (rows.contains(children.ids[i]))
                 output[indices.at(next++)] = rows.at(children.ids[i]);
     }
+    if (ui_only)
+        return output;
     doc["entities"] = std::move(output);
     detail::promote_scale_format(doc, "entities", 5);
     return doc;
 }
 Json Scene::document() const { return serialize(false); }
 Json Scene::effective_document() const { return serialize(true); }
+Json Scene::ui_document_rows() const { return serialize(true, true); }
 Json Scene::schema() const { return context_.schema(); }
 void Scene::publish_component_schemas(const Json& copied,
                                       const std::function<void()>& durable_write) {

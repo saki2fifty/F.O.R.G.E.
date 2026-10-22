@@ -8,10 +8,15 @@
 - The same Release Linux CPU probe with the249-asset Gallery reduced an empty UI
   snapshot from33–34ms to about0.76ms. This measures one copied-model operation;
   it does not establish Windows latency, game FPS or physical GPU performance.
-- The regression fails before the correction and passes afterward. Nine focused
-  checks pass, including real host processes, the matching C++ UI module and RmlUi
-  gallery resource/geometry admission. Full formatting passes. Broader source validation remains pending;
-  this correction is separate from numbered Build201's frozen source.
+- UI updates now request only copied entity IDs, Prefab flags and UI components
+  through the existing Scene projection. Native component values, missing member
+  intent and sibling ordering retain the same rules; authored saves remain unchanged.
+  A separate1000-entity scene probe reduced the copied UI snapshot median from
+  16.8ms to8.9ms across9 samples per version. These are local CPU observations.
+- Twenty-one focused checks pass, including Scene/history/identity/Prefab parity,
+  RmlUi geometry/resource admission and the matching C++ UI module in both ordinary
+  and prepared Editor Play hosts. Full formatting passes. Cross-platform source
+  validation remains pending; this work is separate from Build201's frozen source.
 
 ## Painted 2D collision — validated source
 

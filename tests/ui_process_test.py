@@ -71,6 +71,52 @@ try:
  hidden=copy.deepcopy(recovered['scene']);hidden['entities'][0]['components']['forge.ui_document']['visible']=False
  frame=b.request('replace',scene=hidden)
  ack=b.request('ui',ui_command=ui_command(frame,'Resume',1));assert not ack['ui_ack']['ok'] and ack['timing']['paused']
+ if sdk:
+  # The prepared Editor Play host has a separate candidate/admission boundary.
+  # Exercise the actual matching module there as well as in the ordinary worker.
+  from runtime_client import Runtime
+  a.close();b.close()
+  settings=json.loads((root/'forge.project.json').read_text())
+  settings['game']=json.loads((Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery/forge.project.json').read_text())['game']
+  settings['game']['application_id']='org.forge.ui-prepared-test'
+  (root/'forge.project.json').write_text(json.dumps(settings))
+  worker=Runtime(runtime,['--sdk-project',root,'--sdk-play','on','--user-data',root/'users','--ui','on'])
+  def activate(source):
+   pending=worker.request('replace',scene=source);deadline=time.monotonic()+10
+   while not pending.get('candidate'):
+    assert time.monotonic()<deadline,pending
+    time.sleep(.005);pending=worker.request('snapshot')
+   ticket=pending['candidate']['ticket']
+   frozen=worker.request('candidate',ticket=ticket)['candidate']
+   assert frozen['ui']['errors']==[],frozen['ui']
+   live=worker.request('snapshot',editor_epoch=dict(epoch=ticket,captured=False,input_device='EditorHost'),
+     candidate_ack=dict(session=worker.session,ticket=ticket,accepted=True,diagnostic=''))
+   while live['activation']['generation']!=ticket:
+    assert time.monotonic()<deadline,live
+    time.sleep(.005);live=worker.request('snapshot')
+   assert live['ui']['documents']==frozen['ui']['documents'],(live['ui'],frozen['ui'])
+   return live
+  try:
+   active=activate(scene)
+   assert len(active['ui']['documents'])==1
+   stepped=worker.request('ui',ui_command=ui_command(active,'Step',1))
+   assert stepped['ui_ack']['ok'] and stepped['timing']['tick']==1
+   assert stepped['ui']['documents'][0]['model']['health']==100
+   decrease=ui_command(stepped,'DecreaseHealth',2)
+   queued=worker.request('ui',ui_command=decrease)
+   duplicate=worker.request('ui',ui_command=decrease)
+   assert queued['ui_ack']==duplicate['ui_ack'] and queued['ui_ack']['ok']
+   changed=worker.request('step')
+   assert changed['ui']['documents'][0]['model']['health']==90,changed['ui']
+   hidden=copy.deepcopy(scene);hidden['entities'][0]['components']['forge.ui_document']['visible']=False
+   active=activate(hidden)
+   rejected=worker.request('ui',ui_command=ui_command(active,'Resume',1))
+   assert not rejected['ui_ack']['ok'] and rejected['timing']['paused']
+   active=activate(dict(version=1,entities=[]))
+   assert active['ui']['documents']==[] and active['ui']['errors']==[]
+   assert worker.request('quit')['ok'] and worker.process.wait(timeout=5)==0
+   print('Matching C++ UI module: prepared candidate, frozen/live parity, controls, duplicate action, hidden and empty scenes passed')
+  finally:worker.close()
  print('UI autonomous runtime, pause/step, correlated commands, duplicate suppression and recovery passed')
 finally:
  a.close()

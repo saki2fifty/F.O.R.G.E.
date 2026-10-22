@@ -63,8 +63,7 @@ Json UiRuntime::snapshot(const Scene& scene, const std::string& session, std::ui
     std::optional<AssetCatalog> catalog;
     bool catalog_requested = false;
     std::set<EntityId> live, documents;
-    const auto document = scene.effective_document();
-    for (const auto& e : document.at("entities")) {
+    for (const auto& e : scene.ui_document_rows()) {
         const auto entity = e.at("id").get<EntityId>();
         live.insert(entity);
         const auto& components = e.at("components");

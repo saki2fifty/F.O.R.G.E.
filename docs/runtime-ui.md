@@ -36,6 +36,12 @@ catalog, including hidden documents, and retries after a previous failure. A fai
 catalog is attempted once for that snapshot; each affected document retains its
 own diagnostic. Live file availability and document incarnations remain distinct.
 
+Scene supplies copied entity IDs, Prefab flags and UI components through its
+existing effective projection and sibling ordering. The UI read retains unresolved
+Prefab member intent and required source hydration. Its per-entity output reads
+skip unrelated components and spatial evaluation. Full Scene views, authored saves and history retain their existing
+serialization. This adds no stored UI model or alternative entity registry.
+
 The runtime publishes `tick` and `paused`. The experimental exact SDK's real `ui_probe.cpp` consumer registers `DecreaseHealth`, publishes a numeric `health`, and polls commands inside its fixed system. Health remains an ECS component, not a UI value authority. These private callbacks change the exact SDK fingerprint, not ABI1. The transient sample Health component is not a new general native-state recovery contract.
 
 Buttons use `data-event-click="command('Pause')"` (or another registered command). Actions take **no arguments** by default. An exact-SDK module may explicitly register an action that accepts one bounded string value; reserved Pause/Resume/Step remain argument-free. Host-reserved `command('TimeScale','0.5')` sets simulation speed through the existing clock, accepting a complete finite numeric string in0..4. Zero holds motion while controls remain responsive. The snapshot permits four host actions plus all29 custom actions. See [gameplay services](gameplay-services.md). Runtime validates the current document incarnation, visible/enabled configuration, typed asset availability and allowlisted command. Host controls execute at the control boundary. Gameplay actions queue for the module to poll in its fixed system or standalone control callback. Control callbacks can operate menus while paused or at zero rate without advancing simulation.

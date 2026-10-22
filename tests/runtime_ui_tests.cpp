@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/prefab_authoring.hpp>
@@ -19,6 +20,24 @@ template <class F> void reject(F f) {
         return;
     }
     throw std::runtime_error("Expected rejection");
+}
+void check_ui_rows(const Scene& scene) {
+    const auto authored = scene.snapshot();
+    const auto revision = scene.revision();
+    const auto full = scene.effective_document();
+    auto expected = Json::array();
+    for (const auto& row : full.at("entities")) {
+        auto components = Json::object();
+        if (row.at("components").contains("forge.ui_document"))
+            components["forge.ui_document"] = row.at("components").at("forge.ui_document");
+        expected.push_back({{"id", row.at("id")},
+                            {"prefab", row.value("prefab", false)},
+                            {"components", components}});
+    }
+    check(scene.ui_document_rows() == expected,
+          "Narrow UI rows differ from the established effective Scene projection");
+    check(scene.snapshot() == authored && scene.revision() == revision,
+          "UI row projection mutated authored state or history");
 }
 int main(int argc, char** argv) {
     try {
@@ -61,12 +80,14 @@ int main(int argc, char** argv) {
         scene.entity("hud").set<UiDocument>({{asset.id}, true, true, 2});
         const auto entity = scene.reference("hud").entity;
         auto service = std::static_pointer_cast<UiRuntime>(runtime.services().ui());
+        check_ui_rows(scene);
         {
             const auto unused = root / "unused-ui-project";
             std::filesystem::create_directories(unused);
             std::ofstream(unused / "forge.assets.json") << "{";
             EngineContext isolated(WorldRole::Runtime, false, {ui_module(unused)});
             Scene no_ui(isolated.world());
+            check_ui_rows(no_ui);
             auto copied = std::static_pointer_cast<UiRuntime>(isolated.services().ui());
             auto state = copied->snapshot(no_ui, "isolated", 1, 0, true);
             check(state.at("documents").empty() && state.at("errors").empty(),
@@ -79,6 +100,7 @@ int main(int argc, char** argv) {
                                                                {"name", "Second UI"},
                                                                {"components", Json::object()}}})}});
             no_ui.entity("unused").set<UiDocument>({{asset.id}, false, true, 0});
+            check_ui_rows(no_ui);
             state = copied->snapshot(no_ui, "isolated", 1, 0, true);
             check(state.at("documents").empty() && state.at("errors").empty(),
                   "Disabled UI unnecessarily admitted project assets");
@@ -92,6 +114,8 @@ int main(int argc, char** argv) {
             check(state.at("documents").size() == 1 && state.at("errors").size() == 2,
                   "A required hidden UI document bypassed catalog admission");
             no_ui.entity("unused2").set<UiDocument>({{asset.id}, true, true, 0});
+            no_ui.entity("unused2").add(flecs::Disabled);
+            check_ui_rows(no_ui);
             state = copied->snapshot(no_ui, "isolated", 1, 0, true);
             check(state.at("documents").size() == 2 && state.at("errors").size() == 3,
                   "Failed catalog admission was retried for each UI document");
@@ -111,6 +135,78 @@ int main(int argc, char** argv) {
             check(state.at("errors").empty() &&
                       state.at("documents")[0].at("instance") == incarnation,
                   "UI did not recover live availability without changing incarnation");
+        }
+        {
+            EngineContext ordered_world;
+            Scene ordered(ordered_world.world());
+            const Json ui = {{"document", asset.id},
+                             {"enabled", true},
+                             {"visible", true},
+                             {"layer", 3},
+                             {"future", {{"keep", 7}}}};
+            ordered.restore_snapshot(
+                {{"version", 1},
+                 {"entities",
+                  Json::array(
+                      {{{"id", "parent"}, {"name", "Parent"}, {"components", Json::object()}},
+                       {{"id", "left"},
+                        {"name", "Left"},
+                        {"parent", "parent"},
+                        {"components", {{"forge.ui_document", ui}}}},
+                       {{"id", "right"},
+                        {"name", "Right"},
+                        {"parent", "parent"},
+                        {"components", {{"forge.ui_document", ui}}}}})}});
+            auto parent = ordered.entity("parent");
+            parent.add(flecs::OrderedChildren);
+            const ecs_entity_t reversed[] = {ordered.entity("right"), ordered.entity("left")};
+            ecs_set_child_order(ordered.world(), parent, reversed, 2);
+            check_ui_rows(ordered);
+            check(ordered.ui_document_rows()[1].at("id").get<EntityId>() ==
+                      ordered.reference("right").entity,
+                  "UI rows lost native sibling ordering");
+            PrefabLibrary library(root);
+            const auto ui_prefab = library.create(
+                ordered, create_prefab_source(ordered, ordered.reference("parent").entity.str()),
+                "UI-rows.prefab.json");
+            const auto instance = instantiate_prefab(ordered, ui_prefab);
+            const auto original = library.source(ui_prefab);
+            std::string member;
+            for (const auto& row : original.at("members"))
+                if (row.contains("parent") && row.at("components").contains("forge.ui_document")) {
+                    member = row.at("id");
+                    break;
+                }
+            check(!member.empty(), "UI Prefab child source is missing");
+            std::string mapped;
+            const auto instance_document = ordered.document();
+            for (const auto& row : instance_document.at("entities"))
+                if (row.at("id") == instance)
+                    mapped = row.at("prefab_instance").at("members").at(member);
+            check(!mapped.empty(), "UI child member was not mapped");
+            authoring_command(ordered, "property.set",
+                              {{"entity", mapped},
+                               {"component", "forge.ui_document"},
+                               {"field", "layer"},
+                               {"value", 9}});
+            check_ui_rows(ordered);
+            auto removed = original;
+            std::erase_if(removed["members"].get_ref<Json::array_t&>(),
+                          [&](const Json& row) { return row.at("id") == member; });
+            library.publish(ordered, original, removed);
+            check(!ordered.entity(mapped), "Removed UI member remains native");
+            check_ui_rows(ordered);
+            bool retained = false;
+            for (const auto& row : ordered.ui_document_rows())
+                retained |= row.at("id") == mapped;
+            check(retained, "UI rows omitted unresolved Prefab member intent");
+            auto absent = library.source(ui_prefab), returned = absent;
+            returned["members"] = original.at("members");
+            library.publish(ordered, absent, returned);
+            check(ordered.entity(mapped).has<UiDocument>(), "UI member did not return");
+            check_ui_rows(ordered);
+            ordered.entity(instance).destruct();
+            check_ui_rows(ordered);
         }
         bool foreign_rejected = false;
         std::thread foreign([&] {
@@ -267,6 +363,7 @@ int main(int argc, char** argv) {
             library.create(prefabs, create_prefab_source(prefabs, source), "UI.prefab.json");
         auto instance = instantiate_prefab(prefabs, prefab);
         check(!prefabs.entity(instance).owns<UiDocument>(), "UI prefab initially inherited");
+        check_ui_rows(prefabs);
         authoring_command(prefabs, "property.set",
                           {{"entity", instance},
                            {"component", "forge.ui_document"},
@@ -279,6 +376,7 @@ int main(int argc, char** argv) {
         check(prefabs.entity(instance).get<UiDocument>().visible &&
                   prefabs.entity(instance).get<UiDocument>().layer == 4,
               "Equal UI override preserved; other fields propagate");
+        check_ui_rows(prefabs);
         authoring_command(
             prefabs, "property.revert",
             {{"entity", instance}, {"component", "forge.ui_document"}, {"field", "visible"}});

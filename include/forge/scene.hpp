@@ -25,6 +25,9 @@ class Scene {
     std::string canonical_id(const std::string& id) const { return resolve_legacy_id(opaque_, id); }
     EntityRef reference(const std::string& id) const;
     Json effective_document() const;
+    // Copied IDs, Prefab flags and effective UI components in normal Scene order.
+    // Includes unresolved Prefab rows; not an authored Scene document.
+    Json ui_document_rows() const;
     // Narrow copied intent for removed prefab members that still own an enabled
     // NavigationSurface. Native-only capture must not silently omit these errors.
     Json unresolved_navigation_sources() const;
@@ -81,7 +84,7 @@ class Scene {
     std::map<std::string, flecs::entity_t>& entities_;
     mutable std::uint64_t revision_ = 0, observed_serial_ = 0, observed_order_ = 0;
     Json opaque_;
-    Json serialize(bool effective) const;
+    Json serialize(bool effective, bool ui_only = false) const;
     void committed();
     std::uint64_t order_signature() const;
     void restore_child_order(const Json& document);
