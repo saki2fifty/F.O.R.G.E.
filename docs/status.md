@@ -1,20 +1,41 @@
-# Painted 2D collision — development source, 2026-10-22
+# Painted 2D collision — validated source, 2026-10-22
 
-The current development batch adds a selected solid Map layer on Static nonsensor
-PhysicsBody2D actors, published-layer Inspector/Prefab choices and Scene outlines,
-fixed cell edits and edited-Map-before-Physics recovery. Original Gallery77 provides
-painted floors/platforms and separate decorative cells. Local CPU/content tests,
-three-scale ImGui controls, both real Play hosts and installed-only C++ helpers pass.
-Complete native Windows/editor/shared-export/fresh-runner validation remains pending;
-these results do not establish physical Windows/GPU acceptance or a delivery.
+The batch adds a selected solid Map layer on Static nonsensor PhysicsBody2D actors,
+published-layer Inspector/Prefab choices and Scene outlines, fixed cell edits and
+edited-Map-before-Physics recovery. Original editable Gallery77 provides painted
+floors/platforms and separate decorative cells. Local CPU/content, three-scale
+ImGui input, both real Play hosts, installed-only C++ helpers and scoped own-code
+sanitizer/leak checks pass.
+
+Compiled source `375b9415df5bd70df7ed129481d9922f23e67b82` passes the
+[Linux/Windows matrix](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39712815145):
+188 core and 224 SDK tests on each OS, plus formatting. The
+[full Windows editor audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39712829120)
+passes 326 editor tests and two standalone-only tests, and completes 12 matched
+baseline/current process measurements. Those measurements concern responsive
+windows and settled process usage on software WARP; they are not game FPS or
+physical GPU performance. All nine new Map Game/Inspector captures were visually
+reviewed, including controls at 100/150/200 percent. Two genuine captures appear
+in the README.
+
+The [shared SDK/export audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39705291039)
+passes installed C++ compilation, both real hosts and edited-Map recovery. Gallery77
+exports through the production tools and starts twice after source/kit removal;
+a separate runner without checkout or SDK repeats two starts after another move.
+That audit uses `4d0e41ee58014d2a2a15d6be212c61b57292a67e`; public SDK contracts,
+graphical host, Gallery and helper implementations are unchanged in the final
+follow-up. The follow-up adds bounded first-replacement timing diagnostics and
+separates initial imports from the sequence-export walkthrough's action budget,
+preserving its phase guards and the runtime's five-second request deadline.
+Earlier intermittent hello/replacement delays are not claimed fixed.
 
 Connected 2D joints/Gallery76 remain source-accepted on main. Numbered
 [Build200](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39684614599)
-failed its audio-mixer check: the runtime did not answer hello within the unchanged
-five-second guard. No ZIP was delivered. The retained startup diagnostic extension
-is not claimed as a fix. Build199 remains the delivered body-only 2D package;
-it has neither connected2D joints nor painted Map collision. Physical testing is
-still deferred. See the [painted Map workflow](../manual/editor/tile-maps.md) and
+failed its audio-mixer hello guard and delivered no ZIP. Build199 remains the
+available body-only 2D package; it includes neither connected joints nor painted
+Map collision. No numbered delivery of this extension is claimed yet. Physical
+Windows/GPU/listening testing remains deferred. See the
+[painted Map workflow](../manual/editor/tile-maps.md) and
 [bounded technical profile](physics-2d.md).
 
 ---

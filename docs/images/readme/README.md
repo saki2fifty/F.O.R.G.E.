@@ -89,3 +89,8 @@ These are software WARP checks, not physical GPU or manually operated desktop
 acceptance. This audit failed its separate Save-image and sequence-frame input
 walkthroughs, so these images qualify the Map captures only. The original PPM
 pixels and dimensions are unchanged in their lossless PNG encodings.
+
+The corrected [full source audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39712829120)
+at `375b9415df5bd70df7ed129481d9922f23e67b82` passes all 326 editor checks,
+including both walkthroughs, and two standalone-only checks. Rendering, Inspector
+and Gallery code are byte-unchanged from the captures attributed above.
