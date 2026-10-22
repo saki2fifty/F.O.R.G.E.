@@ -61,7 +61,7 @@ and jump with Space. Select the amber Player and change **2D Movement** speed or
 jump speed in the Inspector. The example checks for ground with a capsule sweep,
 ignoring itself and sensors. Painted floors and a separate box stepping stone
 both support it. Stop restores saved state; save/publish before export. See the
-[example instructions](../../samples/projects/Movement2D/README.md) for the
+project's **README.md** for the
 experiment, C++ source and matching runtime/module-kit export workflow. This
 requires the swept-query integration after Build201; it does not add a native
 character-controller component, automatic stairs or 2D navigation.
