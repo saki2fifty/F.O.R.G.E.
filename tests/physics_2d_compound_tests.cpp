@@ -12,10 +12,6 @@ void check(bool ok, const char* why) {
 }
 template <class F> void reject(F&& action) {
     try {
-        forge::test::test_mover_geometry();
-        forge::test::test_mover_directions();
-        forge::test::test_mover_capacity();
-        forge::test::test_mover_penetration();
         action();
     } catch (const std::exception&) {
         return;
@@ -263,6 +259,12 @@ void connected_collision_and_recovery() {
 } // namespace
 int main() {
     try {
+        forge::test::test_mover_geometry();
+        forge::test::test_mover_directions();
+        forge::test::test_mover_encroachment();
+        forge::test::test_mover_capacity();
+        forge::test::test_mover_penetration();
+        std::cout << "Checked mover cast/directions/capacity/penetration PASS\n";
         for (double offset : {0., 999000., -999000.})
             geometry_queries_and_recovery(offset);
         capacity_and_invalid_geometry();

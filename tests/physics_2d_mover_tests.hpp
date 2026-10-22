@@ -109,9 +109,8 @@ inline void test_mover_geometry() {
                         "Mover lost filtered inline/compound hit or double-origin local frame");
             const auto regular = test.native.shape_cast(request, {3, false});
             check_mover(regular && regular->entity == target_ref &&
-                            hit->fraction > regular->fraction + 1e-4 &&
-                            hit->fraction - regular->fraction < .005,
-                        "Mover lost native encroachment relative to the ordinary sweep profile");
+                            std::abs(hit->fraction - regular->fraction) < 1e-5,
+                        "Initially separated mover and ordinary casts disagree");
             const auto filtered = test.native.mover_cast(request, {1, false});
             check_mover(filtered && filtered->entity == far_ref && filtered->fraction > .88,
                         "Mover ignored the requested named-layer mask");
@@ -186,6 +185,26 @@ inline void test_mover_directions() {
                 check_mover(!test.native.mover_cast(request, {}),
                             "Stationary separated capsule invented a mover hit");
             }
+}
+inline void test_mover_encroachment() {
+    using namespace physics_detail;
+    for (double offset : {0., -999990., 999990.}) {
+        MoverGeometryFixture test;
+        const auto ref =
+            test.add(inline_configuration_2d({}, 0, {1, 4}, {1, 1, 1}), offset, offset);
+        test.synchronize();
+        auto request = mover_request({offset - .79, offset});
+        request.displacement = {1, 0};
+        const auto regular = test.native.shape_cast(request, {});
+        const auto mover = test.native.mover_cast(request, {});
+        check_mover(regular && regular->entity == ref && regular->fraction == 0 && mover &&
+                        mover->entity == ref && std::abs(mover->fraction - .005) < 1e-5 &&
+                        mover->normal[0] < -.99,
+                    "Near-contact mover did not permit bounded native encroachment");
+        request.displacement = {-1, 0};
+        check_mover(!test.native.mover_cast(request, {}),
+                    "Near-contact mover prevented departure from the solid");
+    }
 }
 inline void test_mover_capacity() {
     using namespace physics_detail;
