@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-22](20261022/README.md) — Build201 delivers connected2D bodies, painted Map collision/recovery and77 editable Gallery scenes. Runtime/UI preparation improvements pass Linux/Windows source validation for a later delivery.
+- [2026-10-22](20261022/README.md) — Build204 delivers swept2D queries, the C++ Movement2D example and runtime UI preparation improvements. Native Character Controller2D and Sprite image regions are separate development batches awaiting their full delivery gates.
 
 - [2026-10-21](20261021/README.md) — Build199 delivers 2D bodies, controls, sensors, recovery and Gallery75; connected 2D joints/Gallery76 pass source/native/SDK/export gates, with numbered delivery and physical testing pending.
 

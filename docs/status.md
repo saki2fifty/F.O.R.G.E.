@@ -1,4 +1,26 @@
-# Windows delivery — Build261022-000201
+# Current Windows delivery — Build261022-000204
+
+Build204 includes filtered 2D shape sweeps, the editable C++ Movement2D project and
+runtime UI preparation improvements. Its [complete delivery gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39761476803)
+passes Linux/Windows core188/SDK224 each, editor326, shared/export/fresh-runner
+checks and final combined-package editor/SDK acceptance. The ZIP contains all 77
+Gallery scenes. All 1668 manifest digests, 75 x64 PE files and 529 Gallery files were
+verified. The three actual exported Movement2D rest/jump/landing images were reviewed;
+physical Windows/GPU/FPS/listening acceptance remains deferred.
+
+## Development — Sprite image regions
+
+The next Sprite batch adds a per-object pixel rectangle before sheet subdivision,
+normal authored/Prefab/history and Live controls, a region-aware frame chooser and
+editable Gallery78. Local linked Scene checks, actual Inspector input at 100/150/200%,
+software Vulkan mapped pixels/last-good/resource tests and both installed C++ Play
+hosts pass. The public Sprite layout requires matching experimental SDK/modules.
+Full Windows/export acceptance is still required; Build204 and the separate Build206
+controller candidate do not contain these region changes.
+
+---
+
+# Previous Windows delivery — Build261022-000201
 
 The combined editor/C++ SDK package is delivered from source `02a742d`, including
 all77 editable Feature Gallery scenes, connected2D joints and painted Tile Map

@@ -38,6 +38,23 @@ Inspector edits use normal Scene Undo/Redo and saving. Picking uses the image's
 rectangle, including transparent pixels. Add a game Camera facing the image before
 testing Play or export; the Scene view's editor camera is independent.
 
+## Choose an image region (development source)
+
+Under **Image region**, enable the crop and set its pixel offset and size. The
+offset starts at the image's top-left. Width or height **0** reaches that image
+edge. Turn the crop off to show the whole image; its saved selection stays available
+when you turn it on again. World size and pivot use their separate controls.
+
+**Choose frame...** shows the image and outlines the cells inside the selected
+region. Pixels outside it cannot select a frame. A one-column, one-row grid shows
+the region itself; larger grids divide that rectangle. Sliced and Tiled also use
+the selected region. An invalid rectangle leaves the last valid picture visible
+and reports the problem.
+
+Open Gallery **78-sprite-image-regions** for whole-image, asymmetric, animated,
+to-edge, Sliced and mirrored Tiled examples. During Play, crop controls appear in
+**Live gameplay**. Those changes are temporary, including while frame animation runs.
+
 ## Resize borders or repeat an image (development)
 
 These Image fill controls are available in source after Build193. Automated
@@ -62,7 +79,8 @@ Build193 uses numeric frame selection. Automated Windows input checks pass.
 Use **Sheet frames** to set columns, rows, outer pixel margins and pixel spacing.
 The cells must divide the selected image into whole positive pixel rectangles.
 Frame zero is the top-left cell, then numbering continues across each row. A
-one-column, one-row grid shows the whole image. The Inspector limits the frame
+one-column, one-row grid shows the selected region, or the whole image when the
+region is off. The Inspector limits the frame
 index to the chosen grid.
 
 Choose **Choose frame...** beside Frame to see the published image with cell

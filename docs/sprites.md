@@ -46,6 +46,33 @@ Every frame must contain whole positive pixels in the selected texture, and the
 frame index must fit the grid. A 1×1 grid selects the whole image. Texture-dependent
 admission belongs to the resource selection, rather than the authored Scene codec.
 
+### Image regions (development source)
+
+`region_enabled` selects an optional whole-pixel rectangle before grid subdivision.
+`region_x` and `region_y` are offsets from the material image's top-left corner;
+`region_width` and `region_height` are extents. Each numeric field is in `[0,16384]`.
+A zero extent reaches the corresponding image edge, so enabling the default region
+keeps the whole image. Disabling it preserves its stored values.
+
+The region must fit the current texture. Grid counts, symmetric margins and spacing
+apply inside that region, and frames retain their relative top-left row-major
+indices. One checked calculation supplies rendering, chooser outlines and pixel hit
+tests. The Tile Set grid has no new crop fields. The chooser closes when its active
+region or published image changes; outside pixels cannot choose a frame.
+
+Regions remain per-object numbers under SpriteRenderer. Material/texture ownership,
+resource keys and the existing nine-row instance layout remain. Different regions
+can instance together. Width, height and pivot still define world geometry; cropping
+does not resize it automatically. Simple, Sliced, Tiled and flips operate on the
+selected frame. Invalid selection or a replacement image that cannot fit it retains
+the complete last-good image and geometry until a valid candidate is admitted.
+
+Frame animation uses the grid within the crop. Live crop changes use the existing
+runtime-property path, remain independent of the animated frame value and disappear
+on Stop. Gallery78 reuses the original signal clip, images and materials to show
+static, animated, to-edge, sliced and mirrored repeated selections. It introduces
+no atlas asset, source registry, renderer or animation clock.
+
 ### Image fill modes (development source)
 
 `image_mode` selects Simple (0), Sliced (1) or Tiled (2). Simple retains the
@@ -209,6 +236,10 @@ The new component uses the existing Scene/Prefab formats and unknown-extension
 preservation. No existing component is migrated. Its public C++ definition changes
 the exact SDK fingerprint, so native modules need a matching SDK rebuild. Native
 ABI1 remains unchanged. Recovery is still an exact-build, private runtime domain.
+Image regions append a bool and four U32 fields to SpriteRenderer; old documents
+admit default-off/zero values without identity or format changes. Matching experimental
+SDKs and native modules must be rebuilt for that public C++ layout. No ABI1 callback
+table changes are required by regions.
 
 ## Validation boundary
 

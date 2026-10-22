@@ -1,5 +1,20 @@
 # 2026-10-22
 
+## Unreleased — Sprite image regions
+
+- Added an optional pixel rectangle on Sprite Renderer. The existing sheet grid
+  subdivides that rectangle, including animated frames, Sliced/Tiled fill and flips.
+  Zero width/height reaches the image edge; disabled regions retain their values.
+- Added authored, Prefab, Undo/Redo, Inspector frame chooser and temporary Live
+  gameplay controls through the existing component and property owners. Old source
+  files keep their identities and admit default-off values. The public C++ layout
+  changes, so native modules require the matching experimental SDK rebuild.
+- Added editable Gallery78 using FORGE's existing original images and animation.
+  Local linked Scene/history checks, the complete Inspector workflow at three
+  scales and software Vulkan pixel/resource/gallery tests pass. Matching installed
+  C++, Windows editor and source-free export gates remain required before delivery.
+  These changes are separate from the Build206 controller candidate.
+
 ## Unreleased — 2D character controller integration
 
 - Added feet-origin Grounded/Floating Character Controller 2D under the existing

@@ -78,6 +78,19 @@
         0
       ],
       "yaw": 0
+    },
+    "Scenes/78-sprite-image-regions.scene.json": {
+      "distance": 10,
+      "grid_plane": "xy",
+      "orthographic_height": 10,
+      "pitch": 0,
+      "projection": "orthographic",
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "yaw": 0
     }
   }
 }

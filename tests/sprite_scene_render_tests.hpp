@@ -297,6 +297,20 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
               renderer.draw_stats().calls == 1 && host->inspect().gpu_meshes.resident == 1 &&
               host->inspect().gpu_textures.resident == 1,
           "Mixed image regions lost ordered Sprite instancing or duplicated native resources");
+    scene.sprites.resize(1);
+    settle(renderer);
+    check(render() == shifted, "Image replacement crop setup differs");
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::White);
+    host->preview_material(material, surface);
+    settle(renderer);
+    check(!renderer.diagnostics().empty() && render() == shifted &&
+              host->inspect().gpu_textures.resident == source_stats.gpu_textures.resident,
+          "Active crop ignored a replacement image extent or damaged retained resources");
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::Checker);
+    host->preview_material(material, surface);
+    settle(renderer);
+    check(renderer.diagnostics().empty() && render() == shifted,
+          "Restored image extent did not retry the unchanged active crop");
 
     scene.sprites = {image};
     scene.sprites[0].renderer.frame = 1;

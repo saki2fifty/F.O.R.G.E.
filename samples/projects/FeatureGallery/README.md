@@ -1,5 +1,28 @@
 # FORGE Feature Gallery
 
+## Sprite image regions
+
+Open **Scenes/78-sprite-image-regions.scene.json**. The top row shows the complete
+image. The middle row compares an asymmetric crop, an animated cropped strip and
+a crop extending to the image edge. The bottom row shows cropped Sliced and Tiled
+images, including mirrored partial repeats. All reuse this Gallery's original art.
+
+Select **Asymmetric image crop** and expand **Image region** in Inspector. Change
+its horizontal pixel offset from **18** to **34** to select the next signal. Turn
+the region off to see the whole source; turn it on to restore the stored crop.
+Width or height **0** reaches the corresponding image edge. World size and pivot
+stay authored separately.
+
+Select **Animated cropped strip** and open **Choose frame**. Its four frames sit
+inside the selected rectangle; pixels outside it are not selectable. During Play,
+the existing signal clip advances those relative frame numbers. Try a temporary
+horizontal crop offset in **Live gameplay**; animation continues and Stop restores
+the authored selection. The Sliced and Tiled objects use the same region controls.
+
+Save the Scene, choose it as startup and export with the matching runtime kit.
+The exported game contains its prepared images, materials and animation. It needs
+neither the source project nor a project C++ module.
+
 ## C++ 2D walk and jump
 
 The separate editable [Movement2D project](../Movement2D/README.md) combines this
