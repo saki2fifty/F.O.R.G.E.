@@ -90,6 +90,14 @@ class Native2D {
     std::optional<PhysicsHit2D> raycast(Double2, Double2, PhysicsQueryFilter) const;
     std::vector<EntityRef> overlap(const PhysicsOverlap2D&, PhysicsQueryFilter) const;
     std::optional<PhysicsHit2D> shape_cast(const PhysicsSweep2D&, PhysicsQueryFilter) const;
+    // Controller foundation only: capsule cast with native touching-surface
+    // encroachment and the existing checked binding/filter/work policy. A miss
+    // does not certify a clear starting pose or supply penetration recovery.
+    std::optional<PhysicsHit2D> mover_cast(const PhysicsSweep2D&, PhysicsQueryFilter) const;
+    // Maximum capsule penetration in metres, including deep contacts whose
+    // native normal is zero. Observes the current pose; performs no recovery.
+    double mover_penetration(const PhysicsOverlap2D&, PhysicsQueryFilter,
+                             std::optional<EntityRef> ignore = {}) const;
     void expire_events();
     void adopt_events(std::uint64_t tick);
     std::size_t event_count() const;

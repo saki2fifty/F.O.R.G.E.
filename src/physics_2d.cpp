@@ -661,6 +661,148 @@ struct Native2D::Impl {
                 body->admitted.ref, {point.x, point.y}, {normal.x, normal.y}, fraction};
         return float(query.hit->fraction);
     }
+    struct MoverQuery {
+        RayQuery query;
+        b2ShapeProxy mover;
+        b2Pos origin;
+        b2Vec2 displacement;
+    };
+    static bool mover_candidate(b2ShapeId shape, void* pointer) noexcept {
+        auto& result = *static_cast<MoverQuery*>(pointer);
+        auto& query = result.query;
+        if (query.failed || (query.hit && query.hit->fraction == 0))
+            return false;
+        if (++query.work > query_work_limit) {
+            query.failed = true;
+            return false;
+        }
+        const auto* body = query.self->owned(shape);
+        if (!body) {
+            query.failed = true;
+            return false;
+        }
+        if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
+            (query.ignore && body->admitted.ref == *query.ignore))
+            return true;
+        b2ShapeProxy obstacle{};
+        switch (b2Shape_GetType(shape)) {
+        case b2_polygonShape: {
+            const auto value = b2Shape_GetPolygon(shape);
+            obstacle = b2MakeProxy(value.vertices, value.count, value.radius);
+            break;
+        }
+        case b2_circleShape: {
+            const auto value = b2Shape_GetCircle(shape);
+            obstacle = b2MakeProxy(&value.center, 1, value.radius);
+            break;
+        }
+        case b2_capsuleShape: {
+            const auto value = b2Shape_GetCapsule(shape);
+            const b2Vec2 points[]{value.center1, value.center2};
+            obstacle = b2MakeProxy(points, 2, value.radius);
+            break;
+        }
+        default:
+            query.failed = true;
+            return false;
+        }
+        const auto position = b2Body_GetPosition(body->id);
+        const auto rotation = b2Body_GetRotation(body->id);
+        // Pure narrow-phase work inside the read-only native query callback.
+        // No ECS access, allocation, exception or candidate inventory is needed.
+        // Subtract double positions before narrowing to the obstacle's frame.
+        const b2Vec2 relative{float(result.origin.x - position.x),
+                              float(result.origin.y - position.y)};
+        const b2ShapeCastPairInput cast{
+            obstacle,
+            result.mover,
+            {b2InvRotateVector(rotation, relative), b2InvMulRot(rotation, b2Rot_identity)},
+            b2InvRotateVector(rotation, result.displacement),
+            query.hit ? float(query.hit->fraction) : 1,
+            true};
+        const auto output = b2CastShape(&cast);
+        if (output.hit) {
+            const auto point = b2RotateVector(rotation, output.point);
+            const auto normal = b2RotateVector(rotation, output.normal);
+            (void)ray_hit(shape, {position.x + point.x, position.y + point.y}, normal,
+                          output.fraction, &query);
+        }
+        return !query.failed && (!query.hit || query.hit->fraction > 0);
+    }
+    struct PenetrationQuery {
+        const Impl* self;
+        PhysicsQueryFilter filter;
+        std::optional<EntityRef> ignore;
+        b2Capsule capsule;
+        b2Pos origin;
+        std::size_t work = 0;
+        bool failed = false;
+        double depth = 0;
+    };
+    static bool mover_penetration_hit(b2ShapeId shape, void* pointer) noexcept {
+        auto& query = *static_cast<PenetrationQuery*>(pointer);
+        if (query.failed)
+            return false;
+        if (++query.work > query_work_limit) {
+            query.failed = true;
+            return false;
+        }
+        const auto* body = query.self->owned(shape);
+        if (!body) {
+            query.failed = true;
+            return false;
+        }
+        if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
+            (query.ignore && body->admitted.ref == *query.ignore))
+            return true;
+        const auto position = b2Body_GetPosition(body->id);
+        const auto rotation = b2Body_GetRotation(body->id);
+        const b2Vec2 relative{float(query.origin.x - position.x),
+                              float(query.origin.y - position.y)};
+        const b2Transform query_in_body{b2InvRotateVector(rotation, relative),
+                                        b2InvMulRot(rotation, b2Rot_identity)};
+        b2LocalManifold manifold{};
+        switch (b2Shape_GetType(shape)) {
+        case b2_polygonShape: {
+            const auto value = b2Shape_GetPolygon(shape);
+            manifold = b2CollidePolygonAndCapsule(&value, &query.capsule, query_in_body);
+            break;
+        }
+        case b2_circleShape: {
+            const auto value = b2Shape_GetCircle(shape);
+            const b2Transform body_in_query{
+                {float(position.x - query.origin.x), float(position.y - query.origin.y)}, rotation};
+            manifold = b2CollideCapsuleAndCircle(&query.capsule, &value, body_in_query);
+            break;
+        }
+        case b2_capsuleShape: {
+            const auto value = b2Shape_GetCapsule(shape);
+            manifold = b2CollideCapsules(&value, &query.capsule, query_in_body);
+            break;
+        }
+        default:
+            query.failed = true;
+            return false;
+        }
+        // The overlap query already found intersecting proxies. Missing or
+        // invalid manifold data must not become a successful clearance result.
+        // A zero normal is valid for measuring depth, never a recovery direction.
+        if (manifold.pointCount < 1 || manifold.pointCount > 2 ||
+            !std::isfinite(manifold.normal.x) || !std::isfinite(manifold.normal.y)) {
+            query.failed = true;
+            return false;
+        }
+        for (int i = 0; i < manifold.pointCount; ++i) {
+            const auto& point = manifold.points[i];
+            if (++query.work > query_work_limit || !std::isfinite(point.point.x) ||
+                !std::isfinite(point.point.y) || !std::isfinite(point.separation)) {
+                query.failed = true;
+                return false;
+            }
+            query.depth = std::max(query.depth, -double(point.separation));
+        }
+        return true;
+    }
     struct OverlapQuery {
         const Impl* self;
         PhysicsQueryFilter filter;
@@ -1450,6 +1592,68 @@ std::optional<PhysicsHit2D> Native2D::shape_cast(const PhysicsSweep2D& request,
         throw std::runtime_error(
             "2D sweep exceeded its work limit or hit an invalid native binding");
     return query.hit;
+}
+std::optional<PhysicsHit2D> Native2D::mover_cast(const PhysicsSweep2D& request,
+                                                 PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    if (request.shape != PhysicsOverlap2D::Shape::Capsule)
+        throw std::runtime_error("2D mover cast requires a capsule");
+    const auto mover = sweep_proxy(request);
+    if (!realized() || !filter.mask)
+        return {};
+    const b2Vec2 displacement{float(request.displacement[0]), float(request.displacement[1])};
+    // Form bounds in double, then round outwards. Both ends of the native
+    // float displacement must be covered at a distant double query origin.
+    double min_x = mover.points[0].x, max_x = min_x;
+    double min_y = mover.points[0].y, max_y = min_y;
+    for (int i = 0; i < mover.count; ++i) {
+        const double x = mover.points[i].x, y = mover.points[i].y;
+        min_x = std::min({min_x, x, x + displacement.x});
+        max_x = std::max({max_x, x, x + displacement.x});
+        min_y = std::min({min_y, y, y + displacement.y});
+        max_y = std::max({max_y, y, y + displacement.y});
+    }
+    const auto outward = [](double value, bool upper) {
+        return std::nextafter(float(value), upper ? std::numeric_limits<float>::infinity()
+                                                  : -std::numeric_limits<float>::infinity());
+    };
+    const b2AABB bounds{
+        {outward(min_x - mover.radius, false), outward(min_y - mover.radius, false)},
+        {outward(max_x + mover.radius, true), outward(max_y + mover.radius, true)}};
+    Impl::MoverQuery candidates{{&self, filter, request.ignore, request.ignore_initial_overlap},
+                                mover,
+                                {request.origin[0], request.origin[1]},
+                                displacement};
+    b2World_OverlapAABB(self.world, {request.origin[0], request.origin[1]}, bounds,
+                        query_filter(filter), Impl::mover_candidate, &candidates);
+    if (candidates.query.failed)
+        throw std::runtime_error(
+            "2D mover cast exceeded its work limit or native geometry/binding");
+    return candidates.query.hit;
+}
+double Native2D::mover_penetration(const PhysicsOverlap2D& request, PhysicsQueryFilter filter,
+                                   std::optional<EntityRef> ignore) const {
+    const auto& self = *impl_;
+    self.check();
+    if (request.shape != PhysicsOverlap2D::Shape::Capsule)
+        throw std::runtime_error("2D mover penetration requires a capsule");
+    if (ignore && (!ignore->scene || !ignore->entity))
+        throw std::runtime_error("2D mover exclusion requires a complete canonical reference");
+    const auto proxy = overlap_proxy(request);
+    if (!realized() || !filter.mask)
+        return 0;
+    Impl::PenetrationQuery query{&self,
+                                 filter,
+                                 ignore,
+                                 {proxy.points[0], proxy.points[1], proxy.radius},
+                                 {request.origin[0], request.origin[1]}};
+    b2World_OverlapShape(self.world, query.origin, &proxy, query_filter(filter),
+                         Impl::mover_penetration_hit, &query);
+    if (query.failed)
+        throw std::runtime_error(
+            "2D mover penetration exceeded its work limit or native manifold/binding");
+    return query.depth;
 }
 bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
     impl_->check();

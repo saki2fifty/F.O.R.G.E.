@@ -1,4 +1,5 @@
 #include "physics_2d.hpp"
+#include "physics_2d_mover_tests.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -11,6 +12,10 @@ void check(bool ok, const char* why) {
 }
 template <class F> void reject(F&& action) {
     try {
+        forge::test::test_mover_geometry();
+        forge::test::test_mover_directions();
+        forge::test::test_mover_capacity();
+        forge::test::test_mover_penetration();
         action();
     } catch (const std::exception&) {
         return;
