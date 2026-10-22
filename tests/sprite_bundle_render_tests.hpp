@@ -120,7 +120,11 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                     cropped.flip_x = flip_x;
                     cropped.flip_y = flip_y;
                     cropped.image_mode = mode;
-                    cropped.pixels_per_meter = 10;
+                    // Keep every sample away from point-addressing quantization
+                    // ties (Direct3D permits8fractional subtexel bits). Density10
+                    // placed Sliced x40 only1/512texel below a boundary; WARP
+                    // legitimately selected its neighbor. Retain every assertion.
+                    cropped.pixels_per_meter = 8;
                     cropped.border_left = cropped.border_right = 1;
                     const auto pixels = render(sprite_draw_values(cropped, 8, 4));
                     for (unsigned y = 0; y < 64; ++y)
@@ -131,11 +135,11 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                             const auto v = (flip_y ? 63.5 - y : y + .5) / 64;
                             double rx = u * 5, ry = v * 2;
                             if (mode == 1) {
-                                const auto p = u * 10;
-                                rx = p < 1 ? p : p >= 9 ? p - 5 : 1 + (p - 1) * 3 / 8;
+                                const auto p = u * 8;
+                                rx = p < 1 ? p : p >= 7 ? p - 3 : 1 + (p - 1) * 3 / 6;
                             } else if (mode == 2) {
-                                rx = std::fmod(u * 10, 5.);
-                                ry = std::fmod(v * 10, 2.);
+                                rx = std::fmod(u * 8, 5.);
+                                ry = std::fmod(v * 8, 2.);
                             }
                             const auto sx = 1 + unsigned(rx), sy = 1 + unsigned(ry);
                             const auto texel = test_sprite_draw::texel(sx / 4, sx % 4, sy);

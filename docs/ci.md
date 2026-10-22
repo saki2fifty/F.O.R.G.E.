@@ -609,6 +609,9 @@ before packaging. Toolchain/profile/source-content checks remain unchanged.
 
 For renderer shader corrections, dispatch `build.yml` with `windows_package=false`,
 `audit_source` set to the full immutable source SHA, and `audit_shader_only=true`.
+The shader-only selection also runs the native Sprite renderer, including cropped
+image pixels. Its independent point-sampling fixtures keep samples away from
+permitted fixed-point texel-boundary ties while checking every selected pixel.
 This reuses the editor audit's cache and capture machinery, compiling the material/
 shader test targets and running patch, material, shader, viewport, morph, skin,
 frame and optics checks. It uploads `FORGE-Editor-Source-Audit` with test logs and
