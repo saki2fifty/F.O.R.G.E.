@@ -53,6 +53,60 @@ inline void test_editor_selection_and_actions() {
     problems.ingest({"same", "Error", "failure", {}, {}, {}, {}});
     require(problems.size() == 0, "Dismissed existing diagnostic immediately reappeared");
 }
+inline void test_character_runtime_inspector() {
+    forge::EngineContext engine;
+    forge::Scene scene(engine.world());
+    const std::string entity = forge::authoring_command(scene, "entity.create").at("selected");
+    const auto source = scene.document(), effective = scene.snapshot(), schema = scene.schema();
+    forge::Json physics{{"character_debug",
+                         {{"entity", entity},
+                          {"domain", "2d"},
+                          {"ground", 0u},
+                          {"velocity", {2., 0.}},
+                          {"shape_blocked", true}}}};
+    require(forge::ComponentInspector::has_runtime_inspection(effective, schema, entity, physics),
+            "Character-only runtime observation was hidden from Inspector");
+    auto other = physics;
+    other["character_debug"]["entity"] = forge::EntityId::generate().str();
+    require(!forge::ComponentInspector::has_runtime_inspection(effective, schema, entity, other),
+            "Foreign selected character state appeared in Inspector");
+    ImGui::CreateContext();
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {900, 700};
+    io.DeltaTime = 1.f / 60;
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    forge::ComponentInspector inspector;
+    forge::test::observe_ui = true;
+    for (float scale : {1.f, 1.5f, 2.f}) {
+        forge::ui::style(scale);
+        for (bool planar : {true, false}) {
+            forge::test::ui_targets.clear();
+            physics["character_debug"]["domain"] = planar ? "2d" : "3d";
+            physics["character_debug"]["velocity"] =
+                planar ? forge::Json{2., 0.} : forge::Json{2., 0., 1.};
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos({0, 0});
+            ImGui::SetNextWindowSize(io.DisplaySize);
+            ImGui::Begin("Character live observation fixture");
+            inspector.draw_runtime(
+                effective, schema, {}, entity,
+                [](const auto&, const auto&, const auto&) { return false; }, false, {}, physics);
+            ImGui::End();
+            ImGui::Render();
+            for (const char* item : {"character:ground", "character:velocity", "character:blocked"})
+                require(forge::test::ui_targets.contains(item),
+                        "Character runtime Inspector did not draw its copied state");
+            require(ImGui::GetDrawData()->TotalVtxCount > 0,
+                    "Character runtime Inspector did not draw");
+        }
+    }
+    forge::test::observe_ui = false;
+    ImGui::DestroyContext();
+    require(scene.document() == source, "Read-only character Inspector changed authored source");
+}
 inline void test_redesign_drawers() {
     const auto root =
         std::filesystem::current_path() / ("redesign-" + forge::AssetId::generate().str());

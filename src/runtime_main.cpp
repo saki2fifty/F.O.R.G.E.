@@ -615,19 +615,8 @@ int main(int argc, char** argv) {
                             try {
                                 const auto ref =
                                     request.at("physics_debug").get<forge::EntityRef>();
-                                const auto c = runtime->physics()->character(ref);
-                                response["physics"]["character_debug"] = {
-                                    {"entity", ref.entity},
-                                    {"ground", unsigned(c.ground)},
-                                    {"velocity", c.velocity},
-                                    {"ground_normal", c.ground_normal},
-                                    {"ground_position", c.ground_position},
-                                    {"ground_velocity", c.ground_velocity},
-                                    {"crouched", c.crouched},
-                                    {"shape_blocked", c.shape_change_blocked}};
-                                if (c.supporting_entity)
-                                    response["physics"]["character_debug"]["support"] =
-                                        *c.supporting_entity;
+                                response["physics"]["character_debug"] =
+                                    runtime->physics()->character_debug(ref);
                             } catch (const std::exception& e) {
                                 response["physics"]["debug_diagnostic"] = e.what();
                             }

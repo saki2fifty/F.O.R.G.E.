@@ -268,10 +268,10 @@ void physics_velocity_tests() {
         original.physics->set_linear_velocity(ref, {3, 1, 0});
         original.physics->set_angular_velocity(ref, {0, 0, 2});
         const auto checkpoint = original.physics->checkpoint();
-        check(checkpoint.at("version") == 6 && checkpoint.at("commands").size() == 6 &&
+        check(checkpoint.at("version") == 7 && checkpoint.at("commands").size() == 6 &&
                   checkpoint.at("commands")[4].at("kind") == 6 &&
                   checkpoint.at("commands")[5].at("kind") == 7,
-              "Velocity pending intent absent from strict version6 recovery");
+              "Velocity pending intent absent from strict version7 recovery");
         Fixture recovered;
         recovered.physics->configure(PhysicsConfig{{0, 0, 0}});
         recovered.scene.restore_snapshot(original.scene.snapshot());

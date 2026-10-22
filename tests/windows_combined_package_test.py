@@ -171,39 +171,42 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     assert json.loads((volumes_evidence / 'physics-volumes-result.json').read_text())['components']['project.volume_probe']['last_count'] == 3
     from movement_2d_example_test import verify as verify_movement
-    movement = root / 'C++ 2D Movement Copy'
-    shutil.copytree(root / 'Examples/Movement2D', movement)
-    verify_movement(root / 'NativeSdk/bin/forge_runtime.exe', movement)
-    movement_module, = json.loads((movement / 'forge.project.json').read_text())['modules']
-    movement_kit = root / '2D Movement Test Runtime Kit'
-    shutil.copytree(root / 'runtime-kits/shared-native-sdk', movement_kit)
-    shutil.copyfile(observer, movement_kit / 'forge_game_fixture.exe')
-    (movement_kit / 'forge.runtime-kit.json').write_text(json.dumps(kit_metadata))
-    movement_export = root / 'Exported C++ 2D Movement'
-    movement_options = dict(destination=str(movement_export), runtime_kit=str(movement_kit),
-        inspection_runtime=str(root / 'NativeSdk/bin/forge_runtime.exe'),
-        module_kits={'project.gameplay': str((movement / movement_module['library']).parent)})
-    result = subprocess.run([str(tools), '--assets', 'export-game', str(movement),
-        json.dumps(movement_options)], cwd=root, env=env, text=True, capture_output=True, timeout=180)
-    assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
-    shutil.rmtree(movement)
-    shutil.rmtree(movement_kit)
-    relocated = root / 'Relocated C++ 2D Game'
-    movement_export.rename(relocated)
-    assert not list(relocated.rglob('*.cpp')) and not list(relocated.rglob('*.hpp'))
-    movement_evidence = evidence / 'movement-2d'
-    movement_evidence.mkdir()
-    for executable, arguments, log in (
-        ('forge_game.exe', ['--verify-startup'], 'production-startup.log'),
-        ('forge_game_fixture.exe', ['--packaged-movement-2d', str(movement_evidence)], 'capture-host.log')):
-        result = subprocess.run([str(relocated / executable), *arguments], cwd=relocated,
-            env=env, text=True, capture_output=True, timeout=180)
-        (movement_evidence / log).write_text(result.stdout + '\n' + result.stderr)
-        assert result.returncode == 0, (result.stdout, result.stderr)
-        assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
-    result = json.loads((movement_evidence / 'movement-2d-result.json').read_text())
-    assert all(result[field] for field in ('native_sdl_input', 'painted_support', 'held_jump_no_repeat'))
-    assert 1.6 < result['jump_rise'] < 2.1
+    for folder, evidence_name, controller in (('Movement2D', 'movement-2d', False),
+                                               ('Character2D', 'character-2d', True)):
+        movement = root / (folder + ' editable copy')
+        shutil.copytree(root / 'Examples' / folder, movement)
+        verify_movement(root / 'NativeSdk/bin/forge_runtime.exe', movement)
+        movement_module, = json.loads((movement / 'forge.project.json').read_text())['modules']
+        movement_kit = root / (folder + ' test runtime kit')
+        shutil.copytree(root / 'runtime-kits/shared-native-sdk', movement_kit)
+        shutil.copyfile(observer, movement_kit / 'forge_game_fixture.exe')
+        (movement_kit / 'forge.runtime-kit.json').write_text(json.dumps(kit_metadata))
+        movement_export = root / ('Exported ' + folder)
+        movement_options = dict(destination=str(movement_export), runtime_kit=str(movement_kit),
+            inspection_runtime=str(root / 'NativeSdk/bin/forge_runtime.exe'),
+            module_kits={'project.gameplay': str((movement / movement_module['library']).parent)})
+        result = subprocess.run([str(tools), '--assets', 'export-game', str(movement),
+            json.dumps(movement_options)], cwd=root, env=env, text=True, capture_output=True, timeout=180)
+        assert result.returncode == 0 and json.loads(result.stdout)['ok'], (result.stdout, result.stderr)
+        shutil.rmtree(movement)
+        shutil.rmtree(movement_kit)
+        relocated = root / ('Relocated ' + folder + ' game')
+        movement_export.rename(relocated)
+        assert not list(relocated.rglob('*.cpp')) and not list(relocated.rglob('*.hpp'))
+        movement_evidence = evidence / evidence_name
+        movement_evidence.mkdir()
+        for executable, arguments, log in (
+            ('forge_game.exe', ['--verify-startup'], 'production-startup.log'),
+            ('forge_game_fixture.exe', ['--packaged-movement-2d', str(movement_evidence)], 'capture-host.log')):
+            result = subprocess.run([str(relocated / executable), *arguments], cwd=relocated,
+                env=env, text=True, capture_output=True, timeout=180)
+            (movement_evidence / log).write_text(result.stdout + '\n' + result.stderr)
+            assert result.returncode == 0, (result.stdout, result.stderr)
+            assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
+        result = json.loads((movement_evidence / 'movement-2d-result.json').read_text())
+        assert all(result[field] for field in ('native_sdl_input', 'painted_support', 'held_jump_no_repeat'))
+        assert result['controller'] == controller
+        assert 1.6 < result['jump_rise'] < 2.1
     # The user-facing gallery is a normal editable project. Copy it before export,
     # just as the manual instructs, so package hashes remain immutable.
     gallery = root/'Gallery Copy'

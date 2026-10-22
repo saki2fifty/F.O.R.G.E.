@@ -6,6 +6,7 @@
 #include <map>
 #include <string>
 namespace forge {
+using Double2 = std::array<double, 2>;
 using Double3 = std::array<double, 3>;
 // Numerical inversion policy, independent of authored scale validity. At this
 // condition limit, 64 double epsilons of rounding amplify to less than 2e-6.

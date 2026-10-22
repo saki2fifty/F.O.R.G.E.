@@ -4,6 +4,7 @@
 #include <chrono>
 #include <forge/animation.hpp>
 #include <forge/authoring.hpp>
+#include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
@@ -325,6 +326,29 @@ int main(int argc, char** argv) {
         inactive_2d.ready();
         inactive_2d.simulation.tick(.25f);
         near(inactive_2d.scene.entity(actor).get<LocalTranslation>().x, 1);
+        Fixture controller_2d(root);
+        controller_2d.load(source);
+        CharacterController2D controller;
+        controller_2d.scene.entity(actor).set<CharacterController2D>(controller);
+        rejects([&] { controller_2d.ready(); });
+        near(controller_2d.scene.entity(actor).get<LocalTranslation>().x, 0);
+        controller.enabled = false;
+        controller_2d.scene.entity(actor).set<CharacterController2D>(controller);
+        controller_2d.ready();
+        controller_2d.simulation.tick(.25f);
+        near(controller_2d.scene.entity(actor).get<LocalTranslation>().x, 1);
+        controller.enabled = true;
+        controller_2d.scene.entity(actor).set<CharacterController2D>(controller);
+        controller_2d.simulation.tick(.25f);
+        near(controller_2d.scene.entity(actor).get<LocalTranslation>().x, 1);
+        require(!controller_2d.animation->checkpoint_ready(),
+                "Controller-conflicted transform playback admitted recovery");
+        bool controller_diagnostic = false;
+        for (const auto& diagnostic : controller_2d.engine.services().diagnostics())
+            controller_diagnostic |= diagnostic.at("text").get<std::string>().find(
+                                         "active movement controller") != std::string::npos;
+        require(controller_diagnostic,
+                "Controller-conflicted transform playback lost its diagnostic");
         // Export from a saved scene: its component reference discovers the clip.
         atomic_write(root / "main.scene.json", source.dump(2));
         const std::array roots{scene.asset_id()};

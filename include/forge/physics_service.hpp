@@ -48,7 +48,6 @@ struct PhysicsBodyState {
     Double3 centre_of_mass{}, linear_velocity{}, angular_velocity{};
     bool operator==(const PhysicsBodyState&) const = default;
 };
-using Double2 = std::array<double, 2>;
 // Copied XY-domain state. Positions are world metres; angular values use radians.
 // Epoch identifies this simulation realization, not a durable source identity.
 struct PhysicsBodyState2D {

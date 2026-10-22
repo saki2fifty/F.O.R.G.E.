@@ -110,6 +110,22 @@ class Client {
                host_->character_command(host_->context, scene, entity, operation, value, rotation,
                                         speed, flag ? 1u : 0u) == 1;
     }
+    bool character_2d(const char* scene, const char* entity, ForgeSdkCharacter2DV1& out) const {
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Physics) && host_->character_state_2d &&
+               host_->character_state_2d(host_->context, scene, entity, &out) == 1;
+    }
+    bool move_character_2d(const char* scene, const char* entity, const double velocity[2]) const {
+        return callable(Capability::Physics) && host_->character_command_2d &&
+               host_->character_command_2d(host_->context, scene, entity, 0, velocity, 0) == 1;
+    }
+    bool place_character_2d(const char* scene, const char* entity, const double feet[2],
+                            bool clear_velocity) const {
+        return callable(Capability::Physics) && host_->character_command_2d &&
+               host_->character_command_2d(host_->context, scene, entity, 1, feet,
+                                           clear_velocity ? 1u : 0u) == 1;
+    }
     int32_t raycast_filtered(const double origin[3], const double displacement[3], uint32_t mask,
                              bool sensors, ForgeSdkPhysicsHitV1& out) const {
         out = {};

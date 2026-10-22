@@ -70,17 +70,64 @@ inline void test_mover_native_motion() {
                         1e-4,
                     "Native controller did not land after replacing upward intent");
         const auto before = test.image();
-        check_mover(!test.native.place_mover(id, actor, {offset + 2.5, offset}, true),
-                    "Controller placement accepted solid wall containment");
-        check_mover_unchanged(test, before);
-        check_mover(test.native.place_mover(id, actor, {offset - 2, offset + 2}, true),
-                    "Controller placement rejected a clear destination");
+        std::size_t placement_work = 0;
+        check_mover(
+            !test.native.place_mover(id, actor, {offset + 2.5, offset}, true, placement_work),
+            "Controller placement accepted solid wall containment");
+        auto expected_metadata = before.metadata;
+        for (auto& entry : expected_metadata["mapping"])
+            if (entry["entity"] == Json(actor))
+                entry["mover"]["placement_blocked"] = true;
+        const auto rejected = test.image();
+        check_mover(rejected.bytes == before.bytes && rejected.metadata == expected_metadata &&
+                        test.native.mover_state(id, actor)->placement_blocked,
+                    "Blocked placement changed native pose/motion instead of only copied status");
+        check_mover(
+            test.native.place_mover(id, actor, {offset - 2, offset + 2}, true, placement_work),
+            "Controller placement rejected a clear destination");
         test.adopt();
         check_mover(test.native.mover_state(id, actor)->intent == Double2{} &&
                         test.native.mover_state(id, actor)->velocity == Double2{} &&
+                        !test.native.mover_state(id, actor)->placement_blocked &&
                         test.desired.at(id).pose.translation.z == 7,
                     "Clear placement retained controller motion or changed authored Z");
     }
+}
+inline void test_mover_placement_budget() {
+    using namespace physics_detail;
+    MoverNativeFixture test;
+    Body2DConfiguration floor;
+    floor.shape = 3;
+    auto parts = std::make_shared<std::vector<BoxPart2D>>();
+    for (unsigned i = 0; i < 512; ++i)
+        parts->push_back({{0, -.5f}, {20, 1}});
+    floor.parts = parts;
+    test.add(floor, 0, 0);
+    const auto actor = test.actor(-2, 0);
+    test.synchronize();
+    const auto id = test.id(actor);
+    std::size_t work = 0;
+    check_mover(test.native.place_mover(id, actor, {0, 0}, true, work) && work > 0,
+                "Clear placement did not charge native query work");
+    unsigned accepted = 1;
+    std::string error;
+    try {
+        for (; accepted < 64; ++accepted)
+            check_mover(test.native.place_mover(id, actor, {0, 0}, true, work),
+                        "Clear placement became an ordinary blocked result");
+    } catch (const std::exception& failure) {
+        error = failure.what();
+    }
+    check_mover(accepted > 1 && accepted < 64 &&
+                    error.find("work capacity 16384") != std::string::npos,
+                "Queued placements reset the shared boundary work budget");
+    bool faulted = false;
+    try {
+        (void)test.native.adopted_poses();
+    } catch (const std::exception&) {
+        faulted = true;
+    }
+    check_mover(faulted, "Partial placement batch allowed native pose adoption");
 }
 inline void test_mover_native_filters() {
     using namespace physics_detail;

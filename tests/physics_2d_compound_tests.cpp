@@ -274,6 +274,7 @@ int main() {
         forge::test::test_mover_motion_limits();
         std::cout << "Checked mover motion/feasibility/shared-budget PASS\n";
         forge::test::test_mover_native_motion();
+        forge::test::test_mover_placement_budget();
         forge::test::test_mover_native_filters();
         forge::test::test_mover_native_admission();
         forge::test::test_mover_native_candidate_geometry();
@@ -286,6 +287,7 @@ int main() {
         forge::test::test_mover_support_curves();
         forge::test::test_mover_support_recovery();
         forge::test::test_mover_support_fixed_budget();
+        forge::test::test_mover_velocity_precision();
         std::cout << "Native mover support/floor-follow/lifetime/recovery PASS\n";
         for (double offset : {0., 999000., -999000.})
             geometry_queries_and_recovery(offset);

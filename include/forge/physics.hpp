@@ -74,10 +74,16 @@ class PhysicsRuntime : public PhysicsService {
     void jump_character(EntityRef, float) override;
     void crouch_character(EntityRef, bool) override;
     void place_character(EntityRef, LocalTranslation, LocalRotation, bool) override;
+    CharacterState2D character_2d(EntityRef) const override;
+    void move_character_2d(EntityRef, Double2) override;
+    void place_character_2d(EntityRef, Double2, bool) override;
     Json checkpoint() const;
     // Fresh, unpublished world only. Scene/config reconstruction must precede this call.
     void restore(const Json&);
     Json status() const;
+    // Host-only copied selected-character observation for Scene guides.
+    // Distinct XY/XYZ arrays; no native handles or additional state owner.
+    Json character_debug(EntityRef) const;
 
   private:
     struct Impl;

@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "faee8dd1b4ef85f29096a742630b7e342e7860753050764ecf1163a253f322e3",
+        "role": "material.texture:baseColorTexture",
+        "target": "af69e469-dd94-4545-a61f-682cafb574ee",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "be703c7f8e10178907ea0903676d94291e8ade38bbbf056bf69291f3d9e860ce",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "5a851b701809651568a7a754f6468d6f7f6136909f53e487b91d9831d9c20b07",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+    "source": "Assets/Physics2D/Solid.material.json",
+    "source_digest": "5a851b701809651568a7a754f6468d6f7f6136909f53e487b91d9831d9c20b07",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

@@ -23,6 +23,15 @@ D/Space input through the compiled game fixture. It records the painted landing,
 jump/no-repeat result and three rendered rest/jump/landed images. This gate is
 automated acceptance, separate from the user's physical Windows/GPU test.
 
+The controller extension adds **Examples/Character2D** to the same installed-SDK
+build, normal five-asset import, combined-package and relocated-game acceptance.
+Both examples share the input/tuning/painted-and-box-floor test and native SDL
+game observer; the latter records whether the player is a native controller and
+rejects an authored body/collider on that player. Character evidence uses a separate
+`character-2d` directory. The installed-only SDK also compiles allowed/denied
+character modules and exercises copied state, checked placement, command order,
+sizes/contexts/threads and permissions through both actual process hosts.
+
 The existing 2D viewport case also captures the connected-body Gallery76 Game
 poses and actual kind-specific joint Inspector/Scene guides at100/150/200%.
 The shared-game gate runs the installed joint Client fixture through both Play

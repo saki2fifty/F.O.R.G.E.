@@ -120,6 +120,29 @@ These are admission/work limits, not a guarantee that all combinations fit the
 unchanged shared recovery envelope or meet a frame-time target. Native allocation
 or solver faults are runtime faults, not transactional rollback promises.
 
+## Character-controller extension
+
+Extend the existing CharacterService and shared4096 CharacterCommand FIFO with
+distinct full XY intent, checked feet placement and copied state. Native2D's
+existing canonical body records own a solid Kinematic inner capsule plus intent,
+clipped velocity and placement result. There is no hidden authored PhysicsBody2D,
+second queue, solver owner or durable identity. Game C++ supplies gravity/jump.
+Use upright World binding and shared native/outline capsule conversion.
+
+Bounded plane response, independent penetration admission and read-only support
+observation compose existing exact-pin public APIs. Native callback work is bounded;
+a failed composed movement or placement batch must fault before adoption or
+continuation. Floor following is vertical and does not promise stairs or platform
+carry. Both real hosts use one copied character-debug projection; the editor owns
+only inspection/Scene guides. C SDK tail additions retain ABI1 and change the exact
+fingerprint so modules rebuild.
+
+Advance the private physics block from6 to7 for domain-tagged character commands
+and copied placement status. The outer ordinary-Play checkpoint stays2. Exact
+build/source/fingerprint guards and combined byte limits remain unchanged; older
+checkpoints reject. No authored identity/Scene migration or arbitrary C++ recovery
+is introduced. The integration contract owns numerical details and limits.
+
 ## Evidence and completion boundary
 
 Exact-pin native tests and original probes establish double-position geometry,

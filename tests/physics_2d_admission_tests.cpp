@@ -168,6 +168,9 @@ void controller_profile_and_writers() {
         rejects([&] { test.desired(); });
     }
     test.entity().set<LocalScale>({1, 1, 1});
+    test.entity().set<LocalTranslation>({999990, 1000000, 7});
+    rejects([&] { test.desired(); }); // Feet fit, capsule query center does not.
+    test.entity().set<LocalTranslation>({999990, -999990, 7});
     test.entity().set<PhysicsBody2D>({});
     rejects([&] { test.desired(); });
     test.entity().remove<PhysicsBody2D>();

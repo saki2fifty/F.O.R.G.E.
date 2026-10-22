@@ -1,4 +1,4 @@
-"""Original compiled project: input, swept support, saved properties, both Play hosts."""
+"""Original compiled 2D movement projects: input, support, tuning, both Play hosts."""
 import json
 from pathlib import Path
 import sys
@@ -29,23 +29,29 @@ def activate(worker, scene, sdk_play):
         epoch=ticket, captured=False, input_device='EditorHost'))
 
 
-def player(state):
-    return next(row['components'] for row in state['scene']['entities']
-                if 'project.movement_2d' in row['components'])
-
-
 def verify(runtime, project):
     runtime, project = Path(runtime).resolve(), Path(project).resolve()
     settings = json.loads((project / 'forge.project.json').read_text())
     scene_path = project / settings['startup_scene']['source']
     saved = scene_path.read_bytes()
     original = json.loads(saved)
+    controller = any('project.character_movement_2d' in row['components']
+                     for row in original['entities'])
+    component = 'project.character_movement_2d' if controller else 'project.movement_2d'
+    feet_offset = .6 if controller else 0
+
+    def player(state):
+        return next(row['components'] for row in state['scene']['entities']
+                    if component in row['components'])
+
+    initial_position = next(row['components']['forge.local_translation']
+                            for row in original['entities'] if component in row['components'])
     observations = []
     for sdk_play in (False, True):
         for speed, jump_speed in ((4., 6.), (2., 8.)):
             scene = json.loads(saved)
-            data = next(row['components']['project.movement_2d'] for row in scene['entities']
-                        if 'project.movement_2d' in row['components'])
+            data = next(row['components'][component] for row in scene['entities']
+                        if component in row['components'])
             data.update(speed=speed, jump_speed=jump_speed)
             args = ['--sdk-project', project]
             if sdk_play:
@@ -57,8 +63,8 @@ def verify(runtime, project):
                     state = worker.request('step')
                 components = player(state)
                 position = components['forge.local_translation']
-                assert abs(position['y'] - 1.6) < .03, position
-                assert components['project.movement_2d']['grounded'], components
+                assert abs(position['y'] - (1.6 - feet_offset)) < .03, position
+                assert components[component]['grounded'], components
                 assert abs(position['x'] + 4) < .001, position
                 initial_x = position['x']
                 if sdk_play:
@@ -89,13 +95,13 @@ def verify(runtime, project):
                         apex = max(apex, player(state)['forge.local_translation']['y'])
                     state = worker.request('pause')
                     assert apex - base > (1.6 if jump_speed == 6 else 3.), (jump_speed, apex, base)
-                    assert player(state)['project.movement_2d']['grounded'], player(state)
+                    assert player(state)[component]['grounded'], player(state)
                     assert abs(player(state)['forge.local_translation']['y'] - base) < .03
                     observations.append(dict(sdk_play=True, clock='runtime', speed=speed,
                                              jump_speed=jump_speed, jump_rise=apex - base))
                     reset = activate(worker, original, True)
-                    assert player(reset)['project.movement_2d']['speed'] == 4
-                    assert player(reset)['forge.local_translation'] == dict(x=-4, y=2.5, z=0)
+                    assert player(reset)[component]['speed'] == 4
+                    assert player(reset)['forge.local_translation'] == initial_position
                     continue
                 for tick in range(18):
                     event = dict(input_events=[dict(control='key.d', value=1)]) if tick == 0 else {}
@@ -108,13 +114,13 @@ def verify(runtime, project):
                 base = player(stopped)['forge.local_translation']['y']
                 state = worker.request('step', input_events=[dict(control='key.space', value=1)])
                 first_rise = player(state)['forge.local_translation']['y'] - base
-                assert abs(first_rise - (jump_speed - 9.81 / 60) / 60) < .003, first_rise
+                assert abs(first_rise - (jump_speed if controller else jump_speed - 9.81 / 60) / 60) < .003, first_rise
                 apex = base
                 for _ in range(150):
                     state = worker.request('step')
                     apex = max(apex, player(state)['forge.local_translation']['y'])
                 assert apex - base > (1.6 if jump_speed == 6 else 3.), (jump_speed, apex, base)
-                assert player(state)['project.movement_2d']['grounded'], player(state)
+                assert player(state)[component]['grounded'], player(state)
                 assert abs(player(state)['forge.local_translation']['y'] - base) < .03
                 # Holding Space never auto-repeats after landing; a fresh edge is required.
                 for _ in range(20):
@@ -130,8 +136,8 @@ def verify(runtime, project):
                 worker.request('step', input_events=[dict(control='key.d', value=0)])
                 for _ in range(60):
                     state = worker.request('step')
-                assert abs(player(state)['forge.local_translation']['y'] - 1.1) < .03, player(state)
-                assert player(state)['project.movement_2d']['grounded'], player(state)
+                assert abs(player(state)['forge.local_translation']['y'] - (1.1 - feet_offset)) < .03, player(state)
+                assert player(state)[component]['grounded'], player(state)
 
                 # A resting side-wall overlap must not hide the floor from the sweep.
                 for tick in range(240):
@@ -139,15 +145,17 @@ def verify(runtime, project):
                     state = worker.request('step', **event)
                 components = player(state)
                 assert -6.75 < components['forge.local_translation']['x'] < -6.6, components
-                assert components['project.movement_2d']['grounded'], components
-                assert abs(components['forge.local_translation']['y'] + 2.4) < .03, components
+                assert components[component]['grounded'], components
+                assert abs(components['forge.local_translation']['y'] + 2.4 + feet_offset) < .03, components
                 assert components['forge.local_translation']['z'] == 0
                 assert components['forge.local_scale'] == dict(x=1, y=1, z=1)
+                if controller:
+                    assert 'forge.physics_body_2d' not in components and 'forge.capsule_collider_2d' not in components
                 observations.append(dict(sdk_play=sdk_play, speed=speed, jump_speed=jump_speed,
-                                         jump_rise=apex - base, wall_grounded=True))
+                                         jump_rise=apex - base, wall_grounded=True, controller=controller))
                 reset = activate(worker, original, sdk_play)
-                assert player(reset)['project.movement_2d']['speed'] == 4
-                assert player(reset)['forge.local_translation'] == dict(x=-4, y=2.5, z=0)
+                assert player(reset)[component]['speed'] == 4
+                assert player(reset)['forge.local_translation'] == initial_position
                 assert reset['timing']['tick'] == 0
             finally:
                 worker.close()

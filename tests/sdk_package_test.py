@@ -35,6 +35,7 @@ assert not (stage/'sdk/include/forge/texture_asset.hpp').exists(), 'Cooked textu
 assert (stage/'sdk/include/forge/primitive_catalog.hpp').exists()
 assert (stage/'sdk/include/forge/transform_components.hpp').exists()
 assert (stage/'sdk/sample/Physics2DJoints.hpp').is_file()
+assert (stage/'sdk/sample/character_2d_probe.cpp').is_file()
 subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(client),'-G','Ninja',compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,'-DFORGE_NATIVE_SDK='+str(stage)],check=True)
 subprocess.run([cmake,'--build',str(client),'--parallel','2'],check=True)
 windows=os.name=='nt';exe='.exe' if windows else '';ext='.dll' if windows else '.so'
@@ -94,6 +95,10 @@ finally:
  if p.poll() is None:p.kill();p.wait()
 trace=(stage/'trace.txt').read_text();assert trace.count('tick\n')==2 and trace.endswith('unload\n'),trace
 print('Installed SDK client, PE/ELF shared dependency, relocated runtime, fixed ticks and unload verified')
+subprocess.run([sys.executable,str(Path(__file__).with_name('sdk_character_2d_test.py')),
+                str(runtime),str(client/('character_2d_gameplay'+ext)),
+                str(client/('character_2d_denied_gameplay'+ext))],
+               env=env,cwd=stage,check=True,timeout=120)
 # Prove the installed audio headers and callback boundary from the relocated host too.
 subprocess.run([sys.executable,str(Path(__file__).with_name('sdk_physics_2d_joint_test.py')),
                 str(runtime),str(client/('physics_2d_joint_gameplay'+ext))],

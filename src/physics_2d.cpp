@@ -325,6 +325,17 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D& val
     validate_geometry(config);
     return config;
 }
+PhysicsOverlap2D controller_shape_2d(const Body2DConfiguration& config, Double2 feet) {
+    if (!config.mover_profile)
+        throw std::runtime_error("2D controller query requires admitted controller geometry");
+    valid_xy({feet[0], feet[1], 0});
+    PhysicsOverlap2D shape{PhysicsOverlap2D::Shape::Capsule,
+                           {config.dimensions[0], config.dimensions[1]},
+                           {feet[0], feet[1] + config.dimensions[0] + .5 * config.dimensions[1]},
+                           0};
+    (void)overlap_proxy(shape);
+    return shape;
+}
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapData& cells,
                                               std::uint64_t layer, LocalScale scale) {
     if (body.motion != 0 || body.sensor)
@@ -557,6 +568,7 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
             validate_mover_pose(pose);
             auto config =
                 controller_configuration_2d(entity.get<CharacterController2D>(), pose.scale);
+            (void)controller_shape_2d(config, {pose.translation.x, pose.translation.y});
             result.emplace(id, Body2DDesired{*ref, std::move(config), pose});
             continue;
         }
@@ -658,6 +670,7 @@ struct Native2D::Impl {
         Double2 mover_intent{}, mover_velocity{};
         std::optional<MoverSupport2D> mover_support;
         bool mover_support_valid = false;
+        bool mover_placement_blocked = false;
     };
     std::map<std::uint64_t, Body> bodies;
     // Derived iteration cache only; bodies remain the sole binding/state owner.
@@ -679,11 +692,11 @@ struct Native2D::Impl {
         return found->second;
     }
     static PhysicsSweep2D mover_request(const Body& body, Double2 feet) {
+        const auto shape = controller_shape_2d(body.admitted.config, feet);
         PhysicsSweep2D request;
-        request.shape = PhysicsOverlap2D::Shape::Capsule;
-        request.dimensions = {body.admitted.config.dimensions[0],
-                              body.admitted.config.dimensions[1]};
-        request.origin = {feet[0], feet[1] + request.dimensions[0] + .5 * request.dimensions[1]};
+        request.shape = shape.shape;
+        request.dimensions = shape.dimensions;
+        request.origin = shape.origin;
         request.ignore = body.admitted.ref;
         return request;
     }
@@ -699,8 +712,20 @@ struct Native2D::Impl {
             const auto motion =
                 motion_mover(request, filter, work, category, profile.minimum_floor_y);
             Double2 next{position.x + motion.translation[0], position.y + motion.translation[1]};
-            const Double2 velocity{motion.clipped_displacement[0] / dt,
-                                   motion.clipped_displacement[1] / dt};
+            Double2 velocity{};
+            for (unsigned axis = 0; axis < 2; ++axis)
+                velocity[axis] =
+                    motion.clipped_displacement[axis] == double(float(request.displacement[axis]))
+                        ? body.mover_intent[axis]
+                        : motion.clipped_displacement[axis] / dt;
+            // Native geometry uses float displacement. Preserve untouched input
+            // components and prevent reconstruction roundoff from adding speed.
+            const double requested_speed = std::hypot(body.mover_intent[0], body.mover_intent[1]);
+            const double clipped_speed = std::hypot(velocity[0], velocity[1]);
+            if (clipped_speed > requested_speed) {
+                velocity[0] *= requested_speed / clipped_speed;
+                velocity[1] *= requested_speed / clipped_speed;
+            }
             auto support = support_mover(body, next, body.mover_intent, work);
             if ((!support || !support->walkable) && body.mover_support &&
                 body.mover_support->walkable && body.mover_intent[1] <= 0 &&
@@ -1074,6 +1099,8 @@ struct Native2D::Impl {
         bool block_uphill = false;
         double horizontal_limit = 0;
         float support_floor_y = -1;
+        Double2 support_intent{};
+        double departure_tolerance = 0;
         std::optional<MoverSupport2D> support;
     };
     static bool mover_plane_hit(b2ShapeId shape, const b2PlaneResult* value,
@@ -1104,8 +1131,12 @@ struct Native2D::Impl {
             return false;
         }
         const float converted = float(offset);
+        const bool departing =
+            query.support_intent[1] > 0 &&
+            normal.x * query.support_intent[0] + normal.y * query.support_intent[1] >
+                query.departure_tolerance;
         if (query.support_floor_y >= 0 && normal.y > mover_tolerance &&
-            value->plane.offset >= -.01f - mover_tolerance) {
+            value->plane.offset >= -.01f - mover_tolerance && !departing) {
             const bool walkable = normal.y >= query.support_floor_y;
             if (!query.support || walkable > query.support->walkable ||
                 (walkable == query.support->walkable &&
@@ -1184,11 +1215,13 @@ struct Native2D::Impl {
     std::optional<MoverSupport2D> support_mover(const Body& body, Double2 feet, Double2 intent,
                                                 std::size_t& work) const {
         const auto floor = body.admitted.config.mover_profile->minimum_floor_y;
-        if (floor < 0 || intent[1] > 0)
+        if (floor < 0)
             return {};
         const auto request = mover_request(body, feet);
         MoverPlanes planes{this, {body.admitted.config.body.mask, false}, body.admitted.ref, &work};
         planes.support_floor_y = floor;
+        planes.support_intent = intent;
+        planes.departure_tolerance = 1e-5 * std::max(1., std::hypot(intent[0], intent[1]));
         // The pin only reports actual overlaps. Expand this read-only support
         // probe by the1cm contact band; never enlarge the native inner body.
         gather_mover_planes(planes, {request.shape, request.dimensions, request.origin, 0},
@@ -1560,7 +1593,8 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
              {"native", recovery_native_state(body.id, body.shapes, body.admitted.config)}});
         if (body.admitted.config.mover_profile)
             mapping.back()["mover"] = {{"intent", body.mover_intent},
-                                       {"velocity", body.mover_velocity}};
+                                       {"velocity", body.mover_velocity},
+                                       {"placement_blocked", body.mover_placement_blocked}};
     }
     if (joints.size() != self.joints.size())
         throw std::runtime_error("2D joint checkpoint requires synchronized content");
@@ -1700,6 +1734,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
         if (body.config.mover_profile) {
             record.mover_intent = entry->at("mover").at("intent").get<Double2>();
             record.mover_velocity = entry->at("mover").at("velocity").get<Double2>();
+            record.mover_placement_blocked = entry->at("mover").at("placement_blocked").get<bool>();
             for (auto motion : {record.mover_intent, record.mover_velocity})
                 if (!std::isfinite(motion[0]) || !std::isfinite(motion[1]) ||
                     std::hypot(motion[0], motion[1]) > 1000000.01)
@@ -1807,8 +1842,11 @@ void Native2D::validate(const Desired2D& desired, float dt,
                                           old->second.admitted.pose.translation.y, 0}) ||
              !equivalent(value.pose.rotation, old->second.admitted.pose.rotation)))
             changed.push_back(id);
-        if (value.config.mover_profile)
+        if (value.config.mover_profile) {
             validate_mover_pose(value.pose);
+            (void)controller_shape_2d(value.config,
+                                      {value.pose.translation.x, value.pose.translation.y});
+        }
         const bool prior_kinematic = old != self.bodies.end() &&
                                      old->second.admitted.ref == value.ref &&
                                      old->second.admitted.config.body.motion == 1;
@@ -2250,20 +2288,33 @@ void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity)
     body.mover_intent = velocity;
     body.mover_support_valid = false;
 }
-bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bool clear_velocity) {
+bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bool clear_velocity,
+                           std::size_t& work) {
     auto& self = *impl_;
     self.check();
     auto& body = self.mover(entity, ref);
     valid_xy({feet[0], feet[1], 0});
     const auto request = Impl::mover_request(body, feet);
-    std::size_t work = 0;
-    if (self.penetration_mover({request.shape, request.dimensions, request.origin, 0},
-                               {body.admitted.config.body.mask, false}, ref, work,
-                               std::uint64_t{1} << body.admitted.config.body.layer) >
-        mover_slop + mover_tolerance)
+    double depth;
+    try {
+        depth = self.penetration_mover({request.shape, request.dimensions, request.origin, 0},
+                                       {body.admitted.config.body.mask, false}, ref, work,
+                                       std::uint64_t{1} << body.admitted.config.body.layer);
+    } catch (...) {
+        // Earlier FIFO placements may already have changed the native world.
+        // A work/query failure cannot be resumed as a partially consumed batch.
+        self.fault = true;
+        throw;
+    }
+    if (depth > mover_slop + mover_tolerance) {
+        body.mover_placement_blocked = true;
         return false;
+    }
     b2Body_SetTransform(body.id, {feet[0], feet[1]}, b2Rot_identity);
+    body.admitted.pose.translation.x = feet[0];
+    body.admitted.pose.translation.y = feet[1];
     body.mover_support_valid = false;
+    body.mover_placement_blocked = false;
     if (clear_velocity)
         body.mover_intent = body.mover_velocity = {};
     return true;
@@ -2283,7 +2334,8 @@ std::optional<MoverState2D> Native2D::mover_state(std::uint64_t entity, EntityRe
             ? body.mover_support
             : self.support_mover(body, {position.x, position.y}, body.mover_intent, work);
     return MoverState2D{
-        {position.x, position.y}, body.mover_intent, body.mover_velocity, body.epoch, support};
+        {position.x, position.y},    body.mover_intent, body.mover_velocity, body.epoch, support,
+        body.mover_placement_blocked};
 }
 bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
     impl_->check();
@@ -2310,10 +2362,22 @@ std::optional<PhysicsContact2D> Native2D::event(std::size_t index) const {
         return {};
     return impl_->events[index];
 }
-void Native2D::validate_step() const {
+void Native2D::validate_step(float dt) const {
     impl_->check();
     if (impl_->last_step_tick != impl_->last_event_tick)
         throw std::runtime_error("Adopt the completed 2D fixed step before starting another");
+    if (!std::isfinite(dt) || dt < 0)
+        throw std::runtime_error("2D step admission requires finite nonnegative dt");
+    if (dt > 0)
+        for (auto id : impl_->mover_order) {
+            const auto& body = impl_->bodies.at(id);
+            const auto point = b2Body_GetPosition(body.id);
+            auto request = Impl::mover_request(body, {point.x, point.y});
+            request.displacement = {body.mover_intent[0] * dt, body.mover_intent[1] * dt};
+            validate_sweep_2d(request);
+            if (std::hypot(request.displacement[0], request.displacement[1]) > 1000)
+                throw std::runtime_error("2D character intent exceeds1000m per fixed step");
+        }
 }
 void Native2D::adopt_events(std::uint64_t tick) {
     auto& self = *impl_;
@@ -2367,7 +2431,7 @@ void Native2D::step(float dt, std::uint64_t tick) {
     self.check();
     if (!std::isfinite(dt) || dt <= 0)
         throw std::runtime_error("2D physics needs a positive finite fixed dt");
-    validate_step();
+    validate_step(dt);
     if (!realized())
         return;
     // Capture previous support before rigid motion and charge it to the same

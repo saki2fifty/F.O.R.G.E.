@@ -54,6 +54,8 @@ using Desired2D = std::map<std::uint64_t, Body2DDesired>;
 Body2DConfiguration inline_configuration_2d(PhysicsBody2D, unsigned shape,
                                             std::array<float, 2> raw_dimensions, LocalScale);
 Body2DConfiguration controller_configuration_2d(const CharacterController2D&, LocalScale);
+// Checked feet-to-centered-capsule projection shared by admission and controls.
+PhysicsOverlap2D controller_shape_2d(const Body2DConfiguration&, Double2 feet);
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D, const TileMapData&,
                                               std::uint64_t layer, LocalScale);
 PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit,
@@ -81,6 +83,7 @@ struct MoverState2D {
     Double2 position{}, intent{}, velocity{};
     std::uint64_t epoch = 0;
     std::optional<MoverSupport2D> support;
+    bool placement_blocked = false;
 };
 // Reads the existing effective graph and schema. No native creation or ECS writes.
 class Native2D;
@@ -134,7 +137,8 @@ class Native2D {
     // Private fixed-boundary controller operations. Outer CharacterService owns
     // command admission/FIFO; body APIs cannot control this representation.
     void move_mover(std::uint64_t, EntityRef, Double2 velocity);
-    bool place_mover(std::uint64_t, EntityRef, Double2 feet, bool clear_velocity);
+    bool place_mover(std::uint64_t, EntityRef, Double2 feet, bool clear_velocity,
+                     std::size_t& query_work);
     std::optional<MoverState2D> mover_state(std::uint64_t, EntityRef) const;
     void expire_events();
     void adopt_events(std::uint64_t tick);
@@ -142,7 +146,7 @@ class Native2D {
     std::optional<PhysicsContact2D> event(std::size_t) const;
     bool current(std::uint64_t, EntityRef, std::uint64_t epoch) const;
     bool contains(std::uint64_t, EntityRef) const;
-    void validate_step() const;
+    void validate_step(float dt = 0) const;
     void step(float, std::uint64_t tick);
     std::map<std::uint64_t, LocalTransform> adopted_poses() const;
     void accept_poses(const std::map<std::uint64_t, LocalTransform>&);

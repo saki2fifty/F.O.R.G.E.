@@ -91,8 +91,8 @@ class Assembly(unittest.TestCase):
             runtime()
             reference()
             output = root/'final.zip'
-            def build():
-                assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game)
+            def build(**examples):
+                assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game, **examples)
             build()
             original = output.read_bytes()
             with zipfile.ZipFile(output) as archive:
@@ -127,14 +127,20 @@ class Assembly(unittest.TestCase):
                 self.assertEqual(archive.read('Examples/PhysicsLoads/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
             compiled = output.read_bytes()
             assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game,
-                     example, physics_velocity=example, physics_contacts=example, physics_volumes=example)
+                     example, physics_velocity=example, physics_contacts=example, physics_volumes=example,
+                     movement_2d=example, character_2d=example)
             with zipfile.ZipFile(output) as archive:
                 self.assertEqual(archive.read('Examples/PhysicsVelocity/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
                 self.assertIn('Examples/PhysicsLoads/forge.project.json', archive.namelist())
                 self.assertEqual(archive.read('Examples/PhysicsContacts/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
                 self.assertEqual(archive.read('Examples/PhysicsVolumes/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
+                for folder in ('Movement2D', 'Character2D'):
+                    self.assertEqual(archive.read(f'Examples/{folder}/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
             compiled = output.read_bytes()
             library.write_bytes(b'corrupt loads')
+            with self.assertRaises(ValueError):
+                build(character_2d=example)
+            self.assertEqual(output.read_bytes(), compiled, 'Rejected character example replaced prior ZIP')
             with self.assertRaises(ValueError):
                 assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game,
                          physics_velocity=example)

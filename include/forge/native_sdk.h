@@ -134,6 +134,12 @@ typedef struct ForgeSdkCharacterV1 {
     float rotation_xyzw[4];
     char support_scene[37], support_entity[37]; /* empty when unsupported */
 } ForgeSdkCharacterV1;
+typedef struct ForgeSdkCharacter2DV1 {
+    uint32_t size, ground, placement_blocked;
+    uint64_t epoch, supporting_epoch; /* Simulation realizations, not durable IDs. */
+    double position[2], velocity[2], ground_position[2], ground_normal[2], ground_velocity[2];
+    char support_scene[37], support_entity[37]; /* Empty with supporting_epoch0 in air. */
+} ForgeSdkCharacter2DV1;
 typedef struct ForgeSdkPhysicsBodyStateV1 {
     uint32_t size, motion, active;
     double centre_of_mass[3], linear_velocity[3], angular_velocity[3];
@@ -543,6 +549,20 @@ typedef struct ForgeSdkWorldV1 {
        clears on failure. Request/output may alias; request copied first. */
     int32_t(FORGE_SDK_CALL* physics_shape_cast_2d)(void*, const ForgeSdkSweep2DV1*,
                                                    ForgeSdkPhysicsHit2DV1*);
+    /* Distinct feet-origin XY controller. Fixed callback, Physics permission.
+       State1 copied,0 unavailable/invalid; valid-size output clears on failure.
+       ground uses the character_state enum. Velocity is clipped requested m/s,
+       excluding penetration correction/floor follow; no body/native handles. */
+    int32_t(FORGE_SDK_CALL* character_state_2d)(void*, const char* scene_uuid,
+                                                const char* entity_uuid, ForgeSdkCharacter2DV1*);
+    /* Shared4096 character FIFO:0 full world XY velocity(m/s),1 checked feet
+       placement(m). value[2] required. clear_velocity0/1 is only for placement;
+       movement requires0. C++ supplies gravity/jump.1 queued,0 rejected; reads
+       never flush commands. Placement preserves Z; blocked result is copied
+       by character_state_2d at the next admitted boundary. */
+    int32_t(FORGE_SDK_CALL* character_command_2d)(void*, const char* scene_uuid,
+                                                  const char* entity_uuid, uint32_t operation,
+                                                  const double value[2], uint32_t clear_velocity);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

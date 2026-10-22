@@ -365,12 +365,102 @@ and final editor C++ workflow gates. The source-free relocated game checks nativ
 SDL movement, a 1.822136 m jump, painted support and held-jump suppression; its three
 rest/jump/landed WARP captures were reviewed. Physical GPU acceptance is separate.
 
+## Character Controller 2D
+
+`forge.character_controller_2d` is a distinct optional builtin component. It uses
+the existing PhysicsRuntime and subordinate Native2D body records. Its internal
+solid Kinematic capsule supplies ordinary collision/query presence; no authored
+PhysicsBody2D or CapsuleCollider2D is synthesized. An enabled controller cannot
+share an enabled 2D/3D body or another controller. Body movement/load/state APIs
+do not acquire controller authority; use the separate character controls.
+
+The entity origin is the feet. The capsule's straight segment runs from local
+Y=`radius` to `radius+height`; total height is `2*radius+height`. Require World
+spatial binding, upright identity physical rotation, positive Y scale and equal
+absolute XY scale. Horizontal reflection is valid; visual Z and all authored scale
+channels remain preserved, including zero Z scale. Effective radius is at least
+0.02m, straight height at least0.01m and total height at most1000m. Visual children
+can rotate independently. Feet, query centers and sweep endpoints must pass the
+existing finite ±1e6m query boundary.
+
+Mode0 is Grounded, mode1 Floating. Defaults are radius0.3m, straight height0.6m,
+max slope50degrees and floor probe0.1m. Grounded accepts walkable support when
+`normal.y >= cos(max_slope)`; maximum authored slope is85degrees. Floor probe is
+0..1 world metres and is not multiplied by presentation scale. Floating reports
+InAir and performs no floor following. Neither mode implicitly applies gravity.
+
+`move_character_2d` copies full world XY velocity, not acceleration or displacement.
+The last velocity remains active until replaced or cleared by successful placement.
+Game C++ chooses gravity and jump policy. Requested norm is at most1e6m/s and one
+fixed-step translation at most1000m. Invalid endpoints/displacement reject before
+either native physics domain advances. At60Hz, a3m/s X request asks for0.05m travel.
+An original example jump requests6m/s upward for0.1m first-step rise, then subtracts
+`9.81*dt` from the observed vertical velocity each subsequent step. Its observed
+default apex is about1.89m; this is example policy rather than an implicit engine jump.
+
+Movement composes checked public native casts, overlaps and collision planes.
+Exclude every shape of the same canonical controller, sensors, and objects that
+fail mutual physical layer masks. Process controllers in canonical-reference order.
+Deep overlap or an infeasible plane solve is an error, not successful clearance.
+Bound shallow recovery to `min(0.05m, radius/4)` with native0.005m contact slop;
+use at most64 unique planes and8 motion iterations. Retain only independently
+checked endpoints. Exhausted motion iterations discard remaining travel.
+
+The copied velocity is clipped requested velocity in m/s, excluding shallow
+correction and downward floor-follow distance. Float geometry reconstruction does
+not increase requested speed; unchanged components preserve their original input.
+Previous walkable support permits a bounded vertical follow on descent without
+adding horizontal travel. Explicit separating upward velocity leaves support;
+an upward slope tangent can remain supported. Steep faces block unrequested uphill
+motion; explicit upward requests remain game policy.
+
+Copied state includes feet XY, velocity, ground classification, support normal,
+physical surface point/point velocity, complete canonical support reference, and
+own/support simulation epochs. OnGround/OnSteepGround/InAir use the existing
+CharacterGround numbers0/1/3. No support means an absent reference and epoch0.
+The support observation's1cm contact band does not enlarge the physical capsule.
+Moving support velocity is an observation; automatic platform carry is not promised.
+
+Checked placement queues feet XY and preserves Z. A blocked destination consumes
+the request, reports placement_blocked, and preserves pose/motion. Successful
+placement clears that flag, optionally clears persistent intent/velocity and marks
+a presentation discontinuity. Both character domains share one4096-request FIFO.
+Placement queries share16384 work across that boundary. Movement and its initial/
+final support observations share a separate16384 fixed-step work budget. Overflow
+or native query failure faults the native world: partial work cannot be adopted
+or continued. Ordinary blocked placement is a valid result, not a query fault.
+A cold copied-state query remains read-only; its failure rejects that observation
+without faulting or mutating the native world.
+
+Transform animation and model root-motion admission retain the controller's sole
+pose authority, including before realization. Disabled controllers allow ordinary
+animation. Source/Prefab defaults, references, opaque values and Undo/Redo use the
+existing schema/authoring owners. The selected Scene outline shares native capsule
+conversion. Runtime support/velocity guides and the read-only Live gameplay state
+use one copied selected-character projection through both process hosts.
+
+The editable `Examples/Character2D` project supplies C++ input, gravity, edge-triggered
+jumping and final grounded feedback. Its player has no authored body/collider.
+It reuses FORGE's own Sprite/Map resources. Stair stepping, crouching, explicit
+push controls, platform parenting/carry and 2D navigation are outside this profile.
+
 ## Matching C++ SDK
 
 The existing Physics capability now includes distinct 2D callbacks at the tail of
 `ForgeSdkWorldV1`, with header-only `sdk::Client` helpers. Rebuild modules against
 the matching SDK fingerprint; native ABI 1 and authored identity formats remain
 unchanged. No Box2D header, native ID or application pointer enters this boundary.
+
+`ForgeSdkCharacter2DV1` and the appended `character_state_2d` /
+`character_command_2d` callbacks expose the distinct feet-origin controller.
+Client helpers are `character_2d`, `move_character_2d` and `place_character_2d`.
+Raw command0 is full XY velocity,1 checked feet placement; value[2] is required.
+clear_velocity is0/1 and must be0 for movement. State and commands return1 for
+success/copied or queued,0 for rejection/unavailable. Exact-size state output
+clears on failure; invalid-size output is untouched. Fixed owner-thread execution
+and Physics permission apply. Reads never flush requests. Exceptions and native
+handles do not cross this C boundary. Rebuild modules for the changed fingerprint;
+the ABI1 prefix is preserved.
 
 - `move_2d` queues an XY/radian teleport or Kinematic target. It preserves source
   depth and signed scale; clear-velocity applies only to a teleport.
@@ -436,7 +526,7 @@ across ticks and copies all8160 End/Begin observations when1020 visitors are
 replaced. A separate16384 zero-dt retirement check rejects further replacement
 before native writes, then permits it after adoption releases that window.
 
-Private checkpoint6 preserves native 2D bytes, admitted configuration, private epochs,
+Private checkpoint7 preserves native 2D bytes, admitted configuration, private epochs,
 next epoch and queued domain-tagged commands inside the existing owner. Native
 snapshots scrub hooks and do not provide fresh-world application bindings.
 Ten-character native debug tags encode the record epoch, bounded to 60 bits;
@@ -480,5 +570,5 @@ exports must use the same native integration. Package the MIT notice in editor,
 runtime and SDK distributions; no Box2D header enters the gameplay SDK. Original
 editable Gallery content, Inspector/Scene guides, actual installed-only C++ and
 Windows/export gates are required before this feature is complete. Automatic Tile
-Map collision, 2D controllers/navigation, durable saves and streaming are
+Map collision, 2D navigation, durable saves and streaming are
 separate work.

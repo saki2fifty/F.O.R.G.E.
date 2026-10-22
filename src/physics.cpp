@@ -643,6 +643,7 @@ struct PhysicsRuntime::Impl {
         Double3 velocity{};
         float speed = 0;
         bool flag = false;
+        bool planar = false;
         LocalTranslation position;
         LocalRotation rotation;
     };
@@ -728,6 +729,14 @@ struct PhysicsRuntime::Impl {
         }
         for (const auto& command : character_commands) {
             const auto found = context.resolve(command.ref);
+            if (command.planar) {
+                const auto* body = found.state == WorldContext::ResolveState::Available && native_2d
+                                       ? native_2d->admitted(found.entity)
+                                       : nullptr;
+                if (!body || body->ref != command.ref || !body->config.mover_profile)
+                    throw std::runtime_error("2D character command target was removed or disabled");
+                continue;
+            }
             if (found.state != WorldContext::ResolveState::Available ||
                 !desired.contains(found.entity))
                 throw std::runtime_error("Character command target was removed or disabled");
@@ -737,8 +746,28 @@ struct PhysicsRuntime::Impl {
             characters.insert_or_assign(id, std::move(next));
             snaps.push_back(id);
         }
+        std::size_t placement_work = 0;
         for (const auto& command : character_commands) {
             const auto id = context.resolve(command.ref).entity;
+            if (command.planar) {
+                if (command.kind == 0)
+                    native_2d->move_mover(id, command.ref,
+                                          {command.velocity[0], command.velocity[1]});
+                else if (command.kind == 3) {
+                    if (native_2d->place_mover(id, command.ref,
+                                               {command.position.x, command.position.y},
+                                               command.flag, placement_work)) {
+                        auto entity = context.world().entity(id);
+                        auto pose = context.get_local_transform(entity);
+                        pose.translation.x = command.position.x;
+                        pose.translation.y = command.position.y;
+                        entity.set<LocalTranslation>(pose.translation);
+                        snaps.push_back(id);
+                    }
+                } else
+                    throw std::runtime_error("Unsupported2D character command");
+                continue;
+            }
             auto& c = characters.at(id);
             auto& owner = *c.owner;
             switch (command.kind) {
@@ -775,8 +804,21 @@ struct PhysicsRuntime::Impl {
         if (character_commands.size() >= 4096)
             throw std::runtime_error("Character command queue full");
         const auto found = context.resolve(command.ref);
-        if (found.state != WorldContext::ResolveState::Available ||
-            !context.world().entity(found.entity).has<CharacterController>())
+        if (found.state != WorldContext::ResolveState::Available)
+            throw std::runtime_error("Missing character command target");
+        if (command.planar) {
+            const auto entity = context.world().entity(found.entity);
+            if (!entity.has<CharacterController2D>() ||
+                !entity.get<CharacterController2D>().enabled ||
+                (command.kind != 0 && command.kind != 3))
+                throw std::runtime_error(
+                    "Missing/disabled2D character command target or unsupported request");
+            // Every target/domain is revalidated together before native writes.
+            // XY intent needs no scan of previous requests to check an up axis.
+            character_commands.push_back(std::move(command));
+            return;
+        }
+        if (!context.world().entity(found.entity).has<CharacterController>())
             throw std::runtime_error("Missing character command target");
         const auto entity = context.world().entity(found.entity);
         if (!entity.get<CharacterController>().enabled)
@@ -800,8 +842,12 @@ struct PhysicsRuntime::Impl {
                                          "movement before changing up");
         };
         for (const auto& prior : character_commands)
-            if (prior.ref == command.ref)
+            if (prior.ref == command.ref) {
+                if (prior.planar)
+                    throw std::runtime_error(
+                        "Character command target changed domains before consumption");
                 preflight(prior);
+            }
         preflight(command);
         character_commands.push_back(std::move(command));
     }
@@ -1550,8 +1596,22 @@ void PhysicsRuntime::synchronize(float dt) {
         throw std::runtime_error("Required collision assets are still preparing");
     const auto initial = s.desired();
     const auto initial_2d = s.desired_2d();
-    if (initial.size() + initial_2d.size() + s.desired_characters().size() > max_bodies)
+    const auto initial_characters = s.desired_characters();
+    if (initial.size() + initial_2d.size() + initial_characters.size() > max_bodies)
         throw std::runtime_error("Combined rigid/character body capacity exceeded");
+    for (const auto& command : s.character_commands) {
+        const auto target = s.context.resolve(command.ref);
+        if (target.state != WorldContext::ResolveState::Available ||
+            (command.planar ? !initial_2d.contains(target.entity) ||
+                                  !initial_2d.at(target.entity).config.mover_profile
+                            : !initial_characters.contains(target.entity)))
+            throw std::runtime_error(
+                "Character command target was removed, disabled or changed domains");
+        if (command.planar && command.kind == 3) {
+            (void)physics_detail::controller_shape_2d(initial_2d.at(target.entity).config,
+                                                      {command.position.x, command.position.y});
+        }
+    }
     auto nodes = s.context.transform_nodes();
     std::set<std::uint64_t> commanded;
     std::map<std::uint64_t, LocalTransform> placements_2d;
@@ -1790,7 +1850,7 @@ void PhysicsRuntime::step(float dt) {
     if (!std::isfinite(dt) || dt <= 0)
         throw std::runtime_error("Physics needs a positive fixed dt");
     if (s.native_2d)
-        s.native_2d->validate_step();
+        s.native_2d->validate_step(dt);
     auto error = JPH::EPhysicsUpdateError::None;
     {
         auto profile = s.context.services().profile("physics", "JoltUpdate", s.tick + 1);
@@ -2311,6 +2371,88 @@ void PhysicsRuntime::place_character(EntityRef ref, LocalTranslation p, LocalRot
     c.flag = clear;
     impl_->queue_character(c);
 }
+CharacterState2D PhysicsRuntime::character_2d(EntityRef ref) const {
+    const auto& self = *impl_;
+    self.check();
+    const auto found = self.context.resolve(ref);
+    if (found.state != WorldContext::ResolveState::Available || !self.native_2d)
+        throw std::runtime_error("2D character is unavailable or not yet realized");
+    const auto value = self.native_2d->mover_state(found.entity, ref);
+    if (!value)
+        throw std::runtime_error("2D character is unavailable or not yet realized");
+    CharacterState2D result;
+    result.position = value->position;
+    result.velocity = value->velocity;
+    result.epoch = value->epoch;
+    result.placement_blocked = value->placement_blocked;
+    if (value->support) {
+        result.supporting_entity = value->support->entity;
+        result.supporting_epoch = value->support->epoch;
+        result.ground_normal = value->support->normal;
+        result.ground_velocity = value->support->velocity;
+        result.ground_position = value->support->point;
+        result.ground =
+            value->support->walkable ? CharacterGround::OnGround : CharacterGround::OnSteepGround;
+    }
+    return result;
+}
+void PhysicsRuntime::move_character_2d(EntityRef ref, Double2 velocity) {
+    if (!std::isfinite(velocity[0]) || !std::isfinite(velocity[1]) ||
+        std::hypot(velocity[0], velocity[1]) > 1000000)
+        throw std::runtime_error("2D character velocity must be finite and at most1000000m/s");
+    Impl::CharacterCommand command;
+    command.ref = ref;
+    command.planar = true;
+    command.velocity = {velocity[0], velocity[1], 0};
+    impl_->queue_character(command);
+}
+void PhysicsRuntime::place_character_2d(EntityRef ref, Double2 feet, bool clear) {
+    valid_position_2d(feet);
+    Impl::CharacterCommand command;
+    command.ref = ref;
+    command.planar = true;
+    command.kind = 3;
+    command.position = {feet[0], feet[1], 0};
+    command.flag = clear;
+    impl_->queue_character(command);
+}
+Json PhysicsRuntime::character_debug(EntityRef ref) const {
+    impl_->check();
+    const auto found = impl_->context.resolve(ref);
+    if (found.state != WorldContext::ResolveState::Available)
+        throw std::runtime_error("Character debug target is unavailable");
+    const auto entity = impl_->context.world().entity(found.entity);
+    Json result;
+    if (entity.has<CharacterController2D>() && entity.get<CharacterController2D>().enabled) {
+        const auto value = character_2d(ref);
+        result = {{"entity", ref.entity},
+                  {"domain", "2d"},
+                  {"ground", unsigned(value.ground)},
+                  {"velocity", value.velocity},
+                  {"ground_normal", value.ground_normal},
+                  {"ground_position", value.ground_position},
+                  {"ground_velocity", value.ground_velocity},
+                  {"epoch", value.epoch},
+                  {"supporting_epoch", value.supporting_epoch},
+                  {"shape_blocked", value.placement_blocked}};
+        if (value.supporting_entity)
+            result["support"] = *value.supporting_entity;
+    } else {
+        const auto value = character(ref);
+        result = {{"entity", ref.entity},
+                  {"domain", "3d"},
+                  {"ground", unsigned(value.ground)},
+                  {"velocity", value.velocity},
+                  {"ground_normal", value.ground_normal},
+                  {"ground_position", value.ground_position},
+                  {"ground_velocity", value.ground_velocity},
+                  {"crouched", value.crouched},
+                  {"shape_blocked", value.shape_change_blocked}};
+        if (value.supporting_entity)
+            result["support"] = *value.supporting_entity;
+    }
+    return result;
+}
 Json PhysicsRuntime::status() const {
     auto& s = *impl_;
     s.check();
@@ -2389,7 +2531,7 @@ Json PhysicsRuntime::checkpoint() const {
         mapping.push_back({{"entity", b.ref},
                            {"body", b.id.GetIndexAndSequenceNumber()},
                            {"configuration", b.config.json()}});
-    Json out = {{"version", 6},
+    Json out = {{"version", 7},
                 {"build", build_id},
                 {"source", source_commit},
                 {"runtime", FORGE_NATIVE_SDK_FINGERPRINT},
@@ -2437,6 +2579,7 @@ Json PhysicsRuntime::checkpoint() const {
         out["character_commands"].push_back(
             {{"entity", c.ref},
              {"kind", c.kind},
+             {"planar", c.planar},
              {"velocity", c.velocity},
              {"speed", c.speed},
              {"flag", c.flag},
@@ -2468,7 +2611,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     auto checked = payload;
     auto checksum = checked.at("integrity").get<std::string>();
     checked.erase("integrity");
-    if (digest(checked.dump()) != checksum || checked.at("version") != 6 ||
+    if (digest(checked.dump()) != checksum || checked.at("version") != 7 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -2562,7 +2705,14 @@ void PhysicsRuntime::restore(const Json& payload) {
     for (const auto& item : pending_characters) {
         Impl::CharacterCommand c;
         c.ref = item.at("entity").get<EntityRef>();
+        if (!item.at("kind").is_number_unsigned() || item.at("kind").get<std::uint64_t>() > 3)
+            throw std::runtime_error("Invalid character recovery command kind");
+        for (const auto& [field, size] :
+             {std::pair{"velocity", 3u}, std::pair{"position", 3u}, std::pair{"rotation", 4u}})
+            if (!item.at(field).is_array() || item.at(field).size() != size)
+                throw std::runtime_error("Invalid character recovery command vector size");
         c.kind = item.at("kind").get<unsigned>();
+        c.planar = item.at("planar").get<bool>();
         c.velocity = item.at("velocity").get<Double3>();
         c.speed = item.at("speed").get<float>();
         c.flag = item.at("flag").get<bool>();
@@ -2573,12 +2723,22 @@ void PhysicsRuntime::restore(const Json& payload) {
         valid_position(c.position);
         const auto resolved = s.context.resolve(c.ref);
         if (c.kind > 3 || resolved.state != WorldContext::ResolveState::Available ||
-            !desired_chars.contains(resolved.entity) || !std::isfinite(c.speed) || c.speed < 0 ||
-            c.speed > 1000000)
+            (c.planar ? !desired_2d.contains(resolved.entity) ||
+                            !desired_2d.at(resolved.entity).config.mover_profile ||
+                            (c.kind != 0 && c.kind != 3)
+                      : !desired_chars.contains(resolved.entity)) ||
+            !std::isfinite(c.speed) || c.speed < 0 || c.speed > 1000000)
             throw std::runtime_error("Invalid character recovery command");
         for (auto v : c.velocity)
             if (!std::isfinite(v) || std::abs(v) > 1000000)
                 throw std::runtime_error("Invalid character recovery velocity");
+        if (c.planar &&
+            (c.velocity[2] != 0 || c.position.z != 0 || !equivalent(c.rotation, LocalRotation{}) ||
+             std::hypot(c.velocity[0], c.velocity[1]) > 1000000))
+            throw std::runtime_error("Invalid2D character recovery request");
+        if (c.planar && c.kind == 3)
+            (void)physics_detail::controller_shape_2d(desired_2d.at(resolved.entity).config,
+                                                      {c.position.x, c.position.y});
         character_commands.push_back(c);
     }
     const auto& queued = checked.at("commands");

@@ -1,5 +1,22 @@
 # 2026-10-22
 
+## Unreleased — 2D character controller integration
+
+- Added feet-origin Grounded/Floating Character Controller 2D under the existing
+  physics owner, with bounded move/slide, slope support, downward floor following,
+  checked placement and copied support/velocity. Game C++ supplies gravity/jump.
+- Extended the existing shared character FIFO and exact-SDK C table; modules must
+  rebuild for the matching fingerprint. ABI1 and authored identity remain. Private
+  physics checkpoint7 rejects older exact-build payloads.
+- Added the editable Character2D C++ project and both-host movement/support/FIFO/
+  recovery/permission checks. Local compiled example tests cover painted and box
+  floors, wall blocking, held-input behavior and speed/jump tuning. It uses FORGE's
+  own existing visual assets; no competitor controller implementation was copied.
+- Added read-only Live gameplay movement feedback and selected Scene support/
+  velocity guides. Installed-only SDK, native editor/render and relocated Windows
+  export checks remain required before a numbered delivery; local source changes
+  are not a claim of Windows or physical acceptance.
+
 ## Build261022-000204 — swept 2D queries and C++ movement
 
 - Added read-only closest box/circle/capsule sweeps through the existing Physics

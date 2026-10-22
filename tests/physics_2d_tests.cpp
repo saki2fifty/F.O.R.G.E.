@@ -1,4 +1,5 @@
 #include <cmath>
+#include <forge/character_components.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
 
@@ -259,6 +260,132 @@ void authored_controller_ownership() {
                 "Body command changed a controller pose or native state before rejection");
     }
 }
+void controller_service_motion_and_placement() {
+    Fixture test;
+    auto source = test.source();
+    auto& components = source["entities"][1]["components"];
+    components.erase("forge.physics_body_2d");
+    components.erase("forge.box_collider_2d");
+    components["forge.character_controller_2d"] = Json::object();
+    components["forge.local_translation"]["y"] = 0;
+    auto wall = row(EntityId::generate().str(), "Wall", 2.5, 2, 0);
+    wall["components"]["forge.box_collider_2d"] = {{"x", 1}, {"y", 6}};
+    source["entities"].push_back(wall);
+    auto spatial = row(EntityId::generate().str(), "Independent falling 3D body", 30, 30, 0);
+    spatial["components"].erase("forge.physics_body_2d");
+    spatial["components"].erase("forge.box_collider_2d");
+    spatial["components"]["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    source["entities"].push_back(spatial);
+    test.load(source);
+    PhysicsBody falling;
+    falling.motion = 2;
+    test.scene.entity(spatial.at("id").get<std::string>())
+        .set<PhysicsBody>(falling)
+        .set<BoxCollider>({});
+    test.physics->synchronize(0);
+    const auto ref = test.scene.reference(test.actor), floor = test.scene.reference(test.floor);
+    CharacterService& service = *test.physics;
+    const auto initial = service.character_2d(ref);
+    require(initial.ground == CharacterGround::OnGround && initial.supporting_entity == floor &&
+                initial.supporting_epoch == test.physics->body_state_2d(floor)->epoch &&
+                initial.epoch != 0 && initial.ground_normal[1] > .9999,
+            "Copied controller service lost initial canonical support state");
+    service.move_character_2d(ref, {3, -1});
+    require(service.character_2d(ref).position == initial.position,
+            "Queued velocity moved a controller immediately");
+    test.tick(120);
+    auto state = service.character_2d(ref);
+    require(std::abs(state.position[0] - 1.705) < 1e-4 &&
+                std::abs(state.position[1] + .005) < 1e-4 &&
+                std::hypot(state.velocity[0], state.velocity[1]) < 1e-4 &&
+                state.epoch == initial.epoch && state.ground == CharacterGround::OnGround,
+            "Service motion lost persistent intent, wall/floor clipping or controller epoch");
+    service.move_character_2d(ref, {0, 3});
+    test.tick(10);
+    require(service.character_2d(ref).ground == CharacterGround::InAir &&
+                service.character_2d(ref).position[1] > .49,
+            "Explicit upward service velocity did not leave ground");
+    service.move_character_2d(ref, {0, -3});
+    test.tick(20);
+    const auto before = service.character_2d(ref);
+    service.place_character_2d(ref, {2.5, 0}, true);
+    test.physics->synchronize(0);
+    state = service.character_2d(ref);
+    require(
+        state.placement_blocked && state.position == before.position &&
+            state.velocity == before.velocity,
+        "Blocked queued placement changed current pose/motion instead of reporting copied status");
+    service.place_character_2d(ref, {-2, 2}, true);
+    test.tick();
+    state = service.character_2d(ref);
+    require(state.position == Double2{-2, 2} && state.velocity == Double2{} &&
+                !state.placement_blocked && test.entity().get<LocalTranslation>().z == 7,
+            "Clear queued placement retained motion/status or changed Z");
+    service.move_character_2d(ref, {2, 0});
+    service.place_character_2d(ref, {-1, 2}, true);
+    service.move_character_2d(ref, {-3, 0});
+    test.tick();
+    state = service.character_2d(ref);
+    if (!(std::abs(state.position[0] - (-1 - 3. * float(1.f / 60))) < 1e-6 &&
+          state.position[1] == 2 && state.velocity == Double2{-3, 0}))
+        throw std::runtime_error(
+            "Controller FIFO did not preserve movement/place/clear/movement order: " +
+            Json{{"position", state.position},
+                 {"velocity", state.velocity},
+                 {"blocked", state.placement_blocked}}
+                .dump());
+    rejects([&] { service.move_character(ref, {}); });
+    rejects([&] { (void)service.character(ref); });
+    rejects([&] { (void)service.character_2d(floor); });
+    rejects([&] { service.move_character_2d(floor, {}); });
+    rejects([&] { service.move_character_2d(ref, {1000001, 0}); });
+    service.move_character_2d(ref, {1000000, 0});
+    test.physics->synchronize(1.f / 60);
+    const auto before_step = test.physics->checkpoint();
+    rejects([&] { test.physics->step(1.f / 60); });
+    require(test.physics->checkpoint() == before_step,
+            "Out-of-profile controller displacement advanced a native domain before rejection");
+    service.move_character_2d(ref, {});
+    test.tick();
+    const auto snapshot = test.scene.snapshot();
+    service.place_character_2d(ref, {0, 1000000}, false); // Feet fit, centered query does not.
+    rejects([&] { test.physics->synchronize(1.f / 60); });
+    require(test.scene.snapshot() == snapshot,
+            "Out-of-profile controller target wrote before admission");
+}
+void controller_shared_queue() {
+    Fixture test;
+    auto source = test.source();
+    auto& components = source["entities"][1]["components"];
+    components.erase("forge.physics_body_2d");
+    components.erase("forge.box_collider_2d");
+    components["forge.character_controller_2d"] = Json::object();
+    components["forge.local_translation"]["y"] = 0;
+    const auto other_id = EntityId::generate().str();
+    auto other = row(other_id, "3D character", 30, 0, 0);
+    other["components"].erase("forge.physics_body_2d");
+    other["components"].erase("forge.box_collider_2d");
+    other["components"]["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    source["entities"].push_back(other);
+    test.scene.restore_snapshot(source);
+    test.scene.entity(other_id).set<CharacterController>({});
+    test.physics->synchronize(0);
+    test.simulation.reset_presentation();
+    const auto ref = test.scene.reference(test.actor), spatial = test.scene.reference(other_id);
+    test.physics->move_character(spatial, {});
+    for (unsigned i = 0; i < 4095; ++i)
+        test.physics->move_character_2d(ref, {});
+    rejects([&] { test.physics->move_character_2d(ref, {}); });
+    rejects([&] { test.physics->move_character(spatial, {}); });
+    require(test.physics->checkpoint().at("character_commands").size() == 4096,
+            "2D and3D characters did not share the existing4096command queue");
+    test.tick();
+    require(test.physics->checkpoint().at("character_commands").empty(),
+            "Shared character FIFO was not consumed once");
+    rejects([&] { (void)test.physics->character_2d(spatial); });
+    require(test.physics->character(spatial).ground == CharacterGround::InAir,
+            "2D requests changed the separate3D controller meaning");
+}
 void bounded_work_fault() {
     for (unsigned profile : {0u, 1u, 2u}) {
         Fixture test;
@@ -286,6 +413,9 @@ int main() {
         reject_before_retirement();
         kinematic_limits_and_rotation_mapping();
         authored_controller_ownership();
+        controller_service_motion_and_placement();
+        controller_shared_queue();
+        std::cout << "2D CharacterService motion/placement/status/sharedFIFO PASS\n";
         bounded_work_fault();
         std::cout << "2D fixed-phase bodies, domain separation, settings, writer admission and "
                      "work-fault checks passed\n";

@@ -33,6 +33,13 @@ void character_physics_tests() {
     check(state.ground == CharacterGround::OnGround && std::abs(state.position.y) < .1,
           "Character failed to settle on floor");
     check(state.supporting_entity.has_value(), "Character has no copied ground entity");
+    const auto debug = f.physics->character_debug(ref);
+    check(debug.at("domain") == "3d" && debug.at("entity").get<EntityId>() == ref.entity &&
+              debug.at("ground") == unsigned(state.ground) &&
+              debug.at("velocity").get<Double3>() == state.velocity &&
+              debug.at("ground_position").get<Double3>() == state.ground_position &&
+              debug.at("support").get<EntityRef>() == *state.supporting_entity,
+          "Shared host character projection changed existing3D support/velocity meaning");
     const auto hit = f.physics->raycast({0, 1, -5}, {0, 0, 10});
     check(hit && hit->entity == ref, "Character inner body not mapped to EntityRef");
     f.physics->move_character(ref, {1, 0, 0});

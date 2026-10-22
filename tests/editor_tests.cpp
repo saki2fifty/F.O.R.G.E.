@@ -335,6 +335,7 @@ int main(int argc, char** argv) {
         test_spatial_helpers();
         test_asset_action_routes();
         test_redesign_drawers();
+        test_character_runtime_inspector();
         test_draft_ownership();
         test_responsive_xyz();
         test_initial_content_tab();

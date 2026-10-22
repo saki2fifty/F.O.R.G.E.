@@ -1174,6 +1174,60 @@ struct Bridge {
                 return 0;
             }
         };
+        host.character_state_2d = [](void* p, const char* scene, const char* entity,
+                                     ForgeSdkCharacter2DV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return 0;
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input)
+                    return 0;
+                const auto ref = Bridge::tile_target(scene, entity);
+                const auto value = c.services.physics()->character_2d(ref);
+                out->ground = static_cast<uint32_t>(value.ground);
+                out->epoch = value.epoch;
+                out->supporting_epoch = value.supporting_epoch;
+                out->placement_blocked = value.placement_blocked;
+                for (unsigned i = 0; i < 2; ++i) {
+                    out->position[i] = value.position[i];
+                    out->velocity[i] = value.velocity[i];
+                    out->ground_position[i] = value.ground_position[i];
+                    out->ground_normal[i] = value.ground_normal[i];
+                    out->ground_velocity[i] = value.ground_velocity[i];
+                }
+                if (value.supporting_entity) {
+                    std::memcpy(out->support_scene, value.supporting_entity->scene.str().c_str(),
+                                37);
+                    std::memcpy(out->support_entity, value.supporting_entity->entity.str().c_str(),
+                                37);
+                }
+                return 1;
+            } catch (...) {
+                *out = {};
+                out->size = sizeof(*out);
+                return 0;
+            }
+        };
+        host.character_command_2d = [](void* p, const char* scene, const char* entity, uint32_t op,
+                                       const double* value, uint32_t clear) -> int32_t {
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || op > 1 || clear > 1 || (op == 0 && clear) || !value)
+                    return 0;
+                const auto ref = Bridge::tile_target(scene, entity);
+                const Double2 input{value[0], value[1]};
+                auto service = c.services.physics();
+                if (op == 0)
+                    service->move_character_2d(ref, input);
+                else
+                    service->place_character_2d(ref, input, clear != 0);
+                return 1;
+            } catch (...) {
+                return 0;
+            }
+        };
         host.character_command = [](void* p, const char* scene, const char* entity, uint32_t op,
                                     const double* value, const float* q, float speed,
                                     uint32_t flag) -> int32_t {

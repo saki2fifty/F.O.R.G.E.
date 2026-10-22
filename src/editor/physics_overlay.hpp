@@ -113,7 +113,8 @@ class PhysicsOverlay {
         const bool show_character = physics_debug_uses_character(components);
         const bool show_character_2d = physics_debug_uses_character_2d(components);
         const bool show_planar = physics_debug_uses_planar(components);
-        if (show_character && runtime.is_object() && runtime.contains("character_debug") &&
+        if ((show_character || show_character_2d) && runtime.is_object() &&
+            runtime.contains("character_debug") &&
             runtime["character_debug"].value("entity", std::string{}) == selected)
             character = &runtime["character_debug"];
         try {
@@ -221,7 +222,10 @@ class PhysicsOverlay {
             if (note.empty()) {
                 note = disabled ? "Collision disabled — authored shape preview"
                                 : "Collision geometry — selected object";
-                if (show_planar)
+                if (show_character_2d)
+                    note = disabled ? "2D character disabled - authored feet outline"
+                                    : "2D character - feet outline";
+                else if (show_planar)
                     note = disabled ? "2D collision disabled - authored outline"
                                     : (components["forge.physics_body_2d"].value("sensor", false)
                                            ? "2D sensor - authored outline"
@@ -272,11 +276,19 @@ class PhysicsOverlay {
                                                       "In air"};
             note +=
                 " | " + std::string(grounds[std::min(3u, character->at("ground").get<unsigned>())]);
-            const auto p = character->at("ground_position").get<Double3>(),
-                       normal = character->at("ground_normal").get<Double3>();
-            SpatialHelpers::draw_line(draw, camera, origin, area, p, helper_add(p, normal),
-                                      IM_COL32(120, 190, 255, 255));
-            const auto velocity = character->at("velocity").get<Double3>();
+            const auto vector = [&](const char* field, bool point = false) -> Double3 {
+                if (show_character_2d) {
+                    const auto value = character->at(field).get<Double2>();
+                    return {value[0], value[1], point ? pose.translation.z : 0};
+                }
+                return character->at(field).get<Double3>();
+            };
+            if (character->contains("support")) {
+                const auto p = vector("ground_position", true), normal = vector("ground_normal");
+                SpatialHelpers::draw_line(draw, camera, origin, area, p, helper_add(p, normal),
+                                          IM_COL32(120, 190, 255, 255));
+            }
+            const auto velocity = vector("velocity");
             const Double3 feet{pose.translation.x, pose.translation.y, pose.translation.z};
             SpatialHelpers::draw_line(draw, camera, origin, area, feet,
                                       helper_add(feet, velocity, .25),

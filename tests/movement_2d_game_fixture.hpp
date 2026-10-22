@@ -28,7 +28,8 @@ struct Movement2DGameFixture {
         const auto scene = game.active().scene.snapshot();
         const Json* player = nullptr;
         for (const auto& row : scene.at("entities"))
-            if (row.at("components").contains("project.movement_2d")) {
+            if (row.at("components").contains("project.movement_2d") ||
+                row.at("components").contains("project.character_movement_2d")) {
                 if (player)
                     throw std::runtime_error("Exported movement example has multiple players");
                 player = &row;
@@ -38,7 +39,13 @@ struct Movement2DGameFixture {
         const auto& components = player->at("components");
         const auto& position = components.at("forge.local_translation");
         const double x = position.at("x"), y = position.at("y");
-        const bool grounded = components.at("project.movement_2d").at("grounded");
+        const bool controller = components.contains("project.character_movement_2d");
+        const char* policy = controller ? "project.character_movement_2d" : "project.movement_2d";
+        const double resting_y = controller ? 1. : 1.6;
+        const bool grounded = components.at(policy).at("grounded");
+        if (controller && (components.contains("forge.physics_body_2d") ||
+                           components.contains("forge.capsule_collider_2d")))
+            throw std::runtime_error("Exported character gained a hidden authored body/collider");
         const auto require = [](bool condition, const char* text) {
             if (!condition)
                 throw std::runtime_error(text);
@@ -46,7 +53,7 @@ struct Movement2DGameFixture {
         if (stage == 0) {
             if (tick < 100 || !grounded)
                 return;
-            require(std::abs(x + 4) < .002 && std::abs(y - 1.6) < .03,
+            require(std::abs(x + 4) < .002 && std::abs(y - resting_y) < .03,
                     "Exported player did not settle on the painted platform");
             capture("movement-2d-rest.ppm");
             start_x = x;
@@ -65,7 +72,7 @@ struct Movement2DGameFixture {
         } else if (stage == 2) {
             if (tick < start_tick + 3)
                 return;
-            require(grounded && std::abs(y - 1.6) < .03,
+            require(grounded && std::abs(y - resting_y) < .03,
                     "Exported movement left its starting ledge before the jump");
             floor_y = apex = y;
             start_tick = tick;
@@ -86,6 +93,7 @@ struct Movement2DGameFixture {
             capture("movement-2d-landed.ppm");
             atomic_write(output / "movement-2d-result.json", Json{{"tick", tick},
                                                                   {"native_sdl_input", true},
+                                                                  {"controller", controller},
                                                                   {"painted_support", true},
                                                                   {"held_jump_no_repeat", true},
                                                                   {"jump_rise", apex - floor_y},

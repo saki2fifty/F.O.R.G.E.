@@ -385,6 +385,84 @@ void parent_frame_recovery() {
                 "Parent-frame recovery changed authored depth or scale channels");
     }
 }
+void controller_queue_recovery() {
+    Fixture original;
+    auto source = original.source();
+    auto& components = source["entities"][0]["components"];
+    components.erase("forge.physics_body_2d");
+    components.erase("forge.box_collider_2d");
+    components["forge.character_controller_2d"] = {{"mode", 1}};
+    original.load(source);
+    const auto ref = original.ref();
+    original.physics->move_character_2d(ref, {-2, 1});
+    original.physics->place_character_2d(ref, {999989, 3}, true);
+    original.physics->move_character_2d(ref, {-1, 2});
+    const auto checkpoint = original.physics->checkpoint();
+    require(checkpoint.at("version") == 7 && checkpoint.at("character_commands").size() == 3,
+            "2D character requests did not use the versioned shared private checkpoint");
+    Fixture copy;
+    copy.actor = original.actor;
+    copy.scene.restore_snapshot(original.scene.snapshot());
+    copy.physics->restore(checkpoint);
+    copy.simulation.reset_presentation();
+    for (unsigned step = 0; step < 3; ++step) {
+        original.tick();
+        copy.tick();
+        const auto a = original.physics->character_2d(ref), b = copy.physics->character_2d(ref);
+        const double dt = float(1.f / 60);
+        require(a.position == b.position && a.velocity == b.velocity && a.epoch == b.epoch &&
+                    a.ground == b.ground && a.supporting_entity == b.supporting_entity &&
+                    a.placement_blocked == b.placement_blocked &&
+                    std::abs(a.position[0] - (999989 - (step + 1) * dt)) < 1e-6 &&
+                    std::abs(a.position[1] - (3 + (step + 1) * 2 * dt)) < 1e-6 &&
+                    a.velocity == Double2{-1, 2} &&
+                    original.physics->checkpoint().at("character_commands").empty() &&
+                    copy.physics->checkpoint().at("character_commands").empty(),
+                "2D character FIFO recovery diverged, reordered or replayed consumed requests");
+    }
+    for (unsigned corruption = 0; corruption < 9; ++corruption) {
+        auto invalid = checkpoint;
+        auto& command = invalid["character_commands"][0];
+        switch (corruption) {
+        case 0:
+            invalid["version"] = 6;
+            break;
+        case 1:
+            command["planar"] = false;
+            break;
+        case 2:
+            command["kind"] = 1u;
+            break;
+        case 3:
+            command["kind"] = 4294967296ull;
+            break;
+        case 4:
+            command["kind"] = .5;
+            break;
+        case 5:
+            command["velocity"] = {0, 0, 1};
+            break;
+        case 6:
+            command["velocity"] = {0, 0, 0, 1};
+            break;
+        case 7:
+            command["velocity"] = {1000001, 0, 0};
+            break;
+        case 8:
+            invalid["character_commands"][1]["position"] = {0, 1000000, 0};
+            break;
+        }
+        reseal(invalid);
+        Fixture candidate;
+        candidate.actor = original.actor;
+        candidate.scene.restore_snapshot(source);
+        const auto before = candidate.scene.snapshot();
+        rejects([&] { candidate.physics->restore(invalid); });
+        require(candidate.scene.snapshot() == before &&
+                    !candidate.physics->status().at("native_2d_realized").get<bool>(),
+                "Invalid2D controller recovery published native/source candidate state");
+    }
+}
 } // namespace
 int main() {
     try {
@@ -394,6 +472,8 @@ int main() {
         maximum_sensor_recovery();
         native_remaining_budget();
         parent_frame_recovery();
+        controller_queue_recovery();
+        std::cout << "2D character FIFO/version7/fresh-recovery/rejection PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

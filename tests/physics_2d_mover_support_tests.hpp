@@ -51,6 +51,14 @@ inline void test_mover_support_slopes() {
                         std::abs(state->position[1] - offset - mover_slope_feet(x, slope)) < .008,
                     "Descending floor follow lost support, changed requested X travel or hovered");
             }
+            test.native.move_mover(id, actor, {3 * std::cos(std::numbers::pi / 6), 1.5});
+            check_mover(test.native.mover_state(id, actor)->support &&
+                            test.native.mover_state(id, actor)->support->walkable,
+                        "Walkable uphill tangent velocity was mistaken for departure solely "
+                        "because Y is positive");
+            test.advance();
+            check_mover(bool(test.native.mover_state(id, actor)->support),
+                        "PositiveY uphill tangent velocity lost actual floor support");
             test.native.move_mover(id, actor, {0, 3});
             check_mover(!test.native.mover_state(id, actor)->support,
                         "Upward intent retained grounded floor-follow state");
@@ -238,5 +246,24 @@ inline void test_mover_support_fixed_budget() {
         faulted = true;
     }
     check_mover(faulted, "Failed fixed support work allowed partial pose adoption");
+}
+inline void test_mover_velocity_precision() {
+    using namespace physics_detail;
+    MoverNativeFixture test;
+    const auto actor = test.actor(0, 0);
+    const auto id = test.id(actor);
+    test.synchronize();
+    test.native.move_mover(id, actor, {1000000, 0});
+    test.native.expire_events();
+    test.native.step(.0001f, ++test.tick);
+    test.adopt();
+    const auto state = test.native.mover_state(id, actor);
+    check_mover(state && state->velocity == Double2{1000000, 0},
+                "Float-displacement reconstruction accelerated untouched controller intent");
+    const auto image = test.image();
+    Native2D restored(test.config);
+    restored.restore(image.metadata, image.bytes, test.desired, test.tick);
+    check_mover(restored.mover_state(id, actor)->velocity == state->velocity,
+                "Valid maximum-speed controller observation failed fresh recovery");
 }
 } // namespace forge::test

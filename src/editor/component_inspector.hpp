@@ -69,6 +69,27 @@ class ComponentInspector {
         if (phase == "Blocked")
             ui::help("The agent made no progress on this tick. This is not crowd avoidance.");
     }
+    void draw_character_state(const Json& status) {
+        ui::heading("Character movement", "Read-only movement and support from the runtime.");
+        static constexpr const char* grounds[]{"On ground", "Steep ground", "Unsupported",
+                                               "In air"};
+        ImGui::TextUnformatted(grounds[std::min(3u, status.at("ground").get<unsigned>())]);
+        FORGE_UI_PROBE("character:ground");
+        const auto& velocity = status.at("velocity");
+        if (status.value("domain", std::string{}) == "2d")
+            ImGui::Text("Velocity: X %.3f, Y %.3f m/s", velocity.at(0).get<double>(),
+                        velocity.at(1).get<double>());
+        else
+            ImGui::Text("Velocity: X %.3f, Y %.3f, Z %.3f m/s", velocity.at(0).get<double>(),
+                        velocity.at(1).get<double>(), velocity.at(2).get<double>());
+        FORGE_UI_PROBE("character:velocity");
+        if (status.value("shape_blocked", false)) {
+            ImGui::TextWrapped("%s", status.value("domain", std::string{}) == "2d"
+                                         ? "Placement blocked by solid geometry."
+                                         : "Placement or shape change blocked by solid geometry.");
+            FORGE_UI_PROBE("character:blocked");
+        }
+    }
     // Domain-specific logical mesh slots reuse the same property command/history.
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     std::function<bool(const Json& mesh_renderer, Json& parameters)> material_parameters;
@@ -119,7 +140,10 @@ class ComponentInspector {
         return false;
     }
     static bool has_runtime_inspection(const Json& effective, const Json& schema,
-                                       const std::string& selected) {
+                                       const std::string& selected, const Json& physics = {}) {
+        if (physics.contains("character_debug") &&
+            physics.at("character_debug").value("entity", std::string{}) == selected)
+            return true;
         if (has_runtime_fields(effective, schema, selected))
             return true;
         if (!effective.is_object() || !effective.contains("entities") ||
@@ -164,7 +188,8 @@ class ComponentInspector {
         const Json& effective, const Json& schema, const std::filesystem::path& project_root,
         const std::string& selected,
         const std::function<bool(const std::string&, const std::string&, const Json&)>& submit,
-        bool show_playback = true, const std::function<void()>& keep_values = {}) {
+        bool show_playback = true, const std::function<void()>& keep_values = {},
+        const Json& physics = {}) {
         if (!effective.is_object() || !schema.is_object() || !effective.contains("entities") ||
             !schema.contains("components"))
             return;
@@ -174,10 +199,13 @@ class ComponentInspector {
                 entity = &item;
                 break;
             }
+        const bool character_selected =
+            physics.contains("character_debug") &&
+            physics.at("character_debug").value("entity", std::string{}) == selected;
         if (!entity || !entity->contains("components") ||
             (!has_runtime_fields(effective, schema, selected) &&
              !(show_playback && entity->contains("animation_playback")) &&
-             !entity->contains("navigation_debug")))
+             !entity->contains("navigation_debug") && !character_selected))
             return;
         // Live fields coexist with the read-only authored Inspector below. Keep their
         // ImGui IDs distinct so activating one cannot collide with its authored peer.
@@ -200,6 +228,8 @@ class ComponentInspector {
             draw_animation_playback(entity->at("animation_playback"));
         if (entity->contains("navigation_debug"))
             draw_navigation_state(entity->at("navigation_debug"));
+        if (character_selected)
+            draw_character_state(physics.at("character_debug"));
         for (const auto& type : schema.at("components")) {
             const auto& components = entity->at("components");
             if (!runtime_type_available(type, components))

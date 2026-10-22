@@ -5297,10 +5297,23 @@ int main(int argc, char** argv) {
                 }
                 ImGui::End();
             }
+            play.physics_debug_selection = forge::Json();
+            if (play.ready() && !selected.empty() &&
+                (workspace.inspector || physics_overlay.visible))
+                for (const auto& row : play.effective_snapshot().at("entities"))
+                    if (row.at("id") == selected &&
+                        (row.at("components").contains("forge.character_controller") ||
+                         row.at("components").contains("forge.character_controller_2d"))) {
+                        play.physics_debug_selection =
+                            forge::Json{{"scene", play.effective_snapshot().at("asset_id")},
+                                        {"entity", selected}};
+                        break;
+                    }
             const bool live_inspector_ready =
                 play.active() && play.ready() && editor.selection.entities().size() == 1 &&
                 forge::ComponentInspector::has_runtime_inspection(play.effective_snapshot(),
-                                                                  play.runtime_schema(), selected);
+                                                                  play.runtime_schema(), selected,
+                                                                  play.physics_status());
             const auto live_sound =
                 workspace.inspector && play.ready() && editor.selection.entities().size() == 1
                     ? forge::AudioSourceEditor::selected(play.effective_snapshot(), selected)
@@ -5353,7 +5366,7 @@ int main(int argc, char** argv) {
                                 const forge::Json& value) {
                                 return play.submit_property_tune(selected, type, property, value);
                             },
-                            !live_animation, keep_runtime_values);
+                            !live_animation, keep_runtime_values, play.physics_status());
                         const auto& tune = play.property_tune_ack();
                         if (tune.is_object())
                             ImGui::TextWrapped(
@@ -6022,10 +6035,6 @@ int main(int argc, char** argv) {
                                                  mesh_resources ? mesh_resources->catalog()
                                                                 : nullptr,
                                                  play.physics_status(), read_published_tile_map);
-                        play.physics_debug_selection =
-                            physics_overlay.visible && !selected.empty()
-                                ? forge::Json{{"scene", scene.asset_id()}, {"entity", selected}}
-                                : forge::Json();
                         if (!game_view)
                             scene_tools.draw(rendered, view_camera, selected, image_origin, size,
                                              can_edit && !modal.active(),

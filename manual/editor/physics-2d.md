@@ -116,6 +116,35 @@ Each occupied cell contributes its rectangle, including transparent image pixels
 This profile supports Static rectangular Map collision; moving Maps, per-tile
 slopes and one-way platforms are not available.
 
+## Character movement
+
+Open a writable copy of **Examples/Character2D** for a player controlled by C++ and
+**Character Controller 2D**. Build Project Code with the matching SDK, then Play.
+Capture Game input and use A/D or arrows to walk; press Space to jump. Holding
+Space does not repeat after landing. A gamepad's left stick and south button work too.
+
+Select the Player. **Character Movement 2D** exposes speed, jump speed, gravity and
+terminal speed. Change authored values while stopped and save, or try temporary
+changes in **Live gameplay**. The live **Character movement** section reports
+ground state, velocity and blocked placement. Stop restores authored values.
+
+Enable **Scene → View → Selected collision** to see the feet-origin capsule and,
+during Play, its support normal and velocity. The player can stand on the painted
+floors and box stone. Walls block it; the marked sensor does not.
+
+For your own player, add **Character Controller 2D**, then supply C++ behavior
+through Project Code. The example source is under **Content → Code**. It reads
+input, chooses movement, applies gravity and permits a jump from walkable ground.
+Use an upright object with **Child space: World**; its origin is its feet. Keep
+positive Y scale and equal absolute X/Y scale. Attach visual children if they
+need independent rotation. Do not add an enabled Physics Body or another controller
+to the same object.
+
+Grounded mode reports floor support and can follow a nearby descending surface.
+Floating mode accepts XY movement without floor support. This profile does not
+provide automatic stairs, crouching, moving-platform carry or 2D navigation.
+See the example's **README.md** for the editable source and export experiment.
+
 ## Export
 
 Save the Scene and choose **Use saved current scene as startup** in Project
@@ -123,5 +152,6 @@ Settings. Export using the matching runtime kit. The saved bodies, Sprite
 materials and prepared animation clip travel with the game. Optional C++ behavior
 travels as its compiled module. Players need neither source code nor a compiler.
 
-Build204 includes connected bodies, painted Map collision and the C++ movement
-example. Native 2D character-controller components and 2D navigation remain planned.
+The two C++ examples use the same export workflow. Character2D exports its compiled
+movement code and controller settings. Movement2D uses a Dynamic body and a support
+sweep. Their source files are not needed to run the exported games.

@@ -1012,6 +1012,20 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& b
 }
 Json SdkPlayRuntime::handle(const Json& request, RuntimeClock::Time now) {
     auto response = handle_inner(request, now);
+    if (response.value("ok", false) && request.contains("physics_debug") &&
+        response.contains("physics")) {
+        try {
+            if (!state_->active_generation || !state_->game ||
+                !state_->game->active().engine.services().available(Capability::Physics))
+                throw std::runtime_error("Character debug requires an active physics world");
+            auto physics = std::static_pointer_cast<PhysicsRuntime>(
+                state_->game->active().engine.services().physics());
+            response["physics"]["character_debug"] =
+                physics->character_debug(request.at("physics_debug").get<EntityRef>());
+        } catch (const std::exception& error) {
+            response["physics"]["debug_diagnostic"] = error.what();
+        }
+    }
     if (response.value("ok", false) && request.contains("audio_source_watch")) {
         const auto& watched = request.at("audio_source_watch");
         try {
