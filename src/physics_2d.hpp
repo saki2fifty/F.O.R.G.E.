@@ -25,8 +25,12 @@ struct Body2DConfiguration {
     unsigned shape = 0;                // Box, circle, capsule, static compound boxes.
     std::array<float, 2> dimensions{}; // Effective world geometry, metres.
     std::shared_ptr<const std::vector<BoxPart2D>> parts{};
+    // Derived controller role, not an authored PhysicsBody2D. The capsule's
+    // native/local origin is at its feet; -1 selects floating move/slide.
+    std::optional<float> mover_floor_y{};
     bool operator==(const Body2DConfiguration& other) const {
         return body == other.body && shape == other.shape && dimensions == other.dimensions &&
+               mover_floor_y == other.mover_floor_y &&
                (parts == other.parts || (parts && other.parts && *parts == *other.parts));
     }
     Json json() const;
@@ -58,6 +62,10 @@ struct MoverMotion2D {
     // recovery, while clipped_displacement contains only the requested motion.
     Double2 translation{}, clipped_displacement{};
     unsigned iterations = 0;
+};
+struct MoverState2D {
+    Double2 position{}, intent{}, velocity{};
+    std::uint64_t epoch = 0;
 };
 // Reads the existing effective graph and schema. No native creation or ECS writes.
 class Native2D;
@@ -108,6 +116,11 @@ class Native2D {
     // unrequested uphill intent on steeper upward faces.
     MoverMotion2D mover_motion(const PhysicsSweep2D&, PhysicsQueryFilter,
                                float minimum_floor_y = -1) const;
+    // Private fixed-boundary controller operations. Outer CharacterService owns
+    // command admission/FIFO; body APIs cannot control this representation.
+    void move_mover(std::uint64_t, EntityRef, Double2 velocity);
+    bool place_mover(std::uint64_t, EntityRef, Double2 feet, bool clear_velocity);
+    std::optional<MoverState2D> mover_state(std::uint64_t, EntityRef) const;
     void expire_events();
     void adopt_events(std::uint64_t tick);
     std::size_t event_count() const;

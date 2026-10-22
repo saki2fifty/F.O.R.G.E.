@@ -1,5 +1,6 @@
 #include "physics_2d.hpp"
 #include "physics_2d_mover_motion_tests.hpp"
+#include "physics_2d_mover_native_tests.hpp"
 #include "physics_2d_mover_tests.hpp"
 #include <cmath>
 #include <iostream>
@@ -271,6 +272,14 @@ int main() {
         forge::test::test_mover_motion_sleep();
         forge::test::test_mover_motion_limits();
         std::cout << "Checked mover motion/feasibility/shared-budget PASS\n";
+        forge::test::test_mover_native_motion();
+        forge::test::test_mover_native_filters();
+        forge::test::test_mover_native_admission();
+        forge::test::test_mover_native_candidate_geometry();
+        forge::test::test_mover_native_order();
+        forge::test::test_mover_native_recovery();
+        forge::test::test_mover_native_budget();
+        std::cout << "Native mover ownership/filter/order/recovery/shared-budget PASS\n";
         for (double offset : {0., 999000., -999000.})
             geometry_queries_and_recovery(offset);
         capacity_and_invalid_geometry();
