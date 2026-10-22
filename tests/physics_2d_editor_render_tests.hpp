@@ -5,6 +5,7 @@
 #include "editor/property_drawer.hpp"
 #include "editor/published_tile_map.hpp"
 #include "editor/viewport.hpp"
+#include "physics_2d_character_capture.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include <forge/game_content.hpp>
 #include <thread>
@@ -15,8 +16,8 @@ namespace forge::test_physics_2d_editor_render {
 template <class Readback, class Save>
 void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
               const std::filesystem::path& root, const std::filesystem::path& images,
-              const Readback& readback, const Save& save, int joint_kind = -1,
-              bool painted = false) {
+              const Readback& readback, const Save& save, int joint_kind = -1, bool painted = false,
+              bool character = false) {
     using test_sprite_draw::check;
     std::filesystem::create_directories(images);
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
@@ -30,22 +31,42 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     check(bool(scene_id), "2D editor Gallery Scene missing");
     EngineContext engine(WorldRole::Authoring, false, {physics_schema_module()});
     Scene scene(engine.world());
-    scene.restore_snapshot(load_game_scene(root, {scene_id}));
+    auto input = load_game_scene(root, {scene_id});
+    if (character)
+        input = test::character_capture_source(std::move(input));
+    scene.restore_snapshot(input);
     ui::EditorUiContext editor_context;
     editor_context.scene = &scene;
     ui::ContextScope ui_scope(editor_context);
-    const auto source = scene.document(), effective = scene.effective_document();
+    const auto source = scene.document();
+    auto effective = scene.effective_document();
     Json selected;
     for (const auto& row : effective.at("entities"))
         if ((painted && row.at("components").contains("forge.tile_map_collider_2d")) ||
             (!painted && joint_kind < 0 &&
-             row.at("components").contains("forge.capsule_collider_2d")) ||
+             row.at("components")
+                 .contains(character ? "forge.character_controller_2d"
+                                     : "forge.capsule_collider_2d")) ||
             (joint_kind >= 0 && row.at("components").contains("forge.physics_joint_2d") &&
              row.at("components").at("forge.physics_joint_2d").at("kind") == joint_kind))
             selected = row;
     check(!selected.is_null(), "2D editor Gallery selected component missing");
     const auto selected_id = selected.at("id").get<std::string>();
     const auto schema = scene.schema();
+    std::unique_ptr<RuntimeWorld> runtime;
+    Json runtime_debug;
+    Double2 capsule_center{2.2, 4.6};
+    if (character) {
+        runtime = std::make_unique<RuntimeWorld>(std::vector<EngineModule>{}, PhysicsConfig{},
+                                                 std::nullopt, root, false);
+        runtime_debug = test::prepare_character_capture(*runtime, source);
+        effective = runtime->simulation.presentation(1);
+        const auto state = runtime->physics()->character_2d(runtime->scene.reference(selected_id));
+        const auto& profile = selected.at("components").at("forge.character_controller_2d");
+        capsule_center = {state.position[0], state.position[1] +
+                                                 profile.at("radius").get<double>() +
+                                                 .5 * profile.at("height").get<double>()};
+    }
     SceneDocument document(scene);
     ComponentInspector inspector;
     auto host = std::make_shared<MeshResourceHost>(presentation, context, root);
@@ -103,7 +124,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
             ImGui::SetNextWindowSize({split, float(height)}, ImGuiCond_Always);
             ImGui::Begin("Scene - 2D physics", nullptr, ImGuiWindowFlags_NoScrollbar);
-            ImGui::TextUnformatted(painted ? "Selected collision: painted solid layer / XY view"
+            ImGui::TextUnformatted(character
+                                       ? "Character: actual ground, velocity and blocked placement"
+                                   : painted ? "Selected collision: painted solid layer / XY view"
                                    : joint_kind < 0 ? "Selected collision: capsule / XY view"
                                                     : "Authored 2D joint / XY view");
             origin = ImGui::GetCursorScreenPos();
@@ -111,14 +134,22 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             auto* image = viewport.render(context, effective, unsigned(area.x), unsigned(area.y),
                                           camera, 1, false);
             ImGui::Image(ImTextureRef{reinterpret_cast<ImTextureID>(image)}, area);
-            outline.draw(effective, selected_id, camera, origin, area, root, catalog, {}, read_map);
+            outline.draw(effective, selected_id, camera, origin, area, root, catalog, runtime_debug,
+                         read_map);
             ImGui::End();
             ImGui::SetNextWindowPos({split, 0}, ImGuiCond_Always);
             ImGui::SetNextWindowSize({width - split, float(height)}, ImGuiCond_Always);
             ImGui::Begin("Inspector");
-            if (painted || joint_kind >= 0) {
+            if (painted || joint_kind >= 0 || character) {
                 ImGui::TextWrapped("%s", selected.at("name").get<std::string>().c_str());
+                if (character)
+                    inspector.draw_runtime(
+                        effective, schema, root, selected_id,
+                        [](const auto&, const auto&, const auto&) { return false; }, false, {},
+                        runtime_debug);
+                ImGui::BeginDisabled(character);
                 inspector.draw(scene, document, selected_id);
+                ImGui::EndDisabled();
             } else {
                 ImGui::TextWrapped("Dynamic lime capsule - visual children follow the body");
                 for (const auto component : {"forge.physics_body_2d", "forge.capsule_collider_2d"})
@@ -166,8 +197,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 if (x > width * .67f)
                     text += p[0] > 100 && p[1] > 100 && p[2] > 100;
                 else {
-                    const float center_x = origin.x + area.x * .5f + 2.2f * area.y / 12;
-                    const float center_y = origin.y + area.y * .5f - 4.6f * area.y / 12;
+                    const float center_x =
+                        origin.x + area.x * .5f + float(capsule_center[0]) * area.y / 12;
+                    const float center_y =
+                        origin.y + area.y * .5f - float(capsule_center[1]) * area.y / 12;
                     if (painted || joint_kind >= 0 ||
                         (std::abs(float(x) - center_x) < .6f * area.y / 12 &&
                          std::abs(float(y) - center_y) < area.y / 12))
@@ -181,6 +214,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
         if (painted)
             check(outline.status() == "Tile Map collision - published layer outline",
                   "Painted Scene capture did not draw the published physical layer");
+        if (character)
+            check(outline.status().find("On ground") != std::string::npos &&
+                      outline.status().find("shape/placement blocked") != std::string::npos,
+                  "Character capture did not draw actual support/blocked feedback");
     }
     check(scene.document() == source && !engine.services().available(Capability::Physics),
           "Staged 2D editor rendering changed source or created a solver");

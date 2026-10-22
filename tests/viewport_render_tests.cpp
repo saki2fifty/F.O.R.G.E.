@@ -330,6 +330,13 @@ int main(int argc, char** argv) {
                             save(pixels, w, h, path);
                         },
                         kind);
+                forge::test_physics_2d_editor_render::exercise(
+                    isolated, context, FORGE_TEST_GALLERY, images / "character-editor",
+                    [&](ITextureView* view) { return readback(device, context, view); },
+                    [&](const auto& pixels, unsigned w, unsigned h, const auto& path) {
+                        save(pixels, w, h, path);
+                    },
+                    -1, false, true);
             } else if (selected == "tile-canvas") {
                 // Exercise the same cached output path twice, including resource
                 // and project-lease retirement between the two authored projects.
