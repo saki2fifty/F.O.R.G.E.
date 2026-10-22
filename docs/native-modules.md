@@ -47,6 +47,11 @@ supply simulation time. Source save and scene save have separate document histor
 The existing Physics permission includes distinct XY movement/load/velocity,
 state, ray/overlap and current-tick collision callbacks. `sdk::Client` wraps the
 copied C boundary; no vendor physics headers or native handles are required.
+The additive box/circle/capsule sweep returns a copied closest hit and supports
+canonical self exclusion and explicit initial-overlap skipping. It is a read
+against realized bodies, not a native character controller. The editable
+[Movement2D example](../samples/projects/Movement2D/README.md) uses it for support
+checks while a Dynamic body owns motion.
 Positions use meters and angular values use radians. Commands share the existing
 body FIFO; reads do not flush it. The exact header/table fingerprint changes, so
 rebuild project modules with the matching installed SDK. Native ABI1 remains.

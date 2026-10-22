@@ -2,6 +2,7 @@
 #include "frame_statistics_game_fixture.hpp"
 #include "game_host_source.hpp"
 #include "material_graph_game_fixture.hpp"
+#include "movement_2d_game_fixture.hpp"
 #include "reference_game_workflow.hpp"
 #include <algorithm>
 #include <cmath>
@@ -16,10 +17,11 @@ struct GameHostFixture {
     unsigned stage = 0, frames = 0;
     bool frame_statistics = false;
     FrameStatisticsGameFixture frame_statistics_workflow;
+    Movement2DGameFixture movement_2d_workflow;
     bool pause_seen = false, packaged = false, mixed = false, prepare_only = false,
          expect_module = false, loads = false, velocity = false, contacts = false, volumes = false,
-         slider = false, motors = false, position_drive = false, connected = false,
-         swing_twist = false, distance_springs = false, animation_exits = false;
+         movement_2d = false, slider = false, motors = false, position_drive = false,
+         connected = false, swing_twist = false, distance_springs = false, animation_exits = false;
     std::map<std::string, unsigned> exit_states;
     std::array<double, 2> swing_maximum{}, swing_minimum{180, 180};
     std::array<double, 2> spring_minimum{100, 100}, spring_maximum{};
@@ -82,6 +84,7 @@ struct GameHostFixture {
         velocity = argc == 3 && std::string_view(argv[1]) == "--packaged-velocity";
         contacts = argc == 3 && std::string_view(argv[1]) == "--packaged-contacts";
         volumes = argc == 3 && std::string_view(argv[1]) == "--packaged-volumes";
+        movement_2d = argc == 3 && std::string_view(argv[1]) == "--packaged-movement-2d";
         slider = argc == 3 && std::string_view(argv[1]) == "--packaged-slider";
         motors = argc == 3 && std::string_view(argv[1]) == "--packaged-motors";
         position_drive = argc == 3 && std::string_view(argv[1]) == "--packaged-position";
@@ -89,9 +92,9 @@ struct GameHostFixture {
         swing_twist = argc == 3 && std::string_view(argv[1]) == "--packaged-swing";
         distance_springs = argc == 3 && std::string_view(argv[1]) == "--packaged-springs";
         animation_exits = argc == 3 && std::string_view(argv[1]) == "--packaged-exits";
-        packaged = reference || mixed || loads || velocity || contacts || volumes || slider ||
-                   motors || position_drive || connected || swing_twist || distance_springs ||
-                   animation_exits ||
+        packaged = reference || mixed || loads || velocity || contacts || volumes || movement_2d ||
+                   slider || motors || position_drive || connected || swing_twist ||
+                   distance_springs || animation_exits ||
                    (argc == 3 && (std::string_view(argv[1]) == "--packaged" ||
                                   std::string_view(argv[1]) == "--packaged-frame-statistics"));
         prepare_only = argc == 3 && std::string_view(argv[1]) == "--prepare";
@@ -167,8 +170,8 @@ struct GameHostFixture {
         std::size_t imported_pixels = 0;
         std::size_t physics_actor_pixels = 0;
         std::size_t contact_actor_pixels = 0;
-        if (loads || velocity || contacts || volumes || slider || motors || position_drive ||
-            connected || swing_twist || distance_springs)
+        if (loads || velocity || contacts || volumes || movement_2d || slider || motors ||
+            position_drive || connected || swing_twist || distance_springs)
             for (unsigned y = 0; y < desc.Height; ++y)
                 for (unsigned x = 0; x < desc.Width; ++x) {
                     const auto* p = pixels + y * data.Stride + x * 4;
@@ -197,8 +200,9 @@ struct GameHostFixture {
         }
         context->UnmapTextureSubresource(staging, 0, 0);
         check(bool(file), "Standalone capture write failed");
-        if (!reference && !loads && !velocity && !contacts && !volumes && !slider && !motors &&
-            !position_drive && !connected && !swing_twist && !distance_springs && !animation_exits)
+        if (!reference && !loads && !velocity && !contacts && !volumes && !movement_2d && !slider &&
+            !motors && !position_drive && !connected && !swing_twist && !distance_springs &&
+            !animation_exits)
             check(contrast > 30, "Standalone cube is not distinguishable from the background");
         if (loads || velocity || slider || motors || position_drive || connected || swing_twist ||
             distance_springs) {
@@ -207,7 +211,7 @@ struct GameHostFixture {
             atomic_write(output / "physics-render-result.json",
                          Json{{"cyan_actor_pixels", physics_actor_pixels}}.dump(2));
         }
-        if (contacts || volumes) {
+        if (contacts || volumes || movement_2d) {
             check(physics_actor_pixels > 100 && contact_actor_pixels > 100,
                   "Physics actor and cyan geometry are not both visible");
             atomic_write(output / "physics-render-result.json",
@@ -267,6 +271,12 @@ struct GameHostFixture {
             frame_statistics_workflow.frame(
                 game, image, window, running, output,
                 [&](const char* name) { capture(name, image, device, context); }, click);
+            return;
+        }
+        if (movement_2d) {
+            movement_2d_workflow.frame(game, window, output, running, [&](const char* name) {
+                capture(name, image, device, context);
+            });
             return;
         }
         if (animation_exits) {

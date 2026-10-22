@@ -63,12 +63,15 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
             ForgeSdkEntityRefV1 overlap{};
             overlap.size = sizeof(overlap);
             overlap.version = 42;
+            ForgeSdkSweep2DV1 sweep{};
+            sweep.size = sizeof(sweep);
             check(host->physics_body_state_2d(p, scene, id, &state) == -1 && !state.epoch &&
                       host->physics_point_velocity_2d(p, scene, id, zero, velocity) == -1 &&
                       velocity[0] == 0 && velocity[1] == 0 &&
                       host->physics_raycast_2d(p, zero, zero, UINT32_MAX, 1, &hit) == -1 &&
                       !hit.fraction &&
                       host->physics_overlap_shape_2d(p, &query, &overlap, 1) == -1 &&
+                      host->physics_shape_cast_2d(p, &sweep, &hit) == -1 && !hit.fraction &&
                       !overlap.version && host->physics_contact_count_2d(p) == -1 &&
                       host->physics_contact_event_2d(p, 0, &event) == -1 && !event.tick,
                   "Planar SDK exposed observations without Physics permission");
@@ -190,6 +193,66 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
             check(client.raycast_2d(origin, miss, UINT32_MAX, true, hit) == 0 && !hit.scene[0] &&
                       !hit.entity[0] && hit.fraction == 0 && hit.position[0] == 0,
                   "Planar SDK miss retained hit output");
+            ForgeSdkSweep2DV1 sweep{};
+            sweep.layer_mask = UINT32_MAX;
+            sweep.origin[1] = 5;
+            sweep.displacement[1] = -10;
+            for (unsigned shape = 0; shape < 3; ++shape) {
+                sweep.shape = shape;
+                sweep.dimensions[0] = .2;
+                sweep.dimensions[1] = shape == FORGE_SDK_PHYSICS_2D_CIRCLE ? 0 : .6;
+                check(client.shape_cast_2d(sweep, hit) == 1 && hit.normal[1] > .99 &&
+                          hit.fraction > .35 && hit.fraction < .45,
+                      "Planar SDK swept geometry did not reach the solid barrier");
+            }
+            std::memcpy(sweep.ignore_scene, hit.scene, sizeof(hit.scene));
+            std::memcpy(sweep.ignore_entity, hit.entity, sizeof(hit.entity));
+            check(client.shape_cast_2d(sweep, hit) == 0 && !hit.scene[0] && !hit.fraction,
+                  "Planar SDK canonical exclusion or cleared miss failed");
+            sweep.ignore_entity[0] = 0;
+            check(client.shape_cast_2d(sweep, hit) == -1 && !hit.entity[0],
+                  "Planar SDK accepted an incomplete sweep exclusion");
+            std::memset(sweep.ignore_scene, 'x', sizeof(sweep.ignore_scene));
+            check(client.shape_cast_2d(sweep, hit) == -1 && !hit.fraction,
+                  "Planar SDK accepted an unterminated sweep exclusion");
+            sweep = {};
+            sweep.shape = FORGE_SDK_PHYSICS_2D_CIRCLE;
+            sweep.dimensions[0] = .2;
+            sweep.layer_mask = UINT32_MAX;
+            sweep.include_sensors = 0;
+            sweep.origin[0] = 8;
+            check(client.shape_cast_2d(sweep, hit) == 1 && hit.fraction == 0 &&
+                      hit.normal[0] == 0 && hit.normal[1] == 0,
+                  "Planar SDK initial overlap semantics differ");
+            sweep.ignore_initial_overlap = 1;
+            sweep.displacement[0] = -12;
+            check(client.shape_cast_2d(sweep, hit) == 1 && hit.fraction > .5,
+                  "Planar SDK initial-overlap exclusion lost a later hit");
+            for (unsigned invalid : {2u, UINT32_MAX}) {
+                sweep.ignore_initial_overlap = invalid;
+                check(client.shape_cast_2d(sweep, hit) == -1 && !hit.scene[0],
+                      "Planar SDK accepted an invalid sweep flag");
+                sweep.ignore_initial_overlap = 0;
+                sweep.include_sensors = invalid;
+                check(client.shape_cast_2d(sweep, hit) == -1 && !hit.fraction,
+                      "Planar SDK accepted an invalid sweep sensor flag");
+            }
+            sweep.include_sensors = 0;
+            sweep.size = 1;
+            check(host->physics_shape_cast_2d(host->context, &sweep, &hit) == -1 && !hit.entity[0],
+                  "Planar SDK accepted an invalid sweep descriptor size");
+            hit.size = 1;
+            hit.fraction = 42;
+            check(host->physics_shape_cast_2d(host->context, &sweep, &hit) == -1 &&
+                      hit.fraction == 42,
+                  "Planar SDK wrote an invalid-size sweep output");
+            sweep.size = sizeof(sweep);
+            hit.size = sizeof(hit);
+            int32_t off_thread = 0;
+            std::thread([&] {
+                off_thread = host->physics_shape_cast_2d(host->context, &sweep, &hit);
+            }).join();
+            check(off_thread == -1 && !hit.fraction, "Planar SDK allowed an off-thread sweep");
             ForgeSdkOverlap2DV1 query{};
             query.shape = FORGE_SDK_PHYSICS_2D_BOX;
             query.layer_mask = UINT32_MAX;
@@ -238,6 +301,13 @@ int32_t FORGE_SDK_CALL ready(const ForgeSdkWorldV1* host, char* error, uint32_t 
     try {
         check(host->physics_contact_count_2d(host->context) == -1,
               "Planar SDK allowed a nonfixed observation");
+        ForgeSdkSweep2DV1 sweep{};
+        sweep.size = sizeof(sweep);
+        ForgeSdkPhysicsHit2DV1 hit{};
+        hit.size = sizeof(hit);
+        hit.fraction = 42;
+        check(host->physics_shape_cast_2d(host->context, &sweep, &hit) == -1 && !hit.fraction,
+              "Planar SDK allowed a nonfixed sweep");
         const double zero[2]{};
         check(host->physics_move_2d(host->context, "bad", "bad", zero, 0, 0, 0) == 0,
               "Planar SDK allowed a nonfixed movement");

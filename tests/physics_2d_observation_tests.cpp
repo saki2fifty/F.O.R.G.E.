@@ -3,6 +3,7 @@
 #include <cmath>
 #include <forge/runtime.hpp>
 #include <iostream>
+#include <limits>
 
 using namespace forge;
 namespace {
@@ -108,6 +109,129 @@ void rays_and_overlaps() {
     const auto selected = layered.physics->raycast_2d({0, 4}, {0, -8}, {2, false});
     require(selected && selected->entity == layered.ref(layered.second),
             "Named project query layer was ignored");
+}
+void swept_shapes() {
+    Fixture empty;
+    PhysicsSweep2D cast;
+    require(!empty.physics->shape_cast_2d(cast), "Empty 2D sweep invented a hit");
+    cast.dimensions[0] = 0;
+    rejects([&] { empty.physics->shape_cast_2d(cast, {0, false}); });
+    cast.dimensions[0] = .2;
+    cast.ignore = EntityRef{};
+    rejects([&] { empty.physics->shape_cast_2d(cast); });
+    cast.ignore.reset();
+    cast.displacement[0] = std::numeric_limits<double>::quiet_NaN();
+    rejects([&] { empty.physics->shape_cast_2d(cast); });
+    cast.displacement = {};
+    cast.origin = {1000000, 0};
+    cast.displacement[0] = 1;
+    rejects([&] { empty.physics->shape_cast_2d(cast, {0, true}); });
+    require(!empty.physics->status().at("native_2d_realized").get<bool>(),
+            "Empty or rejected sweep realized a world");
+    std::array<double, 3> fractions{};
+    for (double offset : {0., -999990., 999990.}) {
+        Fixture test;
+        const auto own_id = EntityId::generate().str();
+        auto own = row(own_id, offset, 4, 2), sensor = row(test.first, offset, 2, 0, true),
+             solid = row(test.second, offset, 0, 0);
+        solid["components"]["forge.physics_body_2d"]["mask"] = 0;
+        test.load(Json::array({own, sensor, solid}));
+        for (unsigned kind = 0; kind < 3; ++kind) {
+            cast = {};
+            cast.shape = PhysicsSweep2D::Shape(kind);
+            cast.dimensions =
+                kind == 0 ? Double2{.4, .8} : (kind == 1 ? Double2{.2, 0} : Double2{.2, .6});
+            cast.origin = {offset, 4};
+            cast.displacement = {0, -8};
+            const auto initial = test.physics->shape_cast_2d(cast);
+            require(initial && initial->entity == test.ref(own_id) && initial->fraction == 0 &&
+                        initial->normal == Double2{},
+                    "2D sweep lost its native initial-overlap semantics");
+            cast.ignore = test.ref(own_id);
+            const auto sensor_hit = test.physics->shape_cast_2d(cast);
+            require(sensor_hit && sensor_hit->entity == test.ref(test.first),
+                    "2D sweep did not exclude its canonical body or include a sensor");
+            const auto hit = test.physics->shape_cast_2d(cast, {UINT32_MAX, false});
+            require(hit && hit->entity == test.ref(test.second) && hit->normal[1] > .99 &&
+                        std::abs(hit->position[0] - offset) < .001 &&
+                        hit->fraction > sensor_hit->fraction && hit->fraction < .5,
+                    "Swept geometry, independent mask or sensor exclusion failed");
+            if (offset == 0)
+                fractions[kind] = hit->fraction;
+            else
+                require(std::abs(hit->fraction - fractions[kind]) < 1e-6,
+                        "2D sweep lost precision at a supported distant origin");
+            require(!test.physics->shape_cast_2d(cast, {0, true}), "Empty sweep mask hit");
+            cast.ignore.reset();
+            cast.ignore_initial_overlap = true;
+            const auto beyond = test.physics->shape_cast_2d(cast, {UINT32_MAX, false});
+            require(beyond && beyond->entity == hit->entity && beyond->fraction == hit->fraction,
+                    "Ignoring an initial overlap clipped away a later solid hit");
+            cast.displacement = {};
+            require(!test.physics->shape_cast_2d(cast),
+                    "Zero sweep failed to ignore the initial overlap");
+            cast.ignore_initial_overlap = false;
+            require(test.physics->shape_cast_2d(cast)->fraction == 0,
+                    "Zero sweep lost its initial overlap");
+        }
+        test.tick(180);
+        const auto own_ref = test.ref(own_id);
+        const auto sleeping = test.physics->body_state_2d(own_ref);
+        require(sleeping && !sleeping->active, "Sweep fixture did not settle");
+        test.physics->set_linear_velocity_2d(own_ref, {1, 0});
+        const auto before = test.physics->status();
+        cast = {};
+        cast.origin = {offset, 5};
+        cast.displacement = {0, -10};
+        (void)test.physics->shape_cast_2d(cast);
+        require(test.physics->body_state_2d(own_ref) == sleeping &&
+                    test.physics->status() == before,
+                "Sweep flushed commands, advanced time or woke a sleeping body");
+        test.tick();
+        require(test.physics->body_state_2d(own_ref)->linear_velocity[0] > .9,
+                "Sweep damaged the pending body command");
+    }
+    Fixture rotated;
+    auto floor = row(rotated.first, 0, 0, 0);
+    floor["components"].erase("forge.circle_collider_2d");
+    floor["components"]["forge.box_collider_2d"] = {{"x", 20}, {"y", 1}};
+    auto config = PhysicsConfig{};
+    config.gravity = {};
+    config.layers[1] = "Floor";
+    rotated.physics->configure(config);
+    floor["components"]["forge.physics_body_2d"]["layer"] = 1;
+    rotated.load(Json::array({floor}));
+    cast = {};
+    cast.shape = PhysicsSweep2D::Shape::Box;
+    cast.dimensions = {2, .2};
+    cast.origin = {0, 5};
+    cast.displacement = {0, -10};
+    const auto flat = rotated.physics->shape_cast_2d(cast, {2, false});
+    cast.angle = 1.5707963267948966;
+    const auto upright = rotated.physics->shape_cast_2d(cast, {2, false});
+    require(flat && upright && flat->fraction - upright->fraction > .08 &&
+                !rotated.physics->shape_cast_2d(cast, {1, false}),
+            "2D sweep ignored orientation or named layers");
+    cast.ignore = EntityRef{AssetId::generate(), rotated.ref(rotated.first).entity};
+    require(rotated.physics->shape_cast_2d(cast, {2, false}).has_value(),
+            "2D sweep exclusion ignored the Scene part of canonical identity");
+    cast.ignore = rotated.ref(rotated.first);
+    require(!rotated.physics->shape_cast_2d(cast), "Single excluded body still hit");
+    cast.ignore.reset();
+    cast.shape = PhysicsSweep2D::Shape(3);
+    rejects([&] { rotated.physics->shape_cast_2d(cast); });
+    cast.shape = PhysicsSweep2D::Shape::Circle;
+    rejects([&] { rotated.physics->shape_cast_2d(cast); }); // Unused height.
+    cast.dimensions = {.005, 0};
+    require(rotated.physics->shape_cast_2d(cast).has_value(), "Smallest circle sweep failed");
+    cast.shape = PhysicsSweep2D::Shape::Box;
+    cast.dimensions = {.01, .01};
+    require(rotated.physics->shape_cast_2d(cast).has_value(), "Smallest box sweep failed");
+    cast.shape = PhysicsSweep2D::Shape::Capsule;
+    cast.dimensions = {.005, .01};
+    require(rotated.physics->shape_cast_2d(cast).has_value(), "Small capsule sweep failed");
+    cast.angle = std::numeric_limits<double>::infinity();
+    rejects([&] { rotated.physics->shape_cast_2d(cast); });
 }
 void overlap_capacity() {
     Fixture test;
@@ -291,6 +415,7 @@ void bounded_zero_dt_retirement() {
 int main() {
     try {
         rays_and_overlaps();
+        swept_shapes();
         overlap_capacity();
         steady_sensor_profile();
         sensor_epochs_and_expiration();

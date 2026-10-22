@@ -1687,6 +1687,46 @@ struct Bridge {
                 return -1;
             }
         };
+        host.physics_shape_cast_2d = [](void* p, const ForgeSdkSweep2DV1* request,
+                                        ForgeSdkPhysicsHit2DV1* out) -> int32_t {
+            if (!out || out->size != sizeof(*out))
+                return -1;
+            const bool valid = request && request->size == sizeof(*request);
+            const auto input = valid ? *request : ForgeSdkSweep2DV1{};
+            *out = {};
+            out->size = sizeof(*out);
+            try {
+                auto& c = Bridge::get(p).context;
+                if (!c.input || !valid || input.include_sensors > 1 ||
+                    input.ignore_initial_overlap > 1)
+                    return -1;
+                PhysicsSweep2D query;
+                query.shape = PhysicsSweep2D::Shape(input.shape);
+                query.dimensions = {input.dimensions[0], input.dimensions[1]};
+                query.origin = {input.origin[0], input.origin[1]};
+                query.displacement = {input.displacement[0], input.displacement[1]};
+                query.angle = input.angle;
+                query.ignore_initial_overlap = input.ignore_initial_overlap != 0;
+                if (input.ignore_scene[0] || input.ignore_entity[0])
+                    query.ignore = Bridge::tile_target(input.ignore_scene, input.ignore_entity);
+                const auto hit = c.services.physics()->shape_cast_2d(
+                    query, {input.layer_mask, input.include_sensors != 0});
+                if (!hit)
+                    return 0;
+                std::memcpy(out->scene, hit->entity.scene.str().c_str(), 37);
+                std::memcpy(out->entity, hit->entity.entity.str().c_str(), 37);
+                for (unsigned i = 0; i < 2; ++i) {
+                    out->position[i] = hit->position[i];
+                    out->normal[i] = hit->normal[i];
+                }
+                out->fraction = hit->fraction;
+                return 1;
+            } catch (...) {
+                *out = {};
+                out->size = sizeof(*out);
+                return -1;
+            }
+        };
         host.physics_contact_count_2d = [](void* p) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;

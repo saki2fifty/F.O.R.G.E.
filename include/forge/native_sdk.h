@@ -171,6 +171,12 @@ typedef struct ForgeSdkOverlap2DV1 {
     double dimensions[2], origin[2],
         angle; /* Full box XY; circle radius,0; capsule radius,straight height. */
 } ForgeSdkOverlap2DV1;
+typedef struct ForgeSdkSweep2DV1 {
+    uint32_t size, shape, layer_mask, include_sensors, ignore_initial_overlap;
+    double dimensions[2], origin[2], displacement[2], angle;
+    /* Both empty: no exclusion. Otherwise a complete canonical body reference. */
+    char ignore_scene[37], ignore_entity[37];
+} ForgeSdkSweep2DV1;
 typedef struct ForgeSdkPhysicsContact2DV1 {
     uint32_t size, begin, sensor, first_available, second_available;
     uint64_t tick, first_epoch, second_epoch;
@@ -528,6 +534,15 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* physics_contact_count_2d)(void*);
     int32_t(FORGE_SDK_CALL* physics_contact_event_2d)(void*, uint32_t index,
                                                       ForgeSdkPhysicsContact2DV1*);
+    /* Linear box/circle/capsule sweep. Geometry matches overlap_shape_2d; no
+       rotation sweep. Endpoint +/-1e6m; zero displacement is valid. Optional
+       exclusion skips every shape of that canonical body. Initial overlaps
+       report fraction0/zero normal; ignore_initial_overlap0/1 skips all native
+       fraction0 hits (also touching).1 hit,0 miss,-1 invalid/context. Reads only
+       realized state; no command flush, wake or depenetration. Valid-size output
+       clears on failure. Request/output may alias; request copied first. */
+    int32_t(FORGE_SDK_CALL* physics_shape_cast_2d)(void*, const ForgeSdkSweep2DV1*,
+                                                   ForgeSdkPhysicsHit2DV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

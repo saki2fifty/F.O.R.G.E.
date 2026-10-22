@@ -122,6 +122,17 @@ inline void test_physics_tile_map(const std::filesystem::path& root,
     const auto hit = world.physics()->raycast_2d({1.5, 2}, {0, -4});
     check(hit && hit->entity == a && std::abs(hit->fraction - .5) < .001,
           "Painted floor ray did not use the shared collision instance");
+    PhysicsSweep2D sweep;
+    sweep.origin = {1.5, 2};
+    sweep.displacement = {0, -4};
+    sweep.dimensions = {.2, 0};
+    const auto swept = world.physics()->shape_cast_2d(sweep);
+    check(swept && swept->entity == a && swept->fraction > .4 && swept->fraction < .5 &&
+              swept->normal[1] > .99,
+          "Swept shape did not use the compound painted floor");
+    sweep.ignore = a;
+    check(!world.physics()->shape_cast_2d(sweep),
+          "Canonical sweep exclusion retained a compound floor shape");
     const std::array<TileMapCellEdit, 1> distant{{{1, {50000, -1}, {2, 0}}}};
     const auto invalid_extent = request_runtime_tile_cells(context, "project.physics_tiles", a,
                                                            initial->generation, distant);

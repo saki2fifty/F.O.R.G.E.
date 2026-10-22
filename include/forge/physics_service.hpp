@@ -71,6 +71,16 @@ struct PhysicsOverlap2D {
     Double2 dimensions{.5, 0}, origin{};
     double angle{}; // Radians about +Z.
 };
+// Linear XY sweep; centered geometry matches PhysicsOverlap2D. No angular sweep
+// or depenetration. A native initial overlap reports fraction0 and zero normal.
+struct PhysicsSweep2D {
+    using Shape = PhysicsOverlap2D::Shape;
+    Shape shape = Shape::Circle;
+    Double2 dimensions{.5, 0}, origin{}, displacement{};
+    double angle{};
+    std::optional<EntityRef> ignore;     // Exclude all shapes of this canonical body.
+    bool ignore_initial_overlap = false; // Skip native fraction0 hits, including touching.
+};
 struct PhysicsContact2D {
     EntityRef first, second;
     std::uint64_t first_epoch{}, second_epoch{}, tick{};
@@ -133,6 +143,8 @@ class PhysicsService : public CharacterService {
                                                    PhysicsQueryFilter = {}) const = 0;
     virtual std::vector<EntityRef> overlap_shape_2d(const PhysicsOverlap2D&,
                                                     PhysicsQueryFilter = {}) const = 0;
+    virtual std::optional<PhysicsHit2D> shape_cast_2d(const PhysicsSweep2D&,
+                                                      PhysicsQueryFilter = {}) const = 0;
     // Stable copied slots for this tick. Sensor first/visitor second; solid pairs
     // use canonical ordering. Availability checks the current epoch on each read.
     virtual std::size_t contact_count_2d() const = 0;

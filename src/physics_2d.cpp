@@ -153,6 +153,14 @@ b2ShapeProxy overlap_proxy(const PhysicsOverlap2D& query) {
     const b2Vec2 points[] = {{0, -.5f * height}, {0, .5f * height}};
     return b2MakeOffsetProxy(points, 2, radius, {0, 0}, rotation);
 }
+b2ShapeProxy sweep_proxy(const PhysicsSweep2D& query) {
+    if (!std::isfinite(query.displacement[0]) || !std::isfinite(query.displacement[1]))
+        throw std::runtime_error("2D sweep displacement must be finite");
+    valid_xy({query.origin[0] + query.displacement[0], query.origin[1] + query.displacement[1], 0});
+    if (query.ignore && (!query.ignore->scene || !query.ignore->entity))
+        throw std::runtime_error("2D sweep exclusion requires a complete canonical reference");
+    return overlap_proxy({query.shape, query.dimensions, query.origin, query.angle});
+}
 b2QueryFilter query_filter(PhysicsQueryFilter value) {
     auto result = b2DefaultQueryFilter();
     result.categoryBits = query_category;
@@ -177,6 +185,7 @@ void validate_ray_2d(Double2 origin, Double2 displacement) {
         throw std::runtime_error("2D ray displacement must be finite and nonzero");
 }
 void validate_overlap_2d(const PhysicsOverlap2D& query) { (void)overlap_proxy(query); }
+void validate_sweep_2d(const PhysicsSweep2D& query) { (void)sweep_proxy(query); }
 Body2DConfiguration inline_configuration_2d(PhysicsBody2D body, unsigned shape,
                                             std::array<float, 2> raw, LocalScale scale) {
     if (!std::isfinite(scale.x) || !std::isfinite(scale.y) || !std::isfinite(scale.z))
@@ -623,6 +632,8 @@ struct Native2D::Impl {
     struct RayQuery {
         const Impl* self;
         PhysicsQueryFilter filter;
+        std::optional<EntityRef> ignore{};
+        bool ignore_initial_overlap = false;
         std::size_t work = 0;
         bool failed = false;
         std::optional<PhysicsHit2D> hit;
@@ -641,7 +652,9 @@ struct Native2D::Impl {
             query.failed = true;
             return 0;
         }
-        if (!query.filter.include_sensors && body->admitted.config.body.sensor)
+        if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
+            (query.ignore && body->admitted.ref == *query.ignore) ||
+            (query.ignore_initial_overlap && fraction == 0))
             return -1;
         if (!query.hit || fraction < query.hit->fraction)
             query.hit = PhysicsHit2D{
@@ -1421,6 +1434,22 @@ std::vector<EntityRef> Native2D::overlap(const PhysicsOverlap2D& request,
     std::vector<EntityRef> result(query.refs.begin(), query.refs.begin() + query.count);
     std::sort(result.begin(), result.end());
     return result;
+}
+std::optional<PhysicsHit2D> Native2D::shape_cast(const PhysicsSweep2D& request,
+                                                 PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    const auto proxy = sweep_proxy(request);
+    if (!realized() || !filter.mask)
+        return {};
+    Impl::RayQuery query{&self, filter, request.ignore, request.ignore_initial_overlap};
+    b2World_CastShape(self.world, {request.origin[0], request.origin[1]}, &proxy,
+                      {float(request.displacement[0]), float(request.displacement[1])},
+                      query_filter(filter), Impl::ray_hit, &query);
+    if (query.failed)
+        throw std::runtime_error(
+            "2D sweep exceeded its work limit or hit an invalid native binding");
+    return query.hit;
 }
 bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
     impl_->check();

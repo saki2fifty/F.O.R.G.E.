@@ -1,0 +1,47 @@
+{
+  "asset_id": "7af59847-622f-480f-a403-f383a1a5890b",
+  "format": "forge.tile-set",
+  "images": [
+    {
+      "grid": {
+        "columns": 4,
+        "margin_x": 0,
+        "margin_y": 0,
+        "rows": 1,
+        "spacing_x": 0,
+        "spacing_y": 0
+      },
+      "id": 1,
+      "material": "258b9537-c0f6-448d-af8c-818f150d67cf",
+      "name": "Original FORGE arrow sheet"
+    }
+  ],
+  "next_id": 6,
+  "tiles": [
+    {
+      "frame": 0,
+      "id": 2,
+      "image": 1,
+      "name": "Up - green"
+    },
+    {
+      "frame": 1,
+      "id": 3,
+      "image": 1,
+      "name": "Right - blue"
+    },
+    {
+      "frame": 2,
+      "id": 4,
+      "image": 1,
+      "name": "Down - orange"
+    },
+    {
+      "frame": 3,
+      "id": 5,
+      "image": 1,
+      "name": "Left - pink"
+    }
+  ],
+  "version": 1
+}

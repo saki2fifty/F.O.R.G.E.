@@ -67,6 +67,7 @@ Desired2D desired_bodies_2d(WorldContext&, const PhysicsConfig&,
 void validate_shape_capacity_2d(const Desired2D&);
 void validate_ray_2d(Double2, Double2);
 void validate_overlap_2d(const PhysicsOverlap2D&);
+void validate_sweep_2d(const PhysicsSweep2D&);
 
 // Subordinate native state of PhysicsRuntime, never another service/world owner.
 // No native identifier or header crosses this private boundary.
@@ -88,6 +89,7 @@ class Native2D {
     std::optional<Double2> point_velocity(std::uint64_t, EntityRef, Double2) const;
     std::optional<PhysicsHit2D> raycast(Double2, Double2, PhysicsQueryFilter) const;
     std::vector<EntityRef> overlap(const PhysicsOverlap2D&, PhysicsQueryFilter) const;
+    std::optional<PhysicsHit2D> shape_cast(const PhysicsSweep2D&, PhysicsQueryFilter) const;
     void expire_events();
     void adopt_events(std::uint64_t tick);
     std::size_t event_count() const;

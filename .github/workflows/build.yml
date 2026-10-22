@@ -535,7 +535,17 @@ jobs:
           if ($LASTEXITCODE) { throw 'C++ volumes example preparation failed' }
           python tests/physics_volumes_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/volumes-project"
           if ($LASTEXITCODE) { throw 'C++ volumes runtime/recovery failed' }
-          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project" --physics-velocity "$root/velocity-project" --physics-contacts "$root/contacts-project" --physics-volumes "$root/volumes-project"
+          cmake -S samples/projects/Movement2D/Native -B "$root/movement-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl "-DForgeNativeSdk_DIR=$root/sdk/sdk"
+          if ($LASTEXITCODE) { throw 'C++ 2D movement example configure failed' }
+          cmake --build "$root/movement-build" --config Release
+          if ($LASTEXITCODE) { throw 'C++ 2D movement example build failed' }
+          cmake --install "$root/movement-build" --prefix "$root/movement-kits" --config Release
+          if ($LASTEXITCODE) { throw 'C++ 2D movement example module kit failed' }
+          python tools/prepare_physics_loads.py --source samples/projects/Movement2D --output "$root/movement-project" --runtime "$root/sdk/bin/forge_runtime.exe" --tools "$root/loads-editor/bin/forge_tools.exe" --module-kit "$root/movement-kits/project.gameplay" --component project.movement_2d --dependency forge.physics --dependency forge.input --import-source Assets/Sprites/SignalSheet.png --import-source Assets/Sprites/SignalSheet.material.json --import-source Assets/Physics2D/Solid.material.json --import-source Assets/Tiles/Directions.tileset.json --import-source Assets/Tiles/PaintedPlatforms.tilemap.json
+          if ($LASTEXITCODE) { throw 'C++ 2D movement example preparation failed' }
+          python tests/movement_2d_example_test.py "$root/sdk/bin/forge_runtime.exe" "$root/movement-project"
+          if ($LASTEXITCODE) { throw 'C++ 2D movement input and both-host support failed' }
+          python tools/assemble_windows_package.py --editor "$root/editor/$name" --sdk "$root/sdk/experimental-native-sdk.tar.gz" --output "$root/final/$name" --runtime-kit "$root/shared-game" --reference-game "$root/reference-game" --physics-loads "$root/loads-project" --physics-velocity "$root/velocity-project" --physics-contacts "$root/contacts-project" --physics-volumes "$root/volumes-project" --movement-2d "$root/movement-project"
           if ($LASTEXITCODE) { throw 'Combined package assembly failed' }
           python tests/windows_combined_package_test.py "$root/final/$name" "$root/game-fixture/game/forge_game_fixture.exe" "$root/loads-evidence"
           if ($LASTEXITCODE) { throw 'Combined package relocation failed' }

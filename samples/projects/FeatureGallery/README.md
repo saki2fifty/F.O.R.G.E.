@@ -1,5 +1,14 @@
 # FORGE Feature Gallery
 
+## C++ 2D walk and jump
+
+The separate editable [Movement2D project](../Movement2D/README.md) combines this
+Gallery's painted floors with a C++ capsule support sweep, ordinary box stepping
+stone, input actions and Inspector movement/jump settings. Open that project's
+own folder to compile/run/export it. The compiler-free Gallery scenes remain
+independently runnable. See its short experiment for walking, jumping, changing
+speed and editing the painted course. Build201 predates this example.
+
 ## Painted 2D collision
 
 Open **Scenes/77-painted-2d-collision.scene.json**, press Play and open Game.

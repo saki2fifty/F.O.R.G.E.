@@ -323,6 +323,43 @@ durable geometric-overlap history. No generic event manager is introduced.
 Adoption must complete before the next synchronization or step. This preserves
 native event-buffer lifetime, including Ends generated between simulation ticks.
 
+### Swept 2D shapes
+
+`PhysicsService::shape_cast_2d(PhysicsSweep2D, filter)` returns the closest copied
+`PhysicsHit2D` from the synchronized native world. It uses the same centered
+geometry as overlaps: Box full XY dimensions0.01..1000m; Circle radius0.005..500m
+and unused height0; Capsule radius0.005..500m, straight height0.01..1000m and total
+height at most1000m. Angle is a finite +Z rotation in radians, bounded to +/-1e6.
+Origin and endpoint center coordinates must each be within +/-1e6m. Invalid
+requests reject even with no realized world or a zero layer mask.
+
+For a local shape point `p`, the cast tests `origin + Rz(angle)*p + t*displacement`,
+where `0 <= t <= 1`. Rotation stays fixed. Displacement may be zero. Native float
+shape/skin tolerances apply; the returned fraction is not an exact unslopped
+Euclidean distance. For example, a downward displacement `(0,-4)` and fraction0.4
+place the cast center1.6m below its origin; the returned position is the native
+contact point, not that center. This is a query, not a move, angular sweep or
+penetration-recovery operation.
+
+The existing layer mask and sensor policy apply. Optional `ignore` excludes all
+shapes of one complete canonical body reference, including a painted compound
+floor. A reference with no realized body simply matches nothing. Native initial
+overlaps report fraction0 and zero normal; their output does not describe a
+depenetration vector. `ignore_initial_overlap` skips all native fraction0 hits,
+including touching, so an initial side-wall contact need not hide a later floor
+hit. Equal-fraction selection follows native traversal and has no stable tie-order
+guarantee. The query shares the existing16384-callback bound and checked body
+bindings. It neither flushes queued commands, wakes bodies nor advances the clock.
+Authored body changes/removal adopt at the normal synchronization boundary.
+
+The original [Movement2D project](../samples/projects/Movement2D/README.md) supplies
+an editable C++ walk/jump consumer with painted and ordinary box floors, project
+input actions and Inspector settings. Its Dynamic capsule remains the sole pose
+writer. The support sweep does not introduce a native CharacterController2D,
+automatic stair climbing, navigation or a second physics owner. Core and matching
+installed-SDK both-host checks cover the consumer; Windows rendering/export
+acceptance is a separate delivery gate. Windows Build201 predates this extension.
+
 ## Matching C++ SDK
 
 The existing Physics capability now includes distinct 2D callbacks at the tail of
@@ -343,6 +380,15 @@ unchanged. No Box2D header, native ID or application pointer enters this boundar
   layer masks and optional sensor inclusion. Overlaps return complete sorted,
   unique canonical references, at most 256. Insufficient caller capacity returns `-2`
   with cleared valid output slots. Invalid size/capacity buffers are not written.
+- `shape_cast_2d` takes a copied exact-sized `ForgeSdkSweep2DV1` and returns1 hit,
+  0 miss or-1 invalid/context. Shape numbers match2D overlaps; dimensions, angle,
+  origin and displacement follow the sweep contract above. Both ignore UUID
+  strings empty means no exclusion; otherwise both must be complete valid UUIDs.
+  `include_sensors` and `ignore_initial_overlap` accept0/1. Valid-size hit outputs
+  clear on miss/failure; invalid-size output is untouched. The request is copied
+  before clearing output. Owner-thread fixed execution and Physics permission
+  apply. This appended callback changes the exact SDK fingerprint/table size;
+  rebuild matching modules. Native ABI1 and authored formats stay unchanged.
 - PostPhysics collision reads expose the current tick's stable, nonconsuming
   slots. Sensor is first, visitor second; solid pairs are canonical. Retired End
   events retain their UUIDs/epochs and report availability separately. No old

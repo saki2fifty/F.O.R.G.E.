@@ -1,0 +1,533 @@
+{
+  "version": 5,
+  "asset_id": "897a0dbe-ae93-491c-b46f-8c3ea956794b",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.065,
+          "background_g": 0.04,
+          "background_r": 0.025,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 50.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 12,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -12.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "13f155e1-2ade-4b46-89ac-ead415b7aa9c",
+      "name": "Camera - A D move, Space jump",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": false,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0.15,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.tile_map_collider_2d": {
+          "layer": 1
+        },
+        "forge.tile_map_renderer": {
+          "enabled": true,
+          "layers": 4294967295,
+          "map": "6aa10b03-1db1-42ea-a3e5-680819f94a98",
+          "order": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true
+        }
+      },
+      "id": "97ae0b8d-c997-4bfe-8b29-83101db6848e",
+      "name": "Painted floors - edit Assets/Tiles/PaintedPlatforms.tilemap.json",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 2.5,
+          "z": 0.0
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": false,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": true,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 2,
+          "restitution": 0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 1.2,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 0.2,
+          "tint_g": 0.7,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 0.6
+        },
+        "forge.capsule_collider_2d": {
+          "radius": 0.3,
+          "height": 0.6
+        },
+        "project.movement_2d": {
+          "speed": 4.0,
+          "jump_speed": 6.0,
+          "ground_probe": 0.12,
+          "floor_mask": 4294967295,
+          "grounded": false
+        }
+      },
+      "id": "aefd3388-8d63-482b-ae8e-b4361b8e649b",
+      "name": "Player - C++ 2D Movement",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 1.5,
+          "y": 0.5
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -0.5,
+          "y": 0.25,
+          "z": 0.02
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": true,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 0.5,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.7,
+          "tint_r": 0.25,
+          "visible": true,
+          "width": 1.5
+        }
+      },
+      "id": "df295cf3-caa8-4d0c-a532-d853d48a8795",
+      "name": "Solid box stepping stone",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 1.0,
+          "y": 7.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -7.5,
+          "y": -0.5,
+          "z": 0.02
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": true,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 7.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.7,
+          "tint_r": 0.25,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "0ee3cea7-12d3-49be-9ca8-ca1aa1efa820",
+      "name": "Solid left wall",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 1.0,
+          "y": 7.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 7.0,
+          "y": -0.5,
+          "z": 0.02
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": true,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0,
+          "sensor": false
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 7.0,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 0.7,
+          "tint_r": 0.25,
+          "visible": true,
+          "width": 1.0
+        }
+      },
+      "id": "823b8cf5-f5bc-4cac-b08f-f36dcf4fdf54",
+      "name": "Solid right wall",
+      "spatial": {
+        "mode": "world"
+      }
+    },
+    {
+      "components": {
+        "forge.box_collider_2d": {
+          "x": 2.0,
+          "y": 0.15
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -4.0,
+          "y": 3.2,
+          "z": 0.02
+        },
+        "forge.physics_body_2d": {
+          "allow_sleeping": true,
+          "angular_damping": 0.1,
+          "bullet": false,
+          "density": 1.0,
+          "enabled": true,
+          "friction": 0.6,
+          "gravity_factor": 1.0,
+          "layer": 0,
+          "linear_damping": 0.0,
+          "lock_rotation": true,
+          "lock_x": false,
+          "lock_y": false,
+          "mask": 4294967295,
+          "mass": 0.0,
+          "motion": 0,
+          "restitution": 0,
+          "sensor": true
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 1,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "height": 0.15,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "796c7df0-fb50-415c-a1e6-42ffc6a473c4",
+          "order": 1,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 0.35,
+          "tint_b": 1.0,
+          "tint_g": 0.7,
+          "tint_r": 0.25,
+          "visible": true,
+          "width": 2.0
+        }
+      },
+      "id": "2c92f1c6-6b2b-4eba-85c7-64d82a7cee91",
+      "name": "Sensor - ignored by ground probes",
+      "spatial": {
+        "mode": "world"
+      }
+    }
+  ]
+}

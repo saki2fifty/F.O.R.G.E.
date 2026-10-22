@@ -188,6 +188,14 @@ class Client {
                    ? host_->physics_overlap_shape_2d(host_->context, &request, out, capacity)
                    : -1;
     }
+    int32_t shape_cast_2d(ForgeSdkSweep2DV1 request, ForgeSdkPhysicsHit2DV1& out) const {
+        request.size = sizeof(request);
+        out = {};
+        out.size = sizeof(out);
+        return callable(Capability::Physics) && host_->physics_shape_cast_2d
+                   ? host_->physics_shape_cast_2d(host_->context, &request, &out)
+                   : -1;
+    }
     int32_t contact_count_2d() const {
         return callable(Capability::Physics) && host_->physics_contact_count_2d
                    ? host_->physics_contact_count_2d(host_->context)

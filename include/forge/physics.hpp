@@ -65,6 +65,8 @@ class PhysicsRuntime : public PhysicsService {
                                            PhysicsQueryFilter = {}) const override;
     std::vector<EntityRef> overlap_shape_2d(const PhysicsOverlap2D&,
                                             PhysicsQueryFilter = {}) const override;
+    std::optional<PhysicsHit2D> shape_cast_2d(const PhysicsSweep2D&,
+                                              PhysicsQueryFilter = {}) const override;
     std::size_t contact_count_2d() const override;
     std::optional<PhysicsContact2D> contact_event_2d(std::size_t) const override;
     CharacterState character(EntityRef) const override;

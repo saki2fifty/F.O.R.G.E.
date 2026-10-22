@@ -19,7 +19,7 @@ def run_json(*arguments):
 
 
 def prepare(source, output, runtime, tools, module=None, module_kit=None,
-            component='project.body_loads'):
+            component='project.body_loads', dependencies=None, import_sources=()):
     source, output, runtime, tools = (Path(p).resolve() for p in (source, output, runtime, tools))
     if output.exists():
         raise ValueError('Example destination must be new')
@@ -47,7 +47,8 @@ def prepare(source, output, runtime, tools, module=None, module_kit=None,
     identity = run_json(tools, '--assets', 'code-identity', output, info['fingerprint'])
     settings['modules'] = [dict(id='project.gameplay', sdk='experimental-1', implementation='1',
         fingerprint=info['fingerprint'], source_identity=identity['source_identity'],
-        library=(deployment / library).relative_to(output).as_posix(), dependencies=['forge.physics'])]
+        library=(deployment / library).relative_to(output).as_posix(),
+        dependencies=dependencies if dependencies is not None else ['forge.physics'])]
     settings_path.write_text(json.dumps(settings, indent=2) + '\n')
     inspected = run_json(runtime, '--inspect-sdk', output)
     declaration, = inspected['components']
@@ -64,6 +65,11 @@ def prepare(source, output, runtime, tools, module=None, module_kit=None,
                 raise ValueError('Example source schema needs explicit migration')
             data['$forge'] = stamp
     scene_path.write_text(json.dumps(scene, indent=2) + '\n')
+    # Explicit dependency order supplied by the example's packaging recipe. The
+    # ordinary asset owner validates, cooks and publishes each source; this script
+    # does not manufacture cache records or rewrite dependency identities.
+    for source in import_sources:
+        run_json(tools, '--assets', 'import', output, source)
     return output
 
 
@@ -75,5 +81,7 @@ if __name__ == '__main__':
     modules.add_argument('--module', type=Path)
     modules.add_argument('--module-kit', type=Path)
     parser.add_argument('--component', default='project.body_loads')
+    parser.add_argument('--dependency', dest='dependencies', action='append')
+    parser.add_argument('--import-source', dest='import_sources', action='append', default=[])
     arguments = parser.parse_args()
     print(prepare(**vars(arguments)))

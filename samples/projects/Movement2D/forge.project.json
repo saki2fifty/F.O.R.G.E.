@@ -1,0 +1,80 @@
+{
+  "version": 2,
+  "name": "FORGE C++ 2D Movement",
+  "simulation_hz": 60,
+  "startup_scene": {
+    "asset": "897a0dbe-ae93-491c-b46f-8c3ea956794b",
+    "source": "Scenes/movement-2d.scene.json"
+  },
+  "input": {
+    "version": 1,
+    "actions": [
+      {
+        "id": "706ac33e-a66d-447b-bd53-cd3cff90dab4",
+        "name": "Move horizontally",
+        "kind": "axis1",
+        "bindings": [
+          {
+            "control": "key.a",
+            "x": -1
+          },
+          {
+            "control": "key.d",
+            "x": 1
+          },
+          {
+            "control": "pad.left_x",
+            "x": 1
+          },
+          {
+            "control": "key.left",
+            "x": -1
+          },
+          {
+            "control": "key.right",
+            "x": 1
+          }
+        ]
+      },
+      {
+        "id": "89892d64-e827-4b6c-a71f-2ae1551cc9bb",
+        "name": "Jump",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "key.space"
+          },
+          {
+            "control": "pad.south"
+          }
+        ]
+      }
+    ]
+  },
+  "modules": [],
+  "game": {
+    "version": 1,
+    "application_id": "org.forge.movement-2d",
+    "title": "FORGE 2D Movement - A / D and Space",
+    "profile": "development",
+    "save_schema": 1,
+    "display": {
+      "mode": "windowed",
+      "width": 1280,
+      "height": 720,
+      "display": 0,
+      "vsync": false
+    },
+    "audio": {
+      "master_volume": 1.0
+    },
+    "input": {
+      "mouse_sensitivity": 1.0,
+      "gamepad_sensitivity": 1.0,
+      "invert_mouse_y": false,
+      "invert_gamepad_y": false,
+      "stick_deadzone": 0.15,
+      "trigger_deadzone": 0.05
+    }
+  }
+}

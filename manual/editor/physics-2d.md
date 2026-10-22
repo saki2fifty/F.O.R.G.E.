@@ -55,6 +55,17 @@ lasts for the current tick. Epochs distinguish a retired body from a replacement
 with the same authored identity. See the gallery's **CodeExamples/README.md** for
 units, permissions and registration context.
 
+For a complete C++ walk/jump project, open a writable copy of
+**Examples/Movement2D**. Capture gameplay input in Game, move with A/D or arrows,
+and jump with Space. Select the amber Player and change **2D Movement** speed or
+jump speed in the Inspector. The example checks for ground with a capsule sweep,
+ignoring itself and sensors. Painted floors and a separate box stepping stone
+both support it. Stop restores saved state; save/publish before export. See the
+[example instructions](../../samples/projects/Movement2D/README.md) for the
+experiment, C++ source and matching runtime/module-kit export workflow. This
+requires the swept-query integration after Build201; it does not add a native
+character-controller component, automatic stairs or 2D navigation.
+
 Bullet improves high-speed solid collision with supported receivers. It does
 not guarantee exact projectile timing or every fast sensor crossing. The native
 continuous sensor path retains eight candidates per fast body per step.

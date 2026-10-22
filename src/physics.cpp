@@ -2160,6 +2160,16 @@ std::vector<EntityRef> PhysicsRuntime::overlap_shape_2d(const PhysicsOverlap2D& 
     });
     return result;
 }
+std::optional<PhysicsHit2D> PhysicsRuntime::shape_cast_2d(const PhysicsSweep2D& query,
+                                                          PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    if (!self.native_2d) {
+        physics_detail::validate_sweep_2d(query);
+        return {};
+    }
+    return self.native_2d->shape_cast(query, filter);
+}
 std::size_t PhysicsRuntime::contact_count_2d() const {
     impl_->check();
     return impl_->native_2d ? impl_->native_2d->event_count() : 0;

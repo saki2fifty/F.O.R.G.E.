@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.24)
+project(ForgeMovement2D LANGUAGES CXX)
+find_package(ForgeNativeSdk CONFIG REQUIRED)
+add_library(gameplay MODULE gameplay.cpp)
+include(forge.sources.cmake OPTIONAL)
+target_link_libraries(gameplay PRIVATE ForgeNativeSdk::Client)
+set_target_properties(gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN ON)
+forge_install_gameplay_runtime(gameplay NAME project.gameplay)

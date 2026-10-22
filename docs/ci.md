@@ -12,6 +12,17 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+The combined Windows package also prepares **Examples/Movement2D** with its exact
+installed SDK. The existing asset importer publishes its five original FORGE
+Sprite/Map dependencies before Play. The compiled consumer checks both real Play
+hosts, input edges, speed/jump tuning and support on painted/ordinary geometry.
+SDK Play uses its own running fixed clock for input tests: Step deliberately
+releases gameplay input. The relocated export check deletes the editable project
+and temporary kit, runs the production startup verifier, then injects native SDL
+D/Space input through the compiled game fixture. It records the painted landing,
+jump/no-repeat result and three rendered rest/jump/landed images. This gate is
+automated acceptance, separate from the user's physical Windows/GPU test.
+
 The existing 2D viewport case also captures the connected-body Gallery76 Game
 poses and actual kind-specific joint Inspector/Scene guides at100/150/200%.
 The shared-game gate runs the installed joint Client fixture through both Play
