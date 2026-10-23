@@ -18,6 +18,9 @@ class AuthoringSession {
   public:
     explicit AuthoringSession(Scene& scene);
     Json handle(const Json& request);
+    // Validate routing and optional revision without reading or mutating scene intent.
+    // Owning editor workflow adapters share this boundary before invoking file owners.
+    Json validate(const Json& request, bool require_revision) const;
     Json target() const;
 
   private:

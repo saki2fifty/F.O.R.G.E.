@@ -4,9 +4,9 @@ The editor explicitly enables a `LiveAuthoring` listener on IPv4 `127.0.0.1` wit
 
 ## Permission and identity
 
-The editor chooses read-only or scene-edit access at startup of each listener. An OS cryptographic random generator supplies a 256-bit token: Windows `BCryptGenRandom` with the system-preferred RNG or Linux `getrandom`. Discovery is authenticated too. Only the UI's explicit Copy action exposes connection JSON. Tokens are never stored in settings, projects or status logs. Local tools holding the token have the advertised authority; a compromised editor/user account is outside this isolation boundary. Stop, editor exit and document generation changes revoke the listener/token. Restart generates a new token and document session identity.
+The editor chooses read-only, scene-edit or scene-plus-file-edit access at startup of each listener. An OS cryptographic random generator supplies a 256-bit token: Windows `BCryptGenRandom` with the system-preferred RNG or Linux `getrandom`. Discovery is authenticated too. Only the UI's explicit Copy action exposes connection JSON. Tokens are never stored in settings, projects or status logs. Local tools holding the token have the advertised authority; a compromised editor/user account is outside this isolation boundary. Stop and editor exit revoke every listener/token. Scene grants also revoke on document-generation changes. An explicit document-write grant survives scene changes within the same leased project, refreshes its scene session, and retains sequence receipts; project changes or lost ownership revoke it. Restart generates a new token and document session identity.
 
-The connection JSON contains `transport:1`, `host:"127.0.0.1"`, `port`, and `token`. The token is distinct from `AuthoringSession.target.session`, which is only a routing identity. Scene file UUIDs and non-scene asset targets remain future formats.
+The connection JSON contains `transport:1`, `host:"127.0.0.1"`, `port`, and `token`. The token is distinct from `AuthoringSession.target.session`, which is only a routing identity. The scene target uses the existing scene asset UUID. Non-scene asset targets are not exposed yet.
 
 ## Framing and dispatch
 
@@ -26,7 +26,7 @@ Successful discovery returns the underlying scene target/revision, capabilities,
 
 Sockets are nonblocking. The editor owner thread accepts/reads/validates/commits/sends in its frame pump, with at most 64 KiB read and 64 KiB written per frame and one request dispatched per frame. It handles one active client, has a listen backlog of one, a 10-second total connection deadline, a 1 MiB request-line bound excluding newline, a 64-level nesting bound, and a 16 MiB response bound including newline. Backlogged connection acceptance is OS controlled. Oversized/pipelined input closes that client; malformed JSON returns a structured failure when possible. A response that exceeds the bound returns `limit_exceeded`; clients should use paged queries for large reads. These defensive caps do not guarantee large-scene frame latency: JSON parsing, scene reconstruction and serialization still run synchronously.
 
-Edits return `busy` during play, native builds, file operations, popups and active UI gestures. Reads describe committed authoring data. Save/Save As/project operations and native execution are not exposed. New supported domains must join the service with their own capability/target contracts.
+Edits return `busy` during play, native builds, file operations, popups and active UI gestures. Reads describe committed authoring data. Native execution and project creation/switching are not exposed. The [document methods](mcp.md#document-tools) add `document.read` and separately granted `document.write` through existing editor owners. Their schemas appear in `workflow_methods`; file mutations use the same exact target/revision/sequence checks and receipts. New supported domains must join the service with their own capability/target contracts.
 
 ## Retry and cancellation
 

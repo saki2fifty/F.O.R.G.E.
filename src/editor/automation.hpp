@@ -1,5 +1,6 @@
 #pragma once
-#include "document.hpp"
+#include "document_automation.hpp"
+#include "files.hpp"
 #include "mcp.hpp"
 #include "widgets.hpp"
 #include <SDL3/SDL_clipboard.h>
@@ -25,6 +26,29 @@ class AutomationWorkspace {
     void start(Scene& scene, SceneDocument& document, bool edits) {
         document.check_ownership();
         live_.start(scene, edits);
+        scene_ = &scene;
+        project_ = document.project();
+        document_writes_ = false;
+        generation_ = document.generation();
+        notice_.clear();
+    }
+    void start(Scene& scene, EditorFiles& files, bool edits, bool document_writes = false) {
+        auto& document = files.document;
+        document.check_ownership();
+        auto methods = document_automation_methods(
+            document, document_writes,
+            [&files](const std::filesystem::path& path) { files.automation_save(path); },
+            [&files](const std::filesystem::path& path, bool discard) {
+                files.automation_switch({path.empty() ? EditorFiles::Command::NewScene
+                                                      : EditorFiles::Command::OpenScene,
+                                         path,
+                                         {}},
+                                        discard);
+            });
+        live_.start(scene, edits, std::move(methods));
+        scene_ = &scene;
+        project_ = document.project();
+        document_writes_ = document_writes;
         generation_ = document.generation();
         notice_.clear();
     }
@@ -33,19 +57,16 @@ class AutomationWorkspace {
             return;
         try {
             document.check_ownership();
-            if (generation_ != document.generation()) {
-                live_.stop();
-                notice_ = "Connection stopped because the active document changed. Start a new "
-                          "connection when ready.";
+            if (!synchronize(document))
                 return;
-            }
             live_.pump(busy);
+            synchronize(document);
         } catch (const std::exception& e) {
             live_.stop();
             notice_ = e.what();
         }
     }
-    void draw(Scene& scene, SceneDocument& document, const std::string& busy) {
+    void draw(Scene& scene, EditorFiles& files, const std::string& busy) {
         if (!open)
             return;
         ImGui::SetNextWindowSize({520 * interface_scale, 360 * interface_scale},
@@ -60,25 +81,30 @@ class AutomationWorkspace {
             help("Latest connection result. Credentials and request contents are not logged here.");
             if (!notice_.empty())
                 ImGui::TextWrapped("%s", notice_.c_str());
-            help("Why the previous connection stopped. Scene switches revoke old access.");
+            help("Scene grants expire on scene switches. File grants last within this project.");
             if (!live_.active()) {
                 ImGui::BeginDisabled(!busy.empty());
                 try {
                     if (button("Start read only",
                                "Allow schema discovery, scene reads, queries and diagnostics."))
-                        start(scene, document, false);
-                    if (button(
-                            "Start with scene edits",
-                            "Also allow validated scene commands and undo/redo. Changes are "
-                            "unsaved editor edits; no native execution or file tools are exposed."))
-                        start(scene, document, true);
+                        start(scene, files, false);
+                    if (button("Start with scene edits",
+                               "Also allow validated scene commands and undo/redo. Changes are "
+                               "unsaved editor edits."))
+                        start(scene, files, true);
+                    if (button("Start with scene and file edits",
+                               "Also allow Save, Save As, New and Open Scene inside this project. "
+                               "This grant survives scene switches; project switches revoke it."))
+                        start(scene, files, true, true);
                 } catch (const std::exception& e) {
                     notice_ = e.what();
                 }
                 ImGui::EndDisabled();
             } else {
                 ImGui::Text("127.0.0.1:%u | %s", unsigned(live_.port()),
-                            live_.editable() ? "Scene edits allowed" : "Read only");
+                            document_writes_   ? "Scene and file edits allowed"
+                            : live_.editable() ? "Scene edits allowed"
+                                               : "Read only");
                 help("Only this machine can connect. The per-connection secret is also required.");
                 if (button("Copy connection JSON",
                            "Copy host, port and a secret token. Paste only into trusted local "
@@ -104,13 +130,12 @@ class AutomationWorkspace {
                         if (!SDL_SetClipboardText(config.dump(2).c_str()))
                             notice_ = SDL_GetError();
                         else
-                            notice_ =
-                                "MCP configuration copied. Add it to your trusted AI client. "
-                                "It includes a temporary secret; reconnect after a scene switch.";
+                            notice_ = "MCP configuration copied. Add it to your trusted AI client. "
+                                      "It includes a temporary secret; Stop connection revokes it.";
                     }
                 }
                 if (button("Stop connection", "Disconnect clients and revoke access immediately. "
-                                              "Committed edits remain undoable."))
+                                              "Committed scene edits and file saves remain."))
                     live_.stop();
             }
             if (!busy.empty())
@@ -122,15 +147,33 @@ class AutomationWorkspace {
                 "Use Examples/Automation/live_scene.py with Python 3 to inspect this scene or add "
                 "an undoable four-shape example. Save changes normally in the editor.");
             help("The MCP adapter in forge_tools connects AI clients to this same editor service. "
-                 "See the User Manual: MCP agents. Current tools cover scene authoring; project, "
-                 "asset, C++ build, Play and export tools remain unavailable.");
+                 "See the User Manual: MCP agents. Current tools cover scene authoring and "
+                 "granted document operations. Project switching, asset, C++ build, Play and "
+                 "export tools remain unavailable.");
         }
         ImGui::End();
     }
     LiveAuthoring& connection() { return live_; }
 
   private:
+    bool synchronize(SceneDocument& document) {
+        if (project_ != document.project() ||
+            (generation_ != document.generation() && !document_writes_)) {
+            live_.stop();
+            notice_ = "Connection stopped because its document/project scope changed. Start a "
+                      "new connection when ready.";
+            return false;
+        }
+        if (generation_ != document.generation()) {
+            live_.retarget(*scene_);
+            generation_ = document.generation();
+        }
+        return true;
+    }
     LiveAuthoring live_;
+    Scene* scene_ = nullptr;
+    std::filesystem::path project_;
+    bool document_writes_ = false;
     std::uint64_t generation_ = 0;
     std::string notice_;
 };

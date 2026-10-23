@@ -87,6 +87,8 @@ bool mutation(const std::string& method) {
 struct LiveAuthoring::State {
     Socket listener = invalid_socket, client = invalid_socket;
     std::unique_ptr<AuthoringSession> session;
+    Scene* scene = nullptr;
+    std::vector<LiveAuthoringMethod> methods;
     std::thread::id owner;
     bool edits = false;
     std::uint16_t port = 0;
@@ -121,6 +123,43 @@ struct LiveAuthoring::State {
             WSACleanup();
 #endif
     }
+    Json invoke(const Json& request, const LiveAuthoringMethod* method) {
+        if (!method)
+            return session->handle(request);
+        auto response = session->validate(request, method->mutation);
+        if (!response.value("ok", false))
+            return response;
+        const auto& schema = method->input_schema;
+        for (const auto& required : schema.at("required"))
+            if (!request.contains(required.get<std::string>()))
+                return failure("invalid_arguments", "Missing workflow argument");
+        for (auto field = request.begin(); field != request.end(); ++field) {
+            if (field.key() == "api" || field.key() == "method" || field.key() == "target" ||
+                (method->mutation && field.key() == "expected_revision"))
+                continue;
+            if (!schema.at("properties").contains(field.key()))
+                return failure("invalid_arguments", "Unknown workflow argument");
+            const auto& property = schema.at("properties").at(field.key());
+            const auto type = property.value("type", std::string{});
+            if ((type == "string" && !field->is_string()) ||
+                (type == "boolean" && !field->is_boolean()))
+                return failure("invalid_arguments", "Invalid workflow argument type");
+            if (field->is_string()) {
+                const auto size = field->get_ref<const std::string&>().size();
+                if (size < property.value("minLength", std::size_t{}) ||
+                    size > property.value("maxLength", std::size_t(1048576)))
+                    return failure("invalid_arguments", "Workflow string length is out of bounds");
+            }
+        }
+        try {
+            response["result"] = method->invoke(request);
+            response["revision"] = scene->revision();
+        } catch (const std::exception& e) {
+            response = failure("document_error", e.what());
+            response["revision"] = scene->revision();
+        }
+        return response;
+    }
     Json dispatch(const Json& wire, const std::string& busy) {
         Json response;
         std::string id;
@@ -137,8 +176,12 @@ struct LiveAuthoring::State {
             else {
                 const auto& request = wire.at("request");
                 const auto method = request.at("method").get<std::string>();
-                if (mutation(method)) {
-                    if (!edits)
+                const auto found =
+                    std::find_if(methods.begin(), methods.end(),
+                                 [&](const auto& item) { return item.name == method; });
+                const auto* workflow = found == methods.end() ? nullptr : &*found;
+                if (mutation(method) || (workflow && workflow->mutation)) {
+                    if (!workflow && !edits)
                         response = failure("capability_denied", "Connection permits reading only");
                     else if (!wire.at("sequence").is_number_unsigned() &&
                              !(wire.at("sequence").is_number_integer() &&
@@ -167,7 +210,7 @@ struct LiveAuthoring::State {
                             // never permit this sequence to execute again.
                             ++next;
                             response =
-                                busy.empty() ? session->handle(request) : failure("busy", busy);
+                                busy.empty() ? invoke(request, workflow) : failure("busy", busy);
                             const auto bytes = request.dump().size() + response.dump().size();
                             receipts.push_back({sequence, request, response, bytes});
                             receipt_bytes += bytes;
@@ -178,8 +221,8 @@ struct LiveAuthoring::State {
                         }
                     }
                 } else if (method == "discover" || method == "scene.read" ||
-                           method == "entity.query" || method == "scene.diagnostics") {
-                    response = session->handle(request);
+                           method == "entity.query" || method == "scene.diagnostics" || workflow) {
+                    response = invoke(request, workflow);
                     if (method == "discover" && response.value("ok", false)) {
                         auto& result = response["result"];
                         result["persistence"] = "editor-document; save through editor";
@@ -192,6 +235,26 @@ struct LiveAuthoring::State {
                             result["methods"] = {"discover", "scene.read", "entity.query",
                                                  "scene.diagnostics"};
                         }
+                        result["workflow_methods"] = Json::array();
+                        bool writes = edits;
+                        for (const auto& item : methods) {
+                            result["methods"].push_back(item.name);
+                            auto& capabilities = result["capabilities"];
+                            if (std::find(capabilities.begin(), capabilities.end(),
+                                          item.capability) == capabilities.end())
+                                capabilities.push_back(item.capability);
+                            result["workflow_methods"].push_back(
+                                {{"method", item.name},
+                                 {"description", item.description},
+                                 {"capability", item.capability},
+                                 {"input_schema", item.input_schema},
+                                 {"mutation", item.mutation}});
+                            writes = writes || item.mutation;
+                        }
+                        if (!methods.empty())
+                            result["persistence"] = "editor-document; granted document methods";
+                        result["mutation_available"] = writes && busy.empty();
+                        result["unavailable_reason"] = writes ? busy : "Read-only connection";
                         result["transport_limits"] = {
                             {"request_bytes", 1048576}, {"response_bytes", 16777216},
                             {"request_depth", 64},      {"clients", 1},
@@ -214,8 +277,26 @@ struct LiveAuthoring::State {
 };
 LiveAuthoring::LiveAuthoring() : state_(std::make_unique<State>()) {}
 LiveAuthoring::~LiveAuthoring() = default;
-void LiveAuthoring::start(Scene& scene, bool allow_edits) {
+void LiveAuthoring::start(Scene& scene, bool allow_edits,
+                          std::vector<LiveAuthoringMethod> methods) {
     auto candidate = std::make_unique<State>();
+    const auto base = AuthoringSession(scene).handle({{"api", 1}, {"method", "discover"}});
+    Json names = base.at("result").at("methods");
+    for (const auto& method : methods) {
+        if (method.name.empty() || method.capability.empty() || !method.invoke ||
+            std::find(names.begin(), names.end(), method.name) != names.end() ||
+            method.input_schema.value("type", "") != "object" ||
+            !method.input_schema.at("properties").is_object() ||
+            !method.input_schema.at("required").is_array() ||
+            method.input_schema.at("additionalProperties") != false)
+            throw std::runtime_error("Invalid or duplicate live authoring method registration");
+        for (const auto* field : {"api", "method", "target", "expected_revision", "sequence"})
+            if (method.input_schema.at("properties").contains(field))
+                throw std::runtime_error("Workflow schema contains a reserved routing field");
+        names.push_back(method.name);
+    }
+    candidate->methods = std::move(methods);
+    candidate->scene = &scene;
     candidate->owner = std::this_thread::get_id();
     candidate->token = secret();
     candidate->edits = allow_edits;
@@ -249,6 +330,13 @@ void LiveAuthoring::start(Scene& scene, bool allow_edits) {
     state_ = std::move(candidate);
 }
 void LiveAuthoring::stop() { state_ = std::make_unique<State>(); }
+void LiveAuthoring::retarget(Scene& scene) {
+    if (!active() || std::this_thread::get_id() != state_->owner)
+        throw std::runtime_error("Retarget active automation on its owning thread");
+    auto session = std::make_unique<AuthoringSession>(scene);
+    state_->scene = &scene;
+    state_->session = std::move(session);
+}
 bool LiveAuthoring::active() const { return state_->listener != invalid_socket; }
 bool LiveAuthoring::editable() const { return active() && state_->edits; }
 std::uint16_t LiveAuthoring::port() const { return state_->port; }

@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-10-23](20261023/README.md) — Native MCP scene/document authoring in development source; explicit file grants, existing save/recovery owners and portable validation. Not packaged in Build208.
+
 - [2026-10-22](20261022/README.md) — Build208 adds Sprite image regions, the region-aware frame chooser and Gallery78. It includes Build206 native 2D character movement, the editable C++ Character2D/Movement2D projects and runtime UI preparation.
 
 - [2026-10-21](20261021/README.md) — Build199 delivers 2D bodies, controls, sensors, recovery and Gallery75; connected 2D joints/Gallery76 pass source/native/SDK/export gates, with numbered delivery and physical testing pending.

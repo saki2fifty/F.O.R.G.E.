@@ -1520,6 +1520,15 @@ int main(int argc, char** argv) {
         auto& selected = editor.selection.entity_slot();
         std::string name_entity, authored_name;
         std::optional<forge::EditorFiles::Action> pending_switch;
+        files.automation_unavailable = [&](bool switching) -> std::string {
+            if (game_export.busy() || runtime_dependencies.busy() || sdk_build->busy() ||
+                play.active())
+                return "Finish export, dependency, build or Play work first.";
+            if (switching &&
+                (pending_switch || runtime_dependencies.dirty() || documents.source_drafts_dirty()))
+                return "Save or discard other source drafts and finish the pending switch first.";
+            return {};
+        };
         files.before_request = [&](const forge::EditorFiles::Action& action) {
             if (game_export.busy() || runtime_dependencies.busy()) {
                 message =
@@ -2472,6 +2481,8 @@ int main(int argc, char** argv) {
             }
             const std::string automation_busy =
                 play.active()                     ? "Stop play before editing"
+                : game_export.busy()              ? "Wait for the game export"
+                : runtime_dependencies.busy()     ? "Finish the dependency task"
                 : sdk_build->busy()               ? "Wait for the native build"
                 : (files.busy() || files.changed) ? "Finish the file operation"
                 : (scene_tools.active() || modal.active() || blockout.active() ||
@@ -5191,7 +5202,7 @@ int main(int argc, char** argv) {
             if (content.take_settings_changed())
                 perform(save_preferences);
             navigation_tools.poll(scene, files.document, play.active(), message);
-            automation.draw(scene, files.document, automation_busy);
+            automation.draw(scene, files, automation_busy);
             const auto title = std::string(files.document.dirty() ? "* " : "") +
                                files.document.name() + " / " +
                                (files.document.path().empty()

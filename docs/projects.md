@@ -46,4 +46,22 @@ Autosave writes changed dirty revisions at approximately 30-second intervals. Su
 
 A candidate project lease is acquired before scene replacement. Failed acquisition, parsing or validation leaves the old lease and document active. Save, recovery and view bookmark writes validate current ownership. Discard-and-switch retains the old lease until successful old-recovery cleanup completes. Linux additionally checks that the lock path still identifies the held inode. Control-folder redirects are rejected; Windows scene paths also reject alternate data streams and case variants of reserved control paths.
 
-Document generation changes on successful open/reload/new/untitled recovery and filename changes. It does not replace Scene revision: it invalidates external sessions after file lifecycle transitions even if scene bytes are identical. Live automation stops on the next frame before handling another request when generation changes. Regular saves retain the generation. The project schema remains version 1; scenes now save as version 3, with protected migration from older formats.
+Document generation changes on successful open/reload/new/untitled recovery and filename changes. It does not replace Scene revision: it invalidates scene-scoped external sessions after file lifecycle transitions even if scene bytes are identical. Live automation checks scope before another request: scene grants stop, while an explicitly granted document connection refreshes its scene target inside the same project. Regular saves retain the generation. The project manifest uses version 2; scenes save as version 3, with protected migration from older formats.
+
+
+## Automation document operations
+
+The [MCP/live document methods](mcp.md#document-tools) borrow this same
+SceneDocument/EditorFiles/ProjectLease authority. A separately enabled file grant
+permits Save, Save As, New and Open within the current project. Its connection
+survives scene generations inside that project, refreshes routing sessions and
+retains transport receipts; ordinary scene grants still expire on generation
+changes. Project changes and lost ownership revoke every grant.
+
+Synchronous file methods use a noninteractive owner preflight, reject unsettled
+work and other dirty source drafts, and never enqueue a later popup/action. New
+and Open require a clean scene or explicit discard. Successful discard uses the
+normal recovery cleanup; failures preserve the old scene/recovery. Saving under
+a changed filename emits the normal file-change event, so editor selection/view
+activation follows the existing scene lifecycle. File publication is not scene
+Undo. Project creation/switching and recovery restore/delete remain editor-only.

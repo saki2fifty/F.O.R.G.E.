@@ -34,7 +34,29 @@ class EditorFiles {
         return dialog_.busy() || pending_.has_value() || (external_busy && external_busy());
     }
     std::function<bool(const Action&)> before_request;
+    // Pure preflight: never queue close dialogs or deferred actions for an agent.
+    std::function<std::string(bool switching)> automation_unavailable;
     std::function<void()> save_active;
+    void automation_save(const std::filesystem::path& path = {}) {
+        check_automation(false);
+        const auto generation = document.generation();
+        if (path.empty())
+            document.save();
+        else
+            document.save_as(path);
+        changed = changed || generation != document.generation();
+        status = "Scene saved through automation";
+    }
+    void automation_switch(Action action, bool discard) {
+        if (action.command != Command::NewScene && action.command != Command::OpenScene)
+            throw std::runtime_error("Document automation permits New/Open Scene only");
+        check_automation(true);
+        if (document.dirty() && !discard)
+            throw std::runtime_error("Scene has unsaved changes. Save first or explicitly discard");
+        pending_ = std::move(action);
+        if (!(discard ? execute_discarding() : execute()))
+            throw std::runtime_error(status);
+    }
     void request(Action action) {
         if (before_request && !before_request(action))
             return;
@@ -85,12 +107,7 @@ class EditorFiles {
         } else if (choice == Resolution::Save) {
             save();
         } else {
-            const auto ownership = document.writer_guard();
-            const auto old_recovery = document.recovery_path();
-            if (execute()) {
-                std::error_code ignored;
-                std::filesystem::remove(old_recovery, ignored);
-            }
+            execute_discarding();
         }
     }
     void set_switch_available(bool available) { can_switch_ = available; }
@@ -113,6 +130,9 @@ class EditorFiles {
                         throw std::runtime_error("Source imports belong to the Content workflow");
                     case FileDialog::Kind::SaveImage:
                         throw std::runtime_error("View images belong to the image export workflow");
+                    case FileDialog::Kind::SequenceFramesParent:
+                        throw std::runtime_error(
+                            "This destination belongs to the sequence frames workflow");
                     case FileDialog::Kind::OpenScene:
                         request({Command::OpenScene, path, {}});
                         break;
@@ -122,15 +142,18 @@ class EditorFiles {
                     case FileDialog::Kind::ProjectParent:
                         SDL_strlcpy(parent_, result->path.c_str(), sizeof(parent_));
                         break;
-                    case FileDialog::Kind::SaveScene:
+                    case FileDialog::Kind::SaveScene: {
+                        const auto generation = document.generation();
                         document.save_as(
                             path.extension().empty()
                                 ? std::filesystem::u8path(path_text(path) + ".scene.json")
                                 : path);
+                        changed = changed || generation != document.generation();
                         status = "Scene saved";
                         if (pending_)
                             execute();
                         break;
+                    }
                     }
                 } catch (const std::exception& e) {
                     status = error = e.what();
@@ -335,6 +358,26 @@ class EditorFiles {
     }
 
   private:
+    void check_automation(bool switching) const {
+        document.check_ownership();
+        if (busy() || changed || create_prompt_ || unsaved_prompt_ || recovery_prompt_ ||
+            !can_switch_)
+            throw std::runtime_error("Finish the pending file, recovery or build operation");
+        if (automation_unavailable) {
+            const auto reason = automation_unavailable(switching);
+            if (!reason.empty())
+                throw std::runtime_error(reason);
+        }
+    }
+    bool execute_discarding() {
+        const auto ownership = document.writer_guard();
+        const auto old_recovery = document.recovery_path();
+        if (!execute())
+            return false;
+        std::error_code ignored;
+        std::filesystem::remove(old_recovery, ignored);
+        return true;
+    }
     static void menu_action(const ui::EditorActions& actions, const char* id, const char* label) {
         actions.item(id, label);
         FORGE_UI_PROBE(std::string("file:") + label);

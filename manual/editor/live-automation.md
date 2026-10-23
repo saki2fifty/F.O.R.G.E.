@@ -4,10 +4,11 @@ Use a trusted local script to inspect or edit the scene you have open in FORGE. 
 
 ## Start a connection
 
-Open **Tools → Automation → Local connection...**. The **Local automation** window offers two choices:
+Open **Tools → Automation → Local connection...**. The **Local automation** window offers three choices:
 
-- **Start read only** allows scene inspection, entity queries, diagnostics and component schema discovery.
+- **Start read only** allows scene inspection, entity queries, diagnostics, component schema discovery and current project/document status.
 - **Start with scene edits** also allows the supported scene commands, scene replacement, undo and redo.
+- **Start with scene and file edits** also permits Save, Save As, New Scene and Open Scene inside this project.
 
 Choose read only when a tool only needs information. To change permissions, stop the connection and start another one.
 
@@ -39,9 +40,9 @@ Paste the new connection JSON when prompted. Four named shapes appear along the 
 
 FORGE rejects automation edits while play, a native build, a file operation, a popup or an active UI gesture needs the editor. Finish that activity, inspect current state and submit a new request. Reads still describe the committed authoring scene, rather than an unfinished drag preview or the play world.
 
-Opening or reloading a scene, creating a new scene, recovering an untitled scene, switching projects, or saving under a new filename stops the connection. Enable a new connection for the new document. An ordinary Save keeps the connection active.
+Scene changes and new filenames stop read-only and scene-edit connections. An explicit scene-and-file grant stays active across scenes in the same leased project and gives each changed document a fresh target. Switching projects or losing writer ownership stops every connection. An ordinary Save keeps the connection active.
 
-**Automation (on)** in Tools shows that a listener is running. **Stop connection** closes it immediately. Changes that already committed remain in the scene and can be undone.
+**Automation (on)** in Tools shows that a listener is running. **Stop connection** closes it immediately. Committed scene edits remain, and saved files stay on disk.
 
 ## Failures and recovery
 
@@ -55,9 +56,9 @@ A second FORGE editor cannot open the same project while this editor owns it. Cl
 
 This connection accepts FORGE authoring requests from the same machine. The
 [MCP adapter](mcp.md) lets a compatible AI client use those same scene tools.
-It exposes no native execution, arbitrary shell commands, project file writes
-or asset tools. Scripts and agents edit the open scene; the editor owns saving
-and recovery. The separate [Headless authoring tools](automation.md) remain
+An explicit file grant exposes the editor-owned scene save/switch operations.
+The connection exposes no native execution, arbitrary shell commands, project
+switching or asset tools. The editor retains ownership of saving and recovery. The separate [Headless authoring tools](automation.md) remain
 available for isolated in-memory work.
 
 For exact request fields and limits, integration developers can read the repository's technical **docs/live-authoring.md** guide.

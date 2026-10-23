@@ -889,13 +889,39 @@ AuthoringSession::AuthoringSession(Scene& scene)
 Json AuthoringSession::target() const {
     return {{"kind", "scene"}, {"id", scene_.asset_id().str()}, {"session", session_}};
 }
-Json AuthoringSession::handle(const Json& request) {
+Json AuthoringSession::validate(const Json& request, bool require_revision) const {
     Json response = {{"api", 1}, {"ok", false}};
     try {
         if (std::this_thread::get_id() != owner_)
             throw CommandError("wrong_thread", "Dispatch on the session owning thread");
         if (!request.is_object() || request.value("api", 0) != 1)
             throw CommandError("unsupported_version", "Expected authoring API 1");
+        if (request.at("method") != "discover" && request.at("target") != target())
+            throw CommandError("wrong_target", "Target does not identify this session document");
+        if (require_revision) {
+            if (!request.at("expected_revision").is_number_unsigned() &&
+                !(request.at("expected_revision").is_number_integer() &&
+                  request.at("expected_revision").get<std::int64_t>() >= 0))
+                throw CommandError("invalid_arguments", "Expected an unsigned revision");
+            if (request.at("expected_revision").get<std::uint64_t>() != scene_.revision())
+                throw CommandError("stale_revision",
+                                   "Scene changed; read current state before retrying");
+        }
+        response["ok"] = true;
+        response["revision"] = scene_.revision();
+    } catch (const CommandError& e) {
+        response["error"] = {{"code", e.code}, {"message", e.what()}};
+    } catch (const std::exception& e) {
+        response["error"] = {{"code", "invalid_request"}, {"message", e.what()}};
+    }
+    return response;
+}
+Json AuthoringSession::handle(const Json& request) {
+    Json response = validate(request, false);
+    if (!response.value("ok", false))
+        return response;
+    response["ok"] = false;
+    try {
         const auto method = request.at("method").get<std::string>();
         if (method == "discover")
             response["result"] = {
@@ -910,9 +936,6 @@ Json AuthoringSession::handle(const Json& request) {
                 {"persistence", "memory-only"},
                 {"limits", {{"batch_commands", 128}, {"entities", 10000}, {"query_page", 256}}}};
         else {
-            if (request.at("target") != target())
-                throw CommandError("wrong_target",
-                                   "Target does not identify this session document");
             if (method == "scene.read")
                 response["result"] = scene_.document();
             else if (method == "scene.diagnostics")
@@ -939,13 +962,9 @@ Json AuthoringSession::handle(const Json& request) {
                     }
                 response["result"] = {{"entities", hits}, {"total", matched}, {"offset", offset}};
             } else {
-                if (!request.at("expected_revision").is_number_unsigned() &&
-                    !(request.at("expected_revision").is_number_integer() &&
-                      request.at("expected_revision").get<std::int64_t>() >= 0))
-                    throw CommandError("invalid_arguments", "Expected an unsigned revision");
-                if (request.at("expected_revision").get<std::uint64_t>() != scene_.revision())
-                    throw CommandError("stale_revision",
-                                       "Scene changed; read current state before retrying");
+                const auto validated = validate(request, true);
+                if (!validated.value("ok", false))
+                    return validated;
                 if (method == "scene.apply")
                     response["result"] =
                         apply_authoring(scene_, request.at("commands"), scene_.revision());

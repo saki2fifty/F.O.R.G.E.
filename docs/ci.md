@@ -112,7 +112,9 @@ scope and does not replace editor acceptance, the core/SDK matrix or a release g
 
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate must exercise the same acceptance selection before allocating a new
-delivery number.
+delivery number. The shared selection includes `mcp_`: native stdio/configuration
+checks and the GPU-independent editor document/MCP process test. These tests are
+built with the default editor targets; project files stay in temporary directories.
 The 941-action native input walkthrough has a 480-second aggregate CTest budget.
 One full WARP run completed all 941 actions in 297.56 seconds; a slower runner
 completed 877 before the former 360-second aggregate cutoff, with normal actions

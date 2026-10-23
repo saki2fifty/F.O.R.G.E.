@@ -21,7 +21,7 @@ Do not add another scripting language, external SDK or runtime dependency.
 
 ## Access and transaction boundaries
 
-The user enables read-only or scene-edit authority in the editor and explicitly
+The user enables read-only, scene-edit or scene-plus-file-edit authority and explicitly
 copies connection configuration. Tokens are temporary and revocable, are not
 saved into project files/preferences, and are not passed on the command line.
 MCP tools preserve exact targets, caller-observed revisions and editor sequence
@@ -32,6 +32,24 @@ Game-project authoring authority does not grant engine/editor source access.
 Additional file, build, native execution, Play and export tools require their own
 explicit capabilities and owning service contracts. They must not be replaced
 with unrestricted shell execution or independent writes against an open project.
+
+### Current-project document grant
+
+The document batch deliberately extends the original scene-only lifetime with a
+separate `document.write` grant. That grant stays within the current leased
+project across scene changes, refreshes `AuthoringSession` routing identity, and
+keeps existing transport receipts. Scene-only grants retain generation revocation;
+project changes and lost ownership revoke all grants. No disk identity, migration,
+project ownership or scene-format behavior changes.
+
+`LiveAuthoringMethod` registrations borrow the actual owning service callbacks.
+They describe method schemas/capabilities, join shared target/revision checks and
+transport receipts, and drive MCP workflow bindings. They do not create a writer
+or second dispatch authority. `EditorFiles` provides synchronous noninteractive
+save/switch paths with the existing `SceneDocument` and recovery owners; a pure
+editor preflight rejects unsettled work without queuing a dialog or later action.
+File commits are not scene Undo transactions. Other project/domain/job operations
+remain separate integrations.
 
 ## Compatibility and validation
 

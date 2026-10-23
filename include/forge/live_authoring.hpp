@@ -1,7 +1,17 @@
 #pragma once
 #include <forge/authoring.hpp>
+#include <functional>
 #include <memory>
+#include <vector>
 namespace forge {
+// Registered by the existing editor owner for an explicitly granted workflow.
+// Schemas describe method-specific fields; target/revision/sequence are shared.
+struct LiveAuthoringMethod {
+    std::string name, description, capability;
+    Json input_schema;
+    bool mutation = false;
+    std::function<Json(const Json&)> invoke;
+};
 // Explicitly enabled, loopback-only JSON-lines adapter. All scene access occurs
 // in pump() on the owning thread. Transport identity is independent of API identity.
 class LiveAuthoring {
@@ -10,7 +20,10 @@ class LiveAuthoring {
     ~LiveAuthoring();
     LiveAuthoring(const LiveAuthoring&) = delete;
     LiveAuthoring& operator=(const LiveAuthoring&) = delete;
-    void start(Scene& scene, bool allow_edits);
+    void start(Scene& scene, bool allow_edits, std::vector<LiveAuthoringMethod> methods = {});
+    // Refresh scene routing while retaining the connection's sequence receipts.
+    // Only a granted project-document owner may keep a connection across scenes.
+    void retarget(Scene& scene);
     void stop();
     void pump(const std::string& unavailable_reason = {});
     bool active() const;

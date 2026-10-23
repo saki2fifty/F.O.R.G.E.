@@ -18,7 +18,9 @@ inline void test_automation_workspace(float scale) {
     forge::SceneDocument::create_project(root / "Other", "Other");
     forge::EngineContext scene_engine;
     forge::Scene scene(scene_engine.world());
-    forge::SceneDocument document(scene);
+    std::vector<std::string> recent;
+    forge::EditorFiles files(scene, nullptr, recent);
+    auto& document = files.document;
     document.open_project(root / "Game");
     forge::ui::AutomationWorkspace workspace;
     require(!workspace.connection().active(), "Automation enabled itself");
@@ -49,6 +51,19 @@ inline void test_automation_workspace(float scale) {
     document.new_scene();
     workspace.pump(document, "");
     require(!workspace.connection().active(), "New scene did not revoke automation");
+    workspace.start(scene, files, true, true);
+    const auto project_connection = workspace.connection().connection();
+    document.save_as(root / "Game/Scenes/first.scene.json");
+    workspace.pump(document, "");
+    require(workspace.active() && workspace.connection().connection() == project_connection,
+            "File grant did not survive a scene filename change");
+    document.new_scene();
+    workspace.pump(document, "");
+    require(workspace.active(), "Project-scoped file grant did not survive New Scene");
+    forge::SceneDocument::create_project(root / "Next", "Next");
+    document.open_project(root / "Next");
+    workspace.pump(document, "");
+    require(!workspace.active(), "Project-scoped file grant survived a project switch");
     ImGui::CreateContext();
     forge::ui::style(scale);
     auto& io = ImGui::GetIO();
@@ -58,12 +73,12 @@ inline void test_automation_workspace(float scale) {
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
     workspace.open = true;
-    for (int mode = 0; mode < 3; ++mode) {
+    for (int mode = 0; mode < 4; ++mode) {
         if (mode)
-            workspace.start(scene, document, mode == 2);
+            workspace.start(scene, files, mode >= 2, mode == 3);
         for (int frame = 0; frame < 3; ++frame) {
             ImGui::NewFrame();
-            workspace.draw(scene, document, mode == 2 ? "Active gesture" : "");
+            workspace.draw(scene, files, mode == 2 ? "Active gesture" : "");
             ImGui::Render();
         }
         const auto* window = ImGui::FindWindowByName("Local automation");

@@ -33,7 +33,8 @@ gameplay ABI changes are introduced.
 
 ## Authority and connection lifecycle
 
-The editor retains its current explicit read-only/scene-edit controls. Copy MCP
+The editor offers explicit read-only, scene-edit, and scene-plus-file-edit grants.
+Read-only and scene-edit grants also expose current project/document status. Copy MCP
 configuration copies an absolute tools executable path, `--mcp-stdio`, and
 `FORGE_AUTOMATION_CONNECTION` in the MCP host's environment configuration. That
 environment value contains the existing transport/host/port/token connection
@@ -47,9 +48,13 @@ accepted. The bridge has no shell, arbitrary filesystem, native-code execution
 or engine-repository interface. Local connection authority is not a sandbox
 against a compromised same-user account or a separately privileged agent.
 
-Stop, editor exit and document-generation changes retain the existing revocation
-behavior. Re-enable the connection, copy the new configuration and restart the
-MCP connection after revocation. An ordinary editor Save keeps the connection.
+Stop and editor exit revoke every grant. Scene-only grants also expire whenever
+the document generation changes. The separately enabled file grant is scoped to
+the currently leased project: it survives scene switches and filename changes
+inside that project, creates a fresh scene routing session, and retains transport
+sequence receipts. Switching projects or losing writer ownership revokes it.
+Re-enable, copy configuration and reconnect after revocation. Ordinary Save keeps
+all connections. This scope is checked before and after each editor pump.
 
 ## Tools and synchronization
 
@@ -67,7 +72,45 @@ schema and description come directly from the existing catalog. Stable target,
 commands therefore acquire bindings without another hand-maintained command list.
 `forge_scene_apply` groups 1..128 catalog commands into one atomic Undo entry;
 `forge_scene_replace`, `forge_history_undo` and `forge_history_redo` preserve their
-existing transaction semantics. Read-only connections list only the four reads.
+existing transaction semantics. Editor read-only grants list those four reads
+plus `forge_project_read`; isolated scene-only test hosts retain the four reads.
+
+### Document tools
+
+The native owner registrations in `document_automation.hpp` supply method names,
+capabilities, descriptions and argument schemas. Live transport and MCP derive
+the workflow catalog from those registrations. `document.read` allows
+`forge_project_read` to report project settings, relative scene path, generation,
+dirty/persisted state and recovery availability. It does not read arbitrary files.
+
+An explicit `document.write` grant adds:
+
+| MCP tool | Owning behavior |
+| --- | --- |
+| `forge_document_save` | Save through `EditorFiles`/`SceneDocument`, checking the existing disk baseline |
+| `forge_document_save_as` | Save to a project-relative JSON path; a saved-scene copy gets fresh scene/entity identities and cleared history, while first save retains its identities/history |
+| `forge_document_new` | Create an untitled scene through the existing file owner |
+| `forge_document_open` | Open and validate a project-relative scene through the existing file owner |
+
+All four require exact scene target, observed revision and transport sequence.
+New/Open reject dirty scenes unless the request explicitly sets `discard:true`.
+Other dirty source drafts and pending file/recovery/build/export/dependency work
+block switching; they are never silently discarded and no deferred UI action is
+queued. Successful discard uses existing recovery cleanup; failed Open keeps the
+old draft and recovery. Recovery restoration/deletion is not an MCP tool yet.
+
+Paths use forward slashes, contain at most1024 UTF-8 bytes and stay inside the
+current project's canonical boundary. Absolute paths, parent traversal, control
+characters, alternate-stream syntax and redirected paths outside the project are
+rejected. Existing scene-file/control-file restrictions remain in force. Save As
+cannot overwrite another existing file; ordinary Save rejects external changes
+or deletion. These are file commits, not scene Undo entries.
+
+When a file operation returns `rediscover:true`, call `forge_discover` before the
+next document operation. Previous scene targets stop working, even if a new scene
+has the same UUID/revision. Replaying a retained old sequence still returns its
+original receipt without repeating file writes. Editor scene activation consumes
+the normal file-change event, including after filename changes.
 
 Mutations require the caller's observed revision and a positive safe-integer
 sequence. The bridge never silently replaces either. The editor owns sequence
@@ -102,19 +145,22 @@ never invoke scene tools, and unknown notifications receive no response.
 
 ## Coverage and remaining game-making workflows
 
-This adapter is **scene authoring**, not complete game-development parity.
+This adapter covers **scene authoring and granted scene-file operations**. It is
+not complete game-development parity.
 The following table is the maintenance checklist for subsequent integrations.
 
 | Workflow | Current MCP coverage | Existing owner for remaining work |
 | --- | --- | --- |
 | Scene/entities/transforms/reflected properties | Implemented through the shared catalog and scene methods | `AuthoringSession`, `Scene`, domain validation |
 | Undo/Redo and diagnostics | Implemented for authored scenes | Existing scene history/diagnostics |
-| New/open/switch project; scene Save/Save As/recovery | Not exposed; save in editor | `SceneDocument`, `EditorFiles`, `ProjectLease` |
+| Current project/settings and document status | Read through `document.read` | `SceneDocument`, `ProjectSettings` |
+| Scene Save/Save As/New/Open | Implemented with explicit `document.write`, normal owner gates and fresh routing targets | `SceneDocument`, `EditorFiles`, `ProjectLease` |
+| Create/open/switch project; recovery restore/delete | Not exposed; use the editor | Existing project/file/recovery owners |
 | Asset search/import/reimport, placement and file operations | Not exposed; assigning supported scene fields does not import assets | Asset catalog/import/file services and owning document workspace |
 | Materials/shaders/graphs, animation assets and domain documents | Not exposed as document tools | Existing asset authoring services and document editors |
 | C++ source creation/editing, schema inspection and build | Not exposed | Existing source editor and native project/build controller |
 | Play/Stop, live runtime inspection, logs and visual inspection | Not exposed; scene diagnostics remain available | Existing Play session, diagnostic and presentation owners |
-| Game settings, validation and export | Not exposed | Existing project settings and game-export controller |
+| Game settings changes, validation and export | Not exposed | Existing project settings and game-export controller |
 | FORGE engine/editor source modification | Outside game-project MCP authority | Separate explicitly authorized repository development |
 
 Each missing workflow needs explicit targets, capabilities, lifecycle / dirty
@@ -130,5 +176,9 @@ scene parity through an independent client, atomic failure, property updates,
 Undo/Redo, revisions, replay/conflicts, read-only and busy denial, authentication,
 disconnection, malformed/oversized/deep input, cancellation, EOF and credential
 redaction. Existing `authoring_api`, `authoring_cli` and `authoring_live` tests
-remain the shared service regression checks. Native Windows/editor validation
-is separate from portable Linux process/socket execution.
+remain the shared service regression checks. `mcp_document_stdio` uses real editor file/document owners without a GPU window:
+both protocol forms, ordinary/copy/first saves, disk conflicts/deletion, project
+containment, leases, dirty/busy/source gates, recovery cleanup/failure preservation,
+fresh targets, old receipt replay and scope revocation. Editor tests cover owner
+lifecycle and controls at supported scales. Native Windows/editor validation is
+separate from portable Linux process/socket and ImGui harness execution.

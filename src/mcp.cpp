@@ -22,8 +22,10 @@ constexpr auto instructions =
     "complete target into document calls. Mutations require your observed expected_revision and "
     "next_sequence as sequence; repeating identical arguments with the same sequence retrieves "
     "the editor receipt. Never blindly retry with a new sequence or silently replace a stale "
-    "revision. Scene edits share Undo and remain unsaved until saved in the editor. No project "
-    "file, asset, C++ compilation, Play, export or engine-source tools are available yet.";
+    "revision. Scene edits share Undo. Document saves and scene switching require an explicit "
+    "file grant; inspect forge_project_read and rediscover after a document change. Scene-only "
+    "grants expire on scene switches; file grants remain scoped to the current project. No "
+    "project switching, asset, C++ compilation, Play, export or engine-source tools exist yet.";
 
 Json object(Json properties = Json::object(), Json required = Json::array()) {
     if (properties.is_null())
@@ -153,6 +155,15 @@ std::vector<Tool> tools(const Json& discovery) {
     if (supports("history.redo"))
         add("forge_history_redo", "Redo one authored scene transaction.", "history.redo", {}, {},
             true);
+    for (const auto& workflow : detail.value("workflow_methods", Json::array())) {
+        const auto method = workflow.at("method").get<std::string>();
+        if (!supports(method.c_str()))
+            throw std::runtime_error("Workflow catalog contains an unsupported method");
+        const auto& schema = workflow.at("input_schema");
+        add(command_name(method), workflow.at("description").get_ref<const std::string&>().c_str(),
+            method, schema.at("properties"), schema.at("required"),
+            workflow.at("mutation").get<bool>());
+    }
     return result;
 }
 
