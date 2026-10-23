@@ -1,3 +1,15 @@
+# MCP development source — not included in Build208
+
+Native C++ MCP scene-authoring tools are implemented in development source.
+The focused Linux authoring/API/CLI/live/MCP/configuration checks pass, as does
+independent validation against the pinned official current/legacy schemas.
+Tools share the editor's read-only/edit controls, command schemas, revisions and
+Undo/Redo. Windows adapter cross-compiler syntax and Linux UI-header checks pass;
+native Windows editor/client execution remains pending. Project/file operations,
+assets, C++ compilation, Play and export remain explicit MCP coverage gaps.
+See [MCP coverage](mcp.md). No new Windows ZIP has been produced for this work;
+Build208 below remains the latest accepted package.
+
 # Current Windows delivery — Build261022-000208
 
 The editor and matching C++ SDK ZIP includes Sprite image regions and all78editable

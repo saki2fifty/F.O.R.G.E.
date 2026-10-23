@@ -1,6 +1,6 @@
 # Authoring API 1
 
-`forge_authoring` is a UI-independent library over `forge_core`. The editor and `forge_tools` link it; `forge_runtime` does not. The native gameplay ABI and runtime process protocol remain separate contracts. This API edits scenes through the isolated CLI or an opt-in [live editor transport](live-authoring.md). No MCP server, asset editor, filesystem mutation or native execution is exposed.
+`forge_authoring` is a UI-independent library over `forge_core`. The editor and `forge_tools` link it; `forge_runtime` does not. The native gameplay ABI and runtime process protocol remain separate contracts. This API edits scenes through the isolated CLI or an opt-in [live editor transport](live-authoring.md), also used by the [MCP adapter](mcp.md). No asset editor, filesystem mutation or native execution is exposed through these scene tools.
 
 ## Identity and compatibility
 

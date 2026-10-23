@@ -89,6 +89,7 @@ gameplay code still supplies movement keys and camera behavior.
 - [Asset inspection tools](editor/asset-tools.md): scan sources and query registered dependencies without project writes.
 
 - [Live automation](editor/live-automation.md): let a trusted local script inspect or edit the open scene.
+- [MCP agents](editor/mcp.md): connect a trusted AI client to the same scene-authoring tools.
 
 ## Profiler
 

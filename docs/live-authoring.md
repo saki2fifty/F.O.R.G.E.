@@ -1,6 +1,6 @@
 # Live authoring transport 1
 
-The editor explicitly enables a `LiveAuthoring` listener on IPv4 `127.0.0.1` with an OS-assigned port. This is a raw TCP JSON-lines adapter around [Authoring API 1](authoring-api.md), not HTTP, WebSocket, Flecs remote API or MCP. No new external dependency is introduced. Runtime links neither this transport nor the authoring service.
+The editor explicitly enables a `LiveAuthoring` listener on IPv4 `127.0.0.1` with an OS-assigned port. This is a raw TCP JSON-lines adapter around [Authoring API 1](authoring-api.md), not HTTP, WebSocket, Flecs remote API or MCP. The separate native [MCP stdio adapter](mcp.md) translates MCP tools into this unchanged transport. No new external dependency is introduced. Runtime links neither transport nor the authoring service.
 
 ## Permission and identity
 

@@ -32,7 +32,10 @@ It prints a four-shape scene created through one command batch. To keep that res
 
 Create primitives, rename/reparent/duplicate/delete entities, edit supported properties, copy/reset/ground/snap transforms, inspect inherited values, query entities, read diagnostics, and undo/redo. A batch of commands commits as one undo step; if any command fails validation, the whole batch is rejected.
 
-The session edits an isolated copy in memory. It does not connect to the open editor, save project files, compile gameplay, or run native modules. An MCP server is not included yet.
+The `--stdio` session edits an isolated copy in memory. It does not connect to
+the open editor, save project files, compile gameplay, or run native modules.
+The separate [MCP mode](mcp.md), `--mcp-stdio`, connects to the owning editor's
+explicitly enabled automation service.
 
 End the input stream to close the process. Unsaved in-memory work ends with the session. A script must consume a scene snapshot if it needs the result afterward.
 

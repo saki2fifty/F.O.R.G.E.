@@ -6,6 +6,12 @@ source and its selected build options take precedence over live documentation.
 
 CMake fetches immutable revisions. These selections are tested baselines, not claims that each is the latest release.
 
+The original native [MCP adapter](mcp.md) adds a protocol contract, not a new
+library dependency. Its MCP2026-07-28/2025-11-25 schema baseline is official
+`modelcontextprotocol/modelcontextprotocol@dae694f61a31f7a3ec2af3aff709e11f70f61e48`,
+verified 2026-10-23. It uses the existing pinned JSON library and platform sockets.
+Official SDKs were reviewed; none is C++, and no SDK/reference code is included.
+
 | Dependency | Baseline | Used capabilities | Official reference |
 |---|---|---|---|
 | Draco | 1.5.7 / `8786740086a9f4d83f44aa83badfbea4dce7a1b5` | Private glTF mesh decompression | [Source](https://github.com/google/draco/tree/8786740086a9f4d83f44aa83badfbea4dce7a1b5) |

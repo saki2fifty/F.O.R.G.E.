@@ -1,7 +1,9 @@
 #pragma once
 #include "document.hpp"
+#include "mcp.hpp"
 #include "widgets.hpp"
 #include <SDL3/SDL_clipboard.h>
+#include <SDL3/SDL_filesystem.h>
 #include <forge/live_authoring.hpp>
 namespace forge::ui {
 class AutomationWorkspace {
@@ -86,6 +88,27 @@ class AutomationWorkspace {
                     else
                         notice_ = "Connection copied. Treat its token as a password.";
                 }
+                if (button("Copy MCP configuration",
+                           "Copy a local MCP server configuration for an AI client. It contains "
+                           "this connection's secret; Stop connection revokes access.")) {
+                    const auto* base = SDL_GetBasePath();
+                    if (!base)
+                        notice_ = "Cannot locate the FORGE tools folder.";
+                    else {
+#ifdef _WIN32
+                        const auto tools = std::filesystem::u8path(base) / "forge_tools.exe";
+#else
+                        const auto tools = std::filesystem::u8path(base) / "forge_tools";
+#endif
+                        const auto config = mcp_client_configuration(tools, live_.connection());
+                        if (!SDL_SetClipboardText(config.dump(2).c_str()))
+                            notice_ = SDL_GetError();
+                        else
+                            notice_ =
+                                "MCP configuration copied. Add it to your trusted AI client. "
+                                "It includes a temporary secret; reconnect after a scene switch.";
+                    }
+                }
                 if (button("Stop connection", "Disconnect clients and revoke access immediately. "
                                               "Committed edits remain undoable."))
                     live_.stop();
@@ -98,8 +121,9 @@ class AutomationWorkspace {
             ImGui::TextWrapped(
                 "Use Examples/Automation/live_scene.py with Python 3 to inspect this scene or add "
                 "an undoable four-shape example. Save changes normally in the editor.");
-            help("See the User Manual: Live automation. This connection uses FORGE JSON requests; "
-                 "the MCP adapter is still planned.");
+            help("The MCP adapter in forge_tools connects AI clients to this same editor service. "
+                 "See the User Manual: MCP agents. Current tools cover scene authoring; project, "
+                 "asset, C++ build, Play and export tools remain unavailable.");
         }
         ImGui::End();
     }

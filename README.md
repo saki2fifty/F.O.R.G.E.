@@ -115,6 +115,12 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 
 ## Current implementation
 
+**Development source:** [native MCP scene tools](manual/editor/mcp.md) connect AI
+clients to the owning editor's automation service. Portable checks pass; native
+Windows editor acceptance and a new package are pending. This is not included
+in the current Build208 ZIP. Full project-to-export MCP coverage remains in
+development; see the [capability checklist](docs/mcp.md).
+
 - Flecs scene state, stable authored IDs, independent local translation/rotation/scale, derived world transforms, structured prefabs, reflected properties, atomic scene replacement and saves, undo/redo, and unknown-component preservation.
 - Runtime-owned fixed clock, Pause/Step/Resume, derived hierarchical pose interpolation and a separate Play process with protocol 2. Project C++ gameplay registers Flecs components and systems through the exact matching SDK.
 - Built-in C++ source editing, Component/System creation, incremental CMake builds and isolated candidate validation. Code iteration uses Stop → Save → Build → Play; changed source is never silently run or exported from an older module.

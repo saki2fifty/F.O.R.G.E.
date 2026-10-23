@@ -1,5 +1,6 @@
 #include "asset_tools_cli.hpp"
 #include "ecs_tools_cli.hpp"
+#include "mcp.hpp"
 #include <forge/authoring.hpp>
 #include <forge/build.hpp>
 #include <forge/flecs_script.hpp>
@@ -11,6 +12,8 @@
 int main(int argc, char** argv) {
     ecs_os_set_api_defaults();
     ecs_os_api.log_out_ = stderr; // Keep native diagnostics outside the JSON protocol.
+    if (argc == 2 && std::string(argv[1]) == "--mcp-stdio")
+        return forge::mcp_stdio();
     if (argc >= 2 && std::string(argv[1]) == "--assets")
         return forge::asset_tools_cli(argc, argv);
     if (argc == 2 && std::string(argv[1]) == "--ecs-stdio")
@@ -52,12 +55,13 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (argc != 2 || std::string(argv[1]) != "--stdio") {
-        std::cout << "FORGE tools --stdio | --ecs-stdio | --script PROJECT SOURCE.flecs\n"
-                     "Asset inspection: --assets scan PROJECT [ROOT] | query PROJECT | dependents "
-                     "PROJECT UUID\nAuthoring "
-                     "API 1, one JSON request/response per "
-                     "line.\nStart with {\"api\":1,\"method\":\"discover\"}. Memory-only; no "
-                     "project writes or native execution.\n";
+        std::cout
+            << "FORGE tools --stdio | --mcp-stdio | --ecs-stdio | --script PROJECT SOURCE.flecs\n"
+               "Asset inspection: --assets scan PROJECT [ROOT] | query PROJECT | dependents "
+               "PROJECT UUID\nAuthoring "
+               "API 1, one JSON request/response per "
+               "line.\nStart with {\"api\":1,\"method\":\"discover\"}. Memory-only; no "
+               "project writes or native execution.\n";
         return argc == 1 ? 0 : 2;
     }
     forge::EngineContext scene_engine;

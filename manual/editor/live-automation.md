@@ -53,6 +53,11 @@ A second FORGE editor cannot open the same project while this editor owns it. Cl
 
 ## Current scope
 
-This connection accepts FORGE authoring requests from the same machine. It is not an MCP server yet. It exposes no native execution, arbitrary shell commands, project file writes or asset tools. Scripts edit the open scene; the editor owns saving and recovery. The separate [Headless authoring tools](automation.md) remain available for isolated in-memory work.
+This connection accepts FORGE authoring requests from the same machine. The
+[MCP adapter](mcp.md) lets a compatible AI client use those same scene tools.
+It exposes no native execution, arbitrary shell commands, project file writes
+or asset tools. Scripts and agents edit the open scene; the editor owns saving
+and recovery. The separate [Headless authoring tools](automation.md) remain
+available for isolated in-memory work.
 
 For exact request fields and limits, integration developers can read the repository's technical **docs/live-authoring.md** guide.
