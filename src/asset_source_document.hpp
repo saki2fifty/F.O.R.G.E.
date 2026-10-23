@@ -1,6 +1,7 @@
 #pragma once
 #include "asset_bytes.hpp"
 #include <algorithm>
+#include <atomic>
 #include <forge/assets.hpp>
 #include <forge/project_lease.hpp>
 #include <forge/scene.hpp>
@@ -9,6 +10,14 @@
 #include <type_traits>
 #include <utility>
 namespace forge {
+// Transient routing only: never serialized or used as an asset identity.
+inline std::uint64_t next_asset_document_session() {
+    static std::atomic<std::uint64_t> next{1};
+    const auto value = next.fetch_add(1, std::memory_order_relaxed);
+    if (value >= 9007199254740991ULL)
+        throw std::runtime_error("Asset document session space exhausted");
+    return value;
+}
 // UI-independent, single-document source/history owner. Publication is separate.
 template <class Traits> class AssetSourceDocument {
     using Source = typename Traits::Source;
@@ -21,6 +30,9 @@ template <class Traits> class AssetSourceDocument {
     static std::unique_ptr<AssetSourceDocument>
     create(std::shared_ptr<const ProjectLease>, std::filesystem::path source,
            std::function<Source(AssetId)> initialize = {});
+    static constexpr auto source_suffix = Traits::suffix;
+    static auto initial_source(AssetId id) { return Traits::create(id); }
+    std::uint64_t session() const { return session_; }
     const Source& source() const { return current_; }
     const std::filesystem::path& locator() const { return locator_; }
     const std::filesystem::path& project() const { return project_; }
@@ -57,6 +69,7 @@ template <class Traits> class AssetSourceDocument {
     Source current_;
     Value saved_;
     std::string disk_;
+    const std::uint64_t session_ = next_asset_document_session();
     std::uint64_t revision_ = 1;
     std::vector<Entry> undo_, redo_;
     void check() const;

@@ -17,6 +17,8 @@
 #include <vector>
 namespace forge {
 class AnimationTimelineEditor : public ui::SequenceFrameSource {
+    friend struct AssetDocumentAutomation;
+
   public:
     ui::SpriteFrameField sprite_frames;
     bool close_cancelled = false;
@@ -292,6 +294,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         }
     }
     void draw(SceneDocument& project, Scene& scene, bool locked) {
+        (void)project;
         if (sequence_mode()) {
             bool visible = true;
             const bool expanded =

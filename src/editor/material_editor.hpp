@@ -12,6 +12,8 @@
 #include <future>
 namespace forge {
 class MaterialEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     std::function<void(AssetRef<MaterialAsset>, MaterialResourceData,
                        std::shared_ptr<const AssetCatalog>)>
@@ -224,6 +226,7 @@ class MaterialEditor {
         }
     }
     void draw(SceneDocument& project, bool locked) {
+        (void)project;
         if (!document_)
             return;
         ui::draft_window_size({920 * ui::interface_scale, 720 * ui::interface_scale});

@@ -55,6 +55,7 @@
 #include "game_input.hpp"
 #include "help.hpp"
 #include "hierarchy.hpp"
+#include "import_document_automation.hpp"
 #include "material_editor.hpp"
 #include "material_graph_editor.hpp"
 #include "material_preview.hpp"
@@ -69,6 +70,7 @@
 #include "physics_overlay.hpp"
 #include "play.hpp"
 #include "play_presentation.hpp"
+#include "prefab_automation.hpp"
 #include "prefabs.hpp"
 #include "project_settings.hpp"
 #include "published_tile_map.hpp"
@@ -88,6 +90,7 @@
 #include "shortcuts.hpp"
 #include "simulation_speed_controls.hpp"
 #include "source_import.hpp"
+#include "source_workflow_automation.hpp"
 #include "spatial_helpers.hpp"
 #include "sprite_frame_preview.hpp"
 #include "status_bar.hpp"
@@ -2140,9 +2143,53 @@ int main(int argc, char** argv) {
             }
             return result;
         };
+        documents.bind_source(
+            "material", forge::AssetDocumentAutomation::bind(material_editor, files.document));
+        documents.bind_source("material.graph",
+                              forge::AssetDocumentAutomation::bind(graph_editor, files.document));
+        documents.bind_source(
+            "collision", forge::AssetDocumentAutomation::bind(collision_editor, files.document));
+        documents.bind_source("editable_mesh", forge::AssetDocumentAutomation::bind(
+                                                   editable_mesh_editor, files.document));
+        documents.bind_source("particle_effect", forge::AssetDocumentAutomation::bind(
+                                                     particle_editor, files.document));
+        documents.bind_source("terrain",
+                              forge::AssetDocumentAutomation::bind(terrain_editor, files.document));
+        documents.bind_source(
+            "tile_set", forge::AssetDocumentAutomation::bind(tile_set_editor, files.document));
+        documents.bind_source(
+            "tile_map", forge::AssetDocumentAutomation::bind(tile_map_editor, files.document));
+        documents.bind_source("animation_states", forge::AssetDocumentAutomation::bind(
+                                                      animation_states, files.document));
+        documents.bind_source("animation_blend_space", forge::AssetDocumentAutomation::bind(
+                                                           animation_blend_space, files.document));
+        documents.bind_source("animation_mask",
+                              forge::AssetDocumentAutomation::bind(animation_mask, files.document));
+        documents.bind_source("animation_timeline", forge::AssetDocumentAutomation::bind(
+                                                        animation_timeline, files.document));
+        documents.bind_importer(
+            "model_import", forge::ImportDocumentAutomation::bind(model_imports, files.document));
+        documents.bind_importer(
+            "audio_import", forge::ImportDocumentAutomation::bind(audio_imports, files.document));
+        documents.bind_importer("texture_import", forge::ImportDocumentAutomation::bind(
+                                                      texture_imports, files.document));
+        documents.bind_importer(
+            "shader_import", forge::ImportDocumentAutomation::bind(shader_imports, files.document));
         automation.workflow_methods = [&](const forge::ui::AutomationPermissions& permissions) {
-            return forge::asset_automation_methods(scene, files, content_imports, source_import,
-                                                   scene_asset_drop, content_files, permissions);
+            auto methods =
+                forge::asset_automation_methods(scene, files, content_imports, source_import,
+                                                scene_asset_drop, content_files, permissions);
+            auto sources = forge::source_document_automation_methods(documents, permissions);
+            methods.insert(methods.end(), std::make_move_iterator(sources.begin()),
+                           std::make_move_iterator(sources.end()));
+            auto settings = forge::import_document_automation_methods(documents, permissions);
+            methods.insert(methods.end(), std::make_move_iterator(settings.begin()),
+                           std::make_move_iterator(settings.end()));
+            auto prefabs =
+                forge::PrefabAutomation::methods(prefab_editor, scene, files.document, permissions);
+            methods.insert(methods.end(), std::make_move_iterator(prefabs.begin()),
+                           std::make_move_iterator(prefabs.end()));
+            return methods;
         };
 #ifdef FORGE_UI_FIXTURE
         forge::test::fixture_breadcrumb("before-main-loop");

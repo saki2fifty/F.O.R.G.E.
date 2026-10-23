@@ -9,6 +9,8 @@
 #include <functional>
 namespace forge {
 class AnimationStatesEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     bool close_cancelled = false;
     bool is_open() const { return bool(document_) || open_error_; }
@@ -125,6 +127,7 @@ class AnimationStatesEditor {
     }
     void draw(SceneDocument& project, Scene& scene, bool locked,
               const std::function<void()>& preview = {}) {
+        (void)project;
         if (!document_) {
             if (open_error_) {
                 if (ImGui::Begin("Animation States###Animation States", &open_error_)) {

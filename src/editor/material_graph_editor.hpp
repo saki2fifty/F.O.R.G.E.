@@ -9,6 +9,8 @@
 #include <future>
 namespace forge {
 class MaterialGraphEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     std::function<void(MaterialResourceData, std::shared_ptr<const AssetCatalog>)> update_preview;
     std::function<void(bool)> draw_preview;
@@ -677,10 +679,18 @@ class MaterialGraphEditor {
         auto next = std::make_unique<MaterialGraphDocument>(project.writer_guard(), source);
         auto catalog =
             std::make_shared<const AssetCatalog>(AssetCatalog::open_project(project.project()));
+        const auto record = catalog->records().find(next->source().asset());
+        const auto bytes = asset_detail::read_bytes(ProjectPaths(project.project()).resolve(source),
+                                                    MaterialGraphDocumentTraits::byte_limit);
+        const bool unpublished = record == catalog->records().end() ||
+                                 !record->second.metadata.contains("forge.import") ||
+                                 record->second.metadata.at("forge.import").at("source_digest") !=
+                                     asset_detail::content_digest(bytes);
         const auto preview = pending_preview_;
         finish_close();
         document_ = std::move(next);
         catalog_ = std::move(catalog);
+        needs_publish_ = unpublished;
         if (preview && preview->shader && preview->shader->id == document_->source().asset())
             preview_source_ = preview;
         canvas.reset();

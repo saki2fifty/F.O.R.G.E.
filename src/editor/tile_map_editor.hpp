@@ -10,6 +10,8 @@
 
 namespace forge {
 class TileMapEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     explicit TileMapEditor(std::filesystem::path worker) : worker_(std::move(worker)) {}
     std::function<std::optional<TileCellAddress>(std::shared_ptr<const TileMapData>,

@@ -7,6 +7,8 @@
 namespace forge {
 // One authored document/history owner; cooked publication uses the shared importer.
 class CollisionEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     bool close_cancelled = false;
     bool is_open() const { return bool(document_); }

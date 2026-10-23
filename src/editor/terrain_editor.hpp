@@ -12,6 +12,8 @@ struct TerrainPreviewSettings {
     bool brushing = false;
 };
 class TerrainEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     std::function<std::optional<MeshBrushSample>(const TerrainSource&, std::uint64_t,
                                                  std::shared_ptr<const AssetCatalog>,

@@ -7,6 +7,8 @@
 #include <forge/authoring.hpp>
 namespace forge {
 class AnimationMaskEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     bool close_cancelled = false;
     bool is_open() const { return bool(document_) || open_error_; }

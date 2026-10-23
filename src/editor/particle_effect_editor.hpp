@@ -8,6 +8,8 @@
 #include <numeric>
 namespace forge {
 class ParticleEffectEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     std::function<void(const ParticleEffectSource&, double, std::shared_ptr<const AssetCatalog>)>
         draw_preview;

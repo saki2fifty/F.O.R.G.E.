@@ -8,6 +8,8 @@
 #include <functional>
 namespace forge {
 class AnimationBlendSpaceEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     bool close_cancelled = false;
     bool is_open() const { return bool(document_) || open_error_; }

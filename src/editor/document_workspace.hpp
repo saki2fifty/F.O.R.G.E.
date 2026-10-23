@@ -1,8 +1,14 @@
 #pragma once
 #include "editor_state.hpp"
+#include <optional>
 #include <stdexcept>
 namespace forge::ui {
 // Private UI adapters borrow document owners. They never store authored data or persistent IDs.
+struct SourceDocumentAccess {
+    std::string suffix;
+    // Borrowed callbacks; the registered editor remains the sole draft/history owner.
+    std::function<Json(std::string_view, const Json&)> invoke;
+};
 struct WorkspaceDocument {
     std::string id, title, window_id;
     bool central = true;
@@ -11,6 +17,8 @@ struct WorkspaceDocument {
     std::function<bool()> can_undo, can_redo;
     std::function<void(const std::string&)> inspect;
     std::function<bool()> take_close_cancelled;
+    std::optional<SourceDocumentAccess> source = {};
+    std::optional<SourceDocumentAccess> importer = {};
 };
 class DocumentWorkspace {
   public:
@@ -19,6 +27,27 @@ class DocumentWorkspace {
             throw std::logic_error("Duplicate/empty editor document adapter");
         entries_.push_back(std::move(document));
     }
+    void bind_source(const std::string& id, SourceDocumentAccess access) {
+        for (auto& entry : entries_)
+            if (entry.id == id) {
+                if (entry.source)
+                    throw std::logic_error("Duplicate source automation binding");
+                entry.source = std::move(access);
+                return;
+            }
+        throw std::logic_error("Missing source document owner");
+    }
+    void bind_importer(const std::string& id, SourceDocumentAccess access) {
+        for (auto& entry : entries_)
+            if (entry.id == id) {
+                if (entry.importer)
+                    throw std::logic_error("Duplicate importer automation binding");
+                entry.importer = std::move(access);
+                return;
+            }
+        throw std::logic_error("Missing importer document owner");
+    }
+    const std::vector<WorkspaceDocument>& entries() const { return entries_; }
     void remove(const std::string& id, EditorUiContext* context = nullptr) {
         if (context) {
             if (context->selection.kind() == SelectionKind::DocumentItem &&

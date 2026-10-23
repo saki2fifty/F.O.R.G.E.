@@ -22,6 +22,13 @@ these changes have not been packaged or physically accepted on Windows.
 - External imports stay within an explicitly selected source folder. File commits require the reviewed content digest; changed source bytes invalidate the review.
 - Added GPU-independent editor-owner fixtures using real import workers, including animated glTF placement, cancellation, replay, stale reviews and project containment.
 
+## Shared asset source editors
+
+- Added MCP access to12 actual source editors, including validated creation, inspection, atomic patches, source Undo/Redo and ordinary publication. Tile Maps retain typed copy-on-write painting.
+- Added native graph node/port discovery, typed importer settings and existing reviewed identity-conflict decisions.
+- Connected prefab capture/source publication and reviewed durable prefab+scene Apply to their existing owners.
+- New graph sources now report unpublished state consistently with other source editors.
+
 ## Validation and remaining scope
 
 Native Linux scene and document MCP process/socket tests, existing authoring/file

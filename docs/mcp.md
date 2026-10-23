@@ -160,6 +160,52 @@ Cancellation is cooperative: completed copies, publications or disk commits stay
 completed. Project-scoped status never exposes a previous project's retained job
 metadata after switching projects.
 
+## Shared source and importer documents
+
+`forge_asset_document_types` lists the actual DocumentWorkspace source editors
+and their suffixes. `template` exposes each existing owner's initial source shape;
+`create` allocates the ordinary fresh asset identity, and `open` borrows that
+editor's current document. These tools never create a parallel draft or history.
+Material, material graph, collision, editable mesh, particle, terrain, Tile Set,
+Tile Map, animation states/blend space/mask and transform animation are bound.
+
+`status` returns a transient document session, revision, draft/publication state,
+Undo/Redo availability and diagnostics. `read` accepts a JSON Pointer and pages
+arrays. Mutations additionally require the exact `document_session` and
+`document_revision`; reopening produces a new session. A stale scene target or
+scene revision still fails independently. `patch` admits up to128 RFC6902
+add/remove/replace/test operations as one validated owner edit, preserving asset
+identity and allocator floors. Intermediate JSON is bounded to8MiB; each source's
+stricter native parser limit also applies. Failed validation changes no history.
+Active editor gestures, pending publication and close requests retain owner gates.
+
+Tile Map reads return metadata; `cells` queries up to4096 addresses and `paint`
+uses the existing immutable chunk storage. Metadata patches use `with_metadata`,
+and cell edits use `paint`; both retain the existing history budget. Source Undo
+and Redo affect that asset document rather than the scene. `save` checks the disk
+baseline and admits the ordinary owner publication; poll status to distinguish
+admission, completion and failure. `close` needs explicit discard for unsaved or
+unpublished work. A saved source can remain after failed publication.
+
+`forge_asset_graph_catalog` and `forge_asset_graph_node` expose the existing
+material graph node catalog, native node factory and typed ports. Returned node
+values become authored only when added through the graph document's validator.
+
+`forge_asset_settings_types/status/schema` borrow registered import-setting
+editors. `open` admits contained sources, including first imports. `edit` validates
+all requested setting changes before adopting them into the shared draft.
+`publish`, `identity`, `cancel` and `close` require the exact importer session and
+state digest. Identity choices use the existing reviewed conflict/build key;
+omitting `previous` explicitly selects a new logical asset. Importer settings
+and publication retain their existing semantics and are separate from Scene Undo.
+
+Prefab tools borrow PrefabEditor, PrefabLibrary and SceneDocument: list/capture,
+source open/read/patch/publish/close, refresh, and reviewed instance Apply.
+Source edits require the exact draft digest and preserve identity/publication
+revision. Apply review captures the existing owner's candidate; commit requires
+its digest plus acknowledgment that all current scene changes will be saved.
+The existing recoverable prefab/scene transaction and Scene Undo/Redo own replay.
+
 ## Bounds and cancellation
 
 Input is UTF-8 JSON lines, capped at1MiB and64 nesting levels. The bounded reader
@@ -179,7 +225,7 @@ never invoke scene tools, and unknown notifications receive no response.
 
 ## Coverage and remaining game-making workflows
 
-This adapter covers **scene authoring, granted scene files and asset workflows**. It is
+This adapter covers **scene authoring, granted scene files, assets and source documents**. It is
 not complete game-development parity.
 The following table is the maintenance checklist for subsequent integrations.
 
@@ -191,8 +237,9 @@ The following table is the maintenance checklist for subsequent integrations.
 | Scene Save/Save As/New/Open | Implemented with explicit `document.write`, normal owner gates and fresh routing targets | `SceneDocument`, `EditorFiles`, `ProjectLease` |
 | Create/open/switch project; recovery restore/delete | Not exposed; use the editor | Existing project/file/recovery owners |
 | Asset search/raw-source import/reimport, placement and source-file operations | Implemented through existing owners and explicit asset grants | AssetCatalog, ContentImports, SourceImport, SceneAssetDrop, ContentFiles |
-| Asset import settings and source/domain documents | Remaining owner integrations | Existing import/source document editors |
-| Materials/shaders/graphs, animation assets and domain documents | Not exposed as document tools | Existing asset authoring services and document editors |
+| Asset import settings | Implemented through registered import-editor owners, typed rules and reviewed identity decisions | AssetImportEditor and its native import services |
+| Materials/graphs, animation assets, collision/mesh/terrain/tile/particle sources | Implemented through12 existing source editors, native validation and per-document history/publication | DocumentWorkspace and AssetSourceDocument |
+| Prefab source authoring and Apply | Implemented through actual source/library and durable prefab+scene owners | PrefabEditor, PrefabLibrary, SceneDocument |
 | C++ source creation/editing, schema inspection and build | Not exposed | Existing source editor and native project/build controller |
 | Play/Stop, live runtime inspection, logs and visual inspection | Not exposed; scene diagnostics remain available | Existing Play session, diagnostic and presentation owners |
 | Game settings changes, validation and export | Not exposed | Existing project settings and game-export controller |
@@ -229,3 +276,15 @@ checks. `mcp_asset_stdio` uses actual workers and editor owners for raw glTF/aud
 imports, source revision conflicts, model/mesh placement and history, reviewed
 file operations, recovery, permissions and replay. Native Windows/GPU validation
 remains a separate gate.
+
+`mcp_source_stdio` exercises all12 real source editor owners, graph schema/port
+discovery, document sessions/revisions, source Undo/Redo, failed identity edits,
+copy-on-write tile painting, saved-state dirtiness, native publication, typed
+import setting atomicity, source disk conflicts, prefab source publication and
+recoverable two-file Apply Undo/Redo through both MCP protocol envelopes. It
+publishes Material, Collision, Editable Mesh, Particle Effect, Terrain, Tile Set,
+transform-animation and WAV candidates through their real owners. Rig-dependent
+animation sources are exercised for draft validation/history; graph shader
+compilation is not claimed by this fixture. It drives ImGui frames without a GPU
+window; graph shader compilation and native
+Windows/client execution are distinct acceptance gates.

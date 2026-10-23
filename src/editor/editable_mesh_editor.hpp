@@ -20,6 +20,8 @@
 
 namespace forge {
 class EditableMeshEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     bool close_cancelled = false;
     bool is_open() const { return bool(document_); }

@@ -60,6 +60,17 @@ their owner checks the exact operation, project and reviewed content digest.
 New admissions and scene edits retain the ordinary busy guard. Completed file
 commits retain their existing recovery receipts and are separate from Scene Undo.
 
+### Shared source documents
+
+DocumentWorkspace's source/import callbacks borrow its already registered editor
+instances. Source values, revision/history, validation, publisher queues and disk
+baselines stay in their existing owners. Source sessions are transient routing
+nonces and never become serialized asset identities. MCP JSON patches and typed
+Tile Map edits pass through those owners; importer decisions retain the reviewed
+identity/build-key contract. Prefab Apply reuses the existing recoverable pair
+and Scene history. No scene format, asset format, native ABI or identity migration
+is introduced by these bindings.
+
 ## Compatibility and validation
 
 Existing Authoring API1, live transport1, scene-format3 and the native gameplay

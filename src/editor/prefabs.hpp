@@ -57,6 +57,8 @@ inline std::string prefab_member_label(const Json& document, const std::string& 
     return "Missing member";
 }
 class PrefabEditor {
+    friend struct PrefabAutomation;
+
   public:
     ui::SpriteFrameField sprite_frames;
     std::function<bool(const Json& components, Json& layer)> tile_map_layer;
@@ -71,12 +73,26 @@ class PrefabEditor {
         if (!open_ || !detail::json_value_equal(before, draft_))
             throw std::runtime_error(
                 "Prefab draft changed during migration; prepare a fresh candidate");
+        edit_draft(candidate);
+    }
+    void edit_draft(const Json& candidate) {
+        if (!open_)
+            throw std::runtime_error("Open a prefab source before editing its draft");
         PrefabDocument::validate(candidate);
         if (candidate.at("asset_id") != draft_.at("asset_id") ||
             candidate.at("revision") != draft_.at("revision"))
             throw std::runtime_error(
-                "Migration cannot change prefab source identity or publication revision");
+                "Edits cannot change prefab source identity or publication revision");
         draft_ = candidate;
+        if (std::none_of(draft_.at("members").begin(), draft_.at("members").end(),
+                         [&](const Json& member) { return member.at("id") == member_; })) {
+            member_ = draft_.at("root").get<std::string>();
+            if (ui::editor_context &&
+                ui::editor_context->selection.kind() == ui::SelectionKind::PrefabMember &&
+                ui::editor_context->selection.asset() == draft_.at("asset_id").get<AssetId>())
+                ui::editor_context->selection.select_member(draft_.at("asset_id").get<AssetId>(),
+                                                            member_);
+        }
     }
     bool close_cancelled = false;
     void request_close() {
@@ -140,6 +156,7 @@ class PrefabEditor {
         draft_ = std::move(source);
         member_ = draft_.at("root");
         selected_ = asset;
+        ++source_session_;
         project_ = project.project();
         content_project_ = project_;
         open_ = true;
@@ -796,6 +813,7 @@ class PrefabEditor {
     }
     PrefabApplyCandidate apply_candidate_;
     std::uint64_t apply_revision_ = 0, apply_generation_ = 0;
+    std::uint64_t source_session_ = 0;
     std::string apply_error_;
     char component_filter_[192]{};
     bool close_requested_ = false, save_requested_ = false, focus_requested_ = false;

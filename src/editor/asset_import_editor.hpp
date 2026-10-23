@@ -20,6 +20,8 @@ struct ImportEditorProfile {
         diagnostic_location;
 };
 class AssetImportEditor {
+    friend struct ImportDocumentAutomation;
+
   public:
     explicit AssetImportEditor(ImportEditorProfile profile) : profile_(std::move(profile)) {
         if (profile_.source_example.size() >= sizeof(source_))

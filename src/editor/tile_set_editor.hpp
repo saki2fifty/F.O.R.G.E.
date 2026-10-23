@@ -10,6 +10,8 @@ namespace forge {
 // Central Tile Set source UI. The existing document owns source/history/Save;
 // the importer owns publication, and DocumentWorkspace borrows this adapter.
 class TileSetEditor {
+    friend struct AssetDocumentAutomation;
+
   public:
     explicit TileSetEditor(std::filesystem::path worker) : worker_(std::move(worker)) {}
     std::function<void(const TileSetSource&, std::uint64_t, std::shared_ptr<const AssetCatalog>,

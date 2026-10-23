@@ -61,6 +61,23 @@ needs explicit acknowledgment and keeps the existing recovery backup. Cancelling
 stops pending work; it does not remove completed publications or file commits.
 The agent should inspect progress rather than treating a queued request as done.
 
+## Edit reusable assets
+
+Project authoring also exposes the existing material, material graph, mesh,
+collision, terrain, tile, particle and animation source editors. The agent can
+create or open a source, inspect its format, edit validated fields, and use that
+source document's Undo and Redo. You see the same draft in the editor.
+
+Saving checks for external changes before publishing. The agent must inspect the
+publication result; a saved file can remain after compilation fails. Closing an
+unsaved or unpublished source requires an explicit discard. Active graph, brush
+and timeline gestures must finish before an agent edits their source.
+
+Import settings expose the editor's existing typed rules and model identity
+reviews. Prefabs use the existing source editor and library. Applying instance
+overrides requires review and acknowledgment because it saves both the prefab
+and the current scene; the normal Scene Undo and Redo replay that pair.
+
 ## Keep control
 
 - **Stop connection** immediately revokes access. Committed scene edits remain, and saved files stay on disk.
