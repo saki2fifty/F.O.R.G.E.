@@ -7,13 +7,16 @@ independent validation against the pinned official current/legacy schemas.
 Tools share the editor's read-only/edit controls, command schemas, revisions and
 Undo/Redo. Windows adapter cross-compiler syntax and Linux UI-header checks pass;
 native Windows editor/client execution remains pending. Document status, Save,
-Save As, New and Open use existing file owners and project-scoped grants. Project
-creation/switching, recovery controls, C++ compilation,
-Play and export remain coverage gaps. Project-authoring grants add existing-owner
+Save As, New and Open use existing file owners and project-scoped grants.
+C++ source/build/reflection, Play and export remain coverage gaps.
+Project-authoring grants add existing-owner
 asset search, reviewed raw-source import/reimport, placement and file operations.
 Twelve source editors, typed import settings and prefab source/Apply workflows now
 share their actual editor owners, validation and history. Native source-owner MCP
 tests pass for both protocol forms; shader GPU compilation remains separate.
+Project settings/recovery and an explicitly approved project workspace now borrow
+their actual owners, with native process/lease and ImGui modal tests in both
+protocol forms.
 See [MCP coverage](mcp.md). No new Windows ZIP has been produced for this work;
 Build208 below remains the latest accepted package.
 

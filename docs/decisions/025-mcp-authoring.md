@@ -39,7 +39,8 @@ The document batch deliberately extends the original scene-only lifetime with a
 separate `document.write` grant. That grant stays within the current leased
 project across scene changes, refreshes `AuthoringSession` routing identity, and
 keeps existing transport receipts. Scene-only grants retain generation revocation;
-project changes and lost ownership revoke all grants. No disk identity, migration,
+project changes revoke this current-project grant; lost ownership revokes every
+grant. No disk identity, migration,
 project ownership or scene-format behavior changes.
 
 `LiveAuthoringMethod` registrations borrow the actual owning service callbacks.
@@ -70,6 +71,24 @@ Tile Map edits pass through those owners; importer decisions retain the reviewed
 identity/build-key contract. Prefab Apply reuses the existing recoverable pair
 and Scene history. No scene format, asset format, native ABI or identity migration
 is introduced by these bindings.
+
+### Explicit project workspace grant
+
+A separately selected Projects-folder grant deliberately extends the original
+current-project scope. It permits project creation/opening inside that canonical
+workspace plus return to the initially connected project. Without this grant,
+project changes still revoke the connection. Scene-only grants retain generation
+revocation. The workspace grant retargets AuthoringSession after approved project
+changes while preserving transport receipts; it never retains a second lease or
+project database. New/open still use EditorFiles and SceneDocument, including
+candidate ownership, dirty-draft and recovery rules. Root redirects are rejected.
+
+Project settings borrow ProjectSettingsEditor's existing draft and saved baseline.
+Native/build configuration remains with its native code owner. Recovery controls
+require exact content digests and existing file-owner checks. Their busy bypass
+recognizes only the file owner's actual recovery popup and rejects foreign UI,
+Play/build/export tasks and pending file work. The synchronous owner action
+completes before the dialog is dismissed on the next UI frame.
 
 ## Compatibility and validation
 

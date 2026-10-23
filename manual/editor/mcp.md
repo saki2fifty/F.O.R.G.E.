@@ -2,10 +2,10 @@
 
 FORGE can let a trusted AI agent inspect and edit your open scene through MCP.
 The agent's changes appear in the editor and share your normal Undo history.
-The tools cover scene editing, saving/opening scenes and explicitly permitted
-asset workflows in the current project. Project creation/switching, source
-document editing, C++ compilation, Play controls and export are still being
-connected to MCP.
+The tools cover scene files, asset/source editing, settings and recovery.
+An explicitly selected Projects folder also permits project creation/opening.
+C++ source/build/reflection, Play controls and export are still being connected
+to MCP.
 
 ## Connect
 
@@ -78,10 +78,26 @@ reviews. Prefabs use the existing source editor and library. Applying instance
 overrides requires review and acknowledgment because it saves both the prefab
 and the current scene; the normal Scene Undo and Redo replay that pair.
 
+## Projects and settings
+
+Enable **Allow a project workspace** and choose your **Projects** folder before
+starting project authoring. The agent can then create and open projects inside
+that folder, or return to the project initially connected. Existing folders are
+not overwritten. Save or explicitly discard scene changes before switching;
+other unsaved source/settings drafts must be settled first.
+
+The agent can inspect and edit the same Project Settings draft shown in FORGE.
+Saving checks external file changes. Native code/build configuration stays with
+its corresponding code tools.
+
+Recovery is explicit. The agent reviews the exact snapshot before restoring or
+discarding it. Restoring does not silently save the scene. These tools can resolve
+the recovery dialog itself; they remain blocked by other dialogs and pending work.
+
 ## Keep control
 
 - **Stop connection** immediately revokes access. Committed scene edits remain, and saved files stay on disk.
-- Read-only and scene-edit connections expire on scene switches. A scene-and-file connection stays active across scenes in the same project; switching projects or restarting the editor requires a new connection. Regular Save keeps every connection.
+- Read-only and scene-edit connections expire on scene switches. A scene-and-file connection stays active across scenes in the same project; switching projects or restarting the editor requires a new connection. A separately granted Projects folder allows transitions within that folder and back to the initial project; other project switches revoke access. Regular Save keeps every connection.
 - Edits pause during Play, C++ builds, dialogs and active editor gestures.
 - The agent can edit supported scene properties and create entities. These tools do not grant access to FORGE's engine source or unrelated computer files.
 

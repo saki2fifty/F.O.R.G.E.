@@ -56,7 +56,9 @@ SceneDocument/EditorFiles/ProjectLease authority. A separately enabled file gran
 permits Save, Save As, New and Open within the current project. Its connection
 survives scene generations inside that project, refreshes routing sessions and
 retains transport receipts; ordinary scene grants still expire on generation
-changes. Project changes and lost ownership revoke every grant.
+changes. Project changes and lost ownership revoke these current-project grants. A separate
+explicit Projects-folder grant can instead retain access across approved projects;
+see the workspace contract below.
 
 Synchronous file methods use a noninteractive owner preflight, reject unsettled
 work and other dirty source drafts, and never enqueue a later popup/action. New
@@ -64,4 +66,18 @@ and Open require a clean scene or explicit discard. Successful discard uses the
 normal recovery cleanup; failures preserve the old scene/recovery. Saving under
 a changed filename emits the normal file-change event, so editor selection/view
 activation follows the existing scene lifecycle. File publication is not scene
-Undo. Project creation/switching and recovery restore/delete remain editor-only.
+Undo.
+
+A separately selected MCP Projects folder permits creation/opening inside that
+canonical workspace and return to the initial project. Other project changes
+revoke the connection. Scene targets refresh on approved transitions and receipts
+survive, so an uncertain Create/Open must reuse its original sequence rather than
+create another project. The file controller still owns all transitions and leases.
+
+Project settings tools borrow the visible settings draft, validate admitted fields
+and use its ordinary saved baseline. Their content digest rejects stale edits.
+They preserve native/build fields for the corresponding native-code owner.
+Recovery tools review a bounded snapshot digest, then call the existing restore /
+discard paths. Current-scene recovery remains undoable; untitled recovery resets
+routing/history as before. Busy controls can resolve the recovery owner's own
+popup, while foreign UI, pending tasks and unsaved source guards remain intact.

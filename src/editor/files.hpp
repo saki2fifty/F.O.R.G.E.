@@ -57,6 +57,47 @@ class EditorFiles {
         if (!(discard ? execute_discarding() : execute()))
             throw std::runtime_error(status);
     }
+    void automation_project(Action action, bool discard) {
+        if (action.command != Command::OpenProject && action.command != Command::CreateProject)
+            throw std::runtime_error("Choose Create/Open Project");
+        check_automation(true);
+        if (document.dirty() && !discard)
+            throw std::runtime_error("Scene has unsaved changes. Save first or explicitly discard");
+        pending_ = std::move(action);
+        if (!(discard ? execute_discarding() : execute()))
+            throw std::runtime_error(status);
+    }
+    void automation_recovery(bool restore, bool untitled) {
+        document.check_ownership();
+        if (busy() || changed || create_prompt_ || unsaved_prompt_ || !can_switch_)
+            throw std::runtime_error("Finish pending project work before resolving recovery");
+        if (automation_unavailable) {
+            const auto reason = automation_unavailable(untitled);
+            if (!reason.empty())
+                throw std::runtime_error(reason);
+        }
+        if (auto* context = ImGui::GetCurrentContext();
+            context && (ImGui::IsAnyItemActive() ||
+                        (!context->OpenPopupStack.empty() &&
+                         (context->OpenPopupStack.Size != 1 ||
+                          context->OpenPopupStack[0].PopupId != recovery_popup_id_))))
+            throw std::runtime_error("Finish the active UI interaction before resolving recovery");
+        if (restore) {
+            if (untitled) {
+                document.recover_untitled();
+                changed = true;
+            } else
+                document.recover();
+            status = "Recovery restored through automation; inspect and Save to keep it";
+        } else {
+            document.discard_recovery(untitled);
+            status = "Recovery snapshot discarded through automation";
+        }
+        recovery_prompt_ = false;
+        const auto* context = ImGui::GetCurrentContext();
+        recovery_resolved_ = context && context->OpenPopupStack.Size == 1 &&
+                             context->OpenPopupStack[0].PopupId == recovery_popup_id_;
+    }
     void request(Action action) {
         if (before_request && !before_request(action))
             return;
@@ -244,6 +285,7 @@ class EditorFiles {
         dialog_.show(FileDialog::Kind::OpenScene, window_, path_text(document.project()));
     }
     void draw_dialogs() {
+        recovery_popup_id_ = ImGui::GetID("Recovery available");
         if (create_prompt_) {
             ImGui::OpenPopup("Create project");
             create_prompt_ = false;
@@ -321,6 +363,12 @@ class EditorFiles {
         }
         if (ImGui::BeginPopupModal("Recovery available", nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize)) {
+            if (recovery_resolved_) {
+                recovery_resolved_ = false;
+                ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+                return;
+            }
             ImGui::TextUnformatted(recovery_untitled_
                                        ? "An unsaved untitled scene can be recovered."
                                        : "An autosave exists for this scene.");
@@ -446,7 +494,8 @@ class EditorFiles {
     std::vector<std::string>& recent_;
     FileDialog dialog_;
     std::optional<Action> pending_;
-    bool recovery_untitled_ = false;
+    bool recovery_untitled_ = false, recovery_resolved_ = false;
+    ImGuiID recovery_popup_id_ = 0;
     std::string guard_status_;
     bool can_switch_ = true, create_prompt_ = false, unsaved_prompt_ = false,
          recovery_prompt_ = false;

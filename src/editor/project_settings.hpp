@@ -2,10 +2,14 @@
 #include "document.hpp"
 #include "editor_state.hpp"
 #include "widgets.hpp"
+#include <SDL3/SDL.h>
 #include <forge/game_settings.hpp>
 #include <functional>
+#include <misc/cpp/imgui_stdlib.h>
 namespace forge {
 class ProjectSettingsEditor {
+    friend struct ProjectAutomation;
+
   public:
     std::function<void()> draw_runtime_extension;
     void open() {

@@ -115,7 +115,7 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 
 ## Current implementation
 
-**Development source:** [native MCP scene and document tools](manual/editor/mcp.md) connect AI
+**Development source:** [native MCP authoring tools](manual/editor/mcp.md) connect AI
 clients to the owning editor's automation service. Portable checks pass; native
 Windows editor acceptance and a new package are pending. This is not included
 in the current Build208 ZIP. Full project-to-export MCP coverage remains in

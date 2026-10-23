@@ -72,6 +72,7 @@
 #include "play_presentation.hpp"
 #include "prefab_automation.hpp"
 #include "prefabs.hpp"
+#include "project_automation.hpp"
 #include "project_settings.hpp"
 #include "published_tile_map.hpp"
 #include "resource_inspector.hpp"
@@ -2189,6 +2190,13 @@ int main(int argc, char** argv) {
                 forge::PrefabAutomation::methods(prefab_editor, scene, files.document, permissions);
             methods.insert(methods.end(), std::make_move_iterator(prefabs.begin()),
                            std::make_move_iterator(prefabs.end()));
+            auto projects = forge::ProjectAutomation::project_methods(files, permissions);
+            methods.insert(methods.end(), std::make_move_iterator(projects.begin()),
+                           std::make_move_iterator(projects.end()));
+            auto project_values = forge::ProjectAutomation::settings_methods(
+                project_settings, files.document, permissions);
+            methods.insert(methods.end(), std::make_move_iterator(project_values.begin()),
+                           std::make_move_iterator(project_values.end()));
             return methods;
         };
 #ifdef FORGE_UI_FIXTURE

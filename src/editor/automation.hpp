@@ -32,12 +32,19 @@ class AutomationWorkspace {
         project_ = document.project();
         document_writes_ = false;
         generation_ = document.generation();
+        scope_project_ = document.project();
+        permissions_ = {};
         notice_.clear();
     }
     void start(Scene& scene, EditorFiles& files, bool edits, bool document_writes = false,
                AutomationPermissions permissions = {}) {
         auto& document = files.document;
         document.check_ownership();
+        if (!permissions.workspace_root.empty()) {
+            permissions.workspace_root = std::filesystem::canonical(permissions.workspace_root);
+            if (!std::filesystem::is_directory(permissions.workspace_root))
+                throw std::runtime_error("Choose an existing project workspace folder");
+        }
         auto methods = document_automation_methods(
             document, document_writes,
             [&files](const std::filesystem::path& path) { files.automation_save(path); },
@@ -55,6 +62,7 @@ class AutomationWorkspace {
         }
         live_.start(scene, edits, std::move(methods));
         permissions_ = std::move(permissions);
+        scope_project_ = document.project();
         scene_ = &scene;
         project_ = document.project();
         document_writes_ = document_writes;
@@ -65,8 +73,13 @@ class AutomationWorkspace {
         if (auto result = root_picker_.take()) {
             if (!result->error.empty())
                 notice_ = result->error;
-            else if (!result->path.empty())
-                SDL_strlcpy(import_root_text_, result->path.c_str(), sizeof(import_root_text_));
+            else if (!result->path.empty()) {
+                if (picking_workspace_)
+                    SDL_strlcpy(workspace_root_text_, result->path.c_str(),
+                                sizeof(workspace_root_text_));
+                else
+                    SDL_strlcpy(import_root_text_, result->path.c_str(), sizeof(import_root_text_));
+            }
         }
         if (!live_.active())
             return;
@@ -99,7 +112,7 @@ class AutomationWorkspace {
                 ImGui::TextWrapped("%s", notice_.c_str());
             help("Scene grants expire on scene switches. File grants last within this project.");
             if (!live_.active()) {
-                ImGui::BeginDisabled(!busy.empty());
+                ImGui::BeginDisabled(!busy.empty() || root_picker_.busy());
                 try {
                     if (button("Start read only",
                                "Allow schema discovery, scene reads, queries and diagnostics."))
@@ -120,16 +133,38 @@ class AutomationWorkspace {
                                              sizeof(import_root_text_));
                             if (button("Browse source folder...",
                                        "Choose the only external folder from which an agent may "
-                                       "import raw assets."))
+                                       "import raw assets.")) {
+                                picking_workspace_ = false;
                                 root_picker_.show(FileDialog::Kind::ProjectParent, window,
                                                   import_root_text_);
+                            }
                         }
-                        if (button("Start project authoring",
-                                   "Allow scene and file edits plus asset search, reviewed "
-                                   "imports, reimport and placement within this project.")) {
+                        ImGui::Checkbox("Allow a project workspace", &workspace_access_);
+                        if (workspace_access_) {
+                            ImGui::InputText("Projects folder", workspace_root_text_,
+                                             sizeof(workspace_root_text_));
+                            if (button("Browse projects folder...",
+                                       "Permit project creation/opening inside this folder, in "
+                                       "addition to the initially connected project.")) {
+                                picking_workspace_ = true;
+                                root_picker_.show(FileDialog::Kind::ProjectParent, window,
+                                                  workspace_root_text_);
+                            }
+                        }
+                        if (button(
+                                "Start project authoring",
+                                "Allow project content and source authoring. A selected "
+                                "Projects folder also permits project creation/opening there.")) {
                             AutomationPermissions permissions;
                             permissions.assets = true;
                             permissions.code = true;
+                            if (workspace_access_) {
+                                if (!workspace_root_text_[0])
+                                    throw std::runtime_error(
+                                        "Choose an existing project workspace folder");
+                                permissions.workspace_root =
+                                    std::filesystem::u8path(workspace_root_text_);
+                            }
                             if (external_import_) {
                                 if (!std::filesystem::is_directory(
                                         std::filesystem::u8path(import_root_text_)))
@@ -194,8 +229,8 @@ class AutomationWorkspace {
                 "an undoable four-shape example. Save changes normally in the editor.");
             help("The MCP adapter in forge_tools connects AI clients to this same editor service. "
                  "See the User Manual: MCP agents. Current tools cover scene authoring and "
-                 "granted document and asset operations. Project switching, C++ build, Play and "
-                 "export tools remain unavailable.");
+                 "granted document, asset and settings operations. Project switching requires "
+                 "the workspace grant. C++ build, Play and export tools remain unavailable.");
         }
         ImGui::End();
     }
@@ -203,27 +238,39 @@ class AutomationWorkspace {
 
   private:
     bool synchronize(SceneDocument& document) {
-        if (project_ != document.project() ||
-            (generation_ != document.generation() && !document_writes_)) {
+        bool allowed_project = document.project() == scope_project_;
+        if (!allowed_project && !permissions_.workspace_root.empty())
+            try {
+                const ProjectPaths workspace(permissions_.workspace_root);
+                if (workspace.root() == permissions_.workspace_root) {
+                    (void)workspace.relative(document.project());
+                    allowed_project = true;
+                }
+            } catch (const std::exception&) {
+            }
+        if (!allowed_project || (generation_ != document.generation() && !document_writes_)) {
             live_.stop();
             notice_ = "Connection stopped because its document/project scope changed. Start a "
                       "new connection when ready.";
             return false;
         }
-        if (generation_ != document.generation()) {
+        if (generation_ != document.generation() || project_ != document.project()) {
             live_.retarget(*scene_);
+            project_ = document.project();
             generation_ = document.generation();
         }
         return true;
     }
     LiveAuthoring live_;
     Scene* scene_ = nullptr;
-    std::filesystem::path project_;
+    std::filesystem::path project_, scope_project_;
     bool document_writes_ = false;
     AutomationPermissions permissions_;
     FileDialog root_picker_;
     bool external_import_ = false;
+    bool workspace_access_ = false, picking_workspace_ = false;
     char import_root_text_[2048]{};
+    char workspace_root_text_[2048]{};
     std::uint64_t generation_ = 0;
     std::string notice_;
 };

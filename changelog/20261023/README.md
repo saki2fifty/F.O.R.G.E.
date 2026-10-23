@@ -29,6 +29,13 @@ these changes have not been packaged or physically accepted on Windows.
 - Connected prefab capture/source publication and reviewed durable prefab+scene Apply to their existing owners.
 - New graph sources now report unpublished state consistently with other source editors.
 
+## Project workspace, settings and recovery
+
+- Added an explicit Projects-folder grant for contained project creation/opening, with fresh scene routing, retained receipts and ordinary ownership/dirty-draft guards.
+- Connected shared Project Settings draft/edit/save/close with content digests and disk conflict checks; native/build fields remain with their code owner.
+- Added reviewed current/untitled recovery restoration and discard through the file controller, including safe resolution of its own modal while rejecting unrelated UI/task activity.
+- Native MCP tests cover both protocol forms, lease contention, path containment, replay, stale state, scope revocation and real ImGui popup ownership.
+
 ## Validation and remaining scope
 
 Native Linux scene and document MCP process/socket tests, existing authoring/file

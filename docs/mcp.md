@@ -97,7 +97,7 @@ New/Open reject dirty scenes unless the request explicitly sets `discard:true`.
 Other dirty source drafts and pending file/recovery/build/export/dependency work
 block switching; they are never silently discarded and no deferred UI action is
 queued. Successful discard uses existing recovery cleanup; failed Open keeps the
-old draft and recovery. Recovery restoration/deletion is not an MCP tool yet.
+old draft and recovery. Separate reviewed recovery controls are described below.
 
 Paths use forward slashes, contain at most1024 UTF-8 bytes and stay inside the
 current project's canonical boundary. Absolute paths, parent traversal, control
@@ -206,6 +206,34 @@ revision. Apply review captures the existing owner's candidate; commit requires
 its digest plus acknowledgment that all current scene changes will be saved.
 The existing recoverable prefab/scene transaction and Scene Undo/Redo own replay.
 
+## Projects, settings and recovery
+
+The optional **Allow a project workspace** control grants creation/opening within
+a selected existing Projects folder, in addition to the initially connected
+project. `forge_project_workspace_read` describes this scope; `forge_project_list`
+pages its immediate project folders. `forge_project_create` rejects existing
+destinations and `forge_project_open` accepts a relative workspace path or
+`initial:true`. The existing file controller acquires candidate writer ownership
+before replacing the current scene. Dirty scenes need explicit discard; other
+source drafts and pending tasks must settle. Canonical path containment rejects
+root escapes/redirects. Approved project transitions refresh targets and retain
+receipts. An out-of-scope project switch revokes the connection. Without this
+separate workspace grant, project switches retain ordinary revocation.
+
+`forge_project_settings_read/edit/save/close` borrow the actual settings editor.
+Edits require the observed draft digest and validate name, simulation frequency,
+startup scene, input, physics and game settings together. Native/build fields are
+preserved for their owner. Save checks the ordinary disk baseline; settings are
+not Scene Undo. Dirty close requires explicit discard.
+
+`forge_document_recovery_read` reviews current/untitled snapshot availability and
+its exact content digest (bounded64MiB read). Restore/discard require that digest
+plus the current scene target/revision/sequence. Restore retains native history /
+reset behavior and does not implicitly save the scene. These controls can bypass
+the general recovery-dialog busy state only after the file owner verifies its
+actual sole popup and all other task/interaction gates. Other popups remain busy.
+The completed synchronous operation precedes visual dismissal on the next frame.
+
 ## Bounds and cancellation
 
 Input is UTF-8 JSON lines, capped at1MiB and64 nesting levels. The bounded reader
@@ -235,14 +263,15 @@ The following table is the maintenance checklist for subsequent integrations.
 | Undo/Redo and diagnostics | Implemented for authored scenes | Existing scene history/diagnostics |
 | Current project/settings and document status | Read through `document.read` | `SceneDocument`, `ProjectSettings` |
 | Scene Save/Save As/New/Open | Implemented with explicit `document.write`, normal owner gates and fresh routing targets | `SceneDocument`, `EditorFiles`, `ProjectLease` |
-| Create/open/switch project; recovery restore/delete | Not exposed; use the editor | Existing project/file/recovery owners |
+| Create/open/switch project; recovery restore/discard | Implemented with separate approved workspace and exact recovery review | EditorFiles, SceneDocument, ProjectLease |
 | Asset search/raw-source import/reimport, placement and source-file operations | Implemented through existing owners and explicit asset grants | AssetCatalog, ContentImports, SourceImport, SceneAssetDrop, ContentFiles |
 | Asset import settings | Implemented through registered import-editor owners, typed rules and reviewed identity decisions | AssetImportEditor and its native import services |
 | Materials/graphs, animation assets, collision/mesh/terrain/tile/particle sources | Implemented through12 existing source editors, native validation and per-document history/publication | DocumentWorkspace and AssetSourceDocument |
 | Prefab source authoring and Apply | Implemented through actual source/library and durable prefab+scene owners | PrefabEditor, PrefabLibrary, SceneDocument |
 | C++ source creation/editing, schema inspection and build | Not exposed | Existing source editor and native project/build controller |
 | Play/Stop, live runtime inspection, logs and visual inspection | Not exposed; scene diagnostics remain available | Existing Play session, diagnostic and presentation owners |
-| Game settings changes, validation and export | Not exposed | Existing project settings and game-export controller |
+| Project/game settings changes | Implemented through the actual settings draft and baseline | ProjectSettingsEditor, SceneDocument |
+| Export validation/jobs/run | Remaining owner integration | GameExportController |
 | FORGE engine/editor source modification | Outside game-project MCP authority | Separate explicitly authorized repository development |
 
 Each missing workflow needs explicit targets, capabilities, lifecycle / dirty
@@ -288,3 +317,9 @@ animation sources are exercised for draft validation/history; graph shader
 compilation is not claimed by this fixture. It drives ImGui frames without a GPU
 window; graph shader compilation and native
 Windows/client execution are distinct acceptance gates.
+
+`mcp_project_stdio` checks both protocol forms with actual project/settings/file
+owners: approved-root creation/opening, stale state, replay after retarget,
+symlink/root escapes, dirty drafts, contended writer ownership, saved settings
+conflicts, current/untitled recovery, scope revocation, readonly denial and actual
+ImGui recovery/foreign-popup gates without a GPU window.
