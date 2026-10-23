@@ -51,6 +51,15 @@ editor preflight rejects unsettled work without queuing a dialog or later action
 File commits are not scene Undo transactions. Other project/domain/job operations
 remain separate integrations.
 
+### Existing asset controllers
+
+Project asset grants borrow the existing import queue, source-copy review,
+placement controller and file-operation review. They add no writer or queue.
+Long-running controls can bypass the editor's general busy message only after
+their owner checks the exact operation, project and reviewed content digest.
+New admissions and scene edits retain the ordinary busy guard. Completed file
+commits retain their existing recovery receipts and are separate from Scene Undo.
+
 ## Compatibility and validation
 
 Existing Authoring API1, live transport1, scene-format3 and the native gameplay

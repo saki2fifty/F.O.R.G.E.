@@ -31,6 +31,21 @@ struct AssetRecord {
     std::optional<AssetSubasset> subasset;
 };
 enum class AssetState { Available, Missing, Unresolved, Incompatible, Removed };
+inline const char* asset_state_name(AssetState state) {
+    switch (state) {
+    case AssetState::Available:
+        return "available";
+    case AssetState::Missing:
+        return "missing";
+    case AssetState::Unresolved:
+        return "unresolved";
+    case AssetState::Incompatible:
+        return "incompatible";
+    case AssetState::Removed:
+        return "removed";
+    }
+    return "invalid";
+}
 struct AssetResolution {
     AssetState state = AssetState::Unresolved;
     std::optional<AssetRecord> record;

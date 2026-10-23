@@ -1099,3 +1099,12 @@ and verifies PCM and selection/project/Play-lock teardown. Typed gain clamps and
 nonfinite input cannot change the last admitted output. `editor_audio_preview`
 captures the real AudioClip tab at 100/150/200% on a copied original Gallery,
 without requesting a device or autoplay. Physical listening remains separate.
+
+
+Portable MCP editor-owner tests can be enabled with
+`-DFORGE_BUILD_MCP_EDITOR_TESTS=ON -DFORGE_BUILD_ASSET_TOOLS=ON -DFORGE_BUILD_GAME_PLATFORM=ON`.
+They compile the actual editor controllers against the existing SDL/ImGui pins
+and use real local sockets/workers, without a GPU or graphical editor claim.
+The ordinary editor build enables these fixtures automatically. `mcp_document_stdio`
+and `mcp_asset_stdio` belong to the existing shared editor acceptance selection;
+the portable flag defaults off for unrelated core/SDK consumers.

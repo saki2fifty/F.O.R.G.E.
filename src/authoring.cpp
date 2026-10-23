@@ -15,11 +15,7 @@
 #include <set>
 namespace forge {
 namespace {
-struct CommandError : std::runtime_error {
-    std::string code;
-    CommandError(std::string c, const std::string& message)
-        : std::runtime_error(message), code(std::move(c)) {}
-};
+using CommandError = AuthoringError;
 Json object(Json properties = Json::object(), Json required = Json::array()) {
     return {{"type", "object"},
             {"properties", properties},

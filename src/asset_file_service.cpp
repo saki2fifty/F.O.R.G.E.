@@ -1,4 +1,5 @@
 #include "asset_file_service.hpp"
+#include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "bounded_json.hpp"
 #include <forge/prefab.hpp>
@@ -82,6 +83,25 @@ void AssetFileService::prepare(AssetRecord source, AssetFileRequest request, nlo
         review->impact = scan_asset_references(lease->root(), schema, targets, drafts, stop);
         review->schema = std::move(schema);
         review->drafts = std::move(drafts);
+        nlohmann::json manifest = {{"asset", request.asset.str()},
+                                   {"action", unsigned(request.action)},
+                                   {"destination", path_utf8(request.destination)},
+                                   {"changes", nlohmann::json::array()},
+                                   {"references", nlohmann::json::object()}};
+        for (const auto& change : review->plan.changes) {
+            auto digest = [](const auto& bytes) -> nlohmann::json {
+                return bytes ? nlohmann::json(
+                                   asset_detail::content_digest(std::as_bytes(std::span(*bytes))))
+                             : nlohmann::json(nullptr);
+            };
+            manifest["changes"].push_back({{"source", path_utf8(change.source)},
+                                           {"before", digest(change.before)},
+                                           {"after", digest(change.after)}});
+        }
+        for (const auto& [source, digest] : review->impact.reviewed_sources)
+            manifest["references"][path_utf8(source)] = digest;
+        const auto bytes = manifest.dump();
+        review->revision = asset_detail::content_digest(std::as_bytes(std::span(bytes)));
         return Result{
             std::move(review),
             {},

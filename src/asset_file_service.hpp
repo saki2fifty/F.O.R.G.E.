@@ -9,6 +9,7 @@ struct AssetFileReview {
     AssetReferenceImpact impact;
     nlohmann::json schema;
     std::vector<AssetReferenceDocument> drafts;
+    std::string revision;
 };
 // One job per owning application thread. Caller drains other project writers first
 // and excludes Save/import/project-switch until busy() becomes false.

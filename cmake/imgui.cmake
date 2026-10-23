@@ -1,0 +1,10 @@
+include_guard(GLOBAL)
+include(cmake/sdl.cmake)
+FetchContent_Declare(imgui_source GIT_REPOSITORY https://github.com/ocornut/imgui.git GIT_TAG b48d1afbe8ee8b238e2961dc363a949dd7304e23) # v1.92.9b-docking
+FetchContent_MakeAvailable(imgui_source)
+add_library(imgui STATIC ${imgui_source_SOURCE_DIR}/imgui.cpp ${imgui_source_SOURCE_DIR}/imgui_draw.cpp ${imgui_source_SOURCE_DIR}/imgui_tables.cpp ${imgui_source_SOURCE_DIR}/imgui_widgets.cpp ${imgui_source_SOURCE_DIR}/misc/cpp/imgui_stdlib.cpp ${imgui_source_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+if(WIN32)
+ target_sources(imgui PRIVATE ${imgui_source_SOURCE_DIR}/backends/imgui_impl_win32.cpp)
+endif()
+target_include_directories(imgui PUBLIC ${imgui_source_SOURCE_DIR})
+target_link_libraries(imgui PRIVATE SDL3::SDL3)

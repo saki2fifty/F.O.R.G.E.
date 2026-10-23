@@ -1,4 +1,5 @@
 #pragma once
+#include "../asset_bytes.hpp"
 #include "../asset_storage.hpp"
 #include "../model_importer.hpp"
 #include "../source_copy.hpp"
@@ -18,6 +19,69 @@ class SourceImport {
     bool review_ready() const { return state_ == State::Review; }
     bool finished() const { return state_ == State::Done; }
     const std::string& diagnostic() const { return error_; }
+    const std::filesystem::path& project() const { return project_; }
+    Json operation(std::size_t offset = 0, std::size_t limit = 128) const {
+        if (limit == 0 || limit > 128)
+            throw AuthoringError("invalid_arguments", "Import review page limit must be 1..128");
+        static constexpr const char* states[] = {"choose",  "preparing", "review", "draining",
+                                                 "copying", "importing", "done"};
+        Json result = {{"batch", serial_},
+                       {"open", open_},
+                       {"state", states[unsigned(state_)]},
+                       {"diagnostic", error_},
+                       {"cancel_requested", cancelled_},
+                       {"copied", copied_},
+                       {"published", published_count()}};
+        if (state_ == State::Choose && !error_.empty())
+            result["state"] = cancelled_ ? "cancelled" : "failed";
+        if (prepared_) {
+            result["review"] = prepared_->digest;
+            result["destination"] = path_utf8(prepared_->plan.destination);
+            result["file_count"] = prepared_->plan.files.size();
+            result["bytes"] = prepared_->plan.bytes;
+            result["offset"] = offset;
+            result["files"] = Json::array();
+            for (std::size_t i = std::min(offset, prepared_->plan.files.size());
+                 i < prepared_->plan.files.size() && i - offset < limit; ++i) {
+                const auto& file = prepared_->plan.files[i];
+                result["files"].push_back({{"destination", path_utf8(file.destination)},
+                                           {"digest", file.digest},
+                                           {"bytes", file.bytes}});
+            }
+        }
+        result["results"] = Json::array();
+        for (const auto& entry : results_)
+            result["results"].push_back({{"source", path_utf8(entry.source)},
+                                         {"importer", entry.importer},
+                                         {"published", entry.ok},
+                                         {"diagnostic", entry.message}});
+        if (active_)
+            for (const auto& job : services_.at(active_->first)->jobs())
+                if (job.id == active_->second)
+                    result["active_job"] = {
+                        {"job", job.id}, {"stage", job.stage}, {"progress", job.progress}};
+        return result;
+    }
+    void automation_prepare(SceneDocument& project, std::vector<std::filesystem::path> paths,
+                            const std::filesystem::path& destination) {
+        select(project, std::move(paths), false);
+        destination_ = path_utf8(destination);
+        prepare();
+    }
+    void automation_commit(std::uint64_t batch, const std::string& review, bool cook) {
+        check_batch(batch);
+        if (!review_ready() || !prepared_ || review != prepared_->digest)
+            throw AuthoringError("stale_review", "Read the current prepared import review first");
+        copy_sources(cook);
+    }
+    void automation_cancel(std::uint64_t batch) {
+        check_batch(batch);
+        cancel();
+    }
+    void automation_close(std::uint64_t batch) {
+        check_batch(batch);
+        close();
+    }
     std::size_t published_count() const {
         return std::count_if(results_.begin(), results_.end(), [](const auto& r) { return r.ok; });
     }
@@ -35,18 +99,26 @@ class SourceImport {
         open_ = false;
     }
     void picker(SceneDocument& project, SDL_Window* window) {
+        if (open_) {
+            popup_ = true;
+            return;
+        }
         if (busy())
             return;
         project.check_ownership();
         dialog_project_ = project.project();
         dialog_.show(FileDialog::Kind::ImportFiles, window, path_text(project.project()));
     }
-    void select(SceneDocument& project, std::vector<std::filesystem::path> paths) {
+    void select(SceneDocument& project, std::vector<std::filesystem::path> paths,
+                bool reveal = true) {
         if (open_ || prepare_.valid() || copy_.valid())
             throw std::runtime_error("Finish the current source import first.");
         project.check_ownership();
         if (paths.empty() || paths.size() > 256)
             throw std::runtime_error("Select between 1 and 256 source files.");
+        if (serial_ == 9007199254740991ULL)
+            throw std::runtime_error("Import batch identities exhausted");
+        ++serial_;
         project_ = project.project();
         selected_ = std::move(paths);
         profiles_ = routes ? routes() : std::vector<AssetReimportRoute>{};
@@ -62,7 +134,8 @@ class SourceImport {
         for (unsigned i = 2; std::filesystem::exists(project_ / destination_) && i < 10000; ++i)
             destination_ = "Assets/Imported" + std::to_string(i);
         state_ = State::Choose;
-        open_ = popup_ = true;
+        open_ = true;
+        popup_ = reveal;
         cancelled_ = copied_ = false;
         error_.clear();
         results_.clear();
@@ -249,6 +322,15 @@ class SourceImport {
             }
             result.plan = prepare_source_copy(project, folder, paths,
                                               asset_detail::model_cook_extensions(), stop);
+            Json manifest = {{"destination", path_utf8(result.plan.destination)},
+                             {"files", Json::array()}};
+            for (const auto& file : result.plan.files)
+                manifest["files"].push_back({{"original", path_utf8(file.original)},
+                                             {"destination", path_utf8(file.destination)},
+                                             {"digest", file.digest},
+                                             {"bytes", file.bytes}});
+            const auto text = manifest.dump();
+            result.digest = asset_detail::content_digest(std::as_bytes(std::span(text)));
             return result;
         });
         error_.clear();
@@ -385,6 +467,7 @@ class SourceImport {
     struct Prepared {
         SourceCopyPlan plan;
         std::vector<std::size_t> route_indices;
+        std::string digest;
     };
     struct Result {
         std::filesystem::path source;
@@ -393,6 +476,11 @@ class SourceImport {
         std::string message;
     };
     State state_ = State::Choose;
+    std::uint64_t serial_ = 0;
+    void check_batch(std::uint64_t batch) const {
+        if (!open_ || batch != serial_)
+            throw AuthoringError("wrong_job", "Import batch does not identify the active review");
+    }
     FileDialog dialog_;
     std::filesystem::path project_, dialog_project_;
     std::vector<std::filesystem::path> selected_;

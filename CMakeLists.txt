@@ -22,6 +22,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 option(FORGE_BUILD_EDITOR "Build Windows D3D12 editor" ${WIN32})
+option(FORGE_BUILD_MCP_EDITOR_TESTS "Build GPU-independent MCP editor-owner test hosts" OFF)
 option(FORGE_BUILD_GAME "Build Windows standalone graphical runtime" OFF)
 option(FORGE_BUILD_GAME_PLATFORM "Build standalone OS adapters using SDL" ON)
 option(FORGE_BUILD_ASSET_TOOLS "Build native asset import tooling (no window or GPU required)" ${FORGE_BUILD_EDITOR})
@@ -1538,3 +1539,5 @@ if(FORGE_DISABLE_PROFILING)
 endif()
 
 include(cmake/native_sdk_install.cmake)
+
+include(cmake/mcp_tests.cmake)

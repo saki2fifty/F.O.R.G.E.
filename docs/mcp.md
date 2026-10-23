@@ -126,6 +126,40 @@ connection failures use `isError:true`; malformed MCP requests and unavailable
 tool names use JSON-RPC errors. Busy editor activities retain existing denials.
 The adapter has one dispatch thread and does not execute concurrent mutations.
 
+## Asset workflows
+
+**Start project authoring** adds project-scoped asset writes to the scene/file
+grant. An optional explicitly selected import folder permits raw source reads
+only beneath that root. Source copying still targets a new folder inside Assets.
+Read-only connections can inspect the current asset catalog and operation status;
+this does not grant file commits, placement or imports.
+
+| Tool group | Existing owner and behavior |
+| --- | --- |
+| `forge_asset_search`, `forge_asset_read` | Borrow ContentImports' published AssetCatalog snapshot plus immutable engine assets; search pages contain at most128 records |
+| `forge_asset_jobs` | Read actual reimport jobs and the current project-scoped source batch, placement and file-operation results |
+| `forge_asset_reimport` | Queue registered owners through dependency-aware AssetReimportService; blocked drafts and last-good publication rules remain intact |
+| `forge_asset_import_prepare`, `forge_asset_import_review` | SourceImport prepares the bounded source/dependency copy plan; review pages and its digest identify exactly what was inspected |
+| `forge_asset_import_commit`, `forge_asset_import_cancel`, `forge_asset_import_close` | Confirm the exact batch/review, cancel pending work, or release a settled review; native workers publish each imported asset independently |
+| `forge_asset_place`, `forge_asset_place_cancel` | SceneAssetDrop queues the same undoable Model/Mesh/Tile Map/Prefab placement used by viewport drops; Model options include source scene, animation clip and material variant |
+| `forge_asset_files_prepare`, `forge_asset_files_review` | ContentFiles/AssetFileService prepare Move/Duplicate/Delete and known reference impact; discovered scene registration preserves its existing identity |
+| `forge_asset_files_commit`, `forge_asset_files_cancel`, `forge_asset_files_close` | Confirm the exact operation/review or cancel/close its owner; Delete additionally requires `acknowledge:true`, and retained originals use existing recovery storage |
+
+All mutations retain the complete scene target, observed revision and sequence.
+Job identity is local to its owner; never apply an old batch/job ID to new work.
+Queue admission is not completion. Inspect the returned owner progress/result;
+failed candidates retain last-good content. Import and source-file commits are
+not Scene Undo entries. A duplicated imported source needs its own valid import
+before it has a usable cooked selection.
+
+Only registered owner controls for pending work can bypass the general busy
+message. They still validate exact job/review identity and the owner's own state.
+Scene edits, new job admissions and file writes retain the general editor guard.
+Discovery marks these controls and their transport availability separately.
+Cancellation is cooperative: completed copies, publications or disk commits stay
+completed. Project-scoped status never exposes a previous project's retained job
+metadata after switching projects.
+
 ## Bounds and cancellation
 
 Input is UTF-8 JSON lines, capped at1MiB and64 nesting levels. The bounded reader
@@ -145,7 +179,7 @@ never invoke scene tools, and unknown notifications receive no response.
 
 ## Coverage and remaining game-making workflows
 
-This adapter covers **scene authoring and granted scene-file operations**. It is
+This adapter covers **scene authoring, granted scene files and asset workflows**. It is
 not complete game-development parity.
 The following table is the maintenance checklist for subsequent integrations.
 
@@ -156,7 +190,8 @@ The following table is the maintenance checklist for subsequent integrations.
 | Current project/settings and document status | Read through `document.read` | `SceneDocument`, `ProjectSettings` |
 | Scene Save/Save As/New/Open | Implemented with explicit `document.write`, normal owner gates and fresh routing targets | `SceneDocument`, `EditorFiles`, `ProjectLease` |
 | Create/open/switch project; recovery restore/delete | Not exposed; use the editor | Existing project/file/recovery owners |
-| Asset search/import/reimport, placement and file operations | Not exposed; assigning supported scene fields does not import assets | Asset catalog/import/file services and owning document workspace |
+| Asset search/raw-source import/reimport, placement and source-file operations | Implemented through existing owners and explicit asset grants | AssetCatalog, ContentImports, SourceImport, SceneAssetDrop, ContentFiles |
+| Asset import settings and source/domain documents | Remaining owner integrations | Existing import/source document editors |
 | Materials/shaders/graphs, animation assets and domain documents | Not exposed as document tools | Existing asset authoring services and document editors |
 | C++ source creation/editing, schema inspection and build | Not exposed | Existing source editor and native project/build controller |
 | Play/Stop, live runtime inspection, logs and visual inspection | Not exposed; scene diagnostics remain available | Existing Play session, diagnostic and presentation owners |
@@ -182,3 +217,15 @@ containment, leases, dirty/busy/source gates, recovery cleanup/failure preservat
 fresh targets, old receipt replay and scope revocation. Editor tests cover owner
 lifecycle and controls at supported scales. Native Windows/editor validation is
 separate from portable Linux process/socket and ImGui harness execution.
+
+
+### Portable editor-owner fixtures
+
+`FORGE_BUILD_MCP_EDITOR_TESTS=ON` with asset tools and SDL platform support builds
+real owner fixtures on Linux without enabling the Windows/D3D12 editor. It reuses
+the pinned ImGui dependency only in test targets; exported games still do not
+link it. The shared Windows editor acceptance selection includes all `mcp_`
+checks. `mcp_asset_stdio` uses actual workers and editor owners for raw glTF/audio
+imports, source revision conflicts, model/mesh placement and history, reviewed
+file operations, recovery, permissions and replay. Native Windows/GPU validation
+remains a separate gate.

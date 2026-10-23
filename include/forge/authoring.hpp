@@ -1,7 +1,14 @@
 #pragma once
 #include <forge/scene.hpp>
+#include <stdexcept>
 #include <thread>
 namespace forge {
+class AuthoringError : public std::runtime_error {
+  public:
+    std::string code;
+    AuthoringError(std::string value, const std::string& message)
+        : std::runtime_error(message), code(std::move(value)) {}
+};
 // Scene commands are shared by UI gestures, palette and isolated automation sessions.
 // Commands validate detached intent without a world; a successful batch is one undo step.
 Json authoring_commands();

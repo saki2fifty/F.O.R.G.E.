@@ -7,11 +7,12 @@
 #include "texture_importer.hpp"
 namespace forge {
 std::shared_ptr<const AssetImporterRegistry>
-asset_import_registry(const std::filesystem::path& worker) {
+asset_import_registry(const std::filesystem::path& worker,
+                      const std::filesystem::path& animation_converter) {
     auto registry = std::make_shared<AssetImporterRegistry>();
     registry->add(asset_detail::texture_importer(worker, false));
     registry->add(asset_detail::texture_importer(worker, true));
-    registry->add(asset_detail::model_importer(worker));
+    registry->add(asset_detail::model_importer(worker, animation_converter));
     registry->add(asset_detail::audio_importer(worker));
     registry->seal();
     return registry;

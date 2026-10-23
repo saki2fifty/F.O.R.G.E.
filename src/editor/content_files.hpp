@@ -12,10 +12,110 @@ class ContentFiles {
                        std::shared_ptr<const AssetCatalog>)>
         adopted;
     bool busy() const { return selected_.has_value(); }
+    const std::filesystem::path& project() const { return operation_project_; }
+    Json automation_status(std::size_t offset = 0, std::size_t limit = 128) const {
+        if (!limit || limit > 128)
+            throw AuthoringError("invalid_arguments", "File review page limit must be 1..128");
+        if (!selected_)
+            return last_operation_;
+        Json result = {{"job", serial_},
+                       {"open", true},
+                       {"asset", selected_->id.str()},
+                       {"diagnostic", error_},
+                       {"state", stage_ == Stage::Drain ? "draining" : "choose"}};
+        if (!service_) {
+            if (!error_.empty())
+                result["state"] = "failed";
+            return result;
+        }
+        static constexpr const char* states[] = {"idle",      "preparing", "review",   "committing",
+                                                 "succeeded", "failed",    "cancelled"};
+        result["state"] = states[unsigned(service_->state())];
+        if (const auto review = service_->review()) {
+            result["review"] = review->revision;
+            result["action"] = unsigned(review->plan.request.action);
+            result["destination"] = path_utf8(review->plan.request.destination);
+            result["result"] = review->plan.result.str();
+            result["warnings"] = review->plan.warnings;
+            result["reference_count"] = review->impact.references.size();
+            result["uninspected_count"] = review->impact.uninspected.size();
+            result["references"] = Json::array();
+            for (std::size_t i = std::min(offset, review->impact.references.size());
+                 i < review->impact.references.size() && i - offset < limit; ++i) {
+                const auto& hit = review->impact.references[i];
+                result["references"].push_back({{"source", path_utf8(hit.source)},
+                                                {"owner", hit.owner},
+                                                {"property", hit.property},
+                                                {"kind", hit.kind},
+                                                {"asset", hit.target.str()}});
+            }
+            result["uninspected"] = Json::array();
+            for (std::size_t i = std::min(offset, review->impact.uninspected.size());
+                 i < review->impact.uninspected.size() && i - offset < limit; ++i)
+                result["uninspected"].push_back(review->impact.uninspected[i]);
+        }
+        if (const auto& receipt = service_->receipt(); receipt)
+            result["receipt"] = {{"transaction", receipt->transaction},
+                                 {"retained_files", path_utf8(receipt->retained_files)},
+                                 {"diagnostic", receipt->cleanup_diagnostic}};
+        return result;
+    }
+    void automation_prepare(const SceneDocument& document, const AssetRecord& asset,
+                            AssetFileAction action, const std::filesystem::path& destination) {
+        document.check_ownership();
+        if (!begin(asset, action))
+            throw AuthoringError("busy", "This asset file operation is unavailable");
+        request_open_ = false;
+        operation_project_ = document.project();
+        const auto text = path_utf8(destination);
+        if (text.size() >= destination_.size()) {
+            selected_.reset();
+            throw AuthoringError("invalid_path", "Asset destination exceeds the path limit");
+        }
+        destination_.fill(0);
+        std::copy(text.begin(), text.end(), destination_.begin());
+        prepare_review();
+    }
+    void automation_commit(std::uint64_t job, const std::string& review, bool acknowledge) {
+        check_job(job);
+        if (!service_ || service_->state() != AssetFileState::Review || !service_->review() ||
+            service_->review()->revision != review)
+            throw AuthoringError("stale_review", "Read the current prepared file review first");
+        if (action_ == AssetFileAction::Delete && !acknowledge)
+            throw AuthoringError("confirmation_required",
+                                 "Delete requires explicit acknowledgment of the reviewed impact");
+        service_->commit();
+    }
+    void automation_cancel(std::uint64_t job) {
+        check_job(job);
+        if (service_)
+            service_->cancel();
+        else {
+            stage_ = Stage::Result;
+            error_ = "Operation cancelled";
+        }
+    }
+    void automation_close(std::uint64_t job, ContentImports& imports) {
+        check_job(job);
+        if (service_ && (service_->state() == AssetFileState::Preparing ||
+                         service_->state() == AssetFileState::Committing))
+            throw AuthoringError("busy",
+                                 "Cancel and drain the running file operation before closing");
+        last_operation_ = automation_status();
+        last_operation_["open"] = false;
+        if (service_ && service_->busy())
+            service_->cancel();
+        service_.reset();
+        selected_.reset();
+        imports.suspend(false);
+    }
     const AssetFileService* operation() const { return service_.get(); }
     bool begin(const AssetRecord& record, AssetFileAction action) {
         if (busy() || record.subasset)
             return false;
+        if (serial_ == 9007199254740991ULL)
+            throw std::runtime_error("Asset file operation identities exhausted");
+        ++serial_;
         const auto reason = unavailable ? unavailable(record, action) : std::string{};
         if (!reason.empty()) {
             ui::report_error("content_files", reason);
@@ -61,6 +161,7 @@ class ContentFiles {
         imports.suspend(busy());
         if (!busy())
             return;
+        operation_project_ = project.project();
         if (stage_ == Stage::Drain && imports.quiescent()) {
             try {
                 service_ = std::make_unique<AssetFileService>(project.writer_guard());
@@ -237,6 +338,13 @@ class ContentFiles {
     }
 
   private:
+    void check_job(std::uint64_t job) const {
+        if (!selected_ || serial_ != job)
+            throw AuthoringError("wrong_job", "File operation is no longer active");
+    }
+    std::uint64_t serial_ = 0;
+    Json last_operation_ = {{"state", "idle"}};
+    std::filesystem::path operation_project_;
     enum class Stage { Choose, Drain, Work, Result };
     Stage stage_ = Stage::Choose;
     std::optional<AssetRecord> selected_;

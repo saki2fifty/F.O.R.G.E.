@@ -16,6 +16,12 @@ these changes have not been packaged or physically accepted on Windows.
 - File grants survive scene changes inside the current project with fresh scene targets and retained receipts. Scene-only grants still expire on scene changes; project changes revoke every grant.
 - Filename changes now trigger normal editor scene activation, including selection/view handling.
 
+## Project assets
+
+- Added bounded asset discovery, import review/commit/cancel, reimport progress, deferred placement and reviewed duplicate/move/delete tools through the actual editor controllers.
+- External imports stay within an explicitly selected source folder. File commits require the reviewed content digest; changed source bytes invalidate the review.
+- Added GPU-independent editor-owner fixtures using real import workers, including animated glTF placement, cancellation, replay, stale reviews and project containment.
+
 ## Validation and remaining scope
 
 Native Linux scene and document MCP process/socket tests, existing authoring/file

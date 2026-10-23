@@ -1,4 +1,5 @@
 #pragma once
+#include "automation_permissions.hpp"
 #include "document_automation.hpp"
 #include "files.hpp"
 #include "mcp.hpp"
@@ -10,6 +11,7 @@ namespace forge::ui {
 class AutomationWorkspace {
   public:
     bool open = false;
+    std::function<std::vector<LiveAuthoringMethod>(const AutomationPermissions&)> workflow_methods;
     bool active() const { return live_.active(); }
     void menu() {
         if (ImGui::BeginMenu(live_.active() ? "Automation (on)" : "Automation")) {
@@ -32,7 +34,8 @@ class AutomationWorkspace {
         generation_ = document.generation();
         notice_.clear();
     }
-    void start(Scene& scene, EditorFiles& files, bool edits, bool document_writes = false) {
+    void start(Scene& scene, EditorFiles& files, bool edits, bool document_writes = false,
+               AutomationPermissions permissions = {}) {
         auto& document = files.document;
         document.check_ownership();
         auto methods = document_automation_methods(
@@ -45,7 +48,13 @@ class AutomationWorkspace {
                                          {}},
                                         discard);
             });
+        if (workflow_methods) {
+            auto extra = workflow_methods(permissions);
+            methods.insert(methods.end(), std::make_move_iterator(extra.begin()),
+                           std::make_move_iterator(extra.end()));
+        }
         live_.start(scene, edits, std::move(methods));
+        permissions_ = std::move(permissions);
         scene_ = &scene;
         project_ = document.project();
         document_writes_ = document_writes;
@@ -53,6 +62,12 @@ class AutomationWorkspace {
         notice_.clear();
     }
     void pump(SceneDocument& document, const std::string& busy) {
+        if (auto result = root_picker_.take()) {
+            if (!result->error.empty())
+                notice_ = result->error;
+            else if (!result->path.empty())
+                SDL_strlcpy(import_root_text_, result->path.c_str(), sizeof(import_root_text_));
+        }
         if (!live_.active())
             return;
         try {
@@ -66,7 +81,8 @@ class AutomationWorkspace {
             notice_ = e.what();
         }
     }
-    void draw(Scene& scene, EditorFiles& files, const std::string& busy) {
+    void draw(Scene& scene, EditorFiles& files, const std::string& busy,
+              SDL_Window* window = nullptr) {
         if (!open)
             return;
         ImGui::SetNextWindowSize({520 * interface_scale, 360 * interface_scale},
@@ -96,15 +112,45 @@ class AutomationWorkspace {
                                "Also allow Save, Save As, New and Open Scene inside this project. "
                                "This grant survives scene switches; project switches revoke it."))
                         start(scene, files, true, true);
+                    if (workflow_methods) {
+                        ImGui::Separator();
+                        ImGui::Checkbox("Allow an external source folder", &external_import_);
+                        if (external_import_) {
+                            ImGui::InputText("Import folder", import_root_text_,
+                                             sizeof(import_root_text_));
+                            if (button("Browse source folder...",
+                                       "Choose the only external folder from which an agent may "
+                                       "import raw assets."))
+                                root_picker_.show(FileDialog::Kind::ProjectParent, window,
+                                                  import_root_text_);
+                        }
+                        if (button("Start project authoring",
+                                   "Allow scene and file edits plus asset search, reviewed "
+                                   "imports, reimport and placement within this project.")) {
+                            AutomationPermissions permissions;
+                            permissions.assets = true;
+                            permissions.code = true;
+                            if (external_import_) {
+                                if (!std::filesystem::is_directory(
+                                        std::filesystem::u8path(import_root_text_)))
+                                    throw std::runtime_error(
+                                        "Choose an existing readable import folder");
+                                permissions.import_root = std::filesystem::canonical(
+                                    std::filesystem::u8path(import_root_text_));
+                            }
+                            start(scene, files, true, true, std::move(permissions));
+                        }
+                    }
                 } catch (const std::exception& e) {
                     notice_ = e.what();
                 }
                 ImGui::EndDisabled();
             } else {
                 ImGui::Text("127.0.0.1:%u | %s", unsigned(live_.port()),
-                            document_writes_   ? "Scene and file edits allowed"
-                            : live_.editable() ? "Scene edits allowed"
-                                               : "Read only");
+                            permissions_.assets ? "Project authoring allowed"
+                            : document_writes_  ? "Scene and file edits allowed"
+                            : live_.editable()  ? "Scene edits allowed"
+                                                : "Read only");
                 help("Only this machine can connect. The per-connection secret is also required.");
                 if (button("Copy connection JSON",
                            "Copy host, port and a secret token. Paste only into trusted local "
@@ -148,7 +194,7 @@ class AutomationWorkspace {
                 "an undoable four-shape example. Save changes normally in the editor.");
             help("The MCP adapter in forge_tools connects AI clients to this same editor service. "
                  "See the User Manual: MCP agents. Current tools cover scene authoring and "
-                 "granted document operations. Project switching, asset, C++ build, Play and "
+                 "granted document and asset operations. Project switching, C++ build, Play and "
                  "export tools remain unavailable.");
         }
         ImGui::End();
@@ -174,6 +220,10 @@ class AutomationWorkspace {
     Scene* scene_ = nullptr;
     std::filesystem::path project_;
     bool document_writes_ = false;
+    AutomationPermissions permissions_;
+    FileDialog root_picker_;
+    bool external_import_ = false;
+    char import_root_text_[2048]{};
     std::uint64_t generation_ = 0;
     std::string notice_;
 };

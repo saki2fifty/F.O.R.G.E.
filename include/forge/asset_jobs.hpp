@@ -7,6 +7,25 @@
 namespace forge {
 using AssetJobId = std::uint64_t;
 enum class AssetJobState { Queued, Running, Waiting, Ready, Failed, Cancelled, Stale };
+inline const char* asset_job_state_name(AssetJobState state) {
+    switch (state) {
+    case AssetJobState::Queued:
+        return "queued";
+    case AssetJobState::Running:
+        return "running";
+    case AssetJobState::Waiting:
+        return "waiting";
+    case AssetJobState::Ready:
+        return "ready";
+    case AssetJobState::Failed:
+        return "failed";
+    case AssetJobState::Cancelled:
+        return "cancelled";
+    case AssetJobState::Stale:
+        return "stale";
+    }
+    return "invalid";
+}
 struct AssetJobInfo {
     AssetJobId id = 0;
     AssetId asset;

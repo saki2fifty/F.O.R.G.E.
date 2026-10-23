@@ -39,6 +39,8 @@ Future selections (not fetched or integrated): GLM, Tracy, Catch2 and GameNetwor
 
 Flecs 4.1.6 compatibility: FORGE authoring types now explicitly request member entities for Doc/Units/ranges and member-based tooling. Global automatic member creation remains disabled. See the [integration contract](flecs-integration.md) for ownership, selected options and live-documentation exceptions. Phase5 uses `Parent` for validated structured prefab interiors and retains dynamic `ChildOf` attachments and component-granular inheritance. Phase3 independent local TRS and derived world transforms remain the spatial authority.
 
+GPU-independent MCP editor-owner fixtures may also link this same pinned ImGui library with SDL3; these test executables are not installed or linked into games.
+
 ImGui 1.92.9b compatibility: the editor explicitly keeps the legacy bitmap face and enables `ImGuiItemFlags_LiveEditOnInputScalar` for its frame. Diligent supplies the renderer backend; the upstream `imgui_impl_dx12` backend is not linked. SDL3 supplies the platform backend. Docking is enabled; multi-native-window support remains deferred.
 
 ## Toolchain baseline and update review (2026-09-16)

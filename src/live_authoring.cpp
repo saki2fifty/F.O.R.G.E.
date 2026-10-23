@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <deque>
 #include <forge/live_authoring.hpp>
 #ifdef _WIN32
@@ -83,6 +84,57 @@ bool mutation(const std::string& method) {
     return method == "scene.apply" || method == "scene.replace" || method == "history.undo" ||
            method == "history.redo";
 }
+// The bounded workflow argument vocabulary is deliberately small. Domain source
+// objects still pass through their owning parser/validator before publication.
+bool valid_workflow_arguments(const Json& value, const Json& schema) {
+    const auto type = schema.value("type", std::string{});
+    if ((type == "object" && !value.is_object()) || (type == "array" && !value.is_array()) ||
+        (type == "string" && !value.is_string()) || (type == "boolean" && !value.is_boolean()) ||
+        (type == "number" && !value.is_number()) ||
+        (type == "integer" && !value.is_number_integer()) || (type == "null" && !value.is_null()))
+        return false;
+    if (schema.contains("const") && value != schema.at("const"))
+        return false;
+    if (schema.contains("enum") && std::find(schema.at("enum").begin(), schema.at("enum").end(),
+                                             value) == schema.at("enum").end())
+        return false;
+    if (value.is_string()) {
+        const auto size = value.get_ref<const std::string&>().size();
+        if (size < schema.value("minLength", std::size_t{}) ||
+            size > schema.value("maxLength", std::size_t(1048576)))
+            return false;
+    }
+    if (value.is_number()) {
+        const auto number = value.get<double>();
+        if (!std::isfinite(number) ||
+            (schema.contains("minimum") && number < schema.at("minimum").get<double>()) ||
+            (schema.contains("maximum") && number > schema.at("maximum").get<double>()))
+            return false;
+    }
+    if (value.is_array()) {
+        if (value.size() < schema.value("minItems", std::size_t{}) ||
+            value.size() > schema.value("maxItems", std::size_t(1048576)))
+            return false;
+        if (schema.contains("items"))
+            for (const auto& item : value)
+                if (!valid_workflow_arguments(item, schema.at("items")))
+                    return false;
+    }
+    if (value.is_object()) {
+        for (const auto& required : schema.value("required", Json::array()))
+            if (!value.contains(required.get<std::string>()))
+                return false;
+        const auto properties = schema.value("properties", Json::object());
+        for (auto field = value.begin(); field != value.end(); ++field) {
+            if (properties.contains(field.key())) {
+                if (!valid_workflow_arguments(field.value(), properties.at(field.key())))
+                    return false;
+            } else if (!schema.value("additionalProperties", true))
+                return false;
+        }
+    }
+    return true;
+}
 } // namespace
 struct LiveAuthoring::State {
     Socket listener = invalid_socket, client = invalid_socket;
@@ -129,33 +181,22 @@ struct LiveAuthoring::State {
         auto response = session->validate(request, method->mutation);
         if (!response.value("ok", false))
             return response;
-        const auto& schema = method->input_schema;
-        for (const auto& required : schema.at("required"))
-            if (!request.contains(required.get<std::string>()))
-                return failure("invalid_arguments", "Missing workflow argument");
-        for (auto field = request.begin(); field != request.end(); ++field) {
-            if (field.key() == "api" || field.key() == "method" || field.key() == "target" ||
-                (method->mutation && field.key() == "expected_revision"))
-                continue;
-            if (!schema.at("properties").contains(field.key()))
-                return failure("invalid_arguments", "Unknown workflow argument");
-            const auto& property = schema.at("properties").at(field.key());
-            const auto type = property.value("type", std::string{});
-            if ((type == "string" && !field->is_string()) ||
-                (type == "boolean" && !field->is_boolean()))
-                return failure("invalid_arguments", "Invalid workflow argument type");
-            if (field->is_string()) {
-                const auto size = field->get_ref<const std::string&>().size();
-                if (size < property.value("minLength", std::size_t{}) ||
-                    size > property.value("maxLength", std::size_t(1048576)))
-                    return failure("invalid_arguments", "Workflow string length is out of bounds");
-            }
-        }
+        Json arguments = request;
+        for (const auto* field : {"api", "method", "target"})
+            arguments.erase(field);
+        if (method->mutation)
+            arguments.erase("expected_revision");
+        if (!valid_workflow_arguments(arguments, method->input_schema))
+            return failure("invalid_arguments",
+                           "Workflow arguments do not match the advertised schema");
         try {
             response["result"] = method->invoke(request);
             response["revision"] = scene->revision();
+        } catch (const AuthoringError& e) {
+            response = failure(e.code.c_str(), e.what());
+            response["revision"] = scene->revision();
         } catch (const std::exception& e) {
-            response = failure("document_error", e.what());
+            response = failure(method->failure_code.c_str(), e.what());
             response["revision"] = scene->revision();
         }
         return response;
@@ -210,7 +251,9 @@ struct LiveAuthoring::State {
                             // never permit this sequence to execute again.
                             ++next;
                             response =
-                                busy.empty() ? invoke(request, workflow) : failure("busy", busy);
+                                (busy.empty() || (workflow && workflow->controls_pending_work))
+                                    ? invoke(request, workflow)
+                                    : failure("busy", busy);
                             const auto bytes = request.dump().size() + response.dump().size();
                             receipts.push_back({sequence, request, response, bytes});
                             receipt_bytes += bytes;
@@ -248,7 +291,10 @@ struct LiveAuthoring::State {
                                  {"description", item.description},
                                  {"capability", item.capability},
                                  {"input_schema", item.input_schema},
-                                 {"mutation", item.mutation}});
+                                 {"mutation", item.mutation},
+                                 {"controls_pending_work", item.controls_pending_work},
+                                 {"available",
+                                  !item.mutation || busy.empty() || item.controls_pending_work}});
                             writes = writes || item.mutation;
                         }
                         if (!methods.empty())

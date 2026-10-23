@@ -11,6 +11,10 @@ struct LiveAuthoringMethod {
     Json input_schema;
     bool mutation = false;
     std::function<Json(const Json&)> invoke;
+    // Only owner-validated progress/cancel/finish controls may bypass a general
+    // editor busy message. Scene edits and new job admissions keep the guard.
+    bool controls_pending_work = false;
+    std::string failure_code = "document_error";
 };
 // Explicitly enabled, loopback-only JSON-lines adapter. All scene access occurs
 // in pump() on the owning thread. Transport identity is independent of API identity.

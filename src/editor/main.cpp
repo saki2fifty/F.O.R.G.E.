@@ -25,6 +25,7 @@
 #include "animation_timeline.hpp"
 #include "animation_tools.hpp"
 #include "asset_actions.hpp"
+#include "asset_automation.hpp"
 #include "audio_imports.hpp"
 #include "audio_mix.hpp"
 #include "audio_preview.hpp"
@@ -2138,6 +2139,10 @@ int main(int argc, char** argv) {
                 action.execute = [&, run] { perform(run); };
             }
             return result;
+        };
+        automation.workflow_methods = [&](const forge::ui::AutomationPermissions& permissions) {
+            return forge::asset_automation_methods(scene, files, content_imports, source_import,
+                                                   scene_asset_drop, content_files, permissions);
         };
 #ifdef FORGE_UI_FIXTURE
         forge::test::fixture_breadcrumb("before-main-loop");
@@ -5202,7 +5207,7 @@ int main(int argc, char** argv) {
             if (content.take_settings_changed())
                 perform(save_preferences);
             navigation_tools.poll(scene, files.document, play.active(), message);
-            automation.draw(scene, files, automation_busy);
+            automation.draw(scene, files, automation_busy, window.get());
             const auto title = std::string(files.document.dirty() ? "* " : "") +
                                files.document.name() + " / " +
                                (files.document.path().empty()

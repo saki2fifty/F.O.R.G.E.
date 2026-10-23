@@ -74,8 +74,8 @@ class Client:
     def notify(self, method, params=None):
         self.raw(json.dumps(dict(jsonrpc='2.0', method=method, params=params or {})))
 
-    def tool(self, name, **arguments):
-        response = self.request('tools/call', dict(name=name, arguments=arguments))
+    def tool(self, tool_name, /, **arguments):
+        response = self.request('tools/call', dict(name=tool_name, arguments=arguments))
         assert 'result' in response, response
         result = response['result']
         data = result['structuredContent']

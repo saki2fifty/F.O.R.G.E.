@@ -2,9 +2,10 @@
 
 FORGE can let a trusted AI agent inspect and edit your open scene through MCP.
 The agent's changes appear in the editor and share your normal Undo history.
-The tools cover scene editing and, with separate permission, saving and opening
-scene files in the current project. Project creation/switching, asset import,
-C++ compilation, Play controls and game export still require the editor.
+The tools cover scene editing, saving/opening scenes and explicitly permitted
+asset workflows in the current project. Project creation/switching, source
+document editing, C++ compilation, Play controls and export are still being
+connected to MCP.
 
 ## Connect
 
@@ -41,6 +42,24 @@ A copied saved scene gets its own identity. Saving an untitled scene for the fir
 time keeps its identity. The agent must discover the new scene target after a
 filename or scene change. Saving checks for external file changes and will not
 silently overwrite someone else's edits. File saves are not reversed by Scene Undo.
+
+## Work with assets
+
+Choose **Start project authoring** for asset search, import/reimport, placement,
+and source-file move/duplicate/delete. To import files from outside the project,
+first enable the external source-folder option and choose that folder. The agent
+can select sources only within the project or this explicitly granted folder.
+
+The agent prepares an import and reads its review before confirming it. Copies
+go into a new folder under **Assets**; existing files are not overwritten. The
+native importer reports each file's actual result. Imported Models, Meshes,
+Tile Maps and Prefabs can then be placed in the scene. Placement is undoable.
+File copying and asset publication have their own results and are not Scene Undo.
+
+Move, duplicate and delete also use a prepared reference-impact review. Delete
+needs explicit acknowledgment and keeps the existing recovery backup. Cancelling
+stops pending work; it does not remove completed publications or file commits.
+The agent should inspect progress rather than treating a queued request as done.
 
 ## Keep control
 

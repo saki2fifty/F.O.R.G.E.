@@ -25,7 +25,9 @@ constexpr auto instructions =
     "revision. Scene edits share Undo. Document saves and scene switching require an explicit "
     "file grant; inspect forge_project_read and rediscover after a document change. Scene-only "
     "grants expire on scene switches; file grants remain scoped to the current project. No "
-    "project switching, asset, C++ compilation, Play, export or engine-source tools exist yet.";
+    "engine-repository or arbitrary shell interface is provided. Only the advertised workflow "
+    "capabilities are available; inspect job progress/results and exact review tokens before "
+    "committing source/file operations. Completed file commits are separate from Scene Undo.";
 
 Json object(Json properties = Json::object(), Json required = Json::array()) {
     if (properties.is_null())

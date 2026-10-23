@@ -11,20 +11,35 @@ class SceneAssetDrop {
     ~SceneAssetDrop() { stop_.request_stop(); }
     bool busy() const { return pending_.has_value() || job_.valid(); }
     void cancel() { stop_.request_stop(); }
+    const Json& operation() const { return operation_; }
+    const std::filesystem::path& project() const { return operation_project_; }
+    void cancel(std::uint64_t job) {
+        if (!busy() || operation_.value("job", std::uint64_t{}) != job)
+            throw AuthoringError("wrong_job", "Placement job is no longer active");
+        cancel();
+    }
     static bool supported(std::string_view type) {
         return type == "model" || type == "mesh" || type == "prefab" || type == "scene" ||
                type == "tile_map";
     }
     void queue(const AssetRecord& asset, const Scene& scene, const SceneDocument& document,
-               LocalTranslation position) {
+               LocalTranslation position,
+               std::optional<asset_detail::ModelPlacementOptions> options = {}) {
         if (busy() || !supported(asset.type))
             throw std::runtime_error(
                 "Finish the active placement or drop a Model, Mesh, Tile Map, Prefab or Scene.");
         document.check_ownership();
+        operation_project_ = document.project();
+        if (serial_ == 9007199254740991ULL)
+            throw std::runtime_error("Placement job identities exhausted");
         stop_ = std::stop_source{};
         pending_ = Pending{
-            asset,   document.project(), document.generation(), scene.asset_id(), scene.revision(),
-            position};
+            asset,    document.project(), document.generation(), scene.asset_id(), scene.revision(),
+            position, std::move(options)};
+        operation_ = {{"job", ++serial_},
+                      {"state", "queued"},
+                      {"asset", asset.id.str()},
+                      {"revision", scene.revision()}};
     }
     void poll(Scene& scene, EditorFiles& files, ui::EditorSelection& selection, bool locked,
               std::string& message) {
@@ -58,13 +73,16 @@ class SceneAssetDrop {
                         const auto catalog = AssetCatalog::open_project(request.project);
                         auto source = asset_detail::load_model_selection(request.project, catalog,
                                                                          request.asset.id, stop);
-                        asset_detail::ModelPlacementOptions options;
-                        options.name = asset_display(request.asset);
+                        auto options =
+                            request.options.value_or(asset_detail::ModelPlacementOptions{});
+                        if (!request.options)
+                            options.name = asset_display(request.asset);
                         options.transform.translation = request.position;
                         return asset_detail::prepare_model_placement(source, request.scene,
                                                                      request.revision, options);
                     });
                     message = "Preparing model placement...";
+                    operation_["state"] = "running";
                     return;
                 }
                 if (job_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
@@ -76,15 +94,17 @@ class SceneAssetDrop {
             } else if (request.asset.type == "mesh") {
                 const auto catalog = AssetCatalog::open_project(request.project);
                 selection.select_entity(
-                    asset_detail::instantiate_mesh(scene, catalog, {request.asset.id},
-                                                   request.position, asset_display(request.asset))
+                    asset_detail::instantiate_mesh(
+                        scene, catalog, {request.asset.id}, request.position,
+                        request.options ? request.options->name : asset_display(request.asset))
                         .str());
             } else if (request.asset.type == "tile_map") {
                 const auto catalog = AssetCatalog::open_project(request.project);
-                selection.select_entity(asset_detail::instantiate_tile_map(
-                                            scene, catalog, {request.asset.id}, request.position,
-                                            asset_display(request.asset))
-                                            .str());
+                selection.select_entity(
+                    asset_detail::instantiate_tile_map(
+                        scene, catalog, {request.asset.id}, request.position,
+                        request.options ? request.options->name : asset_display(request.asset))
+                        .str());
             } else if (request.asset.type == "prefab") {
                 selection.select_entity(
                     asset_detail::instantiate_prefab_at(scene, request.asset.id, request.position)
@@ -93,13 +113,19 @@ class SceneAssetDrop {
                 pending_.reset(); // The Open workflow must not see our own busy guard.
                 files.request(
                     {EditorFiles::Command::OpenScene, request.project / request.asset.source, {}});
+                operation_["state"] = "delegated_to_document";
                 message = "Opening dropped scene...";
                 return;
             }
             pending_.reset();
+            operation_["state"] = "succeeded";
+            operation_["entity"] = selection.entity_slot();
+            operation_["revision"] = scene.revision();
             message = "Asset placed. Undo removes this placement.";
         } catch (const std::exception& e) {
             pending_.reset();
+            operation_["state"] = stop_.stop_requested() ? "cancelled" : "failed";
+            operation_["diagnostic"] = e.what();
             message = e.what();
             ui::report_error("asset_placement", message);
         }
@@ -167,9 +193,13 @@ class SceneAssetDrop {
         AssetId scene;
         std::uint64_t revision;
         LocalTranslation position;
+        std::optional<asset_detail::ModelPlacementOptions> options;
     };
     std::optional<Pending> pending_;
     std::stop_source stop_;
     std::future<asset_detail::ModelPlacementCandidate> job_;
+    std::uint64_t serial_ = 0;
+    Json operation_ = {{"state", "idle"}};
+    std::filesystem::path operation_project_;
 };
 } // namespace forge
