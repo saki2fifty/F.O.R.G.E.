@@ -4,6 +4,7 @@
 #include "icons.hpp"
 #include "widgets.hpp"
 #include <array>
+#include <forge/authoring.hpp>
 namespace forge {
 class ContentFiles {
   public:

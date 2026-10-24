@@ -5,7 +5,9 @@
 #include "../source_copy.hpp"
 #include "content_imports.hpp"
 #include "file_dialog.hpp"
+#include "icons.hpp"
 #include "widgets.hpp"
+#include <forge/authoring.hpp>
 #include <fstream>
 #include <future>
 #include <misc/cpp/imgui_stdlib.h>

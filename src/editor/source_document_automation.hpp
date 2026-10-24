@@ -2,6 +2,7 @@
 #include "../tile_map_source.hpp"
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
+#include "document.hpp"
 #include "document_workspace.hpp"
 #include <type_traits>
 
