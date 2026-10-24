@@ -1138,6 +1138,10 @@ C++ project-to-Windows-export execution gate. No new numbered package is implied
 
 ### Packaged native MCP game acceptance
 
+The editor and MCP editor-owner fixtures use MSVC `/bigobj`: the combined source
+editor adapters exceed the ordinary COFF object-file section limit. This option
+is scoped to those targets; it does not change the game/SDK linkage profile.
+
 The final ZIP gate also runs `tests/mcp_editor_package_test.py` with the separate
 editor fixture EXE beside the extracted shipped editor. `--mcp-authoring` is
 compiled only into that test fixture, never the production editor. Its explicit

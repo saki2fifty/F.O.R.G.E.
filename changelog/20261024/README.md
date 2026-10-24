@@ -35,3 +35,4 @@ coverage remains described in the previous day's entry and the MCP coverage tabl
 - The MCP-authored C++ writes bounded stderr markers proving saved values and changing rotation in the shipped exported executable. Compiler/runtime logs, authored files and images are retained without credentials.
 - Wired this scenario into the existing final ZIP gate. Execution and image-review results remain separate from the test's implementation and physical acceptance.
 - Exposed the shipped game's existing finite WARP/offline startup diagnostic through the supervised MCP export run. Normal launch remains the default; headless acceptance requires verification messages and a successful exit.
+- Made asset-owner headers self-contained and enabled MSVC large object files for the editor and combined MCP fixtures.

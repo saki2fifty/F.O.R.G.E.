@@ -89,4 +89,11 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
   add_test(NAME mcp_image_stdio COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/mcp_image_test.py $<TARGET_FILE:forge_tools> $<TARGET_FILE:forge_mcp_image_host> "${CMAKE_CURRENT_BINARY_DIR}/mcp-image-protocol-capture.json.gz")
   set_tests_properties(mcp_image_stdio PROPERTIES TIMEOUT 120)
  endif()
+ # These fixtures instantiate the real editor owners and JSON adapters together.
+ # MSVC's ordinary COFF section limit is insufficient for the combined source host.
+ foreach(_forge_mcp_fixture IN ITEMS forge_mcp_document_host forge_mcp_asset_host forge_mcp_source_host forge_prefab_source_draft_tests forge_mcp_project_host forge_mcp_code_source_tests forge_mcp_code_host forge_mcp_workflow_host forge_mcp_image_host)
+  if(TARGET ${_forge_mcp_fixture})
+   target_compile_options(${_forge_mcp_fixture} PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
+  endif()
+ endforeach()
 endif()

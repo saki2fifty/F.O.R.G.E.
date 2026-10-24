@@ -106,7 +106,8 @@ def exercise(client, evidence, manifest):
     material = read('forge_asset_document_status', editor='material')['asset']
     document_edit('forge_asset_document_save')
     saved = wait_for(lambda: read('forge_asset_document_status', editor='material'),
-                     lambda r: not r['save_requested'] and not r['publishing'])
+                     lambda r: not r['save_requested'] and not r['publishing'] and
+                     not r['unpublished'])
     assert not saved['dirty'] and not saved['diagnostic'], saved
     document_edit('forge_asset_document_close')
     property_value(cube, 'forge.mesh_renderer', 'materials',
@@ -127,7 +128,7 @@ def exercise(client, evidence, manifest):
     # Bounded stderr proof is gameplay authored through MCP, not a runtime probe.
     # stdout remains exclusively the native Play protocol.
     marker = ('static unsigned observed = 0;\n'
-              '                if (++observed % 4 == 0) {\n'
+              '                if (++observed % 2 == 0) {\n'
               '                    std::fprintf(stderr, "FORGE_MCP_SPIN %.3f %.6f\\n", '
               'double(data.speed), double(next.y));\n'
               '                    std::fflush(stderr);\n'
