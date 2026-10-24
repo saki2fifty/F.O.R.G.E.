@@ -1,12 +1,18 @@
 #pragma once
+#include "../asset_storage.hpp"
 #include "document.hpp"
 #include "document_workspace.hpp"
 #include "widgets.hpp"
 #include <forge/flecs_script.hpp>
 #include <fstream>
 #include <future>
+namespace forge {
+struct ScriptAutomation;
+}
 namespace forge::ui {
 class FlecsScriptEditor {
+    friend struct ::forge::ScriptAutomation;
+
   public:
     bool pending() const { return job_.valid(); }
     explicit FlecsScriptEditor(std::filesystem::path executable)
@@ -91,7 +97,9 @@ class FlecsScriptEditor {
         cancel_.request_stop();
         if (job_.valid())
             throw std::runtime_error("Wait for the previous script preview to finish cancelling");
+        asset_storage::ordinary(ProjectPaths(project.project()).root() / record.source);
         auto baseline = read_flecs_script_source(project.project(), record.source);
+        (void)Json(baseline).dump();
         root_ = project.project();
         record_ = record;
         baseline_.swap(baseline);
@@ -104,6 +112,28 @@ class FlecsScriptEditor {
         error_line_ = error_column_ = 0;
         open_ = true;
         focus_ = true;
+        session_ = AssetId::generate().str();
+    }
+    AssetRecord register_source(SceneDocument& project, const std::filesystem::path& source,
+                                bool create = true) {
+        project.check_ownership();
+        if (pending() || dirty() || close_requested_)
+            throw std::runtime_error("Settle the existing script draft/preview first");
+        const ProjectPaths paths(project.project());
+        const auto locator = ProjectPaths::normalize(source);
+        if (locator.extension() != ".flecs")
+            throw std::runtime_error("Script path must end in .flecs");
+        asset_storage::ordinary(paths.root() / locator);
+        const auto file = paths.resolve(locator);
+        if (!std::filesystem::exists(file)) {
+            if (!create)
+                throw std::runtime_error("The script source does not exist");
+            atomic_write(file, "using flecs.meta\n\nstruct Position { x { member: {f32} } "
+                               "y { member: {f32} } }\nExample { Position: {10, 20} }\n");
+        }
+        const auto record = register_flecs_script(project.project(), locator);
+        open(project, record);
+        return record;
     }
     void content(SceneDocument& project, bool locked, EditorSelection& selection,
                  std::string& message) {
@@ -111,8 +141,9 @@ class FlecsScriptEditor {
             help("Create or register a project-contained .flecs source file.");
             return;
         }
-        help("Flecs Script has its own source editor and managed preview world. It is distinct "
-             "from native gameplay and future visual scripting.");
+        help("Flecs Script has its own source editor and managed preview world. It is a "
+             "data/world-recipe "
+             "preview; project C++ owns gameplay.");
         ImGui::InputText("Script path", source_, sizeof(source_));
         help("Project-relative .flecs file, such as Assets/example.flecs.");
         ImGui::BeginDisabled(locked);
@@ -120,18 +151,8 @@ class FlecsScriptEditor {
                    "Create an example if the file is absent; otherwise register the existing "
                    "source without overwriting it.")) {
             try {
-                project.check_ownership();
-                ProjectPaths paths(project.project());
-                const auto locator = ProjectPaths::normalize(std::filesystem::u8path(source_));
-                if (locator.extension() != ".flecs")
-                    throw std::runtime_error("Script path must end in .flecs");
-                const auto file = paths.resolve(locator);
-                if (!std::filesystem::exists(file))
-                    atomic_write(file, "using flecs.meta\n\nstruct Position { x { member: {f32} } "
-                                       "y { member: {f32} } }\nExample { Position: {10, 20} }\n");
-                const auto record = register_flecs_script(project.project(), locator);
+                const auto record = register_source(project, std::filesystem::u8path(source_));
                 selection.select_asset(record.id);
-                open(project, record);
                 message = "Flecs Script registered. Apply runs its managed preview in a worker.";
             } catch (const std::exception& e) {
                 error_ = message = e.what();
@@ -310,6 +331,7 @@ class FlecsScriptEditor {
     AssetRecord record_;
     std::vector<char> text_;
     std::string baseline_, previous_, submitted_, result_, error_;
+    std::string session_, operation_;
     std::string error_source_, source_view_name_;
     std::filesystem::path source_view_root_;
     std::vector<char> source_view_;
@@ -327,6 +349,7 @@ class FlecsScriptEditor {
             project.check_ownership();
             if (root_ != project.project())
                 throw std::runtime_error("Script belongs to another project");
+            asset_storage::ordinary(ProjectPaths(root_).root() / record_.source);
             const auto file = ProjectPaths(root_).resolve(record_.source);
             const auto current = read_flecs_script_source(root_, record_.source);
             if (current != baseline_)
@@ -342,6 +365,8 @@ class FlecsScriptEditor {
         }
     }
     void apply(bool fresh) {
+        if (pending())
+            throw std::runtime_error("Wait for the existing script preview");
         error_source_ = path_utf8(record_.source);
         error_line_ = error_column_ = 0;
         submitted_ = text_.data();
@@ -349,6 +374,7 @@ class FlecsScriptEditor {
         auto root = root_, source = record_.source, tool = executable_;
         auto code = submitted_, previous = fresh ? std::string{} : previous_;
         auto cancel = cancel_.get_token();
+        operation_ = AssetId::generate().str();
         job_ = std::async(std::launch::async, [root, source, tool, code, previous, cancel] {
             return preview_flecs_script(root, source, code, previous, tool, cancel);
         });

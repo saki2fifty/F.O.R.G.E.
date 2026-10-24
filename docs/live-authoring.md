@@ -9,7 +9,7 @@ approved projects plus the initial project, with fresh scene targets and retaine
 receipts; other project changes revoke it. Restart generates a new token and
 document session identity.
 
-The connection JSON contains `transport:1`, `host:"127.0.0.1"`, `port`, and `token`. The token is distinct from `AuthoringSession.target.session`, which is only a routing identity. The scene target uses the existing scene asset UUID. Non-scene asset targets are not exposed yet.
+The connection JSON contains `transport:1`, `host:"127.0.0.1"`, `port`, and `token`. The token is distinct from `AuthoringSession.target.session`, which is only a routing identity. The scene target uses the existing scene asset UUID. Workflow methods retain this routing target and carry their owning document/job identities in method-specific fields.
 
 ## Framing and dispatch
 
@@ -29,7 +29,7 @@ Successful discovery returns the underlying scene target/revision, capabilities,
 
 Sockets are nonblocking. The editor owner thread accepts/reads/validates/commits/sends in its frame pump, with at most 64 KiB read and 64 KiB written per frame and one request dispatched per frame. It handles one active client, has a listen backlog of one, a 10-second total connection deadline, a 1 MiB request-line bound excluding newline, a 64-level nesting bound, and a 16 MiB response bound including newline. Backlogged connection acceptance is OS controlled. Oversized/pipelined input closes that client; malformed JSON returns a structured failure when possible. A response that exceeds the bound returns `limit_exceeded`; clients should use paged queries for large reads. These defensive caps do not guarantee large-scene frame latency: JSON parsing, scene reconstruction and serialization still run synchronously.
 
-Edits return `busy` during play, native builds, file operations, popups and active UI gestures. Reads describe committed authoring data. Native execution remains a separate pending integration. Project creation/opening
+Edits return `busy` during play, native builds, file operations, popups and active UI gestures. Reads describe committed authoring data. Project authoring adds existing-owner workflow methods; native execution requires its separate explicit grant. Exact job-control methods may bypass general busy status only through their own lifecycle checks. Project creation/opening
 requires the separately selected workspace grant described in [MCP](mcp.md). The [document methods](mcp.md#document-tools) add `document.read` and separately granted `document.write` through existing editor owners. Their schemas appear in `workflow_methods`; file mutations use the same exact target/revision/sequence checks and receipts. New supported domains must join the service with their own capability/target contracts.
 
 ## Retry and cancellation
@@ -38,7 +38,7 @@ Mutation sequence allocation is shared by clients of one listener. Start at the 
 
 There is no automatic retry in the included Python client. After loss of a response, an integration may repeat the identical numbered request to retrieve its receipt; an expired receipt requires resynchronization with the scene. A returned old receipt describes its original revision. Never create a new sequence blindly to retry an uncertain commit. Multiple clients must rediscover/resynchronize on sequence conflicts.
 
-Disconnect before a complete request cancels it. Once a complete request commits, disconnect does not undo it. Stop discards incomplete input and pending output but preserves authored state and normal undo. No transient drag or native job can be created through this API.
+Disconnect before a complete request cancels it. Once a complete request commits, disconnect does not undo it. Stop discards incomplete input and pending output but preserves authored state and normal undo. Transient drag previews are not exposed. Native jobs use their existing owners, explicit grants and operation-specific cancellation; cancelling a request never rolls back an already committed result.
 
 ## Validation and sources
 

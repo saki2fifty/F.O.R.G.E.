@@ -29,7 +29,9 @@ inline std::filesystem::path cpp_source_path(const std::filesystem::path& root,
     for (const auto& part : normalized)
         if (part == "Builds" || part == ".forge")
             throw std::runtime_error("Generated deployment/build files are not editable sources.");
-    auto path = ProjectPaths(root).resolve(normalized);
+    const ProjectPaths project(root);
+    asset_storage::ordinary(project.root() / normalized);
+    auto path = project.resolve(normalized);
     asset_storage::ordinary(path);
     return path;
 }

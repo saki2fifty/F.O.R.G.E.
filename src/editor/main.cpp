@@ -35,6 +35,8 @@
 #include "blockout.hpp"
 #include "cache_tools.hpp"
 #include "camera_controls.hpp"
+#include "capture_automation.hpp"
+#include "code_automation.hpp"
 #include "collision_editor.hpp"
 #include "command_workspace.hpp"
 #include "component_inspector.hpp"
@@ -45,9 +47,11 @@
 #include "cpp_source_editor.hpp"
 #include "cpu_profiler.hpp"
 #include "creation_menu.hpp"
+#include "dependency_automation.hpp"
 #include "document_workspace.hpp"
 #include "ecs_tools.hpp"
 #include "editable_mesh_editor.hpp"
+#include "export_automation.hpp"
 #include "files.hpp"
 #include "flecs_script.hpp"
 #include "frame_renderer.hpp"
@@ -62,6 +66,7 @@
 #include "mesh_material_inspector.hpp"
 #include "model_imports.hpp"
 #include "model_viewer.hpp"
+#include "navigation_automation.hpp"
 #include "navigation_tools.hpp"
 #include "orientation.hpp"
 #include "particle_effect_editor.hpp"
@@ -69,11 +74,13 @@
 #include "performance.hpp"
 #include "physics_overlay.hpp"
 #include "play.hpp"
+#include "play_automation.hpp"
 #include "play_presentation.hpp"
 #include "prefab_automation.hpp"
 #include "prefabs.hpp"
 #include "project_automation.hpp"
 #include "project_settings.hpp"
+#include "project_source_automation.hpp"
 #include "published_tile_map.hpp"
 #include "resource_inspector.hpp"
 #include "runtime_dependencies.hpp"
@@ -84,6 +91,7 @@
 #include "scene_cache.hpp"
 #include "scene_lighting.hpp"
 #include "scene_tools.hpp"
+#include "script_automation.hpp"
 #include "sdk_build.hpp"
 #include "sdk_platform_effects.hpp"
 #include "shader_diligent.hpp"
@@ -2176,6 +2184,92 @@ int main(int argc, char** argv) {
                                                       texture_imports, files.document));
         documents.bind_importer(
             "shader_import", forge::ImportDocumentAutomation::bind(shader_imports, files.document));
+        const auto start_project_play = [&](bool interactive) {
+            files.document.check_ownership();
+            if (!content_imports.ready_for_play() || play.active() || sdk_build->busy() ||
+                files.busy() || files.changed || content_files.busy() || game_export.busy() ||
+                runtime_dependencies.busy() || authored_components.busy() || modal.active() ||
+                blockout.active() || scene_tools.active())
+                throw forge::AuthoringError("play_busy", "Settle pending project work before Play");
+            if (!sdk_build->managed() && !files.document.settings().requires_native_sdk() &&
+                std::filesystem::exists(files.document.project() / "Native/gameplay.cpp"))
+                throw std::runtime_error(
+                    "Older C++ gameplay source is preserved but unsupported. "
+                    "Migrate it to the supported Project Code format before Play.");
+            if (sdk_build->managed() && (cpp_sources.dirty() || !current_managed_gameplay())) {
+                if (interactive) {
+                    cpp_play_dialog = true;
+                    return;
+                }
+                throw forge::AuthoringError("build_required",
+                                            "Save and build changed Project Code before Play");
+            }
+            const bool sdk = files.document.settings().requires_native_sdk();
+            // The opt-in SDK Play profile is gated by an
+            // exact-SDK configuration AND an authored
+            // "game" section. Both must be true; legacy
+            // exact-SDK callers and SDK-less callers
+            // remain unaffected. We do not synchronously
+            // read the project file inside configure —
+            // settings already mirrors the authored
+            // document.
+            if (sdk && !files.document.settings().document().contains("game"))
+                throw std::runtime_error("Enable game runtime settings in Build before Play.");
+            const bool sdk_game = sdk;
+            auto executable = std::filesystem::path(runtime_path);
+            if (sdk) {
+                const auto root = exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
+                                                    : install_root / "NativeSdk";
+                executable = forge::SdkBuild::runtime_path(root);
+                if (!std::filesystem::is_regular_file(executable))
+                    throw std::runtime_error("Select a matching Native SDK installation in Build. "
+                                             "Its bin/forge_runtime.exe is missing.");
+            }
+            play.configure(files.document.settings().simulation_hz(),
+                           files.document.settings().input(),
+                           files.document.settings().physics().gravity, files.document.project(),
+                           sdk, sdk_game);
+#ifdef FORGE_UI_FIXTURE
+            // SDK reference mode: route the runtime's
+            // --user-data to a private writable base
+            // supplied on the CLI so this run never
+            // touches the real user's saves. Normal
+            // production callers leave the default
+            // (game_user_data_base()).
+            if (fixture.sdk_play || fixture.view_images) {
+                play.set_user_data_override(fixture.user_data);
+            }
+            // Native UI fixtures run on headless WARP workers without an
+            // audio device. Use the real offline mixer for both legacy
+            // and SDK Play; physical output has separate acceptance.
+            play.set_headless_audio(true);
+#endif
+            audio_preview.stop();
+            play.start(forge::path_utf8(executable), scene.snapshot());
+            workspace.game = true;
+            focus_game = true;
+        };
+        const auto control_project_play = [&](const std::string& operation) {
+            if (operation == "stop") {
+                game_input.release(play);
+                sdk_effects.clear();
+                play.stop();
+                return;
+            }
+            if (!play.control_ready())
+                throw forge::AuthoringError("play_busy", "Wait for the pending runtime control");
+            if (play.sdk_play() && !game_input.submit_external_release_observation(play, true))
+                throw forge::AuthoringError("input_release_failed",
+                                            "Physical input release failed");
+            if (operation == "pause")
+                play.pause();
+            else if (operation == "resume")
+                play.resume();
+            else if (operation == "step")
+                play.step();
+            else
+                throw std::runtime_error("Unknown runtime control");
+        };
         automation.workflow_methods = [&](const forge::ui::AutomationPermissions& permissions) {
             auto methods =
                 forge::asset_automation_methods(scene, files, content_imports, source_import,
@@ -2197,6 +2291,161 @@ int main(int argc, char** argv) {
                 project_settings, files.document, permissions);
             methods.insert(methods.end(), std::make_move_iterator(project_values.begin()),
                            std::make_move_iterator(project_values.end()));
+            forge::CodeAutomationProviders code_providers;
+            code_providers.build = [&]() -> forge::SdkBuild& { return *sdk_build; };
+            code_providers.sdk = [&] {
+                return exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
+                                         : install_root / "NativeSdk";
+            };
+            code_providers.compiler_tools = [&] {
+                return std::pair<std::string, std::string>{cmake_path, ninja_path};
+            };
+            code_providers.unavailable = [&] {
+                return play.active() || game_export.busy() || files.busy() || files.changed ||
+                               content_files.busy() || cache_tools.busy() ||
+                               runtime_dependencies.busy()
+                           ? "Stop Play and settle pending project work before changing C++ code"
+                           : "";
+            };
+            auto code = forge::CodeAutomation::methods(scene, files, cpp_sources,
+                                                       authored_components, prefab_editor,
+                                                       std::move(code_providers), permissions);
+            methods.insert(methods.end(), std::make_move_iterator(code.begin()),
+                           std::make_move_iterator(code.end()));
+            forge::PlayAutomationProviders play_providers;
+            play_providers.start = [&] { start_project_play(false); };
+            play_providers.control = control_project_play;
+            play_providers.control_unavailable = [&] {
+                return files.busy() || files.changed || sdk_build->busy() || game_export.busy() ||
+                               scene_tools.active() || modal.active() || blockout.active() ||
+                               ImGui::IsAnyItemActive() ||
+                               ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                               ImGuiPopupFlags_AnyPopupLevel)
+                           ? "Finish the active project or UI operation"
+                           : "";
+            };
+            play_providers.select_entity = [&](const std::string& entity) {
+                if (play.effective_snapshot().value("asset_id", std::string{}) !=
+                        scene.asset_id().str() ||
+                    !scene.entity(entity).is_valid())
+                    throw forge::AuthoringError(
+                        "invalid_selection",
+                        "Choose an Inspector entity in the current authored Scene");
+                editor.selection.select_entity(entity);
+                workspace.inspector = true;
+            };
+            play_providers.prepare_input = [&] {
+                if (play.sdk_play())
+                    return game_input.submit_external_release_observation(play, false);
+                game_input.release(play);
+                return true;
+            };
+            play_providers.ui_command = [&](const std::string& instance, const std::string& command,
+                                            const std::optional<std::string>& value) {
+                if (!play.ready())
+                    return false;
+                if (play.sdk_play() && !game_input.submit_external_release_observation(play, true))
+                    return false;
+                return runtime_ui.command(instance, command, value);
+            };
+            auto runtime = forge::PlayAutomation::methods(scene, files, play, runtime_tuning_review,
+                                                          std::move(play_providers), permissions);
+            methods.insert(methods.end(), std::make_move_iterator(runtime.begin()),
+                           std::make_move_iterator(runtime.end()));
+            const auto source_unavailable = [&]() -> std::string {
+                return play.active() || files.busy() || files.changed || sdk_build->busy() ||
+                               game_export.busy() || content_files.busy() || source_import.busy() ||
+                               cache_tools.busy() || runtime_dependencies.busy()
+                           ? "Stop Play and settle pending project/source work"
+                           : "";
+            };
+            auto raw_sources =
+                forge::ProjectSourceAutomation::methods(files, permissions, source_unavailable);
+            methods.insert(methods.end(), std::make_move_iterator(raw_sources.begin()),
+                           std::make_move_iterator(raw_sources.end()));
+            auto navigation = forge::NavigationAutomation::methods(navigation_tools, scene, files,
+                                                                   permissions, source_unavailable);
+            methods.insert(methods.end(), std::make_move_iterator(navigation.begin()),
+                           std::make_move_iterator(navigation.end()));
+            auto declarations = forge::DependencyAutomation::methods(
+                runtime_dependencies, files, permissions, [&] { return content.catalog(); },
+                [&](forge::AssetId asset) {
+                    editor.selection.select_asset(asset);
+                    editor.reveal_content = true;
+                },
+                source_unavailable);
+            methods.insert(methods.end(), std::make_move_iterator(declarations.begin()),
+                           std::make_move_iterator(declarations.end()));
+            auto scripts = forge::ScriptAutomation::methods(script_editor, files, permissions,
+                                                            source_unavailable);
+            methods.insert(methods.end(), std::make_move_iterator(scripts.begin()),
+                           std::make_move_iterator(scripts.end()));
+            forge::ExportAutomationProviders export_providers;
+            export_providers.request = [&](const std::filesystem::path& destination) {
+                const bool native = files.document.settings().requires_native_sdk();
+                const auto runtime =
+                    native ? forge::SdkBuild::runtime_path(
+                                 exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
+                                                   : install_root / "NativeSdk")
+                           : std::filesystem::path(runtime_path);
+                return game_export.request_from_selection(
+                    files.document, scene, destination,
+                    install_root / (native ? "runtime-kits/shared-native-sdk" : "runtime-kit"),
+                    sdk_build->module_kits(files.document.settings()), runtime);
+            };
+            export_providers.unavailable = [&, source_unavailable] {
+                const auto busy = source_unavailable();
+                if (!busy.empty())
+                    return std::string(busy);
+                return files.document.dirty() || documents.source_drafts_dirty() ||
+                               runtime_dependencies.dirty()
+                           ? std::string("Save or discard all authoring drafts before export")
+                           : std::string{};
+            };
+            auto exports = forge::ExportAutomation::methods(
+                files, game_export, std::move(export_providers), permissions);
+            methods.insert(methods.end(), std::make_move_iterator(exports.begin()),
+                           std::make_move_iterator(exports.end()));
+            forge::CaptureAutomationProviders capturing;
+            capturing.show = [&](forge::ui::ViewImageTask::View view) {
+                if (view == forge::ui::ViewImageTask::View::Scene) {
+                    workspace.scene = true;
+                    ImGui::SetWindowFocus("###Scene");
+                } else {
+                    workspace.game = true;
+                    focus_game = true;
+                }
+            };
+            capturing.sequence = [&]() -> forge::ui::SequenceFrameSource& {
+                return animation_timeline;
+            };
+            capturing.open_sequence = [&](const std::string& entity) {
+                if (!scene.entity(entity).is_valid() ||
+                    !scene.entity(entity).has<forge::AnimationSequence>())
+                    throw forge::AuthoringError("invalid_controller",
+                                                "Choose an authored Animation Sequence controller");
+                if (documents.source_drafts_dirty())
+                    throw forge::AuthoringError(
+                        "unsaved_source",
+                        "Settle source/Timeline drafts before opening a sequence preview");
+                animation_timeline.open_sequence(
+                    files.document, scene, {scene.asset_id(), forge::EntityId::parse(entity)});
+            };
+            capturing.unavailable = [&](bool sequence) {
+                return (sequence && play.active()) || files.busy() || files.changed ||
+                               game_export.busy() || sdk_build->busy() || content_files.busy() ||
+                               source_import.busy() || runtime_dependencies.busy() ||
+                               cache_tools.busy() || modal.active() || blockout.active() ||
+                               scene_tools.active() || ImGui::IsAnyItemActive() ||
+                               ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
+                                                               ImGuiPopupFlags_AnyPopupLevel)
+                           ? "Settle the active view/project operation before image capture"
+                           : "";
+            };
+            auto captures = forge::CaptureAutomation::methods(
+                view_image, scene, files, std::move(capturing), message, permissions);
+            methods.insert(methods.end(), std::make_move_iterator(captures.begin()),
+                           std::make_move_iterator(captures.end()));
             return methods;
         };
 #ifdef FORGE_UI_FIXTURE
@@ -2827,65 +3076,7 @@ int main(int argc, char** argv) {
                     (!sdk_build->managed() || files.document.settings().requires_native_sdk()) &&
                     !play.active() && !sdk_build->busy() && !files.busy() && !modal.active() &&
                     !blockout.active() && !scene_tools.active(),
-                [&] {
-                    if (!sdk_build->managed() && !files.document.settings().requires_native_sdk() &&
-                        std::filesystem::exists(files.document.project() / "Native/gameplay.cpp"))
-                        throw std::runtime_error(
-                            "Older C++ gameplay source is preserved but unsupported. "
-                            "Migrate it to the supported Project Code format before Play.");
-                    if (sdk_build->managed() &&
-                        (cpp_sources.dirty() || !current_managed_gameplay())) {
-                        cpp_play_dialog = true;
-                        return;
-                    }
-                    const bool sdk = files.document.settings().requires_native_sdk();
-                    // The opt-in SDK Play profile is gated by an
-                    // exact-SDK configuration AND an authored
-                    // "game" section. Both must be true; legacy
-                    // exact-SDK callers and SDK-less callers
-                    // remain unaffected. We do not synchronously
-                    // read the project file inside configure —
-                    // settings already mirrors the authored
-                    // document.
-                    if (sdk && !files.document.settings().document().contains("game"))
-                        throw std::runtime_error(
-                            "Enable game runtime settings in Build before Play.");
-                    const bool sdk_game = sdk;
-                    auto executable = std::filesystem::path(runtime_path);
-                    if (sdk) {
-                        const auto root = exact_sdk_root[0]
-                                              ? std::filesystem::u8path(exact_sdk_root)
-                                              : install_root / "NativeSdk";
-                        executable = root / "bin/forge_runtime.exe";
-                        if (!std::filesystem::is_regular_file(executable))
-                            throw std::runtime_error(
-                                "Select a matching Native SDK installation in Gameplay "
-                                "Code. Its bin/forge_runtime.exe is missing.");
-                    }
-                    play.configure(files.document.settings().simulation_hz(),
-                                   files.document.settings().input(),
-                                   files.document.settings().physics().gravity,
-                                   files.document.project(), sdk, sdk_game);
-#ifdef FORGE_UI_FIXTURE
-                    // SDK reference mode: route the runtime's
-                    // --user-data to a private writable base
-                    // supplied on the CLI so this run never
-                    // touches the real user's saves. Normal
-                    // production callers leave the default
-                    // (game_user_data_base()).
-                    if (fixture.sdk_play || fixture.view_images) {
-                        play.set_user_data_override(fixture.user_data);
-                    }
-                    // Native UI fixtures run on headless WARP workers without an
-                    // audio device. Use the real offline mixer for both legacy
-                    // and SDK Play; physical output has separate acceptance.
-                    play.set_headless_audio(true);
-#endif
-                    audio_preview.stop();
-                    play.start(forge::path_utf8(executable), scene.snapshot());
-                    workspace.game = true;
-                    focus_game = true;
-                });
+                [&] { start_project_play(true); });
             if (cpp_play_ready) {
                 cpp_play_ready = false;
                 if (!actions.invoke("play"))
@@ -2921,50 +3112,16 @@ int main(int argc, char** argv) {
             add_action("pause", play.active() && play.paused() ? "Resume" : "Pause", "F6",
                        "Pause or resume the runtime clock. SDK profile requires an observed "
                        "physical release before Pause.",
-                       play.control_ready(), [&] {
-                           if (play.sdk_play()) {
-                               // Single centralized
-                               // release + neutral + observation
-                               // path; success gates the runtime
-                               // command, failure surfaces via
-                               // message and capture_error_ instead
-                               // of silently stopping. No duplicate
-                               // release attempt.
-                               if (!game_input.submit_external_release_observation(play, true)) {
-                                   message = "Pause refused: physical release failed";
-                                   return;
-                               }
-                           }
-                           if (play.paused())
-                               play.resume();
-                           else
-                               play.pause();
-                       });
+                       play.control_ready(),
+                       [&] { control_project_play(play.paused() ? "resume" : "pause"); });
             add_action("step", "Step", "F7",
                        "Run exactly one fixed tick and remain paused. SDK profile requires an "
                        "observed physical release before Step.",
-                       play.control_ready() && play.paused(), [&] {
-                           if (play.sdk_play()) {
-                               if (!game_input.submit_external_release_observation(play, true)) {
-                                   message = "Step refused: physical release failed";
-                                   return;
-                               }
-                           }
-                           play.step();
-                       });
+                       play.control_ready() && play.paused(),
+                       [&] { control_project_play("step"); });
             add_action("stop", "Stop", "",
                        "Stop the isolated runtime. The authored scene is preserved.", play.active(),
-                       [&] {
-                           game_input.release(play);
-                           sdk_effects.clear();
-                           // initial_epoch_session_ is keyed by
-                           // play.session() and auto-clears on the
-                           // next pump when the wire session
-                           // differs. root_release_pending_ is keyed
-                           // by session + submitted observation epoch and also
-                           // auto-clears on session change.
-                           play.stop();
-                       });
+                       [&] { control_project_play("stop"); });
             add_action("recover", "Recover runtime", "",
                        "Reconstruct the last compatible completed checkpoint.",
                        play.can_recover() && !sdk_build->busy() && !files.busy(), [&] {

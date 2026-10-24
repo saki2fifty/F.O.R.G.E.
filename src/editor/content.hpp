@@ -250,6 +250,7 @@ class ContentBrowser {
         const auto it = catalog_->records().find(id);
         return it == catalog_->records().end() ? nullptr : &it->second;
     }
+    std::shared_ptr<const AssetCatalog> catalog() const { return catalog_; }
     ~ContentBrowser() {
         stop_.request_stop();
         index_stop_.request_stop();

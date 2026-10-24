@@ -1108,3 +1108,29 @@ and use real local sockets/workers, without a GPU or graphical editor claim.
 The ordinary editor build enables these fixtures automatically. `mcp_document_stdio`
 and `mcp_asset_stdio` belong to the existing shared editor acceptance selection;
 the portable flag defaults off for unrelated core/SDK consumers.
+
+
+The expanded MCP owner gate includes `mcp_code_source`, `mcp_code_stdio`,
+`mcp_code_inspection_stdio`, `mcp_workflow_stdio` and `mcp_image_stdio`.
+Native SDK configurations use the CTest `mcp_sdk` fixture to install the real
+selected NativeSdk component into `mcp-native-sdk`; no synthetic compiler/SDK kit
+is accepted. Build `forge_runtime`, `forge_sdk_probe` and
+`forge_sdk_schema_migrate` before running that fixture. Managed compiler tests
+select Release, matching the existing editor recipe; Debug still runs isolated
+inspection/migration checks.
+
+Enable `FORGE_BUILD_UI_PRESENTER` for the workflow host. Set
+`FORGE_TEST_MCP_RUNTIME_KIT` to an authentic prepared Windows runtime-kit directory
+to register `mcp_workflow_stdio`; Windows defaults to the existing build
+`runtime-kit` installed by both full editor routes before CTest. Its exported
+engine identity must equal that selected kit. The image fixture reuses already selected Diligent headers, creates
+no device and uses recorded pixels. It never enables/fetches another renderer.
+Build all selected test targets before running CTest; an old executable is not
+new-source evidence. MCP capture files can stream gzip evidence to avoid large
+uncompressed schema catalogs. See [MCP validation](mcp.md#validation) for scope.
+
+Run the focused owner gate with `ctest --output-on-failure -R '^mcp_'` in the
+configured build. Existing authoring/live, UI presenter and PNG checks remain
+relevant when their shared owners change. Portable success does not replace
+native Windows editor/client execution, actual GPU capture or a complete compiled
+C++ project-to-Windows-export execution gate. No new numbered package is implied.

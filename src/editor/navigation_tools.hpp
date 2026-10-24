@@ -9,6 +9,8 @@
 #include <future>
 namespace forge {
 class NavigationTools {
+    friend struct NavigationAutomation;
+
   public:
     bool pending() const { return job_.valid(); }
     void overlay_control() {
@@ -25,6 +27,31 @@ class NavigationTools {
                                .build()),
           worker_(std::move(worker)) {}
     ~NavigationTools() { cancel_.request_stop(); }
+    void build(Scene& scene, SceneDocument& project, NavigationSettings settings) {
+        project.check_ownership();
+        if (pending())
+            throw std::runtime_error("Wait for the current navigation build");
+        validate_navigation_settings(settings);
+        const auto operation = AssetId::generate().str();
+        auto doc = scene.effective_document();
+        if (loaded_project_ != project.project() || loaded_scene_ != scene.asset_id()) {
+            selected_ = {};
+            metadata_ = nullptr;
+            triangles_.clear();
+        }
+        job_project_ = loaded_project_ = project.project();
+        job_scene_ = loaded_scene_ = scene.asset_id();
+        settings_ = settings;
+        cancel_ = std::stop_source{};
+        const auto root = job_project_, tool = worker_;
+        const auto token = cancel_.get_token();
+        job_ = std::async(std::launch::async, [root, tool, doc = std::move(doc), settings, token] {
+            return prepare_navigation(root, doc, settings, tool, token);
+        });
+        operation_ = operation;
+        status_ = "Building navigation...";
+        error_.clear();
+    }
     void poll(Scene& scene, SceneDocument& project, bool playing, std::string& message) {
         if (!job_.valid())
             return;
@@ -45,8 +72,12 @@ class NavigationTools {
             show_ = true;
             message = "Navigation built. Add a Navigation Agent, choose this navmesh and enter its "
                       "destination.";
+            status_ = message;
+            error_.clear();
         } catch (const std::exception& e) {
             message = e.what();
+            status_ = "Navigation build failed; previous asset retained";
+            error_ = message;
             ui::report_error("navigation_tools.hpp", message);
         }
     }
@@ -122,19 +153,8 @@ class NavigationTools {
         if (ui::button("Build NavMesh", "Build in a bounded worker, validate and prove queries, "
                                         "then publish one immutable asset revision.")) {
             try {
-                project.check_ownership();
-                job_project_ = project.project();
-                job_scene_ = scene.asset_id();
-                cancel_ = std::stop_source{};
-                auto root = job_project_, tool = worker_;
-                auto doc = scene.effective_document();
-                auto settings = settings_;
-                auto token = cancel_.get_token();
-                job_ = std::async(std::launch::async,
-                                  [root, tool, doc = std::move(doc), settings, token] {
-                                      return prepare_navigation(root, doc, settings, tool, token);
-                                  });
-                message = "Building navigation...";
+                build(scene, project, settings_);
+                message = status_;
             } catch (const std::exception& e) {
                 message = e.what();
                 ui::report_error("navigation_tools.hpp", message);
@@ -237,5 +257,6 @@ class NavigationTools {
     std::uint64_t validated_scene_revision_ = 0;
     NavigationSettings validated_settings_;
     std::string validation_state_;
+    std::string operation_, status_, error_;
 };
 } // namespace forge

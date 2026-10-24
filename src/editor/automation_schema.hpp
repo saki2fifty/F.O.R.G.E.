@@ -35,8 +35,16 @@ inline std::filesystem::path automation_relative_path(const std::string& text) {
 inline LiveAuthoringMethod automation_method(std::string name, std::string description,
                                              std::string capability, Json schema, bool mutation,
                                              std::function<Json(const Json&)> invoke,
-                                             bool pending_control = false) {
-    return {std::move(name), std::move(description), std::move(capability), std::move(schema),
-            mutation,        std::move(invoke),      pending_control,       "operation_failed"};
+                                             bool pending_control = false,
+                                             std::string result_content = {}) {
+    return {std::move(name),
+            std::move(description),
+            std::move(capability),
+            std::move(schema),
+            mutation,
+            std::move(invoke),
+            pending_control,
+            "operation_failed",
+            std::move(result_content)};
 }
 } // namespace forge

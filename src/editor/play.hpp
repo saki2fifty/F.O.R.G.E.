@@ -27,6 +27,8 @@ namespace forge {
 // One correlated request in flight. Transport pumps never determine simulation dt.
 // Pending activation retains only artifact/checkpoint, never a second loaded DLL.
 class PlaySession {
+    friend struct PlayAutomation;
+
   public:
     ~PlaySession() { stop(); }
     PlaySession() = default;
@@ -299,6 +301,11 @@ class PlaySession {
     bool headless_audio() const { return headless_audio_; }
     const std::string& user_data_override() const { return user_data_override_; }
     const std::string& session() const { return session_; }
+    // Identifies even a starting process before its wire hello returns a session.
+    const std::string& launch_id() const { return launch_id_; }
+    std::uint64_t world_generation() const {
+        return sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;
+    }
     bool can_recover() const { return !active() && recoverable_; }
     void pause() {
         if (control_ready())
@@ -331,6 +338,12 @@ class PlaySession {
     const Json& cpu_profile() const { return cpu_profile_; }
     const std::string& cpu_profile_error() const { return cpu_profile_error_; }
     void watch_cpu_profile(bool value) { cpu_profile_watch_ = value; }
+    bool request_cpu_profile_snapshot() {
+        if (!ready() || cpu_profile_once_)
+            return false;
+        cpu_profile_once_ = true;
+        return true;
+    }
     bool cpu_profile_pending() const {
         return (!live_command_.is_null() && live_command_.value("command", "") == "profiling") ||
                (waiting_ && sent_command_ == "profiling");
@@ -1323,7 +1336,8 @@ class PlaySession {
                         }
                     } else if (send_tile_request()) {
                     } else if ((!probe_ || active_tiles_.pending() || audio_source_watch_dirty_ ||
-                                animation_watch_dirty_ || cpu_profile_watch_) &&
+                                animation_watch_dirty_ || cpu_profile_watch_ ||
+                                cpu_profile_once_) &&
                                SDL_GetTicks() - sent_at_ >= 8)
                         send({{"command", "snapshot"}});
                 }
@@ -1401,6 +1415,7 @@ class PlaySession {
         live_command_ = nullptr;
         audio_mix_error_.clear();
         cpu_profile_ = Json::object();
+        cpu_profile_once_ = false;
         cpu_profile_error_.clear();
         animation_watch_ = animation_status_ = sent_animation_ = nullptr;
         animation_error_.clear();
@@ -1453,6 +1468,7 @@ class PlaySession {
         status_ += notice_;
     }
     void launch(const Json& scene, const Json& recovery = Json()) {
+        launch_id_ = AssetId::generate().str();
         const auto recovery_copy = recovery;
         const auto initial = scene;
         close_process();
@@ -1561,8 +1577,10 @@ class PlaySession {
     }
     void send(Json request) {
         sent_command_ = request.at("command").get<std::string>();
-        if (cpu_profile_watch_ && sent_command_ == "snapshot")
+        if ((cpu_profile_watch_ || cpu_profile_once_) && sent_command_ == "snapshot") {
             request["profile_watch"] = true;
+            cpu_profile_once_ = false;
+        }
         if (!audio_source_watch_.is_null() &&
             (sent_command_ == "snapshot" || sent_command_ == "audio_source" ||
              sent_command_ == "audio_mix"))
@@ -1651,6 +1669,7 @@ class PlaySession {
         sent_at_monotonic_ms_ = send_monotonic;
     }
     Double3 gravity_{0, -9.81, 0};
+    std::string launch_id_;
     Json recovery_, initial_recovery_;
     double simulation_hz_ = 60;
     Json physics_status_ = Json::object();
@@ -1678,7 +1697,7 @@ class PlaySession {
     Json diagnostics_ = Json::array();
     Json cpu_profile_ = Json::object();
     std::string cpu_profile_error_;
-    bool cpu_profile_watch_ = false;
+    bool cpu_profile_watch_ = false, cpu_profile_once_ = false;
     std::string audio_project_;
     bool probe_ = false, recoverable_ = false;
     // Explicit offline audio opt-in (set only by the CI SDK play fixture).

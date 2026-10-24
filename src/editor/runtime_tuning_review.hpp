@@ -16,6 +16,7 @@ class RuntimeTuningReview {
     bool pending() const { return !fields_.empty(); }
     const std::vector<Field>& fields() const { return fields_; }
     const std::string& status() const { return status_; }
+    const std::string& session() const { return session_; }
     void select(std::size_t index, bool selected) { fields_.at(index).selected = selected; }
     void discard() {
         fields_.clear();
@@ -94,6 +95,7 @@ class RuntimeTuningReview {
             tick_ = tick;
             types_ = std::move(types);
             fields_ = std::move(next);
+            session_ = AssetId::generate().str();
             status_ = "Snapshot captured. Stop Play, choose fields, then Apply to Scene.";
             return true;
         } catch (const std::exception& error) {
@@ -230,6 +232,7 @@ class RuntimeTuningReview {
     }
 
   private:
+    std::string session_;
     std::vector<Field> fields_;
     Json types_ = Json::object();
     std::filesystem::path project_;

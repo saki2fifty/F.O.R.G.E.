@@ -308,33 +308,40 @@ struct UiPresenter::Impl final : Rml::SystemInterface, Rml::FileInterface {
         resources.erase(set->name);
         set.reset();
     }
-    void enqueue(Doc& doc, const Rml::VariantList& args) {
-        if (!live || args.empty() || args.size() > 2 || pending.size() >= 128)
-            return;
-        if (std::none_of(live->docs.begin(), live->docs.end(),
+    bool enqueue_command(Doc& doc, const std::string& name,
+                         const std::optional<std::string>& value) {
+        if (!live || pending.size() >= 128 ||
+            std::none_of(live->docs.begin(), live->docs.end(),
                          [&](const auto& d) { return d.get() == &doc; }))
-            return;
-        const auto name = args[0].Get<Rml::String>();
+            return false;
         const auto& allowed = doc.descriptor.at("commands");
         if (std::find(allowed.begin(), allowed.end(), Json(name)) == allowed.end()) {
             error = "UI command is not registered: " + name;
-            return;
+            return false;
+        }
+        if (value) {
+            try {
+                ui_protocol::validate_value(*value);
+            } catch (const std::exception& e) {
+                error = e.what();
+                return false;
+            }
         }
         Json request = {{"version", ui_protocol::version}, {"session", session},
                         {"generation", generation},        {"id", ++command_id},
                         {"instance", doc.instance},        {"command", name}};
-        if (args.size() == 2) {
-            auto value = args[1].Get<Rml::String>();
-            try {
-                ui_protocol::validate_value(value);
-            } catch (const std::exception& e) {
-                error = e.what();
-                --command_id;
-                return;
-            }
-            request["value"] = value;
-        }
+        if (value)
+            request["value"] = *value;
         pending.push_back(std::move(request));
+        return true;
+    }
+    void enqueue(Doc& doc, const Rml::VariantList& args) {
+        if (args.empty() || args.size() > 2)
+            return;
+        std::optional<std::string> value;
+        if (args.size() == 2)
+            value = args[1].Get<Rml::String>();
+        (void)enqueue_command(doc, args[0].Get<Rml::String>(), value);
     }
     void update_frame_statistics(Set& set) {
         if (frame_statistics_label.empty()) {
@@ -864,6 +871,16 @@ void UiPresenter::release_input() {
     c->ProcessMouseLeave();
     for (int b = 0; b < 5; ++b)
         c->ProcessMouseButtonUp(b, 0);
+}
+bool UiPresenter::command(const std::string& instance, const std::string& name,
+                          const std::optional<std::string>& value) {
+    auto& s = *impl_;
+    s.check();
+    if (s.live)
+        for (auto& doc : s.live->docs)
+            if (doc->instance == instance)
+                return s.enqueue_command(*doc, name, value);
+    return false;
 }
 std::optional<Json> UiPresenter::pending_command() const {
     auto& s = *impl_;

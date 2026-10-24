@@ -69,6 +69,11 @@ class PrefabEditor {
             throw std::runtime_error("Open a prefab source before preparing its migration");
         return draft_;
     }
+    Json migration_document(const SceneDocument& project) const {
+        if (project_ != project.project())
+            throw std::runtime_error("Prefab source belongs to another project");
+        return migration_document();
+    }
     void accept_migration(const Json& before, const Json& candidate) {
         if (!open_ || !detail::json_value_equal(before, draft_))
             throw std::runtime_error(

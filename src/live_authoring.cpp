@@ -295,6 +295,11 @@ struct LiveAuthoring::State {
                                  {"controls_pending_work", item.controls_pending_work},
                                  {"available",
                                   !item.mutation || busy.empty() || item.controls_pending_work}});
+                            if (!item.result_content.empty())
+                                result["workflow_methods"].back()["result_content"] =
+                                    item.result_content;
+                            if (item.executes_native)
+                                result["workflow_methods"].back()["executes_native"] = true;
                             writes = writes || item.mutation;
                         }
                         if (!methods.empty())
@@ -329,6 +334,9 @@ void LiveAuthoring::start(Scene& scene, bool allow_edits,
     const auto base = AuthoringSession(scene).handle({{"api", 1}, {"method", "discover"}});
     Json names = base.at("result").at("methods");
     for (const auto& method : methods) {
+        if (!method.result_content.empty() &&
+            (method.result_content != "image/png" || method.mutation))
+            throw std::runtime_error("Only read-only PNG result projection is supported");
         if (method.name.empty() || method.capability.empty() || !method.invoke ||
             std::find(names.begin(), names.end(), method.name) != names.end() ||
             method.input_schema.value("type", "") != "object" ||

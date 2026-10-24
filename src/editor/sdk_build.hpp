@@ -6,6 +6,7 @@
 #include "document.hpp"
 #include "event_time.hpp"
 #include <cstdint>
+#include <forge/build.hpp>
 #include <forge/game_settings.hpp>
 #include <future>
 #include <memory>
@@ -14,6 +15,8 @@ namespace forge {
 // Stopped-only exact-SDK compiler task. All library admission remains isolated.
 // The project manifest is the publication point; failed candidates never replace it.
 class SdkBuild {
+    friend struct CodeAutomation;
+
   public:
     explicit SdkBuild(std::filesystem::path project) : project_(std::move(project)) {}
     ~SdkBuild() {
@@ -39,6 +42,13 @@ class SdkBuild {
     std::uint64_t log_revision() const { return log_revision_; }
     bool testing() const { return testing_; }
     bool compiler_ready() const { return compiler_ready_; }
+    static std::filesystem::path runtime_path(const std::filesystem::path& sdk) {
+        auto executable = sdk / "bin/forge_runtime";
+#ifdef _WIN32
+        executable += ".exe";
+#endif
+        return executable;
+    }
     void invalidate_compiler() { compiler_ready_ = false; }
     void test_compiler(SceneDocument& project, const std::filesystem::path& sdk,
                        const std::string& cmake, const std::string& ninja) {
@@ -100,6 +110,7 @@ class SdkBuild {
                const std::string& ninja, bool test = false) {
         if (busy())
             return;
+        operation_id_ = AssetId::generate().str();
         try {
             project.check_ownership();
             check_sdk(sdk);
@@ -305,7 +316,7 @@ class SdkBuild {
                 ProjectSettings::validate(candidate_);
                 asset_storage::replace(candidate_root_ / "forge.project.json", candidate_.dump(2));
                 stop_ = std::stop_source{};
-                const auto runtime = sdk_ / "bin/forge_runtime.exe";
+                const auto runtime = runtime_path(sdk_);
                 const auto root = candidate_root_;
                 const auto stop = stop_.get_token();
                 inspection_ = std::async(std::launch::async, [runtime, root, fingerprint, stop] {
@@ -328,6 +339,7 @@ class SdkBuild {
     bool testing_ = false, compiler_ready_ = false;
     ui::TimedTextLog timed_log_;
     std::uint64_t log_revision_ = 0;
+    std::string operation_id_;
     std::filesystem::path source_, build_, probe_root_;
     std::string ninja_, discovery_;
     void configure() {
@@ -422,7 +434,7 @@ class SdkBuild {
             throw std::runtime_error(
                 "The matching Native SDK is missing. Choose its folder or reinstall FORGE.");
         if (!std::filesystem::is_regular_file(sdk / "sdk/ForgeNativeSdkConfig.cmake") ||
-            !std::filesystem::is_regular_file(sdk / "bin/forge_runtime.exe"))
+            !std::filesystem::is_regular_file(runtime_path(sdk)))
             throw std::runtime_error("Native SDK installation is incomplete.");
     }
     void cleanup() {

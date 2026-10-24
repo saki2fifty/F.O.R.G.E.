@@ -28,6 +28,13 @@ class ProjectSettingsEditor {
         }
     }
     void request_save() { save_requested_ = true; }
+    void setup_game_defaults() {
+        if (!loaded_)
+            throw std::runtime_error("Load project settings before setting game defaults");
+        if (!draft_.contains("game"))
+            draft_["game"] =
+                default_game_settings("forge.game." + AssetId::generate().str(), draft_.at("name"));
+    }
     void set_frequency(double hz) {
         if (loaded_)
             draft_["simulation_hz"] = hz;
@@ -123,8 +130,7 @@ class ProjectSettingsEditor {
                 if (ui::button("Set up game defaults",
                                "Create a persistent application key and editable defaults; Save "
                                "Settings to publish."))
-                    draft_["game"] = default_game_settings(
-                        "forge.game." + AssetId::generate().str(), draft_.at("name"));
+                    setup_game_defaults();
             } else if (ImGui::TreeNodeEx("Game defaults", ImGuiTreeNodeFlags_DefaultOpen)) {
                 auto& game = draft_["game"];
                 auto text = [&](const char* label, Json& value, const char* help) {

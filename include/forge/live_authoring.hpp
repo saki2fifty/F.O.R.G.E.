@@ -15,6 +15,10 @@ struct LiveAuthoringMethod {
     // editor busy message. Scene edits and new job admissions keep the guard.
     bool controls_pending_work = false;
     std::string failure_code = "document_error";
+    // Optional native result projection for protocol adapters, never a file path.
+    std::string result_content = {};
+    // Protocol hint only; permission checks stay in the owning workflow.
+    bool executes_native = false;
 };
 // Explicitly enabled, loopback-only JSON-lines adapter. All scene access occurs
 // in pump() on the owning thread. Transport identity is independent of API identity.

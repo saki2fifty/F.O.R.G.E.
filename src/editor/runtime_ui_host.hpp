@@ -65,6 +65,10 @@ class RuntimeUiHost {
     }
 
   public:
+    bool command(const std::string& instance, const std::string& name,
+                 const std::optional<std::string>& value) {
+        return !suspended_ && presenter_ && presenter_->command(instance, name, value);
+    }
     const UiAssetSnapshot* asset_snapshot() const {
         return observed_assets_ ? &*observed_assets_ : nullptr;
     }

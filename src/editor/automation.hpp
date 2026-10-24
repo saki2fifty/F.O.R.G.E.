@@ -74,7 +74,9 @@ class AutomationWorkspace {
             if (!result->error.empty())
                 notice_ = result->error;
             else if (!result->path.empty()) {
-                if (picking_workspace_)
+                if (picking_output_)
+                    SDL_strlcpy(output_root_text_, result->path.c_str(), sizeof(output_root_text_));
+                else if (picking_workspace_)
                     SDL_strlcpy(workspace_root_text_, result->path.c_str(),
                                 sizeof(workspace_root_text_));
                 else
@@ -135,6 +137,7 @@ class AutomationWorkspace {
                                        "Choose the only external folder from which an agent may "
                                        "import raw assets.")) {
                                 picking_workspace_ = false;
+                                picking_output_ = false;
                                 root_picker_.show(FileDialog::Kind::ProjectParent, window,
                                                   import_root_text_);
                             }
@@ -147,8 +150,27 @@ class AutomationWorkspace {
                                        "Permit project creation/opening inside this folder, in "
                                        "addition to the initially connected project.")) {
                                 picking_workspace_ = true;
+                                picking_output_ = false;
                                 root_picker_.show(FileDialog::Kind::ProjectParent, window,
                                                   workspace_root_text_);
+                            }
+                        }
+                        ImGui::Checkbox("Allow C++ build and execution", &native_execution_);
+                        help("Build code, inspect project libraries and run Play. Native code and "
+                             "build recipes run with your account's operating-system access.");
+                        ImGui::Checkbox("Allow an output folder", &output_access_);
+                        help("Permit export and view-image files only inside this folder. Running "
+                             "an exported game also requires the execution grant.");
+                        if (output_access_) {
+                            ImGui::InputText("Output folder", output_root_text_,
+                                             sizeof(output_root_text_));
+                            if (button(
+                                    "Browse output folder...",
+                                    "Choose the agent's existing export/capture parent folder.")) {
+                                picking_workspace_ = false;
+                                picking_output_ = true;
+                                root_picker_.show(FileDialog::Kind::ProjectParent, window,
+                                                  output_root_text_);
                             }
                         }
                         if (button(
@@ -158,6 +180,16 @@ class AutomationWorkspace {
                             AutomationPermissions permissions;
                             permissions.assets = true;
                             permissions.code = true;
+                            permissions.execute = native_execution_;
+                            if (output_access_) {
+                                if (!output_root_text_[0] ||
+                                    !std::filesystem::is_directory(
+                                        std::filesystem::u8path(output_root_text_)))
+                                    throw std::runtime_error("Choose an existing output folder");
+                                permissions.export_game = true;
+                                permissions.export_root = std::filesystem::canonical(
+                                    std::filesystem::u8path(output_root_text_));
+                            }
                             if (workspace_access_) {
                                 if (!workspace_root_text_[0])
                                     throw std::runtime_error(
@@ -230,7 +262,8 @@ class AutomationWorkspace {
             help("The MCP adapter in forge_tools connects AI clients to this same editor service. "
                  "See the User Manual: MCP agents. Current tools cover scene authoring and "
                  "granted document, asset and settings operations. Project switching requires "
-                 "the workspace grant. C++ build, Play and export tools remain unavailable.");
+                 "the workspace grant. C++ builds and Play require the execution grant; exports "
+                 "and captures require the output-folder grant.");
         }
         ImGui::End();
     }
@@ -269,8 +302,11 @@ class AutomationWorkspace {
     FileDialog root_picker_;
     bool external_import_ = false;
     bool workspace_access_ = false, picking_workspace_ = false;
+    bool native_execution_ = false;
+    bool output_access_ = false, picking_output_ = false;
     char import_root_text_[2048]{};
     char workspace_root_text_[2048]{};
+    char output_root_text_[2048]{};
     std::uint64_t generation_ = 0;
     std::string notice_;
 };

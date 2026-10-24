@@ -22,7 +22,7 @@ class BuildCommand {
         }
     }
     void start(const std::vector<std::string>& arguments, SDL_Environment* environment = nullptr,
-               const std::filesystem::path& directory = {}) {
+               const std::filesystem::path& directory = {}, Uint64 timeout_ms = 180000) {
         close();
         std::vector<const char*> args;
         for (const auto& argument : arguments)
@@ -50,6 +50,7 @@ class BuildCommand {
         if (!process_)
             throw std::runtime_error(std::string("Cannot start build tool: ") + SDL_GetError());
         started_ = SDL_GetTicks();
+        timeout_ms_ = timeout_ms;
     }
     // Returns true on completion; output is bounded per editor frame.
     bool pump(std::string& output, int& exit_code) {
@@ -60,7 +61,7 @@ class BuildCommand {
                 break;
             output.append(buffer, count);
         }
-        if (SDL_GetTicks() - started_ > 180000) {
+        if (timeout_ms_ && SDL_GetTicks() - started_ > timeout_ms_) {
             close();
             throw std::runtime_error("Native build timed out after three minutes");
         }
@@ -80,6 +81,7 @@ class BuildCommand {
   private:
     SDL_Process* process_ = nullptr;
     Uint64 started_ = 0;
+    Uint64 timeout_ms_ = 180000;
 };
 
 } // namespace forge

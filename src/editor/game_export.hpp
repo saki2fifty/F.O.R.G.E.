@@ -2,16 +2,23 @@
 #include "../game_export.hpp"
 #include "../install_paths.hpp"
 #include "../self_executable.hpp"
+#include "../standalone_manifest.hpp"
 #include "../ui_inspection.hpp"
+#include "build_command.hpp"
 #include "content_imports.hpp"
 #include "file_dialog.hpp"
 #include "help.hpp"
 #include "ui_probe.hpp"
 #include <future>
+#include <optional>
+namespace forge {
+struct ExportAutomation;
+}
 namespace forge::ui {
 // On-demand task, not an authored document. The source project retains its own
 // Save/history; exporting reads saved content and publishes another directory.
 class GameExportTask {
+    friend struct ::forge::ExportAutomation;
     bool open_ = false, pending_ = false;
     std::array<char, 2048> destination_{}, kit_{}, module_kits_{};
     std::future<Json> job_;
@@ -27,13 +34,102 @@ class GameExportTask {
     FileDialog dialog_;
     int browse_ = 0;
     std::string error_, output_;
+    std::string operation_;
+    std::filesystem::path project_;
+    Json result_;
+    BuildCommand game_;
+    bool preparing_run_ = false, running_ = false;
+    std::optional<int> exit_code_;
+    TimedTextLog run_log_;
 
   public:
     ~GameExportTask() { stop_.request_stop(); }
-    bool busy() const { return pending_ || job_.valid(); }
+    bool busy() const { return pending_ || job_.valid() || running_; }
     bool writing() const { return job_.valid(); }
     const std::string& output() const { return output_; }
     const std::string& error() const { return error_; }
+    static GameExportRequest request_for(SceneDocument& document, Scene& scene,
+                                         std::filesystem::path destination,
+                                         std::filesystem::path runtime_kit,
+                                         const std::filesystem::path& module_kits,
+                                         std::filesystem::path inspection_runtime) {
+        GameExportRequest request;
+        request.destination = std::move(destination);
+        request.runtime_kit = std::move(runtime_kit);
+        request.inspection_runtime = std::move(inspection_runtime);
+        request.reference_schema = scene.schema();
+        for (const auto& module : document.settings().document().value("modules", Json::array()))
+            if (module.is_object()) {
+                if (module_kits.empty())
+                    throw std::runtime_error("Choose the Module kits folder");
+                const auto id = module.at("id").get<std::string>();
+                request.module_kits.emplace(id, module_kits / id);
+            }
+        return request;
+    }
+    GameExportRequest request_from_selection(SceneDocument& document, Scene& scene,
+                                             const std::filesystem::path& destination,
+                                             const std::filesystem::path& default_kit,
+                                             const std::filesystem::path& managed_kits,
+                                             const std::filesystem::path& runtime) const {
+        return request_for(document, scene, destination,
+                           kit_[0] ? std::filesystem::u8path(kit_.data()) : default_kit,
+                           !managed_kits.empty() ? managed_kits
+                           : module_kits_[0]     ? std::filesystem::u8path(module_kits_.data())
+                                                 : std::filesystem::path{},
+                           runtime);
+    }
+    void begin(SceneDocument& document, GameExportRequest request) {
+        document.check_ownership();
+        if (busy() || dialog_.busy())
+            throw std::runtime_error("Finish the current export or game test first");
+        auto writer = document.writer_guard();
+        auto operation = AssetId::generate().str();
+        project_ = document.project();
+        request_ = std::move(request);
+        writer_ = std::move(writer);
+        operation_ = std::move(operation);
+        stop_ = std::stop_source{};
+        pending_ = true;
+        preparing_run_ = false;
+        error_.clear();
+        output_.clear();
+        result_ = Json();
+        exit_code_.reset();
+        {
+            std::lock_guard lock(progress_->mutex);
+            progress_->value = {};
+        }
+    }
+    void run(SceneDocument& document) {
+        document.check_ownership();
+        if (busy() || document.project() != project_ || output_.empty() || result_.is_null())
+            throw std::runtime_error("Export this project successfully before testing its game");
+#ifndef _WIN32
+        throw std::runtime_error("The exported graphical game requires Windows / D3D12");
+#else
+        const auto root = std::filesystem::u8path(output_);
+        const auto expected = result_.at("manifest");
+        auto writer = document.writer_guard();
+        stop_ = std::stop_source{};
+        const auto token = stop_.get_token();
+        job_ = std::async(std::launch::async, [root, expected, token] {
+            const auto verified =
+                verify_distribution_files(root, "forge.standalone.json", "forge.standalone", token);
+            if (verified != expected)
+                throw std::runtime_error("The completed export changed; rebuild it before running");
+            const auto executable = ProjectPaths(root).resolve(
+                std::filesystem::u8path(verified.at("executable").get<std::string>()));
+            return Json{{"executable", path_utf8(executable)}};
+        });
+        writer_ = std::move(writer);
+        operation_ = AssetId::generate().str();
+        preparing_run_ = true;
+        exit_code_.reset();
+        run_log_.clear();
+        error_.clear();
+#endif
+    }
     void open(bool native_modules = false, const std::filesystem::path& managed_kits = {},
               const std::filesystem::path& inspection_runtime = {}) {
         open_ = true;
@@ -50,12 +146,34 @@ class GameExportTask {
     }
     void cancel() {
         stop_.request_stop();
+        if (running_) {
+            game_.close();
+            running_ = false;
+        }
         if (pending_) {
             pending_ = false;
             writer_.reset();
         }
     }
     void poll(ContentImports& imports, const std::function<void()>& refresh) {
+        if (running_) {
+            try {
+                std::string output;
+                int code = 0;
+                const bool finished = game_.pump(output, code);
+                run_log_.append(output);
+                if (finished) {
+                    running_ = false;
+                    exit_code_ = code;
+                    if (code)
+                        error_ = "Exported game exited with code " + std::to_string(code);
+                }
+            } catch (const std::exception& e) {
+                running_ = false;
+                game_.close();
+                error_ = e.what();
+            }
+        }
         if (pending_ && imports.quiescent()) {
             pending_ = false;
             auto writer = writer_;
@@ -92,8 +210,18 @@ class GameExportTask {
         if (job_.valid() && job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             try {
                 auto result = job_.get();
-                output_ = result.at("destination");
-                error_ = result.at("cleanup_warning");
+                if (preparing_run_) {
+                    writer_->check();
+                    if (stop_.stop_requested())
+                        throw std::runtime_error("Game test cancelled");
+                    game_.start({result.at("executable").get<std::string>()}, nullptr,
+                                std::filesystem::u8path(output_), 0);
+                    running_ = true;
+                } else {
+                    output_ = result.at("destination");
+                    error_ = result.at("cleanup_warning");
+                    result_ = std::move(result);
+                }
                 if (editor_context)
                     editor_context->problems.resolve("game-export");
             } catch (const std::exception& e) {
@@ -101,6 +229,7 @@ class GameExportTask {
                 report_error("game-export", error_);
             }
             writer_.reset();
+            preparing_run_ = false;
             refresh();
         }
     }
@@ -161,34 +290,21 @@ class GameExportTask {
                        "replace only a recognized previous export. Selected cooked artifacts must "
                        "already be current.")) {
                 try {
-                    request_ = {};
-                    request_.destination = std::filesystem::u8path(destination_.data());
-                    request_.runtime_kit = std::filesystem::u8path(kit_.data());
-                    request_.inspection_runtime = self_executable().parent_path() / "forge_runtime";
+                    auto runtime = self_executable().parent_path() / "forge_runtime";
 #ifdef _WIN32
-                    request_.inspection_runtime += ".exe";
+                    runtime += ".exe";
 #endif
                     if (document.settings().requires_native_sdk()) {
                         if (inspection_runtime_.empty())
                             throw std::runtime_error(
                                 "Select the matching Native SDK in Build before export.");
-                        request_.inspection_runtime = inspection_runtime_;
+                        runtime = inspection_runtime_;
                     }
-                    request_.reference_schema = scene.schema();
-                    for (const auto& module :
-                         document.settings().document().value("modules", Json::array()))
-                        if (module.is_object()) {
-                            if (!module_kits_[0])
-                                throw std::runtime_error("Choose the Module kits folder");
-                            const auto id = module.at("id").get<std::string>();
-                            request_.module_kits.emplace(
-                                id, std::filesystem::u8path(module_kits_.data()) / id);
-                        }
-                    writer_ = document.writer_guard();
-                    stop_ = std::stop_source{};
-                    pending_ = true;
-                    error_.clear();
-                    output_.clear();
+                    auto request =
+                        request_for(document, scene, std::filesystem::u8path(destination_.data()),
+                                    std::filesystem::u8path(kit_.data()),
+                                    std::filesystem::u8path(module_kits_.data()), runtime);
+                    begin(document, std::move(request));
                 } catch (const std::exception& e) {
                     error_ = e.what();
                     report_error("game-export", error_);

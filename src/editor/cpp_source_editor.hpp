@@ -9,10 +9,15 @@
 #include <imgui_internal.h>
 #include <memory>
 
+namespace forge {
+struct CodeAutomation;
+}
 namespace forge::ui {
 class CppSourceEditor {
+    friend struct ::forge::CodeAutomation;
     struct Tab {
         std::string locator, disk, saved;
+        std::string session = AssetId::generate().str(); // Transient open-tab routing only.
         TextEditor editor;
         bool dirty = false, selected = false, external = false;
         std::filesystem::file_time_type stamp{};
@@ -44,7 +49,7 @@ class CppSourceEditor {
                 return tab.get();
         return nullptr;
     }
-    void erase(const std::string& locator) {
+    void erase(std::string locator) {
         const bool was_active = active_ && active_->locator == locator;
         std::erase_if(tabs_, [&](const auto& tab) { return tab->locator == locator; });
         if (was_active)
@@ -89,6 +94,51 @@ class CppSourceEditor {
         return false;
     }
     std::string active_text() const { return active_ ? active_->editor.GetText() : std::string{}; }
+    void replace_text(const std::string& text) {
+        validate_cpp_text(text);
+        if (text.size() >= max_cpp_source_bytes)
+            throw std::runtime_error(
+                "Leave room for the source editor's final newline within 1 MiB");
+        if (!active_ || active_->editor.IsReadOnly())
+            throw std::runtime_error("Open an editable C++ source tab first");
+        if (!ImGui::GetCurrentContext())
+            throw std::runtime_error("C++ editing requires the owning editor UI context");
+        if (active_->editor.GetText() == text)
+            return;
+        // GetText includes the widget's implicit final newline. Do not paste
+        // that newline as an additional empty line. A missing final newline is
+        // normalized by the same widget used for interactive edits.
+        std::string contents = text;
+        if (!contents.empty() && contents.back() == '\n')
+            contents.pop_back();
+        // Reuse the widget's ordinary single Paste/Delete Undo record. Substitute
+        // only its synchronous clipboard reader; never read/write the OS clipboard.
+        auto& platform = ImGui::GetPlatformIO();
+        struct ClipboardText {
+            const char* text;
+        } source{contents.c_str()};
+        struct RestoreClipboard {
+            ImGuiPlatformIO& platform;
+            decltype(platform.Platform_GetClipboardTextFn) get;
+            void* data;
+            ~RestoreClipboard() {
+                platform.Platform_GetClipboardTextFn = get;
+                platform.Platform_ClipboardUserData = data;
+            }
+        } restore{platform, platform.Platform_GetClipboardTextFn,
+                  platform.Platform_ClipboardUserData};
+        platform.Platform_ClipboardUserData = &source;
+        platform.Platform_GetClipboardTextFn = [](ImGuiContext* context) {
+            return static_cast<const ClipboardText*>(context->PlatformIO.Platform_ClipboardUserData)
+                ->text;
+        };
+        active_->editor.SelectAll();
+        if (contents.empty())
+            active_->editor.Delete();
+        else
+            active_->editor.Paste();
+        active_->changed();
+    }
     bool dirty() const {
         return std::any_of(tabs_.begin(), tabs_.end(), [](const auto& tab) { return tab->dirty; });
     }
@@ -143,7 +193,7 @@ class CppSourceEditor {
         tab->editor.SetCursorPosition(
             TextEditor::Coordinates(std::max(line - 1, 0), std::max(column - 1, 0)));
     }
-    void save(SceneDocument& project) {
+    void save(SceneDocument& project, bool queue_build = true) {
         if (!active_ || !active_->dirty)
             return;
         project.check_ownership();
@@ -156,16 +206,16 @@ class CppSourceEditor {
         active_->stamp = std::filesystem::last_write_time(cpp_source_path(root_, active_->locator));
         active_->external = false;
         ++source_revision;
-        if (build_on_save)
+        if (build_on_save && queue_build)
             build_pending = true;
     }
-    void save_all(SceneDocument& project) {
+    void save_all(SceneDocument& project, bool queue_build = true) {
         auto* previous = active_;
         try {
             for (auto& tab : tabs_)
                 if (tab->dirty) {
                     active_ = tab.get();
-                    save(project);
+                    save(project, queue_build);
                 }
         } catch (...) {
             active_ = previous;

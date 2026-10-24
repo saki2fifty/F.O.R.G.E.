@@ -1,4 +1,5 @@
 #include "mcp.hpp"
+#include "automation_image.hpp"
 #include <algorithm>
 #include <condition_variable>
 #include <cstdlib>
@@ -53,8 +54,32 @@ Json error(const Json& id, int code, const char* message, Json data = nullptr) {
     return response;
 }
 bool valid_id(const Json& value) { return value.is_string() || value.is_number_integer(); }
-Json tool_result(Json response) {
-    return {{"content", Json::array({{{"type", "text"}, {"text", response.dump()}}})},
+Json tool_result(Json response, bool png = false) {
+    Json image;
+    if (png && response.value("ok", false)) {
+        try {
+            auto& value = response.at("result").at("image");
+            if (value.at("mimeType") != "image/png")
+                throw std::runtime_error("Wrong native image result type");
+            const auto bytes =
+                automation_png_wire_bytes(value.at("data").get_ref<const std::string&>());
+            image = {{"type", "image"},
+                     {"mimeType", "image/png"},
+                     {"data", std::move(value.at("data"))}};
+            value.erase("data");
+            value["bytes"] = bytes;
+        } catch (const std::exception&) {
+            return tool_result(
+                {{"ok", false},
+                 {"error",
+                  {{"code", "invalid_image"},
+                   {"message", "The editor returned an invalid or oversized PNG result"}}}});
+        }
+    }
+    Json content = Json::array({{{"type", "text"}, {"text", response.dump()}}});
+    if (!image.is_null())
+        content.push_back(std::move(image));
+    return {{"content", std::move(content)},
             {"structuredContent", response},
             {"isError", !response.value("ok", false)}};
 }
@@ -69,6 +94,7 @@ struct Tool {
     Json description;
     std::string method, operation;
     bool mutation = false;
+    bool png = false;
 };
 std::vector<Tool> tools(const Json& discovery) {
     std::vector<Tool> result;
@@ -165,6 +191,13 @@ std::vector<Tool> tools(const Json& discovery) {
         add(command_name(method), workflow.at("description").get_ref<const std::string&>().c_str(),
             method, schema.at("properties"), schema.at("required"),
             workflow.at("mutation").get<bool>());
+        const auto content = workflow.value("result_content", std::string{});
+        if (!content.empty() && content != "image/png")
+            throw std::runtime_error(
+                "Unsupported editor result projection; use matching FORGE tools");
+        result.back().png = content == "image/png";
+        result.back().description["annotations"]["openWorldHint"] =
+            workflow.value("executes_native", false);
     }
     return result;
 }
@@ -297,7 +330,8 @@ class Protocol {
                                 authored["method"] = found->method;
                                 result = tool_result(
                                     mcp_editor_request(connection_, authored,
-                                                       args.value("sequence", Json()), cancelled));
+                                                       args.value("sequence", Json()), cancelled),
+                                    found->png);
                             }
                         }
                     }

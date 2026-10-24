@@ -1,6 +1,8 @@
 """Shared black-box MCP test client; uses only Python's standard library."""
+import gzip
 import json
 import os
+from contextlib import contextmanager
 from pathlib import Path
 import queue
 import subprocess
@@ -10,6 +12,31 @@ import threading
 TOOLS = str(Path(sys.argv[1]))
 CURRENT = '2026-07-28'
 CAPTURE = []
+
+
+def write_capture(path):
+    """Stream compact evidence; large schema catalogs need no uncompressed copy."""
+    path = Path(path)
+    opener = gzip.open if path.suffix == '.gz' else open
+    with opener(path, 'wt', encoding='utf-8') as output:
+        json.dump(CAPTURE, output, separators=(',', ':'))
+        output.write('\n')
+
+
+@contextmanager
+def test_symlink(path, target, directory=False):
+    try:
+        path.symlink_to(target, target_is_directory=directory)
+    except OSError as error:
+        if os.name != 'nt' or getattr(error, 'winerror', None) != 1314:
+            raise
+        print('Symlink case unavailable: this Windows account lacks link privilege')
+        yield False
+    else:
+        try:
+            yield True
+        finally:
+            path.unlink()
 
 
 class Client:

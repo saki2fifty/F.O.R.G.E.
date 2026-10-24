@@ -16,11 +16,28 @@
 #include <future>
 #include <optional>
 #include <utility>
+namespace forge {
+struct CaptureAutomation;
+}
+#ifdef FORGE_VIEW_IMAGE_TEST
+namespace forge::test {
+struct ViewImageTaskAccess;
+}
+#endif
 namespace forge::ui {
 // One explicit image operation: a single view or sequential sequence frames.
 // No authored state or persistent panel.
 class ViewImageTask {
-    enum class FileWork { Image, PrepareFrames, FrameReceipt };
+    friend struct ::forge::CaptureAutomation;
+#ifdef FORGE_VIEW_IMAGE_TEST
+    friend struct ::forge::test::ViewImageTaskAccess;
+#endif
+    enum class FileWork { Image, PrepareFrames, FrameReceipt, Preview };
+    struct FileResult {
+        std::string value;
+        std::optional<ViewImagePreview> preview;
+        std::string preview_error = {};
+    };
     struct FrameReceipt {
         SequenceFrameSourceInfo source;
         SequenceFramePlan plan;
@@ -63,7 +80,7 @@ class ViewImageTask {
                     auto result = job_.get();
                     if (file_work_ == FileWork::PrepareFrames) {
                         frames_->owns_folder = true;
-                        frames_->source_digest = std::move(result);
+                        frames_->source_digest = std::move(result.value);
                     } else if (file_work_ == FileWork::Image)
                         ++frames_->completed;
                     else
@@ -88,6 +105,7 @@ class ViewImageTask {
                         const SequenceFrameOutput& output = {}) {
         if (busy())
             return false;
+        start_operation();
         frames_.emplace();
         frames_->timeline = &timeline;
         frames_->plan = plan;
@@ -117,7 +135,7 @@ class ViewImageTask {
                     std::as_bytes(std::span(text.data(), text.size())));
                 if (!std::filesystem::create_directory(destination))
                     throw std::runtime_error("Choose a new folder; the destination already exists");
-                return digest;
+                return FileResult{std::move(digest), {}};
             });
             publish_status("Preparing sequence frame export", message);
             return true;
@@ -131,6 +149,7 @@ class ViewImageTask {
                          std::string& message) {
         if (busy())
             return false;
+        start_operation();
         frames_.emplace();
         frames_->timeline = &source;
         frames_->window = window;
@@ -176,10 +195,48 @@ class ViewImageTask {
         }
     }
     const std::string& status() const { return status_; }
+    bool begin_preview(const std::string& artifact, std::optional<unsigned> frame,
+                       std::string& message) {
+        if (busy())
+            return false;
+        if (artifact != artifact_operation_)
+            throw std::runtime_error("Choose this task's completed artifact operation");
+        std::filesystem::path file;
+        if (frame) {
+            if (!completed_frames_ || *frame >= completed_frames_->completed)
+                throw std::runtime_error("Choose an existing completed sequence frame");
+            file = completed_frames_->folder / completed_frames_->plan.filename(*frame);
+        } else {
+            if (completed_image_.empty())
+                throw std::runtime_error(
+                    "Choose a completed single image, or specify a sequence frame");
+            file = completed_image_;
+        }
+        asset_storage::ordinary(file);
+        start_operation(true);
+        file_work_ = FileWork::Preview;
+        job_ = std::async(std::launch::async,
+                          [file] { return FileResult{path_utf8(file), read_view_preview(file)}; });
+        publish_status("Preparing image preview", message);
+        return true;
+    }
+    bool cancel(std::string& message) {
+        if (frames_) {
+            cancel_sequence(message);
+            return true;
+        }
+        if (pending_ && !copied_ && !job_.valid()) {
+            pending_ = confirm_ = false;
+            publish_status("Image save cancelled", message);
+            return true;
+        }
+        return false; // A readback/file write already committing must finish.
+    }
     void choose(View view, SDL_Window* window, const std::filesystem::path& project,
                 AssetId scene) {
         if (busy())
             return;
+        start_operation();
         project_ = project;
         scene_ = scene;
         view_ = view;
@@ -193,6 +250,7 @@ class ViewImageTask {
         if (busy())
             return false;
         try {
+            start_operation();
             project_ = project;
             scene_ = scene;
             view_ = view;
@@ -221,6 +279,62 @@ class ViewImageTask {
             return false;
         }
     }
+    // IO-only completion is separate from GPU readback retirement so native
+    // tooling can read owned PNG artifacts without a graphics device.
+    bool poll_files(std::string& message) {
+        try {
+            if (job_.valid() &&
+                job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+                auto result = job_.get();
+                if (result.preview) {
+                    preview_ = std::move(result.preview);
+                    preview_operation_ = operation_;
+                    preview_file_ = std::filesystem::u8path(result.value);
+                }
+                preview_error_ = result.preview_error;
+                if (file_work_ == FileWork::Preview) {
+                    publish_status("Image preview ready", message);
+                } else if (!frames_) {
+                    completed_image_ = std::filesystem::u8path(result.value);
+                    publish_status("Image saved: " + result.value, message);
+                    if (editor_context)
+                        editor_context->problems.resolve("view-image");
+                } else if (file_work_ == FileWork::FrameReceipt) {
+                    const auto error = frames_->error;
+                    error_ = error;
+                    const auto reason = frames_->reason;
+                    const bool cancelled = frames_->cancelled;
+                    const auto count = frames_->completed;
+                    completed_frames_ = static_cast<const FrameReceipt&>(*frames_);
+                    frames_.reset();
+                    publish_status(!error.empty() ? "Frame export failed: " + error
+                                   : cancelled ? "Frame export cancelled: " + reason
+                                               : "Sequence frames saved: " + result.value + " (" +
+                                                     std::to_string(count) + " frames)",
+                                   message);
+                    if (error.empty() && !cancelled && editor_context)
+                        editor_context->problems.resolve("view-image");
+                } else {
+                    if (file_work_ == FileWork::PrepareFrames) {
+                        frames_->owns_folder = true;
+                        frames_->source_digest = std::move(result.value);
+                    } else
+                        ++frames_->completed;
+                    if (!frames_->cancelled && frames_->error.empty())
+                        next_frame(message);
+                }
+            }
+            if (frames_ && !frames_->finishing && !job_.valid() && !copied_ &&
+                (frames_->cancelled || !frames_->error.empty() ||
+                 (!frames_->configuring &&
+                  frames_->completed == static_cast<unsigned>(frames_->plan.frame_count))))
+                finish_frames(message);
+            return true;
+        } catch (const std::exception& e) {
+            fail(e.what(), message);
+            return false;
+        }
+    }
     void poll(DiligentPresentation& presentation, Diligent::IDeviceContext* context,
               const std::filesystem::path& project, AssetId scene, std::string& message) {
         try {
@@ -232,36 +346,8 @@ class ViewImageTask {
                     throw std::runtime_error(
                         "Sequence frame resources did not become ready within 60 seconds");
             }
-            if (job_.valid() &&
-                job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-                auto result = job_.get();
-                if (!frames_) {
-                    publish_status("Image saved: " + result, message);
-                    if (editor_context)
-                        editor_context->problems.resolve("view-image");
-                } else if (file_work_ == FileWork::FrameReceipt) {
-                    const auto error = frames_->error;
-                    const auto reason = frames_->reason;
-                    const bool cancelled = frames_->cancelled;
-                    const auto count = frames_->completed;
-                    frames_.reset();
-                    publish_status(!error.empty() ? "Frame export failed: " + error
-                                   : cancelled    ? "Frame export cancelled: " + reason
-                                                  : "Sequence frames saved: " + result + " (" +
-                                                        std::to_string(count) + " frames)",
-                                   message);
-                    if (error.empty() && !cancelled && editor_context)
-                        editor_context->problems.resolve("view-image");
-                } else {
-                    if (file_work_ == FileWork::PrepareFrames) {
-                        frames_->owns_folder = true;
-                        frames_->source_digest = std::move(result);
-                    } else
-                        ++frames_->completed;
-                    if (!frames_->cancelled && frames_->error.empty())
-                        next_frame(message);
-                }
-            }
+            if (!poll_files(message))
+                return;
             if (auto result = dialog_.take()) {
                 if (result->kind == FileDialog::Kind::SequenceFramesParent) {
                     if (frames_ && frames_->configuring) {
@@ -303,27 +389,7 @@ class ViewImageTask {
                 if (!presentation.readback_pending())
                     copied_ = false;
                 if (pixels && (!frames_ || (!frames_->cancelled && frames_->error.empty()))) {
-                    if (frames_) {
-                        if (!frames_->width) {
-                            frames_->width = pixels->width;
-                            frames_->height = pixels->height;
-                        } else if (frames_->width != pixels->width ||
-                                   frames_->height != pixels->height)
-                            throw std::runtime_error(
-                                "Rendered frame dimensions changed during export");
-                    }
-                    const auto destination = destination_;
-                    file_work_ = FileWork::Image;
-                    job_ =
-                        std::async(std::launch::async, [pixels = std::move(*pixels), destination] {
-                            save_view_png(destination, pixels.width, pixels.height, pixels.rgba);
-                            return path_utf8(destination);
-                        });
-                    publish_status(frames_ ? "Saving sequence frame " +
-                                                 std::to_string(frames_->completed + 1) + " / " +
-                                                 std::to_string(frames_->plan.frame_count)
-                                           : "Saving PNG image…",
-                                   message);
+                    save_pixels(std::move(*pixels), message);
                 }
             }
             if (frames_ && !frames_->finishing && !job_.valid() && !copied_ &&
@@ -550,7 +616,7 @@ class ViewImageTask {
                                 if (!std::filesystem::create_directory(folder))
                                     throw std::runtime_error(
                                         "Choose a new folder; the destination already exists");
-                                return digest;
+                                return FileResult{std::move(digest), {}};
                             });
                         publish_status("Preparing sequence frame export", message);
                     } catch (const std::exception& e) {
@@ -613,7 +679,56 @@ class ViewImageTask {
     std::string status_;
     View view_ = View::Scene;
     bool pending_ = false, copied_ = false, confirm_ = false;
-    std::future<std::string> job_;
+    std::future<FileResult> job_;
+    std::string operation_, artifact_operation_, preview_operation_, error_, preview_error_;
+    std::filesystem::path completed_image_, preview_file_;
+    std::optional<FrameReceipt> completed_frames_;
+    std::optional<ViewImagePreview> preview_;
+    bool preview_requested_ = false;
+    void start_operation(bool keep_artifact = false) {
+        operation_ = AssetId::generate().str();
+        preview_.reset();
+        preview_file_.clear();
+        preview_operation_.clear();
+        preview_requested_ = false;
+        error_.clear();
+        preview_error_.clear();
+        if (!keep_artifact) {
+            artifact_operation_ = operation_;
+            completed_image_.clear();
+            completed_frames_.reset();
+        }
+    }
+    void save_pixels(DiligentPresentation::DisplayPixels pixels, std::string& message) {
+        pending_ = confirm_ = false;
+        if (frames_) {
+            if (!frames_->width) {
+                frames_->width = pixels.width;
+                frames_->height = pixels.height;
+            } else if (frames_->width != pixels.width || frames_->height != pixels.height)
+                throw std::runtime_error("Rendered frame dimensions changed during export");
+        }
+        const auto destination = destination_;
+        const bool preview_requested = preview_requested_;
+        file_work_ = FileWork::Image;
+        job_ = std::async(std::launch::async, [pixels = std::move(pixels), destination,
+                                               preview_requested] {
+            save_view_png(destination, pixels.width, pixels.height, pixels.rgba);
+            FileResult result{path_utf8(destination), {}};
+            if (preview_requested) {
+                try {
+                    result.preview = preview_view_pixels(pixels.width, pixels.height, pixels.rgba);
+                } catch (const std::exception& e) {
+                    result.preview_error = e.what();
+                }
+            }
+            return result;
+        });
+        publish_status(frames_ ? "Saving sequence frame " + std::to_string(frames_->completed + 1) +
+                                     " / " + std::to_string(frames_->plan.frame_count)
+                               : "Saving PNG image…",
+                       message);
+    }
     void stop_frames(std::string reason) {
         frames_->cancelled = true;
         frames_->reason = std::move(reason);
@@ -687,7 +802,7 @@ class ViewImageTask {
         try {
             release_frame_source();
         } catch (const std::exception& e) {
-            frames_->error = e.what();
+            error_ = frames_->error = e.what();
             report_error("view-image", frames_->error);
         }
         if (!frames_->owns_folder) {
@@ -707,7 +822,7 @@ class ViewImageTask {
         file_work_ = FileWork::FrameReceipt;
         job_ = std::async(std::launch::async, [receipt = std::move(receipt)] {
             write_frame_receipt(receipt);
-            return path_utf8(receipt.folder);
+            return FileResult{path_utf8(receipt.folder), {}};
         });
         publish_status("Writing sequence frame receipt…", message);
     }
@@ -717,6 +832,7 @@ class ViewImageTask {
             editor_context->record_status("Image export", status_);
     }
     void fail(const std::string& text, std::string& message) {
+        error_ = text;
         if (frames_) {
             pending_ = confirm_ = false;
             frames_->error = text;
@@ -729,7 +845,10 @@ class ViewImageTask {
             }
             publish_status("Frame export failed: " + text, message);
         } else
-            publish_status("Image save failed: " + text, message);
+            publish_status((file_work_ == FileWork::Preview ? "Image preview failed: "
+                                                            : "Image save failed: ") +
+                               text,
+                           message);
         report_error("view-image", status_);
     }
 };

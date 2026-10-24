@@ -1,24 +1,22 @@
 # MCP development source — not included in Build208
 
-Native C++ MCP scene-authoring and explicitly granted scene-file tools are
-implemented in development source.
-The focused Linux authoring/API/CLI/live/MCP/configuration checks pass, as does
-independent validation against the pinned official current/legacy schemas.
-Tools share the editor's read-only/edit controls, command schemas, revisions and
-Undo/Redo. Windows adapter cross-compiler syntax and Linux UI-header checks pass;
-native Windows editor/client execution remains pending. Document status, Save,
-Save As, New and Open use existing file owners and project-scoped grants.
-C++ source/build/reflection, Play and export remain coverage gaps.
-Project-authoring grants add existing-owner
-asset search, reviewed raw-source import/reimport, placement and file operations.
-Twelve source editors, typed import settings and prefab source/Apply workflows now
-share their actual editor owners, validation and history. Native source-owner MCP
-tests pass for both protocol forms; shader GPU compilation remains separate.
-Project settings/recovery and an explicitly approved project workspace now borrow
-their actual owners, with native process/lease and ImGui modal tests in both
-protocol forms.
-See [MCP coverage](mcp.md). No new Windows ZIP has been produced for this work;
-Build208 below remains the latest accepted package.
+MCP connects game-building agents to the actual editor owners for projects,
+settings/recovery, scenes/history, imports/assets, all12 source editors and
+prefabs, C++ source/build/inspection/migration, Play/live controls and reviewed
+Keep values, UI/shader/Flecs sources, dependency declarations, navigation baking,
+view/sequence captures and standalone export/testing. Native execution and output
+folders require separate explicit grants. Engine repository editing and arbitrary
+shell commands are outside this interface.
+
+Portable process/socket fixtures exercise both supported protocol forms using
+real workers, source documents, Play processes, UI presentation and export owners.
+Image tests use recorded pixels; they do not establish GPU rendering. Linux export
+checks use an authentic Windows runtime kit; they do not execute its Windows game.
+Native Windows build/client, GPU capture and full C++-to-Windows-game acceptance
+remain separate delivery gates. See [coverage and validation](mcp.md).
+
+No new Windows ZIP has been produced for this work. Build208 below remains the
+latest accepted package.
 
 # Current Windows delivery — Build261022-000208
 

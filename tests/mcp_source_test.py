@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 import wave
-from mcp_test_client import CAPTURE, Client, failed
+from mcp_test_client import CAPTURE, Client, failed, write_capture
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 
@@ -228,5 +228,5 @@ for legacy in (False, True):
         assert 'forge_asset_document_types' in names
         assert not any('forge_asset_document_' + name in names for name in ('create', 'patch', 'save', 'paint', 'close'))
 
-Path(sys.argv[4]).write_text(json.dumps(CAPTURE, indent=2) + '\n')
+write_capture(sys.argv[4])
 print('MCP shared source editors, history, validation and publication passed')

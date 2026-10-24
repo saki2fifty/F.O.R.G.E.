@@ -9,7 +9,7 @@ import tempfile
 import time
 import wave
 
-from mcp_test_client import CAPTURE, Client, failed
+from mcp_test_client import CAPTURE, Client, failed, write_capture
 
 TOOLS, HOST, WORKER, CONVERTER = map(str, map(Path, sys.argv[1:5]))
 
@@ -267,6 +267,6 @@ with editor('read') as (root, process, config), Client(config) as client:
     assert client.request('tools/call', dict(name='forge_asset_place', arguments={}))['error']['code'] == -32602
 
 if len(sys.argv) > 5:
-    Path(sys.argv[5]).write_text(json.dumps(CAPTURE, indent=2), encoding='utf-8')
+    write_capture(sys.argv[5])
 print('MCP assets: existing catalog, workers, review/commit, replay, placement/history, '
       'file impact/identity/recovery, permissions and project/source scope passed')

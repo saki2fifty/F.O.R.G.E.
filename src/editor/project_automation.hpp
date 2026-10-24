@@ -217,7 +217,7 @@ struct ProjectAutomation {
             [&editor, &document](const Json&) { return settings_state(editor, document); }));
         if (!permissions.assets)
             return methods;
-        for (const auto* action : {"edit", "save", "close"}) {
+        for (const auto* action : {"edit", "save", "close", "game_defaults"}) {
             Json properties{{"state", automation_digest()}};
             Json required{"state"};
             if (std::string_view(action) == "edit") {
@@ -260,6 +260,8 @@ struct ProjectAutomation {
                         ProjectSettings::validate(candidate);
                         editor.draft_ = std::move(candidate);
                         editor.open();
+                    } else if (std::string_view(action) == "game_defaults") {
+                        editor.setup_game_defaults();
                     } else if (std::string_view(action) == "save") {
                         std::string message;
                         if (!editor.save(document, message))

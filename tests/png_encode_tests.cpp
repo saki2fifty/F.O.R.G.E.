@@ -1,3 +1,4 @@
+#include "automation_image.hpp"
 #include "texture_decode.h"
 #include "texture_encode.h"
 #include "view_image.hpp"
@@ -107,6 +108,47 @@ int main(int argc, char** argv) {
         };
         forge::save_view_png(path, 1, 1, std::span(pixel, 4));
         const auto previous = read_file(path);
+        const auto wire = forge::automation_image_base64(std::as_bytes(std::span(previous)));
+        check(forge::automation_png_wire_bytes(wire) == previous.size(),
+              "MCP image encoding changed the actual codec output");
+        for (const auto& [plain, encoded] :
+             {std::pair<std::string_view, std::string_view>{"f", "Zg=="},
+              {"fo", "Zm8="},
+              {"foo", "Zm9v"},
+              {"foobar", "Zm9vYmFy"}})
+            check(forge::automation_image_base64(std::as_bytes(std::span(plain))) == encoded,
+                  "MCP image encoder failed a known base64 vector");
+        const auto reject_wire = [](const std::string& value) {
+            bool refused = false;
+            try {
+                (void)forge::automation_png_wire_bytes(value);
+            } catch (const std::exception&) {
+                refused = true;
+            }
+            check(refused, "Malformed MCP image encoding/header was accepted");
+        };
+        reject_wire("");
+        reject_wire(wire.substr(1));
+        reject_wire("====" + wire);
+        reject_wire("Zg==" + wire); // Padding before the final quartet.
+        reject_wire(wire + "Zh=="); // Noncanonical unused padding bits.
+        reject_wire(wire + "Zm9=");
+        reject_wire(wire + "!!!!");
+        auto padded_png = previous;
+        if (padded_png.size() % 3 == 0)
+            padded_png.push_back(0);
+        auto noncanonical = forge::automation_image_base64(std::as_bytes(std::span(padded_png)));
+        constexpr std::string_view alphabet =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const auto pad_bits = noncanonical.size() - (noncanonical.ends_with("==") ? 3 : 2);
+        noncanonical[pad_bits] = alphabet[alphabet.find(noncanonical[pad_bits]) | 1];
+        reject_wire(noncanonical); // Same decoded PNG bytes, only unused bits differ.
+        auto bad_header = previous;
+        bad_header[16] = 0xff; // Oversized unsigned PNG width.
+        reject_wire(forge::automation_image_base64(std::as_bytes(std::span(bad_header))));
+        bad_header = previous;
+        bad_header[0] = 0;
+        reject_wire(forge::automation_image_base64(std::as_bytes(std::span(bad_header))));
         Decoded file_pixels;
         check(forge_png_decode(previous.data(), previous.size(), 4096, 1024, false, &file_pixels) &&
                   file_pixels.size == 4 && std::memcmp(file_pixels.pixels, pixel, 4) == 0,

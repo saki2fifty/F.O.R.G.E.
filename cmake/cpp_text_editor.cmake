@@ -1,0 +1,15 @@
+include_guard(GLOBAL)
+include(cmake/imgui.cmake)
+# Official upstream has no release tags; immutable editor-only snapshot, see dependencies.md.
+FetchContent_Declare(cpp_text_editor GIT_REPOSITORY https://github.com/BalazsJako/ImGuiColorTextEdit.git GIT_TAG ca2f9f1462e3b60e56351bc466acda448c5ea50d)
+FetchContent_MakeAvailable(cpp_text_editor)
+add_library(forge_cpp_text_editor STATIC ${cpp_text_editor_SOURCE_DIR}/TextEditor.cpp)
+target_include_directories(forge_cpp_text_editor PUBLIC ${cpp_text_editor_SOURCE_DIR})
+target_link_libraries(forge_cpp_text_editor PUBLIC imgui)
+# Upstream header uses uint8_t without declaring it. Supply the standard header, no source patch.
+if(MSVC)
+ target_compile_options(forge_cpp_text_editor PRIVATE /FIcstdint)
+else()
+ target_compile_options(forge_cpp_text_editor PRIVATE -include cstdint)
+endif()
+install(FILES ${cpp_text_editor_SOURCE_DIR}/LICENSE DESTINATION licenses COMPONENT Runtime RENAME ImGuiColorTextEdit.txt)

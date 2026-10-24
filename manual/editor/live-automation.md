@@ -55,10 +55,14 @@ A second FORGE editor cannot open the same project while this editor owns it. Cl
 ## Current scope
 
 This connection accepts FORGE authoring requests from the same machine. The
-[MCP adapter](mcp.md) lets a compatible AI client use those same scene tools.
-An explicit file grant exposes the editor-owned scene save/switch operations.
-The connection exposes no native execution, arbitrary shell commands, project
-switching or asset tools. The editor retains ownership of saving and recovery. The separate [Headless authoring tools](automation.md) remain
-available for isolated in-memory work.
+[MCP adapter](mcp.md) gives compatible AI clients access to those same owners.
+Project authoring adds project, asset, source, C++, Play and export workflows;
+see that guide for the separate import, project-workspace, execution and output
+folder grants. These additions are development source and are not in Build208.
+Native execution runs with your account's OS access. Arbitrary shell commands
+and engine repository editing are outside this connection.
+
+The editor retains ownership of saving and recovery. The separate
+[Headless authoring tools](automation.md) remain available for isolated in-memory work.
 
 For exact request fields and limits, integration developers can read the repository's technical **docs/live-authoring.md** guide.

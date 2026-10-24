@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-10-24](20261024/README.md) — MCP C++, Play, UI/shader sources, navigation, declarations, captures and export through existing owners; separate execution/output grants. Development source, not in Build208.
+
 - [2026-10-23](20261023/README.md) — Native MCP scene/document authoring in development source; explicit file grants, existing save/recovery owners and portable validation. Not packaged in Build208.
 
 - [2026-10-22](20261022/README.md) — Build208 adds Sprite image regions, the region-aware frame chooser and Gallery78. It includes Build206 native 2D character movement, the editable C++ Character2D/Movement2D projects and runtime UI preparation.

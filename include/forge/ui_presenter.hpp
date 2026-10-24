@@ -58,6 +58,9 @@ class UiPresenter {
     // Semantic action routed by RuntimeInput; delegates to native RmlUi focus.
     void navigate(const std::string& direction);
     void release_input();
+    // Semantic automation shares the presenter's declared-command queue/IDs.
+    bool command(const std::string& instance, const std::string& name,
+                 const std::optional<std::string>& value = {});
     std::optional<nlohmann::json> pending_command() const;
     void acknowledge(const nlohmann::json& ack);
     const std::string& diagnostic() const;

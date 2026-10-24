@@ -44,9 +44,13 @@ diagnostics. A host that saves pasted configuration will retain that token until
 the user updates or removes its configuration; the editor can revoke it at once.
 
 Only IPv4 `127.0.0.1`, port1..65535 and the existing 64-character token format are
-accepted. The bridge has no shell, arbitrary filesystem, native-code execution
-or engine-repository interface. Local connection authority is not a sandbox
-against a compromised same-user account or a separately privileged agent.
+accepted. There is no arbitrary executable, shell or engine-repository tool.
+Project files, public SDK reads, external imports and output files retain separate
+roots. **Allow C++ build and execution** separately permits the existing compiler,
+isolated inspection/migration, Play and exported-game supervision. Project native
+code and build recipes run with the account's OS access: process separation and
+MCP path checks are not an OS sandbox for that code. Execution-capable tools carry
+an open-world protocol hint; hints do not grant authority.
 
 Stop and editor exit revoke every grant. Scene-only grants also expire whenever
 the document generation changes. The separately enabled file grant is scoped to
@@ -61,8 +65,8 @@ all connections. This scope is checked before and after each editor pump.
 `forge_discover` returns the current target, scene revision, `next_sequence`,
 schemas, available commands, capabilities and mutation availability. The target
 must be echoed exactly. `forge_scene_read`, `forge_entity_query` and
-`forge_scene_diagnostics` expose committed authored data. Reads do not inspect
-the live Play world or transient UI previews.
+`forge_scene_diagnostics` expose committed authored data. These scene reads do not inspect
+the live Play world or transient UI previews; use their explicit workflow reads.
 
 On editable connections, each command in the shared authoring catalog becomes
 an MCP tool named `forge_` plus its operation ID with dots replaced by underscores.
@@ -251,33 +255,163 @@ does not undo committed work; use the same sequence receipt to resolve uncertain
 Closing stdin cancels outstanding bridge work and exits. Valid notifications
 never invoke scene tools, and unknown notifications receive no response.
 
-## Coverage and remaining game-making workflows
+## C++ project code
 
-This adapter covers **scene authoring, granted scene files, assets and source documents**. It is
-not complete game-development parity.
-The following table is the maintenance checklist for subsequent integrations.
+Project authoring exposes `forge_code_status`, `sources`, `read`, `setup`, `create`,
+`open`, `replace`, `save`, `undo`, `redo` and `close`. Names after the first retain
+the `forge_code_` prefix. Source files live under `Native/`; they have no AssetIds.
+Open tabs return a transient `session` and content `state` digest, both required
+for tab changes in addition to scene routing/revision/sequence. Reopening produces
+a new session. Logical redirects into another owner, generated paths and external
+save conflicts are rejected.
 
-| Workflow | Current MCP coverage | Existing owner for remaining work |
+Replacement uses the actual text widget's single Paste/Delete Undo record and a
+temporarily substituted clipboard reader; it never reads or writes the OS
+clipboard. Widget text uses LF and an implicit final newline. A save without an
+execution grant suppresses Build on Save. With that grant, the user's ordinary
+Build on Save preference still applies. Save/build is not a native hot reload.
+
+`forge_code_api_list` and `api_read` expose only public headers, templates, samples
+and guides from the editor-selected matching SDK, not the engine checkout. Read
+paths are relative to `sdk/`, for example `include/forge/native_sdk.h`.
+
+The execution grant adds `forge_code_compiler_test`, `build`, `build_cancel`,
+`inspect`, `inspect_cancel` and migration controls. Compiler tasks use SdkBuild;
+`status`/`build_log` expose the existing timestamped log and exact operation UUID.
+Cancel requires that UUID. Failed candidates retain the last good module.
+Inspection runs in the matching isolated runtime; copied admitted metadata is
+available in `forge_code_schemas` and the ordinary component/scene tools.
+
+Migration uses `forge_code_migration_open` (`document:scene|prefab`), `read`,
+`prepare`, `apply` and `close`. Read the exact review digest and advertised schema
+pairs. Prepare validates rules and values in the existing isolated worker; Apply
+rechecks document/module baselines. Scene migration is one ordinary Undo step;
+prefab migration changes its draft and requires separate publication. The editor
+never loads the project's native libraries. Managed deployment kits and graphical
+exported-game execution currently target Windows; no portable kit is synthesized.
+
+## Play and live inspection
+
+The execution grant exposes `forge_play_start`, `pause`, `resume`, `step` and
+`stop` through PlaySession and the editor's existing source/asset/physical-input
+policies. Start requires ready assets/current admitted C++ and never silently
+builds or discards drafts. Pause/Step retain the existing physical-release checks.
+
+`forge_play_status` returns an owner-generated `launch` UUID, wire `session` and
+world `generation`. Controls must echo all three; an old starting process cannot
+accidentally control a new process before its wire hello. Queued controls are
+acknowledged by later status/timing, not by admission alone. The authored scene's
+revision is separate from advancing runtime snapshots.
+
+Runtime reads include paged `snapshot`, `schema`, timestamped `log`, `diagnostics`,
+`physics`, `input`, `ui`, `audio`, `animation` and `profile`. Pause for stable paged
+inspection. `tune` submits one existing reflected property; inspect `tune_pending`,
+`tune_ack` and the runtime snapshot for actual acceptance. It changes no source or
+schema. `input_submit` accepts up to64 validated events from `controls`, using the
+existing input queue and physical release policy; reset releases controls.
+`time_scale` uses the existing finite [0,4] clock policy.
+
+`watch` selects an Inspector entity for native audio/animation observation.
+`audio_control`/`animation_control` require the exact watched entity; a human
+selection change cannot redirect them. Mix and CPU controls use their native
+owners. `profile_refresh` requests one snapshot without taking over the Profiler
+window's watch. UI commands go through the actual presenter's declared command
+list, ID queue and acknowledgements, never DOM/script injection.
+
+`forge_play_tuning_capture` freezes an eligible live-value review. Read/select its
+fields, Stop, then Apply through RuntimeTuningReview. Apply creates one Scene Undo
+step and Save remains separate. Changes to the reviewed scene/schema invalidate
+it; arbitrary runtime-only entities or C++ state do not become authored values.
+
+## Raw UI/shader sources, recipes and navigation
+
+`forge_source_text_list/read/write` and `source_folder_create` cover raw project
+RML/RCSS/HLSL/includes and shader-program declarations under Assets, Sources, UI or
+Shaders. These external-style file writes require the exact disk digest (or
+`missing`), have no document Undo, and cannot write scenes, prefabs, typed source
+JSON, metadata, C++ or engine files. Check logical paths before canonicalization
+so a contained alias cannot cross source ownership. Shader declaration changes
+preserve their identity; `source_shader_create` mints a new identity and validates
+stages. Compilation stays in the existing shader importer/worker. UI register and
+example tools use the existing UI catalog admission; live reload stays separate.
+
+`forge_script_*` borrows FlecsScriptEditor for registration/open/read/replace/save,
+isolated diagnostic preview/result/cancel and close. Source-session digests and
+native disk baselines remain authoritative. Failed previews retain the prior
+successful result; they never write the Scene. This data/world-recipe facility
+is separate from C++ gameplay and has no advertised document/Scene Undo.
+
+`forge_navigation_status/build/cancel` uses NavigationTools and its bounded static
+bake worker. The native settings/profile and stale-geometry publication check
+remain authoritative. Publication is separate from Scene Undo.
+
+`forge_dependencies_open/read/edit/save/discard` borrows the selected asset's
+RuntimeDependenciesEditor draft. Edit supplies a finite typed set with reasons
+and optional module ownership. Save reviews source revisions, optional native UI
+resources and the persisted catalog baseline in the existing worker. Poll its
+actual result; there is no parallel dependency graph or automatic conflict merge.
+
+## Output, image inspection and export
+
+A separately selected **Allow an output folder** grant permits output only inside
+that canonical root. `forge_output_folder_create` creates a new child with an
+existing parent. Root redirects and path aliases are rejected.
+
+`forge_capture_start` requests the next rendered Scene/Game PNG. Existing files
+require `replace:true`. `capture_status` reports the native image task. Its ready
+`capture_image` returns a bounded PNG **image content block** plus metadata; base64
+is not repeated in text or structured JSON. The preview fits1024 pixels, while the
+full PNG retains rendered dimensions. Only the task's exact current ready operation
+is readable. `capture_preview` prepares a completed owned PNG or sequence frame;
+there is no arbitrary filesystem image-read tool.
+
+Timeline frame export uses `capture_sequence_open/read/start`, the actual sequence
+controller and observed source revision/preview generation. Start chooses a new
+folder and native end-exclusive frame plan; fixed dimensions render real pixels.
+The existing task owns sampling, resource readiness, IO, cancellation, cursor
+restoration and `frames.json`. Completed/cancelled frames stay available. A single
+readback/file write already committing must finish rather than promise rollback.
+
+`forge_export_start/status/cancel` borrows GameExportTask and the same native
+export service as the UI. Save drafts first. The selected runtime/module kits,
+closure validation, worker progress, staging, recognized-output replacement and
+promotion recovery remain authoritative. Native-project inspection additionally
+requires the execution grant. `replace:true` is required for an existing output;
+unrelated directories are never adopted. No editor, SDK, compiler or MCP service
+is added to the exported game.
+
+With execution allowed, `forge_export_run` verifies this task's exact completed
+manifest/files and supervises that Windows executable, with no arbitrary path,
+arguments or shell input. Poll status and timestamped `export_run_log`; cancel
+stops its process. Native code retains the account's OS access.
+
+## Coverage and maintaining parity
+
+These workflows are implemented in **development source**, not the current
+Build208 ZIP. Platform execution/visual acceptance remain separate from implementation.
+
+| Workflow | MCP coverage | Authoritative owner |
 | --- | --- | --- |
-| Scene/entities/transforms/reflected properties | Implemented through the shared catalog and scene methods | `AuthoringSession`, `Scene`, domain validation |
-| Undo/Redo and diagnostics | Implemented for authored scenes | Existing scene history/diagnostics |
-| Current project/settings and document status | Read through `document.read` | `SceneDocument`, `ProjectSettings` |
-| Scene Save/Save As/New/Open | Implemented with explicit `document.write`, normal owner gates and fresh routing targets | `SceneDocument`, `EditorFiles`, `ProjectLease` |
-| Create/open/switch project; recovery restore/discard | Implemented with separate approved workspace and exact recovery review | EditorFiles, SceneDocument, ProjectLease |
-| Asset search/raw-source import/reimport, placement and source-file operations | Implemented through existing owners and explicit asset grants | AssetCatalog, ContentImports, SourceImport, SceneAssetDrop, ContentFiles |
-| Asset import settings | Implemented through registered import-editor owners, typed rules and reviewed identity decisions | AssetImportEditor and its native import services |
-| Materials/graphs, animation assets, collision/mesh/terrain/tile/particle sources | Implemented through12 existing source editors, native validation and per-document history/publication | DocumentWorkspace and AssetSourceDocument |
-| Prefab source authoring and Apply | Implemented through actual source/library and durable prefab+scene owners | PrefabEditor, PrefabLibrary, SceneDocument |
-| C++ source creation/editing, schema inspection and build | Not exposed | Existing source editor and native project/build controller |
-| Play/Stop, live runtime inspection, logs and visual inspection | Not exposed; scene diagnostics remain available | Existing Play session, diagnostic and presentation owners |
-| Project/game settings changes | Implemented through the actual settings draft and baseline | ProjectSettingsEditor, SceneDocument |
-| Export validation/jobs/run | Remaining owner integration | GameExportController |
-| FORGE engine/editor source modification | Outside game-project MCP authority | Separate explicitly authorized repository development |
+| Scene/entities/components/relationships/properties | Shared catalog, reads/queries, atomic changes, history | AuthoringSession / Scene |
+| Projects/scenes/settings/recovery | Workspace grant, file lifecycle, settings defaults/draft/save, reviewed recovery | EditorFiles / SceneDocument / ProjectSettingsEditor |
+| Assets/imports/settings/placement/file changes | Existing reviews, identities, jobs, cancellation and publication | ContentImports / SourceImport / import editors / SceneAssetDrop / ContentFiles |
+| Typed reusable sources and graphs |12 actual documents, schemas/templates, validation/history/publication | DocumentWorkspace / AssetSourceDocument |
+| Prefab source and instance Apply | Native draft/library and durable paired history | PrefabEditor / SceneDocument |
+| C++ sources/API/compiler/reflection/migration | Scoped source editor, exact SDK, isolated native workers | CppSourceEditor / SdkBuild / AuthoredComponents |
+| UI/shader text and Flecs recipes | Baseline file writes, native registration/import, diagnostic preview | Source storage / UI catalog / shader importer / FlecsScriptEditor |
+| Navigation and declared runtime dependencies | Actual bake and reviewed catalog publication | NavigationTools / RuntimeDependenciesEditor |
+| Play/inspection/input/live values/profiling/UI | Exact launch/session/world, existing controls/observations/review | PlaySession / GameInput / UiPresenter / RuntimeTuningReview |
+| View images and sampled frames | Owned output, real image blocks, native sampling/readback/IO | ViewImageTask / Timeline / presentation |
+| Export and supervised testing | Native validation/publication/run/cancel under output/execution grants | GameExportTask / export_standalone_game |
+| Engine repository, arbitrary shell/OS automation, editor layout/preferences | Outside game-project MCP authority | Separate repository or desktop work |
 
-Each missing workflow needs explicit targets, capabilities, lifecycle / dirty
-draft handling, errors, cancellation and integration checks before advertising it.
-Do not route file writes or jobs through scene transactions or launch an isolated
-writer against an editor-owned project to work around a missing command.
+When an engine change affects game authoring, update its existing owner binding,
+shared schema/discovery, capability and lifecycle guards, actual-owner integration
+checks, this coverage table and the user manual in the same coherent batch.
+A feature is not MCP-complete merely because a descriptor or stub exists. Do not
+introduce another writer/world/history/asset database or bypass an open project's
+lease. Do not route non-Scene files/jobs through Scene Undo. Platform-specific
+execution and newly changed consumers require their own proof.
 
 ## Validation
 
@@ -323,3 +457,26 @@ owners: approved-root creation/opening, stale state, replay after retarget,
 symlink/root escapes, dirty drafts, contended writer ownership, saved settings
 conflicts, current/untitled recovery, scope revocation, readonly denial and actual
 ImGui recovery/foreign-popup gates without a GPU window.
+
+
+`mcp_code_source` checks the actual text widget's replacement/history, clipboard
+isolation, disk conflicts and source ownership. With the Native SDK enabled,
+`mcp_install_sdk` installs the real selected kit for `mcp_code_inspection_stdio`
+and Release-only `mcp_code_stdio`. They use actual compiler and isolated SDK
+workers for build/cancel, reflection and reviewed schema migration, including
+exact64-bit values and Scene Undo/Redo. The managed deployment helper is
+Windows-only; portable compilation does not imply Windows deployment acceptance.
+
+`mcp_workflow_stdio` uses native project owners for UI/shader sources, dependency
+publication, Flecs preview diagnostics, navigation baking, an actual headless Play
+process, RmlUi semantic commands, fixed stepping, live tuning/Keep/Undo and export.
+It is registered when `FORGE_TEST_MCP_RUNTIME_KIT` selects an authentic prepared
+Windows runtime kit. Export admission and output hashes are checked on Linux;
+that does not execute its graphical Windows game or a combined C++ Windows export.
+
+`mcp_image_stdio` exercises the real image-task IO, PNG encoding, bounded previews,
+MCP image blocks and sequence receipts with detached recorded pixels and a
+recording frame source. It checks owner/path/operation guards, cancellation and
+frame restoration without creating a GPU device. Actual renderer/readback,
+Timeline playback and Windows MCP client acceptance require the native gate.
+These fixtures do not claim physical display, audio or GPU acceptance.

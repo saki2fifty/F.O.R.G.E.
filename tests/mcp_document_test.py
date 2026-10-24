@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 
-from mcp_test_client import CAPTURE, Client, failed
+from mcp_test_client import CAPTURE, Client, failed, write_capture
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
 
@@ -261,6 +261,6 @@ if os.name == 'posix':
         failed(client.tool('forge_discover'), 'connection_unavailable')
 
 if len(sys.argv) > 3:
-    Path(sys.argv[3]).write_text(json.dumps(CAPTURE, indent=2), encoding='utf-8')
+    write_capture(sys.argv[3])
 print('MCP documents: owner saves, copy/first-save identities, disk conflicts, scope, '
       'dirty/busy gates, leases, fresh targets, replay and revocation passed')

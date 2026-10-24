@@ -8,10 +8,14 @@
 #include "help.hpp"
 #include "property_drawer.hpp"
 #include <future>
+namespace forge {
+struct DependencyAutomation;
+}
 namespace forge::ui {
 // Selected-asset authoring task. Graph edits use the same operation as CLI/export;
 // the draft and job status below are transient, not another dependency registry.
 class RuntimeDependenciesEditor {
+    friend struct ::forge::DependencyAutomation;
     AssetId owner_;
     std::filesystem::path project_;
     Json expected_;
@@ -21,6 +25,7 @@ class RuntimeDependenciesEditor {
     std::array<char, 110> reason_{};
     bool dirty_ = false;
     std::future<AssetCatalog> job_;
+    std::string session_, operation_, error_;
     void load(const AssetCatalog& catalog, AssetId owner) {
         owner_ = owner;
         const auto persisted = AssetCatalog::open_project(project_);
@@ -33,6 +38,7 @@ class RuntimeDependenciesEditor {
             if (declared_runtime_edge(edge))
                 edges_.push_back(edge);
         dirty_ = false;
+        session_ = AssetId::generate().str();
         status_ = "Review conditional UI and gameplay-selected content here.";
     }
 
@@ -55,10 +61,52 @@ class RuntimeDependenciesEditor {
                     editor_context->problems.resolve("runtime-dependencies:" + owner_.str());
                 refresh();
             } catch (const std::exception& e) {
-                status_ = e.what();
+                status_ = error_ = e.what();
                 report_error("runtime-dependencies:" + owner_.str(), status_);
             }
         }
+    }
+    void save(SceneDocument& document, const AssetCatalog& catalog) {
+        document.check_ownership();
+        if (busy() || project_ != document.project() || !owner_)
+            throw std::runtime_error(
+                "Select this project's dependency owner and settle pending work");
+        auto lease = document.writer_guard();
+        auto expected = expected_;
+        auto edges = edges_;
+        auto owner = owner_;
+        auto kind = catalog.records().at(owner_).type;
+        std::vector<AssetRecord> discoveries;
+        std::set<AssetId> requested{owner};
+        for (const auto& edge : edges)
+            requested.insert(edge.target);
+        for (const auto id : requested)
+            if (const auto found = catalog.records().find(id);
+                found != catalog.records().end() &&
+                (found->second.type == SceneAsset::type || found->second.type == PrefabAsset::type))
+                discoveries.push_back(found->second);
+        job_ = std::async(std::launch::async, [lease, expected, edges, owner, kind, discoveries] {
+            if (AssetCatalog::open_project(lease->root()).document() != expected)
+                throw std::runtime_error("Catalog changed. Discard this draft and review "
+                                         "the new dependency list.");
+            std::optional<UiAssetSnapshot> snapshot;
+            if (kind == UiDocumentAsset::type) {
+                auto executable = self_executable().parent_path() / "forge_ui_inspect";
+#ifdef _WIN32
+                executable += ".exe";
+#endif
+                snapshot =
+                    inspect_ui_dependencies(executable,
+                                            installation_root(self_executable().parent_path()) /
+                                                "resources/ui/LatoLatin-Regular.ttf",
+                                            lease->root(), owner);
+            }
+            return declare_runtime_dependencies(*lease, owner, edges, expected,
+                                                snapshot ? &*snapshot : nullptr, discoveries);
+        });
+        status_ = "Validating and saving dependencies...";
+        operation_ = AssetId::generate().str();
+        error_.clear();
     }
     void draw(SceneDocument& document, const AssetCatalog& catalog, const AssetRecord& asset,
               bool locked, const std::function<void(const AssetRecord&)>& open) {
@@ -236,43 +284,7 @@ class RuntimeDependenciesEditor {
                    "revisions, then atomically publish the catalog. Scene Undo is unchanged.",
                    dirty_ ? "Save *" : "Review")) {
             try {
-                auto lease = document.writer_guard();
-                auto expected = expected_;
-                auto edges = edges_;
-                auto owner = owner_;
-                auto kind = asset.type;
-                std::vector<AssetRecord> discoveries;
-                std::set<AssetId> requested{owner};
-                for (const auto& edge : edges)
-                    requested.insert(edge.target);
-                for (const auto id : requested)
-                    if (const auto found = catalog.records().find(id);
-                        found != catalog.records().end() &&
-                        (found->second.type == SceneAsset::type ||
-                         found->second.type == PrefabAsset::type))
-                        discoveries.push_back(found->second);
-                job_ = std::async(std::launch::async, [lease, expected, edges, owner, kind,
-                                                       discoveries] {
-                    if (AssetCatalog::open_project(lease->root()).document() != expected)
-                        throw std::runtime_error("Catalog changed. Discard this draft and review "
-                                                 "the new dependency list.");
-                    std::optional<UiAssetSnapshot> snapshot;
-                    if (kind == UiDocumentAsset::type) {
-                        auto executable = self_executable().parent_path() / "forge_ui_inspect";
-#ifdef _WIN32
-                        executable += ".exe";
-#endif
-                        snapshot = inspect_ui_dependencies(
-                            executable,
-                            installation_root(self_executable().parent_path()) /
-                                "resources/ui/LatoLatin-Regular.ttf",
-                            lease->root(), owner);
-                    }
-                    return declare_runtime_dependencies(*lease, owner, edges, expected,
-                                                        snapshot ? &*snapshot : nullptr,
-                                                        discoveries);
-                });
-                status_ = "Validating and saving dependencies...";
+                save(document, catalog);
             } catch (const std::exception& e) {
                 status_ = e.what();
                 report_error("runtime-dependencies:" + owner_.str(), status_);

@@ -10,6 +10,8 @@ namespace forge {
 // Editor-only task/review state. Native project code runs in the supervised SDK
 // process; completed metadata and document candidates publish on the owning thread.
 class AuthoredComponents {
+    friend struct CodeAutomation;
+
   public:
 #ifdef FORGE_UI_FIXTURE
     bool fixture_open_migration = false;
@@ -26,6 +28,7 @@ class AuthoredComponents {
         migration_.reset();
         returned_ = Json();
         migration_open_ = false;
+        operation_id_.clear();
         status_ = "Inspect the project's opted-in components before authoring them.";
         error_.clear();
         // Copied types from another project must never remain in Add Component.
@@ -47,6 +50,7 @@ class AuthoredComponents {
         runtime_ = std::filesystem::absolute(runtime);
         cancel_ = std::stop_source{};
         const auto stop = cancel_.get_token();
+        operation_id_ = AssetId::generate().str();
         job_ = std::async(std::launch::async, [runtime = runtime_, root = root_, expected, stop] {
             return detail::inspect_project_authoring(runtime, root, expected, stop);
         });
@@ -109,6 +113,9 @@ class AuthoredComponents {
                 cancel_.request_stop();
         }
         ImGui::TextWrapped("%s", status_.c_str());
+        if (migration_open_ && !open_popup_ &&
+            ui::button("Review migration...", "Reveal the existing prepared migration review."))
+            open_popup_ = true;
         ui::help("Unadmitted or incompatible values remain stored and read only. A changed schema "
                  "needs an explicit migration.");
         if (!error_.empty()) {
@@ -166,7 +173,8 @@ class AuthoredComponents {
         error_ = message;
         ui::report_error("authored-components", message);
     }
-    void open_migration(Scene& scene, SceneDocument& project, Json document, bool prefab) {
+    void open_migration(Scene& scene, SceneDocument& project, Json document, bool prefab,
+                        bool reveal = true) {
         if (!history_ || active_.is_null())
             throw std::runtime_error("Inspect the current component schemas first");
         prior_ = history_->declarations();
@@ -193,7 +201,8 @@ class AuthoredComponents {
         returned_ = Json();
         migration_.reset();
         migration_open_ = true;
-        open_popup_ = true;
+        migration_session_ = AssetId::generate().str();
+        open_popup_ = reveal;
         error_.clear();
     }
     void prepare(SceneDocument& project) {
@@ -212,6 +221,7 @@ class AuthoredComponents {
         cancel_ = std::stop_source{};
         const auto stop = cancel_.get_token();
         job_root_ = project.project();
+        operation_id_ = AssetId::generate().str();
         job_ = std::async(std::launch::async, [runtime = runtime_, root = job_root_, expected, from,
                                                to, rules, values, stop] {
             return detail::migrate_project_authoring(runtime, root, expected, from, to, rules,
@@ -337,5 +347,7 @@ class AuthoredComponents {
     std::uint64_t scene_revision_ = 0, document_generation_ = 0;
     bool inspecting_ = false, migration_open_ = false, open_popup_ = false, prefab_target_ = false;
     std::string rules_, status_ = "Inspect opted-in project components to author them.", error_;
+    std::string operation_id_;
+    std::string migration_session_;
 };
 } // namespace forge

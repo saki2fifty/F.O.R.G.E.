@@ -90,12 +90,41 @@ recognizes only the file owner's actual recovery popup and rejects foreign UI,
 Play/build/export tasks and pending file work. The synchronous owner action
 completes before the dialog is dismissed on the next UI frame.
 
+### Native execution and output grants
+
+Project code sources borrow CppSourceEditor, SdkBuild and AuthoredComponents; the
+matching public SDK is a read-only API reference. A separate execution grant is
+required for compiler/native inspection/migration, Play and exported-game runs.
+Project C++ and build recipes have the account's OS access; these grants do not
+create an OS sandbox. Protocol open-world hints describe that behavior, never
+replace owner permission checks, and are derived from native workflow metadata.
+
+Play controls retain the existing input release and source/asset readiness policies.
+They require a transient launch UUID as well as the wire session/world generation,
+including the pre-hello interval. Runtime snapshots never replace authored state;
+keeping supported live values uses the existing frozen review and Scene history.
+
+A separate canonical output-folder grant covers the actual image/export tasks.
+Output does not become a project writer. ViewImageTask retains its one IO job,
+preview/sequence lease, native readback and receipts. A bounded detached PNG preview
+is encoded outside the UI frame path and projected as an MCP image block; image
+base64 is removed from text/structured output. Public native method metadata
+declares that result format, rather than a second hand-maintained MCP tool list.
+Only current owned artifacts are readable; no arbitrary image/file read is added.
+
+Raw UI/HLSL source changes use the existing leased source storage and exact disk
+baselines; typed documents and metadata keep their own owners. Logical redirects
+are checked before canonicalization can erase another owner's boundary. Navigation,
+declarations and Flecs recipe previews likewise borrow their existing native tasks.
+No additional world, graph, source history, scene/asset schema or gameplay ABI is
+introduced by these integrations.
+
 ## Compatibility and validation
 
 Existing Authoring API1, live transport1, scene-format3 and the native gameplay
-ABI remain unchanged. The bridge is not linked into exported games. Initial
-coverage is the scene operations listed in discovery; full project-to-export
-game creation is a separate completion gate. Maintain the [coverage table](../mcp.md#coverage-and-remaining-game-making-workflows)
+ABI remain unchanged. The bridge is not linked into exported games. Game-authoring coverage extends from scene discovery through existing project,
+source, native-code, runtime and output owners. A complete workflow exercise and
+platform-specific acceptance remain explicit validation gates. Maintain the [coverage table](../mcp.md#coverage-and-maintaining-parity)
 and update affected bindings, schemas, documentation and checks with engine work.
 
 Actual native process/socket tests must demonstrate supported protocol envelopes,
