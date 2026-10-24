@@ -9,7 +9,7 @@ import sys
 import tempfile
 import time
 
-from mcp_test_client import CAPTURE, Client, failed, write_capture
+from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
 
@@ -25,9 +25,7 @@ def editor(mode='files'):
             assert line, process.stderr.read()
             yield root, process, json.loads(line)
         finally:
-            if process.poll() is None:
-                process.kill()
-            process.communicate(timeout=5)
+            finish_host(process)
 
 
 def native(config, request, sequence=None):

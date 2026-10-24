@@ -1,4 +1,5 @@
 #include "automation.hpp"
+#include "mcp_test_marker.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -19,8 +20,8 @@ int main(int argc, char** argv) {
         forge::EditorFiles files(scene, nullptr, recent);
         files.start(root / "Game");
         files.automation_unavailable = [&](bool switching) {
-            return std::filesystem::exists(root / "block_all") ||
-                           (switching && std::filesystem::exists(root / "source_draft"))
+            return forge::test::marker_present(root / "block_all") ||
+                           (switching && forge::test::marker_present(root / "source_draft"))
                        ? "Test owner has pending work"
                        : "";
         };
@@ -29,17 +30,18 @@ int main(int argc, char** argv) {
         std::cout << workspace.connection().connection().dump() << std::endl;
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(90);
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
-            if (std::filesystem::remove(root / "autosave"))
+            if (forge::test::consume_marker(root / "autosave"))
                 files.document.autosave();
-            if (std::filesystem::remove(root / "ui_new"))
+            if (forge::test::consume_marker(root / "ui_new"))
                 files.document.new_scene();
-            if (std::filesystem::remove(root / "ui_project"))
+            if (forge::test::consume_marker(root / "ui_project"))
                 files.document.open_project(root / "Other");
             files.changed = false; // Main loop consumes the completed scene-switch event.
-            files.external_busy = [&] { return std::filesystem::exists(root / "file_busy"); };
-            files.set_switch_available(!std::filesystem::exists(root / "build_busy"));
-            workspace.pump(files.document,
-                           std::filesystem::exists(root / "gesture") ? "Active test gesture" : "");
+            files.external_busy = [&] { return forge::test::marker_present(root / "file_busy"); };
+            files.set_switch_available(!forge::test::marker_present(root / "build_busy"));
+            workspace.pump(files.document, forge::test::marker_present(root / "gesture")
+                                               ? "Active test gesture"
+                                               : "");
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         return 0;

@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 import wave
-from mcp_test_client import CAPTURE, Client, failed, write_capture
+from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 
 TOOLS, HOST, WORKER = map(str, map(Path, sys.argv[1:4]))
 
@@ -23,9 +23,7 @@ def editor(mode='edit'):
             assert line, process.stderr.read()
             yield root, process, json.loads(line)
         finally:
-            if process.poll() is None:
-                process.kill()
-            process.communicate(timeout=5)
+            finish_host(process)
 
 
 for legacy in (False, True):

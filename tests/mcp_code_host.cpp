@@ -1,5 +1,6 @@
 #include "automation.hpp"
 #include "code_automation.hpp"
+#include "mcp_test_marker.hpp"
 #include <chrono>
 #include <forge/native_sdk_identity.h>
 #include <iostream>
@@ -66,7 +67,7 @@ int main(int argc, char** argv) {
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(240);
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
             files.changed = false;
-            if (argc == 8 && std::filesystem::remove(root / "install-v2"))
+            if (argc == 8 && forge::test::consume_marker(root / "install-v2"))
                 install_probe(argv[7]);
             build.pump(files.document);
             authored.poll(scene, files.document);

@@ -111,8 +111,15 @@ cannot be combined with shader, capture or performance modes, records its limite
 scope and does not replace editor acceptance, the core/SDK matrix or a release gate.
 
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
-source gate must exercise the same acceptance selection before allocating a new
-delivery number. The shared selection includes `mcp_`: native stdio/configuration
+source gate exercises the same acceptance selection before allocating a new
+delivery number. For a repair confined to test fixtures or diagnostic wiring,
+an attributable preceding full run can supply unchanged-case evidence: rebuild
+the affected producers and run the complete affected selection natively before
+allocating again. This avoids repeating unchanged rendering/core work to diagnose
+a fixture fault. The next numbered gate still runs the entire editor selection
+and every required core/SDK/shared/package job; partial diagnostics cannot replace
+that delivery gate. Product changes require a new proof for affected behavior.
+The shared selection includes `mcp_`: native stdio/configuration
 checks and the GPU-independent editor document/MCP process test. These tests are
 built with the default editor targets; project files stay in temporary directories.
 The 941-action native input walkthrough has a 480-second aggregate CTest budget.
@@ -1140,14 +1147,17 @@ C++ project-to-Windows-export execution gate. No new numbered package is implied
 
 For focused Windows fault diagnosis, dispatch `editor-audit.yml` with an immutable
 `source_commit`, `workflow_only:true` and `mcp_only:true`. This reuses the same
-toolchain/configuration cache, rebuilds the actual project/workflow/image owners,
-installs their real game runtime kit, and runs those three MCP tests. Native host
-stderr and shutdown reasons remain visible on failure; private stdout connection
+toolchain/configuration cache, rebuilds all MCP owners selected by the editor
+configuration, installs their real game runtime kit, and runs its full `mcp_`
+selection. Native-SDK-only compiler/inspection cases remain in their separate
+SDK configuration; this diagnostic does not enable a different linkage profile.
+Native host stderr and shutdown reasons remain visible on failure; private stdout connection
 handoffs are never logged. This unnumbered partial audit cannot qualify a delivery.
 Fixture control files tolerate Windows sharing/lock races until their next poll;
 only a completed removal consumes a requested action. A locked-handle probe checks
-that behavior on Windows. These are disposable test signals, separate from the
-production file/lease validation rules.
+that behavior on Windows. All disposable MCP fixture controls use these helpers,
+including document recovery and SDK probe replacement. Production file/lease
+validation rules retain their own ownership and failure behavior.
 
 The editor and MCP editor-owner fixtures use MSVC `/bigobj`: the combined source
 editor adapters exceed the ordinary COFF object-file section limit. This option

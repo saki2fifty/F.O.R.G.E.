@@ -230,7 +230,7 @@ jobs:
       - name: Build native MCP owner diagnostics
         if: inputs.mcp_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_mcp_project_host forge_mcp_workflow_host forge_mcp_image_host forge_live_tests forge_runtime forge_tools forge_ui_inspect forge_game forge_nav_build forge_asset_build_worker --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_mcp_document_host forge_mcp_asset_host forge_mcp_source_host forge_prefab_source_draft_tests forge_mcp_project_host forge_mcp_code_source_tests forge_mcp_workflow_host forge_mcp_image_host forge_mcp_configuration_tests forge_live_tests forge_runtime forge_tools forge_ui_inspect forge_game forge_nav_build forge_asset_build_worker --parallel 2
       - name: Build sheet and waveform capture fixtures
         if: inputs.capture_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -275,7 +275,7 @@ jobs:
       - name: Execute native MCP owner diagnostics
         if: inputs.mcp_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: ctest --test-dir ../AgentFiles/b -R "^(mcp_project_stdio|mcp_workflow_stdio|mcp_image_stdio)$" --output-on-failure
+        run: ctest --test-dir ../AgentFiles/b -R "^mcp_" --output-on-failure
       - name: Execute sheet and waveform capture diagnostics
         if: inputs.capture_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -322,9 +322,8 @@ jobs:
           path: |
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTestsFailed.log
-            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-project-protocol-capture.json.gz
-            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-workflow-protocol-capture.json.gz
-            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-image-protocol-capture.json.gz
+            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-*-protocol-capture.json.gz
+            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-protocol-capture.json
           if-no-files-found: warn
           retention-days: 14
       - name: Build and stage current benchmark executable

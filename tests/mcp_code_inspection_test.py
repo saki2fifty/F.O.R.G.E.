@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from mcp_test_client import CAPTURE, Client, failed
+from mcp_test_client import CAPTURE, Client, failed, finish_host
 
 TOOLS, HOST, SDK, CMAKE, NINJA, GOOD, V2 = sys.argv[1:8]
 
@@ -26,8 +26,7 @@ def editor():
             line=process.stdout.readline(); assert line,process.stderr.read()
             yield root,json.loads(line)
         finally:
-            if process.poll() is None: process.kill()
-            process.communicate(timeout=5)
+            finish_host(process)
 
 
 def until(fn,predicate,timeout=30):

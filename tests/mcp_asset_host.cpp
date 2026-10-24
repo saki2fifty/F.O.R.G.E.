@@ -1,6 +1,7 @@
 #include "asset_automation.hpp"
 #include "automation.hpp"
 #include "import_authoring.hpp"
+#include "mcp_test_marker.hpp"
 #include "texture_authoring.hpp"
 #include <chrono>
 #include <iostream>
@@ -43,7 +44,7 @@ int main(int argc, char** argv) {
         };
         content_files.unavailable = [&](const forge::AssetRecord& asset,
                                         forge::AssetFileAction action) -> std::string {
-            if (files.busy() || std::filesystem::exists(root / "dirty_source"))
+            if (files.busy() || forge::test::marker_present(root / "dirty_source"))
                 return "Finish the active source work";
             if (action == forge::AssetFileAction::Delete && asset.id == scene.asset_id())
                 return "Open another scene before deleting the active source";
@@ -59,7 +60,7 @@ int main(int argc, char** argv) {
             }
         };
         imports.blocked = [&](forge::AssetId) {
-            return std::filesystem::exists(root / "dirty_source");
+            return forge::test::marker_present(root / "dirty_source");
         };
         forge::ui::AutomationWorkspace workspace;
         workspace.workflow_methods = [&](const auto& permissions) {
@@ -76,7 +77,7 @@ int main(int argc, char** argv) {
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(175);
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
             files.changed = false;
-            if (!std::filesystem::exists(root / "pause_placement"))
+            if (!forge::test::marker_present(root / "pause_placement"))
                 placement.poll(scene, files, selection, false, message);
             content_files.poll(files.document, scene, imports, message);
             imports.suspend(content_files.busy() || source.busy());
