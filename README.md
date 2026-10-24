@@ -115,11 +115,14 @@ Read the [FORGE User Manual](manual/README.md) for feature explanations and how-
 
 ## Current implementation
 
-**Development source:** [native MCP authoring tools](manual/editor/mcp.md) connect AI
+**Windows Build 213:** [native MCP authoring tools](manual/editor/mcp.md) connect AI
 clients to the editor's existing project, scene, asset, C++, Play, capture and
 export tools. Separate grants control native execution and output folders.
-Portable integration checks pass; native Windows/client acceptance and packaging
-remain pending. MCP is not included in the current Build208 ZIP.
+The [packaged Windows check](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/40093162001)
+creates a C++ cube project, compiles and plays it, captures the Game view, and
+verifies its saved C++ behavior in the exported game. Automated rendering uses
+D3D12 WARP and offline audio; physical hardware and AI application testing remain
+separate.
 See the [capability checklist and validation limits](docs/mcp.md).
 
 - Flecs scene state, stable authored IDs, independent local translation/rotation/scale, derived world transforms, structured prefabs, reflected properties, atomic scene replacement and saves, undo/redo, and unknown-component preservation.

@@ -1,6 +1,7 @@
 # 2026-10-24 — MCP game-authoring coverage
 
-Development source only. Build208 remains the latest delivered Windows ZIP.
+Delivered in Windows Build 213 (`261024-000213`), including the editor, matching
+C++ SDK, runtime kit and Feature Gallery in one ZIP.
 
 ## Existing editor owners
 
@@ -14,19 +15,25 @@ Development source only. Build208 remains the latest delivered Windows ZIP.
 
 ## Validation scope
 
-Native process/socket fixtures exercise both supported MCP protocols using real
-editor owners, compilers and isolated workers. They cover source history/conflicts,
-reflection/migration, Play/UI/Keep/Undo, navigation, declaration publication and
-export with an authentic Windows runtime kit. Image fixtures use recorded pixels
-and real PNG/task IO; they do not claim GPU rendering. The complete editor source
-also receives a Windows conditional syntax check, with local compiler limitations
-recorded separately in the engineering evidence.
+The [compiled validation jobs](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/40083004201)
+pass all four Linux/Windows core and SDK profiles, shared-runtime relocation,
+formatting and 336/336 editor checks. The focused native MCP owner suite also
+passes 10/10; local SDK/compiler/reflection coverage passes 13/13.
 
-Native Windows build/client, GPU capture and complete C++-to-export game execution
-remain delivery acceptance gates. No Windows package or physical acceptance is
-claimed by this local batch. Existing scene, asset, document and project owner
-coverage remains described in the previous day's entry and the MCP coverage table.
+The [final packaged gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/40093162001)
+passes actual editor SDK onboarding and MCP project/material/C++ creation,
+compilation, inspection, Play/Step/live tuning/Keep/Undo, rendered PNG delivery,
+export and execution. Nineteen changing rotation samples prove the saved
+negative spin speed runs in the exported executable; startup/frame-statistics
+verification completes successfully. The paused Game PNG was visually reviewed.
+The complete native MCP scenario passes the exact official 2026-07-28 schemas;
+separate native owner cases also exercise 2025-11-25.
 
+Rendering uses D3D12 WARP software rendering and offline audio. Physical Windows
+hardware and a third-party AI application's setup remain separate acceptance.
+Existing scene, asset, document and project coverage appears in the previous
+day's entry and the MCP coverage table. No dependency, gameplay ABI or persistence
+format changes are introduced by this batch.
 
 ## Packaged native acceptance gate
 

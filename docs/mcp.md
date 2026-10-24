@@ -499,3 +499,23 @@ steps/tunes/keeps values with Undo/Redo, captures a rendered Game image as MCP P
 content, then exports and verifies the authored C++ running in the shipped game.
 This is a native acceptance scenario, separate from recorded-pixel fixtures and
 physical/user testing; inspect its result/captures before claiming that gate passed.
+
+### Build 213 acceptance
+
+Build 213 (`261024-000213`) passes the [compiled validation jobs](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/40083004201)
+at source `8200738a7055decfafae14b0705c1406cb8ef20f`: all four core/SDK profiles,
+shared-runtime relocation, formatting and 336/336 native editor checks. The
+[final package gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/40093162001)
+reuses those exact compiled binaries and passes both packaged SDK and MCP scenarios.
+The intervening change corrects only the Python test's SDK lookup to the existing
+combined-package layout; it does not relabel engine binaries or change the SDK.
+
+The native MCP capture validates against the pinned official 2026-07-28 schema,
+including 199 advertised tool schemas and 273 successful tool argument sets.
+Separate native owner captures validate both supported protocols. The test's
+exported game reports 19 finite changing values of its rotation quaternion's Y
+component at saved speed -180, both startup/frame-statistics verification messages
+and exit 0. Its paused Game
+PNG was inspected; full and preview images are identical 867×456 PNGs. This
+establishes automated Windows/D3D12 WARP and offline-audio execution. Physical
+hardware/audio and a particular AI application's connection remain user testing.

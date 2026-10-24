@@ -4,9 +4,8 @@ FORGE lets a trusted AI agent develop a game through your open editor's existing
 authoring tools. Scene changes share normal Undo; source documents, files, builds,
 Play and export keep their own normal ownership and results.
 
-This guide describes the tools in this source version. Build208 predates MCP
-support; use a newer package whose release notes include it. Automated acceptance
-results and testing on your own Windows hardware are separate.
+Windows Build 213 includes this workflow. Automated acceptance results and testing
+with your AI application and Windows hardware are separate.
 
 ## Connect
 
