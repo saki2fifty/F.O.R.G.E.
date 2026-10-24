@@ -1,4 +1,14 @@
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
 #include "automation.hpp"
+#include "mcp_test_marker.hpp"
 #include "project_automation.hpp"
 #include <chrono>
 #include <iostream>
@@ -9,6 +19,19 @@ int main(int argc, char** argv) {
         if (argc != 3)
             return 2;
         const auto root = std::filesystem::u8path(argv[1]);
+#ifdef _WIN32
+        const auto marker = root / "marker-sharing-probe";
+        const auto handle = CreateFileW(marker.c_str(), GENERIC_READ | GENERIC_WRITE,
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, CREATE_ALWAYS,
+                                        FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (handle == INVALID_HANDLE_VALUE)
+            throw std::runtime_error("Cannot create the native marker-sharing probe");
+        const bool consumed = forge::test::consume_marker(marker);
+        const bool present = forge::test::marker_present(marker);
+        CloseHandle(handle);
+        if (consumed || !present || !forge::test::consume_marker(marker))
+            throw std::runtime_error("A held fixture marker was consumed or lost");
+#endif
         const auto mode = std::string(argv[2]);
         const bool gui_recovery = mode == "recovery";
         forge::SceneDocument::create_project(root / "Initial", "Initial project");
@@ -36,8 +59,8 @@ int main(int argc, char** argv) {
         forge::ProjectSettingsEditor settings;
         files.automation_unavailable = [&](bool switching) {
             return (switching &&
-                    (settings.dirty() || std::filesystem::exists(root / "source_draft"))) ||
-                           std::filesystem::exists(root / "owner_busy")
+                    (settings.dirty() || forge::test::marker_present(root / "source_draft"))) ||
+                           forge::test::marker_present(root / "owner_busy")
                        ? "Settle pending project work"
                        : "";
         };
@@ -61,25 +84,25 @@ int main(int argc, char** argv) {
             if (gui_recovery) {
                 ImGui::NewFrame();
                 files.draw_dialogs();
-                if (std::filesystem::exists(root / "other_popup"))
+                if (forge::test::marker_present(root / "other_popup"))
                     ImGui::OpenPopup("Unrelated project fixture dialog");
                 if (ImGui::BeginPopupModal("Unrelated project fixture dialog", nullptr,
                                            ImGuiWindowFlags_AlwaysAutoResize)) {
                     ImGui::TextUnformatted("Another owner is active");
-                    if (!std::filesystem::exists(root / "other_popup"))
+                    if (!forge::test::marker_present(root / "other_popup"))
                         ImGui::CloseCurrentPopup();
                     ImGui::EndPopup();
                 }
             }
             files.changed = false;
-            if (std::filesystem::remove(root / "autosave"))
+            if (forge::test::consume_marker(root / "autosave"))
                 files.document.autosave();
-            if (std::filesystem::remove(root / "ui_outside"))
+            if (forge::test::consume_marker(root / "ui_outside"))
                 files.document.open_project(root / "Outside");
-            if (std::filesystem::remove(root / "ui_inside"))
+            if (forge::test::consume_marker(root / "ui_inside"))
                 files.document.open_project(root / "Projects/AgentGame");
             workspace.pump(files.document,
-                           std::filesystem::exists(root / "gesture") ||
+                           forge::test::marker_present(root / "gesture") ||
                                    (gui_recovery &&
                                     ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId |
                                                                     ImGuiPopupFlags_AnyPopupLevel))

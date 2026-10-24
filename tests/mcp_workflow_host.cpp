@@ -3,6 +3,7 @@
 #include "dependency_automation.hpp"
 #include "export_automation.hpp"
 #include "game_input.hpp"
+#include "mcp_test_marker.hpp"
 #include "navigation_automation.hpp"
 #include "play_automation.hpp"
 #include "project_automation.hpp"
@@ -84,7 +85,7 @@ int main(int argc, char** argv) {
                 play.start(forge::path_utf8(runtime), scene.snapshot());
             };
             controls.control_unavailable = [&] {
-                return std::filesystem::exists(root / "gesture") ? "User gesture" : "";
+                return forge::test::marker_present(root / "gesture") ? "User gesture" : "";
             };
             controls.control = [&](const std::string& action) {
                 if (!input.release_checked(play))

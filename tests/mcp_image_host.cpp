@@ -1,5 +1,6 @@
 #include "automation.hpp"
 #include "capture_automation.hpp"
+#include "mcp_test_marker.hpp"
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -60,7 +61,7 @@ struct RecordingFrames final : forge::ui::SequenceFrameSource {
         if (value == token) {
             active = false;
             cursor = saved;
-            if (std::filesystem::exists(root.parent_path() / "fail_restore"))
+            if (forge::test::marker_present(root.parent_path() / "fail_restore"))
                 throw std::runtime_error("Deliberate recording-source restore failure");
         }
     }
@@ -107,7 +108,7 @@ int main(int argc, char** argv) {
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
             files.changed = false;
             images.poll_files(message);
-            if (!std::filesystem::exists(root / "hold_pixels"))
+            if (!forge::test::marker_present(root / "hold_pixels"))
                 forge::test::ViewImageTaskAccess::deliver_test_pixels(images, message);
             workspace.pump(files.document, "");
             std::this_thread::sleep_for(std::chrono::milliseconds(1));

@@ -1144,6 +1144,10 @@ toolchain/configuration cache, rebuilds the actual project/workflow/image owners
 installs their real game runtime kit, and runs those three MCP tests. Native host
 stderr and shutdown reasons remain visible on failure; private stdout connection
 handoffs are never logged. This unnumbered partial audit cannot qualify a delivery.
+Fixture control files tolerate Windows sharing/lock races until their next poll;
+only a completed removal consumes a requested action. A locked-handle probe checks
+that behavior on Windows. These are disposable test signals, separate from the
+production file/lease validation rules.
 
 The editor and MCP editor-owner fixtures use MSVC `/bigobj`: the combined source
 editor adapters exceed the ordinary COFF object-file section limit. This option

@@ -230,7 +230,7 @@ jobs:
       - name: Build native MCP owner diagnostics
         if: inputs.mcp_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
-        run: cmake --build ../AgentFiles/b --target forge_mcp_project_host forge_mcp_workflow_host forge_mcp_image_host forge_live_tests forge_runtime forge_tools forge_game forge_nav_build forge_asset_build_worker --parallel 2
+        run: cmake --build ../AgentFiles/b --target forge_mcp_project_host forge_mcp_workflow_host forge_mcp_image_host forge_live_tests forge_runtime forge_tools forge_ui_inspect forge_game forge_nav_build forge_asset_build_worker --parallel 2
       - name: Build sheet and waveform capture fixtures
         if: inputs.capture_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
