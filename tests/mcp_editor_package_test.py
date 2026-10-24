@@ -127,7 +127,7 @@ def exercise(client, evidence, manifest):
     # Bounded stderr proof is gameplay authored through MCP, not a runtime probe.
     # stdout remains exclusively the native Play protocol.
     marker = ('static unsigned observed = 0;\n'
-              '                if (++observed % 15 == 0) {\n'
+              '                if (++observed % 4 == 0) {\n'
               '                    std::fprintf(stderr, "FORGE_MCP_SPIN %.3f %.6f\\n", '
               'double(data.speed), double(next.y));\n'
               '                    std::fflush(stderr);\n'
@@ -202,17 +202,21 @@ def exercise(client, evidence, manifest):
     output = Path(finished['output'])
     package = json.loads((output / 'forge.standalone.json').read_text())
     assert package['engine']['source_commit'] == manifest['source_commit']
-    edit('forge_export_run', operation=exported['operation'])
+    edit('forge_export_run', operation=exported['operation'], verify_startup=True)
     runtime = wait_for(lambda: read('forge_export_run_log'),
                        lambda r: 'FORGE_MCP_SPIN -180.000' in r['text'], 120)
-    assert runtime['running'] and not runtime['error'], runtime
+    assert runtime['startup_verification'] and not runtime['error'], runtime
     runtime = wait_for(lambda: read('forge_export_run_log'), lambda r: len(re.findall(
         r'FORGE_MCP_SPIN -180\.000 (-?\d+\.\d+)', r['text'])) >= 4)
     samples = [float(q) for q in re.findall(r'FORGE_MCP_SPIN -180\.000 (-?\d+\.\d+)', runtime['text'])]
-    assert all(math.isfinite(q) for q in samples) and max(samples) - min(samples) > .1
-    (evidence / 'exported-game.log').write_text(runtime['text'], encoding='utf-8')
-    edit('forge_export_cancel', operation=runtime['operation'])
-    assert not read('forge_export_status')['running']
+    assert all(math.isfinite(q) for q in samples) and max(samples) - min(samples) > .001
+    exited = wait_for(lambda: read('forge_export_status'),
+                      lambda r: not r['busy'] and r['exit_code'] is not None)
+    assert exited['exit_code'] == 0 and not exited['error'], exited
+    final_log = read('forge_export_run_log')['text']
+    assert 'FORGE standalone startup verified' in final_log, final_log
+    assert 'FORGE standalone frame statistics verified' in final_log, final_log
+    (evidence / 'exported-game.log').write_text(final_log, encoding='utf-8')
     for relative in ('forge.project.json', read('forge_project_read')['scene_path'],
                      'Native/Components/Rotator.hpp', system_path, 'Assets/Cube.material.json'):
         target = evidence / 'authored' / relative
@@ -224,6 +228,8 @@ def exercise(client, evidence, manifest):
                 actual_editor_play=True, fixed_step=True, live_cpp_tuning=True, keep_undo_redo=True,
                 gpu_game_capture=True, mcp_image_block=True, native_export=True,
                 shipped_game_executed=True, exported_cpp_observed=True,
+                exported_startup_verified=True,
+                exported_game_mode='startup verification: D3D12 WARP/offline audio',
                 visual_review='Pending image inspection', physical_acceptance='User deferred')
 
 

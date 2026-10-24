@@ -385,6 +385,15 @@ manifest/files and supervises that Windows executable, with no arbitrary path,
 arguments or shell input. Poll status and timestamped `export_run_log`; cancel
 stops its process. Native code retains the account's OS access.
 
+The optional Boolean `verify_startup:true` selects the game's existing finite
+startup diagnostic (`--verify-startup --show-fps`). It renders with D3D12 WARP,
+uses offline audio, verifies startup and frame statistics, and exits. The same
+supervisor reports the exit code and timestamped output; `startup_verification`
+identifies the requested mode. This checks the real shipped executable on a
+headless Windows worker, without establishing physical GPU/audio acceptance.
+Omitting the option keeps normal game launch. No caller-supplied CLI arguments
+are accepted.
+
 ## Coverage and maintaining parity
 
 These workflows are implemented in **development source**, not the current

@@ -11,6 +11,7 @@
 #include "ui_probe.hpp"
 #include <future>
 #include <optional>
+#include <vector>
 namespace forge {
 struct ExportAutomation;
 }
@@ -38,7 +39,7 @@ class GameExportTask {
     std::filesystem::path project_;
     Json result_;
     BuildCommand game_;
-    bool preparing_run_ = false, running_ = false;
+    bool preparing_run_ = false, running_ = false, startup_verification_ = false;
     std::optional<int> exit_code_;
     TimedTextLog run_log_;
 
@@ -92,6 +93,7 @@ class GameExportTask {
         stop_ = std::stop_source{};
         pending_ = true;
         preparing_run_ = false;
+        startup_verification_ = false;
         error_.clear();
         output_.clear();
         result_ = Json();
@@ -101,7 +103,7 @@ class GameExportTask {
             progress_->value = {};
         }
     }
-    void run(SceneDocument& document) {
+    void run(SceneDocument& document, bool verify_startup = false) {
         document.check_ownership();
         if (busy() || document.project() != project_ || output_.empty() || result_.is_null())
             throw std::runtime_error("Export this project successfully before testing its game");
@@ -125,6 +127,7 @@ class GameExportTask {
         writer_ = std::move(writer);
         operation_ = AssetId::generate().str();
         preparing_run_ = true;
+        startup_verification_ = verify_startup;
         exit_code_.reset();
         run_log_.clear();
         error_.clear();
@@ -214,8 +217,14 @@ class GameExportTask {
                     writer_->check();
                     if (stop_.stop_requested())
                         throw std::runtime_error("Game test cancelled");
-                    game_.start({result.at("executable").get<std::string>()}, nullptr,
-                                std::filesystem::u8path(output_), 0);
+                    std::vector<std::string> arguments{result.at("executable").get<std::string>()};
+                    if (startup_verification_) {
+                        // Existing finite graphical diagnostic: actual shipped game,
+                        // WARP/offline audio and measured presentation statistics.
+                        arguments.emplace_back("--verify-startup");
+                        arguments.emplace_back("--show-fps");
+                    }
+                    game_.start(arguments, nullptr, std::filesystem::u8path(output_), 0);
                     running_ = true;
                 } else {
                     output_ = result.at("destination");

@@ -1151,6 +1151,10 @@ creates a new project and material, creates/builds/inspects a C++ component/syst
 attaches authored values, runs real SDK Play, steps and tunes the C++ component,
 captures the actual Game render/readback as PNG plus MCP image content, keeps
 values with Undo/Redo, and exports/runs the shipped graphical executable.
+The exported run explicitly selects the existing finite startup-verification
+mode through MCP: D3D12 WARP/offline audio, measured frame statistics and exit code 0.
+It requires both verification messages and changing C++ rotation samples; it does
+not treat a process launch or an audio/GPU initialization failure as acceptance.
 Bounded stderr markers in the MCP-authored C++ prove that the saved speed and
 changing rotation execute in the exported game. They do not use the Play stdout
 protocol pipe, a substitute runtime, or a test-only game executable.

@@ -32,6 +32,7 @@ struct ExportAutomation {
                 {"error", task.error_},
                 {"cancel_requested", task.stop_.stop_requested()},
                 {"running", task.running_},
+                {"startup_verification", task.startup_verification_},
                 {"exit_code", task.exit_code_ ? Json(*task.exit_code_) : Json()}};
     }
     static std::vector<LiveAuthoringMethod> methods(EditorFiles& files, ui::GameExportTask& task,
@@ -116,10 +117,14 @@ struct ExportAutomation {
                 "Verify and launch this task's completed Windows game using the "
                 "existing process supervisor. Native execution has the account's OS "
                 "access. No arbitrary path, arguments or shell command is accepted. "
+                "Set verify_startup:true for the existing finite D3D12 WARP/offline-audio "
+                "diagnostic, which exits after verifying startup and frame statistics. "
                 "Poll status/log or stop with export.cancel.",
                 "export.execute",
-                automation_object({{"operation", automation_uuid()}}, {"operation"}), true,
-                [&files, &task, providers, root](const Json& request) {
+                automation_object(
+                    {{"operation", automation_uuid()}, {"verify_startup", {{"type", "boolean"}}}},
+                    {"operation"}),
+                true, [&files, &task, providers, root](const Json& request) {
                     files.document.check_ownership();
                     if (providers.unavailable) {
                         const auto reason = providers.unavailable();
@@ -134,7 +139,7 @@ struct ExportAutomation {
                     if (output.root() != root || task.output_.empty())
                         throw AuthoringError("invalid_path", "The granted output is unavailable");
                     (void)output.relative(std::filesystem::u8path(task.output_));
-                    task.run(files.document);
+                    task.run(files.document, request.value("verify_startup", false));
                     return state(task, files);
                 }));
         for (auto& method : result)

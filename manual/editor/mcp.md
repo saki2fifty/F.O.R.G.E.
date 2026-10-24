@@ -159,6 +159,12 @@ With execution allowed, the agent can run this task's verified completed Windows
 game and inspect its process/log or stop it. Managed deployment kits and exported
 graphical games currently target Windows. FORGE does not substitute a portable kit.
 
+For a headless Windows check, the agent can request `verify_startup:true` when
+running the export. This uses the real game's finite startup diagnostic with
+software D3D12 rendering and offline audio, then reports its exit code and log.
+Normal launch uses your graphics and audio devices. A diagnostic pass does not
+replace testing the game on your computer.
+
 A useful request is: **Use FORGE's discovered schemas to create a cube game, add
 project code with Inspector-adjustable speed, save/build/inspect it, test it in
 Play, capture a view image, then export into the granted output folder. Report the

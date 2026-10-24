@@ -236,6 +236,12 @@ for legacy in (False, True):
         selected_kit=json.loads((Path(KIT)/'forge.runtime-kit.json').read_text())
         assert manifest['engine'] == selected_kit['engine']  # Keep the authentic selected kit identity.
         assert (output / 'forge_game.exe').is_file()
+        if os.name != 'nt':
+            unsupported = mutate('forge_export_run', operation=export['operation'],
+                                 verify_startup=True)
+            assert not unsupported['ok'] and 'Windows / D3D12' in unsupported['error']['message']
+            preserved = read('forge_export_status')
+            assert not preserved['busy'] and preserved['operation'] == export['operation']
         failed(mutate('forge_export_start', path='Game'), 'output_exists')
         (root / 'Output/Unrelated').mkdir()
         (root / 'Output/Unrelated/user.txt').write_text('Preserve me')
