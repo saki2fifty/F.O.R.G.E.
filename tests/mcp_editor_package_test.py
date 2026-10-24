@@ -39,6 +39,16 @@ def terminate_tree(process):
         process.wait(timeout=15)
 
 
+def package_sdk(root, manifest):
+    # The combined-package contract uses the fixed NativeSdk directory. Its
+    # manifest hashes files; it does not contain a native_sdk.path descriptor.
+    for relative in ('NativeSdk/bin/forge_runtime.exe',
+                     'NativeSdk/sdk/ForgeNativeSdkConfig.cmake'):
+        assert relative in manifest['files'], ('Missing packaged SDK file', relative)
+        assert (root / relative).is_file(), ('Missing extracted SDK file', relative)
+    return root / 'NativeSdk'
+
+
 def exercise(client, evidence, manifest):
     def discover():
         response = client.tool('forge_discover')
@@ -256,7 +266,7 @@ def main():
         fixture = root / 'bin/forge_editor_mcp_fixture.exe'
         shutil.copy2(args.fixture, fixture)
         tools = root / 'bin/forge_tools.exe'
-        sdk = root / manifest['native_sdk']['path']
+        sdk = package_sdk(root, manifest)
         connection = scratch / 'private-connection.json'
         output = scratch / 'fixture'
         process = None
