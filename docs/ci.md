@@ -1134,3 +1134,31 @@ configured build. Existing authoring/live, UI presenter and PNG checks remain
 relevant when their shared owners change. Portable success does not replace
 native Windows editor/client execution, actual GPU capture or a complete compiled
 C++ project-to-Windows-export execution gate. No new numbered package is implied.
+
+
+### Packaged native MCP game acceptance
+
+The final ZIP gate also runs `tests/mcp_editor_package_test.py` with the separate
+editor fixture EXE beside the extracted shipped editor. `--mcp-authoring` is
+compiled only into that test fixture, never the production editor. Its explicit
+project/code/execution/output grants borrow the ordinary editor frame pump and
+owners. A private connection file outside project/preferences/evidence carries
+the temporary token; the supervisor deletes it and checks retained text/protocol
+captures for credential leaks.
+
+The client uses the shipped `forge_tools --mcp-stdio`, SDK and runtime kits. It
+creates a new project and material, creates/builds/inspects a C++ component/system,
+attaches authored values, runs real SDK Play, steps and tunes the C++ component,
+captures the actual Game render/readback as PNG plus MCP image content, keeps
+values with Undo/Redo, and exports/runs the shipped graphical executable.
+Bounded stderr markers in the MCP-authored C++ prove that the saved speed and
+changing rotation execute in the exported game. They do not use the Play stdout
+protocol pipe, a substitute runtime, or a test-only game executable.
+
+The package upload is gated on this result, with `acceptance.json`, compiler and
+runtime logs, captured PNGs, authored source copies and the credential-free MCP
+capture retained under `FORGE-Editor-SDK-Acceptance/mcp`. Native rendering and
+execution still require image review; they do not establish physical GPU/audio
+or a third-party AI application's UI acceptance. The fixture has a15-minute whole
+bound; individual tools/jobs retain existing deadlines. The package job includes
+that added bounded headroom without weakening other acceptance checks.

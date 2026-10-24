@@ -423,7 +423,7 @@ int main(int argc, char** argv) {
         // instead of the legacy fallback search path. Done here
         // (after exact_sdk_root exists) rather than at fixture
         // construction.
-        if (fixture.sdk_play || fixture.sdk_onboarding) {
+        if (fixture.sdk_play || fixture.sdk_onboarding || fixture.mcp_authoring) {
             const auto sdk_root_u8 = fixture.sdk_root.u8string();
             const std::string sdk_root_str(sdk_root_u8.begin(), sdk_root_u8.end());
             SDL_strlcpy(exact_sdk_root, sdk_root_str.c_str(), sizeof(exact_sdk_root));
@@ -2050,7 +2050,8 @@ int main(int argc, char** argv) {
 #ifdef FORGE_UI_FIXTURE
         // Only the legacy capture starting at stage0 owns this synthetic scene.
         // Targeted Gallery/SDK modes drive their supplied authored projects.
-        if (!fixture.workflow && !fixture.sdk_play && fixture.stage == 0) {
+        if (!fixture.workflow && !fixture.sdk_play && !fixture.mcp_authoring &&
+            fixture.stage == 0) {
             editor.selection.select_entity(
                 forge::authoring_command(scene, "entity.create", {{"name", "Fixture cube"}})
                     .at("selected"));
@@ -2236,7 +2237,7 @@ int main(int argc, char** argv) {
             // touches the real user's saves. Normal
             // production callers leave the default
             // (game_user_data_base()).
-            if (fixture.sdk_play || fixture.view_images) {
+            if (fixture.sdk_play || fixture.view_images || fixture.mcp_authoring) {
                 play.set_user_data_override(fixture.user_data);
             }
             // Native UI fixtures run on headless WARP workers without an
@@ -2449,6 +2450,16 @@ int main(int argc, char** argv) {
             return methods;
         };
 #ifdef FORGE_UI_FIXTURE
+        if (fixture.mcp_authoring) {
+            forge::ui::AutomationPermissions permissions;
+            permissions.assets = permissions.code = permissions.execute = permissions.export_game =
+                true;
+            permissions.workspace_root = fixture.output / "Projects";
+            permissions.export_root = fixture.output / "Output";
+            std::filesystem::create_directories(permissions.workspace_root);
+            std::filesystem::create_directories(permissions.export_root);
+            automation.start(scene, files, true, true, std::move(permissions));
+        }
         forge::test::fixture_breadcrumb("before-main-loop");
 #endif
         while (running) {
@@ -2812,7 +2823,7 @@ int main(int argc, char** argv) {
             // SDK Play: skip the legacy EditorInputWorkflow and the
             // staged-capture ImGui path entirely. The editor renders
             // the same frame the SDK acceptance is reading.
-            if (fixture.sdk_play) {
+            if (fixture.sdk_play || fixture.mcp_authoring) {
                 const auto _t0 = SDL_GetTicks();
                 gui->NewFrame(width, height, swap->GetDesc().PreTransform);
                 play.sdk_diag_slow("gui.NewFrame", SDL_GetTicks() - _t0);
@@ -3194,6 +3205,16 @@ int main(int argc, char** argv) {
             editor_shortcuts.apply(actions);
             commands.actions = &actions;
 #ifdef FORGE_UI_FIXTURE
+            if (fixture.mcp_authoring) {
+                if (SDL_GetTicks() - fixture.started > 900000)
+                    throw std::runtime_error(
+                        "MCP native editor acceptance exceeded fifteen minutes");
+                if (std::filesystem::exists(fixture.output / "mcp-complete")) {
+                    game_input.release(play);
+                    play.stop();
+                    running = false;
+                }
+            }
             // Legacy staged-capture timeout; bypass for SDK mode (the
             // dedicated EditorSdkWorkflow tracks its own deadline).
             // Initial Play also starts the process and requests live playback status.
@@ -3222,7 +3243,7 @@ int main(int argc, char** argv) {
                 }
             }
             if ((!fixture.workflow || (fixture.sprite_frames && !fixture.prepared)) &&
-                !fixture.sdk_play && !fixture.sequence_frames &&
+                !fixture.sdk_play && !fixture.mcp_authoring && !fixture.sequence_frames &&
                 // The expanded capture suite exceeds four minutes under WARP.
                 // Keep a separate per-stage deadline to catch actual stalls.
                 (SDL_GetTicks() - fixture.started > 600000 ||
@@ -3347,8 +3368,8 @@ int main(int argc, char** argv) {
                     fixture.prepared = true;
                 }
             }
-            if (!fixture.workflow && !fixture.sdk_play && !fixture.sequence_frames &&
-                !fixture.prepared) {
+            if (!fixture.workflow && !fixture.sdk_play && !fixture.mcp_authoring &&
+                !fixture.sequence_frames && !fixture.prepared) {
                 bool ready = true;
                 switch (fixture.stage) {
                 case 0:
@@ -5191,7 +5212,7 @@ int main(int argc, char** argv) {
             // Fixture windows must respect the scaled toolbar/status work area.
             // Fixed pixel positions from the 100% stage hide their title at 200%.
             // Skipped for --sdk-play; the SDK workflow owns window focus.
-            if (!fixture.sdk_play) {
+            if (!fixture.sdk_play && !fixture.mcp_authoring) {
                 if (const auto* target = fixture.focused_document())
                     forge::test::fit_capture_window(target, forge::ui::interface_scale);
             }
@@ -6855,7 +6876,7 @@ int main(int argc, char** argv) {
             if (rebuilt_workspace)
                 ImGui::SetWindowFocus("Content");
 #ifdef FORGE_UI_FIXTURE
-            if (!fixture.sdk_play) {
+            if (!fixture.sdk_play && !fixture.mcp_authoring) {
                 if (const auto* target = fixture.focused_document())
                     if (fixture.stage < 56 || (fixture.stage >= 59 && fixture.stage <= 66) ||
                         (fixture.stage >= 73 && fixture.stage < 82) ||
@@ -6889,6 +6910,9 @@ int main(int argc, char** argv) {
                 gui->Render(context);
             }
 #ifdef FORGE_UI_FIXTURE
+            if (fixture.mcp_authoring && ++fixture.mcp_frames == 3)
+                forge::atomic_write(fixture.mcp_connection,
+                                    automation.connection().connection().dump());
             // SDK Play: drain the bounded queue of capture requests
             // queued by sdk_workflow's set_capture / set_failure_capture
             // callbacks. We use the CURRENT backbuffer for this frame
@@ -7138,7 +7162,7 @@ int main(int argc, char** argv) {
                         });
                 if (input_workflow.done())
                     running = false;
-            } else if (!fixture.sdk_play) {
+            } else if (!fixture.sdk_play && !fixture.mcp_authoring) {
                 ++fixture.frames;
                 bool captured_document_visible = true;
                 if (const auto* target = fixture.focused_document()) {

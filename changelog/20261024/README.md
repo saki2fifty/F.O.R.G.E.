@@ -26,3 +26,11 @@ Native Windows build/client, GPU capture and complete C++-to-export game executi
 remain delivery acceptance gates. No Windows package or physical acceptance is
 claimed by this local batch. Existing scene, asset, document and project owner
 coverage remains described in the previous day's entry and the MCP coverage table.
+
+
+## Packaged native acceptance gate
+
+- Added a test-only native editor mode with explicit scoped grants and an ephemeral private connection handoff; the shipped editor continues to require manual opt-in.
+- Added final-package MCP acceptance for new project/material/C++ creation, actual compilation/inspection, Play/Step/live C++ tuning/Keep/Undo, real Game PNG/image content and export/run.
+- The MCP-authored C++ writes bounded stderr markers proving saved values and changing rotation in the shipped exported executable. Compiler/runtime logs, authored files and images are retained without credentials.
+- Wired this scenario into the existing final ZIP gate. Execution and image-review results remain separate from the test's implementation and physical acceptance.

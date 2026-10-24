@@ -40,14 +40,14 @@ def test_symlink(path, target, directory=False):
 
 
 class Client:
-    def __init__(self, config, legacy=False):
+    def __init__(self, config, legacy=False, tools=None):
         self.legacy = legacy
         self.session = len(CAPTURE)
         self.next_id = 0
         self.responses = queue.Queue()
         self.stderr = []
         self.process = subprocess.Popen(
-            [TOOLS, '--mcp-stdio'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            [str(tools) if tools else TOOLS, '--mcp-stdio'], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, text=True, encoding='utf-8',
             env=dict(os.environ, FORGE_AUTOMATION_CONNECTION=json.dumps(config)))
 

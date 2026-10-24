@@ -33,6 +33,9 @@ struct EditorFixture {
          audio_cones = false, audio_mixer = false, audio_preview = false, root_motion = false;
     bool scene_create = false, hierarchy_create = false, shortcut_reopen = false,
          audio_cues = false, view_images = false, sequence_frames = false, sprite_frames = false;
+    bool mcp_authoring = false;
+    unsigned mcp_frames = 0;
+    std::filesystem::path mcp_connection;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> view_image_target;
     ViewImageReference view_image_background;
     Json view_image_report;
@@ -60,6 +63,13 @@ struct EditorFixture {
     std::filesystem::path sdk_root, user_data;
     std::string joint_entity;
     explicit EditorFixture(int argc, char** argv) {
+        // Test-only explicit grants. The secret handoff is outside the project,
+        // preferences and retained evidence; the Python supervisor removes it.
+        mcp_authoring = argc == 5 && std::string(argv[2]) == "--mcp-authoring";
+        if (mcp_authoring) {
+            sdk_root = std::filesystem::absolute(std::filesystem::u8path(argv[3]));
+            mcp_connection = std::filesystem::absolute(std::filesystem::u8path(argv[4]));
+        }
         sprite_frames = argc == 4 && std::string(argv[2]) == "--sprite-frames";
         sequence_frames = argc == 4 && std::string(argv[2]) == "--sequence-frames";
         if (sequence_frames)
@@ -95,13 +105,13 @@ struct EditorFixture {
         physics = argc == 4 && std::string(argv[2]) == "--physics";
         // --sdk-play needs EXE OUTPUT --sdk-play PROJECT SDK USERDATA: 6 args.
         sdk_play = argc == 6 && std::string(argv[2]) == "--sdk-play";
-        if (!physics && !sdk_play && !sdk_onboarding && !animation_exits && !audio_falloff &&
-            !audio_cones && !audio_mixer && !audio_preview && !root_motion && !shortcut_reopen &&
-            !audio_cues && !view_images && !sequence_frames && !sprite_frames && argc != 2 &&
-            (argc != 3 || std::string(argv[2]) != "--workflow"))
+        if (!mcp_authoring && !physics && !sdk_play && !sdk_onboarding && !animation_exits &&
+            !audio_falloff && !audio_cones && !audio_mixer && !audio_preview && !root_motion &&
+            !shortcut_reopen && !audio_cues && !view_images && !sequence_frames && !sprite_frames &&
+            argc != 2 && (argc != 3 || std::string(argv[2]) != "--workflow"))
             throw std::runtime_error(
                 "Expected fixture output directory [--workflow | --physics PROJECT | "
-                "--sdk-play PROJECT SDK USERDATA]");
+                "--sdk-play PROJECT SDK USERDATA | --mcp-authoring SDK PRIVATE_CONNECTION]");
         workflow = argc == 3 || physics || sdk_onboarding || shortcut_reopen || sprite_frames;
         output = std::filesystem::absolute(argv[1]);
         std::filesystem::create_directories(output);
@@ -128,7 +138,7 @@ struct EditorFixture {
                 SceneDocument::create_project(project, "UX fixture");
         }
         std::filesystem::create_directories(config);
-        if (view_images) {
+        if (view_images || mcp_authoring) {
             user_data = output / ".image-user-data";
             std::filesystem::create_directories(user_data);
         }
@@ -136,6 +146,8 @@ struct EditorFixture {
     ~EditorFixture() {
         active_wait_probe = nullptr;
         std::error_code ec;
+        if (mcp_authoring)
+            std::filesystem::remove(mcp_connection, ec);
         if (workflow && !shortcut_reopen) {
             // Retain only private preference bytes for a real fresh-process check.
             const auto retained = output / "shortcut-preferences";
@@ -148,7 +160,7 @@ struct EditorFixture {
             !audio_mixer && !audio_preview && !root_motion && !audio_cues && !view_images &&
             !sequence_frames && !sprite_frames)
             std::filesystem::remove_all(project, ec);
-        if (sdk_play || view_images)
+        if (sdk_play || view_images || mcp_authoring)
             std::filesystem::remove_all(user_data, ec);
     }
     void freeze_authored_sources() {

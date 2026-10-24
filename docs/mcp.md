@@ -480,3 +480,13 @@ recording frame source. It checks owner/path/operation guards, cancellation and
 frame restoration without creating a GPU device. Actual renderer/readback,
 Timeline playback and Windows MCP client acceptance require the native gate.
 These fixtures do not claim physical display, audio or GPU acceptance.
+
+
+The final assembled-package gate adds `mcp_editor_package_test.py`, using the actual
+D3D12/WARP editor fixture and shipped tools/SDK/runtime. A test-only explicit grant
+handoff is private and removed, never retained in project/preferences/evidence.
+The client authors a material and C++ cube, builds/inspects it, drives actual Play,
+steps/tunes/keeps values with Undo/Redo, captures a rendered Game image as MCP PNG
+content, then exports and verifies the authored C++ running in the shipped game.
+This is a native acceptance scenario, separate from recorded-pixel fixtures and
+physical/user testing; inspect its result/captures before claiming that gate passed.

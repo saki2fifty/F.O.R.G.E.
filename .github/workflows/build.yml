@@ -388,9 +388,9 @@ jobs:
     needs: [core, editor, format, shared-game]
     if: always() && github.event_name == 'workflow_dispatch' && inputs.windows_package && inputs.audit_source == '' && (inputs.package_source_run != '' || (needs.core.result == 'success' && needs.editor.result == 'success' && needs.format.result == 'success' && needs.shared-game.result == 'success')) && !inputs.hlsl_profile
     runs-on: windows-2022
-    # Assembly plus the separate 600s SDK onboarding watchdog needs a full
-    # acceptance allowance; a 10minute job cuts off that fixture prematurely.
-    timeout-minutes: 30
+    # Assembly, SDK onboarding and native MCP/C++/GPU/export acceptance each
+    # retain their own bounded watchdog. Include the added MCP gate's headroom.
+    timeout-minutes: 45
     steps:
       - name: Checkout Windows source without trailing-dot paths
         if: runner.os == 'Windows'
@@ -599,6 +599,8 @@ jobs:
           New-Item -ItemType Directory -Path $env:FORGE_SDK_DIAGNOSTIC_DIR -Force | Out-Null
           python tests/editor_sdk_package_test.py --zip $zip --fixture $fixture --project $project --evidence $evidence
           if ($LASTEXITCODE) { throw 'Editor SDK acceptance against final package failed' }
+          python tests/mcp_editor_package_test.py --zip $zip --fixture $fixture --evidence "$evidence/mcp"
+          if ($LASTEXITCODE) { throw 'Packaged native MCP C++ game acceptance failed' }
       - name: Upload editor SDK acceptance evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

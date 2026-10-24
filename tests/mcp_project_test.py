@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from mcp_test_client import CAPTURE, Client, failed
+from mcp_test_client import CAPTURE, Client, failed, test_symlink
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
 
@@ -86,9 +86,10 @@ for legacy in (False, True):
         assert not mutate('forge_project_create', path='../Outside/New', name='Escaped')['ok']
         assert not mutate('forge_project_create', path='.', name='Root')['ok']
         assert read('forge_scene_read') == before
-        (root / 'Projects/OutsideLink').symlink_to(root / 'Outside', target_is_directory=True)
-        assert not mutate('forge_project_open', path='OutsideLink')['ok']
-        assert discovery()['result']['target'] == initial_target
+        with test_symlink(root / 'Projects/OutsideLink', root / 'Outside', directory=True) as linked:
+            if linked:
+                assert not mutate('forge_project_open', path='OutsideLink')['ok']
+                assert discovery()['result']['target'] == initial_target
         (root / 'source_draft').touch()
         assert not mutate('forge_project_create', path='AgentGame', name='Agent game')['ok']
         assert not (root / 'Projects/AgentGame').exists()
