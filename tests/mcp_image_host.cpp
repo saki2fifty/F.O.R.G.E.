@@ -112,6 +112,8 @@ int main(int argc, char** argv) {
             workspace.pump(files.document, "");
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+        if (!workspace.active())
+            std::cerr << "MCP owner connection stopped: " << workspace.diagnostic() << '\n';
         return 0;
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

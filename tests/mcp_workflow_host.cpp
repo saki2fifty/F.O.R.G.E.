@@ -43,7 +43,11 @@ int main(int argc, char** argv) {
         forge::ContentBrowser content;
         content.refresh(files);
         forge::ui::RuntimeDependenciesEditor dependencies;
-        forge::ui::FlecsScriptEditor scripts(runtime.parent_path() / "forge_tools");
+        auto tools = runtime.parent_path() / "forge_tools";
+#ifdef _WIN32
+        tools += ".exe";
+#endif
+        forge::ui::FlecsScriptEditor scripts(tools);
         forge::ui::Problems problems;
         UiTestRenderer renderer;
         std::unique_ptr<forge::UiPresenter> presenter;

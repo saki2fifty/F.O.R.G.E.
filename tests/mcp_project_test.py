@@ -7,7 +7,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from mcp_test_client import CAPTURE, Client, failed, test_symlink
+from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 
 TOOLS, HOST = map(str, map(Path, sys.argv[1:3]))
 
@@ -23,8 +23,7 @@ def editor(mode='workspace'):
             assert line, process.stderr.read()
             yield root, process, json.loads(line)
         finally:
-            if process.poll() is None: process.kill()
-            process.communicate(timeout=5)
+            finish_host(process)
 
 
 for legacy in (False, True):

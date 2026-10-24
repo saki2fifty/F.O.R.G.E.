@@ -17,6 +17,9 @@ on:
       workflow_only:
         type: boolean
         default: false
+      mcp_only:
+        type: boolean
+        default: false
       publication_only:
         type: boolean
         default: false
@@ -43,6 +46,10 @@ on:
         type: boolean
         default: false
       workflow_only:
+        type: boolean
+        default: false
+      mcp_only:
+        description: Requires workflow_only; only native MCP owner diagnostics, never a full gate
         type: boolean
         default: false
       publication_only:
@@ -76,6 +83,13 @@ jobs:
       GIT_CONFIG_KEY_0: core.longpaths
       GIT_CONFIG_VALUE_0: "true"
     steps:
+      - name: Validate MCP diagnostic scope
+        if: inputs.mcp_only
+        shell: pwsh
+        run: |
+          if ('${{ inputs.workflow_only }}' -ne 'true' -or '${{ inputs.shader_only }}' -eq 'true' -or '${{ inputs.capture_only }}' -eq 'true' -or '${{ inputs.publication_only }}' -eq 'true' -or '${{ inputs.performance_source_run }}' -ne '') {
+            throw 'MCP diagnostics require workflow_only and cannot be combined with other audit modes'
+          }
       - name: Validate publication diagnostic scope
         if: inputs.publication_only
         shell: pwsh
@@ -182,7 +196,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tools/prepare_editor_benchmark.py . ../AgentFiles/benchmark-target
       - name: Verify complete Gallery packaging
-        if: inputs.workflow_only
+        if: ${{ inputs.workflow_only && !inputs.mcp_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: python tests/windows_example_packaging_test.py
       - id: configure
@@ -205,7 +219,7 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^asset_publication$" --output-on-failure
       - name: Build input-driven native fixtures
-        if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only }}
+        if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only && !inputs.mcp_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
@@ -213,6 +227,10 @@ jobs:
           if (Test-Path cmake/game.cmake) { $targets += @('forge_game_fixture', 'forge_tools') }
           cmake --build ../AgentFiles/b --target $targets --parallel 2
           if ($LASTEXITCODE) { throw 'Native workflow fixture build failed' }
+      - name: Build native MCP owner diagnostics
+        if: inputs.mcp_only
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: cmake --build ../AgentFiles/b --target forge_mcp_project_host forge_mcp_workflow_host forge_mcp_image_host forge_live_tests forge_runtime forge_tools forge_game forge_nav_build forge_asset_build_worker --parallel 2
       - name: Build sheet and waveform capture fixtures
         if: inputs.capture_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -247,13 +265,17 @@ jobs:
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(diligentfx_patch|shader_assets|shader_pipeline|shader_worker|shader_editor|material_asset|material_pipeline|material_editor|editor_viewport_render|editor_render_morph|editor_render_skin|editor_render_frame|editor_render_optics|editor_render_sprites)$" --output-on-failure
       - name: Repeat additive pose diagnostics
-        if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only }}
+        if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only && !inputs.mcp_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(animation_overlay|animation_mask_pipeline)$" --repeat until-fail:30 --output-on-failure
       - name: Execute native input and capture workflows
-        if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only }}
+        if: ${{ inputs.workflow_only && !inputs.capture_only && !inputs.publication_only && !inputs.mcp_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         run: ctest --test-dir ../AgentFiles/b -R "^(asset_publication|editor_process_and_scale|editor_input_workflow|editor_physics_workflow|editor_animation_root_motion|editor_audio_mixer|editor_audio_preview|editor_view_images|editor_sequence_frames|editor_sprite_frames|editor_sequence_audio_cues|editor_viewport_render|editor_render_physics-2d|standalone_game_workflow|game_frame_statistics|standalone_package_workflow|animation_overlay|animation_mask_pipeline)$" --output-on-failure
+      - name: Execute native MCP owner diagnostics
+        if: inputs.mcp_only
+        working-directory: ${{ runner.temp }}/forge-work/FORGE
+        run: ctest --test-dir ../AgentFiles/b -R "^(mcp_project_stdio|mcp_workflow_stdio|mcp_image_stdio)$" --output-on-failure
       - name: Execute sheet and waveform capture diagnostics
         if: inputs.capture_only
         working-directory: ${{ runner.temp }}/forge-work/FORGE
@@ -265,11 +287,11 @@ jobs:
           $actual = git rev-parse HEAD
           if ($actual -ne $env:FORGE_SOURCE_COMMIT) { throw 'Source mismatch' }
           New-Item -ItemType Directory -Force ../AgentFiles/b/grid-test-images/editor | Out-Null
-          @{ publication_only = '${{ inputs.publication_only }}'; shader_only = '${{ inputs.shader_only }}'; workflow_only = '${{ inputs.workflow_only }}'; capture_only = '${{ inputs.capture_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
+          @{ mcp_only = '${{ inputs.mcp_only }}'; publication_only = '${{ inputs.publication_only }}'; shader_only = '${{ inputs.shader_only }}'; workflow_only = '${{ inputs.workflow_only }}'; capture_only = '${{ inputs.capture_only }}'; source_commit = $actual } | ConvertTo-Json | Out-File ../AgentFiles/b/grid-test-images/audit-scope.json
           Copy-Item ../AgentFiles/b/build.json ../AgentFiles/b/grid-test-images/editor/audit-build.json
           $actual | Out-File ../AgentFiles/b/grid-test-images/editor/source-commit.txt
       - name: Validate standalone-only build without editor or import tooling
-        if: ${{ !inputs.shader_only && !inputs.capture_only && !inputs.publication_only }}
+        if: ${{ !inputs.shader_only && !inputs.capture_only && !inputs.publication_only && !inputs.mcp_only }}
         working-directory: ${{ runner.temp }}/forge-work/FORGE
         shell: pwsh
         run: |
@@ -291,6 +313,19 @@ jobs:
             ${{ runner.temp }}/forge-work/AgentFiles/b/grid-test-images
             ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
           if-no-files-found: error
+          retention-days: 14
+      - name: Retain native MCP diagnostic evidence
+        if: ${{ always() && inputs.mcp_only }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: FORGE-MCP-Owner-Diagnostics
+          path: |
+            ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTest.log
+            ${{ runner.temp }}/forge-work/AgentFiles/b/Testing/Temporary/LastTestsFailed.log
+            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-project-protocol-capture.json.gz
+            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-workflow-protocol-capture.json.gz
+            ${{ runner.temp }}/forge-work/AgentFiles/b/mcp-image-protocol-capture.json.gz
+          if-no-files-found: warn
           retention-days: 14
       - name: Build and stage current benchmark executable
         if: ${{ !inputs.workflow_only && !inputs.shader_only }}

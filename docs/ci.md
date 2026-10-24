@@ -1138,6 +1138,13 @@ C++ project-to-Windows-export execution gate. No new numbered package is implied
 
 ### Packaged native MCP game acceptance
 
+For focused Windows fault diagnosis, dispatch `editor-audit.yml` with an immutable
+`source_commit`, `workflow_only:true` and `mcp_only:true`. This reuses the same
+toolchain/configuration cache, rebuilds the actual project/workflow/image owners,
+installs their real game runtime kit, and runs those three MCP tests. Native host
+stderr and shutdown reasons remain visible on failure; private stdout connection
+handoffs are never logged. This unnumbered partial audit cannot qualify a delivery.
+
 The editor and MCP editor-owner fixtures use MSVC `/bigobj`: the combined source
 editor adapters exceed the ordinary COFF object-file section limit. This option
 is scoped to those targets; it does not change the game/SDK linkage profile.

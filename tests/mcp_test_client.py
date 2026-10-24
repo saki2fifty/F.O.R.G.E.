@@ -23,6 +23,21 @@ def write_capture(path):
         output.write('\n')
 
 
+def finish_host(process):
+    """Retain native owner failures without printing its private stdout handoff."""
+    exited = process.poll()
+    if sys.exc_info()[0] is not None:
+        print('Native MCP owner before cleanup:', 'running' if exited is None else exited,
+              file=sys.stderr)
+    if exited is None:
+        process.kill()
+    _, errors = process.communicate(timeout=5)
+    if exited not in (None, 0):
+        print('Native MCP owner exited with code', exited, file=sys.stderr)
+    if errors:
+        print('Native MCP owner stderr:\n' + errors, file=sys.stderr)
+
+
 @contextmanager
 def test_symlink(path, target, directory=False):
     try:

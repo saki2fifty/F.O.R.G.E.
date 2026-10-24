@@ -13,6 +13,7 @@ class AutomationWorkspace {
     bool open = false;
     std::function<std::vector<LiveAuthoringMethod>(const AutomationPermissions&)> workflow_methods;
     bool active() const { return live_.active(); }
+    const std::string& diagnostic() const { return notice_; }
     void menu() {
         if (ImGui::BeginMenu(live_.active() ? "Automation (on)" : "Automation")) {
             if (ImGui::MenuItem("Local connection..."))
