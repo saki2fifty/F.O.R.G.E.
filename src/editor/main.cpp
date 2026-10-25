@@ -1,3 +1,4 @@
+#include "../json_document.hpp"
 #include "batch_authoring.hpp"
 #include "batch_inspector.hpp"
 #ifdef FORGE_UI_FIXTURE
@@ -124,6 +125,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <misc/cpp/imgui_stdlib.h>
 #include <tuple>
 #ifdef FORGE_UI_FIXTURE
 #include "sequence_frame_editor_workflow.hpp"
@@ -414,9 +416,9 @@ int main(int argc, char** argv) {
         forge::test::fixture_breadcrumb("after-preferences-load");
 #endif
         const auto settings = config / "settings.json";
-        char cmake_path[1024] = "cmake";
-        char ninja_path[1024] = "ninja";
-        char exact_sdk_root[1024]{};
+        std::string cmake_path = "cmake";
+        std::string ninja_path = "ninja";
+        std::string exact_sdk_root;
 #ifdef FORGE_UI_FIXTURE
         // SDK reference mode pins the SDK root from the CLI so the
         // Play action uses the installed shared SDK forge_runtime.exe
@@ -424,9 +426,7 @@ int main(int argc, char** argv) {
         // (after exact_sdk_root exists) rather than at fixture
         // construction.
         if (fixture.sdk_play || fixture.sdk_onboarding || fixture.mcp_authoring) {
-            const auto sdk_root_u8 = fixture.sdk_root.u8string();
-            const std::string sdk_root_str(sdk_root_u8.begin(), sdk_root_u8.end());
-            SDL_strlcpy(exact_sdk_root, sdk_root_str.c_str(), sizeof(exact_sdk_root));
+            exact_sdk_root = forge::path_utf8(fixture.sdk_root);
         }
 #endif
         bool cpp_build_on_save = false;
@@ -455,19 +455,21 @@ int main(int argc, char** argv) {
         std::vector<std::string> recent_projects;
         std::string last_project;
         try {
-            std::ifstream f(settings);
+            std::ifstream f(settings, std::ios::binary);
             if (f) {
-                forge::Json j;
-                f >> j;
+                const auto j = forge::detail::parse_json_document(f);
                 forge::ui::tooltips = j.value("tooltips", true);
                 cpp_build_on_save = j.value("cpp_build_on_save", false);
                 forge::ui::style(j.value("interface_scale", 1.0f));
-                SDL_strlcpy(cmake_path, j.value("cmake", std::string("cmake")).c_str(),
-                            sizeof(cmake_path));
-                SDL_strlcpy(ninja_path, j.value("ninja", std::string("ninja")).c_str(),
-                            sizeof(ninja_path));
-                SDL_strlcpy(exact_sdk_root, j.value("exact_sdk_root", std::string{}).c_str(),
-                            sizeof(exact_sdk_root));
+                const auto tool_path = [&](const char* key, const char* fallback) {
+                    auto value = j.value(key, std::string(fallback));
+                    if (value.find('\0') != std::string::npos)
+                        throw std::runtime_error("Compiler paths cannot contain NUL bytes");
+                    return value;
+                };
+                cmake_path = tool_path("cmake", "cmake");
+                ninja_path = tool_path("ninja", "ninja");
+                exact_sdk_root = tool_path("exact_sdk_root", "");
                 workspace.load(j);
                 if (j.contains("editor_shortcuts"))
                     editor_shortcuts.load(j.at("editor_shortcuts"));
@@ -684,8 +686,8 @@ int main(int argc, char** argv) {
         std::uint64_t source_revision_seen = 0;
         bool gameplay_current = false;
         auto current_managed_gameplay = [&] {
-            const auto sdk_root = exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
-                                                    : install_root / "NativeSdk";
+            const auto sdk_root = !exact_sdk_root.empty() ? std::filesystem::u8path(exact_sdk_root)
+                                                          : install_root / "NativeSdk";
             return forge::gameplay_source_current(
                 files.document.project(), files.document.settings().document(),
                 forge::installed_gameplay_sdk_fingerprint(sdk_root));
@@ -1922,8 +1924,8 @@ int main(int argc, char** argv) {
                 cpp_sources.save_all(files.document);
             cpp_sources.build_pending = false;
             sdk_build->build(files.document,
-                             exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
-                                               : install_root / "NativeSdk",
+                             !exact_sdk_root.empty() ? std::filesystem::u8path(exact_sdk_root)
+                                                     : install_root / "NativeSdk",
                              cmake_path, ninja_path);
         };
         char entity_name[1024]{};
@@ -2102,8 +2104,8 @@ int main(int argc, char** argv) {
             const bool sdk_game = sdk;
             auto executable = std::filesystem::path(runtime_path);
             if (sdk) {
-                const auto root = exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
-                                                    : install_root / "NativeSdk";
+                const auto root = !exact_sdk_root.empty() ? std::filesystem::u8path(exact_sdk_root)
+                                                          : install_root / "NativeSdk";
                 executable = forge::SdkBuild::runtime_path(root);
                 if (!std::filesystem::is_regular_file(executable))
                     throw std::runtime_error("Select a matching Native SDK installation in Build. "
@@ -2178,8 +2180,8 @@ int main(int argc, char** argv) {
             forge::CodeAutomationProviders code_providers;
             code_providers.build = [&]() -> forge::SdkBuild& { return *sdk_build; };
             code_providers.sdk = [&] {
-                return exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
-                                         : install_root / "NativeSdk";
+                return !exact_sdk_root.empty() ? std::filesystem::u8path(exact_sdk_root)
+                                               : install_root / "NativeSdk";
             };
             code_providers.compiler_tools = [&] {
                 return std::pair<std::string, std::string>{cmake_path, ninja_path};
@@ -2269,8 +2271,8 @@ int main(int argc, char** argv) {
                 const bool native = files.document.settings().requires_native_sdk();
                 const auto runtime =
                     native ? forge::SdkBuild::runtime_path(
-                                 exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
-                                                   : install_root / "NativeSdk")
+                                 !exact_sdk_root.empty() ? std::filesystem::u8path(exact_sdk_root)
+                                                         : install_root / "NativeSdk")
                            : std::filesystem::path(runtime_path);
                 return game_export.request_from_selection(
                     files.document, scene, destination,
@@ -2851,8 +2853,8 @@ int main(int argc, char** argv) {
                         std::any_of(modules.begin(), modules.end(),
                                     [](const auto& module) { return module.is_object(); }),
                         sdk_build->module_kits(files.document.settings()),
-                        (exact_sdk_root[0] ? std::filesystem::u8path(exact_sdk_root)
-                                           : install_root / "NativeSdk") /
+                        (!exact_sdk_root.empty() ? std::filesystem::u8path(exact_sdk_root)
+                                                 : install_root / "NativeSdk") /
                             "bin/forge_runtime.exe");
                 });
             for (auto action : content.action_set(nullptr).entries)
@@ -6429,15 +6431,14 @@ int main(int argc, char** argv) {
                     forge::ui::heading("Project Code",
                                        "C++ project code compiles outside the editor. Only "
                                        "isolated runtimes load gameplay DLLs.");
-                    const auto selected_sdk = exact_sdk_root[0]
+                    const auto selected_sdk = !exact_sdk_root.empty()
                                                   ? std::filesystem::u8path(exact_sdk_root)
                                                   : install_root / "NativeSdk";
                     if (ImGui::TreeNodeEx("C++ setup", sdk_build->managed()
                                                            ? ImGuiTreeNodeFlags_None
                                                            : ImGuiTreeNodeFlags_DefaultOpen)) {
                         ImGui::BeginDisabled(play.active() || sdk_build->busy());
-                        if (ImGui::InputText("Native SDK folder", exact_sdk_root,
-                                             sizeof(exact_sdk_root))) {
+                        if (ImGui::InputText("Native SDK folder", &exact_sdk_root)) {
                             sdk_build->invalidate_compiler();
                             perform(save_preferences);
                         }
@@ -6548,14 +6549,14 @@ int main(int argc, char** argv) {
                                     "The test checks compiler, SDK headers/libraries, CMake, Ninja "
                                     "and exact module compatibility. Editing and exported games do "
                                     "not require these tools.");
-                                if (ImGui::InputText("CMake", cmake_path, sizeof(cmake_path))) {
+                                if (ImGui::InputText("CMake", &cmake_path)) {
                                     sdk_build->invalidate_compiler();
                                     perform(save_preferences);
                                 }
                                 forge::ui::help(
                                     "CMake from the installed SDK's supported toolchain. Runtime "
                                     "deployment requires its policies.");
-                                if (ImGui::InputText("Ninja", ninja_path, sizeof(ninja_path))) {
+                                if (ImGui::InputText("Ninja", &ninja_path)) {
                                     sdk_build->invalidate_compiler();
                                     perform(save_preferences);
                                 }
@@ -6607,7 +6608,7 @@ int main(int argc, char** argv) {
                                            "explicitly opt into authoring can be inspected below.");
                         forge::ui::help("Flecs reflection alone does not make arbitrary native "
                                         "C++ objects serializable or safely editable.");
-                        const auto sdk_root = exact_sdk_root[0]
+                        const auto sdk_root = !exact_sdk_root.empty()
                                                   ? std::filesystem::u8path(exact_sdk_root)
                                                   : install_root / "NativeSdk";
                         authored_components.draw(scene, files.document, prefab_editor,

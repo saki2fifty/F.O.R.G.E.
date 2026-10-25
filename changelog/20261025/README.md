@@ -16,6 +16,10 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Recovery records
 
+- Startup preferences use the shared complete-record reader before applying any
+  values, with binary input preserving native control bytes for validation.
+- CMake, Ninja and Native SDK preference fields retain complete strings through
+  editing, saving and build dispatch instead of truncating at1,023 bytes.
 - Editor JSON reads reject trailing non-whitespace content or an extra JSON
   value. Binary file reads require physical EOF and reject raw terminators that
   could hide trailing bytes. Rejected named and untitled recovery keep the

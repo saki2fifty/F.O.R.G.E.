@@ -223,6 +223,16 @@ shared Undo stack across independent documents.
 
 Personal panel visibility and ImGui docking geometry persist independently of project settings. Stable hidden IDs retain Hierarchy/Build arrangements; existing Prefab source/Project Settings names migrate with docking references and a backup. New Game/Problems tabs attach on first use. Reset layout is explicit. Failed workspace replacement retains the original and disables session layout saving, as before.
 
+Personal `settings.json` is read in binary mode and must contain one complete
+JSON record before any preference is applied. Trailing values, raw NUL and native
+text terminators cannot conceal damaged input behind a valid prefix. Syntax or
+incomplete-record rejection retains startup defaults. Individual preference
+owners continue to validate their supported values and versions.
+Compiler executable and Native SDK fields retain complete strings through text
+entry, preference persistence and build dispatch. Embedded NUL in a saved tool
+path is rejected. Filesystem and compiler support still determine which paths
+can be used; the editor does not truncate them to a fixed input-buffer length.
+
 ## Personal command shortcuts
 
 `EditorActions` owns eligible global command metadata, defaults, availability and
