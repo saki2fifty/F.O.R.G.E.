@@ -10,6 +10,7 @@
 #include "help.hpp"
 #include "ui_probe.hpp"
 #include <future>
+#include <misc/cpp/imgui_stdlib.h>
 #include <optional>
 #include <vector>
 namespace forge {
@@ -21,7 +22,7 @@ namespace forge::ui {
 class GameExportTask {
     friend struct ::forge::ExportAutomation;
     bool open_ = false, pending_ = false;
-    std::array<char, 2048> destination_{}, kit_{}, module_kits_{};
+    std::string destination_, kit_, module_kits_;
     std::future<Json> job_;
     std::stop_source stop_;
     std::shared_ptr<ProjectLease const> writer_;
@@ -74,10 +75,10 @@ class GameExportTask {
                                              const std::filesystem::path& managed_kits,
                                              const std::filesystem::path& runtime) const {
         return request_for(document, scene, destination,
-                           kit_[0] ? std::filesystem::u8path(kit_.data()) : default_kit,
-                           !managed_kits.empty() ? managed_kits
-                           : module_kits_[0]     ? std::filesystem::u8path(module_kits_.data())
-                                                 : std::filesystem::path{},
+                           !kit_.empty() ? std::filesystem::u8path(kit_) : default_kit,
+                           !managed_kits.empty()   ? managed_kits
+                           : !module_kits_.empty() ? std::filesystem::u8path(module_kits_)
+                                                   : std::filesystem::path{},
                            runtime);
     }
     void begin(SceneDocument& document, GameExportRequest request) {
@@ -138,14 +139,10 @@ class GameExportTask {
         open_ = true;
         inspection_runtime_ = inspection_runtime;
         if (!managed_kits.empty())
-            SDL_strlcpy(module_kits_.data(), path_utf8(managed_kits).c_str(), module_kits_.size());
-        if (!kit_[0])
-            SDL_strlcpy(
-                kit_.data(),
-                path_utf8(installation_root(self_executable().parent_path()) /
-                          (native_modules ? "runtime-kits/shared-native-sdk" : "runtime-kit"))
-                    .c_str(),
-                kit_.size());
+            module_kits_ = path_utf8(managed_kits);
+        if (kit_.empty())
+            kit_ = path_utf8(installation_root(self_executable().parent_path()) /
+                             (native_modules ? "runtime-kits/shared-native-sdk" : "runtime-kit"));
     }
     void cancel() {
         stop_.request_stop();
@@ -252,7 +249,7 @@ class GameExportTask {
                 const auto path = browse_ == 1
                                       ? path_utf8(std::filesystem::u8path(result->path) / "Game")
                                       : result->path;
-                SDL_strlcpy(field.data(), path.c_str(), field.size());
+                field = path;
             }
         }
         if (!open_)
@@ -273,15 +270,16 @@ class GameExportTask {
             ImGui::BeginDisabled(locked || busy() || dialog_.busy());
             auto path_field = [&](const char* label, auto& buffer, int which, const char* tip) {
                 IdScope id(label);
-                ImGui::InputText(label, buffer.data(), buffer.size());
+                ImGui::InputText(label, &buffer);
                 help(tip);
                 FORGE_UI_PROBE(std::string("export:") + label);
                 if (button("Browse...",
                            which == 1 ? "Choose a parent folder; a Game subfolder is proposed."
                                       : "Select the prepared kit folder.")) {
                     browse_ = which;
-                    dialog_.show(FileDialog::Kind::ProjectParent, window, buffer.data());
+                    dialog_.show(FileDialog::Kind::ProjectParent, window, buffer);
                 }
+                FORGE_UI_PROBE(std::string("export:browse:") + label);
             };
             path_field("Destination", destination_, 1,
                        "New game folder outside the source project and runtime kit. Rebuilding a "
@@ -293,7 +291,7 @@ class GameExportTask {
                 path_field("Module kits", module_kits_, 3,
                            "Parent directory containing one SDK-generated deployment folder per "
                            "configured module ID.");
-            ImGui::BeginDisabled(dirty_drafts || !destination_[0] || !kit_[0]);
+            ImGui::BeginDisabled(dirty_drafts || destination_.empty() || kit_.empty());
             if (button("Export / Rebuild",
                        "Validate and rebuild the complete declared closure in staging, then "
                        "replace only a recognized previous export. Selected cooked artifacts must "
@@ -310,9 +308,9 @@ class GameExportTask {
                         runtime = inspection_runtime_;
                     }
                     auto request =
-                        request_for(document, scene, std::filesystem::u8path(destination_.data()),
-                                    std::filesystem::u8path(kit_.data()),
-                                    std::filesystem::u8path(module_kits_.data()), runtime);
+                        request_for(document, scene, std::filesystem::u8path(destination_),
+                                    std::filesystem::u8path(kit_),
+                                    std::filesystem::u8path(module_kits_), runtime);
                     begin(document, std::move(request));
                 } catch (const std::exception& e) {
                     error_ = e.what();

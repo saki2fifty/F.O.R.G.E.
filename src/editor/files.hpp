@@ -5,6 +5,7 @@
 #include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <functional>
+#include <misc/cpp/imgui_stdlib.h>
 namespace forge {
 class EditorFiles {
   public:
@@ -21,7 +22,7 @@ class EditorFiles {
                 std::filesystem::path default_project_parent = {})
         : document(scene), window_(window), recent_(recent) {
         if (!default_project_parent.empty())
-            SDL_strlcpy(parent_, path_text(default_project_parent).c_str(), sizeof(parent_));
+            parent_ = path_text(default_project_parent);
     }
     void start(const std::filesystem::path& path) {
         document.open_project(path, true);
@@ -181,7 +182,7 @@ class EditorFiles {
                         request({Command::OpenProject, path, {}});
                         break;
                     case FileDialog::Kind::ProjectParent:
-                        SDL_strlcpy(parent_, result->path.c_str(), sizeof(parent_));
+                        parent_ = result->path;
                         break;
                     case FileDialog::Kind::SaveScene: {
                         const auto generation = document.generation();
@@ -294,7 +295,8 @@ class EditorFiles {
             ImGui::InputText("Name / folder", name_, sizeof(name_));
             ui::help("Name of the new project and its new subfolder. Existing folders are not "
                      "overwritten.");
-            ImGui::InputText("Parent folder", parent_, sizeof(parent_));
+            ImGui::InputText("Parent folder", &parent_);
+            FORGE_UI_PROBE("project:parent-folder");
             ui::help("Existing parent directory in which to create the project.");
             ImGui::BeginDisabled(dialog_.busy());
             if (ui::button("Browse...", "Choose the parent folder using the system folder dialog."))
@@ -500,6 +502,7 @@ class EditorFiles {
     bool can_switch_ = true, create_prompt_ = false, unsaved_prompt_ = false,
          recovery_prompt_ = false;
     Uint64 last_autosave_ = 0;
-    char name_[128] = "MyGame", parent_[2048]{};
+    char name_[128] = "MyGame";
+    std::string parent_;
 };
 } // namespace forge

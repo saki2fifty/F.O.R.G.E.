@@ -57,6 +57,12 @@ Reuse `SceneTools`, `ModalTransform` and their existing move/modal exclusion. Se
 
 ## Property grammar
 
+Use dynamically sized strings for filesystem-path fields and the existing ImGui
+string widget. Preserve the complete UTF-8 value from text entry and native
+pickers. A bounded consumer must reject an oversized selection before replacing
+the prior value; never silently turn it into a different path. Creation, export
+and automation-grant owners validate the complete path and report filesystem limits.
+
 Use shared reflected property drawers: label then value, exact numeric type, units in the label/help, named enum values, validation near the field, disabled help and consistent ownership/Revert. Stack label/value when a narrow panel cannot fit a useful field width. XYZ transformations retain independent local-channel intent and one history entry per drag. Transform utilities belong in the section overflow. **Spatial binding** means Follow parent, World or Explicit attachment, not Local/World edit coordinates.
 
 AssetRef fields share current value, searchable compatible picker, clear, missing state, Content reveal and typed drag/drop. EntityRef uses its persistent scene/entity semantics. Future Open affordances use the same asset-editor registry. Custom drawers are allowed for real domain needs, not as a default escape from shared property behavior. Add Component groups actual registered schemas; do not maintain another registration list. Attached-component filtering appears when useful.

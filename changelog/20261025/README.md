@@ -23,6 +23,9 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Using FORGE
 
+- Automation folder grants, project-parent and export/kit fields preserve complete
+  UTF-8 paths from typing and native folder selection. Long choices no longer
+  silently become truncated paths; existing filesystem and grant checks remain.
 - Organized all 65 manual guides by task, added an editor orientation guide and
   linked the previously omitted physics-loads example.
 - Added 37 authentic FORGE screenshots across 33 guides. The repository README

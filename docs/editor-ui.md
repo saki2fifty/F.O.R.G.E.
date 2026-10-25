@@ -30,6 +30,12 @@ or running maintenance. Idle polling clears previous-project results/errors even
 with the cache window closed; same-project results remain until the next operation.
 This presentation state does not change cache deletion, cancellation or asset data.
 
+Automation folder grants, project-parent and export/kit path fields retain complete
+UTF-8 strings from both text entry and native pickers. They use the existing ImGui
+string adapter; they do not truncate into fixed-size buffers. Existing owners still
+validate/canonicalize paths at admission. Choosing or editing a folder alone does
+not start a connection, create a project or export a game.
+
 ## Scene and Game
 
 Scene renders the authored world, including transient transform previews. Game

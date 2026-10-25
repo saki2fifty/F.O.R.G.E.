@@ -7,6 +7,7 @@
 #include <SDL3/SDL_clipboard.h>
 #include <SDL3/SDL_filesystem.h>
 #include <forge/live_authoring.hpp>
+#include <misc/cpp/imgui_stdlib.h>
 namespace forge::ui {
 class AutomationWorkspace {
   public:
@@ -76,12 +77,11 @@ class AutomationWorkspace {
                 notice_ = result->error;
             else if (!result->path.empty()) {
                 if (picking_output_)
-                    SDL_strlcpy(output_root_text_, result->path.c_str(), sizeof(output_root_text_));
+                    output_root_text_ = result->path;
                 else if (picking_workspace_)
-                    SDL_strlcpy(workspace_root_text_, result->path.c_str(),
-                                sizeof(workspace_root_text_));
+                    workspace_root_text_ = result->path;
                 else
-                    SDL_strlcpy(import_root_text_, result->path.c_str(), sizeof(import_root_text_));
+                    import_root_text_ = result->path;
             }
         }
         if (!live_.active())
@@ -131,9 +131,10 @@ class AutomationWorkspace {
                     if (workflow_methods) {
                         ImGui::Separator();
                         ImGui::Checkbox("Allow an external source folder", &external_import_);
+                        FORGE_UI_PROBE("automation:allow-import");
                         if (external_import_) {
-                            ImGui::InputText("Import folder", import_root_text_,
-                                             sizeof(import_root_text_));
+                            ImGui::InputText("Import folder", &import_root_text_);
+                            FORGE_UI_PROBE("automation:import-folder");
                             if (button("Browse source folder...",
                                        "Choose the only external folder from which an agent may "
                                        "import raw assets.")) {
@@ -144,9 +145,10 @@ class AutomationWorkspace {
                             }
                         }
                         ImGui::Checkbox("Allow a project workspace", &workspace_access_);
+                        FORGE_UI_PROBE("automation:allow-workspace");
                         if (workspace_access_) {
-                            ImGui::InputText("Projects folder", workspace_root_text_,
-                                             sizeof(workspace_root_text_));
+                            ImGui::InputText("Projects folder", &workspace_root_text_);
+                            FORGE_UI_PROBE("automation:workspace-folder");
                             if (button("Browse projects folder...",
                                        "Permit project creation/opening inside this folder, in "
                                        "addition to the initially connected project.")) {
@@ -160,11 +162,12 @@ class AutomationWorkspace {
                         help("Build code, inspect project libraries and run Play. Native code and "
                              "build recipes run with your account's operating-system access.");
                         ImGui::Checkbox("Allow an output folder", &output_access_);
+                        FORGE_UI_PROBE("automation:allow-output");
                         help("Permit export and view-image files only inside this folder. Running "
                              "an exported game also requires the execution grant.");
                         if (output_access_) {
-                            ImGui::InputText("Output folder", output_root_text_,
-                                             sizeof(output_root_text_));
+                            ImGui::InputText("Output folder", &output_root_text_);
+                            FORGE_UI_PROBE("automation:output-folder");
                             if (button(
                                     "Browse output folder...",
                                     "Choose the agent's existing export/capture parent folder.")) {
@@ -183,7 +186,7 @@ class AutomationWorkspace {
                             permissions.code = true;
                             permissions.execute = native_execution_;
                             if (output_access_) {
-                                if (!output_root_text_[0] ||
+                                if (output_root_text_.empty() ||
                                     !std::filesystem::is_directory(
                                         std::filesystem::u8path(output_root_text_)))
                                     throw std::runtime_error("Choose an existing output folder");
@@ -192,7 +195,7 @@ class AutomationWorkspace {
                                     std::filesystem::u8path(output_root_text_));
                             }
                             if (workspace_access_) {
-                                if (!workspace_root_text_[0])
+                                if (workspace_root_text_.empty())
                                     throw std::runtime_error(
                                         "Choose an existing project workspace folder");
                                 permissions.workspace_root =
@@ -305,9 +308,7 @@ class AutomationWorkspace {
     bool workspace_access_ = false, picking_workspace_ = false;
     bool native_execution_ = false;
     bool output_access_ = false, picking_output_ = false;
-    char import_root_text_[2048]{};
-    char workspace_root_text_[2048]{};
-    char output_root_text_[2048]{};
+    std::string import_root_text_, workspace_root_text_, output_root_text_;
     std::uint64_t generation_ = 0;
     std::string notice_;
 };

@@ -129,6 +129,13 @@ statistics task. It checks the shared project-switch guard, completed-result
 lifetime across a closed-window switch, queued cancellation and a fresh result
 in the new project without altering either catalog or Scene history.
 
+`automation_picker_editor` drives the actual automation, project-parent and
+export path controls with long UTF-8 values, typing and picker cancellation. Only
+the native OS picker result is supplied by the existing fixture boundary. It
+checks complete values and export-request handoff without starting a listener,
+creating a project at the chosen path or exporting. Native Windows picker and
+filesystem acceptance remain separate.
+
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
 rejections and the Windows deployment CMake-version preflight, without compiling
