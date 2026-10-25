@@ -124,6 +124,13 @@ and applicable acceptance selection together; a source file alone is not an
 executed check. These owner/input tests complement native viewport rendering and
 physical desktop review.
 
+`native_sdk_configuration` interprets the installed CMake package with explicit
+Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
+rejections and the Windows deployment CMake-version preflight, without compiling
+or loading a native module. The shared Windows selection includes it. The full
+`native_sdk_package` check still builds/loads real installed consumers and also
+checks links in every installed SDK guide.
+
 For a repair confined to test fixtures or diagnostic wiring,
 an attributable preceding full run can supply unchanged-case evidence: rebuild
 the affected producers and run the complete affected selection natively before

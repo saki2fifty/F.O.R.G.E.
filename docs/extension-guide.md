@@ -12,7 +12,16 @@ Native editor extensions remain trusted and restart-bound. Exact gameplay DLLs d
 
 ## Build the exact SDK sample
 
-Extract the matching experimental SDK archive. Use the compiler, architecture, configuration and CRT used to build it. Configure `sdk/sample` with `-DFORGE_NATIVE_SDK=<extracted-root>` and `-DCMAKE_BUILD_TYPE=Release`, then build with Ninja. The `combined_gameplay` target is the small combined example; individual probes remain regression examples.
+The Windows editor ZIP includes the matching SDK under `NativeSdk/`. Use the
+compiler, architecture, configuration and CRT used to build that distribution.
+Configure `NativeSdk/sdk/sample` with `-DFORGE_NATIVE_SDK=<NativeSdk-root>` and
+`-DCMAKE_BUILD_TYPE=Release`, then build with Ninja. The `combined_gameplay` target
+is the small combined example; individual probes remain regression examples.
+An independently installed SDK uses the same `sdk/sample` layout relative to its
+installation root. Configure errors report the expected and detected toolchain
+values. Windows module-kit deployment requires CMake 4.3 or newer; select that
+executable in the editor's **Build → Compiler setup**, or use it for both configure
+and `cmake --install` in an external build.
 
 A new client links `ForgeNativeSdk::Client`, which supplies shared Flecs and the small static identity-value library. No subsystem implementation library is linked into your module. That static value library owns no world, registry, cache or global resource. It does not introduce another Flecs implementation. `AssetId::generate/parse/str` work directly; do not serialize through reflection merely to format an ID.
 
@@ -95,7 +104,11 @@ Available CPU scopes include module Registration/Startup/Shutdown, FixedSimulati
 
 ## Deliberately deferred
 
-Generic AssetHandle, importer/cooker/streaming, cross-document transactions/Apply, stable third-party ABI, editor/provider extension registries, world-space UI/visual designer, advanced audio/animation/navigation, networking and save games remain separately scoped. See the [contract inventory](extension-contracts.md) and subsystem docs. Phase6 ends here; Phase7 has not begun.
+The exact SDK does not promise a stable third-party ABI, arbitrary in-place module
+reload, a universal persistent AssetHandle, networking or a save-game system.
+Use the installed headers and [contract inventory](extension-contracts.md) for the
+available boundary. Engine asset import/cooking and editor transactions remain
+owned by their existing subsystems; they are not general module callbacks.
 
 ## Pinned Flecs capabilities
 
@@ -183,7 +196,8 @@ helpers. Build **material_value_gameplay** from `sdk/sample` to exercise changes
 fixed ticks. It requires no renderer service to edit component data; visible
 rendering still belongs to the existing presentation host. The helper's success
 means a shape-valid value was set, not that an arbitrary key exists in the selected
-material. See [material values](material-assets.md) for supported effects/limits.
+material. The source checkout's `docs/material-assets.md` describes the renderer's
+supported effects and limits.
 
 This trailing native collection changes the exact SDK fingerprint. Rebuild modules
 with the matching SDK; changing project settings to claim a new fingerprint does
@@ -358,7 +372,7 @@ Declare `FORGE_SDK_ANIMATION` in allowed capabilities. Requiring it additionally
 needs dependency `forge.animation`. Register marker consumers on
 `host->post_physics_phase` and add `host->fixed_tag`. `Client::animation_event`
 returns bounded copied, current-tick broadcast observations; it does not consume
-an occurrence. See [Animation markers](animation-markers.md) for bounds, offsets,
+an occurrence. The source checkout's `docs/animation-markers.md` describes bounds, offsets,
 removed-target behavior, lifetime and recovery rules.
 
 ## Navigation agent progress in C++

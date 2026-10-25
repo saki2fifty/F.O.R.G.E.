@@ -99,6 +99,12 @@ in the built-in C++ document. **Test compiler tools** uses a disposable starter
 and never publishes it. Externally maintained exact-SDK layouts retain their
 external build workflow.
 
+The installed SDK's configure gate reports expected and detected values for
+compiler/version, platform/architecture/configuration, flags/toolset and CRT
+without relaxing exact admission. Windows deployment rejects CMake older than
+4.3 at configuration and install time, before its CMP0207-dependent DLL scan.
+Source-only SDK consumers retain their existing platform/configuration rules.
+
 For managed projects, the admitted module records a deterministic identity of
 all saved ordinary files in managed `Native/` (excluding build/deployment directories) and the selected exact SDK fingerprint. This conservatively includes custom CMake inputs and nonstandard include suffixes.
 Generated deployment and build caches are excluded. Files, paths and bytes are

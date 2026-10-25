@@ -24,6 +24,22 @@ and Ninja executable paths in Compiler setup. Normal source editing and an
 exported game do not need these tools. A matching installed Native SDK is required
 to build and Play C++.
 
+### Resolve a toolchain mismatch
+
+Open **Build → Compiler output** after a failed test. SDK compatibility errors
+show the expected and detected compiler version, architecture, build configuration,
+flags or C++ runtime library. Use the exact compiler/toolset required by your
+FORGE distribution; having Visual Studio 2022 installed alone does not establish
+compatibility. The error also identifies the SDK configuration file being used.
+Keep **Native SDK folder** pointed at the SDK shipped with this editor.
+
+If the error requires **CMake 4.3 or newer**, set the **CMake** field under
+**Compiler setup** to that executable's full path, then choose **Test compiler
+tools** again. A separately installed CMake and Visual Studio's bundled CMake can
+have different versions. **Run-Forge-Dev.cmd** locates the installed tools;
+the compiler test checks whether they can build and load a matching module.
+After the test passes, choose **Build Project Code** for your own source.
+
 ## Create a component and system
 
 1. Open **Build → C++ setup**. Choose **Set up C++ code** for a new project. Existing `Native/` source is never overwritten.

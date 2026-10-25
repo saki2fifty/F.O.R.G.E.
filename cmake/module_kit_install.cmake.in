@@ -1,4 +1,8 @@
 # Installed SDK helper. Run by cmake --install; never loaded by the game.
+if(CMAKE_VERSION VERSION_LESS 4.3)
+ message(FATAL_ERROR "FORGE native gameplay deployment requires CMake 4.3 or newer (found ${CMAKE_VERSION}).\n"
+  "Run cmake --install with a compatible CMake executable.")
+endif()
 cmake_policy(PUSH)
 cmake_policy(SET CMP0207 NEW) # Normalize Win32 separators before System32 filtering.
 if(NOT WIN32)

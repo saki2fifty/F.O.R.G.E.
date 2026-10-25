@@ -85,7 +85,13 @@ Runtime velocities/contact state, decoded PCM/voices, Ozz sampling buffers, Deto
 
 ## AssetHandle decision
 
-A universal persistent `AssetHandle<T>` remains deferred. Phase7 uses typed process-local `ResourceLease<T>` internally and module/world-scoped subscription tokens in the exact SDK. A token observes a requested CPU load and pins its last-good revision through the host; it is neither an AssetId nor a pointer and is never serialized. See [runtime resources](runtime-resources.md) and the [extension guide](extension-guide.md).
+A universal persistent `AssetHandle<T>` remains deferred. The engine uses typed
+process-local `ResourceLease<T>` internally and module/world-scoped subscription
+tokens in the exact SDK. A token observes a requested CPU load and pins its
+last-good revision through the host; it is neither an AssetId nor a pointer and
+is never serialized. See the installed [extension guide](extension-guide.md) for
+module usage. The source checkout's `docs/runtime-resources.md` describes internal
+resource ownership.
 
 ## Flecs integration configuration
 

@@ -2,6 +2,18 @@
 
 Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
+## Project Code setup
+
+- SDK compatibility errors show expected and detected toolchain values and the
+  selected SDK configuration. Exact compiler, architecture, flags and CRT rules
+  are unchanged.
+- Windows module-kit setup reports the CMake 4.3 requirement before compilation;
+  the install helper also checks the executable used for installation.
+- Added configure-only admission checks and compiler troubleshooting instructions.
+  The SDK guide describes the combined ZIP, distinguishes source-only references
+  from installed guides and removes obsolete roadmap claims. Package validation
+  checks links across all installed SDK guides.
+
 ## Editor validation
 
 - Registered existing editor fixtures for mesh refinement, material graph geometry,
