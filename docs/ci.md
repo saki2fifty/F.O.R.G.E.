@@ -117,6 +117,13 @@ source-file and material-graph lifecycle checks. Navigation lifecycle and the
 registered static-Mesh navigation UI fixture use the same portable owner test
 group and are also included in full editor acceptance.
 
+GPU-independent ImGui fixtures for material graph geometry, mesh refinement,
+Navigation Agent progress/avoidance, particle appearance and Prefab member picking
+are registered in that group. Keep each fixture's executable, CTest registration
+and applicable acceptance selection together; a source file alone is not an
+executed check. These owner/input tests complement native viewport rendering and
+physical desktop review.
+
 For a repair confined to test fixtures or diagnostic wiring,
 an attributable preceding full run can supply unchanged-case evidence: rebuild
 the affected producers and run the complete affected selection natively before

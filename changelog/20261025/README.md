@@ -2,6 +2,13 @@
 
 Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
+## Editor validation
+
+- Registered existing editor fixtures for mesh refinement, material graph geometry,
+  Navigation Agent progress/avoidance, particle appearance and Prefab member
+  picking. The portable owner-test configuration and both full Windows acceptance
+  routes include these checks.
+
 ## Using FORGE
 
 - Organized all 65 manual guides by task, added an editor orientation guide and
