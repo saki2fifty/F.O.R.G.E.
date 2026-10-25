@@ -53,6 +53,21 @@ class NavigationTools {
         error_.clear();
     }
     void poll(Scene& scene, SceneDocument& project, bool playing, std::string& message) {
+        // Content can be hidden while the viewport still draws this cache. Scene
+        // UUIDs can also be identical in two independently copied projects.
+        if (loaded_scene_ &&
+            (loaded_project_ != project.project() || loaded_scene_ != scene.asset_id())) {
+            loaded_project_.clear();
+            loaded_scene_ = selected_ = {};
+            observed_catalog_.reset();
+            metadata_ = nullptr;
+            triangles_.clear();
+            settings_ = {};
+            validation_at_ = {};
+            validation_state_.clear();
+            status_.clear();
+            error_.clear();
+        }
         if (!job_.valid())
             return;
         if (project.project() != job_project_ || scene.asset_id() != job_scene_ || playing)

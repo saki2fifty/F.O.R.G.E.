@@ -44,6 +44,12 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   on project changes. Queued opens retain their originating project and resume
   after cancelled preview work drains, without reinterpreting a shared source path
   in another project.
+- Navigation clears cached overlays and selection when the active scene or project
+  changes, including copied projects with identical scene IDs and a closed
+  Navigation panel. Reopening Navigation reloads the saved mesh without rebuilding.
+- Registered the existing static-Mesh navigation UI regression with CTest. Both
+  full Windows acceptance routes also select the new source publication,
+  source-file and graph lifecycle checks through their shared test selector.
 
 - Scene history shares immutable snapshots when preparing Undo/Redo, prefab
   replay and schema publication. The existing 100-entry cap and transactional

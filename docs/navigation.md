@@ -14,6 +14,15 @@ Recast, Detour and its obstacle-velocity sampling source are compiled. The upstr
 
 Six settings belong to a scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Successful publication preserves its AssetId and records the settings. There is one navigation asset/profile per scene in this foundation. Multiple profiles later require explicit selection; they do not require replacing AssetId.
 
+The editor's regular navigation poll clears cached selection, settings, metadata
+and overlay triangles when the project root or Scene identity changes, even with
+the Navigation content panel closed and no build running. Scene UUIDs alone do
+not distinguish copied projects. Opening Navigation loads the saved current-scene
+selection through the existing catalog/admission path; this is read-only and does
+not rebuild or publish. Same-project, same-scene polling retains usable previews
+and unfinished settings. Background builds retain their separate captured project,
+scene and cancellation checks before publication.
+
 ## Geometry and coordinates
 
 The geometry bridge uses actual FORGE CPU primitive triangles and evaluated Phase 3 WorldTransform values. Coordinates are world-anchored, +Y up, in metres; slope uses degrees. Source triangle winding is normalized using primitive normals in a navigation-only copy. Zero-area sphere-pole triangles are omitted. Renderer meshes are unchanged.

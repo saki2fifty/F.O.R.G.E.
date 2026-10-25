@@ -2,9 +2,13 @@
 
 Navigation lets an object find a route across a floor and around static obstacles. You first build a **NavMesh** from marked scene shapes, then give an object a **Navigation Agent** and a destination.
 
-This is basic path following. Agents do not avoid each other or react to moving obstacles, and cannot have a Physics Body.
+Agents follow baked static geometry. Add **Navigation Avoidance** for local steering
+around other participating agents. Moving obstacles do not automatically change
+the NavMesh, and Navigation Agents cannot also have a Physics Body.
 
-Navigation checks marked surfaces during Play without copying unrelated scene content. In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time used by that check. Changing marked geometry still requires rebuilding navigation; the performance improvement does not change authoring or export steps.
+In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time
+spent checking marked surfaces during Play. Rebuild the NavMesh after changing
+marked geometry.
 
 ## Build a floor and obstacles
 
@@ -36,6 +40,10 @@ Click **Build NavMesh**. The editor stays responsive while the worker builds and
 The ready/stale message checks marked objects and the editor's current asset selection. Changing an included object or a build setting updates it immediately. Refreshing assets keeps your unfinished navigation settings. **NavigationStatus** in the editor CPU profiler shows the time spent checking this message.
 
 Enable **Scene → View → Navigation overlay** to see translucent teal triangles. There should be an opening around the obstacle, with clearance determined by the agent radius. Yellow lines show runtime routes; dots mark their start and end.
+
+Changing scenes or projects clears the previous overlay. Open **Content → Create /
+Register → Navigation** to load the current scene's saved NavMesh. Loading it does
+not rebuild or change the asset.
 
 ## Let agents steer around each other
 

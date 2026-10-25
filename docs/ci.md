@@ -112,7 +112,12 @@ scope and does not replace editor acceptance, the core/SDK matrix or a release g
 
 Both full editor routes read `tools/editor_acceptance_regex.txt`; the unnumbered
 source gate exercises the same acceptance selection before allocating a new
-delivery number. For a repair confined to test fixtures or diagnostic wiring,
+delivery number. The shared selection includes source publication, reviewed
+source-file and material-graph lifecycle checks. Navigation lifecycle and the
+registered static-Mesh navigation UI fixture use the same portable owner test
+group and are also included in full editor acceptance.
+
+For a repair confined to test fixtures or diagnostic wiring,
 an attributable preceding full run can supply unchanged-case evidence: rebuild
 the affected producers and run the complete affected selection natively before
 allocating again. This avoids repeating unchanged rendering/core work to diagnose
