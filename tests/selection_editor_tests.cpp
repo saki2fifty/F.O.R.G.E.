@@ -4,6 +4,7 @@ void require(bool okay, const char* message) {
         throw std::runtime_error(message);
 }
 #include "batch_authoring_tests.hpp"
+#include "framing_tests.hpp"
 #include "hierarchy.hpp"
 #include "scene_tools.hpp"
 #include <imgui_internal.h>
@@ -90,6 +91,7 @@ int main() {
             std::is_same_v<decltype(std::declval<const ui::EditorSelection&>().entity_count()),
                            std::size_t>);
         test_batch_authoring(); // Existing batch/Undo/prefab/spatial selection coverage.
+        test_framing_selection();
         ui::EditorSelection direct;
         check_selection(direct, {});
         direct.select_entities({"b", "a", "b", "", "c"});

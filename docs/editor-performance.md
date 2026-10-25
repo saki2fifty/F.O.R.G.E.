@@ -107,6 +107,39 @@ Full-frame and Windows review remain separate. Raw samples, binary hashes and
 exact source/library inputs are retained in the local audit's
 `selection-overlay-performance-paired.json` and `selection-overlay-*-inputs.json`.
 
+## Batched structural framing expansion — 2026-10-25
+
+Compared `0e65132` with the framing correction in the
+[October 25 audit batch](../changelog/20261025/README.md). Frame selected previously
+called the single-root expansion once per selected object, rebuilding the same
+child lookup and traversing overlapping descendants repeatedly. The existing
+framing helper now accepts the whole selection, constructs the lookup once and
+uses one visited set. Its single-root entry point forwards to the same algorithm.
+No persistent hierarchy cache or ownership changes are introduced.
+
+The Linux/GCC 12 Release probe compares the former caller expansion with the new
+batch call, using the actual framing helper and 1,000-row structural fixtures.
+Flat rows have no parents; the chain has each row parented to its predecessor.
+The first 1, 64 or 1,000 rows are selected. Before/after/before/after processes each
+warm up once, then collect six samples per case, with no concurrent compilation.
+Medians combine 12 samples per version. Every expected expanded entity ID and
+count is checked, and input rows remain unchanged.
+
+| Hierarchy | Selected roots | Before | After |
+| --- | ---: | ---: | ---: |
+| Flat | 1 | 0.0116 ms | 0.0107 ms |
+| Flat | 64 | 0.963 ms | 0.020 ms |
+| Flat | 1,000 | 11.575 ms | 0.236 ms |
+| Chain | 1 | 0.829 ms | 0.617 ms |
+| Chain | 64 | 57.863 ms | 0.626 ms |
+| Chain | 1,000 | 587.944 ms | 0.801 ms |
+
+These are selection-expansion timings, excluding mesh/pose bounds, camera
+fitting, rendering, and Windows input. The flat single-root difference is too
+small for a strong latency claim. Native viewport compilation/camera review
+remains pending. Exact source/library/binary attribution and samples are in the
+local audit's `framing-performance-paired.json` and `framing-*-inputs.json`.
+
 ## Matched startup and idle comparison
 
 Verified 2026-09-22.

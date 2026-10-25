@@ -80,6 +80,10 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Scene history and Content discovery
 
+- Frame selected builds its temporary structural lookup once for the whole
+  selection. Overlapping descendants share one traversal; existing bounds,
+  helper-position, cycle and admission behavior are preserved.
+
 - Selection overlays reuse a temporary row lookup instead of rescanning the scene
   for every selected object. One-object drawing avoids index allocation. Geometry
   and selection order are preserved; owner tests and attributed CPU measurements

@@ -164,6 +164,11 @@ vertices, UVs, colors, indices and draw-command ranges for the same selection.
 Cases include single/multiple selections, missing IDs, duplicate requests and
 unresolved/non-positioned/helper rows. Drawing must retain selection order and
 leave its borrowed projection unchanged.
+The shared framing assertions also run here: multi-root expansion covers
+overlapping/repeated roots, structural versus spatial ancestry, cycles, row-order
+independence, empty selections, invalid IDs, the 10,000-row profile and mixed
+mesh/helper positions. Native viewport compilation and actual camera fitting
+remain separate from these portable selection-expansion checks.
 This portable fixture is included in the shared Windows selector. Native input,
 large-selection frame timing and the full editor entry point remain separate checks.
 

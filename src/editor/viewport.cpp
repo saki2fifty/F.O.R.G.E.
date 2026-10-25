@@ -48,11 +48,7 @@ bool Viewport::frame(const Json& source, const std::string& selected, EditorCame
 }
 bool Viewport::frame_selection(const Json& source, const std::vector<std::string>& selected,
                                EditorCamera& camera, float aspect) {
-    std::set<EntityId> selection;
-    for (const auto& id : selected) {
-        const auto branch = framing_entities(source, id);
-        selection.insert(branch.begin(), branch.end());
-    }
+    const auto selection = framing_entities(source, selected);
     auto fallback = [&] {
         if (selected.size() == 1)
             return camera.frame(source, selected.front(), aspect);

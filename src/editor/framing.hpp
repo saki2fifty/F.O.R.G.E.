@@ -1,14 +1,17 @@
 #pragma once
 #include "../render_bounds.hpp"
+#include <algorithm>
 #include <cmath>
 #include <forge/scene.hpp>
 #include <map>
 #include <set>
+#include <span>
 namespace forge {
 // Transient selection expansion: structural descendants, independent of spatial
 // parenting. A model root therefore frames its complete placed subtree.
-inline std::set<EntityId> framing_entities(const Json& source, const std::string& selected) {
-    if (selected.empty())
+inline std::set<EntityId> framing_entities(const Json& source,
+                                           std::span<const std::string> selected) {
+    if (std::none_of(selected.begin(), selected.end(), [](const auto& id) { return !id.empty(); }))
         return {};
     const auto& rows = source.at("entities");
     if (rows.size() > 10000)
@@ -20,7 +23,11 @@ inline std::set<EntityId> framing_entities(const Json& source, const std::string
             children.emplace(EntityId::parse(parent), row.at("id").get<EntityId>());
     }
     std::set<EntityId> result;
-    std::vector<EntityId> pending{EntityId::parse(selected)};
+    std::vector<EntityId> pending;
+    pending.reserve(selected.size());
+    for (const auto& id : selected)
+        if (!id.empty())
+            pending.push_back(EntityId::parse(id));
     while (!pending.empty()) {
         const auto id = pending.back();
         pending.pop_back();
@@ -31,6 +38,9 @@ inline std::set<EntityId> framing_entities(const Json& source, const std::string
             pending.push_back(child->second);
     }
     return result;
+}
+inline std::set<EntityId> framing_entities(const Json& source, const std::string& selected) {
+    return framing_entities(source, std::span<const std::string>(&selected, 1));
 }
 // Mesh bounds come from retained render poses. Camera/light helpers have no mesh:
 // include their derived world positions only when framing a selected mesh alongside them.

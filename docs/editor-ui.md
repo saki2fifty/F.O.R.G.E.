@@ -18,6 +18,12 @@ selection performs one direct lookup without allocating an index. Positions and
 primitive bounds use the same row, and drawing preserves selection order. The
 index does not survive the draw or become another scene cache.
 
+Frame selected expands all selected structural roots through one temporary child
+lookup and one visited set. Overlapping subtrees and cycles are visited once.
+The single-root entry point shares that implementation. Structural framing stays
+independent of spatial parenting; current render-pose bounds and helper positions
+remain with their existing owners.
+
 Project Settings owns shared review initialization for its native and automation
 routes. Game-default creation opens the draft before the workspace's next draw.
 Accepted close clears pending Save/close/focus requests and its old validation
