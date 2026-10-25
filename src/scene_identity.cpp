@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "json_document.hpp"
 #include "reflected_references.hpp"
 #include "spatial_document.hpp"
 #include <forge/scene.hpp>
@@ -11,7 +12,7 @@ Json read(const std::filesystem::path& path) {
     std::ifstream stream(path, std::ios::binary);
     if (!stream)
         throw std::runtime_error("Cannot read scene identity/source: " + path.string());
-    return Json::parse(stream);
+    return detail::parse_json_document(stream);
 }
 std::filesystem::path sibling(const std::filesystem::path& path, const char* suffix) {
     auto result = path;

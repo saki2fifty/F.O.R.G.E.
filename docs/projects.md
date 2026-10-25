@@ -22,13 +22,19 @@ Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the ma
 
 Open validates before replacing active state. Save checks the active file against the saved baseline and rejects external changes or deletion before writing atomically. Save As to a new filename for a saved scene creates fresh scene/entity identities and resets history only after a successful write. Ordinary Save and the first save of an untitled scene retain identity. These checks detect conflicts but do not provide cross-process compare-and-swap or merging.
 
-The editor JSON reader uses complete-document parsing, matching the core scene
-and project readers. Trailing non-whitespace content or a second JSON value
-rejects the record before recovery, bookmark or SDK metadata admission.
-Binary-mode file reads also require the parser to reach physical EOF, so a raw
-NUL or Windows text-mode end marker cannot hide trailing bytes. UTF-8 text, an
-initial UTF-8 BOM, surrounding JSON whitespace and escaped JSON control characters
-remain supported.
+Editor records, project manifests, Scene identity sources/records, Prefab sources
+and catalog Scene/Prefab checks share the private complete-record JSON parser.
+They read files in binary mode and require physical EOF, rejecting a raw NUL or
+native text-mode marker that could hide trailing content. Trailing non-whitespace
+or a second JSON value also rejects. UTF-8 BOM/text/whitespace and escaped JSON
+control values remain supported.
+
+Each caller retains its size limits, schema validation, ownership and publication
+rules. A rejected legacy source cannot create an identity journal or migration
+backup, and rejected settings/Prefab publication keeps its current state and
+source bytes. The captured original used for a project migration backup receives
+the same complete-record check before publication. Script worker request/result
+files use this parser too; their resource budgets and task ownership are separate.
 
 ## Recovery envelope
 

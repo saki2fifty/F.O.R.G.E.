@@ -1,6 +1,7 @@
 #include "asset_bytes.hpp"
 #include "asset_storage.hpp"
 #include "asset_worker.hpp"
+#include "json_document.hpp"
 #include <forge/flecs_script.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
@@ -299,7 +300,7 @@ Json preview_flecs_script(const std::filesystem::path& project, const std::files
         std::filesystem::file_size(output) > 16 * text_limit)
         throw std::runtime_error("Script worker returned no bounded result");
     std::ifstream file(output, std::ios::binary);
-    auto result = Json::parse(file);
+    auto result = detail::parse_json_document(file);
     if (!result.is_object() || !result.contains("ok") || !result.at("ok").is_boolean())
         throw std::runtime_error("Script worker returned an invalid result");
     return result;

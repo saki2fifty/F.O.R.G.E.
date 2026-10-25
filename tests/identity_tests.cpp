@@ -182,6 +182,17 @@ int main() {
         } cleanup{folder};
         const auto path = folder / "original.scene.json";
         const auto original_bytes = v1.dump(4);
+        for (const auto& tail :
+             {std::string(1, '\0'), std::string("\0hidden", 7), std::string("\x1a hidden")}) {
+            atomic_write(path, original_bytes + tail);
+            rejects([&] { (void)read_scene_file(path); });
+            std::ifstream input(path, std::ios::binary);
+            const std::string retained{std::istreambuf_iterator<char>(input), {}};
+            require(retained == original_bytes + tail &&
+                        !std::filesystem::exists(path.string() + ".forge-identity.json") &&
+                        !std::filesystem::exists(path.string() + ".v1.backup"),
+                    "Malformed scene created migration identity/backup or changed source bytes");
+        }
         atomic_write(path, original_bytes);
         const auto first = read_scene_file(path);
         require(read(path) == v1 && first == read_scene_file(path),

@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "json_document.hpp"
 #include "json_value_equal.hpp"
 #include "prefab_references.hpp"
 #include <forge/assets.hpp>
@@ -12,8 +13,8 @@ namespace {
 Json read_prefab(const std::filesystem::path& path) {
     if (std::filesystem::file_size(path) > 8 * 1024 * 1024)
         throw std::runtime_error("Prefab source exceeds 8 MiB");
-    std::ifstream input(path);
-    auto source = Json::parse(input);
+    std::ifstream input(path, std::ios::binary);
+    auto source = detail::parse_json_document(input);
     return PrefabDocument(std::move(source)).source;
 }
 } // namespace

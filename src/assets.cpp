@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "json_document.hpp"
 #include "native_io_path.hpp"
 #include "scene_asset_record.hpp"
 #include <algorithm>
@@ -303,8 +304,8 @@ void AssetCatalog::set_source_dependencies(AssetId consumer,
     replace(std::move(record));
 }
 AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
-    std::ifstream stream(locate(source));
-    const auto doc = Json::parse(stream);
+    std::ifstream stream(locate(source), std::ios::binary);
+    const auto doc = detail::parse_json_document(stream);
     auto record = detail::scene_asset_record(source, doc);
     add(record);
     return record;
@@ -337,16 +338,16 @@ AssetResolution AssetCatalog::resolve(AssetId id, const std::string& expected_ty
         if (!std::filesystem::is_regular_file(asset_detail::native_io_path(path)))
             return {AssetState::Missing, record, "Asset source is missing"};
         if (record.type == SceneAsset::type) {
-            std::ifstream stream(asset_detail::native_io_path(path));
-            const auto doc = Json::parse(stream);
+            std::ifstream stream(asset_detail::native_io_path(path), std::ios::binary);
+            const auto doc = detail::parse_json_document(stream);
             Scene::validate_document(doc);
             if (doc.at("version") != record.schema_version ||
                 doc.at("asset_id").get<AssetId>() != id)
                 return {AssetState::Incompatible, record,
                         "Scene identity or schema does not match metadata"};
         } else if (record.type == PrefabAsset::type) {
-            std::ifstream stream(asset_detail::native_io_path(path));
-            const PrefabDocument doc(Json::parse(stream));
+            std::ifstream stream(asset_detail::native_io_path(path), std::ios::binary);
+            const PrefabDocument doc(detail::parse_json_document(stream));
             if (record.schema_version != doc.source.at("version").get<unsigned>() ||
                 doc.asset() != id)
                 return {AssetState::Incompatible, record,

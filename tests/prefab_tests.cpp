@@ -117,6 +117,30 @@ void files_and_publication(const std::filesystem::path& base) {
     const auto asset = library.create(scene, definition, "Original.prefab.json");
     check(scene.document() == authored, "Create changed original scene");
     check(library.source(asset) == definition.source, "source save/reopen");
+    {
+        const auto path = folder / library.source_path(asset);
+        const auto saved = definition.source.dump(2);
+        const auto snapshot = scene.snapshot();
+        const auto revision = scene.revision();
+        for (const auto& tail :
+             {std::string(1, '\0'), std::string("\0hidden", 7), std::string("\x1a hidden")}) {
+            atomic_write(path, saved + tail);
+            bool rejected = false;
+            try {
+                library.publish(scene, definition.source, definition.source);
+            } catch (const std::exception&) {
+                rejected = true;
+            }
+            std::ifstream input(path, std::ios::binary);
+            const std::string retained{std::istreambuf_iterator<char>(input), {}};
+            check(rejected && retained == saved + tail && scene.snapshot() == snapshot &&
+                      scene.revision() == revision,
+                  "Malformed Prefab source was overwritten or changed the live definition");
+        }
+        atomic_write(path, saved);
+        check(library.source(asset) == definition.source,
+              "Repaired Prefab source did not retain its identity and definition");
+    }
     auto a = instantiate_prefab(scene, asset);
     auto doc = scene.document();
     const std::string root_member = definition.root().str();

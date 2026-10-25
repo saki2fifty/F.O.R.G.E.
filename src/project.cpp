@@ -1,3 +1,4 @@
+#include "json_document.hpp"
 #include <cmath>
 #include <forge/game_settings.hpp>
 #include <forge/native_sdk.hpp>
@@ -9,10 +10,10 @@ namespace {
 Json read(const std::filesystem::path& p, std::uintmax_t limit = 8 * 1024 * 1024) {
     if (std::filesystem::file_size(p) > limit)
         throw std::runtime_error("Project source exceeds size limit: " + path_utf8(p));
-    std::ifstream f(p);
+    std::ifstream f(p, std::ios::binary);
     if (!f)
         throw std::runtime_error("Cannot read project file: " + path_utf8(p));
-    return Json::parse(f);
+    return detail::parse_json_document(f);
 }
 } // namespace
 Json ProjectSettings::defaults(const std::string& name) {
@@ -157,7 +158,7 @@ void ProjectSettings::save(Json candidate, const Json* expected) {
                 std::ifstream stream(manifest, std::ios::binary);
                 original.assign(std::istreambuf_iterator<char>(stream), {});
             }
-            if (Json::parse(original) != *disk_)
+            if (detail::parse_json_document(std::string_view(original)) != *disk_)
                 throw std::runtime_error("Project changed while preparing migration backup");
             atomic_write(backup, original);
         }

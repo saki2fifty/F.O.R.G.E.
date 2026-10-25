@@ -287,6 +287,20 @@ static void project_tests(const std::filesystem::path& root) {
           "Project migration/defaults lost unknown fields");
     check(project.startup() == root / "Scenes/main.scene.json",
           "Startup identity resolution failed");
+    const auto admitted = project.document();
+    for (const auto& tail :
+         {std::string(1, '\0'), std::string("\0hidden", 7), std::string("\x1a hidden")}) {
+        const auto damaged = legacy.dump() + tail;
+        atomic_write(root / "forge.project.json", damaged);
+        reject([&] { ProjectSettings reopened(root); });
+        reject([&] { project.save(admitted); });
+        std::ifstream input(root / "forge.project.json", std::ios::binary);
+        const std::string retained{std::istreambuf_iterator<char>(input), {}};
+        check(retained == damaged && project.document() == admitted &&
+                  !std::filesystem::exists(root / "forge.project.json.v1.backup"),
+              "Malformed project input changed settings, source bytes or migration backup");
+    }
+    atomic_write(root / "forge.project.json", legacy.dump());
     auto changed = project.document();
     check(project.physics().gravity == Double3{0, -9.81, 0}, "Legacy project gravity default");
     changed["physics"] = {{"version", 1}, {"gravity", {0, -3, 0}}, {"plugin", {{"opaque", true}}}};

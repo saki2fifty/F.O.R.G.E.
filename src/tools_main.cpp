@@ -1,5 +1,6 @@
 #include "asset_tools_cli.hpp"
 #include "ecs_tools_cli.hpp"
+#include "json_document.hpp"
 #include "mcp.hpp"
 #include <forge/authoring.hpp>
 #include <forge/build.hpp>
@@ -38,7 +39,8 @@ int main(int argc, char** argv) {
             if (std::filesystem::file_size("request.json") > 3 * 1024 * 1024)
                 throw std::runtime_error("Script request is too large");
             std::ifstream input("request.json", std::ios::binary);
-            const auto result = forge::evaluate_flecs_script_worker(forge::Json::parse(input));
+            const auto result =
+                forge::evaluate_flecs_script_worker(forge::detail::parse_json_document(input));
             forge::atomic_write("result.json", result.dump());
             return 0;
         } catch (const std::exception& e) {

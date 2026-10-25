@@ -32,6 +32,16 @@ with tempfile.TemporaryDirectory(prefix='forge-script-', dir=Path.cwd()) as temp
     assert result['world'] == 'isolated Preview'
     old = json.dumps(result['entities'])
     assert 'Old' in old and 'Position' in old, result
+    # A worker request is one complete file record, including on Windows.
+    request = json.dumps({'project': str(project), 'source': 'Assets/main.flecs',
+                          'code': base, 'previous': ''}).encode('utf-8')
+    previous_result = (staging / 'result.json').read_bytes()
+    for tail in (b'\0', b'\0hidden', b'\x1a hidden', b'\n{}'):
+        (staging / 'request.json').write_bytes(request + tail)
+        child = subprocess.run([str(exe), '--script-worker'], cwd=staging,
+                               capture_output=True, text=True, timeout=35)
+        assert child.returncode != 0 and child.stderr, child.stdout + child.stderr
+        assert (staging / 'result.json').read_bytes() == previous_result
     # Grammar from the pinned Eval and Template suites, through FORGE's worker.
     procedural = base + '\nusing flecs.script.math\n' + '''
 Tag {}

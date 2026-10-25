@@ -24,6 +24,14 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   configuration, with recovery rejection/retry and protection against saving
   over malformed external changes.
 
+## Core file records
+
+- Project, Scene identity, Prefab, catalog and Script worker file readers reuse
+  complete-record parsing. Raw terminators cannot hide external edits or cause
+  a partial file to be admitted for migration/publication.
+- Added actual project Save, legacy Scene identity, Prefab publication and Script
+  request regressions that retain source bytes and prior state on rejection.
+
 ## Asset JSON admission
 
 - The shared bounded JSON parser rejects raw NUL bytes that could hide part of a
