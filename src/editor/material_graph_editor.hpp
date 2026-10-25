@@ -132,12 +132,12 @@ class MaterialGraphEditor {
             return;
         }
         if (document_) {
-            pending_source_ = source;
+            pending_source_ = PendingSource{project.project(), source};
             request_close();
             return;
         }
         if (preview_job_.valid()) {
-            pending_source_ = source;
+            pending_source_ = PendingSource{project.project(), source};
             request_close();
             return;
         }
@@ -185,9 +185,13 @@ class MaterialGraphEditor {
         }
     }
     void poll(SceneDocument& project, std::string& message) {
+        if (pending_source_ && pending_source_->project != project.project())
+            pending_source_.reset();
         if (document_ && document_->project() != project.project()) {
-            cancel_.request_stop();
-            close_ = true;
+            // Old-project Save and preview work must not use the current publisher.
+            // Keep only an explicit open request belonging to the new project.
+            finish_close();
+            close_ = pending_source_.has_value();
         }
         if (preview_job_.valid() &&
             preview_job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
@@ -233,9 +237,7 @@ class MaterialGraphEditor {
             if (needs_publish_ && publication_error)
                 error_ = "Source saved; graph publication failed: " + publication_error();
         }
-        if (!document_)
-            return;
-        if (save_ && !publishing_) {
+        if (document_ && save_ && !publishing_) {
             save_ = false;
             try {
                 flush();
@@ -259,7 +261,7 @@ class MaterialGraphEditor {
             const auto next = std::exchange(pending_source_, {});
             try {
                 if (next)
-                    load(project, *next);
+                    load(project, next->source);
                 else
                     finish_close();
             } catch (const std::exception& e) {
@@ -268,6 +270,8 @@ class MaterialGraphEditor {
             }
             return;
         }
+        if (!document_)
+            return;
         if (wants_preview_ && !preview_job_.valid() &&
             std::chrono::steady_clock::now() - edited_ >= std::chrono::milliseconds(300)) {
             wants_preview_ = false;
@@ -586,7 +590,10 @@ class MaterialGraphEditor {
          focus_ = false, publishing_ = false, needs_publish_ = false;
     uint64_t generation_ = 0, requested_generation_ = 0, ready_generation_ = 0;
     std::chrono::steady_clock::time_point edited_;
-    std::optional<std::filesystem::path> pending_source_;
+    struct PendingSource {
+        std::filesystem::path project, source;
+    };
+    std::optional<PendingSource> pending_source_;
     std::optional<std::string> function_name_;
     std::string error_, preview_error_;
     MaterialTextureBindings preview_textures_;

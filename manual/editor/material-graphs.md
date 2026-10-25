@@ -134,6 +134,10 @@ Closing with pending work offers Save, Discard or Keep editing. Discard drops un
 drafts; it does not erase source already saved by a failed compile. Unsupported
 nodes remain in the source and show a diagnostic; they are not silently deleted.
 
+Before switching projects, save or discard pending graph changes. Switching closes
+the previous project's graph and cancels its preview preparation. Open a graph from
+the new project's Content browser to continue editing there.
+
 After reopening the project, open the graph's Shader asset from Content. Exported
 games use its compiled material through the normal [export workflow](runtime-content.md).
 They do not contain the graph editor or require an installed shader compiler.

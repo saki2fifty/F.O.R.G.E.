@@ -40,6 +40,10 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   behavior for supported formats. Pending source gestures and Save/close requests
   block file review. Mesh Move/Duplicate retain their existing unsupported-format
   rejection; file publication, identity and backup rules are unchanged.
+- Material Graph clears old-project Save requests and cancels preview preparation
+  on project changes. Queued opens retain their originating project and resume
+  after cancelled preview work drains, without reinterpreting a shared source path
+  in another project.
 
 - Scene history shares immutable snapshots when preparing Undo/Redo, prefab
   replay and schema publication. The existing 100-entry cap and transactional

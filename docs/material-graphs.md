@@ -120,6 +120,15 @@ Undo/Redo belongs to this source document, not scene history or asset-file publi
 Background Shader imports submit without opening import-settings UI and leave no
 invisible dirty settings document after success or failure.
 
+Project switching settles dirty sources through the workspace guard. Once the
+active project changes, the graph owner closes the previous document, clears its
+queued Save and cancels its preview worker. Pending opens retain their project
+root as well as their source locator; a relative path is never resolved against a
+different project. An explicit open in the new project waits for the cancelled
+preview to drain, then loads through the normal document owner. Old results and
+diagnostics cannot be adopted into the new graph. These are transient editor
+requests; asset identity and the persisted graph format are unchanged.
+
 ## Graph selection and layout
 
 Canvas selection/view/settings remain transient. Selection All/Clear/Invert and
