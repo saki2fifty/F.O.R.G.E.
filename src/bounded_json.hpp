@@ -1,4 +1,5 @@
 #pragma once
+#include <cstring>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <set>
@@ -13,6 +14,10 @@ inline nlohmann::json parse_bounded_json(std::span<const std::byte> bytes, std::
                                          std::size_t event_limit = 4000000, int depth_limit = 64) {
     if (bytes.size() > byte_limit)
         throw std::runtime_error("Asset JSON exceeds byte limit");
+    // The parser accepts NUL as a string terminator; a captured byte range must
+    // contain a complete JSON document. Escaped JSON control characters remain valid.
+    if (!bytes.empty() && std::memchr(bytes.data(), 0, bytes.size()))
+        throw std::runtime_error("Asset JSON contains a raw NUL byte");
     std::size_t events = 0;
     std::map<int, std::set<std::string>> keys;
     using Json = nlohmann::json;

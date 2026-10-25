@@ -162,6 +162,33 @@ int main(int argc, char** argv) {
                 "GLB source/chunk/padding admission failed");
         {
             auto document = binary_doc;
+            document["extras"] = {{"escaped", std::string(1, '\0')}, {"padding", ""}};
+            // Ensure that the JSON chunk ends with spaces, distinct from zero BIN padding.
+            while (document.dump().size() % 4 != 1)
+                document["extras"]["padding"].get_ref<std::string&>() += 'x';
+            auto damaged = glb(document, Bytes{std::byte{0}, std::byte{1}, std::byte{2}});
+            write(root / "Assets/model/terminator.glb", damaged);
+            require(capture_gltf_source(root, "Assets/model/terminator.glb").document == document,
+                    "Valid GLB JSON escapes/space padding were rejected");
+            damaged[20 + document.dump().size()] = std::byte{0};
+            write(root / "Assets/model/terminator.glb", damaged);
+            rejects([&] { (void)capture_gltf_source(root, "Assets/model/terminator.glb"); },
+                    "raw NUL");
+            rejects(
+                [&] {
+                    (void)gltf_detail::relocate_gltf_source(ProjectPaths(root),
+                                                            "Assets/model/terminator.glb",
+                                                            "Moved/terminator.glb", damaged);
+                },
+                "raw NUL");
+            for (const auto& tail : {std::string(1, '\0'), std::string("\0hidden", 7)}) {
+                atomic_write(root / source, base.dump() + tail);
+                rejects([&] { (void)capture_gltf_source(root, source); }, "raw NUL");
+            }
+            atomic_write(root / source, percent_data.dump());
+        }
+        {
+            auto document = binary_doc;
             document["images"] = Json::array({{{"uri", "../image.png"}}});
             document["extras"] = {{"uri", "../image.png"}};
             const auto original =

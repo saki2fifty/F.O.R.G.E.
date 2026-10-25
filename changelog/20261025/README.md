@@ -24,6 +24,14 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   configuration, with recovery rejection/retry and protection against saving
   over malformed external changes.
 
+## Asset JSON admission
+
+- The shared bounded JSON parser rejects raw NUL bytes that could hide part of a
+  captured source or metadata record. glTF capture and GLB relocation use this
+  same check. Escaped JSON characters and binary resource bytes remain valid.
+- Extended the existing robustness and glTF source suites with actual source capture and
+  relocation rejection, valid padding and escaped-control cases.
+
 ## Editor validation
 
 - Registered existing editor fixtures for mesh refinement, material graph geometry,

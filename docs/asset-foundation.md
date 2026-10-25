@@ -98,6 +98,16 @@ bounded grace period and waits before deleting staging. A late result cannot pub
 Trusted bounded pure transformations may run on a background task without subprocess overhead;
 parsers/converters with crash/resource risk use the established isolated candidate model.
 
+Captured JSON byte ranges use the existing bounded parser, which rejects raw NUL
+bytes, oversized input, excess nesting/events and duplicate keys. A string
+terminator cannot hide a suffix within a declared input range. Escaped JSON
+control characters remain valid data. This check applies to the JSON chunk of
+a GLB, including during source relocation; BIN and unknown binary chunk bytes
+retain their separate validation rules. C-string SDK callers pass a range that
+excludes their terminator. The parser remains an input to existing recipe
+fingerprints; changed source admission receives a new derived-cache revision
+through those owners, without replacing persistent asset IDs.
+
 ## Runtime loading and handles
 
 Choose AssetRef plus typed **ResourceLease**, not a persisted generic AssetHandle.

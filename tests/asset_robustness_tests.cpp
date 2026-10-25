@@ -76,10 +76,32 @@ struct Fields {
     float health;
     std::uint32_t count;
 };
+void json_record_boundaries() {
+    const std::string text =
+        "\xef\xbb\xbf \r\n{\"name\":\"\xe7\x95\x8c\",\"escaped\":\"\\u0000\"}\t\n";
+    auto parse = [](const std::string& value) {
+        return parse_bounded_json(std::as_bytes(std::span(value)), 4096, 128, 8);
+    };
+    const Json expected{{"name", "\xe7\x95\x8c"}, {"escaped", std::string(1, '\0')}};
+    check(parse(text) == expected, "Bounded JSON rejected valid UTF-8/escaped control data");
+    // Include a terminator at EOF as well as hidden bytes after a complete value.
+    for (std::size_t offset = 0; offset <= text.size(); ++offset) {
+        auto damaged = text;
+        damaged.insert(offset, 1, '\0');
+        reject([&] { (void)parse(damaged); });
+    }
+    reject([&] { (void)parse(text + std::string("\0hidden", 7)); });
+    reject([&] { (void)parse(text + "{}"); });
+    reject([&] { (void)parse(text + "\x1a hidden"); });
+    reject([&] { (void)parse(R"({"same":1,"same":2})"); });
+    reject([&] { (void)parse_bounded_json(std::as_bytes(std::span(text)), text.size() - 1); });
+    check(parse(text) == expected, "Rejected JSON changed later valid admission");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need pinned fixture root and scratch directory");
+        json_record_boundaries();
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         const auto glb =
