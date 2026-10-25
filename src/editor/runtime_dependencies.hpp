@@ -26,6 +26,23 @@ class RuntimeDependenciesEditor {
     bool dirty_ = false;
     std::future<AssetCatalog> job_;
     std::string session_, operation_, error_;
+    void observe_project(const std::filesystem::path& project) {
+        // Project switching already guards drafts and jobs. Never discard either
+        // if a caller has not yet settled the previous project's work.
+        if (project_ == project || dirty_ || busy())
+            return;
+        project_ = project;
+        owner_ = {};
+        expected_ = nullptr;
+        edges_.clear();
+        selected_ = nullptr;
+        session_.clear();
+        operation_.clear();
+        status_.clear();
+        error_.clear();
+        module_.clear();
+        reason_.fill(0);
+    }
     void load(const AssetCatalog& catalog, AssetId owner) {
         owner_ = owner;
         const auto persisted = AssetCatalog::open_project(project_);
@@ -51,7 +68,8 @@ class RuntimeDependenciesEditor {
             editor_context->reveal_content = true;
         }
     }
-    void poll(const std::function<void()>& refresh) {
+    void poll(const SceneDocument& document, const std::function<void()>& refresh) {
+        observe_project(document.project());
         if (job_.valid() && job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             try {
                 auto result = job_.get();
@@ -110,7 +128,9 @@ class RuntimeDependenciesEditor {
     }
     void draw(SceneDocument& document, const AssetCatalog& catalog, const AssetRecord& asset,
               bool locked, const std::function<void(const AssetRecord&)>& open) {
-        project_ = document.project();
+        observe_project(document.project());
+        if (project_ != document.project())
+            return;
         const bool expanded = responsive_tree_node("Runtime Dependencies", "Dependencies");
         FORGE_UI_PROBE("dependencies:section");
         if (!expanded) {

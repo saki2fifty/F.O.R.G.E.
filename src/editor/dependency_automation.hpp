@@ -8,6 +8,7 @@ namespace forge {
 struct DependencyAutomation {
     static Json state(ui::RuntimeDependenciesEditor& owner, EditorFiles& files) {
         files.document.check_ownership();
+        owner.observe_project(files.document.project());
         if (owner.project_ != files.document.project() || !owner.owner_)
             return {{"open", false}, {"busy", false}};
         Json edges = owner.edges_;
@@ -70,7 +71,7 @@ struct DependencyAutomation {
                 if (found == current->records().end() || found->second.subasset)
                     throw AuthoringError("invalid_asset",
                                          "Select an authored dependency owner asset");
-                owner.project_ = files.document.project();
+                owner.observe_project(files.document.project());
                 owner.load(*current, id);
                 select(id);
                 return state(owner, files);

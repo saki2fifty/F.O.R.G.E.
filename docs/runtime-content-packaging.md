@@ -1,13 +1,17 @@
 # Runtime content packages
 
-The Phase7 content tool selects cooked assets for a target without copying their
-original glTF, image, WAV, material source, HLSL, or import sidecars. It does not
-create a standalone visual game executable. Scene/Prefab document closure is implemented in the current Phase8 source
-checkpoint. Legacy Ozz and bounded RmlUi source adapters are implemented in the current source.
-Unrecognized runtime types still reject export. Standalone distribution manifests, runtime/module-kit collection and the shared export
-operation are implemented in current source; final Windows graphical acceptance
-remains in progress.
-This source checkpoint has not been included in a numbered Windows delivery.
+The content packager selects cooked assets and admitted authored documents for a
+target, following the existing catalog's typed runtime dependency graph. Imported
+assets use their selected artifacts without copying original glTF, image, WAV,
+material-source or HLSL files. Scene/Prefab documents and the bounded legacy Ozz
+and RmlUi adapters use the formats described below. Unsupported runtime types
+reject export.
+
+Standalone Windows/D3D12 Development assembly combines that content with the
+matching runtime/module kits through the shared export operation. The low-level
+content packager produces content without an executable; see
+[Standalone assembly and recovery](#standalone-assembly-and-recovery) for a runnable
+game folder. [CI](ci.md) defines native delivery and physical-review evidence.
 
 ## Identity and dependency ownership
 
@@ -33,7 +37,7 @@ manifest. It does not resolve a development filename. Model member/owner locator
 remain equal, and the existing complete-family loader checks all identities,
 bindings, member formats, animation provenance and selected revisions.
 
-The Phase8 navigation adapter copies the already baked, admitted `.fnav` envelope
+The navigation adapter copies the already baked, admitted `.fnav` envelope
 to `runtime/navigation/ASSET_ID.fnav`. It retains the exact Recast revision, Detour
 layout, geometry/settings/identity provenance and byte digest. The build-only
 source scene is excluded; runtime stale-geometry checks still use the loaded scene.

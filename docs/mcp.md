@@ -361,6 +361,10 @@ RuntimeDependenciesEditor draft. Edit supplies a finite typed set with reasons
 and optional module ownership. Save reviews source revisions, optional native UI
 resources and the persisted catalog baseline in the existing worker. Poll its
 actual result; there is no parallel dependency graph or automatic conflict merge.
+Reviews, sessions and completed operation results are project-scoped, including
+copied projects with identical asset IDs. Switching projects invalidates clean
+reviews even with Inspector closed. Open a fresh review and read its state before
+editing. Existing dirty-review and active-save switch guards retain unfinished work.
 
 ## Output, image inspection and export
 

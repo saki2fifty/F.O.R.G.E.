@@ -71,7 +71,10 @@ Declare finite alternatives even if you have never shown them in preview.
 
 **Remove** edits the draft. **Discard draft / refresh** reloads saved declarations.
 The editor keeps a draft when you select another asset and blocks project/scene
-switching or closing until you save or discard it in Inspector.
+switching or closing until you save or discard it in Inspector. After switching
+projects, select an asset and expand **Runtime Dependencies** to review that
+project's saved declarations. This also applies to copied projects whose assets
+have the same IDs.
 These catalog saves are separate from scene Undo. Missing resources, wrong types,
 changed source revisions and catalog conflicts appear as diagnostics. Fix the cause,
 review the list and save again. In a packaged game, an undeclared resource request

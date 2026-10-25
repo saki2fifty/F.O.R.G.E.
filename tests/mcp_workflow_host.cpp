@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
             content.poll(files);
             if (!content.refreshing())
                 content.refresh(files);
-            dependencies.poll([&] { content.refresh(files); });
+            dependencies.poll(files.document, [&] { content.refresh(files); });
             scripts.poll(files.document, problems);
             imports.suspend(export_task.busy());
             imports.poll(files.document, message);

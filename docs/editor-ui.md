@@ -12,6 +12,12 @@ The editor uses the pinned Dear ImGui docking build and SDL3. Runtime libraries 
 - ComponentInspector and property_drawer consume registered schema metadata. Friendly labels/categories/enum choices are additive metadata; persistent formats and identity do not change. There is no second authoritative component registration table.
 - Problems and Console retain bounded session diagnostics/status transitions. They are presentation history, not project state or a persistent telemetry service.
 
+Runtime Dependencies keeps one transient review of the current project's catalog.
+Idle project changes clear the previous review, operation result and module/reason
+choices, including while Inspector is closed. Main-loop polling, panel drawing and
+automation reads share this observation path. Same-project observations retain the
+review; dirty drafts and active saves remain protected by the existing switch guards.
+
 `TimedTextLog` is the shared presentation owner for compiler, Play and exported-game
 run output. Its retained text is capped at 256 KiB, including timestamps; a single
 unterminated line cannot bypass that cap. Whole-line eviction is preferred. An

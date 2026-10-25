@@ -2763,7 +2763,7 @@ int main(int argc, char** argv) {
                 initialize_layout = false;
             }
             game_export.poll(content_imports, [&] { content.refresh(files); });
-            runtime_dependencies.poll([&] { content.refresh(files); });
+            runtime_dependencies.poll(files.document, [&] { content.refresh(files); });
             const bool edit_locked = game_export.busy() || runtime_dependencies.busy() ||
                                      play.active() || sdk_build->busy() || files.busy() ||
                                      scene_tools.active() || modal.active() || blockout.active();

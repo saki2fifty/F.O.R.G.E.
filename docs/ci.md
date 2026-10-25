@@ -162,6 +162,13 @@ state/history unchanged; owning selection snapshots must remain independent.
 This portable fixture is included in the shared Windows selector. Native input,
 large-selection frame timing and the full editor entry point remain separate checks.
 
+`dependency_lifecycle_editor` uses copied projects with identical asset IDs and
+different saved declarations. It checks UI-only, read-only and closed-panel poll
+switches, fresh sessions, stale review rejection, preserved dirty/busy guards and
+a real asynchronous catalog save. It leaves scene history and the other project's
+catalog unchanged. Registered methods are invoked directly; MCP transport and
+native Inspector rendering remain separate validation routes.
+
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
 rejections and the Windows deployment CMake-version preflight, without compiling

@@ -23,6 +23,13 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Using FORGE
 
+- Runtime Dependencies clears clean reviews and completed results when changing
+  projects, including copied projects with identical asset IDs and a closed
+  Inspector. Old automation reviews stay invalid; saved declarations reload from
+  the current catalog. Dirty drafts and running saves retain existing switch guards.
+- Reconciled the runtime-content reference's obsolete phase/delivery introduction
+  with its implemented content packaging and standalone assembly contracts.
+
 - Export Game clears previous-project results and errors after a project switch,
   including while closed. Same-project outcomes remain available, and a new export
   starts with an empty exported-game run log.
