@@ -77,6 +77,36 @@ attribution are in the local audit's `selection-performance-paired.json` and
 `selection-probe-*-inputs.json`. The portable `selection_editor` check exercises
 actual Hierarchy Ctrl/Shift clicks and the existing batch-edit/Undo/prefab tests.
 
+## Selection overlay row lookup — 2026-10-25
+
+Compared `f929116` with the selection-overlay correction in the
+[October 25 audit batch](../changelog/20261025/README.md). SceneTools previously
+scanned the complete entity list twice for every selected object: once for its
+position, then again for its primitive bounds. It now reuses the existing
+temporary row index for multiple selections and one direct lookup for a single
+selection. The borrowed lookup lasts only for the draw; no persistent cache is
+introduced.
+
+The probe creates a real 1,000-entity Scene and obtains its effective projection.
+It times the actual `SceneTools::draw` call, including ImGui geometry generation,
+on the same Linux VM/GCC 12 Release configuration. The last 1, 64 or 1,000 rows
+are selected. Before/after/before/after processes each warm up three frames, then
+collect 20 samples per case, with no concurrent compilation. Medians combine
+40 samples per version. Vertex positions, UVs, colors, indices and command ranges
+have identical hashes before and after in every measured case.
+
+| Selected entities, 1,000 scene rows | Before | After |
+| --- | ---: | ---: |
+| 1 | 0.226 ms | 0.120 ms |
+| 64 | 14.778 ms | 1.115 ms |
+| 1,000 | 169.897 ms | 13.079 ms |
+
+This measures CPU selection-overlay drawing only. It excludes scene extraction,
+the rest of the editor frame, GPU submission/execution and native Windows input.
+Full-frame and Windows review remain separate. Raw samples, binary hashes and
+exact source/library inputs are retained in the local audit's
+`selection-overlay-performance-paired.json` and `selection-overlay-*-inputs.json`.
+
 ## Matched startup and idle comparison
 
 Verified 2026-09-22.

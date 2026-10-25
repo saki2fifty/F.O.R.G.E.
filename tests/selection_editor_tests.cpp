@@ -5,6 +5,7 @@ void require(bool okay, const char* message) {
 }
 #include "batch_authoring_tests.hpp"
 #include "hierarchy.hpp"
+#include "scene_tools.hpp"
 #include <imgui_internal.h>
 #include <iostream>
 #include <type_traits>
@@ -22,6 +23,62 @@ void check_selection(const ui::EditorSelection& selection,
     auto copy = selection.entities();
     copy.clear();
     require(selection.entities() == expected, "Owning selection copy became an alias");
+}
+void check_selection_overlays(Scene& scene, const std::vector<std::string>& ids) {
+    auto arranged = scene.document();
+    for (std::size_t i = 0; i < ids.size(); ++i)
+        arranged["entities"][i]["components"]["forge.local_translation"] = {
+            {"x", double(i) - 2}, {"y", 0}, {"z", double(i) * .5}};
+    auto view = scene.preview_document(arranged);
+    view["entities"][1]["spatial_resolved"] = false;
+    view["entities"][2]["components"].erase("forge.position");
+    view["entities"][3]["prefab"] = true;
+    view["entities"][4]["components"]["forge.mesh_renderer"]["enabled"] = false;
+    const auto original = view;
+    auto reversed = view;
+    auto& reversed_rows = reversed["entities"].get_ref<Json::array_t&>();
+    std::reverse(reversed_rows.begin(), reversed_rows.end());
+    ui::SceneTools tools;
+    EditorCamera camera;
+    auto draw = [&](const Json& source, const std::vector<std::string>& selection) {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0});
+        ImGui::SetNextWindowSize({800, 600});
+        ImGui::Begin("Overlay fixture", nullptr,
+                     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
+        tools.draw(source, camera, ids.back(), {10, 10}, {760, 550}, true, selection);
+        ImGui::End();
+        ImGui::Render();
+        Json vertices = Json::array(), indices = Json::array(), commands = Json::array();
+        for (const auto* list : ImGui::GetDrawData()->CmdLists) {
+            for (const auto& vertex : list->VtxBuffer)
+                vertices.push_back(
+                    {vertex.pos.x, vertex.pos.y, vertex.uv.x, vertex.uv.y, vertex.col});
+            for (const auto index : list->IdxBuffer)
+                indices.push_back(index);
+            for (const auto& command : list->CmdBuffer)
+                commands.push_back({command.ElemCount, command.IdxOffset, command.VtxOffset,
+                                    command.ClipRect.x, command.ClipRect.y, command.ClipRect.z,
+                                    command.ClipRect.w});
+        }
+        return Json{{"vertices", vertices}, {"indices", indices}, {"commands", commands}};
+    };
+    draw(view, ids); // Settle the actual window before comparing drawing output.
+    draw(view, ids);
+    for (const auto& selected :
+         std::vector<std::vector<std::string>>{{},
+                                               {ids.back()},
+                                               {ids.front(), ids.back()},
+                                               ids,
+                                               {"missing", ids.back(), ids.front()},
+                                               {ids.back(), ids.front(), ids.back()}})
+        require(draw(view, selected) == draw(reversed, selected),
+                "Selection overlays depend on scene row order or stale IDs");
+    auto reordered = ids;
+    std::reverse(reordered.begin(), reordered.end());
+    require(draw(view, ids) != draw(view, reordered),
+            "Selection overlay drawing lost selection order");
+    require(view == original, "Selection drawing changed its borrowed projection");
 }
 } // namespace
 int main() {
@@ -135,6 +192,7 @@ int main() {
         context.selection.entity_slot().clear();
         frame();
         check_selection(context.selection, {});
+        check_selection_overlays(scene, order);
         require(scene.document() == before && scene.revision() == revision,
                 "Hierarchy selection changed authored state/history");
         std::cout

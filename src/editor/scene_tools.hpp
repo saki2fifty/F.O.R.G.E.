@@ -1,4 +1,5 @@
 #pragma once
+#include "../json_row_index.hpp"
 #include "animation_debug.hpp"
 #include "authoring.hpp"
 #include "camera_controls.hpp"
@@ -369,13 +370,27 @@ struct SceneTools {
         };
         if (selection.empty() && !selected.empty())
             selection.push_back(selected);
+        // Borrow rows for this draw only. A single selection needs no index;
+        // larger selections must not rescan the full scene for every guide.
+        const auto rows = selection.size() > 1 ? forge::detail::index_json_rows(doc.at("entities"))
+                                               : forge::detail::JsonRowIndex{};
         for (const auto& selected_id : selection) {
-            if (const auto center = entity_position(doc, selected_id)) {
-                const Json* entity = nullptr;
+            const Json* entity = nullptr;
+            if (selection.size() > 1) {
+                const auto found = rows.find(selected_id);
+                if (found != rows.end())
+                    entity = found->second;
+            } else {
                 for (const auto& candidate : doc.at("entities"))
-                    if (candidate.at("id") == selected_id)
+                    if (candidate.at("id") == selected_id) {
                         entity = &candidate;
-                if (entity && primitive_kind(*entity) != no_primitive) {
+                        break;
+                    }
+            }
+            if (!entity)
+                continue;
+            if (const auto center = block_position(*entity)) {
+                if (primitive_kind(*entity) != no_primitive) {
                     const ObjectTransform transform(*entity);
                     for (unsigned corner = 0; corner < 8; ++corner)
                         for (unsigned axis = 0; axis < 3; ++axis)

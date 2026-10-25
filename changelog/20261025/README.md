@@ -80,6 +80,11 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Scene history and Content discovery
 
+- Selection overlays reuse a temporary row lookup instead of rescanning the scene
+  for every selected object. One-object drawing avoids index allocation. Geometry
+  and selection order are preserved; owner tests and attributed CPU measurements
+  are documented in the performance reference.
+
 - Hierarchy membership and count queries avoid copying every selected ID per row.
   Inspector/status count checks share the same read-only query. Owning snapshots,
   legacy writes and selection behavior remain unchanged. Actual selection input

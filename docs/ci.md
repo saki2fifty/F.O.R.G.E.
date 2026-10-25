@@ -159,6 +159,11 @@ ranges, primary retention and legacy single-selection writes. It also executes
 the existing batch-authoring assertions for spatial roots, atomic invalid edits,
 Undo/Redo, prefab overrides and the batch Inspector. Selection must leave authored
 state/history unchanged; owning selection snapshots must remain independent.
+It also draws actual SceneTools overlays: reversing scene-row order must preserve
+vertices, UVs, colors, indices and draw-command ranges for the same selection.
+Cases include single/multiple selections, missing IDs, duplicate requests and
+unresolved/non-positioned/helper rows. Drawing must retain selection order and
+leave its borrowed projection unchanged.
 This portable fixture is included in the shared Windows selector. Native input,
 large-selection frame timing and the full editor entry point remain separate checks.
 

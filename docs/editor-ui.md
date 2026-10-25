@@ -12,6 +12,12 @@ The editor uses the pinned Dear ImGui docking build and SDL3. Runtime libraries 
 - ComponentInspector and property_drawer consume registered schema metadata. Friendly labels/categories/enum choices are additive metadata; persistent formats and identity do not change. There is no second authoritative component registration table.
 - Problems and Console retain bounded session diagnostics/status transitions. They are presentation history, not project state or a persistent telemetry service.
 
+Selection guides borrow rows from the current immutable Scene projection. Multiple
+selections share the existing temporary JSON row index for that draw; a single
+selection performs one direct lookup without allocating an index. Positions and
+primitive bounds use the same row, and drawing preserves selection order. The
+index does not survive the draw or become another scene cache.
+
 Project Settings owns shared review initialization for its native and automation
 routes. Game-default creation opens the draft before the workspace's next draw.
 Accepted close clears pending Save/close/focus requests and its old validation
