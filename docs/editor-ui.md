@@ -17,6 +17,10 @@ Idle project changes clear the previous review, operation result and module/reas
 choices, including while Inspector is closed. Main-loop polling, panel drawing and
 automation reads share this observation path. Same-project observations retain the
 review; dirty drafts and active saves remain protected by the existing switch guards.
+Reloads prepare a complete candidate before replacing the review. Inspector catches load
+failures at the existing owner, shows a diagnostic and keeps its ImGui scopes
+balanced. Fresh reviews clear obsolete save results; completed Save reloads retain
+the current operation ID.
 
 `TimedTextLog` is the shared presentation owner for compiler, Play and exported-game
 run output. Its retained text is capped at 256 KiB, including timestamps; a single

@@ -365,6 +365,10 @@ Reviews, sessions and completed operation results are project-scoped, including
 copied projects with identical asset IDs. Switching projects invalidates clean
 reviews even with Inspector closed. Open a fresh review and read its state before
 editing. Existing dirty-review and active-save switch guards retain unfinished work.
+A failed Open/Discard leaves the prior review, session, draft and operation diagnostic
+intact. A successful Open/Discard starts a fresh review without the previous save's
+error or operation ID. Successful asynchronous Save keeps its own operation ID
+when reloading the published result.
 
 ## Output, image inspection and export
 

@@ -19,7 +19,7 @@ Json invoke(const std::vector<LiveAuthoringMethod>& methods, const char* name,
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 2, "Need dependency lifecycle scratch directory");
+        check(argc == 2 || argc == 3, "Need dependency lifecycle scratch directory");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         struct Cleanup {
@@ -65,6 +65,90 @@ int main(int argc, char** argv) {
             owner, files, permissions, [&] { return catalog; }, [](AssetId) {}, [] { return ""; });
         const auto old = invoke(methods, "dependencies.open", {{"asset", asset}});
         check(old.at("edges").size() == 1, "Initial dependency review missing");
+        if (argc == 3 && std::string_view(argv[2]) != "ui") {
+            const auto mode = std::string_view(argv[2]);
+            check(mode == "reload" || mode == "retry", "Unknown review recovery case");
+            if (mode == "reload") {
+                atomic_write(AssetCatalog::project_index(first), "{invalid catalog");
+                bool rejected = false;
+                try {
+                    invoke(methods, "dependencies.open", {{"asset", dependency}});
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                const auto retained = invoke(methods, "dependencies.read");
+                atomic_write(AssetCatalog::project_index(first), initial.document().dump(2));
+                check(rejected && retained == old,
+                      "Failed dependency reload partially replaced its active review");
+                const auto opened = invoke(methods, "dependencies.open", {{"asset", dependency}});
+                check(opened.at("asset").get<AssetId>() == dependency &&
+                          opened.at("edges").empty() && opened.at("session") != old.at("session"),
+                      "Dependency open did not recover after repairing the catalog");
+            } else {
+                const auto edited =
+                    invoke(methods, "dependencies.edit",
+                           {{"state", old.at("state")}, {"dependencies", Json::array()}});
+                auto external = initial;
+                auto changed = external.records().at(dependency);
+                changed.metadata["fixture"] = "external catalog change";
+                external.replace(std::move(changed));
+                external.save(AssetCatalog::project_index(first));
+                catalog = std::make_shared<const AssetCatalog>(external);
+                auto settle = [&] {
+                    const auto deadline =
+                        std::chrono::steady_clock::now() + std::chrono::seconds(10);
+                    while (owner.busy()) {
+                        owner.poll(files.document, [&] {
+                            catalog = std::make_shared<const AssetCatalog>(
+                                AssetCatalog::open_project(first));
+                        });
+                        check(std::chrono::steady_clock::now() < deadline,
+                              "Review worker did not settle");
+                        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    }
+                };
+                invoke(methods, "dependencies.save", {{"state", edited.at("state")}});
+                settle();
+                const auto failed = invoke(methods, "dependencies.read");
+                check(owner.dirty() && failed.at("error") != "" && failed.at("operation") != "" &&
+                          failed.at("edges").empty() &&
+                          AssetCatalog::open_project(first).document() == external.document(),
+                      "Conflicting save did not retain the draft and persisted catalog");
+                atomic_write(AssetCatalog::project_index(first), "{invalid catalog");
+                bool rejected = false;
+                try {
+                    invoke(methods, "dependencies.discard", {{"state", failed.at("state")}});
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                const auto retained = invoke(methods, "dependencies.read");
+                atomic_write(AssetCatalog::project_index(first), external.document().dump(2));
+                check(rejected && retained == failed,
+                      "Failed refresh discarded the failed-save draft/error");
+                const auto refreshed =
+                    invoke(methods, "dependencies.discard", {{"state", failed.at("state")}});
+                check(!owner.dirty() && refreshed.at("error") == "" &&
+                          refreshed.at("operation") == "" && refreshed.at("edges").size() == 1 &&
+                          refreshed.at("session") != failed.at("session"),
+                      "Fresh dependency review retained the obsolete failure/operation");
+                const auto started =
+                    invoke(methods, "dependencies.save", {{"state", refreshed.at("state")}});
+                settle();
+                const auto saved = invoke(methods, "dependencies.read");
+                check(!owner.dirty() && saved.at("error") == "" &&
+                          saved.at("operation") == started.at("operation") &&
+                          saved.at("operation") != failed.at("operation"),
+                      "Successful retry lost its own operation attribution");
+                const auto another = invoke(methods, "dependencies.open", {{"asset", dependency}});
+                check(another.at("operation") == "" && another.at("error") == "",
+                      "Opening another asset inherited the previous save result");
+            }
+            check(AssetCatalog::open_project(second).document() == before_second &&
+                      !scene.can_undo() && !files.document.dirty(),
+                  "Review recovery changed scene history or another project");
+            std::cout << "Dependency " << mode << " recovery passed\n";
+            return 0;
+        }
 
         ImGui::CreateContext();
         struct UiCleanup {
@@ -80,16 +164,42 @@ int main(int argc, char** argv) {
         ui::style(1);
         ui::EditorUiContext context;
         ui::ContextScope scope(context);
+        AssetId inspected = asset;
         auto frame = [&](bool expanded) {
             ImGui::NewFrame();
             ImGui::SetNextWindowSize({600, 800});
             ImGui::Begin("Dependency fixture");
             ImGui::SetNextItemOpen(expanded, ImGuiCond_Always);
-            owner.draw(files.document, *catalog, catalog->records().at(asset), false,
+            owner.draw(files.document, *catalog, catalog->records().at(inspected), false,
                        [](const AssetRecord&) {});
             ImGui::End();
             ImGui::Render();
         };
+        if (argc == 3) {
+            inspected = dependency;
+            atomic_write(AssetCatalog::project_index(first), "{invalid catalog");
+            bool escaped = false;
+            try {
+                frame(true);
+            } catch (const std::exception&) {
+                escaped = true;
+            }
+            atomic_write(AssetCatalog::project_index(first), initial.document().dump(2));
+            check(!escaped, "Dependency reload error escaped the native Inspector");
+            const auto retained = invoke(methods, "dependencies.read");
+            check(retained.at("asset") == old.at("asset") &&
+                      retained.at("edges") == old.at("edges") &&
+                      retained.at("session") == old.at("session"),
+                  "Inspector reload failure lost the previous review");
+            frame(true);
+            const auto loaded = invoke(methods, "dependencies.read");
+            check(loaded.at("asset").get<AssetId>() == dependency && loaded.at("edges").empty(),
+                  "Inspector did not recover after the catalog was repaired");
+            check(!scene.can_undo() && !files.document.dirty(),
+                  "Inspector reload changed scene history");
+            std::cout << "Inspector dependency reload error/recovery passed\n";
+            return 0;
+        }
         frame(false);
         check(invoke(methods, "dependencies.read").at("state") == old.at("state"),
               "Same-project collapsed draw replaced its review");

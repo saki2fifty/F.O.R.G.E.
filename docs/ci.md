@@ -168,6 +168,11 @@ switches, fresh sessions, stale review rejection, preserved dirty/busy guards an
 a real asynchronous catalog save. It leaves scene history and the other project's
 catalog unchanged. Registered methods are invoked directly; MCP transport and
 native Inspector rendering remain separate validation routes.
+The same executable's `dependency_review_reload`, `dependency_review_retry` and
+`dependency_review_ui` cases exercise malformed catalog reads, a real conflicting Save, a failed Discard, repaired-catalog recovery,
+clearing obsolete failures and retaining successful operation attribution. The UI
+case draws the actual Inspector and retries after repair; exceptions must stay
+inside the panel. All three cases are in the shared native acceptance selector.
 
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed

@@ -23,6 +23,10 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Using FORGE
 
+- Runtime dependency reloads keep the complete previous review on failure and
+  contain read errors in Inspector. Successful Open/Discard clears obsolete save
+  errors and operation IDs; a successful Save retains its own operation ID.
+
 - Runtime Dependencies clears clean reviews and completed results when changing
   projects, including copied projects with identical asset IDs and a closed
   Inspector. Old automation reviews stay invalid; saved declarations reload from

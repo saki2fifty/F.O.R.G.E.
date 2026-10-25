@@ -43,20 +43,39 @@ class RuntimeDependenciesEditor {
         module_.clear();
         reason_.fill(0);
     }
-    void load(const AssetCatalog& catalog, AssetId owner) {
-        owner_ = owner;
+    void load(const AssetCatalog& catalog, AssetId owner, std::string operation = {}) {
         const auto persisted = AssetCatalog::open_project(project_);
-        expected_ = persisted.document();
-        edges_.clear();
-        selected_ = nullptr;
+        auto expected = persisted.document();
+        std::vector<AssetDependency> edges;
         const auto& record = persisted.records().contains(owner) ? persisted.records().at(owner)
                                                                  : catalog.records().at(owner);
         for (const auto& edge : record.dependency_edges)
             if (declared_runtime_edge(edge))
-                edges_.push_back(edge);
+                edges.push_back(edge);
+        auto session = AssetId::generate().str();
+        std::string status = "Review conditional UI and gameplay-selected content here.";
+        // Commit only a complete review. Failed reads retain the previous owner,
+        // session, draft, expected catalog and operation diagnostic.
+        owner_ = owner;
+        expected_ = std::move(expected);
+        edges_ = std::move(edges);
+        selected_ = nullptr;
         dirty_ = false;
-        session_ = AssetId::generate().str();
-        status_ = "Review conditional UI and gameplay-selected content here.";
+        session_ = std::move(session);
+        status_ = std::move(status);
+        operation_ = std::move(operation);
+        error_.clear();
+    }
+    bool load_for_ui(const AssetCatalog& catalog, AssetId owner) {
+        try {
+            load(catalog, owner);
+            return true;
+        } catch (const std::exception& e) {
+            status_ = e.what();
+            report_error("runtime-dependencies:" + owner.str(), status_);
+            field_error(status_);
+            return false;
+        }
     }
 
   public:
@@ -73,7 +92,7 @@ class RuntimeDependenciesEditor {
         if (job_.valid() && job_.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             try {
                 auto result = job_.get();
-                load(result, owner_);
+                load(result, owner_, operation_);
                 status_ = "Dependencies saved and source revisions reviewed.";
                 if (editor_context)
                     editor_context->problems.resolve("runtime-dependencies:" + owner_.str());
@@ -142,17 +161,20 @@ class RuntimeDependenciesEditor {
              "their own Save and are separate from scene Undo.");
         if (owner_ != asset.id && dirty_ && !busy()) {
             ImGui::TextWrapped("Unsaved dependency draft for the previous asset.");
+            ImGui::TextWrapped("%s", status_.c_str());
             if (button("Return to draft", "Select the owner of the unsaved dependency draft.",
                        "Return"))
                 editor_context->selection.select_asset(owner_);
             if (button("Discard draft and inspect selection",
                        "Discard unsaved dependency changes only.", "Discard"))
-                load(catalog, asset.id);
+                load_for_ui(catalog, asset.id);
             ImGui::TreePop();
             return;
         }
-        if (owner_ != asset.id && !busy())
-            load(catalog, asset.id);
+        if (owner_ != asset.id && !busy() && !load_for_ui(catalog, asset.id)) {
+            ImGui::TreePop();
+            return;
+        }
         if (owner_ != asset.id) {
             ImGui::TextWrapped("Finishing dependency operation for the previous selection.");
             ImGui::TreePop();
@@ -315,7 +337,7 @@ class RuntimeDependenciesEditor {
                    "Reload saved declarations and current catalog "
                    "status without changing project data.",
                    "Discard"))
-            load(catalog, asset.id);
+            load_for_ui(catalog, asset.id);
         FORGE_UI_PROBE("dependencies:discard");
         ImGui::EndDisabled();
         ImGui::TreePop();

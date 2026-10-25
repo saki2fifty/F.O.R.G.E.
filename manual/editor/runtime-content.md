@@ -69,7 +69,11 @@ to confirm a conditional resource explicitly. Preview observations are not autom
 shipped: a button can look fine before hovering and still need another image afterward.
 Declare finite alternatives even if you have never shown them in preview.
 
-**Remove** edits the draft. **Discard draft / refresh** reloads saved declarations.
+**Remove** edits the draft. **Discard draft / refresh** reloads saved declarations
+and discards pending edits. If the catalog cannot be read, Inspector reports the
+error and keeps your current review. Repair the reported file problem, then retry
+the refresh.
+
 The editor keeps a draft when you select another asset and blocks project/scene
 switching or closing until you save or discard it in Inspector. After switching
 projects, select an asset and expand **Runtime Dependencies** to review that
