@@ -2,6 +2,7 @@
 #include "animation_worker.hpp"
 #include "asset_bytes.hpp"
 #include "gltf_transform.hpp"
+#include "json_document.hpp"
 #include <forge/animation_conversion.hpp>
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
@@ -70,11 +71,13 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
     auto candidate = std::make_unique<AnimationCandidate::Impl>(root);
     auto data = read_bytes(paths.resolve(locator), 4 * 1024 * 1024);
     candidate->inputs.push_back({locator, content_digest(data)});
-    auto doc = Json::parse(data.begin(), data.end(), [](int depth, Json::parse_event_t, Json&) {
-        if (depth > 64)
-            throw std::runtime_error("Animation source nesting exceeds 64 levels");
-        return true;
-    });
+    auto doc = detail::parse_json_document(
+        std::string_view(reinterpret_cast<const char*>(data.data()), data.size()),
+        [](int depth, Json::parse_event_t, Json&) {
+            if (depth > 64)
+                throw std::runtime_error("Animation source nesting exceeds 64 levels");
+            return true;
+        });
     if (!doc.is_object() || doc.at("asset").at("version") != "2.0" ||
         doc.contains("extensionsRequired") || doc.contains("extensionsUsed"))
         throw std::runtime_error("Animation conversion supports core glTF 2.0 without extensions");

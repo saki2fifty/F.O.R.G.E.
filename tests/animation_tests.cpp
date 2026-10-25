@@ -84,6 +84,40 @@ int main(int argc, char** argv) {
             std::cout << root.string() << "\n";
             return 0;
         }
+        {
+            const auto path = root / "Assets/source.gltf";
+            const auto original = read(path);
+            const auto catalog = read(AssetCatalog::project_index(root));
+            std::vector<std::pair<std::filesystem::path, std::string>> artifacts;
+            for (const auto& record : records)
+                if (record.type != "animation_source")
+                    artifacts.emplace_back(root / record.source, read(root / record.source));
+            auto write_source = [&](const std::string& text) {
+                std::ofstream out(path, std::ios::binary | std::ios::trunc);
+                check(bool(out.write(text.data(), std::streamsize(text.size())) && out.flush()),
+                      "Cannot write animation source fixture");
+            };
+            auto retained = [&] {
+                check(read(AssetCatalog::project_index(root)) == catalog,
+                      "Rejected animation source changed the catalog");
+                for (const auto& [artifact, bytes] : artifacts)
+                    check(read(artifact) == bytes, "Rejected animation source changed an artifact");
+                check(std::filesystem::is_empty(root / ".forge/animation-staging"),
+                      "Animation conversion left unpublished staging files");
+            };
+            for (const auto& suffix : {std::string(1, '\0'), std::string("\0hidden", 7),
+                                       std::string(1, '\x1a'), std::string(" {}")}) {
+                write_source(original + suffix);
+                reject([&] { convert(); });
+                check(read(path) == original + suffix, "Rejected animation input was overwritten");
+                retained();
+            }
+            write_source(original);
+            {
+                auto repaired = convert();
+            }
+            retained();
+        }
         // Export admitted converter output only. Original glTF and source identity
         // remain provenance, not runtime dependencies or fallback paths.
         const auto packaged = root.parent_path() / ("packaged-" + AssetId::generate().str());

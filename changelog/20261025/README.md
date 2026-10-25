@@ -44,6 +44,16 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   sequences, unchanged Play snapshots, repaired exchanges and valid escaped
   control values. Existing byte, depth, timeout and cancellation limits remain.
 
+## Navigation and animation input records
+
+- Navigation worker requests and envelope metadata require complete JSON records;
+  binary navigation tile data remains independently validated.
+- Animation-only glTF conversion rejects hidden trailing bytes before rewriting
+  the source for the converter. Rejection preserves published assets and removes
+  unpublished staging; repaired inputs can be retried.
+- Added real worker/converter and envelope regressions for incomplete records,
+  retained files, repaired input and valid escaped control values.
+
 ## Captured asset metadata
 
 - Catalog indexes and cache manifests reject hidden trailing bytes before

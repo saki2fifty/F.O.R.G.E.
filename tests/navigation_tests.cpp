@@ -1,3 +1,5 @@
+#include "asset_worker.hpp"
+#include "navigation_geometry.hpp"
 #include "runtime_package.hpp"
 #include <cmath>
 #include <forge/assets.hpp>
@@ -84,6 +86,41 @@ int main(int argc, char** argv) {
               "Navigation lost its typed source-scene dependency");
         auto baseline = read(AssetCatalog::project_index(root));
         check(navigation_triangles(root, {record.id}).size() > 0, "Missing debug mesh");
+        {
+            const auto staging = root / "worker-json";
+            std::filesystem::create_directories(staging);
+            auto metadata = record.metadata;
+            metadata.erase("sha256");
+            const auto request = Json{{"metadata", metadata},
+                                      {"vertices", navigation_detail::geometry(effective).vertices}}
+                                     .dump();
+            auto write_request = [&](const std::string& text) {
+                std::ofstream out(staging / "source.json", std::ios::binary | std::ios::trunc);
+                check(bool(out.write(text.data(), std::streamsize(text.size())) && out.flush()),
+                      "Cannot write navigation worker request");
+            };
+            auto run = [&] {
+                asset_detail::run_worker(asset_detail::WorkerKind::Navigation,
+                                         std::filesystem::absolute(argv[2]), staging, {});
+            };
+            write_request(request + "\r\n");
+            run();
+            const auto output = read(staging / "navigation.fnav");
+            check(!output.empty(), "Clean navigation worker produced no output");
+            for (const auto& suffix : {std::string(1, '\0'), std::string("\0hidden", 7),
+                                       std::string(1, '\x1a'), std::string(" {}")}) {
+                write_request(request + suffix);
+                reject(run);
+                check(read(staging / "navigation.fnav") == output &&
+                          read(staging / "source.json") == request + suffix &&
+                          read(AssetCatalog::project_index(root)) == baseline,
+                      "Rejected navigation request changed retained files");
+            }
+            write_request(request);
+            run();
+            check(read(staging / "navigation.fnav") == output,
+                  "Repaired navigation request changed the generated tile");
+        }
         auto candidate = prepare();
         scene.entity("obstacle").set<LocalTranslation>({1, 2, 0});
         reject([&] { candidate.publish(scene.effective_document()); });

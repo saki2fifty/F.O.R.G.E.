@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "json_document.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_geometry.hpp"
 #include <fstream>
@@ -12,8 +13,8 @@ int main(int argc, char** argv) {
         using namespace forge;
         using namespace navigation_detail;
         auto bytes = asset_detail::read_bytes("source.json", 4 * 1024 * 1024);
-        auto input = nlohmann::json::parse(
-            bytes.begin(), bytes.end(),
+        auto input = detail::parse_json_document(
+            std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()),
             [](int depth, nlohmann::json::parse_event_t, nlohmann::json&) {
                 if (depth > 16)
                     throw std::runtime_error("Navigation input nesting limit");

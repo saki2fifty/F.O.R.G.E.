@@ -50,6 +50,13 @@ The retained FORGENAV v1 envelope records logical asset/source-scene identity, i
 
 The catalog also verifies the entire artifact digest. Checksums establish consistency; they do not replace structural admission.
 
+The worker request and envelope metadata must each contain one complete JSON
+record. Raw NUL bytes, trailing non-whitespace bytes and additional values are
+rejected before building or admitting a tile. Request and metadata limits remain
+4MiB and64KiB respectively, with nesting limited to16 levels. The metadata check
+covers only its declared range; binary tile bytes are validated separately.
+An invalid request leaves any existing worker output intact.
+
 Detour's native loader trusts section counts and offsets. FORGE checks sizes, full consumption, finite bounds, counts, vertex/detail indices, convex clockwise polygons, reciprocal neighbors, detail ranges and boundary edges before initializing Detour. Only little-endian, 32-bit polygon references, one static tile, one walkable flag/area, no BV tree, no off-mesh data and fresh zeroed link storage are supported. Arbitrary Detour/sample binaries are rejected. The admitted bytes are copied into Detour-owned memory; assets shared by agents remain immutable.
 
 ## Runtime ownership

@@ -61,6 +61,11 @@ source/dependency staging. Network/absolute/escaping/percent-encoded dependencie
 extensions and image assets are rejected. This is an animation-only bridge, not
 universal glTF import. FBX is unsupported. Model/mesh/material/image import uses the separate
 [model pipeline](model-import.md), not this legacy bridge.
+The source must contain one complete JSON record. Raw NUL bytes, trailing
+non-whitespace bytes and additional values are rejected before source rewriting
+or converter launch. Rejection retains the source, catalog and published
+artifacts, and releases unpublished staging files. Repairing the source permits
+conversion through the same workflow.
 The owned fixtures cover translation and quaternion rotation on a two-joint hierarchy;
 broader DCC export compatibility requires additional fixtures.
 

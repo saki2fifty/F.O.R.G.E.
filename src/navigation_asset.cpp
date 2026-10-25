@@ -1,5 +1,6 @@
 #include "navigation_asset.hpp"
 #include "asset_bytes.hpp"
+#include "json_document.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/assets.hpp>
@@ -62,13 +63,13 @@ Admitted admit(std::span<const std::byte> bytes) {
     require(n > 0 && n <= 65536 && t > 0 && t <= max_nav_bytes &&
                 std::size_t(n) + t == bytes.size() - 20,
             "Navigation envelope lengths do not match");
-    auto meta =
-        nlohmann::json::parse(bytes.begin() + 20, bytes.begin() + 20 + n,
-                              [](int depth, nlohmann::json::parse_event_t, nlohmann::json&) {
-                                  if (depth > 16)
-                                      throw std::runtime_error("Navigation metadata nesting limit");
-                                  return true;
-                              });
+    auto meta = detail::parse_json_document(
+        std::string_view(reinterpret_cast<const char*>(bytes.data() + 20), n),
+        [](int depth, nlohmann::json::parse_event_t, nlohmann::json&) {
+            if (depth > 16)
+                throw std::runtime_error("Navigation metadata nesting limit");
+            return true;
+        });
     require(meta.is_object() && meta.at("version") == u32(bytes, 8) &&
                 meta.at("recast_revision") == recast_revision &&
                 meta.at("layout") == "le-polyref32-detour7-static-single-v1",

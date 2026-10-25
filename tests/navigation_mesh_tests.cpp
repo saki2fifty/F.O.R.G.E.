@@ -110,6 +110,22 @@ int main() {
                          {"settings", NavigationSettings{}}};
         auto file = envelope(meta, tile);
         check(admit(file).mesh->triangles().size() > 0, "Envelope load failed");
+        // Change only the declared JSON range; leave the binary tile and its digest intact.
+        const auto metadata_size = file.size() - 20 - tile.size();
+        for (const auto& suffix : {std::string(1, '\0'), std::string("\0hidden", 7),
+                                   std::string(1, '\x1a'), std::string(" {}")}) {
+            auto incomplete = file;
+            const auto bytes = std::as_bytes(std::span(suffix));
+            incomplete.insert(incomplete.begin() + 20 + metadata_size, bytes.begin(), bytes.end());
+            const auto count = metadata_size + suffix.size();
+            for (unsigned i = 0; i < 4; ++i)
+                incomplete[12 + i] = std::byte((count >> (8 * i)) & 255);
+            rejects([&] { admit(incomplete); });
+        }
+        auto escaped = meta;
+        escaped["note"] = std::string("valid\0text", 10);
+        check(admit(envelope(escaped, tile)).metadata.at("note") == escaped.at("note"),
+              "Escaped JSON NUL or binary tile bytes were rejected");
         for (auto n : {0u, 8u, 12u, 16u, 19u, unsigned(file.size() - 1)})
             rejects([&] { admit(std::span(file).first(n)); });
         bad = file;
