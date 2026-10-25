@@ -18,15 +18,29 @@ Gestures that begin outside the image do not acquire viewport navigation. Losing
 
 ## Frame what you need
 
-Select an entity in Hierarchy, hover the Scene image, and press F to frame its geometry and structural descendants. **View → Frame selected** provides the same command. Imported models use their current loaded mesh, morph and skeletal bounds; a model root frames its complete placed subtree. **Fit scene** frames visible meshes together; an explicitly selected hidden mesh can still be framed. **Reset view** restores the default camera.
+Select one or more entities in Hierarchy, hover the Scene image, and press F to
+frame their geometry and structural descendants. **View → Frame selected**
+provides the same command. Imported models use their current loaded mesh, morph
+and skeletal bounds; a model root frames its complete placed subtree. **Fit scene**
+frames visible meshes together; an explicitly selected hidden mesh can still be
+framed. **Reset view** restores the default camera.
 
 If part of the requested geometry is still loading or has failed, framing preserves the camera and reports that it is not ready. Retry after loading completes. It does not fit an incomplete subset or substitute a cube for a missing model. Very large extents can exceed the current camera framing range.
 
-Left-click a visible block to select the nearest block under the pointer. Clicking empty space clears selection. The selected object has an amber outline of its rotated bounds; it can show through other blocks to help locate the selection. Selection changes Inspector and Hierarchy. Selection through this view is disabled during Play.
+Left-click visible geometry or a camera/light icon to select an object under the
+pointer. Ctrl-click or Shift-click an object toggles it in the
+selection; clicking without a modifier selects one object. Clicking empty space
+clears selection. Amber guides mark selected objects; primitive bounds can show
+through other objects to help locate the selection. Selection changes Inspector and Hierarchy.
+Selection through this view is disabled during Play.
 
-## Move a selected block
+## Move selected objects
 
-Choose **Move** in the Scene toolbar, or hover the Scene image and press **W**. The selected block shows red X, green Y, and blue Z handles plus a center square. **Select** (Q) hides the handles and only selects objects. The active tool is visible in the toolbar and the bottom-of-view hint.
+Choose **Move** in the Scene toolbar, or hover the Scene image and press **W**.
+The primary object shows red X, green Y, and blue Z handles plus a center square.
+For a single selection, that is the selected object; for several, it is the last
+selected object. **Select** (Q) hides the handles and only selects objects. The
+active tool is visible in the toolbar and the bottom-of-view hint.
 
 If object axes are missing, check that **Move** is selected and Play is stopped. FORGE remembers your Select/Move choice between launches. RMB+W still flies forward and does not switch tools.
 
@@ -35,10 +49,21 @@ If object axes are missing, check that **Move** is selected and Play is stopped.
 3. Release the left mouse button to apply the move as one undoable edit.
 4. Press Escape before release to cancel.
 
-A drag previews the new position without saving partial changes. Losing application focus, resizing the viewport, or changing scenes cancels it. An axis pointing nearly straight toward the camera is hidden because it has too little screen length to drag; orbit to expose it. The move changes only the selected object’s local translation. Children set to **Follow parent** move with it; children set to **World** remain independent. See [Transforms](transforms.md).
+A drag previews the new position without saving partial changes. Losing application
+focus, resizing the viewport, changing the selection or changing scenes cancels it.
+An axis pointing nearly straight toward the camera is hidden because it has too
+little screen length to drag; orbit to expose it. The selected spatial roots move
+by the same world-space offset. Children following a selected spatial ancestor
+move with it and are not transformed twice; **World** and **Explicit** bindings
+use their own spatial relationships. See [Transforms](transforms.md) and
+[Hierarchy selection](entities-hierarchy.md).
 
-Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples of **View → Snap spacing**. Step is measured in world units. Ctrl+Plus/Minus continues to scale the interface independently of the camera. Rotation and scale are editable in Inspector. Rotation/scale drag handles and local-axis move handles are unavailable. For multiple
-objects, use [Hierarchy selection and Inspector editing](entities-hierarchy.md).
+Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples
+of **View → Snap spacing**. Step is measured in world units. Ctrl+Plus/Minus
+continues to scale the interface independently of the camera. Use **R** or **S**
+over Scene for rotation or scale, or edit those values in Inspector. Rotation/scale
+drag handles and local-axis move handles are unavailable. See
+[Transforms](transforms.md) for axis constraints and per-object rotation/scale.
 
 ## Reference grid and flight speed
 

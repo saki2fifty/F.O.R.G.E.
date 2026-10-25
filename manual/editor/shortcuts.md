@@ -10,8 +10,8 @@ Commands that edit scenes are suppressed while typing or interacting with modal 
 - Ctrl+Shift+S: Save scene As... (active Scene task).
 - Ctrl+Z: undo.
 - Ctrl+Shift+Z or Ctrl+Y: redo.
-- Ctrl+D: duplicate the selected subtree.
-- Delete: delete the selected subtree when Hierarchy has focus.
+- Ctrl+D: duplicate the selected structural subtrees.
+- Delete: delete the selected structural subtrees when Hierarchy has focus.
 - Enter in Inspector Name: commit the name.
 
 ## Change editor shortcuts
@@ -54,9 +54,10 @@ Keypad plus, minus, and zero are also supported.
 
 ## Viewport authoring
 
-- Left-click: select the nearest visible block; empty space clears selection.
-- Drag an axis handle: translate along its world axis.
-- Drag the center square: translate in the viewing plane.
+- Left-click: select an object; empty space clears selection.
+- Ctrl-click or Shift-click an object: toggle it in the selection.
+- Drag an axis handle on the primary object: move the selection along its world axis.
+- Drag the center square: move the selection in the viewing plane.
 - Ctrl during a move: temporarily enable snapping.
 - Escape during a move: cancel without changing the authored scene.
 
@@ -82,7 +83,7 @@ Rotation constraints use world axes; scale constraints use local axes. Holding R
 - RMB+Space: ascend.
 - RMB+Shift: descend.
 - Mouse wheel: change viewing distance.
-- F with the image hovered: frame the selected visible block.
+- F with the image hovered: frame the selection and its structural descendants.
 
 See [Viewport](viewport.md) for directions and [Scenes](scenes.md) for file behavior.
 
@@ -99,9 +100,24 @@ During explicit gameplay input capture, Esc releases controls, F6 pauses/resumes
 
 ## Active task and entity commands
 
-Ctrl+S saves the active Scene, Prefab source or Project Settings task. Ctrl+Shift+S is **Save scene As...** and is unavailable for an independent draft task. Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z operate on scene history; they are disabled while a prefab/settings draft owns the task.
+The bindings above are defaults; your configured Save, Undo and Redo bindings
+follow the active document. Save writes or publishes that document: Scene, the
+active C++ file, Prefab source, Project Settings or a supported asset draft.
+The toolbar's **Save:** label identifies the active task. Focus Scene before saving
+the scene. **Save scene As...** is available only when Scene owns the task.
 
-In Hierarchy, **F2** focuses Name in Inspector. **Ctrl+D** duplicates the selected subtree; **Delete** deletes the Hierarchy selection. The context menu and Entity menu use the same scene actions. Ctrl+Shift+P searches the shared action list, including Save and runtime controls.
+Undo and Redo use the active document's history when it provides one. They do not
+fall through to Scene history while another document owns focus. Prefab source
+and Project Settings do not provide their own Undo/Redo; C++ text editing keeps
+its contextual text shortcuts. See [Undo and redo](undo-redo.md).
+
+In Hierarchy, **F2** focuses Name in Inspector for a single selection. **Ctrl+D**
+duplicates selected structural subtrees; **Delete** deletes the Hierarchy
+selection. A selected child of a selected parent is not processed twice. Each
+accepted batch is one Scene Undo step. The context menu and Entity menu use the
+same scene actions. See [Hierarchy selection](entities-hierarchy.md) for prefab
+and batch limits. Ctrl+Shift+P searches the shared action list, including Save and
+runtime controls.
 
 ## Bottom workspace
 

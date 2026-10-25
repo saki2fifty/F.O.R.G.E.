@@ -23,6 +23,10 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Using FORGE
 
+- Shortcut, Save/Undo and viewport guides consistently describe the active
+  document and multi-selection controls. The Flecs integration contract labels
+  its original delivery evidence separately from current ownership behavior.
+
 - Project Settings keeps automation-created game defaults through the next editor
   frame and saves their application identity only on explicit Save. Native and
   automation review initialization share the existing owner. Discard clears stale

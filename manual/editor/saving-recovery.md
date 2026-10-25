@@ -1,12 +1,17 @@
 # Saving and recovery
 
-Save writes the active scene file. Recovery snapshots separately preserve unsaved edits so you can restore them after an interruption.
+Scene Save writes the active scene file. Scene recovery snapshots separately
+preserve unsaved scene edits so you can restore them after an interruption.
 
 ## Know whether changes are saved
 
 A `*` in the title and **Unsaved changes** in Hierarchy indicate edits that differ from the saved scene. Undoing back to the saved state clears the dirty indicator. A new untitled scene needs a filename before it can be saved.
 
-Press Ctrl+S or select **Save**. For an untitled scene, choose a file inside the project. Ctrl+Shift+S opens Save scene As... when Scene is the active task.
+Focus **Scene**, then press Ctrl+S or select **Save**. Check that the toolbar's
+**Save:** label names Scene: when another document owns focus, Save writes or
+publishes that document instead. For an untitled scene, choose a file inside the
+project. Ctrl+Shift+S opens **Save scene As...** when Scene is the active task.
+See [Keyboard shortcuts](shortcuts.md) for custom bindings and active-task rules.
 
 ## Resolve an unsaved-change prompt
 

@@ -2,12 +2,14 @@
 
 Flecs **4.1.6**, exactly `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8`, is the
 technical contract. Follow the [dependency evidence policy](dependency-policy.md).
-Implemented and verified in **Build 260919-000062**, source
+The original integration was verified in **Build 260919-000062**, source
 `8bfaa4057660286dd503bd9fc62265dc350a7a84`.
 [Clean Windows/Linux validation](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35445250161)
 passed all six jobs. This contract records adopted capabilities, native SDK
 availability, measured non-adoption and the approved narrow upstream exception.
-It does not claim every native mechanism needs its own editor control. No Phase 7.
+It does not claim every native mechanism needs its own editor control. That
+delivery's validation below is historical evidence for its exact source, not
+validation of every later engine change.
 
 ## Ownership
 
@@ -24,8 +26,7 @@ It does not claim every native mechanism needs its own editor control. No Phase 
 
 ## Reflected authoring metadata
 
-All built-in authored component types explicitly create member entities
-(17 with the Phase7 MeshRenderer and ModelSource CPU components).
+Built-in authored component registration explicitly creates member entities.
 Their structure and scalar types come from Meta, friendly names and help from
 Doc, applicable physical dimensions from Units, and bounds from
 `EcsMemberRanges`. Quaternions and scale are dimensionless; quaternion fields
@@ -327,6 +328,9 @@ require this reproducer to become clean, remove the exception and move its cases
 back into the ordinary clean suite. Never carry this exception forward automatically.
 
 ## Verified delivery
+
+The following results apply to the original Build 260919-000062 integration and
+its recorded source. They are not a current engine-wide test count.
 
 Windows and Linux static profiles passed **35/35** each; exact shared SDK profiles
 passed **44/44** each, including installed/relocated consumers. Windows editor

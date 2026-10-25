@@ -1,12 +1,21 @@
 # Undo and redo
 
-Undo returns the authored scene to a previous edit. Redo reapplies an undone edit.
+With Scene active, Undo returns the authored scene to a previous edit. Redo
+reapplies an undone edit.
 
 Use **Undo** in the toolbar or Ctrl+Z. Use **Redo**, Ctrl+Shift+Z, or Ctrl+Y to reapply it. Keyboard shortcuts yield to text fields and modal dialogs.
 
+## Choose the document
+
+Focus Scene to use scene history. When a supported asset document or C++ source
+owns focus, Undo and Redo use that document's history instead. An unavailable
+history action stays disabled; it does not undo a different document. Prefab
+source and Project Settings have no independent Undo/Redo. Text fields retain
+their normal text-editing shortcuts. See [Keyboard shortcuts](shortcuts.md).
+
 ## What is recorded
 
-Adding, renaming, reparenting, duplicating, deleting, and editing supported properties enter scene history. A subtree duplicate, deletion, completed viewport move, Inspector position command, Rotation/Scale drag, color-picker drag, or transform paste/reset is one undoable operation. Restoring a named scene recovery snapshot is also undoable.
+Adding, renaming, reparenting, duplicating, deleting, and editing supported properties enter scene history. A subtree duplicate, deletion, completed viewport move, Inspector position command, Rotation/Scale drag, color-picker drag, or transform paste/reset is one undoable operation. A supported multi-selection batch is also one step; a rejected batch changes none of its targets. Restoring a named scene recovery snapshot is also undoable.
 
 Saving does not clear history. Undoing back to the saved contents clears the unsaved indicator. A new edit after Undo clears the redo branch.
 
