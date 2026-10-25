@@ -3,8 +3,112 @@
 #include "files.hpp"
 #include <chrono>
 #include <forge/authoring.hpp>
+#include <string_view>
 void require(bool condition, const char* message);
+inline void test_document_json_records(std::string_view mode = "all") {
+    const auto root = std::filesystem::temp_directory_path() /
+                      ("forge-document-json-" + forge::AssetId::generate().str());
+    forge::SceneDocument::create_project(root, "Complete JSON records");
+    struct Cleanup {
+        std::filesystem::path path;
+        ~Cleanup() {
+            std::error_code ignored;
+            std::filesystem::remove_all(path, ignored);
+        }
+    } cleanup{root};
+    forge::EngineContext engine;
+    forge::Scene scene(engine.world());
+    forge::SceneDocument doc(scene);
+    doc.open_project(root);
+    auto add_entity = [&](const char* name) {
+        auto candidate = scene.document();
+        candidate["entities"].push_back({{"id", forge::AssetId::generate().str()},
+                                         {"name", name},
+                                         {"components", forge::Json::object()}});
+        scene.edit(candidate);
+    };
+    auto rejected = [](auto action, const char* message) {
+        bool failed = false;
+        try {
+            action();
+        } catch (const std::exception&) {
+            failed = true;
+        }
+        require(failed, message);
+    };
+    const std::vector<std::string> tails{
+        "invalid", "\n{}", "\n[]", std::string(1, '\0'), std::string("\0hidden", 7), "\x1a hidden"};
+    if (mode == "all" || mode == "read") {
+        const auto path = root / "record.json";
+        for (const auto& tail : tails) {
+            forge::atomic_write(path, "{}" + tail);
+            rejected([&] { (void)forge::read_json(path); },
+                     "JSON reader accepted trailing non-whitespace data");
+        }
+        forge::atomic_write(
+            path, "\xef\xbb\xbf \r\n{\"name\":\"\xe7\x95\x8c\",\"escaped\":\"\\u0000\"}\t \r\n");
+        require(forge::read_json(path) ==
+                    forge::Json{{"name", "\xe7\x95\x8c"}, {"escaped", std::string(1, '\0')}},
+                "JSON reader rejected UTF-8 BOM, text or surrounding whitespace");
+    }
+    if (mode == "all" || mode == "save") {
+        const auto saved = *forge::asset_storage::read(doc.path());
+        add_entity("Keep pending edit");
+        const auto draft = scene.document();
+        const auto revision = scene.revision();
+        require(doc.autosave(), "Save fixture did not create recovery");
+        const auto recovery = *forge::asset_storage::read(doc.recovery_path());
+        for (const auto& tail : tails) {
+            forge::atomic_write(doc.path(), saved + tail);
+            rejected([&] { doc.save(); }, "Save overwrote malformed external scene changes");
+            require(forge::asset_storage::read(doc.path()) == saved + tail && doc.dirty() &&
+                        scene.document() == draft && scene.revision() == revision &&
+                        forge::asset_storage::read(doc.recovery_path()) == recovery,
+                    "Rejected Save changed disk data, pending edits, history or recovery");
+        }
+        forge::atomic_write(doc.path(), saved);
+        doc.save();
+        require(!doc.dirty() && !doc.has_recovery() && forge::read_json(doc.path()) == draft,
+                "Save did not recover after the external file was repaired");
+        require(scene.undo() && scene.redo() && scene.document() == draft,
+                "Rejected Save damaged Undo/Redo");
+    }
+    if (mode == "all" || mode == "recovery" || mode == "untitled") {
+        const auto scene_path = doc.path();
+        const bool untitled = mode == "untitled";
+        if (untitled)
+            doc.new_scene();
+        add_entity("Recover this edit");
+        const auto draft = scene.document();
+        require(doc.autosave(), "Recovery fixture did not create a snapshot");
+        const auto recovery_path = doc.recovery_path();
+        const auto recovery = *forge::asset_storage::read(recovery_path);
+        doc.open_scene(scene_path);
+        const auto before = scene.document();
+        const auto revision = scene.revision();
+        const auto generation = doc.generation();
+        for (const auto& tail : tails) {
+            forge::atomic_write(recovery_path, recovery + tail);
+            rejected([&] { untitled ? doc.recover_untitled() : doc.recover(); },
+                     "Recovery accepted a snapshot with trailing non-whitespace data");
+            require(scene.document() == before && scene.revision() == revision && !doc.dirty() &&
+                        doc.path() == scene_path && doc.generation() == generation &&
+                        forge::asset_storage::read(recovery_path) == recovery + tail,
+                    "Rejected recovery replaced the document or discarded its snapshot");
+        }
+        forge::atomic_write(recovery_path, recovery);
+        untitled ? doc.recover_untitled() : doc.recover();
+        require(doc.dirty() && scene.document() == draft,
+                "A repaired recovery snapshot could not be restored");
+        if (!untitled)
+            require(scene.undo() && scene.document() == before,
+                    "Named-scene recovery lost its Undo step");
+    }
+    if (mode == "all")
+        test_document_json_records("untitled");
+}
 inline void test_documents() {
+    test_document_json_records();
     const auto root = std::filesystem::current_path() /
                       ("document-tests-" +
                        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));

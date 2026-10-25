@@ -16,11 +16,15 @@ inline std::string path_text(const std::filesystem::path& path) {
     return {text.begin(), text.end()};
 }
 inline Json read_json(const std::filesystem::path& path) {
-    std::ifstream input(path);
+    std::ifstream input(path, std::ios::binary);
     if (!input)
         throw std::runtime_error("Cannot read " + path_text(path));
-    Json result;
-    input >> result;
+    auto result = Json::parse(input);
+    // JSON's string-buffer terminator is not the end of a file. The pinned
+    // stream adapter sets eofbit only when it actually reads past the last byte.
+    if (!input.eof())
+        throw std::runtime_error("JSON record did not consume the complete file: " +
+                                 path_text(path));
     return result;
 }
 inline std::filesystem::path project_file(const std::filesystem::path& root,

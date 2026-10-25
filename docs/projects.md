@@ -22,6 +22,14 @@ Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the ma
 
 Open validates before replacing active state. Save checks the active file against the saved baseline and rejects external changes or deletion before writing atomically. Save As to a new filename for a saved scene creates fresh scene/entity identities and resets history only after a successful write. Ordinary Save and the first save of an untitled scene retain identity. These checks detect conflicts but do not provide cross-process compare-and-swap or merging.
 
+The editor JSON reader uses complete-document parsing, matching the core scene
+and project readers. Trailing non-whitespace content or a second JSON value
+rejects the record before recovery, bookmark or SDK metadata admission.
+Binary-mode file reads also require the parser to reach physical EOF, so a raw
+NUL or Windows text-mode end marker cannot hide trailing bytes. UTF-8 text, an
+initial UTF-8 BOM, surrounding JSON whitespace and escaped JSON control characters
+remain supported.
+
 ## Recovery envelope
 
 Recovery files reside in `.forge/recovery`. A deterministic 64-bit FNV-1a hash of the relative scene path selects the filename; untitled scenes use one project-local slot. The version-1 envelope contains:

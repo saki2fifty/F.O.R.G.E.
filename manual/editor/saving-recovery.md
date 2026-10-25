@@ -39,6 +39,11 @@ An untitled scene uses one recovery slot per project. **File → Recover untitle
 
 Save rejects an active scene file changed or deleted outside FORGE. Use Save As with a different filename to preserve your edits, or Reload from disk after deciding what to discard. There is no automatic merge.
 
+If FORGE reports a malformed recovery snapshot, the current scene and snapshot
+remain available. Keep a copy of the snapshot before repairing it externally;
+then retry **File → Recover current scene** or **Recover untitled scene** as
+appropriate. A recovery file must contain one complete JSON document.
+
 Recovery also checks the saved baseline. If it no longer matches, FORGE keeps the snapshot and reports a diagnostic rather than replacing the scene. There is no recovery browser or merge tool yet. Snapshots for other named scenes are discovered when those scenes are opened.
 
 ## Older scenes and identity records

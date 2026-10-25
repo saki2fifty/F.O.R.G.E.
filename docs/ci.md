@@ -124,6 +124,13 @@ and applicable acceptance selection together; a source file alone is not an
 executed check. These owner/input tests complement native viewport rendering and
 physical desktop review.
 
+The portable `document_editor` fixture reuses the native document lifecycle suite,
+including project/scene ownership, recovery, migration, Save/Discard/Cancel and
+failed publication. Its JSON record cases cover malformed trailing content,
+retained Scene/history/snapshot state, repaired-file retry, raw terminators and
+UTF-8 whitespace. Both full editor routes select this fixture.
+Native dialogs and recovery UI remain desktop acceptance checks.
+
 `cache_tools_editor` drives the actual Derived Cache controls and asynchronous
 statistics task. It checks the shared project-switch guard, completed-result
 lifetime across a closed-window switch, queued cancellation and a fresh result

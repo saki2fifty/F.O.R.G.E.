@@ -14,6 +14,16 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   from installed guides and removes obsolete roadmap claims. Package validation
   checks links across all installed SDK guides.
 
+## Recovery records
+
+- Editor JSON reads reject trailing non-whitespace content or an extra JSON
+  value. Binary file reads require physical EOF and reject raw terminators that
+  could hide trailing bytes. Rejected named and untitled recovery keep the
+  current scene and snapshot available for repair.
+- The document lifecycle suite also runs in the portable editor-owner test
+  configuration, with recovery rejection/retry and protection against saving
+  over malformed external changes.
+
 ## Editor validation
 
 - Registered existing editor fixtures for mesh refinement, material graph geometry,
