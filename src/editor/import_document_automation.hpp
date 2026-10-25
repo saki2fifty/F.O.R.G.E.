@@ -155,6 +155,15 @@ struct ImportDocumentAutomation {
             [&editor, &document](AssetId id) {
                 if (editor.project_ == document.project())
                     editor.source_published(id);
+            },
+            [&editor, &document](AssetId id,
+                                 const std::optional<std::filesystem::path>& destination) {
+                if (editor.project_ != document.project() || editor.selected_asset() != id)
+                    return;
+                if (destination)
+                    editor.open(document, *destination);
+                else
+                    editor.request_close();
             }};
     }
 };

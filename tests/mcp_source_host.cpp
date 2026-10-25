@@ -12,6 +12,7 @@
 #include "material_graph_editor.hpp"
 #include "particle_effect_editor.hpp"
 #include "prefab_automation.hpp"
+#include "source_file_lifecycle_tests.hpp"
 #include "source_publication_tests.hpp"
 #include "source_workflow_automation.hpp"
 #include "terrain_editor.hpp"
@@ -29,7 +30,8 @@ int main(int argc, char** argv) {
         const auto worker = std::filesystem::u8path(argv[2]);
         const bool read_only = std::string(argv[3]) == "read";
         const bool publication = argc == 5 && std::string(argv[3]) == "publication";
-        if (publication) {
+        const bool file_changes = argc == 5 && std::string(argv[3]) == "file_changes";
+        if (publication || file_changes) {
             if (!std::filesystem::create_directory(root / "Game"))
                 throw std::runtime_error("Publication fixture requires an empty test directory");
             std::filesystem::copy(argv[4], root / "Game", std::filesystem::copy_options::recursive);
@@ -96,6 +98,11 @@ int main(int argc, char** argv) {
             test_import_publication(documents, files.document, audio);
             std::cout << "Source publication lifecycle passed for five source editors and the "
                          "shared import editor\n";
+            return 0;
+        }
+        if (file_changes) {
+            test_source_file_lifecycle(documents, files.document, scene);
+            std::cout << "Reviewed source Duplicate/Move/Delete editor lifecycle passed\n";
             return 0;
         }
         // Exercise the same external-source publication owner as Content.

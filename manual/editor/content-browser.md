@@ -225,9 +225,17 @@ cancellation; an already completed disk commit remains completed. Changed refere
 or source bytes invalidate the review and require preparing it again.
 
 Current source adapters cover Scene, Prefab, Material, Shader program, glTF model/
-animation source, Texture and WAV. Unsupported formats report an error during
-preparation. Case-only renames require a different intermediate filename. Collision sources use the same catalog and deliberate import/publication workflow;
-see [Physics](physics.md) for creating and assigning collision geometry.
+animation source, Texture, WAV, Collision, terrain, particles, Tile Set/Map and
+transform/state/blend-space/mask animation sources. An open supported source
+document follows its moved path; Duplicate keeps the original document open.
+Delete closes the affected source or import document and retains the reviewed backup.
+Finish active editing gestures and pending Save/close requests before reviewing
+file changes.
+
+Editable Mesh sources support Delete. Rename/Move and Duplicate source are not
+supported for that format. Other unsupported formats also report an error during
+preparation. Case-only renames require a different intermediate filename.
+See [Physics](physics.md) for creating and assigning collision geometry.
 
 
 ### Existing subsystem sources

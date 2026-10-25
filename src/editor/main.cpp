@@ -1182,8 +1182,9 @@ int main(int argc, char** argv) {
                 collision_editor.pending() || particle_editor.pending() ||
                 terrain_editor.pending() || tile_set_editor.pending() || tile_map_editor.pending())
                 return "Finish the current file/import/build job before changing source files.";
-            if (documents.source_drafts_dirty())
-                return "Save or discard open source-document drafts before reviewing file changes.";
+            if (documents.source_drafts_dirty() || documents.source_publication_blocked(asset.id))
+                return "Finish active source edits or pending Save/close requests before reviewing "
+                       "file changes.";
             if (action == forge::AssetFileAction::Delete && asset.id == scene.asset_id())
                 return "Open another scene before deleting the active scene asset.";
             return {};
@@ -1198,82 +1199,10 @@ int main(int argc, char** argv) {
             }
             if (plan.request.action != forge::AssetFileAction::Duplicate) {
                 const auto id = plan.request.asset;
-                if (particle_editor.document() &&
-                    particle_editor.document()->source().asset() == id) {
-                    particle_editor.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        particle_editor.open(files.document, plan.request.destination);
-                }
-                if (terrain_editor.document() &&
-                    terrain_editor.document()->source().asset() == id) {
-                    terrain_editor.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        terrain_editor.open(files.document, plan.request.destination);
-                }
-                if (tile_set_editor.document() &&
-                    tile_set_editor.document()->source().asset() == id) {
-                    tile_set_editor.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        tile_set_editor.open(files.document, plan.request.destination);
-                }
-                if (tile_map_editor.document() &&
-                    tile_map_editor.document()->source().asset() == id) {
-                    tile_map_editor.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        tile_map_editor.open(files.document, plan.request.destination);
-                }
-                const auto refresh_import = [&](auto& document) {
-                    if (document.selected_asset() == id) {
-                        document.request_close();
-                        if (plan.request.action == forge::AssetFileAction::Move)
-                            document.open(files.document, plan.request.destination);
-                    }
-                };
-                refresh_import(texture_imports);
-                refresh_import(audio_imports);
-                refresh_import(model_imports);
-                refresh_import(shader_imports);
-                if (animation_blend_space.document() &&
-                    animation_blend_space.document()->source().asset() == id) {
-                    animation_blend_space.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        animation_blend_space.open(files.document, plan.request.destination);
-                }
-                if (animation_mask.document() &&
-                    animation_mask.document()->source().asset() == id) {
-                    animation_mask.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        animation_mask.open(files.document, plan.request.destination);
-                }
-                if (animation_states.document() &&
-                    animation_states.document()->source().asset() == id) {
-                    animation_states.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        animation_states.open(files.document, plan.request.destination);
-                }
-                if (animation_timeline.document() &&
-                    animation_timeline.document()->source().asset() == id) {
-                    animation_timeline.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        animation_timeline.open(files.document, plan.request.destination);
-                }
-                if (material_editor.document() &&
-                    material_editor.document()->source().asset() == id) {
-                    material_editor.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        material_editor.open(files.document, plan.request.destination);
-                }
-                if (graph_editor.document() && graph_editor.document()->source().asset() == id) {
-                    graph_editor.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        graph_editor.open(files.document, plan.request.destination);
-                }
-                if (collision_editor.document() &&
-                    collision_editor.document()->source().asset() == id) {
-                    collision_editor.request_close();
-                    if (plan.request.action == forge::AssetFileAction::Move)
-                        collision_editor.open(files.document, plan.request.destination);
-                }
+                documents.source_file_changed(
+                    id, plan.request.action == forge::AssetFileAction::Move
+                            ? std::optional(plan.request.destination)
+                            : std::nullopt);
                 if (files.document.prefabs().records().contains(id))
                     prefab_editor.request_close();
             }

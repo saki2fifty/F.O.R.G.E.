@@ -1,5 +1,6 @@
 #pragma once
 #include "editor_state.hpp"
+#include <filesystem>
 #include <optional>
 #include <stdexcept>
 namespace forge::ui {
@@ -10,6 +11,9 @@ struct SourceDocumentAccess {
     std::function<Json(std::string_view, const Json&)> invoke;
     std::function<bool(AssetId)> publication_blocked = {};
     std::function<void(AssetId)> source_published = {};
+    // A destination relocates the source; no destination means committed deletion.
+    std::function<void(AssetId, const std::optional<std::filesystem::path>&)> source_file_changed =
+        {};
 };
 struct WorkspaceDocument {
     std::string id, title, window_id;
@@ -129,6 +133,14 @@ class DocumentWorkspace {
                 if (access && access->source_published)
                     access->source_published(id);
         }
+    }
+    void source_file_changed(AssetId id,
+                             const std::optional<std::filesystem::path>& destination) const {
+        for (const auto& d : entries_)
+            for (const auto* access :
+                 {d.source ? &*d.source : nullptr, d.importer ? &*d.importer : nullptr})
+                if (access && access->source_file_changed)
+                    access->source_file_changed(id, destination);
     }
     // Asset/source drafts settle before the scene's existing file guard. Each
     // owner retains its own Save/history/publication semantics and close dialog.

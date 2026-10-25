@@ -108,6 +108,17 @@ Save As identity duplication. A dirty draft writes recovery at the new locator b
 its old recovery snapshot is removed; a failed recovery write retains the old snapshot. Deleting the active scene requires opening another scene.
 Independent external programs are still outside cooperative project writer ownership.
 
+After a committed Move/Delete, DocumentWorkspace dispatches the locator change or
+closure to the matching registered source/import editor. These are borrowed owner
+callbacks; the file service still owns review, reference impact, identity and
+durable publication. Moves load the supported new locator through the editor's
+ordinary open path; Delete uses its close path. Duplicate retains the original
+editor. Dirty drafts, active gestures and pending Save/close requests must settle
+before file review. The Scene locator and Prefab family keep their existing
+specialized handling. Editable Mesh Delete closes its source editor; that format
+still has no Move/Duplicate rewrite adapter and those operations reject before
+publication. No identity migration or additional supported format is implied.
+
 Atomic storage stages bytes in a uniquely named sibling (`.UUID.pending`) before
 replacement. It does not append to the destination basename: valid hashed blob
 names and deep project roots must not acquire avoidable staging-name length.

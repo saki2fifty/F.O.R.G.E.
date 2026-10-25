@@ -324,6 +324,16 @@ struct AssetDocumentAutomation {
                     // from observing a publication that has already committed.
                     editor.error_ = e.what();
                 }
+            },
+            [&editor, &project](AssetId id,
+                                const std::optional<std::filesystem::path>& destination) {
+                const auto* doc = editor.document();
+                if (!doc || doc->project() != project.project() || doc->source().asset() != id)
+                    return;
+                if (destination)
+                    editor.open(project, *destination);
+                else
+                    editor.request_close();
             }};
     }
 };

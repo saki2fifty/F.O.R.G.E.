@@ -35,6 +35,11 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 - Shared import editors retain their previous settings/selection after a source
   refresh error and protect pending Save requests from background refresh. The
   publishing importer skips a redundant reload of its own accepted result.
+- Reviewed source Move/Delete notifications use the registered document owners,
+  closing the editable-mesh editor after Delete and retaining existing relocation
+  behavior for supported formats. Pending source gestures and Save/close requests
+  block file review. Mesh Move/Duplicate retain their existing unsupported-format
+  rejection; file publication, identity and backup rules are unchanged.
 
 - Scene history shares immutable snapshots when preparing Undo/Redo, prefab
   replay and schema publication. The existing 100-entry cap and transactional
