@@ -199,11 +199,7 @@ struct ProjectAutomation {
             throw AuthoringError("document_busy", "Settle the project settings save/close request");
         if (editor.loaded_ && editor.root_ != document.project() && editor.dirty())
             throw AuthoringError("document_busy", "Settle the previous project's settings draft");
-        if (!editor.loaded_ || editor.root_ != document.project()) {
-            editor.draft_ = editor.baseline_ = document.settings().document();
-            editor.root_ = document.project();
-            editor.loaded_ = true;
-        }
+        editor.load_review(document);
     }
     static std::vector<LiveAuthoringMethod>
     settings_methods(ProjectSettingsEditor& editor, SceneDocument& document,

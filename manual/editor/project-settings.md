@@ -28,7 +28,10 @@ The **Input actions** section defines project actions and their bindings. See [G
 
 **Save Settings** validates the complete candidate before atomically replacing `forge.project.json`. Invalid frequency, bindings or startup references leave the previous configuration intact. An externally changed manifest is rejected; reopen the project before editing it again.
 
-**Discard edits** restores the currently loaded settings. Closing an unsaved window asks Save, Discard or Cancel. Scene Undo does not undo project settings.
+**Discard edits** restores the currently loaded settings and clears the draft's
+validation error. Closing an unsaved window asks Save, Discard or Cancel. **Cancel**
+keeps the draft and its diagnostic so you can correct it. Scene Undo does not undo
+project settings.
 
 Older version-1 manifests are read without replacing them. The first settings save writes version 2 and retains `forge.project.json.v1.backup`. Unknown fields are preserved. Unsupported future versions are rejected.
 

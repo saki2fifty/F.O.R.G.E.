@@ -174,6 +174,13 @@ clearing obsolete failures and retaining successful operation attribution. The U
 case draws the actual Inspector and retries after repair; exceptions must stay
 inside the panel. All three cases are in the shared native acceptance selector.
 
+`settings_lifecycle_defaults`, `settings_lifecycle_diagnostic` and
+`settings_lifecycle_queued` draw the registered Project Settings owner through the actual DocumentWorkspace. They verify automation-created defaults
+survive a frame, stay unsaved until explicit Save and retain their application ID;
+Cancel keeps failed drafts; actual mouse input on Discard clears them; accepted
+close cancels obsolete Save requests. Project switching and Scene history remain
+protected. Native window/scale review and full MCP protocols are separate checks.
+
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
 rejections and the Windows deployment CMake-version preflight, without compiling

@@ -232,7 +232,11 @@ separate workspace grant, project switches retain ordinary revocation.
 Edits require the observed draft digest and validate name, simulation frequency,
 startup scene, input, physics and game settings together. Native/build fields are
 preserved for their owner. Save checks the ordinary disk baseline; settings are
-not Scene Undo. Dirty close requires explicit discard.
+not Scene Undo. Dirty close requires explicit discard. `forge_project_settings_game_defaults`
+opens the actual settings draft and retains its generated application identity
+across editor frames; it does not save implicitly. Accepted close, including
+Discard, clears obsolete diagnostics and queued Save requests. Cancel retains the
+failed draft.
 
 `forge_document_recovery_read` reviews current/untitled snapshot availability and
 its exact content digest (bounded64MiB read). Restore/discard require that digest

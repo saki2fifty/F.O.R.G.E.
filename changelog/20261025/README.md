@@ -23,6 +23,11 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Using FORGE
 
+- Project Settings keeps automation-created game defaults through the next editor
+  frame and saves their application identity only on explicit Save. Native and
+  automation review initialization share the existing owner. Discard clears stale
+  errors; accepted close also cancels queued Save requests. Cancel retains failed drafts.
+
 - Runtime dependency reloads keep the complete previous review on failure and
   contain read errors in Inspector. Successful Open/Discard clears obsolete save
   errors and operation IDs; a successful Save retains its own operation ID.

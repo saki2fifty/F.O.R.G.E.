@@ -22,10 +22,8 @@ class ProjectSettingsEditor {
     void request_close() {
         if (dirty())
             close_requested_ = true;
-        else {
-            open_ = false;
-            loaded_ = false;
-        }
+        else
+            finish_close();
     }
     void request_save() { save_requested_ = true; }
     void setup_game_defaults() {
@@ -34,6 +32,7 @@ class ProjectSettingsEditor {
         if (!draft_.contains("game"))
             draft_["game"] =
                 default_game_settings("forge.game." + AssetId::generate().str(), draft_.at("name"));
+        open();
     }
     void set_frequency(double hz) {
         if (loaded_)
@@ -48,9 +47,7 @@ class ProjectSettingsEditor {
         if (choice == ui::DraftResolution::Save && !save(document, status))
             return false;
         draft_ = baseline_;
-        close_requested_ = false;
-        open_ = false;
-        loaded_ = false;
+        finish_close();
         return true;
     }
     bool save(SceneDocument& document, std::string& status) {
@@ -76,11 +73,7 @@ class ProjectSettingsEditor {
             loaded_ = false;
             return;
         }
-        if (!loaded_ || root_ != document.project()) {
-            draft_ = baseline_ = document.settings().document();
-            root_ = document.project();
-            loaded_ = true;
-        }
+        load_review(document);
         ui::draft_window_size({560 * ui::interface_scale, 530 * ui::interface_scale});
         if (focus_requested_) {
             ImGui::SetNextWindowFocus();
@@ -525,7 +518,7 @@ class ProjectSettingsEditor {
             ImGui::SameLine();
             if (ui::button("Discard edits",
                            "Restore the current loaded project settings without writing files."))
-                draft_ = baseline_ = document.settings().document();
+                reset_review(document);
             ImGui::EndDisabled();
             ImGui::TextWrapped("Game > Capture gameplay input sends controls to your actions. Esc "
                                "releases. F6 pauses/resumes; F7 steps. Console > Gameplay input "
@@ -560,12 +553,8 @@ class ProjectSettingsEditor {
             }
             if (!error_.empty())
                 ui::field_error(error_);
-            if (finish) {
-                close_requested_ = false;
-                open_ = false;
-                loaded_ = false;
+            if (finish)
                 ImGui::CloseCurrentPopup();
-            }
             ImGui::EndPopup();
         }
         if (!open_)
@@ -573,6 +562,25 @@ class ProjectSettingsEditor {
     }
 
   private:
+    void load_review(SceneDocument& document) {
+        if (loaded_ && root_ == document.project())
+            return;
+        reset_review(document);
+    }
+    void reset_review(SceneDocument& document) {
+        auto baseline = document.settings().document();
+        auto draft = baseline;
+        auto root = document.project();
+        baseline_ = std::move(baseline);
+        draft_ = std::move(draft);
+        root_ = std::move(root);
+        loaded_ = true;
+        error_.clear();
+    }
+    void finish_close() {
+        open_ = loaded_ = close_requested_ = save_requested_ = focus_requested_ = false;
+        error_.clear();
+    }
     bool open_ = false, loaded_ = false, close_requested_ = false, save_requested_ = false,
          focus_requested_ = false;
     std::string error_;

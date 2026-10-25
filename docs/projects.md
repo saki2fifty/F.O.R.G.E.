@@ -76,7 +76,13 @@ create another project. The file controller still owns all transitions and lease
 
 Project settings tools borrow the visible settings draft, validate admitted fields
 and use its ordinary saved baseline. Their content digest rejects stale edits.
-They preserve native/build fields for the corresponding native-code owner.
+They preserve native/build fields for the corresponding native-code owner. Native drawing and
+automation share review initialization in ProjectSettingsEditor. Creating game
+defaults opens the owning draft so the next workspace frame retains the edits.
+Accepted closure ends pending Save/close/focus requests and clears the old error;
+Cancel keeps the draft and diagnostic. Discard edits reloads the already admitted
+project settings without writing the manifest. External manifest conflicts still
+require reopening the project before editing again.
 Recovery tools review a bounded snapshot digest, then call the existing restore /
 discard paths. Current-scene recovery remains undoable; untitled recovery resets
 routing/history as before. Busy controls can resolve the recovery owner's own
