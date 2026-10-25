@@ -169,6 +169,11 @@ overlapping/repeated roots, structural versus spatial ancestry, cycles, row-orde
 independence, empty selections, invalid IDs, the 10,000-row profile and mixed
 mesh/helper positions. Native viewport compilation and actual camera fitting
 remain separate from these portable selection-expansion checks.
+Selection reconciliation checks intact/pruned ranges, primary retention, legacy
+writes and non-entity selection. The actual cached caller is exercised through
+delete, Undo, Redo and changing Scene owners. Existing snapshot tests also run for
+direct native writes, prefab data, reset, preview invalidation and retry. The
+native editor loop still requires its separate build/input review.
 This portable fixture is included in the shared Windows selector. Native input,
 large-selection frame timing and the full editor entry point remain separate checks.
 

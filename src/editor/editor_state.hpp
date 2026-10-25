@@ -1,4 +1,5 @@
 #pragma once
+#include "../json_row_index.hpp"
 #include "event_time.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
@@ -110,13 +111,24 @@ class EditorSelection {
             primary_.clear();
             return;
         }
-        auto ids = entities();
-        std::erase_if(ids, [&](const auto& id) {
-            return std::none_of(document.at("entities").begin(), document.at("entities").end(),
-                                [&](const auto& row) { return row.at("id") == id; });
-        });
+        const auto ids = entity_view();
+        const auto rows = ids.size() > 1 ? forge::detail::index_json_rows(document.at("entities"))
+                                         : forge::detail::JsonRowIndex{};
+        const auto present = [&](const auto& id) {
+            if (ids.size() > 1)
+                return rows.contains(id);
+            return std::any_of(document.at("entities").begin(), document.at("entities").end(),
+                               [&](const auto& row) { return row.at("id") == id; });
+        };
+        if (entity_ == primary_ && std::all_of(ids.begin(), ids.end(), present))
+            return;
+        std::vector<std::string> retained;
+        retained.reserve(ids.size());
+        for (const auto& id : ids)
+            if (present(id))
+                retained.push_back(id);
         const auto anchor = anchor_;
-        select_entities(std::move(ids));
+        select_entities(std::move(retained));
         anchor_ = anchor;
     }
 

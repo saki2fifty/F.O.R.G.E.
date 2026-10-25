@@ -80,6 +80,10 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Scene history and Content discovery
 
+- Idle selection maintenance reuses the existing revision-aware scene snapshot
+  and keeps intact selections in place. Stale-ID removal, primary ordering,
+  legacy writes and Shift-click anchors retain their existing behavior.
+
 - Frame selected builds its temporary structural lookup once for the whole
   selection. Overlapping descendants share one traversal; existing bounds,
   helper-position, cycle and admission behavior are preserved.

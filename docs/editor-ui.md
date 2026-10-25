@@ -24,6 +24,14 @@ The single-root entry point shares that implementation. Structural framing stays
 independent of spatial parenting; current render-pose bounds and helper positions
 remain with their existing owners.
 
+Frame-start selection reconciliation reads the existing revision-aware
+AuthoringSnapshot before document views borrow it. Event handlers retain their
+detached reads. Reconciliation borrows selected IDs, uses a temporary row index
+for multiple targets and leaves intact normalized selections in place. Removing
+stale IDs and normalizing legacy single-target writes preserve the range anchor.
+The snapshot's existing scene/revision invalidation owns refresh; selection adds
+no persistent scene cache.
+
 Project Settings owns shared review initialization for its native and automation
 routes. Game-default creation opens the draft before the workspace's next draw.
 Accepted close clears pending Save/close/focus requests and its old validation

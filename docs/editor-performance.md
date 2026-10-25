@@ -140,6 +140,43 @@ small for a strong latency claim. Native viewport compilation/camera review
 remains pending. Exact source/library/binary attribution and samples are in the
 local audit's `framing-performance-paired.json` and `framing-*-inputs.json`.
 
+## Idle selection reconciliation — 2026-10-25
+
+Compared `15eb105` with the selection-reconciliation correction in the
+[October 25 audit batch](../changelog/20261025/README.md). The frame loop previously
+called `Scene::document()` for selection maintenance every frame, despite already
+owning an AuthoringSnapshot. Reconciliation then scanned all rows for every
+selected ID and rebuilt the selection even when it was intact.
+
+Frame-start reconciliation now borrows the existing revision-aware snapshot,
+before document views borrow it. Event callbacks retain their detached reads.
+Reconciliation borrows selected IDs, uses the existing temporary row index for
+multiple targets and skips rebuilding intact normalized selections. Legacy writes
+and stale-ID removal still normalize the selection and preserve the range anchor.
+Neither the snapshot's ownership nor its invalidation rules change.
+
+The Linux/GCC 12 Release probe uses a real unchanged 1,000-entity Scene and the
+actual former/corrected caller plus EditorSelection. The last 0, 1, 64 or 1,000 IDs
+are selected. Before/after/before/after processes each warm up three iterations,
+then collect 20 samples per case, with no concurrent compilation. Medians combine
+40 samples per version. Every sample checks exact selection order and primary;
+Scene contents/revision remain unchanged.
+
+| Selected entities, 1,000 scene rows | Before | After |
+| --- | ---: | ---: |
+| 0 | 40.591 ms | 0.110 ms |
+| 1 | 38.405 ms | 0.184 ms |
+| 64 | 43.800 ms | 0.397 ms |
+| 1,000 | 81.495 ms | 0.615 ms |
+
+These are steady-state selection-maintenance timings, including the snapshot
+read, not total frame time, FPS or Windows responsiveness. A changed Scene still
+requires snapshot refresh. Portable checks exercise native writes, reset,
+delete/Undo/Redo and switching snapshot owners; full native editor compilation
+and interaction remain pending. Inputs, binary hashes and samples are retained
+in the local audit's `selection-reconcile-performance-paired.json` and
+`selection-reconcile-*-inputs.json`.
+
 ## Matched startup and idle comparison
 
 Verified 2026-09-22.

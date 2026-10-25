@@ -2773,7 +2773,8 @@ int main(int argc, char** argv) {
             asset_document_locked = game_export.busy() || runtime_dependencies.busy() ||
                                     sdk_build->busy() || files.busy() || scene_tools.active() ||
                                     modal.active() || blockout.active();
-            editor.selection.reconcile(scene.document());
+            // Refresh the existing frame snapshot before document views borrow it.
+            editor.selection.reconcile(authoring_snapshot.document(scene));
             if (editor.task.owner == forge::ui::DocumentTask::Extension &&
                 !documents.available(editor.task.id()))
                 editor.task.owner = forge::ui::DocumentTask::Scene;

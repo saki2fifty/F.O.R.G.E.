@@ -6,6 +6,7 @@ void require(bool okay, const char* message) {
 #include "batch_authoring_tests.hpp"
 #include "framing_tests.hpp"
 #include "hierarchy.hpp"
+#include "scene_cache_tests.hpp"
 #include "scene_tools.hpp"
 #include <imgui_internal.h>
 #include <iostream>
@@ -24,6 +25,75 @@ void check_selection(const ui::EditorSelection& selection,
     auto copy = selection.entities();
     copy.clear();
     require(selection.entities() == expected, "Owning selection copy became an alias");
+}
+void check_selection_reconcile() {
+    Json source{
+        {"entities", Json::array({{{"id", "a"}}, {{"id", "b"}}, {{"id", "c"}}, {{"id", "d"}}})}};
+    const auto original = source;
+    const std::vector<std::string> visible{"a", "b", "c", "d"};
+    ui::EditorSelection selection;
+    selection.click_entity("a", false);
+    selection.click_entity("d", false, true, visible);
+    for (unsigned i = 0; i < 3; ++i)
+        selection.reconcile(source);
+    check_selection(selection, visible);
+    selection.click_entity("c", false, true, visible);
+    check_selection(selection, {"a", "b", "c"});
+
+    selection.click_entity("a", false);
+    selection.click_entity("d", false, true, visible);
+    auto pruned = source;
+    pruned["entities"].erase(1);
+    selection.reconcile(pruned);
+    check_selection(selection, {"a", "c", "d"});
+    selection.click_entity("c", false, true, {"a", "c", "d"});
+    check_selection(selection, {"a", "c"});
+    selection.entity_slot() = "b";
+    selection.reconcile(source);
+    check_selection(selection, {"b"});
+    selection.reconcile(pruned);
+    check_selection(selection, {});
+
+    const auto asset = AssetId::generate();
+    selection.select_asset(asset);
+    selection.reconcile(Json());
+    require(selection.kind() == ui::SelectionKind::Asset && selection.asset() == asset,
+            "Empty entity reconciliation changed asset selection");
+    selection.entity_slot() = "c";
+    selection.reconcile(source);
+    check_selection(selection, {"c"});
+    require(!selection.asset() && selection.member().empty() && selection.document().empty(),
+            "Legacy entity reconciliation retained a previous selection owner");
+    selection.entity_slot().clear();
+    selection.reconcile(Json());
+    check_selection(selection, {});
+    selection.select_entities({"missing", "stale"});
+    selection.reconcile(source);
+    check_selection(selection, {});
+    require(source == original, "Selection reconciliation changed the authored document");
+
+    EngineContext engine;
+    Scene scene(engine.world());
+    const std::string first = authoring_command(scene, "entity.create").at("selected");
+    const std::string second = authoring_command(scene, "entity.create").at("selected");
+    AuthoringSnapshot snapshot;
+    selection.select_entities({first, second});
+    selection.reconcile(snapshot.document(scene));
+    check_selection(selection, {first, second});
+    authoring_command(scene, "entity.delete", {{"entity", second}});
+    selection.reconcile(snapshot.document(scene));
+    check_selection(selection, {first});
+    require(scene.undo(), "Delete had no Undo step");
+    selection.click_entity(second, true);
+    selection.reconcile(snapshot.document(scene));
+    check_selection(selection, {first, second});
+    require(scene.redo(), "Delete had no Redo step");
+    selection.reconcile(snapshot.document(scene));
+    check_selection(selection, {first});
+    EngineContext other_engine;
+    Scene other(other_engine.world());
+    selection.reconcile(snapshot.document(other));
+    check_selection(selection, {});
 }
 void check_selection_overlays(Scene& scene, const std::vector<std::string>& ids) {
     auto arranged = scene.document();
@@ -92,6 +162,9 @@ int main() {
                            std::size_t>);
         test_batch_authoring(); // Existing batch/Undo/prefab/spatial selection coverage.
         test_framing_selection();
+        test_scene_cache(); // Existing native-write, reset, Undo/Redo and owner-invalidation
+                            // checks.
+        check_selection_reconcile();
         ui::EditorSelection direct;
         check_selection(direct, {});
         direct.select_entities({"b", "a", "b", "", "c"});
