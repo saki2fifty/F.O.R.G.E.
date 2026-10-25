@@ -4,7 +4,6 @@
 #include <optional>
 #include <stdexcept>
 #include <thread>
-#include <vector>
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
@@ -138,42 +137,22 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
         : kind == WorkerKind::Schema  ? L"forge_runtime --inspect-sdk-worker"
         : kind == WorkerKind::UiInspection ? L"forge_ui_inspect --inspect-ui-worker"
                                            : L"forge_nav_build --build-navigation";
-    HANDLE inherited =
-        staging_owner ? reinterpret_cast<HANDLE>(staging_owner->inheritance_handle()) : nullptr;
-    struct Attributes {
-        std::vector<std::byte> data;
-        LPPROC_THREAD_ATTRIBUTE_LIST list = nullptr;
-        ~Attributes() {
-            if (list)
-                DeleteProcThreadAttributeList(list);
-        }
-    } attributes;
-    STARTUPINFOEXW startup{};
-    startup.StartupInfo.cb = staging_owner ? sizeof(startup) : sizeof(STARTUPINFOW);
-    DWORD flags = CREATE_SUSPENDED | CREATE_NO_WINDOW;
-    if (staging_owner) {
-        SIZE_T size = 0;
-        InitializeProcThreadAttributeList(nullptr, 1, 0, &size);
-        if (!size)
-            throw std::runtime_error("Cannot size worker handle whitelist");
-        attributes.data.resize(size);
-        auto* list = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(attributes.data.data());
-        if (!InitializeProcThreadAttributeList(list, 1, 0, &size))
-            throw std::runtime_error("Cannot initialize worker handle whitelist");
-        attributes.list = list;
-        if (!UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, &inherited,
-                                       sizeof(inherited), nullptr, nullptr))
-            throw std::runtime_error("Cannot configure worker staging inheritance");
-        startup.lpAttributeList = list;
-        flags |= EXTENDED_STARTUPINFO_PRESENT;
-    }
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
     PROCESS_INFORMATION process{};
-    if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr,
-                        staging_owner ? TRUE : FALSE, flags, nullptr, staging.c_str(),
-                        &startup.StartupInfo, &process))
+    if (!CreateProcessW(executable.c_str(), command.data(), nullptr, nullptr, FALSE,
+                        CREATE_SUSPENDED | CREATE_NO_WINDOW, nullptr, staging.c_str(), &startup,
+                        &process))
         throw std::runtime_error("Cannot launch packaged asset worker");
     Handle child{process.hProcess}, thread{process.hThread};
+    // Keep the parent's lease non-inheritable even during concurrent SDL launches.
+    // This duplicate belongs to the suspended child; only that process closes it.
+    HANDLE child_stage = nullptr;
     if (!AssignProcessToJobObject(job.value, child.value) ||
+        (staging_owner &&
+         !DuplicateHandle(GetCurrentProcess(),
+                          reinterpret_cast<HANDLE>(staging_owner->inheritance_handle()),
+                          child.value, &child_stage, 0, FALSE, DUPLICATE_SAME_ACCESS)) ||
         ResumeThread(thread.value) == DWORD(-1)) {
         TerminateProcess(child.value, 1);
         WaitForSingleObject(child.value, 5000);

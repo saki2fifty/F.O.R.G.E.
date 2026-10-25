@@ -233,7 +233,7 @@ redirected, nested or excessive data is retained with diagnostics. Cache operati
 are disposable-data maintenance, not authored transactions or scene Undo.
 
 Import staging has a separate ownership check: a bounded `forge.import-job` marker
-holds an OS lease inherited only by its worker. Closing the editor's copy alone
+holds an OS lease transferred only to its worker. Closing the editor's copy alone
 does not release a running child's ownership. `cache-cleanup` and `cache-clear-all`
 try exclusive acquisition and preflight the complete recognized job layout before
 removing files. They preserve active, unmarked, malformed, redirected, aliased and

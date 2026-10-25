@@ -10,8 +10,11 @@ Each shared import and canonical model-animation conversion owns a unique
 storage ownership, not an asset, session or runtime identity.
 
 The supervisor keeps the OS lease through preparation and joined worker completion.
-Windows passes only this inheritable handle through `PROC_THREAD_ATTRIBUTE_HANDLE_LIST`;
-POSIX keeps the designated locked open file description across exec. A child retains
+Windows keeps the parent handle non-inheritable, creates the worker suspended with
+handle inheritance disabled, attaches its Job, and duplicates only the lease into
+that child before resuming it. The duplicate is child-local and non-inheritable;
+unrelated SDL launches cannot acquire it. POSIX keeps the designated locked open
+file description across exec. A child retains
 ownership if the parent closes its copy. Existing process limits and parent-death
 termination remain in place. Normal completion removes the owned stage.
 

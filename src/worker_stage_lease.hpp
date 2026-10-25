@@ -6,7 +6,7 @@
 #include <string_view>
 
 namespace forge::asset_detail {
-// Private temporary-storage ownership. The designated worker inherits this
+// Private temporary-storage ownership. Only the designated worker receives this
 // open file description/handle, so parent death alone cannot permit cleanup.
 // It is unrelated to logical AssetIds, the SDK and renderer resource leases.
 class WorkerStageLease {

@@ -16,6 +16,10 @@ int main(int argc, char** argv) {
     try {
         if (argc != 3)
             throw std::runtime_error("Need worker and private test directory");
+        require(SDL_Init(0), "Cannot initialize SDL process fixture");
+        struct SdlCleanup {
+            ~SdlCleanup() { SDL_Quit(); }
+        } sdl_cleanup;
         const auto executable = std::filesystem::absolute(argv[1]);
         const auto parent = std::filesystem::absolute(argv[2]);
         std::filesystem::create_directories(parent);
@@ -39,6 +43,7 @@ int main(int argc, char** argv) {
         limits.cpu_seconds = 2;
         limits.files = 8;
         limits.cancellation_grace_ms = 300;
+        check_worker_stage_isolation(executable, root);
         check_worker_stage_inheritance(executable, root, limits);
         unsigned sequence = 0;
         auto run = [&](const char* mode, bool reject, std::stop_token cancel = {}) {

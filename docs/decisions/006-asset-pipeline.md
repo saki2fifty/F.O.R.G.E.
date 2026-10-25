@@ -27,6 +27,13 @@ are deliberately not implemented in this package.
 
 ## Consequences
 
+Temporary import storage remains owned by the supervisor and its designated
+worker through the existing OS lease. The Windows parent handle is never broadly
+inheritable: the suspended child receives a non-inheritable duplicate before it
+runs. An unrelated process must not retain another job's lease. POSIX retains
+its designated child descriptor across exec. This changes neither logical asset
+identity nor catalog publication; see [staging ownership](../import-settings.md).
+
 Derived cache lives under project .forge/cache. Key includes source/settings/tool/
 transitive dependency digests, platform and backend/profile where relevant. Hash output,
 validate its type/format before reuse; quarantine corrupt entries and rebuild on miss.

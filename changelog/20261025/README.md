@@ -14,6 +14,14 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   from installed guides and removes obsolete roadmap claims. Package validation
   checks links across all installed SDK guides.
 
+## Import staging ownership
+
+- Windows transfers a non-inheritable staging lease directly to the suspended
+  worker. Unrelated Play/compiler/game launches cannot inherit that lease.
+- Ownership checks cover an unrelated SDL process, parent-close retention by the
+  intended worker and reclamation after it exits. Marker formats and process
+  limits remain unchanged; native Windows execution remains pending.
+
 ## Recovery records
 
 - Startup preferences use the shared complete-record reader before applying any

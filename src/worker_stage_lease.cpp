@@ -39,11 +39,9 @@ bool WorkerStageLease::open(const std::filesystem::path& file, bool create) {
     if (native_io_path(std::filesystem::weakly_canonical(path)) != path)
         throw std::runtime_error("Worker ownership marker must not redirect");
 #ifdef _WIN32
-    SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
-    state_->handle =
-        CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
-                    create ? &attributes : nullptr, create ? CREATE_NEW : OPEN_EXISTING,
-                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    state_->handle = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ,
+                                 nullptr, create ? CREATE_NEW : OPEN_EXISTING,
+                                 FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
     if (state_->handle == INVALID_HANDLE_VALUE) {
         const auto error = GetLastError();
         if (!create && error == ERROR_SHARING_VIOLATION)

@@ -9,32 +9,30 @@
 #include <windows.h>
 #else
 #include <sys/resource.h>
-#include <sys/stat.h>
 #ifdef __linux__
 #include <csignal>
 #include <sys/prctl.h>
 #endif
 #endif
 int main(int argc, char** argv) {
+    if (argc == 3 && std::string(argv[1]) == "--unrelated-stage") {
+        const auto stage = std::filesystem::u8path(argv[2]);
+        std::ofstream(stage / "started") << "ready";
+        for (unsigned i = 0; i < 400; ++i) {
+            if (std::filesystem::exists(stage / "continue.request"))
+                return 0;
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        return 23;
+    }
     if (argc != 2 || std::string(argv[1]) != "--build-asset")
         return 1;
     std::string mode;
     std::ifstream("request.txt") >> mode;
     if (mode == "lease") {
-        std::uintptr_t inherited = 0;
-        if (!(std::ifstream("lease-handle.txt") >> inherited))
-            return 20;
-#ifdef _WIN32
-        BY_HANDLE_FILE_INFORMATION info{};
-        if (!GetFileInformationByHandle(reinterpret_cast<HANDLE>(inherited), &info) ||
-            info.nNumberOfLinks != 1)
-            return 21;
-#else
-        struct stat info{};
-        if (fstat(int(inherited), &info) || !S_ISREG(info.st_mode))
-            return 21;
-#endif
-        std::ofstream("output/started") << "inherited";
+        // The parent releases its copy and verifies the running child still
+        // excludes a new lease; no parent-local handle value is used here.
+        std::ofstream("output/started") << "ready";
         for (unsigned i = 0; i < 400; ++i) {
             if (std::filesystem::exists("continue.request"))
                 return 0;
