@@ -61,7 +61,8 @@ struct ImportDocumentAutomation {
     }
     static ui::SourceDocumentAccess bind(AssetImportEditor& editor, SceneDocument& document) {
         return {
-            "", [&editor, &document](std::string_view action, const Json& request) -> Json {
+            "",
+            [&editor, &document](std::string_view action, const Json& request) -> Json {
                 document.check_ownership();
                 if (action == "status")
                     return status(editor, document);
@@ -146,6 +147,14 @@ struct ImportDocumentAutomation {
                 } else
                     throw AuthoringError("unknown_operation", "Unknown importer operation");
                 return status(editor, document);
+            },
+            [&editor, &document](AssetId id) {
+                return editor.project_ == document.project() && editor.selected_asset() == id &&
+                       (editor.dirty() || editor.save_ || editor.close_);
+            },
+            [&editor, &document](AssetId id) {
+                if (editor.project_ == document.project())
+                    editor.source_published(id);
             }};
     }
 };

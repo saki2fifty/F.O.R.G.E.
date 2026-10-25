@@ -41,6 +41,10 @@ struct AssetDocumentAutomation {
         else
             return editor.pending();
     }
+    template <class Editor> static bool publication_blocked(const Editor& editor) {
+        return editor.dirty() || publishing(editor) || editor.save_ || editor.close_ ||
+               transient(editor);
+    }
     template <class Editor> static Json status(const Editor& editor, const SceneDocument& project) {
         const auto* doc = editor.document();
         if (!doc || doc->project() != project.project())
@@ -288,6 +292,38 @@ struct AssetDocumentAutomation {
                 } else
                     throw AuthoringError("unknown_operation", "Unknown source document operation");
                 return status(editor, project);
+            },
+            [&editor, &project](AssetId id) {
+                const auto* doc = editor.document();
+                return doc && doc->project() == project.project() && doc->source().asset() == id &&
+                       publication_blocked(editor);
+            },
+            [&editor, &project](AssetId id) {
+                const auto* doc = editor.document();
+                if (!doc || doc->project() != project.project() || doc->source().asset() != id)
+                    return;
+                // Graph Save publishes through the shader owner. Its acknowledgement
+                // retains the editor's history and current preview.
+                if constexpr (requires { editor.publishing_; }) {
+                    if (editor.publishing_) {
+                        editor.source_published(id);
+                        return;
+                    }
+                }
+                if (publication_blocked(editor))
+                    return;
+                try {
+                    if constexpr (requires { editor.source_published(project, id); })
+                        editor.source_published(project, id);
+                    else {
+                        const auto path = doc->locator();
+                        editor.load(project, path);
+                    }
+                } catch (const std::exception& e) {
+                    // One failed reload must not prevent other catalog consumers
+                    // from observing a publication that has already committed.
+                    editor.error_ = e.what();
+                }
             }};
     }
 };

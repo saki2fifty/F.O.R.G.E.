@@ -57,11 +57,15 @@ class AssetImportEditor {
         return result;
     }
     void source_published(AssetId id) {
-        if (!open_ || !draft_ || selected_asset() != id || dirty())
+        if (!open_ || !draft_ || selected_asset() != id || dirty() || save_ || close_)
             return;
         const bool focus = focus_;
-        load(draft_->request.source);
-        focus_ = focus; // Background reimport must not steal document focus.
+        try {
+            load(draft_->request.source);
+            focus_ = focus; // Background reimport must not steal document focus.
+        } catch (const std::exception& e) {
+            error_ = e.what(); // Retain the last draft and continue other catalog updates.
+        }
     }
     const std::vector<SubassetIdentityConflict>& identity_conflicts() const { return conflicts_; }
     std::string identity_option_label(AssetId id) const {

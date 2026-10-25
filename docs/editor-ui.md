@@ -12,6 +12,18 @@ The editor uses the pinned Dear ImGui docking build and SDL3. Runtime libraries 
 - ComponentInspector and property_drawer consume registered schema metadata. Friendly labels/categories/enum choices are additive metadata; persistent formats and identity do not change. There is no second authoritative component registration table.
 - Problems and Console retain bounded session diagnostics/status transitions. They are presentation history, not project state or a persistent telemetry service.
 
+Registered source-document and importer adapters also borrow each editor's publication guard
+and refresh path. Content reimport and explicit source import dispatch through
+DocumentWorkspace, so a source editor does not need another main-loop notification
+list. The editors retain their source, history, previews and publication services.
+Dirty/unpublished drafts, active gestures, pending Save/close and publication
+requests block external replacement. A successful external publication refreshes
+the matching clean editor and starts a new transient document session. Material
+reload preserves its preview/camera; a graph's own shader publication acknowledges
+Save without reopening its document or resetting history. A source rejected during
+reload leaves the existing document and exposes its diagnostic without interrupting updates to
+other catalog consumers.
+
 ## Scene and Game
 
 Scene renders the authored world, including transient transform previews. Game

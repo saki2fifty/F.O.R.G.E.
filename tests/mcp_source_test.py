@@ -1,5 +1,6 @@
 """Shared editor source/history/publication owners through both MCP envelopes."""
 from contextlib import contextmanager
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -129,6 +130,29 @@ for legacy in (False, True):
                     time.sleep(.02)
                 assert not settled['dirty'] and not settled['diagnostic'], settled
                 assert json.loads((root / 'Game' / path).read_text())[key] == value
+                if owner in ('editable_mesh', 'animation_timeline'):
+                    old = status(owner)
+                    external = content(owner)
+                    external[key] = 'Changed outside the editor'
+                    (root / 'Game' / path).write_text(json.dumps(external), encoding='utf-8')
+                    digest = hashlib.sha256((root / 'Game' / path).read_bytes()).hexdigest()
+                    def published_digest():
+                        records = json.loads((root / 'Game/forge.assets.json').read_text())['assets']
+                        return next(record['metadata']['forge.import']['source_digest']
+                                    for record in records if record['id'] == old['asset'])
+                    end = time.monotonic() + 12
+                    while published_digest() != digest:
+                        assert time.monotonic() < end, (owner, 'External source publication did not complete')
+                        time.sleep(.1)
+                    end = time.monotonic() + 2
+                    while status(owner)['session'] == old['session']:
+                        assert time.monotonic() < end, (owner, 'Published source did not refresh its open editor')
+                        time.sleep(.1)
+                    assert content(owner)[key] == external[key]
+                    assert not status(owner)['dirty']
+                    failed(mutate('forge_asset_document_patch', editor=owner,
+                                  document_session=old['session'], document_revision=old['revision'],
+                                  patch=patch), 'wrong_document')
                 # Actual owner status only becomes clean after validated publication.
                 assert edit('forge_asset_document_close', owner)['ok']
             else:

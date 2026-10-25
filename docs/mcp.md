@@ -182,6 +182,10 @@ add/remove/replace/test operations as one validated owner edit, preserving asset
 identity and allocator floors. Intermediate JSON is bounded to8MiB; each source's
 stricter native parser limit also applies. Failed validation changes no history.
 Active editor gestures, pending publication and close requests retain owner gates.
+An external source publication also starts a new document session when the clean
+editor reloads. Read `status` again before editing; requests carrying the previous
+session fail with `wrong_document`. Dirty drafts are retained and block automatic
+replacement through the same registered owner used by the interactive editor.
 
 Tile Map reads return metadata; `cells` queries up to4096 addresses and `paint`
 uses the existing immutable chunk storage. Metadata patches use `with_metadata`,

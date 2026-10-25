@@ -117,6 +117,14 @@ class MaterialGraphEditor {
             error_.clear();
         }
     }
+    void source_published(SceneDocument& project, AssetId id) {
+        if (!document_ || document_->source().asset() != id || dirty())
+            return;
+        const auto focus = focus_;
+        const auto source = document_->locator();
+        load(project, source);
+        focus_ = focus; // Background refresh must not focus an inactive graph tab.
+    }
     void open(SceneDocument& project, const std::filesystem::path& source) {
         if (document_ && document_->project() == project.project() &&
             document_->locator() == ProjectPaths::normalize(source)) {

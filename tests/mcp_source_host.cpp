@@ -5,12 +5,14 @@
 #include "audio_imports.hpp"
 #include "automation.hpp"
 #include "collision_editor.hpp"
+#include "content_imports.hpp"
 #include "editable_mesh_editor.hpp"
 #include "import_document_automation.hpp"
 #include "material_editor.hpp"
 #include "material_graph_editor.hpp"
 #include "particle_effect_editor.hpp"
 #include "prefab_automation.hpp"
+#include "source_publication_tests.hpp"
 #include "source_workflow_automation.hpp"
 #include "terrain_editor.hpp"
 #include "tile_map_editor.hpp"
@@ -21,12 +23,18 @@
 
 int main(int argc, char** argv) {
     try {
-        if (argc != 4)
+        if (argc != 4 && argc != 5)
             return 2;
         const auto root = std::filesystem::u8path(argv[1]);
         const auto worker = std::filesystem::u8path(argv[2]);
         const bool read_only = std::string(argv[3]) == "read";
-        forge::SceneDocument::create_project(root / "Game", "MCP Sources");
+        const bool publication = argc == 5 && std::string(argv[3]) == "publication";
+        if (publication) {
+            if (!std::filesystem::create_directory(root / "Game"))
+                throw std::runtime_error("Publication fixture requires an empty test directory");
+            std::filesystem::copy(argv[4], root / "Game", std::filesystem::copy_options::recursive);
+        } else
+            forge::SceneDocument::create_project(root / "Game", "MCP Sources");
         forge::EngineContext engine;
         forge::Scene scene(engine.world());
         std::vector<std::string> recent;
@@ -83,6 +91,32 @@ int main(int argc, char** argv) {
         audio_entry.dirty = [&] { return audio.dirty(); };
         audio_entry.importer = forge::ImportDocumentAutomation::bind(audio, files.document);
         documents.add(std::move(audio_entry));
+        if (publication) {
+            test_source_publication(documents, files.document);
+            test_import_publication(documents, files.document, audio);
+            std::cout << "Source publication lifecycle passed for five source editors and the "
+                         "shared import editor\n";
+            return 0;
+        }
+        // Exercise the same external-source publication owner as Content.
+        forge::ContentImports imports;
+        imports.routes = [] {
+            return std::vector<forge::AssetReimportRoute>{
+                {"forge.animation.transform", forge::desktop_texture_target(),
+                 forge::transform_animation_import_registry(),
+                 [](auto& candidate, const auto& plan, const auto&) {
+                     forge::prepare_transform_animation_publication(candidate, plan);
+                 }},
+                {"forge.mesh.editable", forge::desktop_texture_target(),
+                 forge::editable_mesh_import_registry(),
+                 [](auto& candidate, const auto& plan, const auto&) {
+                     forge::prepare_editable_mesh_publication(candidate, plan);
+                 }}};
+        };
+        imports.blocked = [&](forge::AssetId id) {
+            return documents.source_publication_blocked(id);
+        };
+        imports.published = [&](forge::AssetId id, auto) { documents.source_published(id); };
         files.automation_unavailable = [&](bool switching) {
             return switching && documents.source_drafts_dirty() ? "Settle source drafts" : "";
         };
@@ -118,6 +152,11 @@ int main(int argc, char** argv) {
             blend.poll(files.document, files.status);
             mask.poll(files.document, files.status);
             timeline.poll(files.document, scene, false, 0, files.status);
+            if (auto catalog = mesh.take_catalog())
+                imports.catalog_changed(std::move(catalog));
+            if (auto catalog = timeline.take_catalog())
+                imports.catalog_changed(std::move(catalog));
+            imports.poll(files.document, files.status);
             // No renderer/shader worker profile: graph source/history is exercised,
             // graph compilation remains a separate platform acceptance boundary.
             ImGui::NewFrame();

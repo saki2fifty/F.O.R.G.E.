@@ -8,6 +8,8 @@ struct SourceDocumentAccess {
     std::string suffix;
     // Borrowed callbacks; the registered editor remains the sole draft/history owner.
     std::function<Json(std::string_view, const Json&)> invoke;
+    std::function<bool(AssetId)> publication_blocked = {};
+    std::function<void(AssetId)> source_published = {};
 };
 struct WorkspaceDocument {
     std::string id, title, window_id;
@@ -109,6 +111,24 @@ class DocumentWorkspace {
             if (d.id != "scene" && d.dirty && d.dirty())
                 return true;
         return false;
+    }
+    bool source_publication_blocked(AssetId id) const {
+        for (const auto& d : entries_)
+            for (const auto* access :
+                 {d.source ? &*d.source : nullptr, d.importer ? &*d.importer : nullptr})
+                if (access && access->publication_blocked && access->publication_blocked(id))
+                    return true;
+        return false;
+    }
+    void source_published(AssetId id, std::string_view origin = {}) const {
+        for (const auto& d : entries_) {
+            if (d.id == origin)
+                continue; // The publishing owner has already adopted its own result.
+            for (const auto* access :
+                 {d.source ? &*d.source : nullptr, d.importer ? &*d.importer : nullptr})
+                if (access && access->source_published)
+                    access->source_published(id);
+        }
     }
     // Asset/source drafts settle before the scene's existing file guard. Each
     // owner retains its own Save/history/publication semantics and close dialog.

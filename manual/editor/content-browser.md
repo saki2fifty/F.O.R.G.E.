@@ -171,7 +171,8 @@ into a typed asset field until it has been imported.
 
 FORGE checks project source contents in the background approximately every two
 seconds after the previous check completes. Changes to registered Model, Texture,
-Material, Editable Mesh and Shader sources or their import settings schedule reimport. New files
+Material, Editable Mesh, Shader, Audio, particle, terrain, tile and animation sources
+or their import settings schedule reimport. New files
 require an explicit import; discovery alone does not assign identities.
 
 Choose **Source updates** to see the current scan, queued updates and active job.
@@ -179,10 +180,14 @@ Choose **Source updates** to see the current scan, queued updates and active job
 appear in Problems. A failed import keeps the last published asset usable. A
 missing source does not erase its asset identity or existing cooked output.
 
-Unsaved import settings or Material edits delay automatic replacement for that
-asset. Save or resolve the draft first. Successfully published changes refresh
-clean source documents and dependent materials, and request safe scene-resource
-updates. This does not change scene Undo history. An incomplete scan pauses new
+Unsaved import settings, source edits, active editing gestures and pending Save
+or close requests delay automatic replacement for that asset. Finish the gesture
+and save or discard the draft first. Successfully published changes refresh
+clean source documents, including open animation and editable-mesh documents,
+and dependent materials, and request safe scene-resource updates. If a source
+cannot be reloaded, its document keeps the last readable values and displays an
+error; correct the source, select its asset and choose **Reimport selected**. This does not change
+scene Undo history. An incomplete scan pauses new
 automatic work until a complete scan succeeds.
 
 The watcher uses bounded content-hash polling, including sources outside the

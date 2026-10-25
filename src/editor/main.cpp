@@ -1369,62 +1369,16 @@ int main(int argc, char** argv) {
             return routes;
         };
         content_imports.blocked = [&](forge::AssetId id) {
-            return files.busy() ||
-                   (particle_editor.document() &&
-                    particle_editor.document()->source().asset() == id &&
-                    particle_editor.dirty()) ||
-                   (animation_blend_space.document() &&
-                    animation_blend_space.document()->source().asset() == id &&
-                    animation_blend_space.dirty()) ||
-                   (animation_mask.document() &&
-                    animation_mask.document()->source().asset() == id && animation_mask.dirty()) ||
-                   (animation_states.document() &&
-                    animation_states.document()->source().asset() == id &&
-                    animation_states.dirty()) ||
-                   (animation_timeline.document() &&
-                    animation_timeline.document()->source().asset() == id &&
-                    animation_timeline.dirty()) ||
-                   (graph_editor.document() && graph_editor.document()->source().asset() == id &&
-                    graph_editor.dirty()) ||
-                   (collision_editor.document() &&
-                    collision_editor.document()->source().asset() == id &&
-                    collision_editor.dirty()) ||
-                   (terrain_editor.document() &&
-                    terrain_editor.document()->source().asset() == id && terrain_editor.dirty()) ||
-                   (tile_set_editor.document() &&
-                    tile_set_editor.document()->source().asset() == id &&
-                    tile_set_editor.dirty()) ||
-                   (tile_map_editor.document() &&
-                    tile_map_editor.document()->source().asset() == id &&
-                    tile_map_editor.dirty()) ||
-                   (editable_mesh_editor.document() &&
-                    editable_mesh_editor.document()->source().asset() == id &&
-                    editable_mesh_editor.dirty()) ||
-                   (texture_imports.selected_asset() == id && texture_imports.dirty()) ||
-                   (audio_imports.selected_asset() == id && audio_imports.dirty()) ||
-                   (model_imports.selected_asset() == id && model_imports.dirty()) ||
-                   (shader_imports.selected_asset() == id && shader_imports.dirty()) ||
-                   (material_editor.document() &&
-                    material_editor.document()->source().asset() == id && material_editor.dirty());
+            return files.busy() || documents.source_publication_blocked(id);
         };
         content_imports.published = [&](forge::AssetId id, auto catalog) {
             if (id == audio_imports.selected_asset())
                 audio_preview.stop();
-            texture_imports.source_published(id);
-            audio_imports.source_published(id);
-            model_imports.source_published(id);
-            shader_imports.source_published(id);
-            material_editor.source_published(files.document, id);
-            particle_editor.source_published(files.document, id);
+            documents.source_published(id);
             particle_editor.catalog_changed(catalog);
-            terrain_editor.source_published(files.document, id);
-            tile_set_editor.source_published(files.document, id);
-            tile_map_editor.source_published(files.document, id);
             terrain_editor.catalog_changed(catalog);
             tile_set_editor.catalog_changed(catalog);
             tile_map_editor.catalog_changed(catalog);
-            graph_editor.source_published(id);
-            collision_editor.source_published(files.document, id);
             collision_editor.asset_catalog_changed(catalog);
             material_editor.asset_catalog_changed(catalog);
             graph_editor.asset_catalog_changed(catalog);
@@ -5394,9 +5348,8 @@ int main(int argc, char** argv) {
                 }
                 shader_imports.poll(files.document, message);
                 if (auto catalog = shader_imports.take_catalog()) {
-                    graph_editor.source_published(shader_imports.last_published_asset());
-                    material_editor.source_published(files.document,
-                                                     shader_imports.selected_asset());
+                    documents.source_published(shader_imports.last_published_asset(),
+                                               "shader_import");
                     content_imports.catalog_changed(catalog);
                     material_editor.asset_catalog_changed(catalog);
                     graph_editor.asset_catalog_changed(catalog);

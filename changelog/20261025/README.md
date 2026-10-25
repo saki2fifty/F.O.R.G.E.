@@ -27,6 +27,15 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Scene history and Content discovery
 
+- Source publication uses the existing document registry to refresh every bound
+  editor, including animation states, blend spaces, masks, timelines and editable
+  meshes. Clean external reloads invalidate old MCP sessions; unsaved drafts and
+  active gestures remain protected. Existing material preview and graph Save
+  ownership are retained, and one reload failure cannot interrupt catalog updates.
+- Shared import editors retain their previous settings/selection after a source
+  refresh error and protect pending Save requests from background refresh. The
+  publishing importer skips a redundant reload of its own accepted result.
+
 - Scene history shares immutable snapshots when preparing Undo/Redo, prefab
   replay and schema publication. The existing 100-entry cap and transactional
   replay remain; rejected edits and external conflicts retain the pending history.
