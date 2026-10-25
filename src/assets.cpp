@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "native_io_path.hpp"
+#include "scene_asset_record.hpp"
 #include <algorithm>
 #include <cctype>
 #include <forge/assets.hpp>
@@ -304,15 +305,7 @@ void AssetCatalog::set_source_dependencies(AssetId consumer,
 AssetRecord AssetCatalog::add_scene(const std::filesystem::path& source) {
     std::ifstream stream(locate(source));
     const auto doc = Json::parse(stream);
-    Scene::validate_document(doc);
-    if (doc.at("version") != 2 && doc.at("version") != 3 && doc.at("version") != 4 &&
-        doc.at("version") != 5)
-        throw std::runtime_error("Scene must be migrated before catalog registration");
-    AssetRecord record{doc.at("asset_id").get<AssetId>(),
-                       SceneAsset::type,
-                       ProjectPaths::normalize(source),
-                       doc.at("version").get<unsigned>(),
-                       {}};
+    auto record = detail::scene_asset_record(source, doc);
     add(record);
     return record;
 }

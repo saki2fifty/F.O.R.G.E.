@@ -16,6 +16,13 @@ Open **Content → Code** to find C++ source and headers. **Components** and **S
 
 Choose **Create / Register → C++ → Component / System / Source file / Header file**. A short Content panel groups this under **Actions**. Component and System examples use the existing managed Project Code setup; choose **Set up C++ code...** to open Build when a project needs setup. Creation shows the destination and opens the new source. Save code in C++ Sources, then use **Build Project Code** in Build. C++ file selection does not attach code to an entity: add its admitted data Component through the entity Inspector. Files under Code are not imported, reimported, dragged as assets or included in standalone export as source text. See [Project Code](native-gameplay.md).
 
+Code discovery supports up to 2,048 source/header files, 64 nested directory
+levels and 110,000 visited entries. Keep generated build folders under
+`Native/Builds` or outside `Native`; `Builds`, `.forge` and linked entries are
+excluded. If discovery reports a limit or read error, the previous complete Code
+list stays visible. Correct the reported folder or file problem, then choose
+**Refresh**. A retained list can differ from the files currently on disk.
+
 ## Find and inspect an asset
 
 1. Open **Window → Content**.

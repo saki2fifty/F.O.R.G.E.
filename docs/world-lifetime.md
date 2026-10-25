@@ -41,6 +41,15 @@ A change observer tracks membership revisions, including direct native set/remov
 
 Undo/redo retains the existing bounded immutable document snapshots. Replaying a snapshot uses the same typed content reconciliation; it never creates/replaces a world. Scene reset/load clears history as before. No new general transaction or subscription API is supplied.
 
+Each history entry holds a shared immutable JSON snapshot. Preparing Undo, Redo,
+prefab replay or schema publication copies handles rather than every retained
+document. Candidate history stacks are published only after replay succeeds;
+external prefab/scene conflicts leave the same pending entry available for retry.
+Ordinary edits allocate their snapshot and reserve history capacity before changing
+scene content. The cap remains 100 entries, and each entry still retains a full
+document; this is not a delta-history format or a persistence change. See
+[editor performance evidence](editor-performance.md) for measured workloads and limits.
+
 Flecs deferral is not rollback. The supported authoring boundary is single-threaded; built-in hooks must not fail or perform external effects. This code does not promise rollback of allocation failure, arbitrary throwing hooks, native crashes or external side effects.
 
 ## Effective reads and compatibility adapters

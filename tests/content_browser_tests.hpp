@@ -9,49 +9,6 @@ inline void test_content_browser(const std::filesystem::path& root) {
             throw std::runtime_error(why);
     };
     {
-        const auto scan_root = root / "Discovery-case";
-        std::filesystem::create_directories(scan_root / "Assets");
-        struct Remove {
-            std::filesystem::path path;
-            ~Remove() {
-                std::error_code e;
-                std::filesystem::remove_all(path, e);
-            }
-        } remove{scan_root};
-        auto scene = empty_scene();
-        atomic_write(scan_root / "Assets/Upper.SCENE.JSON", scene.dump());
-        AssetCatalog indexed(scan_root);
-        const auto texture_id = AssetId::generate();
-        indexed.add({texture_id, "texture", "Assets/image.png"});
-        indexed.save(AssetCatalog::project_index(scan_root));
-        auto first = scan_content_catalog(scan_root);
-        check(first.diagnostic.empty() && first.catalog.records().size() == 2,
-              "Uppercase JSON scene was not discovered alongside registered assets");
-        atomic_write(scan_root / "Assets/Broken.scene.json",
-                     Json{{"version", 5},
-                          {"asset_id", AssetId::generate()},
-                          {"entities", Json::array({Json::object()})}}
-                         .dump());
-        const auto another = AssetId::generate();
-        indexed.add({another, "texture", "Assets/another.png"});
-        indexed.save(AssetCatalog::project_index(scan_root));
-        const auto failed = scan_content_catalog(scan_root, first.scenes);
-        check(!failed.diagnostic.empty() && failed.catalog.records().contains(another) &&
-                  failed.catalog.records().contains(scene.at("asset_id").get<AssetId>()),
-              "Optional scene discovery failure hid current catalog or lost previous good scene "
-              "list");
-        std::filesystem::remove(scan_root / "Assets/Broken.scene.json");
-        const auto many_folder = scan_root / "Assets/Many";
-        std::filesystem::create_directories(many_folder);
-        for (int i = 0; i < 10001; ++i) {
-            std::ofstream file(many_folder / (std::to_string(i) + ".txt"));
-            check(bool(file), "Large project fixture could not create source file");
-        }
-        const auto large = scan_content_catalog(scan_root, first.scenes);
-        check(large.diagnostic.empty() && large.catalog.records().size() == 3,
-              "Unrelated sources hit the obsolete 10000-entry scene discovery cap");
-    }
-    {
         AssetCatalog revisions(root);
         const auto material = AssetId::generate(), texture = AssetId::generate();
         AssetRecord image{texture, "texture", "Assets/thumb.png"};

@@ -130,9 +130,30 @@ inline void test_prefab_apply_documents() {
                 document.prefabs().source(asset) == external,
             "External source conflict was overwritten by Undo");
     forge::atomic_write(project / "Assets/Sample.prefab.json", good_source.dump(2));
-    auto direct = good_source;
+    require(scene.undo() && document.prefabs().source(asset).at("revision") == 5 &&
+                scene.entity(a).owns<forge::LocalTranslation>() &&
+                scene.entity(a).owns<forge::LocalRotation>() && !document.dirty(),
+            "Repairing an external conflict did not preserve the exact pending Undo");
+    const auto undone = scene.snapshot();
+    const auto undone_source = document.prefabs().source(asset);
+    forge::atomic_write(document.path(), "{}");
+    rejected = false;
+    try {
+        scene.redo();
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    require(rejected && scene.can_redo() && scene.snapshot() == undone &&
+                document.prefabs().source(asset) == undone_source,
+            "External scene conflict consumed Redo or mutated prefab/world");
+    forge::atomic_write(document.path(), scene.document().dump(2));
+    require(scene.redo() && document.prefabs().source(asset).at("revision") == 6 &&
+                !scene.entity(a).owns<forge::LocalTranslation>() && !document.dirty(),
+            "Repairing an external conflict did not preserve the exact pending Redo");
+    const auto current_source = document.prefabs().source(asset);
+    auto direct = current_source;
     direct["members"][0]["name"] = "Direct publish";
-    document.prefabs().publish(scene, good_source, direct);
+    document.prefabs().publish(scene, current_source, direct);
     require(!scene.can_undo() && !scene.can_redo(),
             "Direct source publish must keep its history boundary");
     document.save();

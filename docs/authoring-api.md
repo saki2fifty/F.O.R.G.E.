@@ -48,7 +48,7 @@ cross-field values and values without a component recipe reject the entire comma
 
 Commands execute sequentially on a candidate using existing Scene validation and hierarchy operations. A later invalid command discards earlier candidate changes. Only the final valid document commits to the authored scene, creating one undo entry and changing its revision. Every intermediate command must produce a valid scene. A semantic no-op consumes no history entry. UI gesture previews remain outside Scene until release; Escape discards them. Unknown numeric properties are not modified by a vector edit.
 
-Draft preparation/history still copy whole documents, so cost grows with scene and batch size; no large-scene performance claim is made. Commits patch typed content inside a persistent world. No external resource side effects occur during these transactions. Resource-bearing components and general native hooks require lifecycle/retirement work before inclusion. File/project changes continue through the existing document controller, not through this in-memory API.
+Draft preparation and each new history snapshot still use whole documents, so cost grows with scene and batch size. Existing immutable history snapshots are shared when preparing Undo/Redo; copying a candidate history stack does not copy every retained document. See [editor performance evidence](editor-performance.md) for measured workloads and limits. Commits patch typed content inside a persistent world. No external resource side effects occur during these transactions. Resource-bearing components and general native hooks require lifecycle/retirement work before inclusion. File/project changes continue through the existing document controller, not through this in-memory API.
 
 ## Validation
 

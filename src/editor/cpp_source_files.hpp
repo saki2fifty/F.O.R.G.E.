@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <charconv>
+#include <forge/asset_discovery.hpp>
 #include <forge/project_paths.hpp>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -110,16 +111,30 @@ inline void create_cpp_source(const std::filesystem::path& root, const std::stri
         throw;
     }
 }
-inline std::vector<std::string> cpp_project_sources(const std::filesystem::path& root) {
+inline std::vector<std::string> cpp_project_sources(const std::filesystem::path& root,
+                                                    std::stop_token stop = {}) {
+    if (stop.stop_requested())
+        throw std::runtime_error("C++ source discovery cancelled");
     std::vector<std::string> result;
     const auto native = ProjectPaths(root).resolve("Native");
     if (!std::filesystem::is_directory(native))
         return result;
+    const SourceScanOptions bounds;
+    const auto entry_limit = bounds.max_files + bounds.max_directories;
+    std::size_t visited = 0;
     for (std::filesystem::recursive_directory_iterator it(native), end; it != end; ++it) {
+        if (stop.stop_requested())
+            throw std::runtime_error("C++ source discovery cancelled");
+        if (++visited > entry_limit)
+            throw std::runtime_error("C++ source discovery exceeds " + std::to_string(entry_limit) +
+                                     " entries.");
         const auto filename = it->path().filename();
         if (it->is_directory()) {
             if (filename == "Builds" || filename == ".forge" || it->is_symlink())
                 it.disable_recursion_pending();
+            else if (std::size_t(it.depth()) >= bounds.max_depth)
+                throw std::runtime_error("C++ source discovery exceeds " +
+                                         std::to_string(bounds.max_depth) + " directory levels.");
             continue;
         }
         if (it->is_symlink() || !it->is_regular_file() || !cpp_source_extension(it->path()))
@@ -130,6 +145,8 @@ inline std::vector<std::string> cpp_project_sources(const std::filesystem::path&
         if (result.size() > 2048)
             throw std::runtime_error("Too many project C++ source files.");
     }
+    if (stop.stop_requested())
+        throw std::runtime_error("C++ source discovery cancelled");
     std::sort(result.begin(), result.end());
     return result;
 }

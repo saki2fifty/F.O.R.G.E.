@@ -1,4 +1,4 @@
-# 2026-10-25 — Illustrated manual and documentation audit
+# 2026-10-25 — Illustrated manual and measured editor audit
 
 Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
@@ -25,6 +25,27 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 - Documented the ongoing manual and screenshot maintenance workflow in
   [Maintaining the user manual](../../docs/manual.md).
 
-Engine code, dependency pins, C++ ABI, persistence formats and MCP/automation
-operations are unchanged. Native captures come from accepted prior Windows/Linux
-validation; they are not new physical-hardware acceptance or performance results.
+## Scene history and Content discovery
+
+- Scene history shares immutable snapshots when preparing Undo/Redo, prefab
+  replay and schema publication. The existing 100-entry cap and transactional
+  replay remain; rejected edits and external conflicts retain the pending history.
+- Content reads scene JSON once, shares schema admission with explicit scene
+  registration, and validates/merges discovered records through the catalog's
+  existing bulk API. Registered metadata and dependency edges take precedence.
+- Moved Content discovery into a portable unit and migrated its native-only
+  checks. Added coverage for history limits, conflict repair/retry, parsed source
+  snapshots, last-good discovery, registered metadata and cancellation.
+- C++ discovery shares traversal bounds between Content and MCP. Background
+  cancellation reaches the C++ phase and empty scans; failed C++ discovery retains
+  the previous complete list while independent scene discovery can proceed.
+- Ten focused portable owner/consumer test targets pass. The matched Linux VM
+  comparison measured less time and transient memory for deep history and less
+  scan time for 100 scenes; the one-entry history case was slower. Full workloads,
+  values and limitations are in [performance evidence](../../docs/editor-performance.md).
+
+Dependency pins, native SDK ABI, persistence formats and MCP/automation operation
+schemas are unchanged. Native captures come from accepted prior Windows/Linux
+validation. The changed C++ implementation has portable validation; native Windows
+editor execution and physical acceptance remain pending. No Windows binary or ZIP
+was relabelled or rebuilt for this local audit.

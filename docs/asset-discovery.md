@@ -126,6 +126,24 @@ keeps the last complete discovered-scene additions and still adopts valid regist
 assets. A newly registered locator/identity takes precedence over retained discovery
 metadata. This projection creates no new identity and writes no project files.
 
+`src/editor/content_scan.hpp` owns this read-only Content projection and is also
+exercised by the portable `content_scan` test. Each scene candidate is read once
+with the existing 8 MiB file bound, then the same JSON snapshot supplies structural
+recognition and schema admission. Explicit scene registration shares that schema
+admission helper. The existing catalog's `replace_all` validates each complete
+discovery candidate and merges its additions in bulk; registered records retain
+their metadata and dependency edges. There is no second persistent index or
+retained parsed-document cache. Discovery is an observation, not a file-publication
+permit, and a later source change still requires refresh.
+
+Content and MCP `code.sources` share `cpp_project_sources`. It lists at most 2,048
+supported files under `Native`, excludes `Builds`, `.forge` and symlink entries,
+and bounds traversal to 110,000 entries and 64 directory levels using the existing
+source-scan defaults. The background Content caller passes cancellation through
+both C++ and scene discovery, including empty scans. A C++ traversal failure
+retains the prior complete code list while scene discovery can still proceed;
+MCP reports the same discovery error instead of returning a partial page.
+
 Windows locator equality compares generic separators before ordinal case folding,
 so a caller-created forward-slash path and an OS-normalized backslash path do
 not create duplicate source rows or miss publisher acknowledgements.

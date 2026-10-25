@@ -1,9 +1,54 @@
 # Editor performance evidence
 
-Verified 2026-09-22. Measurements are source- and workload-specific, not a claim
+Measurements are source- and workload-specific, not a claim
 about physical-GPU FPS or every scene. See [CI](ci.md) for reproducible tooling.
 
+## Scene history and Content discovery — 2026-10-25
+
+Compared baseline `91e6b57487b606637e2e9508621b1f8081c6b7cf` with the immutable
+history and bounded Content discovery changes in the
+[October 25 audit batch](../changelog/20261025/README.md). These are calls to the
+actual `Scene::undo`/`redo` and `scan_content_catalog` implementations, with the
+same existing libraries and deterministic input documents.
+
+- Linux 5.15 VM, QEMU Virtual CPU 2.5+, GCC 12, Release `-O3 -DNDEBUG`.
+- Each workload alternates before/after/after/before in separate processes.
+  Each launch records seven operation samples; table medians combine fourteen
+  samples per version. No compilation ran during the comparison.
+- History uses 1,000 entities, each with a translation and a 256-byte opaque
+  component payload. Setup creates the indicated history depth. Timed work is
+  one Undo/Redo pair, checked against the original complete document afterward.
+- Content uses 100 scene files with 100 entities each. All four launches use
+  identical fixture bytes and verify the resulting record count and diagnostics.
+  File creation is outside the timed region. This is a warmed scan workload.
+
+| Workload | Before median | After median | Observation |
+| --- | ---: | ---: | --- |
+| Undo/Redo, 1 history entry | 243 ms | 258 ms | 6.2% slower in this run |
+| Undo/Redo, 100 history entries | 722 ms | 330 ms | 54.2% less time |
+| Content scan, 100 scenes | 690 ms | 256 ms | 62.9% less time |
+
+For 100 history entries, peak process resident memory was 358.5 MiB before and
+202.4–202.5 MiB after. Peaks at the end of history setup remained about 200 MiB:
+the improvement removes transient history-stack document copies during replay,
+not the retained full snapshots. Each entry still keeps a full document, with the
+existing 100-entry cap. The one-entry result is included to avoid claiming that
+all edit/history workloads became faster. Scene serialization and reconciliation
+remain material costs; these numbers do not establish interactive large-scene
+latency, Windows performance, GPU performance or physical-hardware acceptance.
+
+Content reads each candidate once, shares schema admission with explicit scene
+registration, and uses the existing catalog's bulk validation rather than repeated
+per-scene graph rebuilding. No identity, file format, dependency pin or persistent
+ownership changes are involved. The portable owner/consumer tests cover last-good
+results, preserved catalog metadata, cancellation, history boundaries and prefab
+conflict retries. Raw samples, binary/input hashes and benchmark tooling are kept
+in `AgentFiles/audits/2026-10-25-project/performance-paired.json` and its sibling
+audit files; these are local audit evidence, not a numbered Windows delivery.
+
 ## Matched startup and idle comparison
+
+Verified 2026-09-22.
 
 [Run35779709368](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/35779709368)
 used the driver from881be64, reusing both previously built executables:

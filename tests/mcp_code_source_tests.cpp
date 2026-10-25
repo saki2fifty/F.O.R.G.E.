@@ -111,6 +111,10 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("Missing source method " + name);
             return found->invoke(args);
         };
+        const auto sources = invoke("code.sources", {{"offset", 1}, {"limit", 1}});
+        check(sources.at("total") == 2 &&
+                  sources.at("sources") == forge::Json::array({"Native/Second.hpp"}),
+              "MCP source discovery diverged from the ordered project source list");
         auto state = invoke("code.read", {{"path", "Native/First.cpp"}});
         invoke("code.close", {{"path", "Native/First.cpp"},
                               {"session", state.at("session")},

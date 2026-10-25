@@ -21,6 +21,50 @@ int main(int argc, char** argv) {
         test_reflected_extensions();
         test_flecs_contracts();
         test_ecs_tools();
+        {
+            forge::EngineContext history_engine;
+            forge::Scene history(history_engine.world());
+            history.reset(
+                {{"version", 1},
+                 {"entities",
+                  forge::Json::array({{{"id", "object"},
+                                       {"name", "Initial"},
+                                       {"components", {{"audit.opaque", {{"value", 0}}}}}}})}});
+            std::vector<forge::Json> states{history.document()};
+            for (int i = 1; i <= 105; ++i) {
+                auto changed = history.document();
+                changed["entities"][0]["name"] = "Edit " + std::to_string(i);
+                changed["entities"][0]["components"]["audit.opaque"]["value"] = i;
+                history.edit(changed);
+                states.push_back(history.document());
+                changed["entities"][0]["name"] = "Caller changed its copy";
+            }
+            for (int i = 104; i >= 5; --i)
+                check(history.undo() && history.document() == states[i],
+                      "Bounded history changed a retained snapshot or opaque value");
+            check(!history.undo(), "History retained more than 100 edits");
+            auto invalid = history.document();
+            invalid["entities"].push_back(invalid["entities"][0]);
+            bool rejected = false;
+            try {
+                history.edit(invalid);
+            } catch (const std::exception&) {
+                rejected = true;
+            }
+            check(rejected && history.document() == states[5] && history.can_redo(),
+                  "Rejected edit changed the document or consumed Redo history");
+            history.edit(history.document());
+            for (int i = 6; i <= 105; ++i)
+                check(history.redo() && history.document() == states[i],
+                      "Redo changed saved identity or opaque intent");
+            check(!history.redo(), "Redo exceeded the history boundary");
+            check(history.undo(), "Branch fixture could not undo");
+            auto branch = history.document();
+            branch["entities"][0]["name"] = "New branch";
+            history.edit(branch);
+            check(!history.can_redo() && history.undo() && history.document() == states[104],
+                  "New edit did not discard old Redo or retain its predecessor");
+        }
         forge::EngineContext scene_engine;
         forge::Scene scene(scene_engine.world());
         forge::Json doc = {

@@ -91,7 +91,9 @@ class Scene {
     void replace_prefab_sources(const PrefabSources&, const Json&, const std::function<void()>&,
                                 bool, bool refresh_native_types = false);
     struct HistoryEntry {
-        Json document;
+        // Immutable snapshots allow candidate stack copies without copying every
+        // scene again. Publication still swaps history only after replay succeeds.
+        std::shared_ptr<const Json> document;
         std::shared_ptr<PrefabReplay> prefab;
     };
     std::vector<HistoryEntry> undo_, redo_;
