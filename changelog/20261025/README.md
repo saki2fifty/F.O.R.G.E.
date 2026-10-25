@@ -46,6 +46,10 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Scene history and Content discovery
 
+- Derived Cache clears completed results and errors when opening another project,
+  including switches made while its window is closed. Same-project observations
+  remain available. The actual UI regression checks the shared work guard,
+  cancellation and new-project results without altering cache or authored data.
 - Source publication uses the existing document registry to refresh every bound
   editor, including animation states, blend spaces, masks, timelines and editable
   meshes. Clean external reloads invalidate old MCP sessions; unsaved drafts and

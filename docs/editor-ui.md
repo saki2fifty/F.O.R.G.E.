@@ -24,6 +24,12 @@ Save without reopening its document or resetting history. A source rejected duri
 reload leaves the existing document and exposes its diagnostic without interrupting updates to
 other catalog consumers.
 
+Completed Derived Cache observations belong to the project that produced them.
+The existing `EditorFiles::external_busy` guard prevents switching during queued
+or running maintenance. Idle polling clears previous-project results/errors even
+with the cache window closed; same-project results remain until the next operation.
+This presentation state does not change cache deletion, cancellation or asset data.
+
 ## Scene and Game
 
 Scene renders the authored world, including transient transform previews. Game

@@ -11,9 +11,17 @@ class CacheTools {
     bool busy() const { return pending_.has_value() || job_.valid(); }
     void open() { open_ = true; }
     void poll(SceneDocument& document, ContentImports& imports) {
+        // EditorFiles blocks project switching during work. Retire completed
+        // observations on a later switch even when this window is closed.
+        if (!busy() && result_project_ != document.project()) {
+            result_project_ = document.project();
+            result_ = Json{};
+            error_.clear();
+        }
         if (pending_ && imports.quiescent()) {
             const auto operation = *pending_;
             pending_.reset();
+            result_project_ = document.project();
             result_ = Json{};
             error_.clear();
             try {
@@ -125,6 +133,7 @@ class CacheTools {
     std::optional<CacheMaintenance> pending_;
     std::future<Json> job_;
     std::stop_source stop_;
+    std::filesystem::path result_project_;
     Json result_;
     std::string error_;
 };

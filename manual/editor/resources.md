@@ -37,6 +37,11 @@ scene data remain. These operations wait for active imports to drain and run in 
 background. Scene Undo does not undo cache maintenance. Reimport affected assets
 after clearing their cooked data.
 
+Wait for an operation to finish or cancel it before switching projects. Completed
+results remain available while working in that project. Opening another project
+clears the previous results; choose **Statistics** or **Verify** to inspect the
+new project's cache, even if the window was closed during the switch.
+
 ## Check the disk cache from a terminal
 
 The import cache contains generated files that FORGE can recreate from your sources.

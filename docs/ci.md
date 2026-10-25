@@ -124,6 +124,11 @@ and applicable acceptance selection together; a source file alone is not an
 executed check. These owner/input tests complement native viewport rendering and
 physical desktop review.
 
+`cache_tools_editor` drives the actual Derived Cache controls and asynchronous
+statistics task. It checks the shared project-switch guard, completed-result
+lifetime across a closed-window switch, queued cancellation and a fresh result
+in the new project without altering either catalog or Scene history.
+
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
 rejections and the Windows deployment CMake-version preflight, without compiling
