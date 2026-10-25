@@ -30,6 +30,8 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   documentation, separate from user instructions.
 - Corrected outdated animation, terrain, audio, runtime and export descriptions.
   Removed development and acceptance narratives from the affected user guides.
+- Reconciled the Hierarchy guide and editor reference with implemented prefab
+  Apply, multiple entity selection and active-document Save/history routing.
 - Added the Camera and Light setup needed to test the first scene during Play,
   and linked that prerequisite from the C++ cube walkthrough.
 

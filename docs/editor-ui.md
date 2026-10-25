@@ -150,7 +150,18 @@ format, public SDK, runtime ABI or dependency.
 
 ## Draft/history boundaries
 
-Ctrl+S routes to the active Scene, Prefab source or Project Settings task. Scene Undo/Redo is unavailable while a separate draft task owns focus. File/project switch and application close resolve independent dirty drafts before invoking the existing dirty-scene guard. A failed candidate or save keeps its draft open. Publishing prefab source retains the existing reconciliation/history policy. No Apply to Prefab, cross-document transaction, new prefab format or automatic migration is introduced.
+The active Save shortcut routes through DocumentWorkspace to the current owner,
+including Scene, C++ Sources, Prefab source, Project Settings and supported asset
+documents. Undo/Redo uses that owner's history; it does not fall through to Scene
+history while a separate draft owns focus. File/project switch and application
+close resolve independent dirty drafts before the dirty-scene guard. A failed
+candidate or save keeps its draft open.
+
+Direct prefab source publication retains its reconciliation/history boundary.
+Reviewed [Apply to Prefab](decisions/017-prefab-apply.md) coordinates the existing
+prefab source and current scene, with one Scene history entry and recoverable
+two-file publication. It is a specific operation, not a general transaction or
+shared Undo stack across independent documents.
 
 ## Persistence
 
@@ -219,11 +230,22 @@ Portable tests exercise actual ImGui component/draft drawing, integer input, con
 - [Pinned SDL3](https://github.com/libsdl-org/SDL/tree/fa2c02bb6e21974a89ea9824bc53c9932abe5f9c/include/SDL3): window, input and local-folder URL integration.
 - [Pinned Diligent integration](https://github.com/DiligentGraphics/DiligentEngine/tree/a279e5fa8593cbc758ec46ea1eba0b435cbc2f06): separate offscreen targets and existing WARP device attachment/readback pattern.
 
-Phase 7 provides typed import/cooking, Content multiselection, thumbnails and file operations, shared property inspection, camera-driven Game rendering and asset document editors. Remaining work includes general scene multiselection, third-party custom Inspector widgets, cross-document Undo, Apply to Prefab and specialized future domain editors. See [status](status.md) for the current validation boundary.
+The editor provides typed import/cooking, Content multiselection, thumbnails and
+file operations, shared property inspection, camera-driven Game rendering and
+typed asset documents. Hierarchy and Scene support multiple entity selection,
+with shared-property and transform batches through existing authoring owners.
+Reviewed Apply to Prefab is available for admitted instance overrides. General
+cross-document Undo and a public third-party Inspector widget contract are not
+provided. See [status](status.md) for the validation boundary and the
+[entity guide](../manual/editor/entities-hierarchy.md) for selection controls/limits.
 
 ## Refinement boundaries
 
-The standing [editor UI guidelines](editor-ui-guidelines.md) govern placement, commands, document adapters, local inspection, tool ownership and future subsystem placement. Internal DocumentWorkspace dispatches existing Save/history/draw owners; AssetEditors opens the supported typed asset documents from Content. No public binary extension contract or cross-document Undo was introduced.
+The standing [editor UI guidelines](editor-ui-guidelines.md) govern placement,
+commands, document adapters, local inspection and tool ownership. DocumentWorkspace
+dispatches existing Save/history/draw owners; AssetEditors opens supported typed
+asset documents from Content. Neither adds a public binary extension contract or
+a general cross-document Undo owner.
 
 Creation recipes use UI-independent entity.create with optional recipe ID; schema-owned defaults compose the result in one candidate transaction. Explicit Primitive None preserves legacy missing-Primitive cube behavior. Kinds0–3 remain unchanged; additional procedural shapes append values. Scene format3 and identity contracts were unchanged by the primitive work; old builds reject unsupported new enum values. The initial recipe checkpoint used shared CPU triangles. Phase 7 now realizes built-in primitives through the same Mesh/Material renderer as imported models while preserving legacy authored data.
 

@@ -52,7 +52,18 @@ Choosing a Parent preserves the object’s world placement, then makes it follow
 
 **Entity → Duplicate subtree**, or Ctrl+D, copies the selection and its descendants with new IDs. Copies start at the original positions, so move them in Inspector to see them separately.
 
-**Command palette → Delete subtree** removes the selection and its descendants. Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a legacy scene-local prefab referenced outside the subtree is rejected. Structured prefab instances can be duplicated or deleted from their root; edit their interiors in the [prefab source](prefabs.md). Apply to Prefab remains deferred. A surviving object explicitly attached to the deleted target detaches while keeping its world placement. If that requires unsupported local shear, deletion is rejected without changing the scene.
+**Command palette → Delete subtree** removes the selection and its descendants.
+Delete also works when Hierarchy has focus. Undo restores the deletion. Deleting a
+legacy scene-local prefab referenced outside the subtree is rejected.
+
+Structured prefab instances can be duplicated or deleted from their root; edit
+their interiors in the [prefab source](prefabs.md). To publish admitted instance
+overrides back to the shared source, use
+[Apply instance overrides](prefabs.md) in Inspector.
+
+A surviving object explicitly attached to the deleted target detaches while
+keeping its world placement. If that requires unsupported local shear, deletion
+is rejected without changing the scene.
 
 See [Inspector](inspector.md) and [Undo and redo](undo-redo.md).
 
