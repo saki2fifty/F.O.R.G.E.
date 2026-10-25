@@ -4,6 +4,10 @@ Root motion takes movement from an imported animation and uses it to move the
 object through the scene. This keeps the visible model with its object instead
 of letting the skeleton move away inside it.
 
+![Animator Inspector with Root motion and Root joint controls](../images/animation-root-motion.png)
+
+Select how the root joint affects the scene object using the Root motion setting.
+
 ## Try the Gallery
 
 1. Open `FeatureGallery / Scenes / 36-animation-root-motion.scene.json` and press **Play**.

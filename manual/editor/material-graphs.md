@@ -4,6 +4,10 @@ A material graph describes how a surface looks by connecting values and textures
 You edit the graph once, then use it in several materials with different colors,
 textures or other parameters. It affects appearance; it does not control gameplay.
 
+![Material Graph with connected nodes and a surface preview](../images/material-graph.png)
+
+Connect values to Surface Output and check the result in the preview.
+
 ## Create a graph
 
 1. In Content, open **Actions → Create / Register → New material graph...**.
@@ -59,7 +63,6 @@ Search **Add node** for these Math nodes, then choose their **Value type**:
 
 For vectors and colors, each channel changes independently. Connect matching
 types or use **Convert**. The nodes also work inside extracted functions.
-These additions are locally tested; their Windows/GPU acceptance is pending.
 
 ## Magnitudes and ray directions
 
@@ -75,7 +78,6 @@ they measure all channels, including alpha for Color4. Unconnected inputs are ze
 Reflect and Refract use Vector3 directions: provide unit Incident and Normal
 vectors, using **Normalize** when needed. Refract's Ratio defaults to 1.
 These nodes provide calculations you can connect elsewhere in your graph.
-Their Windows/GPU acceptance remains pending.
 
 ## Parameters and material variations
 

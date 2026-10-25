@@ -46,17 +46,13 @@ and transparent overlap. Scene **72-sprite-frame-animation** cycles a large arro
 through four image-sheet frames while four smaller arrows show the individual
 cells. Select the animated Sprite to inspect its grid and animation, or open its
 clip under **Assets/Sprites** in Timeline. Save before exporting either scene.
-See [World sprites and image sheets](../editor/sprites.md). These examples are
-included in Build261019-000193 and later; build192 predates them.
+See [World sprites and image sheets](../editor/sprites.md).
 
 Scene **73-sprite-image-fill** compares complete-image stretch,
 preserved borders and repeated image fill. Two smaller examples show compressed
 borders and mirrored partial repeats. Its original panel art uses one shared
 Material. Try Image fill, Width and Height in Inspector; choose the Scene as
-startup before exporting. Scene73 and these modes are included in
-Build261020-000194 and later.
-Automated Windows and source-free exported-game checks pass; physical testing
-remains deferred.
+startup before exporting.
 
 ## Sequence sound cues
 

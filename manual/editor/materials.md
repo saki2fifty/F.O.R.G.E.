@@ -4,6 +4,10 @@ A material controls how a surface responds to light and which textures it uses.
 One material can be shared by many objects. Changing an object's assignment does
 not change that shared material; editing and publishing the material does.
 
+![Material document with surface settings and geometry preview](../images/material-editor.png)
+
+Edit a reusable Material and inspect its appearance before assigning it to objects.
+
 ## Change one object's material values
 
 1. Select an object with a **Mesh Renderer** in Hierarchy.
@@ -31,7 +35,8 @@ The amber instance demonstrates a property override over an inherited renderer.
 
 Ordinary C++ uses `MeshRenderer.material_parameters`. The optional
 **CodeExamples/ObjectMaterialValues.hpp** shows setting and reverting a typed
-value by slot/key. Timeline does not yet keyframe these object values.
+value by slot/key. Use [Timeline material tracks](transform-animation.md) to animate supported numeric
+material factors on an object.
 
 ## Create a material
 

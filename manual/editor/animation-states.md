@@ -3,6 +3,10 @@
 Name your character's animations once, then choose them from C++. FORGE handles
 the smooth change between clips. No additional scripting language is needed.
 
+![Animation State Graph with Idle, Walk and Run states](../images/animation-states.png)
+
+Select a state to edit its clip and connect states to define transitions.
+
 ## Try the character Gallery
 
 1. Open `FeatureGallery / Scenes / 10-animation-states.scene.json` and press **Play**. The three characters use Idle, Walk and Run. These are actual character animations. Stop to edit.

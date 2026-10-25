@@ -4,9 +4,6 @@ FORGE lets a trusted AI agent develop a game through your open editor's existing
 authoring tools. Scene changes share normal Undo; source documents, files, builds,
 Play and export keep their own normal ownership and results.
 
-Windows Build 213 includes this workflow. Automated acceptance results and testing
-with your AI application and Windows hardware are separate.
-
 ## Connect
 
 1. Open the project and scene you want the agent to work on.

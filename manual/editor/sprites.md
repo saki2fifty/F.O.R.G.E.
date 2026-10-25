@@ -4,6 +4,10 @@ A Sprite places an image in the scene. It uses the ordinary camera, scene
 transforms and Material assets, so it can appear beside meshes and move with a
 parent. It does not require C++ code. The Feature Gallery includes editable examples.
 
+![Whole, cropped, bordered and repeated Sprite images in the Feature Gallery](../images/sprite-image-regions.png)
+
+Gallery78 compares complete images, cropped regions, animated cells and image fill modes.
+
 ## Try the examples
 
 Copy **Examples/FeatureGallery** to a writable folder and open that project.
@@ -12,7 +16,7 @@ different pivots. Open **72-sprite-frame-animation** and press Play: the large
 arrow cycles up, right, down and left. The smaller arrows show the four frames.
 The Gallery's README describes the expected results and export steps.
 Scene **73-sprite-image-fill** compares stretch, preserved borders
-and repeated fill, with small and mirrored examples. It is included in Build208.
+and repeated fill, with small and mirrored examples.
 
 ## Create an image material
 
@@ -57,8 +61,6 @@ to-edge, Sliced and mirrored Tiled examples. During Play, crop controls appear i
 
 ## Resize borders or repeat an image
 
-These controls and image regions are included in Build208. Automated Windows and
-exported-game checks pass; physical desktop testing remains deferred.
 
 Choose an **Image mode** under **Image fill**:
 
@@ -73,8 +75,6 @@ their normal behavior. Stop restores the authored fill settings.
 
 ## Select frames from a sheet
 
-The visual **Choose frame...** controls are available in source after Build193;
-Build193 uses numeric frame selection. Automated Windows input checks pass.
 
 Use **Sheet frames** to set columns, rows, outer pixel margins and pixel spacing.
 The cells must divide the selected image into whole positive pixel rectangles.

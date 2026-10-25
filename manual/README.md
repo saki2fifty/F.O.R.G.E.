@@ -1,104 +1,101 @@
 # FORGE User Manual
 
-FORGE is the Flecs-Oriented Runtime & Game Editor. Use this manual to learn the editor's current controls and complete everyday authoring tasks.
+Learn to build scenes, create game behavior and export a Windows game with FORGE.
+Start with [Find your way around](getting-started/editor-tour.md) and
+[Your first scene](getting-started/first-scene.md), or open the editable
+[Feature Gallery](getting-started/feature-gallery.md) to try a specific tool.
 
-Start with [Your first scene](getting-started/first-scene.md), explore the [Feature Gallery](getting-started/feature-gallery.md), or try [Build a blockout scene](getting-started/blockout.md) with the packaged example. The offline edition is included with each Windows ZIP and opens through **Help → User Manual**. Its build identifier matches the packaged editor. Markdown pages in the repository track the current source.
+Open **Help → User Manual** for the offline edition included with the editor.
+Click a screenshot to view it at full size. Your panel arrangement and example
+content may differ; use **Window** to open a panel mentioned in a guide.
 
-## Projects and authored content
+## Start here
 
-- [Standalone development host](getting-started/standalone-runtime.md): source-build startup and current limits.
-- [Cooked content packages](editor/runtime-content.md): prepare and verify source-independent asset data.
-- [Loaded resources and cache maintenance](editor/resources.md)
+- [Find your way around FORGE](getting-started/editor-tour.md)
+- [Your first scene](getting-started/first-scene.md)
+- [Explore the Feature Gallery](getting-started/feature-gallery.md)
+- [Build a blockout scene](getting-started/blockout.md)
+- [Projects](editor/projects.md)
+- [Scenes](editor/scenes.md)
+- [Project settings](editor/project-settings.md)
 
-- [Flecs Script](editor/flecs-script.md): edit project scripts and inspect managed preview results.
+## Objects and reusable content
 
-- [Runtime UI](editor/runtime-ui.md): create a game HUD, use buttons and text fields, and test Pause/Step.
+- [Entities and hierarchy](editor/entities-hierarchy.md)
+- [Built-in shapes](editor/primitives.md)
+- [Transforms](editor/transforms.md)
+- [Inspector](editor/inspector.md)
+- [Content browser](editor/content-browser.md)
+- [Prefabs](editor/prefabs.md)
+- [Saving and recovery](editor/saving-recovery.md)
+- [Undo and redo](editor/undo-redo.md)
 
-- [Navigation](editor/navigation.md): build static navmeshes and test nonphysics agents.
-- [Transform animation timeline](editor/transform-animation.md): keyframe an object, preview it and export its motion.
-- [Animation sequences](editor/animation-sequences.md): coordinate several objects, lights, sound and cameras on one Timeline.
-- [Animation](editor/animation.md): convert glTF skeletons/clips and test Animator playback.
-- [Animation root motion](editor/animation-root-motion.md): move an imported model or pass its movement to C++ physics.
-- [Preview and blend two animations](editor/animation-blending.md)
-- [Make bones reach or aim](editor/animation-rigging.md)
+## Models and appearance
+
+- [Importing and placing models](editor/models.md)
+- [Editable Meshes and UVs](editor/editable-meshes.md)
+- [Shape terrain with height layers](editor/terrain.md)
+- [Importing textures](editor/textures.md)
+- [Materials](editor/materials.md)
+- [Material Graph](editor/material-graphs.md)
+- [Shader import](editor/shaders.md)
+- [Scene lighting](editor/lighting.md)
+- [Mesh particle effects](editor/particles.md)
+
+## 2D scenes
+
+- [World sprites and image sheets](editor/sprites.md)
+- [Tile Sets and Tile Maps](editor/tile-maps.md)
+- [2D physics](editor/physics-2d.md)
+
+## Animation
+
+- [Transform animation timeline](editor/transform-animation.md)
+- [Coordinate several animations](editor/animation-sequences.md)
+- [Animation](editor/animation.md)
 - [Choose named animation states](editor/animation-states.md)
+- [Preview and blend two animations](editor/animation-blending.md)
+- [Let an animation move its object](editor/animation-root-motion.md)
+- [Make bones reach or aim](editor/animation-rigging.md)
 - [Trigger C++ actions during an animation](editor/animation-markers.md)
-- [See animation progress and control playback from C++](editor/animation-playback-status.md)
-- [Audio](editor/audio.md): WAV clips, sound sources, listeners, pause and prefabs.
-- [Particle effects](editor/particles.md): reusable mesh fountains and bursts with an isolated preview.
-- [World sprites and image sheets](editor/sprites.md): place images, choose sheet frames and animate them on Timeline.
-- [Tile Sets and Tile Maps](editor/tile-maps.md): define reusable tiles, paint layered maps and solid collision, and export their prepared content.
+- [See and control an animation's progress](editor/animation-playback-status.md)
 
-- [Projects](editor/projects.md): create, open, and return to projects.
-- [Project settings](editor/project-settings.md): shared simulation frequency, startup scene, and controls.
-- [Scenes](editor/scenes.md): create and switch scene files.
-- [C++ physics velocity example](samples/physics-velocity.md): launch bodies and stop movement or rotation independently.
-- [Entities and hierarchy](editor/entities-hierarchy.md): add, rename, parent, duplicate, and delete entities.
-- [Model import tools](editor/models.md): prepare static glTF asset families and resolve identity conflicts.
-- [Scene lighting](editor/lighting.md): environment maps, sky, exposure and HDR bloom.
-- [Textures](editor/textures.md): import images, choose usages and reimport safely.
-- [Material Graph](editor/material-graphs.md): connect surface values, reuse functions and make material variations.
-- [Materials](editor/materials.md): edit reusable surfaces, preview them and assign mesh slots.
-- [Editable Meshes and UVs](editor/editable-meshes.md): shape a reusable cube Mesh and place its texture coordinates.
-- [Terrain](editor/terrain.md): paint layered heightfield tiles and use their cooked Mesh in scenes.
-- [Shader import](editor/shaders.md): compile project HLSL programs and retain good revisions on errors.
-- [Content browser](editor/content-browser.md): find and open project scene files.
-- [Prefabs](editor/prefabs.md): create reusable groups, edit sources, override and revert instance values.
-- [Primitives and color](editor/primitives.md): create built-in shapes and give them a tint.
-- [Transforms](editor/transforms.md): rotate, scale, copy, paste, and reset objects.
-- [Inspector](editor/inspector.md): edit the selected entity's properties.
-- [Saving and recovery](editor/saving-recovery.md): protect unsaved work and restore snapshots.
-- [Undo and redo](editor/undo-redo.md): reverse authored changes.
+## Game behavior
 
-## Working in the editor
+- [Project Code (C++)](editor/native-gameplay.md)
+- [Gameplay input](editor/input.md)
+- [Physics](editor/physics.md)
+- [Navigation](editor/navigation.md)
+- [Audio](editor/audio.md)
+- [Runtime UI](editor/runtime-ui.md)
+- [Flecs Script](editor/flecs-script.md)
 
-- [ECS inspection](editor/ecs-tools.md): optional queries, native JSON, statistics, alerts and read-only Explorer access.
+## Play and export
 
-- [Viewport](editor/viewport.md): orbit, look, fly, pan, and frame blocks.
-- [Panels and windows](editor/panels-windows.md): arrange your workspace.
-- [Settings and appearance](editor/settings.md): scale the interface and control tooltips.
-- [Keyboard shortcuts](editor/shortcuts.md): find the available commands.
-- [Performance and diagnostics](editor/performance.md): read counters and report problems.
+- [Play mode](editor/play-mode.md)
+- [Export a game or package content](editor/runtime-content.md)
+- [Run a standalone game](getting-started/standalone-runtime.md)
+- [Reference game](reference-game.md)
+- [C++ physics contact example](samples/physics-contacts.md)
+- [C++ physics volume example](samples/physics-volumes.md)
+- [C++ physics velocity example](samples/physics-velocity.md)
+- [C++ physics loads example](samples/physics-loads.md)
 
-## Testing gameplay
+## Workspace and troubleshooting
 
-- [Reference game](reference-game.md): standalone controls, menus, rebinding and saves.
-
-- [Physics](editor/physics.md): make bodies fall and collide, with Pause/Step and prefab support.
-- [2D physics](editor/physics-2d.md): Sprite bodies, box/circle/capsule colliders, sensors and the editable Gallery75 playground.
-- [C++ contact example](samples/physics-contacts.md): react to a sensor zone with editable speed and reversal settings.
-- [C++ volume example](samples/physics-volumes.md): count current objects inside a query shape, with sensor filtering.
-- [Play mode](editor/play-mode.md): run an isolated copy of your scene.
-- [Gameplay input](editor/input.md): bind actions and inspect fixed-tick input without writing code.
-- [Project Code](editor/native-gameplay.md): create, edit, and compile project C++ components and systems.
-
-## Current boundaries
-
-This manual describes the source or packaged build it accompanies. FORGE includes
-imported and skinned mesh rendering, materials, textures, scene lighting, standalone
-export, runtime dependency declarations, Collision assets and reusable character
-mechanics. Build260923-000066 predates these Phase8 runtime/export/physics additions.
-Terrain remains future work. Material graphs are described in the graph guide. The controller supplies physics mechanics;
-gameplay code still supplies movement keys and camera behavior.
-
-## Commands and inspection
-
+- [Viewport](editor/viewport.md)
+- [Panels and windows](editor/panels-windows.md)
+- [Settings and appearance](editor/settings.md)
+- [Keyboard shortcuts](editor/shortcuts.md)
 - [Command palette](editor/commands.md)
-- [Scene diagnostics and component schema](editor/diagnostics.md)
+- [Problems and diagnostics](editor/diagnostics.md)
+- [Performance and diagnostics](editor/performance.md)
+- [Loaded resources and import cache](editor/resources.md)
+- [ECS inspection](editor/ecs-tools.md)
+
+## Agents and command-line tools
+
+- [Connect an AI agent through MCP](editor/mcp.md)
+- [Live automation](editor/live-automation.md)
 - [Headless authoring tools](editor/automation.md)
-- [Asset inspection tools](editor/asset-tools.md): scan sources and query registered dependencies without project writes.
-
-- [Live automation](editor/live-automation.md): let a trusted local script inspect or edit the open scene.
-- [MCP agents](editor/mcp.md): connect a trusted AI client to the same scene-authoring tools.
-
-## Profiler
-
-Open **Window > Profiler**, or use **Details > Open Profiler** in the status bar.
-
-- **Editor** and **Play runtime** show CPU work. **Graphics GPU** shows rendering work submitted by this editor.
-- Click **Start collection**, use the editor or run the game, then **Stop collection** to keep the recent samples on screen.
-- **Clear samples** starts a fresh observation window. Clearing editor records clears both its CPU and GPU views. The filter searches category and scope names. Closing the panel keeps collection running until stopped.
-- Compare **Average ms**, **Max ms** and **Latest ms**, with sample count and latest CPU tick or GPU frame. The editor retains512 completed records shared by its CPU and GPU views.
-- GPU results arrive after submission. Pending and skipped counts show gaps; a cached Scene image does no new rendering work. Unsupported devices explain why GPU collection is unavailable.
-- CPU measurements include elapsed waits, and nested rows can overlap. The displayed FPS measures the editor loop. Do not add CPU and GPU rows together.
-- The existing **Performance** panel keeps its redraw comparison controls and frame averages. Exported games do not contain the editor profiler.
+- [Inspect project assets from the command line](editor/asset-tools.md)

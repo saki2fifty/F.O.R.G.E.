@@ -2,7 +2,7 @@
 
 ## C++ 2D movement
 
-[Movement](2d-movement-runtime.png) preserves the complete 1280×720 exported-game
+[Movement](../../../manual/images/2d-movement-runtime.png) preserves the complete 1280×720 exported-game
 capture from source `dfe0a6555beec36c4d25014be16909325f7decac`,
 [Build261022-000204](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39761476803),
 artifact `FORGE-Physics-Loads-Example` (`12422715584`), entry
@@ -18,7 +18,7 @@ separate from physical GPU performance or manually operated desktop acceptance.
 
 ## Native Tile Map render
 
-[Tile Map gallery](tile-maps.png) is a 1280×720 native Game rendering of
+[Tile Map gallery](../../../manual/images/tile-maps.png) is a 1280×720 native Game rendering of
 `Scenes/74-tile-maps.scene.json` using Linux software Vulkan. It shows the two
 actual map instances, shared original arrow image, reflected transform and layer
 markers. `tests/tile_gallery_render_tests.hpp` captures this output and checks
@@ -27,7 +27,7 @@ PNG with its pixels and dimensions preserved. Windows execution is a separate ga
 
 ## Native Tile Map authoring controls
 
-[Tile Map authoring](tile-map-authoring.png) preserves the complete 1280×800
+[Tile Map authoring](../../../manual/images/tile-map-authoring.png) preserves the complete 1280×800
 Windows D3D12 WARP capture from source
 `0b9397cf1852fa1db71f4ddcc9040fdc2984365f`,
 [full editor audit](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39519971030),
@@ -60,13 +60,13 @@ artifact `FORGE-Editor-SDK-Acceptance` (`12126140875`).
 
 | Screenshot | Original artifact entry |
 | --- | --- |
-| [Scene editor](scene-editor.png) | `grid-test-images/editor/editor-default-scene-inspector.ppm` |
-| [C++ editor](cpp-editor.png) | `onboarding with spaces/editor-55-cpp-code-selected.ppm` |
-| [Material graph](material-graph.png) | `grid-test-images/editor-workflow/editor-258-material-graph-workspace.ppm` |
-| [Animation states](animation-states.png) | `grid-test-images/animation-root-motion/editor-animation-state-graph.ppm` |
-| [Mesh sculpting](mesh-sculpting.png) | `grid-test-images/editor/editor-editable-mesh-sculpt-symmetry.ppm` |
-| [Camera sequencing](camera-sequencing.png) | `grid-test-images/editor-workflow/editor-562-camera-shots-timeline-100.ppm` |
-| [Live Inspector](live-inspector.png) | `onboarding with spaces/editor-136-cpp-rotator-live-tuned.ppm` |
+| [Scene editor](../../../manual/images/scene-editor.png) | `grid-test-images/editor/editor-default-scene-inspector.ppm` |
+| [C++ editor](../../../manual/images/cpp-editor.png) | `onboarding with spaces/editor-55-cpp-code-selected.ppm` |
+| [Material graph](../../../manual/images/material-graph.png) | `grid-test-images/editor-workflow/editor-258-material-graph-workspace.ppm` |
+| [Animation states](../../../manual/images/animation-states.png) | `grid-test-images/animation-root-motion/editor-animation-state-graph.ppm` |
+| [Mesh sculpting](../../../manual/images/mesh-sculpting.png) | `grid-test-images/editor/editor-editable-mesh-sculpt-symmetry.ppm` |
+| [Camera sequencing](../../../manual/images/camera-sequencing.png) | `grid-test-images/editor-workflow/editor-562-camera-shots-timeline-100.ppm` |
+| [Live Inspector](../../../manual/images/live-inspector.png) | `onboarding with spaces/editor-136-cpp-rotator-live-tuned.ppm` |
 
 The captures use D3D12 WARP software rendering. Status-bar timings and diagnostic
 counts belong to the validation fixture and its current test stage; they are not
@@ -77,7 +77,7 @@ in the [Feature Gallery](../../../samples/projects/FeatureGallery/README.md).
 
 ## 2D physics Game render
 
-[2D physics](2d-physics-runtime.png) is a lossless PNG encoding of
+[2D physics](../../../manual/images/2d-physics-runtime.png) is a lossless PNG encoding of
 `grid-test-images/physics-2d/gallery75-tick180-1280.ppm` from full Windows run
 39559873949, source `984ce7d61b24c2a70abf79666b0b5be5f2d6bf04`. The actual Game
 renderer's six 2D captures passed pixel/pose checks. That candidate's Scene guide
@@ -87,7 +87,7 @@ pixels are unchanged; no generated art, overlays or semantic edits were applied.
 
 ## Painted Tile Map collision
 
-[Game](painted-collision-game.png) and [Inspector](painted-collision-inspector.png)
+[Game](../../../manual/images/painted-collision-game.png) and [Inspector](../../../manual/images/painted-collision-inspector.png)
 preserve the complete 1280×720 and 1280×800 captures from source
 `27638989a1e506b9766dd1604a62aed38d1ce186`,
 [Windows audit39698636222](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39698636222),
@@ -113,7 +113,7 @@ and Gallery code are byte-unchanged from the captures attributed above.
 
 ## Native 2D character feedback
 
-[Inspector](2d-character-inspector.png) preserves the complete 1280×800 capture from
+[Inspector](../../../manual/images/2d-character-inspector.png) preserves the complete 1280×800 capture from
 source `0d8489c13ba9cd7acbedc642695ac28d55b6d785`,
 [Build206](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39822638412), artifact
 `FORGE-Viewport-Checks` (`12451549767`). Original entry:
@@ -136,3 +136,39 @@ Source50e311ada199b2dbfb257d8092513dc53ce5e704, Windows/D3D12WARP,640×360.
 This is a rendered Game capture using original FORGE Gallery78 content, not a
 whole-editor interaction screenshot or physical GPU performance evidence. No AI
 image generation or retouching. PNG SHA256: `ded497df30638e030ad255eb89077325535d36ec3b54011cacc301ddb2c109c4`.
+
+## Manual workflow illustrations
+
+The manual shares the existing canonical PNGs in `manual/images` with the README.
+The following additional complete Windows editor captures come from compiled source
+`8200738a7055decfafae14b0705c1406cb8ef20f`, Build261024-000213,
+[run40083004201](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/40083004201),
+artifact `FORGE-Viewport-Checks` (`12558961977`). All336 editor checks passed.
+These are D3D12 WARP fixture captures, not physical GPU measurements. Test content
+and diagnostic examples belong to the fixture. PPM-to-PNG encoding preserves every
+pixel and the full dimensions. No generated or retouched interface content is used.
+
+| Manual image | Original artifact entry | PPM SHA256 |
+| --- | --- | --- |
+| [project-settings](../../../manual/images/project-settings.png) | `grid-test-images/editor/editor-project-settings.ppm` | `9503e66cbc3bd46ce4ba04057f5cd4b53d508a3d543c1e1ddea898dc7dcf1de4` |
+| [prefab-source](../../../manual/images/prefab-source.png) | `grid-test-images/editor/editor-prefab-source.ppm` | `8cb4849c6ff65c39e2f435222284fbc79e5a69347860a405ed7fa8f2a4642c35` |
+| [texture-import](../../../manual/images/texture-import.png) | `grid-test-images/editor/editor-texture-import.ppm` | `f57e75aa247cfaa7a6370b515fb4d7b6f0fea83636c4da3ca20a3f9328dd5cff` |
+| [scene-lighting](../../../manual/images/scene-lighting.png) | `grid-test-images/editor/editor-scene-lighting.ppm` | `23bc7a69e6a623f72a7d26f6d8af8e688813f05bf90db91e3f543ea2c567bc17` |
+| [audio-preview](../../../manual/images/audio-preview.png) | `grid-test-images/audio-preview/editor-audio-clip-preview.ppm` | `1adeeede962bb3ef853f2fa11339406982756131758ec5cbd988b3d1a6d92fc4` |
+| [material-editor](../../../manual/images/material-editor.png) | `grid-test-images/editor/editor-material-editor.ppm` | `d3dcfbd6fd1a7855dd1b0cfb97904dc195c033b7522fcc68940e026c0f97427e` |
+| [model-import](../../../manual/images/model-import.png) | `grid-test-images/editor/editor-model-preview.ppm` | `a79a1ec790281f2f3c2bf2c7c4aec037d45bbff14a3e747cc62af415b414e9c6` |
+| [physics-body](../../../manual/images/physics-body.png) | `grid-test-images/editor/editor-physics-body-motion-tuning.ppm` | `c4458f895264a2d7f43623bb197e3b81f6b13fcb7a29ea6f45fc0a7c7fe6a281` |
+| [shader-import](../../../manual/images/shader-import.png) | `grid-test-images/editor/editor-surface-shader-import.ppm` | `fd4fe2f7d75e71312f019f98921c3d79e63e029c55457ecb01c4bcd8b4a883a4` |
+| [flecs-script](../../../manual/images/flecs-script.png) | `grid-test-images/editor/editor-flecs-script.ppm` | `cb5f1a310771aad11263d032c42863b7a028621a13f76c47126292ec006186f7` |
+| [loaded-resources](../../../manual/images/loaded-resources.png) | `grid-test-images/editor/editor-loaded-resources.ppm` | `badc86ce95ab4ae2831d3c07814f378515b17fe2307160144aa3d24634b4f1ec` |
+| [problems](../../../manual/images/problems.png) | `grid-test-images/editor/editor-problems.ppm` | `94a26da0a1dc52e1f490d88225397afa3ca839241f82411cd5b52815a9966fa1` |
+| [command-palette](../../../manual/images/command-palette.png) | `grid-test-images/editor/editor-command-palette.ppm` | `7b54192728c94fa640b055db4b1a798d5cd0ee1520ed07549e2d1849ffd7788e` |
+| [timeline-curves](../../../manual/images/timeline-curves.png) | `grid-test-images/editor/editor-timeline-curves-view.ppm` | `6f8d5bfd45cb62a55319f11854e3a211c1267b277a0a7f05799ed4f2a6f48621` |
+| [content-browser](../../../manual/images/content-browser.png) | `grid-test-images/editor/editor-content-thumbnails.ppm` | `492bed9388a325e1face971c6075b6984791c17d9e3753192903f8c50afc6f21` |
+| [ecs-statistics](../../../manual/images/ecs-statistics.png) | `grid-test-images/editor/editor-ecs-statistics.ppm` | `1def0de1df8afe16bf861ac2714084ae0095c08ab892ac8399c018fa0295cf6f` |
+| [component-inspector](../../../manual/images/component-inspector.png) | `grid-test-images/editor/editor-custom-component-inspector.ppm` | `0afb88f80d538b38ac158091ca56f6387f5bee840592381833717fa4bc59c522` |
+| [animation-blend-space](../../../manual/images/animation-blend-space.png) | `grid-test-images/animation-root-motion/editor-animation-blend-space.ppm` | `dc24f15c9d782777c8bcd3742a8ac9b91bce1d91c1c85e3a118813986ad438ea` |
+| [animation-rigging](../../../manual/images/animation-rigging.png) | `grid-test-images/animation-root-motion/editor-two-bone-ik.ppm` | `cd3db9d6d6d58607a4302643d7dbc19563d8300ec0553d0c9eb803de2b3d172d` |
+| [animation-root-motion](../../../manual/images/animation-root-motion.png) | `grid-test-images/animation-root-motion/editor-animation-root-motion.ppm` | `361806dd5d7cc3f28e1f4482bf7fcba764ad30a0332df0b571ff35014af9b638` |
+| [animation-playback](../../../manual/images/animation-playback.png) | `grid-test-images/animation-root-motion/editor-live-animation.ppm` | `dca2c0531320e46c0e395052e21d40ebee0918c2eafa9c2d6998c1361245a2fd` |
+| [input-contexts](../../../manual/images/input-contexts.png) | `grid-test-images/editor-workflow/editor-622-input-context-authoring.ppm` | `7499b4994803f38b7d644711b7fe3b59cc14a92b781a0cec58000f2eacd7e035` |

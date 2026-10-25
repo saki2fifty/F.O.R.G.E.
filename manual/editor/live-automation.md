@@ -58,7 +58,7 @@ This connection accepts FORGE authoring requests from the same machine. The
 [MCP adapter](mcp.md) gives compatible AI clients access to those same owners.
 Project authoring adds project, asset, source, C++, Play and export workflows;
 see that guide for the separate import, project-workspace, execution and output
-folder grants. These additions are development source and are not in Build208.
+folder grants.
 Native execution runs with your account's OS access. Arbitrary shell commands
 and engine repository editing are outside this connection.
 

@@ -7,6 +7,10 @@ geometry. FORGE chooses compact index storage automatically; no import setting i
 needed for that choice. Original source files stay unchanged. Importing prepares assets; **Place model**
 creates ordinary entities in your current scene.
 
+![Model import document with model preview and placement controls](../images/model-import.png)
+
+Preview an imported model, then place the selected scene in your authored scene.
+
 For files outside the project, use **Content → Import files** or drop them onto Content. The [Content import review](content-browser.md) copies sources into a new folder and can import them with default settings. Turn off automatic import there to review the settings below before cooking.
 
 ## Try the packaged walkthrough
@@ -130,7 +134,7 @@ same name remain separate choices. An unnamed part shows its saved mapping key;
 **[removed]** marks a part removed by an earlier import. Names help you read the
 choices; FORGE does not automatically match parts by name.
 
-Older model imports now migrate their matching information when FORGE can verify
+Older model imports migrate their matching information when FORGE can verify
 the original source, settings and saved import. Existing part IDs remain intact.
 This avoids unnecessary conflicts caused by tiny Windows/Linux math differences.
 If the source/settings changed or the old import cannot be verified, review the
@@ -215,7 +219,7 @@ an omitted far clipping plane, and directional, point and spot lights. Source no
 transforms remain unchanged. Camera and light directions follow glTF's local minus-Z
 convention when placement creates their scene components.
 
-Enabled scene Camera components now drive [Game](play-mode.md), and Light components
+Enabled scene Camera components drive [Game](play-mode.md), and Light components
 illuminate PBR meshes. Use **Create > Rendering** to add a Camera, Light or Mesh Renderer.
 Importing a source alone does not instantiate its nodes; use **Place model**.
 
@@ -241,7 +245,6 @@ controls how much light passes through; metallic regions do not transmit. Roughn
 blurs the view through the surface. A thickness value adds refraction and distance-based
 absorption; dispersion can separate the red, green and blue refraction paths.
 
-D3D12/WARP fixtures validate the implemented optical path.
 It samples the opaque view behind the object. It cannot show another transparent
 object through the same glass layer, recover objects outside the camera image, or
 produce colored glass shadows and caustics. Inside-facing surfaces use the exit
@@ -256,7 +259,7 @@ a rendering diagnostic without changing the scene's authored transform.
 
 ## Morph targets
 
-Prepared mesh surfaces now use their imported default morph weights. These can
+Prepared mesh surfaces use their imported default morph weights. These can
 change shape, surface directions, vertex colors and texture coordinates. Negative
 weights are preserved. Scene and Game use bounds that include the changed shape;
 the shadow pass uses the same deformation.

@@ -3,6 +3,10 @@
 An **Animation Sequence** makes several objects use one playback time. Each object
 keeps its own reusable animation clip and a start time inside the sequence.
 
+![Timeline with camera shot intervals and camera selection](../images/camera-sequencing.png)
+
+Place camera shots on Timeline to control the view during a sequence.
+
 ## Try the included scene
 
 Open **FeatureGallery / Scenes / 62-coordinated-animation.scene.json** and press

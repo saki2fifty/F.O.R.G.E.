@@ -2,6 +2,10 @@
 
 The command palette lets you find common authoring actions without navigating several panels.
 
+![Command palette with searchable editor commands](../images/command-palette.png)
+
+Search by the action you want, then choose a matching command.
+
 ## Find and run an action
 
 1. Finish the current drag or text edit.

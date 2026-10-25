@@ -84,3 +84,13 @@ current scene as startup** and save settings. Export Game with the matching
 runtime kit. The exported game includes prepared maps, sets, materials and images;
 it runs without the editor, source files or a compiler. Optional C++ modules must
 be built and supplied through the ordinary matching module-kit export flow.
+
+## Visual examples
+
+![Tile Map painting controls, arrow palette, map canvas and cell-size Inspector](../images/tile-map-authoring.png)
+
+Choose a layer, tile and tool, then paint on the canvas. Inspector edits the selected map or layer.
+
+![Two layered arrow courses rendered from one shared Tile Map](../images/tile-maps.png)
+
+Several scene objects can use the same saved Tile Map with different transforms.

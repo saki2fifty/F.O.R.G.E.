@@ -2,6 +2,10 @@
 
 A prefab is a reusable group of objects saved as its own asset. Instances follow the prefab's values until you override a value in that instance. Editing the source updates the instances that still follow it.
 
+![Prefab source document with reusable member properties](../images/prefab-source.png)
+
+Edit the prefab source to update instances that follow its values.
+
 ## Create a prefab
 
 1. Build a small group of ordinary objects in the Hierarchy, with one parent and its children. A subtree already containing prefab instances or legacy prefab definitions is rejected; nested prefab conversion is deferred.

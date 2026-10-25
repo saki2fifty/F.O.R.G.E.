@@ -5,6 +5,10 @@ Animate an object's position, rotation and size without writing code. A reusable
 **Transform Animator** component connects that clip to an object in the scene.
 Use an [Animation Sequence](animation-sequences.md) to coordinate several clips.
 
+![Timeline with selected keys, values and timing controls](../images/timeline-curves.png)
+
+Select keys to edit their time and values. Expand Animation curves to work with interpolation.
+
 ## Create a clip
 
 1. Create and select a cube. Save the scene.

@@ -2,6 +2,10 @@
 
 Content is the project browser. It lists registered scenes, prefabs, models, materials, shaders, audio, animation, navigation, texture and Runtime UI assets, plus supported C++ project files under **Code**. Saved scenes are also discovered by their scene identity. C++ files have physical paths under `Native/`; they are not registered AssetId assets.
 
+![Content browser displaying assets as thumbnails](../images/content-browser.png)
+
+Choose list or thumbnail view to browse project content.
+
 In a short panel or at high interface zoom, **Actions** contains Create / Register,
 Import files, Refresh and Source updates. Search, Filters, View and Folders stay
 visible beside it so the results retain useful space.
@@ -136,7 +140,7 @@ Project Material assets open their source editor; imported model Material member
 
 ## Asset catalog compatibility
 
-The asset catalog can now retain typed dependency information for imported content.
+The asset catalog retains typed dependency information for imported content.
 Existing version-1 catalogs still open. On the next catalog save, FORGE keeps the
 original file as `forge.assets.json.v1.backup` before writing version 2. Keep the
 catalog and its backup with the project when upgrading. Older FORGE builds cannot

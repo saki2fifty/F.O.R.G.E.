@@ -5,6 +5,10 @@ FORGE uses Flecs components for data and systems for behavior. Give a Cube a
 matches. Systems are registered for the world, not attached to individual objects.
 C++ files live in your project's `Native/` folder. Find them under **Content → Code** and edit them in the central **C++ Sources** document. They are project files, not AssetId assets or Hierarchy entries.
 
+![C++ Sources document with a rotation system and project code in Content](../images/cpp-editor.png)
+
+Open a file from Content → Code to edit it in C++ Sources.
+
 ## Prepare the compiler
 
 Install Visual Studio 2022 C++ build tools with the Windows SDK, CMake 4.3 or
@@ -28,7 +32,7 @@ to build and Play C++.
 4. Double-click either file in **Content → Code** to edit it. The C++ Sources tab and **Save source** button mark unsaved changes with `*`. The active-task **Save** shortcut (Ctrl+S by default), document Save and the button save the active C++ file. Scene Save is separate. Change the shared Save key under **Edit → Preferences → Editor shortcuts...**.
 5. Choose **Build Project Code** in Build, C++ Sources or Run. With unsaved drafts the action becomes **Save & Build Project Code**. It compiles saved files, validates the candidate in an isolated worker and publishes after admission.
 6. Wait for **Project Code: Current**. Create a Cube, select it, use **Inspector → + Add Component** to add Rotator, set Speed and save the scene. Right-click the component header for **Open C++ Definition**.
-7. Press **Play** to see the cube rotate. Code or schema changes use **Stop → Save → Build → Play**. FORGE offers **Save, Build & Play** for unbuilt source and never silently runs stale code.
+7. Add an enabled Camera and a Light as described in [Your first scene](../getting-started/first-scene.md), then press **Play** and open Game to see the cube rotate. Code or schema changes use **Stop → Save → Build → Play**. FORGE offers **Save, Build & Play** for unbuilt source and never silently runs stale code.
 
 
 **Content → Code** shows the real `Native/Components`, `Native/Systems` and other supported source paths. Its friendly Code label does not rename `Native/` on disk. Use **Create / Register → C++ → Source file... / Header file...** to add a `.cpp` or `.hpp` directly under `Native/` without overwriting an existing file. Managed builds register new `.cpp` files; a custom CMake recipe must include them explicitly. C++ Sources has a **New...** shortcut to the same Content creation dialog.
@@ -44,8 +48,7 @@ in-place C++ reload.
 
 During Play, the Inspector has a **Live gameplay** section for admitted reflected
 properties. Select the runtime entity and change Rotator Speed from 90 to 360. The
-runtime validates the typed update at its owner-thread boundary and acknowledges
-it; behavior changes without compiling. **Stop** returns to the authored scene
+runtime checks and applies the value; behavior changes without compiling. **Stop** returns to the authored scene
 and its prefab override intent. To keep selected values deliberately, choose
 **Keep values after Stop...**, then Stop and use **Run → Review runtime tuning...**.
 Apply selected fields as one Scene Undo step, then Save. See

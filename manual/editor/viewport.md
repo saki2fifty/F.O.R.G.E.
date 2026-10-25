@@ -28,7 +28,7 @@ Left-click a visible block to select the nearest block under the pointer. Clicki
 
 Choose **Move** in the Scene toolbar, or hover the Scene image and press **W**. The selected block shows red X, green Y, and blue Z handles plus a center square. **Select** (Q) hides the handles and only selects objects. The active tool is visible in the toolbar and the bottom-of-view hint.
 
-If object axes are missing, check that **Move** is selected and Play is stopped. On the first launch after the old Move handles checkbox is replaced, the tool defaults to Move. Subsequent launches remember your explicit Select/Move choice. RMB+W still flies forward and does not switch tools.
+If object axes are missing, check that **Move** is selected and Play is stopped. FORGE remembers your Select/Move choice between launches. RMB+W still flies forward and does not switch tools.
 
 1. Drag an axis handle to move only along that world axis.
 2. Drag the center square to move in the camera's viewing plane.
@@ -37,7 +37,8 @@ If object axes are missing, check that **Move** is selected and Play is stopped.
 
 A drag previews the new position without saving partial changes. Losing application focus, resizing the viewport, or changing scenes cancels it. An axis pointing nearly straight toward the camera is hidden because it has too little screen length to drag; orbit to expose it. The move changes only the selected object’s local translation. Children set to **Follow parent** move with it; children set to **World** remain independent. See [Transforms](transforms.md).
 
-Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples of **View → Snap spacing**. Step is measured in world units. Ctrl+Plus/Minus continues to scale the interface independently of the camera. Rotation and scale are editable in Inspector. Rotation/scale handles, multi-selection, and local-axis move handles are not available yet.
+Turn on **Snap** or hold Ctrl while dragging to snap moved coordinates to multiples of **View → Snap spacing**. Step is measured in world units. Ctrl+Plus/Minus continues to scale the interface independently of the camera. Rotation and scale are editable in Inspector. Rotation/scale drag handles and local-axis move handles are unavailable. For multiple
+objects, use [Hierarchy selection and Inspector editing](entities-hierarchy.md).
 
 ## Reference grid and flight speed
 
@@ -101,7 +102,7 @@ An unchanged EDIT view reuses its rendered scene image. Navigation, object edits
 
 Scene exposes **Select**, **Move**, **Rotate (R)** and **Scale (S)**. Rotate and Scale start the existing modal gesture: X/Y/Z constrains, Enter or left-click confirms, Escape cancels. **View** describes supported tool spaces: world axes for Move/Rotate, local axes for Scale. View also groups grid, orientation, navigation overlay, framing and camera options. Camera gestures and the existing infinite grid remain unchanged.
 
-Runtime output and HUD now appear in the separate **Game** tab; Scene remains authored content during Play.
+Runtime output and HUD appear in the separate **Game** tab; Scene remains authored content during Play.
 
 ## Compact tool row
 
@@ -139,7 +140,6 @@ The viewport keeps bright lighting values in an HDR target, then uses PBR Neutra
 tone mapping for the display. Blended imported materials render after solid and
 cutout materials, from far to near. Intersecting transparent surfaces can still show
 sorting artifacts; this is conventional transparency, not order-independent rendering.
-Windows/D3D12 WARP fixtures exercise these display and transparent-queue paths.
 
 Use [Scene lighting](lighting.md) for authored environment maps and Game exposure.
 

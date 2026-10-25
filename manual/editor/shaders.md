@@ -5,6 +5,10 @@ existing project `.shader.json` program and its HLSL files for the Windows D3D12
 profile. This is a programmer-facing import workflow. Programs with a material
 surface declaration can be selected in the [Material editor](materials.md).
 
+![Shader import document with compilation settings](../images/shader-import.png)
+
+Choose shader settings and import the source before using the shader in a Material.
+
 ## Prepare and import a program
 
 1. Put the `.shader.json` declaration and referenced HLSL/include files inside the project. Edit these files in your code editor.

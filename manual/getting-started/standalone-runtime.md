@@ -1,10 +1,9 @@
-# Run the standalone development host
+# Run a standalone game
 
-The standalone host opens a separate game window using the scene's camera and game
-UI. **Build260923-000066 predates this feature.** The [Export Game workflow](../editor/runtime-content.md) prepares a
-standalone folder. Windows shared-SDK startup and relocation have passed automated
-software-rendering checks without the source project or FORGE SDK. Physical graphics
-and audio devices still need testing on the target machine.
+An exported game opens its own window using the scene's cameras and game UI.
+Use [Export Game](../editor/runtime-content.md) to prepare the folder, then copy
+the entire folder to the Windows computer where you want to play. The player does
+not need FORGE, your source project, an SDK or a C++ compiler.
 
 ## Before launching
 
@@ -51,23 +50,26 @@ error instead of silently starting with missing content.
 
 Project defaults and existing personal settings determine the display, VSync,
 audio volume, action bindings and mouse sensitivity. Personal data lives outside
-the project in the OS user-data directory. There is no standalone settings screen
-or Save/Load menu yet.
+the project in the OS user-data directory. Add settings and Save/Load menus through
+your project's C++ and [Runtime UI](../editor/runtime-ui.md). The [Reference game](../reference-game.md)
+includes menus, rebinding and save/load behavior that you can try.
 
 RmlUi buttons can invoke Pause, Resume and Step. Keyboard and mouse input goes to
 the UI first, then the project's actions. Losing window focus releases held inputs.
-Full controller support and cursor-capture/menu behavior are still in progress.
+Use [Gameplay input](../editor/input.md) to bind keyboard, mouse and controller
+actions and manage menu/gameplay input contexts.
 
 Close the window to stop. Messages appear in `runtime.log` inside the game's
 user-data folder; failures also appear in the launching console. On Windows the
 base is `%APPDATA%\FORGE\Games`, with a `game-APPLICATION_ID` subfolder.
 
-## Remaining Phase8 work
+## Check your game before sharing it
 
-The character controller, full input/menu workflow, gameplay SDK session/save
-access and integrated reference game remain in progress. A successful export
-validates the declared content closure; it does not prove every possible request
-a native gameplay module could construct.
+Try movement, menus, sound, save/load and scene changes in the exported game.
+Declare assets that C++ selects dynamically in [Runtime Dependencies](../editor/runtime-content.md).
+An export checks the declared assets; gameplay can still request an undeclared
+asset if that choice was not included. Test on the target computer with its real
+input, graphics and audio devices.
 
 ## Export and verify a game folder
 

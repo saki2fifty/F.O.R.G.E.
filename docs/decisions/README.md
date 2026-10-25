@@ -33,7 +33,7 @@ Phase9 authoring workflows are implemented and automatically accepted.
 | [021](021-animation-sequencing.md) | Scene-owned composition inside the existing animation owner |
 | [022](022-prefab-component-references.md) | Typed references retain existing prefab/component ownership |
 | [023](023-runtime-prefab-creation.md) | Bounded runtime Prefab creation through the existing request queue |
-| [024](024-2d-physics.md) | Typed 2D physics extends the existing owner; implementation in progress |
+| [024](024-2d-physics.md) | Typed 2D physics extends the existing owner |
 | [025](025-mcp-authoring.md) | Native MCP tools use existing authoring owners and explicit capabilities |
 
 Record date: 2026-09-19. Dependency authority is the exact pin, per

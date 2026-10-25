@@ -2,6 +2,10 @@
 
 Physics makes objects fall, collide, and come to rest during Play. FORGE uses Jolt for 3D bodies. The scene stores your body and collider settings; the running game owns movement, velocity, and sleeping state. For XY Sprite bodies, see [2D physics](physics-2d.md).
 
+![Inspector with Physics Body movement settings](../images/physics-body.png)
+
+Edit a body in Inspector, then Play to check how it moves and collides.
+
 ## Make a falling cube
 
 1. Create a cube named **Floor**. Set its position to **(0, -0.5, 0)** and scale to **(10, 1, 10)**.
@@ -102,7 +106,7 @@ A supported Play recovery restores both the scene/configuration and Jolt's simul
 
 Recovery is private to the current session and exact runtime build. It is not a saved game. Invalid, incompatible, incomplete, or oversized checkpoints are rejected; the editor reports failure and offers a clean Play restart. Native module globals and external resources are not automatically recovered.
 
-Inline colliders support boxes, spheres, capsules and cylinders. Reusable collision assets add convex hulls, static triangle meshes and compounds. Character mechanics, joints and selected collision outlines are described below; vehicles and cloth are later work.
+Inline colliders support boxes, spheres, capsules and cylinders. Reusable collision assets add convex hulls, static triangle meshes and compounds. Character mechanics, joints and selected collision outlines are described below. Vehicle and cloth simulation are unavailable.
 
 See [Play mode](play-mode.md), [Transforms](transforms.md), and [Prefabs](prefabs.md).
 
@@ -169,8 +173,6 @@ Box fields show full XYZ **Size (m)**. Sphere fields show **Radius (m)**. Capsul
 cylinder show radius and **Straight height (m)**; capsule caps add to that height.
 
 ## Character Controller
-
-Build260923-000066 predates this controller and Collision asset workflow.
 
 A Character Controller moves a capsule or cylinder through the physics world. It
 provides collision, gravity, ground state, slopes, stairs and moving-platform support.
@@ -318,7 +320,7 @@ editing. **Collide Connected** applies to this joint too.
 Open **28-swing-twist-joints** in Feature Gallery. The blue pendulum swings within
 a50-degree cone direction; the yellow one has a15-degree bound. Both start inside
 their limits and move under gravity. Save/export/run the same scene without a
-C++ compiler. This is a joint tool; skeletal ragdoll authoring remains later work.
+C++ compiler. This is a joint tool; skeletal ragdoll authoring is unavailable.
 
 ### Slider joints
 

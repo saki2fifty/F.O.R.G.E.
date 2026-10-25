@@ -2,8 +2,8 @@
 
 **FORGE / FIELD TEST** is a small project that exercises the standalone runtime.
 Its gameplay module uses the same exact SDK as project code. The source is in
-`samples/reference_game`; the acceptance content builder creates its level with
-normal imports, collision assets and a navigation bake.
+`samples/reference_game`. Its level uses imported content, collision assets and
+a baked navigation mesh.
 
 ## Launch the included game
 

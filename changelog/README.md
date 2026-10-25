@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-10-25](20261025/README.md) — Illustrated, task-based manual; corrected onboarding and feature descriptions; local-image rendering and package checks. Local source, existing Build213 ZIP unchanged.
+
 - [2026-10-24](20261024/README.md) — MCP C++, Play, UI/shader sources, navigation, declarations, captures and export through existing owners; separate execution/output grants. Development source, not in Build208.
 
 - [2026-10-23](20261023/README.md) — Native MCP scene/document authoring in development source; explicit file grants, existing save/recovery owners and portable validation. Not packaged in Build208.

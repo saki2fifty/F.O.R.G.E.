@@ -5,6 +5,10 @@ from Content → Scenes. Each scene has three copies: original pose, half constr
 and full constraint. Select a copy's model holder in Hierarchy and inspect its
 **Two Bone IK** or **Aim IK** component.
 
+![Two Bone IK Inspector with joint and target controls](../images/animation-rigging.png)
+
+Choose the Start, Middle and End joints, then adjust the target and weight.
+
 Two Bone IK bends a simple limb so its last bone reaches a position. Choose Start,
 Middle and End from that model's imported bones. They must form a direct chain.
 Set Target X/Y/Z and enable it. Aim IK turns a selected bone's Forward direction
@@ -59,5 +63,5 @@ constraint feature and cooked model data; it does not require glTF sources or a
 compiler. Additional C++ project code ships as the normal compiled module.
 
 This is a bounded reach/aim feature. Automatic retargeting, full-body IK and a rig
-graph editor are separate work. Local automated runtime/export checks and physical
-Windows acceptance are different; the latter remains pending for this local bundle.
+graph editor are unavailable. Use compatible skeletons and separate reach or aim
+constraints for each controlled limb or bone.

@@ -35,15 +35,15 @@ Exact revisions, enabled dependency features and license details are recorded in
 
 Real Windows editor captures using small validation scenes. Click an image to open it at full size.
 
-[![Scene authoring with the Hierarchy, transform tools, Inspector and unified Content browser](docs/images/readme/scene-editor.png)](docs/images/readme/scene-editor.png)
+[![Scene authoring with the Hierarchy, transform tools, Inspector and unified Content browser](manual/images/scene-editor.png)](manual/images/scene-editor.png)
 
 | [C++ components and systems](manual/editor/native-gameplay.md) | [Material graphs and shader preview](manual/editor/material-graphs.md) |
 | :---: | :---: |
-| [![Integrated C++ editor showing a rotation system and project code in Content](docs/images/readme/cpp-editor.png)](docs/images/readme/cpp-editor.png) | [![Material graph connecting a color parameter to surface output with a rendered sphere preview](docs/images/readme/material-graph.png)](docs/images/readme/material-graph.png) |
+| [![Integrated C++ editor showing a rotation system and project code in Content](manual/images/cpp-editor.png)](manual/images/cpp-editor.png) | [![Material graph connecting a color parameter to surface output with a rendered sphere preview](manual/images/material-graph.png)](manual/images/material-graph.png) |
 | **[Animation states](manual/editor/animation-states.md)** | **[Mesh editing and sculpting](manual/editor/editable-meshes.md)** |
-| [![Animation state graph with connected Idle, Walk and Run states](docs/images/readme/animation-states.png)](docs/images/readme/animation-states.png) | [![Editable mesh workspace showing a wireframe sphere and sculpt brush symmetry controls](docs/images/readme/mesh-sculpting.png)](docs/images/readme/mesh-sculpting.png) |
+| [![Animation state graph with connected Idle, Walk and Run states](manual/images/animation-states.png)](manual/images/animation-states.png) | [![Editable mesh workspace showing a wireframe sphere and sculpt brush symmetry controls](manual/images/mesh-sculpting.png)](manual/images/mesh-sculpting.png) |
 | **[Sequence camera cuts](manual/editor/animation-sequences.md)** | **[Live Inspector tuning](manual/editor/play-mode.md)** |
-| [![Animation sequence timeline with camera shot intervals and camera selection](docs/images/readme/camera-sequencing.png)](docs/images/readme/camera-sequencing.png) | [![A running game with C++ component properties adjustable in the Live Gameplay Inspector](docs/images/readme/live-inspector.png)](docs/images/readme/live-inspector.png) |
+| [![Animation sequence timeline with camera shot intervals and camera selection](manual/images/camera-sequencing.png)](manual/images/camera-sequencing.png) | [![A running game with C++ component properties adjustable in the Live Gameplay Inspector](manual/images/live-inspector.png)](manual/images/live-inspector.png) |
 
 [Capture sources](docs/images/readme/README.md) · [Implementation and delivery status](docs/status.md)
 
@@ -53,12 +53,12 @@ Real Windows editor captures using small validation scenes. Click an image to op
 layered painting, stroke Undo/Redo and Inspector settings. These are the actual
 Windows document controls rendered by the native validation fixture:
 
-[![Tile Map document with arrow palette, painting controls, layered canvas and cell-size Inspector](docs/images/readme/tile-map-authoring.png)](docs/images/readme/tile-map-authoring.png)
+[![Tile Map document with arrow palette, painting controls, layered canvas and cell-size Inspector](manual/images/tile-map-authoring.png)](manual/images/tile-map-authoring.png)
 
 The editable Gallery scene uses two layers and a mirrored instance of the same
 map. Native Game rendering on Linux software Vulkan:
 
-[![Two arrow courses rendered from one Tile Map, including a smaller mirrored instance](docs/images/readme/tile-maps.png)](docs/images/readme/tile-maps.png)
+[![Two arrow courses rendered from one Tile Map, including a smaller mirrored instance](manual/images/tile-maps.png)](manual/images/tile-maps.png)
 
 ## Sprite image regions
 
@@ -67,7 +67,7 @@ resize its borders or repeat the selected area. Gallery78 contains editable
 examples. Build208 includes this workflow and the matching C++ SDK. The native
 Windows validation capture shows the actual whole-image, cropped and filled objects:
 
-[![Gallery78 with whole and cropped arrows, an animated strip, a bordered panel and mirrored repeated arrows](docs/images/readme/sprite-image-regions.png)](docs/images/readme/sprite-image-regions.png)
+[![Gallery78 with whole and cropped arrows, an animated strip, a bordered panel and mirrored repeated arrows](manual/images/sprite-image-regions.png)](manual/images/sprite-image-regions.png)
 
 ## 2D physics
 
@@ -76,7 +76,7 @@ Its native 2D controller provides grounded movement, sliding, floor support and
 checked placement. Project C++ supplies gravity and jumping. The actual Windows
 Scene/Inspector capture shows copied ground, speed and blocked-placement feedback:
 
-[![Native 2D capsule supported by a moving platform, with ground and velocity feedback in the Live gameplay Inspector](docs/images/readme/2d-character-inspector.png)](docs/images/readme/2d-character-inspector.png)
+[![Native 2D capsule supported by a moving platform, with ground and velocity feedback in the Live gameplay Inspector](manual/images/2d-character-inspector.png)](manual/images/2d-character-inspector.png)
 
 The [complete Build206 gate](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39822638412)
 passes the editor, matching C++ SDK and source-free exported game checks. These
@@ -90,13 +90,13 @@ Its [Windows acceptance](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/3
 checks both Play hosts and the relocated exported game with native keyboard input.
 The actual exported game's jump, rendered with D3D12 WARP:
 
-[![Amber player jumping through a translucent sensor above painted platforms and a blue stepping stone](docs/images/readme/2d-movement-runtime.png)](docs/images/readme/2d-movement-runtime.png)
+[![Amber player jumping through a translucent sensor above painted platforms and a blue stepping stone](manual/images/2d-movement-runtime.png)](manual/images/2d-movement-runtime.png)
 
 The editable [2D physics gallery](manual/editor/physics-2d.md) combines falling
 Sprite shapes, a moving Kinematic platform and a pass-through sensor. This is an
 actual Windows Game render using the D3D12 WARP software adapter:
 
-[![Three boxes, a circle and a capsule rest inside a 2D physics playground below a green sensor and blue moving platform](docs/images/readme/2d-physics-runtime.png)](docs/images/readme/2d-physics-runtime.png)
+[![Three boxes, a circle and a capsule rest inside a 2D physics playground below a green sensor and blue moving platform](manual/images/2d-physics-runtime.png)](manual/images/2d-physics-runtime.png)
 
 ### Painted collision
 
@@ -107,7 +107,7 @@ These Windows D3D12 WARP captures use the actual Game renderer and Inspector con
 
 | Game after simulation | Published layer outlines and Inspector |
 | :---: | :---: |
-| [![Four colored shapes resting on painted green platforms while blue arrows remain decorative](docs/images/readme/painted-collision-game.png)](docs/images/readme/painted-collision-game.png) | [![Scene outlines the painted platforms beside the Static Physics Body and Solid platforms layer selector](docs/images/readme/painted-collision-inspector.png)](docs/images/readme/painted-collision-inspector.png) |
+| [![Four colored shapes resting on painted green platforms while blue arrows remain decorative](manual/images/painted-collision-game.png)](manual/images/painted-collision-game.png) | [![Scene outlines the painted platforms beside the Static Physics Body and Solid platforms layer selector](manual/images/painted-collision-inspector.png)](manual/images/painted-collision-inspector.png) |
 
 ## User manual
 

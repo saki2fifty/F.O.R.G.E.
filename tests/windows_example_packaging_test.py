@@ -47,7 +47,10 @@ class GalleryPackageTest(unittest.TestCase):
         self.write(self.source/'docs/licenses/ozz-converter.txt', b'Converter test notice\n')
         self.write(self.source/'docs/licenses/diligentfx-shader-patch.txt', b'Shader test notice\n')
         self.write(self.source/'resources/ui/font.txt', b'UI resource fixture\n')
-        self.write(self.source/'manual/README.md', b'# Package test\n\nOffline manual.\n')
+        self.write(self.source/'manual/README.md',
+                   b'# Package test\n\n![Editor](images/scene-editor.png)\n')
+        self.manual_image = (SOURCE/'manual/images/scene-editor.png').read_bytes()
+        self.write(self.source/'manual/images/scene-editor.png', self.manual_image)
         self.write(self.source/'samples/animation/two-joints.gltf', b'{}\n')
         self.write(self.source/'samples/projects/Other/main.scene.json', b'{}\n')
         self.write(self.source/'samples/projects/Other/build/local.obj', b'Not example content')
@@ -80,6 +83,10 @@ class GalleryPackageTest(unittest.TestCase):
             notice = 'licenses/box2d-src/LICENSE.txt'
             self.assertEqual(archive.read(notice), b'Packaging test notice\n')
             self.assertEqual(manifest[notice], hashlib.sha256(archive.read(notice)).hexdigest())
+            image = 'manual/images/scene-editor.png'
+            self.assertEqual(archive.read(image), self.manual_image)
+            self.assertEqual(manifest[image], hashlib.sha256(self.manual_image).hexdigest())
+            self.assertIn(b'src="images/scene-editor.png"', archive.read('manual/index.html'))
 
     def test_missing_backend_notice_retains_previous_archive(self):
         self.package()

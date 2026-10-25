@@ -2,6 +2,10 @@
 
 **Tools → ECS → World inspection** opens optional developer tools for the current authoring world. These tools inspect native Flecs state. Ordinary scene editing continues through Hierarchy, Inspector and the authoring commands.
 
+![ECS statistics window with entity, table and query counts](../images/ecs-statistics.png)
+
+Inspect ECS statistics for the selected world while investigating a scene or runtime workload.
+
 ## Statistics
 
 The **Statistics** tab shows entity, table, query, observer and system counts, estimated Flecs memory, world frame count and stage count. Counts include internal and diagnostic entities. These numbers are different from the editor's process memory and FPS in the status bar.

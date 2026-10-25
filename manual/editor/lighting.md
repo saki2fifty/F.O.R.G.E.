@@ -5,6 +5,10 @@ Palette, to change the scene's environment, shadows and display brightness. Thes
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
 
+![Scene lighting controls for environment and exposure](../images/scene-lighting.png)
+
+Scene lighting controls affect authored lighting. The Scene preview light is a separate viewing aid.
+
 Turn off **Preview light** on the Scene toolbar when adjusting authored lighting.
 Game always uses authored lighting. Camera/light icons and selection guides are
 explained in [Viewport](viewport.md).
@@ -113,7 +117,6 @@ same casting behavior; fully collapsed geometry has no rasterized shadow area.
 Legacy blockout shading remains unlit and does not receive PBR light/shadow terms,
 although its derived mesh can cast. Use a PBR material for a lit receiver.
 
-Windows/D3D12 WARP pixel fixtures validate these shadow paths.
 
 ## Current integration limits
 

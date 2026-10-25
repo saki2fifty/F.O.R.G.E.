@@ -2,6 +2,10 @@
 
 Input actions give your project named controls with stable identities. They are separate from editor shortcuts. Runtime systems read these values. Your gameplay code decides how they move a character or camera.
 
+![Project Settings with Input contexts and Add context controls](../images/input-contexts.png)
+
+Open Input contexts in Project Settings to add and configure a context.
+
 ## Test a button without writing code
 
 1. Stop Play. Open **Tools → Project Settings**.
@@ -65,7 +69,7 @@ In pointer mode, [Runtime UI](runtime-ui.md) receives captured Play input before
 ## Input contexts and player rebinding
 
 An input context groups controls for one activity, such as gameplay or a menu.
-The engine now supports context priority and control consumption: a menu can
+Use context priority and control consumption: a menu can
 reserve its controls while gameplay is inactive. Switching contexts clears held
 input so a press cannot carry into the next activity.
 

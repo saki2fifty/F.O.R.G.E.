@@ -2,6 +2,10 @@
 
 Inspector follows one explicit selection: an authored entity, a project asset, or a prefab source member. Selecting an asset clears entity selection. A prefab member selection points you to the independent **Prefab source** window; editing a scene instance is a different task.
 
+![Inspector showing an authored custom component](../images/component-inspector.png)
+
+Inspector uses the component definition to present editable fields.
+
 ## Edit an entity
 
 Select an object in **Hierarchy** or **Scene**. Inspector shows its name, parent, local transform, appearance and attached components. **Name** commits with Enter. **Details** contains the abbreviated persistent entity ID and **Copy ID** copies its full value.

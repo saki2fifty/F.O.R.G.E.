@@ -2,6 +2,10 @@
 
 Use an editable Mesh when you want to shape a simple static object inside FORGE. It is a separate source asset that can be reused by more than one scene entity. Imported glTF meshes remain part of their Model source and open read-only.
 
+![Editable Mesh document with a sculpt brush and symmetry controls](../images/mesh-sculpting.png)
+
+The mesh document combines a geometry preview with selection, modeling and brush controls.
+
 ## Create and place a Mesh
 
 1. Stop Play. Open **Content → Create / Register → New editable Mesh...**. Enter a project-relative filename such as `Assets/Crate.mesh.json` choose **Cube** or **Sculpt sphere**, then choose **Create**.
@@ -103,7 +107,7 @@ or contains unknown attributes that cannot be safely interpolated.
 
 Choose **Save & Publish** to update placed objects and exported games. To compare
 examples, open Gallery scene **46-model-refinement**, then open its three Meshes
-in Content to inspect their wireframes. Windows testing remains pending.
+in Content to inspect their wireframes.
 
 ## Sculpt and paint
 

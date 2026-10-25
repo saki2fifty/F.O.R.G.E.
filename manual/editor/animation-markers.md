@@ -9,7 +9,7 @@ phase and an optional numeric value. Your C++ System decides what it does.
 1. Copy the packaged Feature Gallery to a writable folder and open it.
 2. Open **Scenes / 11-animation-markers.scene.json**. Walk and Run are real character animations. Idle has no markers.
 3. In Content, open **Assets / MarkerPulse.states.json**, then select **Walk**.
-4. In **Timing markers**, select a Pulse marker. Phase0.25 means one quarter of the clip; phase0.75 means three quarters. Value1 raises the example character's height; value0 restores it when the optional C++ consumer is built.
+4. In **Timing markers**, select a Pulse marker. Phase `0.25` means one quarter of the clip; phase `0.75` means three quarters. Value `1` raises the example character's height; value `0` restores it when the optional C++ consumer is built.
 5. Use **Add marker**, edit its name/phase/value, or remove it. Press Enter to commit a numeric value. Undo/Redo work on the source; **Save / Publish** makes the changes available to Play/export.
 
 Scrubbing and playing Animation Preview never execute gameplay actions. During

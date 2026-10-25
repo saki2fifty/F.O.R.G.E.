@@ -2,6 +2,10 @@
 
 **Problems** retains actionable errors and warnings for the current editor session. **Console** records chronological status changes and low-level runtime/build details. A failed field edit also explains itself beside that field.
 
+![Problems panel with timestamps and actionable diagnostics](../images/problems.png)
+
+Use the message, source and time to identify the action that needs attention.
+
 ## Find and resolve an issue
 
 1. Open **Window → Problems**, or look at the problem count in the status bar.

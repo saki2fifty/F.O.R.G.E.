@@ -2,6 +2,10 @@
 
 Project settings define shared game behavior. Open **Tools → Project Settings**. Your dock layout, interface scale, tooltips and compiler paths remain personal editor preferences.
 
+![Project Settings with startup scene and game defaults](../images/project-settings.png)
+
+Choose a saved startup scene and configure the game defaults before exporting.
+
 ## Change simulation frequency
 
 1. Stop Play and wait for any native build to finish.

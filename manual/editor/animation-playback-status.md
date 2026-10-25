@@ -3,6 +3,10 @@
 During game Play, select an animated entity in the Hierarchy. The Inspector shows
 a tinted **Live animation** section. These values apply to the running game.
 
+![Live animation Inspector with playback time and pause, restart and scrub controls](../images/animation-playback.png)
+
+Use Live animation during Play to inspect the active clip and control its playback.
+
 - **Time** and the playhead show the incoming clip's position.
 - **State**, Loop or One-shot, Speed and fade/mix status describe the current playback.
 - **Pause clip / Resume clip** holds or resumes this character's animation.

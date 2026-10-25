@@ -4,6 +4,10 @@ Open **Tools > Loaded resources** when you need to understand what the Scene and
 Game views have loaded. This is an on-demand diagnostic window; it does not change
 your scene or unload objects.
 
+![Loaded Resources window listing prepared content](../images/loaded-resources.png)
+
+Inspect loaded resources when investigating missing content or memory use.
+
 ## Read the resource window
 
 The summary shows loaded, pending and retiring Mesh, Material and Texture resources,

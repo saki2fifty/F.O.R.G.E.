@@ -4,6 +4,10 @@ An object's **Animator** can mix two skeletal clips and smoothly change between
 them. Both clips must come from the same skeleton. You can use imported character
 clips or try the included skinned column.
 
+![Animation Blend Space with clips arranged along one axis](../images/animation-blend-space.png)
+
+Place compatible clips along an axis, then set the sample positions and cycle duration.
+
 ## Try the Gallery
 
 1. Open `FeatureGallery / Scenes / 09-animation-blending.scene.json`.
@@ -157,6 +161,6 @@ Preview changes stay temporary until **Apply preview settings to Animator**,
 which saves both controls as one Undo step. Live Play edits stay runtime-only.
 
 `forge_set_blend_position(actor, x, y)` in **CodeExamples / SetBlendPosition.hpp**
-sets both controls together from C++. After this FORGE update, rebuild project
-modules with its matching SDK because Animator gained the second coordinate.
+sets both controls together from C++. Build project code with the SDK included
+with your editor.
 Export ships cooked blend/model data and your compiled module.

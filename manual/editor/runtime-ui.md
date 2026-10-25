@@ -92,7 +92,7 @@ Use document-relative local resource paths. The supplied **Lato** font is packag
 
 Images support **PNG**, **JPEG** (`.jpg` or `.jpeg`) and uncompressed true-color **TGA** (24 or 32 bits), at most 2048×2048. Use PNG for transparent icons and JPEG for opaque artwork. Image bytes and decoded pixels have additional limits; very large or high-precision images can exceed them. SVG, remote URLs, templates and stylesheet imports are not supported yet. Link multiple stylesheets individually. Filters, shader gradients, offscreen effects and shadows are also deferred.
 
-`px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Physical mixed-monitor DPI and IME behavior can vary and still need desktop testing.
+`px` means game render-target pixels; `dp` follows display density. The editor's interface scale remains separate. Check text input and sizing on the displays and input languages used by your game.
 
 Font `src` paths are relative to the **project root**, as a FORGE policy for RmlUi 6.3 font declarations. For example, place `game.ttf` at that root:
 
@@ -126,7 +126,7 @@ UI Document works with [prefabs](prefabs.md). The document reference, visibility
 
 Stopping Play destroys the live UI. Starting again rebuilds it from the saved configuration and current runtime state. Recovery recreates the UI; unsaved text-field contents and hover state are not restored.
 
-## Short acceptance test
+## Try the complete workflow
 
 Create the example, assign it, Play, capture input, Pause, type, Step once and Resume. Resize the viewport, press Escape, Stop, then save/reopen the scene. Finally create a prefab from the UI entity and try a visibility override and Revert. No C++ changes are needed.
 

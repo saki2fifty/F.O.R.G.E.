@@ -2,6 +2,10 @@
 
 Play runs a copy of your scene in a separate runtime process. Your editor scene stays unchanged while you test gameplay. The editor and the runtime are always separate processes — there is no in-process gameplay world inside the editor.
 
+![Running cube with editable Rotator fields in the Live gameplay Inspector](../images/live-inspector.png)
+
+Live gameplay fields affect the running copy. Use Keep values after Stop when you want to save selected changes.
+
 Play becomes available after the initial source scan and queued asset imports finish. If scene preparation rejects an incompatible mesh or animation revision, FORGE reports the error and keeps the previous active scene instead of waiting indefinitely.
 
 ## Play, Pause, Step, Resume, and Stop

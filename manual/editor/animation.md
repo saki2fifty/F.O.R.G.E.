@@ -46,8 +46,8 @@ inside the project. Images, glTF extensions, FBX, mesh/material import and arbit
 Conversion runs outside the editor with resource limits. A failed conversion leaves
 the previously registered skeleton and clips selected. The Console explains failure,
 including invalid assets, unsupported generated formats, or incompatible skeletons.
-The included translation fixture and automated rotation fixture are tested; broader
-DCC export compatibility is not yet claimed.
+Try a small clip first. For a complete character with meshes and materials, use
+[Model import](models.md) and select the animation from that imported model.
 
 ## Update an animation
 
@@ -67,9 +67,10 @@ Runtime recovery restores clip time and playing state only when the referenced
 assets still have compatible exact revisions. FORGE reloads assets and rebuilds
 sampling state. If assets changed, recovery is rejected; start a fresh Play session.
 
-This foundation supports single-clip playback, skinned/morphed model drawing and
-debug bones. Animation graphs, IK, retargeting and root-motion application
-remain future work.
+For more control, use [animation states](animation-states.md),
+[blending and blend spaces](animation-blending.md), [reach and aim constraints](animation-rigging.md),
+and [root motion](animation-root-motion.md). Clips must use compatible skeletons;
+automatic retargeting between different skeletons is unavailable.
 
 See [Play mode](play-mode.md), [Prefabs](prefabs.md), and
 [Saving and recovery](saving-recovery.md).
@@ -103,9 +104,9 @@ object. Use the Model import document to choose a source scene and animation cli
 then **Place model**. During Play, supported skinned and morphed meshes follow the
 applied pose. The standalone bone-preview workflow remains available.
 
-Gameplay code replacement needs a complete recovery snapshot. If model assets are
-still loading, FORGE keeps the current code and asks you to retry the build after
-loading finishes. A crash before loading completes requires a fresh Play session.
+Stop Play before changing or rebuilding project C++. Save the source, build it,
+then start Play again. After a crash during initial model loading, start a fresh
+Play session; there may be no complete state available to recover.
 
 
 ### Model binding errors
@@ -115,8 +116,7 @@ to the same imported model revision. If a required joint is missing, duplicated 
 moved outside the model instance, FORGE reports a binding error and holds the last
 complete rendered pose. It does not borrow a joint from another copy of the model.
 Restore the matching hierarchy or restart Play after a successful reimport. A
-failed pose does not change the authored scene. Windows/D3D12 WARP tests cover this rendering path and the complete animated-model
-placement workflow. Physical GPU acceptance remains a separate check.
+failed pose does not change the authored scene.
 
 ### Physics conflicts
 
@@ -141,8 +141,6 @@ new pose or model revision cannot fit alongside the previous good pose, Problems
 reports the affected entity and the previous drawing remains visible. Removing
 other model instances can free the allowance so the pending instance can retry.
 This affects derived drawing data; it does not change saved transforms or assets.
-Windows/D3D12 WARP validation covers the implemented model-animation workflow;
-physical GPU acceptance remains a separate check.
 
 
 When a model's animation finishes loading during Pause, its asset information can
@@ -160,6 +158,6 @@ that tick's pose before normal interpolation resumes.
 
 ## Two-clip transitions and editor preview
 
-Animator now has an optional **Blend Clip**, **Blend Weight** target and
+Animator has an optional **Blend Clip**, **Blend Weight** target and
 **Transition Seconds**. Preview/scrub both clips in the central Animation Preview
 document and control their mix from C++. See [Preview and blend two animations](animation-blending.md).

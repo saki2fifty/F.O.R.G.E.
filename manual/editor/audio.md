@@ -2,6 +2,10 @@
 
 ## Listen to a clip in the editor
 
+![Audio clip document with waveform and playback controls](../images/audio-preview.png)
+
+Preview a clip, inspect its waveform and adjust its position without entering game Play.
+
 In **Content**, double-click an AudioClip to open its **Audio clip** tab. Under
 **Clip preview**, click **Play preview**. **Restart preview** starts it again;
 **Stop preview** releases it. **Loop preview** repeats the sound, and
@@ -203,23 +207,22 @@ data is diagnosed; reimport from the source to rebuild it.
 
 After crash/reload recovery, FORGE rebuilds audio from the recovered component configuration. **Play On Start** voices restart from the beginning; other voices remain stopped. A paused recovery remains silent until Resume. Sample positions, manual playback commands and music continuity are not restored or saved in scenes.
 
-The tested source format is 16-bit PCM WAV, mono or stereo, at24,48 or96kHz. Other
-WAV encodings supported by the selected miniaudio decoder still require admission;
-they are not all covered by the format acceptance fixtures.
+Use mono or stereo WAV files. Start with 16-bit PCM at 24, 48 or 96 kHz;
+unsupported or invalid encodings report an import error.
 
-The initial limits are256 source voices, mono/stereo WAV files up to16MiB, up to
-64MiB decoded per clip, and256MiB total decoded data per runtime. Repeated sources
-share decoded data. Import preparation runs off the editor thread in a supervised
-worker. Runtime first-use loading/admission remains on its owner thread and can
-briefly delay that runtime. Legacy registered-only WAVs also decode there.
+Audio supports up to 256 voices, mono/stereo WAV files up to 16 MiB, up to
+64 MiB decoded per clip and 256 MiB of decoded clip data per runtime. Repeated
+sources share loaded clip data. Imported clips load in the background; a source
+can remain silent while its first load finishes. Import older registered-only
+WAVs to prepare them for this loading workflow.
 
 Missing clips, invalid files and unavailable devices appear in the existing Play
 log in **Console**. Optional device failure allows the game to continue silently.
 Restart Play after fixing files/device selection if the operating system does not
-recover playback. There is no editor audition player, device picker, mixer bus
-editor, automatic voice stealing, MP3/FLAC support, streaming music or live voice replacement.
-
-Headless runs can omit audio entirely. Automated offline/null-device tests verify logic and sample output; actual speakers/headphones require this manual test.
+recover playback. Use the Audio clip document to audition a sound and the mixer
+controls to balance buses. Device selection, automatic voice stealing, MP3/FLAC,
+streaming music and replacement of an already playing waveform are unavailable.
+Check the mix through the speakers or headphones your players will use.
 
 ## Compare the included falloff scene
 

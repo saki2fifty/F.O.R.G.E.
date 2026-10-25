@@ -2,6 +2,10 @@
 
 Flecs Script creates and updates ECS content from `.flecs` source text. It is separate from C++ gameplay code. The Script document evaluates a **separate preview world**; it does not modify your open scene or the running game.
 
+![Flecs Script document and managed scene preview](../images/flecs-script.png)
+
+Use the Script document to edit and preview a scene recipe.
+
 ## Create or open a script
 
 1. In **Content**, choose **Create / Register**, then expand **Flecs Script**.

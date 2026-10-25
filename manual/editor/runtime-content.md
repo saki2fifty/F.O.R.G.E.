@@ -5,11 +5,10 @@ folder containing the executable, required libraries and game content. Use the
 **command-line content tool** below to package selected assets
 without an executable, for content-delivery checks.
 
-**Build260923-000066 predates these export controls.** Windows shared-SDK export
-and fresh-machine relocation have passed automated
-software-rendering checks. The runtime has separate save and
-settings storage; a player Save/Load menu and gameplay SDK save access remain
-later Phase8 work. See [Standalone runtime](../getting-started/standalone-runtime.md).
+Player saves and personal settings are stored separately from the exported game.
+Your C++ code and game UI decide when to save or load; the [Reference game](../reference-game.md)
+provides a working example. See [Run a standalone game](../getting-started/standalone-runtime.md)
+for launching, logs and performance counters.
 
 ## Export a standalone game
 

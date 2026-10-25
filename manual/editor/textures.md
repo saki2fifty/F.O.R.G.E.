@@ -1,10 +1,13 @@
 # Importing textures
 
 Import prepares an image for use as a texture and gives it a durable asset identity.
-The original image stays unchanged. Texture import is available in the current
-Phase7 source. Assign textures to surface roles in the [Material editor](materials.md);
+The original image stays unchanged. Assign textures to surface roles in the [Material editor](materials.md);
 its surface preview shows them on geometry. The Texture import document also displays
 the last published texture.
+
+![Texture import settings and image preview](../images/texture-import.png)
+
+Review image usage and import settings before importing or reimporting.
 
 For files outside the project, use **Content → Import files** or drop them onto Content. The [Content import review](content-browser.md) copies sources into a new folder and can import them with default settings. Turn off automatic import there to review the settings below before cooking.
 

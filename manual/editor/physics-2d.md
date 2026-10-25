@@ -64,8 +64,9 @@ ignoring itself and sensors. Painted floors and a separate box stepping stone
 both support it. Stop restores saved state; save/publish before export. See the
 project's **README.md** for the
 experiment, C++ source and matching runtime/module-kit export workflow. This
-is included in Build204; it does not add a native
-character-controller component, automatic stairs or 2D navigation.
+example uses a Dynamic body and capsule sweeps. For the dedicated controller,
+use **Examples/Character2D** as described below. Automatic stairs and 2D navigation
+are unavailable.
 
 Bullet improves high-speed solid collision with supported receivers. It does
 not guarantee exact projectile timing or every fast sensor crossing. The native
@@ -118,8 +119,6 @@ slopes and one-way platforms are not available.
 
 ## Character movement
 
-Available in Build206.
-
 Open a writable copy of **Examples/Character2D** for a player controlled by C++ and
 **Character Controller 2D**. Build Project Code with the matching SDK, then Play.
 Capture Game input and use A/D or arrows to walk; press Space to jump. Holding
@@ -157,3 +156,25 @@ travels as its compiled module. Players need neither source code nor a compiler.
 The two C++ examples use the same export workflow. Character2D exports its compiled
 movement code and controller settings. Movement2D uses a Dynamic body and a support
 sweep. Their source files are not needed to run the exported games.
+
+## Visual examples
+
+![Boxes, circle and capsule on a floor below a sensor and moving platform](../images/2d-physics-runtime.png)
+
+Gallery75 demonstrates 2D bodies, shapes, a moving platform and a sensor.
+
+![2D capsule on a platform with live ground, velocity and placement feedback](../images/2d-character-inspector.png)
+
+Character Controller 2D reports ground contact and movement in Live gameplay.
+
+![Amber player jumping above painted floors](../images/2d-movement-runtime.png)
+
+The editable Movement2D project combines C++ input with walking and jumping.
+
+![Dynamic shapes resting on green painted tile platforms](../images/painted-collision-game.png)
+
+Painted solid tiles act as floors while decorative tiles remain non-colliding.
+
+![Scene collision outlines beside the painted layer Inspector](../images/painted-collision-inspector.png)
+
+Inspect the published solid layer before testing the map in Play.
