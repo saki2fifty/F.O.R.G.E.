@@ -23,6 +23,9 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Using FORGE
 
+- Timestamped compiler, Play and exported-game logs retain bounded recent output
+  even when a program writes an oversized line without a newline. Truncated lines
+  keep their timestamp and newest text with an explicit marker.
 - Automation folder grants, project-parent and export/kit fields preserve complete
   UTF-8 paths from typing and native folder selection. Long choices no longer
   silently become truncated paths; existing filesystem and grant checks remain.

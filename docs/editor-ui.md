@@ -12,6 +12,14 @@ The editor uses the pinned Dear ImGui docking build and SDL3. Runtime libraries 
 - ComponentInspector and property_drawer consume registered schema metadata. Friendly labels/categories/enum choices are additive metadata; persistent formats and identity do not change. There is no second authoritative component registration table.
 - Problems and Console retain bounded session diagnostics/status transitions. They are presentation history, not project state or a persistent telemetry service.
 
+`TimedTextLog` is the shared presentation owner for compiler, Play and exported-game
+run output. Its retained text is capped at 256 KiB, including timestamps; a single
+unterminated line cannot bypass that cap. Whole-line eviction is preferred. An
+oversized newest line keeps its original timestamp and marked recent tail at a
+UTF-8 boundary. Batched trimming also bounds temporary storage during large
+appends. Partial normal lines keep one timestamp across chunks. Raw compiler and
+runtime parser buffers remain separate and unchanged.
+
 Registered source-document and importer adapters also borrow each editor's publication guard
 and refresh path. Content reimport and explicit source import dispatch through
 DocumentWorkspace, so a source editor does not need another main-loop notification

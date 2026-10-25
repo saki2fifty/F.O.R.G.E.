@@ -17,6 +17,12 @@ Messages are bounded to 256 displayed entries and retained across panel closure.
 
 Build output is also available in **Build**. Runtime UI, asset conversion/build and authoring failures feed Problems. Some low-level messages have no navigable target; use their source text and Console details.
 
+Compiler, Play and exported-game test logs show a local date, time and UTC offset
+at the start of each received line. Their timestamped views retain up to 256 KiB
+of recent output. Older complete lines are removed first. An oversized single
+line retains its original timestamp and newest text with **[earlier output
+truncated]**, including when the program has not ended the line yet.
+
 ## Scene diagnostics
 
 **Tools → Scene diagnostics** provides informational scene findings, including duplicate names, missing effective transform values and unresolved spatial bindings. Duplicate names are allowed because identities remain distinct. Unknown component data is retained when saving, although the current runtime cannot implement unknown behavior.

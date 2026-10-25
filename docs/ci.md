@@ -136,6 +136,11 @@ checks complete values and export-request handoff without starting a listener,
 creating a project at the chosen path or exporting. Native Windows picker and
 filesystem acceptance remain separate.
 
+`editor_log` executes the shared timestamped log owner with fragmented output,
+repeated unterminated chunks, oversized complete lines, UTF-8 boundaries, large
+multi-line appends and Clear/reuse. It checks bounded recent text and timestamp
+continuity. It does not launch a compiler/game or replace native log-panel review.
+
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
 rejections and the Windows deployment CMake-version preflight, without compiling
