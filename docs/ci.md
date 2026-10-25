@@ -148,6 +148,12 @@ changing the source log or scene. It also checks valid Unicode, incomplete byte
 sequences, compiler text-page offsets and an unstarted export's empty log. The
 fixture is not a live MCP connection, successful runtime game or Windows export.
 
+`export_lifecycle_editor` exercises a real background export rejection, the shared
+EditorFiles busy guard, the actual Close Export control and project switching.
+It checks same-project retention, clearing old errors while closed, the existing
+automation scope guard and preserving a matching result completed before drawing.
+It does not claim successful Windows assembly or exported-game execution.
+
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
 rejections and the Windows deployment CMake-version preflight, without compiling

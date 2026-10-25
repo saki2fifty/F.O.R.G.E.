@@ -32,6 +32,10 @@ export** preserves the previous completed export; once final promotion starts,
 FORGE finishes or recovers it before returning. Errors appear in the task and
 Problems. Correct missing dependencies or stale imports/builds, then retry.
 
+Closing Export Game keeps the current project's result available when you reopen
+it. Opening another project clears the displayed export results; exported folders
+remain on disk. Starting a new export clears the previous exported-game run log.
+
 After success, **Reveal output** opens the game folder. Copy the whole folder to
 the target Windows machine and run `forge_game.exe`. Keep its content, DLLs and
 manifest together. Player saves, settings and runtime logs live in the OS user-data

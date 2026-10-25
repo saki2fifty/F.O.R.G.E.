@@ -37,12 +37,33 @@ class GameExportTask {
     int browse_ = 0;
     std::string error_, output_;
     std::string operation_;
-    std::filesystem::path project_;
+    std::filesystem::path project_, observed_project_;
     Json result_;
     BuildCommand game_;
     bool preparing_run_ = false, running_ = false, startup_verification_ = false;
     std::optional<int> exit_code_;
     TimedTextLog run_log_;
+
+    void observe_project(const std::filesystem::path& project) {
+        const bool changed = observed_project_ != project;
+        // A new operation can finish through automation before this panel next
+        // draws. Preserve its matching result, even if the last UI root differs.
+        if (!busy() && project_ != project && (changed || !project_.empty())) {
+            project_.clear();
+            operation_.clear();
+            request_ = {};
+            result_ = Json();
+            error_.clear();
+            output_.clear();
+            run_log_.clear();
+            exit_code_.reset();
+            startup_verification_ = false;
+            std::lock_guard lock(progress_->mutex);
+            progress_->value = {};
+        }
+        if (changed)
+            observed_project_ = project;
+    }
 
   public:
     ~GameExportTask() { stop_.request_stop(); }
@@ -99,6 +120,7 @@ class GameExportTask {
         output_.clear();
         result_ = Json();
         exit_code_.reset();
+        run_log_.clear();
         {
             std::lock_guard lock(progress_->mutex);
             progress_->value = {};
@@ -241,6 +263,7 @@ class GameExportTask {
     }
     void draw(SDL_Window* window, SceneDocument& document, Scene& scene, bool locked,
               bool dirty_drafts, const std::function<void()>& project_settings) {
+        observe_project(document.project());
         if (auto result = dialog_.take()) {
             if (!result->error.empty())
                 error_ = result->error;

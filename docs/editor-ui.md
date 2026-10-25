@@ -38,6 +38,12 @@ or running maintenance. Idle polling clears previous-project results/errors even
 with the cache window closed; same-project results remain until the next operation.
 This presentation state does not change cache deletion, cancellation or asset data.
 
+Export results, errors and run logs are scoped to their project. Idle observation
+clears previous-project outcomes even while Export Game is closed. Same-project
+results remain available when reopening the window; a matching operation completed
+through automation before the next draw is preserved. Beginning a new export clears
+the previous run log. Queued/running work retains the existing project-switch guard.
+
 Automation folder grants, project-parent and export/kit path fields retain complete
 UTF-8 strings from both text entry and native pickers. They use the existing ImGui
 string adapter; they do not truncate into fixed-size buffers. Existing owners still

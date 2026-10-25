@@ -23,6 +23,9 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Using FORGE
 
+- Export Game clears previous-project results and errors after a project switch,
+  including while closed. Same-project outcomes remain available, and a new export
+  starts with an empty exported-game run log.
 - MCP Play and exported-game log reads handle invalid or incomplete native text
   using the compiler text reader's shared conversion. Returned text stays valid
   JSON while original process bytes and compiler-page offsets remain intact.
