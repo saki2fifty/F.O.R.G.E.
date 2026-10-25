@@ -75,6 +75,39 @@ inline void test_prefab_apply_documents() {
     require(failed_candidate && scene.document() == before && scene.revision() == stable_revision &&
                 document.prefabs().source(asset) == source_before && scene.can_undo(),
             "Invalid Apply changed source, scene or existing history");
+    const auto reject_incomplete_records = [&](auto&& operation) {
+        const auto read_bytes = [](const auto& path) {
+            std::ifstream input(path, std::ios::binary);
+            return std::string(std::istreambuf_iterator<char>(input), {});
+        };
+        const auto prefab_path = project / "Assets/Sample.prefab.json";
+        const auto scene_bytes = read_bytes(document.path()),
+                   prefab_bytes = read_bytes(prefab_path);
+        const auto snapshot = scene.snapshot();
+        const auto revision = scene.revision();
+        const auto dirty = document.dirty(), undo = scene.can_undo(), redo = scene.can_redo();
+        for (const auto& path : {document.path(), prefab_path}) {
+            const auto& original = path == prefab_path ? prefab_bytes : scene_bytes;
+            for (const auto& tail : {std::string(1, '\0'), std::string("\0hidden", 7),
+                                     std::string("\x1a hidden"), std::string(" {}")}) {
+                forge::atomic_write(path, original + tail);
+                bool rejected = false;
+                try {
+                    operation();
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                require(rejected && scene.snapshot() == snapshot && scene.revision() == revision &&
+                            document.dirty() == dirty && scene.can_undo() == undo &&
+                            scene.can_redo() == redo && read_bytes(path) == original + tail &&
+                            read_bytes(path == prefab_path ? document.path() : prefab_path) ==
+                                (path == prefab_path ? scene_bytes : prefab_bytes),
+                        "Incomplete Apply record changed files, state or pending history");
+                forge::atomic_write(path, original);
+            }
+        }
+    };
+    reject_incomplete_records([&] { document.apply_prefab(change, scene.revision()); });
     document.apply_prefab(change, scene.revision());
     const auto applied = scene.document();
     require(!scene.entity(ac).owns<forge::LocalTranslation>() &&
@@ -95,11 +128,13 @@ inline void test_prefab_apply_documents() {
         if (row.at("id") == a)
             require(row.at("components").at("project.unknown").at("opaque") == 17,
                     "Apply rewrote opaque payload");
+    reject_incomplete_records([&] { scene.undo(); });
     require(scene.undo(), "Apply Undo missing");
     require(document.prefabs().source(asset).at("revision") == 3 &&
                 scene.entity(a).owns<forge::LocalTranslation>() &&
                 scene.entity(a).owns<forge::LocalRotation>() && !document.dirty(),
             "Apply Undo did not restore intent and advance revision durably");
+    reject_incomplete_records([&] { scene.redo(); });
     require(scene.redo() && document.prefabs().source(asset).at("revision") == 4 &&
                 !scene.entity(a).owns<forge::LocalTranslation>(),
             "Apply Redo failed");

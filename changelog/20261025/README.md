@@ -44,6 +44,15 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
   sequences, unchanged Play snapshots, repaired exchanges and valid escaped
   control values. Existing byte, depth, timeout and cancellation limits remain.
 
+## Captured asset metadata
+
+- Catalog indexes and cache manifests reject hidden trailing bytes before
+  replacing records, writing migration backups or admitting artifact data.
+- Content scene discovery requires complete JSON records; repaired sources return
+  through the existing scan. Caller budgets and cache quarantine policy remain.
+- Added state/file-preservation and repair regressions, including the existing
+  coordinated Prefab Apply/Undo/Redo publication protection.
+
 ## Asset JSON admission
 
 - The shared bounded JSON parser rejects raw NUL bytes that could hide part of a

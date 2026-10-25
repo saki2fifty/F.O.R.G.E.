@@ -125,6 +125,26 @@ int main(int argc, char** argv) {
         auto loaded = AssetCatalog::open_project(root);
         require(loaded.dependency_graph().document() == catalog.dependency_graph().document(),
                 "Catalog typed edge roundtrip");
+        const auto admitted_index = loaded.document();
+        for (unsigned version : {1u, 2u}) {
+            auto input_index = admitted_index;
+            input_index["version"] = version;
+            for (const auto& tail : {std::string(1, '\0'), std::string("\0hidden", 7),
+                                     std::string("\x1a hidden"), std::string(" {}")}) {
+                const auto damaged = input_index.dump() + tail;
+                atomic_write(index, damaged);
+                rejects([&] { loaded.load(index); });
+                rejects([&] { loaded.save(index); });
+                require(loaded.document() == admitted_index &&
+                            asset_detail::read_bytes(index, max_asset_index_bytes) ==
+                                bytes(damaged) &&
+                            !std::filesystem::exists(index.string() + ".v1.backup"),
+                        "Malformed index changed records, bytes or migration backup");
+            }
+        }
+        atomic_write(index, admitted_index.dump(2));
+        loaded.load(index);
+        require(loaded.document() == admitted_index, "Repaired index changed catalog state");
         const auto bulk_before = loaded.dependency_graph().document();
         auto invalid_record = catalog.records().at(b);
         invalid_record.type = "wrong-type";
@@ -311,6 +331,28 @@ int main(int argc, char** argv) {
         rejects([&] { cache.load_selected(build.key(), {}); });
         rejects([&] { cache.load_selected(std::string(64, '0'), admission); });
         const auto cache_root = root / ".forge/cache/derived";
+        const auto manifest_path = cache_root / build.key() / "manifest.json";
+        const auto manifest_bytes = asset_detail::read_bytes(manifest_path, 1024 * 1024);
+        for (const auto& tail : {std::string(1, '\0'), std::string("\0hidden", 7),
+                                 std::string("\x1a hidden"), std::string(" {}")}) {
+            auto damaged = manifest_bytes;
+            const auto suffix = bytes(tail);
+            damaged.insert(damaged.end(), suffix.begin(), suffix.end());
+            atomic_write(manifest_path, std::string(reinterpret_cast<const char*>(damaged.data()),
+                                                    damaged.size()));
+            bool decoded = false;
+            rejects([&] {
+                (void)cache.load_selected(build.key(), [&](const auto&) { decoded = true; });
+            });
+            require(!decoded && asset_detail::read_bytes(manifest_path, 1024 * 1024) == damaged &&
+                        selected_artifact.files[0].bytes == bytes("validated"),
+                    "Malformed cache metadata reached a decoder or changed owned/disk bytes");
+        }
+        atomic_write(manifest_path,
+                     std::string(reinterpret_cast<const char*>(manifest_bytes.data()),
+                                 manifest_bytes.size()));
+        require(cache.find(build, admission)->manifest == artifact.manifest,
+                "Repaired cache metadata did not recover the same artifact");
         rejects([&] { cache.publish(build, {{"../outside", bytes("bad")}}, admission); });
         rejects([&] { cache.publish(build, {{"data.bin", bytes("invalid")}}, admission); });
         require(cache.find(build, admission).has_value(), "Failed candidate damaged good output");

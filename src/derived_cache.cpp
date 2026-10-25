@@ -1,4 +1,5 @@
 #include "asset_bytes.hpp"
+#include "json_document.hpp"
 #include "native_io_path.hpp"
 #include <algorithm>
 #include <chrono>
@@ -154,13 +155,12 @@ std::string file_name(const std::string& name) {
     return name;
 }
 Json parse_manifest(const std::vector<std::byte>& bytes) {
-    return Json::parse(reinterpret_cast<const char*>(bytes.data()),
-                       reinterpret_cast<const char*>(bytes.data() + bytes.size()),
-                       [](int depth, Json::parse_event_t, Json&) {
-                           if (depth > 64)
-                               throw std::runtime_error("Cache manifest nesting exceeds limit");
-                           return true;
-                       });
+    const std::string_view text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    return detail::parse_json_document(text, [](int depth, Json::parse_event_t, Json&) {
+        if (depth > 64)
+            throw std::runtime_error("Cache manifest nesting exceeds limit");
+        return true;
+    });
 }
 void validator_required(const DerivedDataCache::Validator& validate) {
     if (!validate)

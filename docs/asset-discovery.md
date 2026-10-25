@@ -121,14 +121,16 @@ A differently cased Windows locator does not imply a missing source or a differe
 asset. This is an ephemeral index convention, not a rewrite of source paths or IDs.
 
 Content's optional scene discovery is separate from reading the committed catalog.
-If a scene is invalid or discovery exceeds its bounded read budget, the browser
+If a structurally recognized scene fails admission or discovery exceeds its bounded read budget, the browser
 keeps the last complete discovered-scene additions and still adopts valid registered
 assets. A newly registered locator/identity takes precedence over retained discovery
 metadata. This projection creates no new identity and writes no project files.
 
 `src/editor/content_scan.hpp` owns this read-only Content projection and is also
 exercised by the portable `content_scan` test. Each scene candidate is read once
-with the existing 8 MiB file bound, then the same JSON snapshot supplies structural
+with the existing 8 MiB file bound. Malformed or incomplete JSON, including a raw
+NUL followed by hidden bytes, is excluded from structural recognition. Repair
+the source and refresh to discover it normally. The same admitted JSON snapshot supplies structural
 recognition and schema admission. Explicit scene registration shares that schema
 admission helper. The existing catalog's `replace_all` validates each complete
 discovery candidate and merges its additions in bulk; registered records retain

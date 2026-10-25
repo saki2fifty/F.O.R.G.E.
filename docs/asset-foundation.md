@@ -98,8 +98,8 @@ bounded grace period and waits before deleting staging. A late result cannot pub
 Trusted bounded pure transformations may run on a background task without subprocess overhead;
 parsers/converters with crash/resource risk use the established isolated candidate model.
 
-Captured JSON byte ranges use the existing bounded parser, which rejects raw NUL
-bytes, oversized input, excess nesting/events and duplicate keys. A string
+The shared `parse_bounded_json` asset reader rejects raw NUL bytes, oversized
+input, excess nesting/events and duplicate keys. A string
 terminator cannot hide a suffix within a declared input range. Escaped JSON
 control characters remain valid data. This check applies to the JSON chunk of
 a GLB, including during source relocation; BIN and unknown binary chunk bytes
@@ -107,6 +107,14 @@ retain their separate validation rules. C-string SDK callers pass a range that
 excludes their terminator. The parser remains an input to existing recipe
 fingerprints; changed source admission receives a new derived-cache revision
 through those owners, without replacing persistent asset IDs.
+
+Catalog indexes and derived-cache manifests use complete-record parsing with
+their existing depth/event policies. Hidden raw NUL suffixes reject before index
+replacement, migration backup or artifact decoder admission. A failed index
+Load/Save retains its in-memory records and original bytes. Selected-cache reads
+remain read-only on failure; mutable cache lookup retains its existing quarantine
+policy. Repairing the record permits normal loading without changing asset IDs,
+cache keys or format versions.
 
 ## Runtime loading and handles
 

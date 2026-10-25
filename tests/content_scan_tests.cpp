@@ -44,6 +44,21 @@ int main(int argc, char** argv) {
                 "Scene recognition, legacy listing or hidden-folder filtering changed");
         require(scene_files(std::filesystem::relative(root)).size() == 2,
                 "Scene discovery rejected a relative project folder");
+        const auto damaged_path = root / "Assets/incomplete.scene.json";
+        const auto repair = empty_scene();
+        for (const auto& tail : {std::string(1, '\0'), std::string("\0hidden", 7),
+                                 std::string("\x1a hidden"), std::string(" {}")}) {
+            atomic_write(damaged_path, repair.dump() + tail);
+            const auto incomplete = scan_content_catalog(root, first.scenes);
+            require(scene_files(root).size() == 2 && incomplete.diagnostic.empty() &&
+                        incomplete.catalog.records().size() == first.catalog.records().size() &&
+                        incomplete.scenes->size() == first.scenes->size(),
+                    "Incomplete JSON source entered Content discovery");
+        }
+        write(damaged_path, repair);
+        require(scene_files(root).size() == 3 && scan_content_catalog(root).scenes->size() == 2,
+                "Repaired JSON source did not return to discovery");
+        std::filesystem::remove(damaged_path);
         {
             std::ofstream oversized(root / "Assets/oversized.json");
             oversized.seekp(8 * 1024 * 1024);

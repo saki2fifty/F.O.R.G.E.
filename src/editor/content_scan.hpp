@@ -1,5 +1,6 @@
 #pragma once
 #include "../asset_bytes.hpp"
+#include "../json_document.hpp"
 #include "../scene_asset_record.hpp"
 #include "cpp_source_files.hpp"
 #include "search.hpp"
@@ -63,8 +64,8 @@ scene_files(const std::filesystem::path& root, std::stop_token stop = {},
             Json candidate;
             try {
                 const auto input = asset_detail::read_bytes(entry.path(), 8 * 1024 * 1024);
-                candidate = Json::parse(reinterpret_cast<const char*>(input.data()),
-                                        reinterpret_cast<const char*>(input.data() + input.size()));
+                candidate = detail::parse_json_document(
+                    std::string_view(reinterpret_cast<const char*>(input.data()), input.size()));
                 if (!candidate.is_object() || !candidate.contains("version") ||
                     !candidate.contains("entities") || !candidate.at("entities").is_array())
                     continue;

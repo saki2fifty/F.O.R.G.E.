@@ -16,14 +16,12 @@ namespace forge {
 namespace {
 Json parse_index(std::span<const std::byte> bytes) {
     std::size_t events = 0;
-    return Json::parse(reinterpret_cast<const char*>(bytes.data()),
-                       reinterpret_cast<const char*>(bytes.data() + bytes.size()),
-                       [&](int depth, Json::parse_event_t, Json&) {
-                           if (depth > 64 || ++events > 4000000)
-                               throw std::runtime_error(
-                                   "Asset index exceeds JSON nesting/element limits");
-                           return true;
-                       });
+    const std::string_view text(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+    return detail::parse_json_document(text, [&](int depth, Json::parse_event_t, Json&) {
+        if (depth > 64 || ++events > 4000000)
+            throw std::runtime_error("Asset index exceeds JSON nesting/element limits");
+        return true;
+    });
 }
 std::filesystem::path normalize_record(AssetRecord& record, const ProjectPaths& paths) {
     if (engine_asset(record.id))
