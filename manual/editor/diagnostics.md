@@ -23,6 +23,10 @@ of recent output. Older complete lines are removed first. An oversized single
 line retains its original timestamp and newest text with **[earlier output
 truncated]**, including when the program has not ended the line yet.
 
+When an agent reads compiler, Play or exported-game logs, unreadable or incomplete
+text bytes appear as replacement characters (`�`). Valid Unicode remains readable;
+an unusual process encoding does not prevent the log response from being returned.
+
 ## Scene diagnostics
 
 **Tools → Scene diagnostics** provides informational scene findings, including duplicate names, missing effective transform values and unresolved spatial bindings. Duplicate names are allowed because identities remain distinct. Unknown component data is retained when saving, although the current runtime cannot implement unknown behavior.

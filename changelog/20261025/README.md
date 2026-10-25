@@ -23,6 +23,9 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Using FORGE
 
+- MCP Play and exported-game log reads handle invalid or incomplete native text
+  using the compiler text reader's shared conversion. Returned text stays valid
+  JSON while original process bytes and compiler-page offsets remain intact.
 - Timestamped compiler, Play and exported-game logs retain bounded recent output
   even when a program writes an oversized line without a newline. Truncated lines
   keep their timestamp and newest text with an explicit marker.

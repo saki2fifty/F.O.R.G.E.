@@ -50,8 +50,8 @@ struct ExportAutomation {
             "export.run.log", "Read the existing supervised exported-game test's timestamped log.",
             "export.read", automation_object(), false, [&files, &task](const Json&) {
                 auto value = state(task, files);
-                value["text"] =
-                    task.project_ == files.document.project() ? task.run_log_.text() : "";
+                value["text"] = automation_text_value(
+                    task.project_ == files.document.project() ? task.run_log_.text() : "");
                 return value;
             }));
         if (!permissions.export_game || permissions.export_root.empty())

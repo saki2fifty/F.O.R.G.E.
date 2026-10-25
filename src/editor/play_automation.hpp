@@ -153,7 +153,7 @@ struct PlayAutomation {
                 files.document.check_ownership();
                 return Json{{"launch", play.launch_id()},
                             {"session", play.session()},
-                            {"text", play.timed_log()}};
+                            {"text", automation_text_value(play.timed_log())}};
             }));
         methods.push_back(automation_method(
             "play.tuning.read",

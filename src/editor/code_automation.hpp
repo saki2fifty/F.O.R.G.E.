@@ -30,8 +30,7 @@ struct CodeAutomation {
         auto end = std::min(text.size(), start + request.value("limit", std::size_t(65536)));
         while (end > start && end < text.size() && continuation(end))
             --end;
-        const auto safe = Json::parse(Json(text.substr(start, end - start))
-                                          .dump(-1, ' ', false, Json::error_handler_t::replace));
+        const auto safe = automation_text_value(text.substr(start, end - start));
         return {
             {"text", safe}, {"offset", start}, {"next_offset", end}, {"total_bytes", text.size()}};
     }

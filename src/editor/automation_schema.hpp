@@ -23,6 +23,12 @@ inline Json automation_array(Json item, std::size_t maximum, std::size_t minimum
 }
 inline Json automation_uuid() { return automation_text(36, 36); }
 inline Json automation_digest() { return automation_text(64, 64); }
+// Native output may contain incomplete UTF-8 chunks or bytes from another
+// encoding. Clean only the returned text value; never alter the owning buffer,
+// byte offsets, authored data or structured protocol serialization policy.
+inline Json automation_text_value(const std::string& text) {
+    return Json::parse(Json(text).dump(-1, ' ', false, Json::error_handler_t::replace));
+}
 inline std::filesystem::path automation_relative_path(const std::string& text) {
     const auto path = std::filesystem::u8path(text);
     if (text.empty() || text.size() > 2047 || path.is_absolute() || path.has_root_name() ||

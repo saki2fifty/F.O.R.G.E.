@@ -315,6 +315,13 @@ schema. `input_submit` accepts up to64 validated events from `controls`, using t
 existing input queue and physical release policy; reset releases controls.
 `time_scale` uses the existing finite [0,4] clock policy.
 
+Compiler text pages and Play/exported-game log text share UTF-8-safe response
+conversion. Invalid or incomplete native output bytes appear as replacement
+characters in the returned text, so they cannot break the JSON log response.
+Valid Unicode is preserved. The underlying process buffers and compiler-page
+byte offsets remain unchanged; this conversion does not alter authored data or
+relax structured protocol validation.
+
 `watch` selects an Inspector entity for native audio/animation observation.
 `audio_control`/`animation_control` require the exact watched entity; a human
 selection change cannot redirect them. Mix and CPU controls use their native

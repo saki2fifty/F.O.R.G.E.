@@ -141,6 +141,13 @@ repeated unterminated chunks, oversized complete lines, UTF-8 boundaries, large
 multi-line appends and Clear/reuse. It checks bounded recent text and timestamp
 continuity. It does not launch a compiler/game or replace native log-panel review.
 
+`automation_log` launches a real SDL child that writes invalid diagnostic bytes
+to stderr. The actual Play owner receives them, its registered `play.log` method
+returns a value, and strict JSON serialization/round-trip must succeed without
+changing the source log or scene. It also checks valid Unicode, incomplete byte
+sequences, compiler text-page offsets and an unstarted export's empty log. The
+fixture is not a live MCP connection, successful runtime game or Windows export.
+
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
 rejections and the Windows deployment CMake-version preflight, without compiling
