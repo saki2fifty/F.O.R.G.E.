@@ -12,6 +12,12 @@ Property schema augments Flecs-reflected members with immutable built-in `proper
 
 Run `forge_tools --stdio`. Each UTF-8 JSON line yields one JSON response; EOF ends the process. Standard output contains only responses. Parse errors return a structured error and processing continues. Requests are limited to 1 MiB and 64 nesting levels. Authoring batches contain 1–128 sequential commands, each validated on a private detached document draft. Candidate documents are limited to 10,000 entities and 8 MiB serialized data. These are defensive bounds, not a performance guarantee.
 
+A request must consume its complete JSON record; raw NUL bytes and trailing
+values/garbage reject before command dispatch. Windows JSON stdio modes use
+binary streams so a native text-mode EOF marker cannot conceal trailing input.
+The isolated ECS tools adapter uses the same record check while retaining its
+ordered JSON representation and native diagnostic-output isolation.
+
 The process starts with the default scene. Replace it with supplied data when needed. It does not open or save project files; live project access instead uses the owning editor connection. Client software can consume the returned snapshot under its own file workflow.
 
 ## Requests and results

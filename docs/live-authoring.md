@@ -19,6 +19,11 @@ Open a TCP connection for one request and one response. Send a single UTF-8 JSON
 {"transport":1,"token":"SECRET","id":"client-generated-correlation-id","request":{"api":1,"method":"discover"}}
 ```
 
+The entire request line must be one JSON record. Raw NUL bytes, a second value
+or trailing garbage reject before dispatch, without changing the Scene revision
+or consuming a mutation sequence. Escaped JSON control values are ordinary data;
+domain validation still applies to the decoded fields.
+
 Successful discovery returns the underlying scene target/revision, capabilities, catalog and schema, plus actual mutation availability and transport limits. Read-only discovery excludes mutation methods and commands. Response envelope:
 
 ```json

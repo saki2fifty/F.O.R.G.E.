@@ -30,6 +30,16 @@ def request(command, **fields):
 try:
     greeting=request('hello')
     assert greeting['ok']
+    # A malformed control record must not resume simulation or consume its ID.
+    # Follow each rejected resume with a valid ping using that same ID.
+    for tail in ('\0', '\0hidden', '\x1a hidden', ' {}', ' garbage'):
+        candidate=dict(protocol=2, id=sequence+1, session=session, command='resume')
+        p.stdin.write(json.dumps(candidate)+tail+'\n'); p.stdin.flush()
+        rejected=json.loads(p.stdout.readline())
+        assert not rejected['ok'] and rejected['id']==0, rejected
+        assert request('ping', note='Unicode 界\0')['ok']
+        state=request('snapshot')
+        assert state['timing']['paused'] and state['timing']['tick']==0
     assert request('ping')['ok']
     assert not request('unknown')['ok']
     example=json.loads((Path(__file__).resolve().parents[1]/'samples/projects/Blockout/main.scene.json').read_text())

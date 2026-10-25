@@ -251,6 +251,14 @@ The completed synchronous operation precedes visual dismissal on the next frame.
 Input is UTF-8 JSON lines, capped at1MiB and64 nesting levels. The bounded reader
 holds at most eight queued messages; excessive pipelining or duplicate active
 request IDs close the bridge rather than overwrite another request's state.
+Each input line must contain one complete JSON record. A raw NUL cannot hide a
+suffix or make a valid request prefix executable; malformed records return the
+existing parse error before dispatch or mutation sequence allocation. Escaped
+JSON control values remain valid. Editor response records receive the same
+complete-record check, retaining their 128-level nesting bound; a malformed
+response reports connection failure without adopting its result.
+On Windows, JSON stdio runs in binary mode so text translation cannot hide an
+input end marker. Both LF and CRLF input lines remain valid JSON framing.
 The existing editor caps request/response lines at1MiB/16MiB. The MCP response
 cap is34MiB because structured data is also included as text. Large scenes
 should use paged entity queries. No large-scene latency guarantee is made.

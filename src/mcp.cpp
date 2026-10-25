@@ -1,5 +1,6 @@
 #include "mcp.hpp"
 #include "automation_image.hpp"
+#include "json_document.hpp"
 #include <algorithm>
 #include <condition_variable>
 #include <cstdlib>
@@ -426,11 +427,12 @@ int mcp_stdio() {
             try {
                 if (overflow)
                     throw std::runtime_error("Input too large");
-                pending.wire = Json::parse(line, [](int depth, Json::parse_event_t, Json&) {
-                    if (depth > 64)
-                        throw std::runtime_error("Input too deep");
-                    return true;
-                });
+                pending.wire =
+                    detail::parse_json_document(line, [](int depth, Json::parse_event_t, Json&) {
+                        if (depth > 64)
+                            throw std::runtime_error("Input too deep");
+                        return true;
+                    });
             } catch (const std::exception&) {
                 pending.parse_error = true;
             }

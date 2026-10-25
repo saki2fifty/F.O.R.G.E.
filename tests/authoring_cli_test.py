@@ -9,6 +9,14 @@ def request(method,**fields):
 try:
     d=request('discover')['result'];target=d['target'];rev=d['revision']
     assert d['persistence']=='memory-only'
+    assert send(json.dumps(dict(api=1, method='discover'))+'\r')['ok']
+    mutation=dict(api=1, method='scene.apply', target=target, expected_revision=rev,
+                  commands=[dict(operation='entity.create', arguments=dict(kind=0, name='Hidden'))])
+    for tail in ('\0', '\0hidden', '\x1a hidden', ' {}', ' garbage'):
+        rejected=send(json.dumps(mutation)+tail)
+        assert not rejected['ok'] and rejected['error']['code']=='invalid_request', rejected
+        current=request('scene.read',target=target)
+        assert current['revision']==rev and current['result']['entities']==[]
     r=request('scene.replace',target=target,expected_revision=rev,document=dict(version=1,entities=[]));assert r['ok']
     r=request('scene.apply',target=target,expected_revision=r['revision'],commands=[dict(operation='entity.create',arguments=dict(kind=1,name='CLI sphere'))]);assert r['ok']
     assert request('entity.query',target=target,text='sphere')['result']['total']==1

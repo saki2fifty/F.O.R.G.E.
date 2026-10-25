@@ -1,3 +1,4 @@
+#include "json_document.hpp"
 #include "mcp.hpp"
 #include <algorithm>
 #include <array>
@@ -160,7 +161,7 @@ Json mcp_editor_request(const Json& connection, const Json& request, const Json&
     }
     Json result;
     try {
-        result = Json::parse(response, [](int depth, Json::parse_event_t, Json&) {
+        result = detail::parse_json_document(response, [](int depth, Json::parse_event_t, Json&) {
             if (depth > 128)
                 throw std::runtime_error("Editor response is too deeply nested");
             return true;

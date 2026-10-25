@@ -32,6 +32,18 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 - Added actual project Save, legacy Scene identity, Prefab publication and Script
   request regressions that retain source bytes and prior state on rejection.
 
+## Automation and Play message records
+
+- MCP, live authoring and Play use complete JSON records at request/response
+  admission. Raw NUL suffixes cannot conceal bytes behind an executable request
+  or an adopted response.
+- Ordinary and C++ SDK Play, authoring CLI and isolated ECS tools apply the same
+  check. Windows JSON stdio preserves input bytes; ECS output retains native
+  diagnostic isolation and its ordered representation.
+- Real pipe/socket regressions check malformed mutations, retained revisions and
+  sequences, unchanged Play snapshots, repaired exchanges and valid escaped
+  control values. Existing byte, depth, timeout and cancellation limits remain.
+
 ## Asset JSON admission
 
 - The shared bounded JSON parser rejects raw NUL bytes that could hide part of a

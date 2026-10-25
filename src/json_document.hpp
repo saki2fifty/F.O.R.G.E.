@@ -3,9 +3,10 @@
 #include <nlohmann/json.hpp>
 #include <stdexcept>
 #include <string_view>
+#include <utility>
 
 namespace forge::detail {
-// Callers retain file ownership, byte limits and domain/schema validation.
+// Callers retain ownership, byte limits and domain/schema validation.
 // File streams must use binary mode so native text terminators cannot hide data.
 inline nlohmann::json parse_json_document(std::istream& input) {
     auto result = nlohmann::json::parse(input);
@@ -15,9 +16,11 @@ inline nlohmann::json parse_json_document(std::istream& input) {
         throw std::runtime_error("JSON record did not consume the complete file");
     return result;
 }
-inline nlohmann::json parse_json_document(std::string_view text) {
+template <class Json = nlohmann::json>
+inline Json parse_json_document(std::string_view text,
+                                typename Json::parser_callback_t callback = nullptr) {
     if (text.find('\0') != std::string_view::npos)
         throw std::runtime_error("JSON record contains a raw NUL byte");
-    return nlohmann::json::parse(text);
+    return Json::parse(text, std::move(callback));
 }
 } // namespace forge::detail

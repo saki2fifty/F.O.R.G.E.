@@ -1,6 +1,7 @@
 #pragma once
 #include "../animation_playback_access.hpp"
 #include "../audio_mix.hpp"
+#include "../json_document.hpp"
 #include "../runtime_property_tune.hpp"
 #include "../tile_map_play_receiver.hpp"
 #include "../tile_map_play_transport.hpp"
@@ -785,7 +786,7 @@ class PlaySession {
             PlayTransportWorker::Receipt receipt;
             const bool have_receipt = worker_.drain_one_line(receipt);
             if (have_receipt) {
-                const Json response = Json::parse(receipt.payload);
+                const Json response = detail::parse_json_document(receipt.payload);
                 if (!waiting_ || response.value("protocol", 0) != 2 ||
                     response.value("id", std::uint64_t{}) != request_id_)
                     throw std::runtime_error("Invalid/stale runtime response");

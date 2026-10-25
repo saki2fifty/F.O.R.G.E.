@@ -9,8 +9,23 @@
 #include <forge/schema.hpp>
 #include <fstream>
 #include <iostream>
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
 // Authoring stdio is memory-only. Asset writes require the project writer lease.
 int main(int argc, char** argv) {
+#ifdef _WIN32
+    if (argc == 2 && (std::string(argv[1]) == "--stdio" || std::string(argv[1]) == "--mcp-stdio" ||
+                      std::string(argv[1]) == "--ecs-stdio")) {
+        // JSON framing must see every byte, including the CRT text-mode EOF marker.
+        if (_setmode(_fileno(stdin), _O_BINARY) == -1 ||
+            _setmode(_fileno(stdout), _O_BINARY) == -1) {
+            std::cerr << "Cannot configure binary JSON protocol streams\n";
+            return 2;
+        }
+    }
+#endif
     ecs_os_set_api_defaults();
     ecs_os_api.log_out_ = stderr; // Keep native diagnostics outside the JSON protocol.
     if (argc == 2 && std::string(argv[1]) == "--mcp-stdio")
@@ -86,8 +101,8 @@ int main(int argc, char** argv) {
         try {
             if (overflow)
                 throw std::runtime_error("Request exceeds 1 MiB");
-            const auto request =
-                forge::Json::parse(line, [](int depth, forge::Json::parse_event_t, forge::Json&) {
+            const auto request = forge::detail::parse_json_document(
+                line, [](int depth, forge::Json::parse_event_t, forge::Json&) {
                     if (depth > 64)
                         throw std::runtime_error("Request nesting exceeds 64 levels");
                     return true;

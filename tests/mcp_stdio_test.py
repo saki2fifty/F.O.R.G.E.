@@ -66,6 +66,26 @@ for legacy in (False, True):
         args = dict(target=target, expected_revision=discovery['revision'],
                     sequence=discovery['next_sequence'],
                     arguments=dict(kind=0, name='Agent cube'))
+        # A valid mutation prefix inside a malformed record must not execute or
+        # consume its sequence. The same clean request remains usable afterward.
+        params = dict(name='forge_entity_create', arguments=args)
+        if not legacy:
+            params['_meta'] = {
+                'io.modelcontextprotocol/protocolVersion': CURRENT,
+                'io.modelcontextprotocol/clientCapabilities': {}}
+        mutation = json.dumps(dict(jsonrpc='2.0', id='malformed-edit',
+                                   method='tools/call', params=params))
+        for tail in ('\0', '\0hidden', '\x1a hidden', ' {}', ' garbage'):
+            client.raw(mutation + tail)
+            assert client.receive(None)['error']['code'] == -32700
+            current = client.tool('forge_discover')
+            assert current['revision'] == discovery['revision']
+            assert current['next_sequence'] == discovery['next_sequence']
+            assert not client.tool('forge_scene_read', target=target)['result']['entities']
+        health_params = {} if legacy else {'_meta': params['_meta']}
+        client.raw(json.dumps(dict(jsonrpc='2.0', id='crlf', method=health,
+                                   params=health_params)) + '\r')
+        assert 'result' in client.receive('crlf')
         created = client.tool('forge_entity_create', **args)
         assert created['ok'], created
         observed = direct(config, dict(api=1, method='scene.read', target=target))
@@ -177,6 +197,49 @@ with host() as (process, config):
         process.kill()
         process.wait(timeout=3)
         failed(client.tool('forge_discover'), 'connection_unavailable')
+
+
+# Exercise native bridge response admission, including a repaired exchange on
+# the same MCP process. The controlled peer supplies valid discovery structure.
+@contextmanager
+def response_peer(first):
+    listener = socket.socket()
+    listener.bind(('127.0.0.1', 0))
+    listener.listen(1)
+    listener.settimeout(5)
+    errors = []
+    valid = json.dumps(dict(transport=1, id='mcp', next_sequence=1,
+                           response=dict(api=1, ok=True, revision=1,
+                                         result=dict(methods=[], note='Unicode 界\0')))).encode()
+
+    def serve():
+        try:
+            for payload in (first(valid), valid):
+                channel, _ = listener.accept()
+                with channel, channel.makefile('rb') as reader:
+                    channel.settimeout(5)
+                    reader.readline(1048577)
+                    channel.sendall(payload + b'\n')
+        except Exception as error:
+            errors.append(str(error))
+
+    worker = threading.Thread(target=serve)
+    worker.start()
+    try:
+        yield dict(transport=1, host='127.0.0.1', port=listener.getsockname()[1], token='a' * 64)
+    finally:
+        listener.close()
+        worker.join(timeout=6)
+        assert not worker.is_alive() and not errors, errors
+
+
+for tail in (b'\0', b'\0hidden', b'\x1a hidden', b' {}', b' garbage'):
+    with response_peer(lambda valid: valid + tail) as config, Client(config) as client:
+        assert client.request('tools/list')['error']['code'] == -32000
+        assert client.request('tools/list')['result']['tools']
+with response_peer(lambda _: b'[' * 130 + b'0' + b']' * 130) as config, Client(config) as client:
+    assert client.request('tools/list')['error']['code'] == -32000
+    assert client.request('tools/list')['result']['tools']
 
 
 # Stall a real socket to prove cancellation and EOF interrupt an in-flight request.

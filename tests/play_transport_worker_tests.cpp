@@ -437,7 +437,96 @@ int run(int argc, char** argv) {
 }
 } // namespace child
 
+namespace {
+constexpr auto json_child_mode = "FORGE_TEST_PLAY_JSON_RECORD";
+int json_record_child(const std::string& mode) {
+    BINARY_MODE(0);
+    BINARY_MODE(1);
+    std::string line;
+    if (!std::getline(std::cin, line))
+        return 2;
+    const auto request = forge::Json::parse(line);
+    const forge::Json scene{{"version", 3},
+                            {"entities", forge::Json::array()},
+                            {"probe_note", std::string("UTF-8 \xe7\x95\x8c") + '\0'}};
+    const forge::Json response{{"protocol", 2},
+                               {"session", "json-record-test"},
+                               {"id", request.at("id")},
+                               {"ok", true},
+                               {"recovery", nullptr},
+                               {"scene", scene},
+                               {"effective_scene", scene},
+                               {"timing", {{"paused", true}}}};
+    std::string wire = response.dump();
+    if (mode == "nul")
+        wire.push_back('\0');
+    else if (mode == "hidden")
+        wire.append("\0hidden", 7);
+    else if (mode == "native_end")
+        wire += "\x1a hidden";
+    else if (mode == "second_value")
+        wire += " {}";
+    else if (mode == "garbage")
+        wire += " garbage";
+    else if (mode != "valid")
+        return 3;
+    wire += '\n';
+    std::fwrite(wire.data(), 1, wire.size(), stdout);
+    std::fflush(stdout);
+    while (std::getline(std::cin, line)) {
+    }
+    return 0;
+}
+void test_json_records(const char* executable) {
+    log("complete JSON records through real PlaySession and child pipes");
+    auto* environment = SDL_GetEnvironment();
+    const char* previous = SDL_GetEnvironmentVariable(environment, json_child_mode);
+    struct RestoreEnvironment {
+        SDL_Environment* environment;
+        bool present;
+        std::string value;
+        ~RestoreEnvironment() {
+            if (present)
+                SDL_SetEnvironmentVariable(environment, json_child_mode, value.c_str(), true);
+            else
+                SDL_UnsetEnvironmentVariable(environment, json_child_mode);
+        }
+    } restore{environment, previous != nullptr, previous ? previous : ""};
+    forge::EngineContext engine;
+    forge::Scene authored(engine.world());
+    const auto original = authored.snapshot();
+    forge::PlaySession play;
+    for (const char* mode : {"nul", "hidden", "native_end", "second_value", "garbage", "valid"}) {
+        require(SDL_SetEnvironmentVariable(environment, json_child_mode, mode, true),
+                "Cannot configure JSON child");
+        play.start(executable, original, true);
+        require(play.active(), "JSON child did not launch");
+        require(wait_for(
+                    [&] {
+                        play.pump();
+                        return !play.active() || play.snapshot().contains("probe_note");
+                    },
+                    3000),
+                "JSON child did not produce a timely result");
+        if (std::strcmp(mode, "valid") == 0) {
+            require(play.active() && play.snapshot().at("probe_note") ==
+                                         std::string("UTF-8 \xe7\x95\x8c") + '\0',
+                    "Valid escaped control/Unicode response was rejected after restart");
+        } else {
+            require(!play.active() && play.snapshot() == original &&
+                        play.status().find("Authored scene is safe") != std::string::npos,
+                    std::string("Malformed response changed the Play snapshot: ") + mode);
+        }
+        require(authored.snapshot() == original, "Protocol failure changed authored state");
+        play.stop();
+    }
+}
+} // namespace
+
 int main(int argc, char** argv) {
+    if (argc == 1)
+        if (const char* mode = std::getenv(json_child_mode))
+            return json_record_child(mode);
     {
         const int rc = child::run(argc, argv);
         if (argc >= 3 && std::strcmp(argv[2], "--child") == 0)
@@ -450,6 +539,12 @@ int main(int argc, char** argv) {
     // RAII wrapper below.
     try {
         require(SDL_Init(0) == true, std::string("SDL_Init failed: ") + SDL_GetError());
+
+        test_json_records(self_executable_path(argv[0]));
+        if (argc == 2 && std::strcmp(argv[1], "--json-only") == 0) {
+            SDL_Quit();
+            return 0;
+        }
 
         // -- Scenario A: Large response, main sleeps > 5 s. -----------
         // Verifies: worker reads 70 KiB in chunks; main's 6 s sleep

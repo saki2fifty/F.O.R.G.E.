@@ -3,6 +3,7 @@
 #include "audio_source_access.hpp"
 #include "authored_inspection.hpp"
 #include "cpu_profile_control.hpp"
+#include "json_document.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
@@ -332,7 +333,7 @@ int main(int argc, char** argv) {
                         startup_phase(phase);
                 };
                 try {
-                    const auto request = forge::Json::parse(line);
+                    const auto request = forge::detail::parse_json_document(line);
                     response["id"] = request.value("id", forge::Json(0));
                     if (request.value("protocol", 0) != 2)
                         throw std::runtime_error(

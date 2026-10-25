@@ -3,6 +3,7 @@
 #include "audio_mix.hpp"
 #include "audio_source_access.hpp"
 #include "cpu_profile_control.hpp"
+#include "json_document.hpp"
 #include "particle_runtime.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
@@ -1630,7 +1631,7 @@ void SdkPlayRuntime::process() {
         // that.
         Json request;
         try {
-            request = Json::parse(line);
+            request = detail::parse_json_document(line);
         } catch (const std::exception& e) {
             diag_log("[sdk_diag runtime t=%lld stage=parse_error bytes=%zu]", diag_ms(),
                      line.size());

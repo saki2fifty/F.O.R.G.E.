@@ -17,6 +17,8 @@ def call(operation, **values):
 try:
     stats = call('statistics')
     assert stats['ok'] and stats['result']['memory_bytes'] > 0, stats
+    process.stdin.write('{"operation":"statistics"}\r\n'); process.stdin.flush()
+    assert json.loads(process.stdout.readline())['ok']
     exported = call('world.export')
     assert exported['ok'], exported
     query = call('query', expression='*', limit=10)
@@ -58,6 +60,12 @@ try:
     inspected = call('query', expression='forge\\.local_translation')
     assert inspected['ok'] and inspected['result']['results'][0]['name'] == 'InspectionProbe', inspected
     before = inspected['result']
+    hidden = dict(operation='world.import', document={'results': [{'name': 'MustNotReplace'}]})
+    for tail in ('\0', '\0hidden', '\x1a hidden', ' {}', ' garbage'):
+        process.stdin.write(json.dumps(hidden) + tail + '\n'); process.stdin.flush()
+        rejected = json.loads(process.stdout.readline())
+        assert not rejected['ok'], rejected
+        assert call('query', expression='forge\\.local_translation')['result'] == before
     bad = call('world.import', document={'results': 'invalid'})
     assert not bad['ok'], bad
     assert call('statistics')['ok'], 'Failed import damaged previous world'

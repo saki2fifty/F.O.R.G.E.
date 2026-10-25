@@ -168,6 +168,13 @@ def main():
     bridge = ProcessBridge(proc, stderr_log)
     rid = 1
     try:
+        # Malformed Hello records must not initialize the SDK session or consume
+        # its first request ID. The following clean Hello uses that same ID.
+        hello = dict(protocol=2, id=rid, command='hello', application_id='forge.test.process')
+        for tail in (b'\0', b'\0hidden', b'\x1a hidden', b' {}', b' garbage'):
+            bridge.send(_encode(hello)[:-1] + tail + b'\n')
+            rejected = bridge.read_message(time.monotonic() + 10.0, expected_id=0)
+            assert not rejected['ok'] and not rejected.get('quit_requested', False), rejected
         # 1. hello -> session.
         bridge.send(_encode({
             "protocol": 2,

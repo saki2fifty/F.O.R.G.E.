@@ -1,4 +1,5 @@
 #pragma once
+#include "json_document.hpp"
 #include <cstdio>
 #include <forge/ecs_tools.hpp>
 #include <iostream>
@@ -20,7 +21,7 @@ class EcsProtocolOutput {
         const int saved = _dup(_fileno(stdout));
         if (saved < 0)
             throw std::runtime_error("Cannot preserve protocol output");
-        stream_ = _fdopen(saved, "w");
+        stream_ = _fdopen(saved, "wb");
         if (!stream_) {
             _close(saved);
             throw std::runtime_error("Cannot open protocol output");
@@ -78,7 +79,7 @@ inline int ecs_tools_stdio() {
         try {
             if (overflow)
                 throw std::runtime_error("ECS tool request exceeds 1 MiB");
-            const auto request = nlohmann::ordered_json::parse(
+            const auto request = detail::parse_json_document<nlohmann::ordered_json>(
                 line,
                 [](int depth, nlohmann::ordered_json::parse_event_t, nlohmann::ordered_json&) {
                     if (depth > 64)

@@ -1,3 +1,4 @@
+#include "json_document.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -449,11 +450,12 @@ void LiveAuthoring::pump(const std::string& unavailable_reason) {
             return;
         }
         try {
-            const auto wire = Json::parse(s.input, [](int depth, Json::parse_event_t, Json&) {
-                if (depth > 64)
-                    throw std::runtime_error("Request too deep");
-                return true;
-            });
+            const auto wire =
+                detail::parse_json_document(s.input, [](int depth, Json::parse_event_t, Json&) {
+                    if (depth > 64)
+                        throw std::runtime_error("Request too deep");
+                    return true;
+                });
             s.output = s.dispatch(wire, unavailable_reason).dump() + "\n";
         } catch (const std::exception&) {
             s.output = Json{{"transport", 1},

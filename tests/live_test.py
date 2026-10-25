@@ -63,6 +63,15 @@ with host('edit') as config:
     apply = dict(api=1, method='scene.apply', target=target, expected_revision=revision,
                  commands=[dict(operation='entity.create', arguments=dict(kind=0, name='Live cube'))])
     error(exchange(config, wire(config, apply, 1, token='wrong')), 'unauthorized')
+    for tail in (b'\0', b'\0hidden', b'\x1a hidden', b' {}', b' garbage'):
+        raw = json.dumps(wire(config, apply, 1)).encode() + tail + b'\n'
+        with socket.create_connection(('127.0.0.1', config['port']), timeout=5) as channel:
+            channel.sendall(raw)
+            with channel.makefile('rb') as reader:
+                error(json.loads(reader.readline(16777217)), 'invalid_request')
+        current = exchange(config, wire(config, dict(api=1, method='scene.read', target=target)))
+        assert current['next_sequence'] == 1 and current['response']['revision'] == revision
+        assert not current['response']['result']['entities']
     applied = exchange(config, wire(config, apply, 1))
     assert applied['response']['ok'] and applied['next_sequence'] == 2
     duplicate = exchange(config, wire(config, apply, 1, request_id='retry'))

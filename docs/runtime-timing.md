@@ -86,6 +86,14 @@ The controller permits one request in flight. Runtime stores one bounded respons
 
 Frames are capped at 16 MiB; oversize input terminates the worker and oversize output produces a bounded diagnostic. Editor clients time out outstanding requests after five seconds. End-of-input/broken pipes terminate the session; orderly quit has a bounded output drain. There is no network listener. Disk saves, native callbacks and serialization are synchronous owner-thread operations; blocked native code remains a process failure/stall, not a schedulable task.
 
+Request and editor-admitted response lines must each contain one complete JSON
+record. Raw NUL bytes cannot terminate parsing early and hide a suffix. Invalid
+JSON requests return a failure before consuming a request ID or applying a control;
+invalid JSON replies stop Play before adopting their snapshots. Authored scene data
+is retained. Escaped JSON control values and valid UTF-8 remain supported.
+The ordinary runtime and C++ SDK Play process use the same record check, before
+their separate control/session handlers run.
+
 ## Transactional native activation
 
 Current project C++ iteration is Stop → Save → Build → Play, with matching exact-SDK admission. It does not preserve arbitrary C++ static state or hot-reload a running module. The internal non-SDK-Play process path retains the following activation/recovery mechanism for its existing consumers and tests; it is not the editor C++ build workflow. See [native modules](native-modules.md). Build/probe does not mark a live candidate active. Probe uses representative current checkpoint data and one real fixed tick. The live runtime acknowledges a safe pause boundary and an uninterpolated checkpoint before load. Activation state becomes LoadedPendingFirstTick. Only a completed live fixed tick changes it to Active; loading/ABI checks alone do not.
