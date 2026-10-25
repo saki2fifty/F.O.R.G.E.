@@ -46,6 +46,37 @@ conflict retries. Raw samples, binary/input hashes and benchmark tooling are kep
 in `AgentFiles/audits/2026-10-25-project/performance-paired.json` and its sibling
 audit files; these are local audit evidence, not a numbered Windows delivery.
 
+## Read-only entity selection queries — 2026-10-25
+
+Compared `d08583205f468a8190433238f4c1efc633e3a54c` with the selection query
+correction in the [October 25 audit batch](../changelog/20261025/README.md).
+Hierarchy asks whether each row is selected and whether there is at most one
+selected entity. Previously both queries copied the complete selection vector
+and its strings. Membership now searches a private read-only view; count reads
+its size. Callers needing an owning snapshot still receive one from `entities()`.
+The legacy single-entity writer, selection ordering and mutation rules are unchanged.
+
+The probe calls the actual `EditorSelection` implementation on the same Linux VM
+and GCC 12 Release configuration as the history measurements. Each sample makes
+four passes over every selected row, checking membership and count. Input IDs are
+36-byte strings; selection construction is outside timing. Before/after/before/after
+processes each collect five samples, with no concurrent compilation. Medians below
+combine ten samples per version; returned membership/count totals are checked.
+
+| Selected entities / rows | Before, four passes | After, four passes |
+| --- | ---: | ---: |
+| 1 | 0.00060 ms | 0.00016 ms |
+| 64 | 1.974 ms | 0.063 ms |
+| 1,000 | 415.685 ms | 14.051 ms |
+
+This measures only the two queries, not a whole Hierarchy frame, scene preparation,
+filtering, tree construction, rendering or Windows responsiveness. Membership
+still performs a linear search; the single-row timings are too short for a strong
+latency claim. Native large-selection timing remains pending. Raw samples and
+attribution are in the local audit's `selection-performance-paired.json` and
+`selection-probe-*-inputs.json`. The portable `selection_editor` check exercises
+actual Hierarchy Ctrl/Shift clicks and the existing batch-edit/Undo/prefab tests.
+
 ## Matched startup and idle comparison
 
 Verified 2026-09-22.

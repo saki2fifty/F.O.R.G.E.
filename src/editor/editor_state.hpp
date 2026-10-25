@@ -9,6 +9,7 @@
 #include <functional>
 #include <map>
 #include <set>
+#include <span>
 #include <vector>
 namespace forge::ui {
 // Editor-only identity/scope. World/component/asset contents remain in their existing owners.
@@ -20,12 +21,12 @@ class EditorSelection {
     std::string& entity_slot() { return entity_; }
     // Legacy single-target writers invalidate the multi-selection on their next read.
     std::vector<std::string> entities() const {
-        if (entity_.empty())
-            return {};
-        return entity_ == primary_ ? entities_ : std::vector<std::string>{entity_};
+        const auto ids = entity_view();
+        return {ids.begin(), ids.end()};
     }
+    std::size_t entity_count() const { return entity_view().size(); }
     bool contains(const std::string& id) const {
-        const auto ids = entities();
+        const auto ids = entity_view();
         return std::find(ids.begin(), ids.end(), id) != ids.end();
     }
     void select_entities(std::vector<std::string> ids) {
@@ -120,6 +121,12 @@ class EditorSelection {
     }
 
   private:
+    std::span<const std::string> entity_view() const {
+        if (entity_.empty())
+            return {};
+        return entity_ == primary_ ? std::span<const std::string>(entities_)
+                                   : std::span<const std::string>(&entity_, 1);
+    }
     SelectionKind kind_ = SelectionKind::None;
     std::string entity_, member_, document_;
     AssetId asset_;

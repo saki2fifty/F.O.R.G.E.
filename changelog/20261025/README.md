@@ -60,6 +60,12 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Scene history and Content discovery
 
+- Hierarchy membership and count queries avoid copying every selected ID per row.
+  Inspector/status count checks share the same read-only query. Owning snapshots,
+  legacy writes and selection behavior remain unchanged. Actual selection input
+  and existing batch-edit/Undo tests cover the change; query-only measurements
+  and their limits are recorded in the performance reference.
+
 - Derived Cache clears completed results and errors when opening another project,
   including switches made while its window is closed. Same-project observations
   remain available. The actual UI regression checks the shared work guard,

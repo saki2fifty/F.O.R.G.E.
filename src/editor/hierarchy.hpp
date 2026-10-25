@@ -73,7 +73,7 @@ inline void hierarchy(const Json& doc, std::string& selected, const std::string&
             help("Select this entity. Ctrl-click toggles; Shift-click selects a filtered hierarchy "
                  "range, using visible rows.");
             if (scene && !locked && !e->contains("prefab_member") &&
-                (!selection || selection->entities().size() <= 1) && ImGui::BeginDragDropSource()) {
+                (!selection || selection->entity_count() <= 1) && ImGui::BeginDragDropSource()) {
                 ImGui::SetDragDropPayload("FORGE_ENTITY", id.c_str(), id.size() + 1);
                 ImGui::Text("Move: %s", e->at("name").get_ref<const std::string&>().c_str());
                 ImGui::EndDragDropSource();

@@ -154,6 +154,14 @@ It checks same-project retention, clearing old errors while closed, the existing
 automation scope guard and preserving a matching result completed before drawing.
 It does not claim successful Windows assembly or exported-game execution.
 
+`selection_editor` drives actual Hierarchy plain/Ctrl/Shift clicks, filtered
+ranges, primary retention and legacy single-selection writes. It also executes
+the existing batch-authoring assertions for spatial roots, atomic invalid edits,
+Undo/Redo, prefab overrides and the batch Inspector. Selection must leave authored
+state/history unchanged; owning selection snapshots must remain independent.
+This portable fixture is included in the shared Windows selector. Native input,
+large-selection frame timing and the full editor entry point remain separate checks.
+
 `native_sdk_configuration` interprets the installed CMake package with explicit
 Windows/Linux toolchain profiles. It checks exact-profile acceptance, detailed
 rejections and the Windows deployment CMake-version preflight, without compiling

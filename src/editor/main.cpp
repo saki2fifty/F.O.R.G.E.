@@ -1199,10 +1199,10 @@ int main(int argc, char** argv) {
             }
             if (plan.request.action != forge::AssetFileAction::Duplicate) {
                 const auto id = plan.request.asset;
-                documents.source_file_changed(
-                    id, plan.request.action == forge::AssetFileAction::Move
-                            ? std::optional(plan.request.destination)
-                            : std::nullopt);
+                documents.source_file_changed(id,
+                                              plan.request.action == forge::AssetFileAction::Move
+                                                  ? std::optional(plan.request.destination)
+                                                  : std::nullopt);
                 if (files.document.prefabs().records().contains(id))
                     prefab_editor.request_close();
             }
@@ -2952,13 +2952,13 @@ int main(int argc, char** argv) {
             }
             add_action("rename", "Rename entity", "F2",
                        "Focus the selected entity name in Inspector.",
-                       editor.selection.entities().size() == 1 && !edit_locked && scene_task, [&] {
+                       editor.selection.entity_count() == 1 && !edit_locked && scene_task, [&] {
                            editor.rename_entity = true;
                            workspace.inspector = true;
                        });
             add_action("add_component", "Add Component", "",
                        "Search registered components for the selected entity.",
-                       editor.selection.entities().size() == 1 && !edit_locked && scene_task, [&] {
+                       editor.selection.entity_count() == 1 && !edit_locked && scene_task, [&] {
                            editor.add_component = true;
                            workspace.inspector = true;
                        });
@@ -3057,7 +3057,7 @@ int main(int argc, char** argv) {
                     type == "forge.two_bone_ik" ? "Scene / Reach target" : "Scene / Aim target", "",
                     "Manipulate the selected rig target in model space. Release commits; Escape "
                     "cancels.",
-                    !edit_locked && editor.selection.entities().size() == 1 &&
+                    !edit_locked && editor.selection.entity_count() == 1 &&
                         bool(forge::rig_target_view(authoring_snapshot.effective(scene), selected,
                                                     type)),
                     [&, type] { component_inspector.edit_rig_target(type); });
@@ -5389,7 +5389,7 @@ int main(int argc, char** argv) {
                         expand = -1;
                     } else
                         FORGE_UI_PROBE("hierarchy:collapse-all");
-                    ImGui::TextDisabled("%zu selected", editor.selection.entities().size());
+                    ImGui::TextDisabled("%zu selected", editor.selection.entity_count());
                     forge::ui::help("Ctrl-click toggles; Shift-click selects a visible range. The "
                                     "last selected entity is primary.");
                     editor.task.focus(forge::ui::DocumentTask::Scene);
@@ -5439,17 +5439,17 @@ int main(int argc, char** argv) {
                         play.effective_snapshot(), scene.asset_id(), selected))
                     play.physics_debug_selection = *watch;
             const bool live_inspector_ready =
-                play.active() && inspect_live_scene && editor.selection.entities().size() == 1 &&
+                play.active() && inspect_live_scene && editor.selection.entity_count() == 1 &&
                 forge::ComponentInspector::has_runtime_inspection(play.effective_snapshot(),
                                                                   play.runtime_schema(), selected,
                                                                   play.physics_status());
             const auto live_sound =
-                workspace.inspector && inspect_live_scene && editor.selection.entities().size() == 1
+                workspace.inspector && inspect_live_scene && editor.selection.entity_count() == 1
                     ? forge::AudioSourceEditor::selected(play.effective_snapshot(), selected)
                     : std::optional<forge::EntityRef>{};
             play.watch_audio_source(live_sound);
             const auto live_animation =
-                workspace.inspector && inspect_live_scene && editor.selection.entities().size() == 1
+                workspace.inspector && inspect_live_scene && editor.selection.entity_count() == 1
                     ? forge::AnimationPlaybackEditor::selected(play.effective_snapshot(), selected)
                     : std::optional<forge::EntityRef>{};
             play.watch_animation(live_animation);
@@ -5535,11 +5535,11 @@ int main(int argc, char** argv) {
                             "Select an object in the Scene or Hierarchy to edit its properties.");
                         forge::ui::help("Click a scene object or hierarchy row.");
                     }
-                    if (editor.selection.entities().size() > 1)
+                    if (editor.selection.entity_count() > 1)
                         forge::ui::batch_inspector(scene, files.document.project(),
                                                    editor.selection.entities());
                     for (const auto& e : doc["entities"])
-                        if (e.at("id") == selected && editor.selection.entities().size() == 1) {
+                        if (e.at("id") == selected && editor.selection.entity_count() == 1) {
                             ImGui::TextWrapped("%s",
                                                e.at("name").get_ref<const std::string&>().c_str());
                             forge::ui::help("This Inspector edits the authored entity; runtime "

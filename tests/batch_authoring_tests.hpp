@@ -1,4 +1,5 @@
 #pragma once
+#include "authoring.hpp"
 #include "batch_inspector.hpp"
 #include "transform_gesture.hpp"
 inline void test_batch_authoring() {
