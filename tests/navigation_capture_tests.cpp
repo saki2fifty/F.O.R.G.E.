@@ -1,5 +1,6 @@
 #include "navigation_sources.hpp"
 #include <forge/authoring.hpp>
+#include <forge/character_components.hpp>
 #include <forge/navigation.hpp>
 #include <forge/prefab_authoring.hpp>
 #include <forge/runtime.hpp>
@@ -81,6 +82,43 @@ void source_tests() {
     auto floor = f.scene.entity("floor");
     auto parent = f.scene.entity("parent");
     f.equivalent("plain primitive");
+    floor.set<CharacterController2D>({});
+    f.equivalent("enabled2D controller source", false);
+    floor.remove<CharacterController2D>();
+    floor.set<CharacterController>({});
+    f.equivalent("enabled3D controller source", false);
+    floor.set<CharacterController>({false});
+    f.equivalent("disabled3D controller source");
+    floor.remove<CharacterController>();
+    floor.set<CharacterController2D>({false});
+    f.equivalent("disabled2D controller source");
+    floor.remove<CharacterController2D>();
+    for (bool planar : {false, true}) {
+        f.scene.reparent_entity("floor", "parent", ReparentMode::KeepLocal);
+        if (planar)
+            parent.set<CharacterController2D>({});
+        else
+            parent.set<CharacterController>({});
+        f.equivalent(planar ? "2D controller structural ancestor"
+                            : "3D controller structural ancestor",
+                     false);
+        floor.set<SpatialBinding>({SpatialMode::Explicit, f.scene.reference("parent")});
+        f.equivalent(planar ? "2D controller explicit ancestor" : "3D controller explicit ancestor",
+                     false);
+        floor.set<SpatialBinding>({SpatialMode::World});
+        f.equivalent("World binding ignores controller structural ancestor");
+        floor.set<SpatialBinding>({SpatialMode::Explicit, f.scene.reference("parent")});
+        if (planar)
+            parent.set<CharacterController2D>({false});
+        else
+            parent.set<CharacterController>({false});
+        f.equivalent("Disabled controller ancestor");
+        parent.remove<CharacterController>();
+        parent.remove<CharacterController2D>();
+        floor.set<SpatialBinding>({SpatialMode::FollowStructure});
+        f.scene.reparent_entity("floor", "", ReparentMode::KeepLocal);
+    }
+
     floor.set<LocalScale>({-20, 1, 20});
     f.equivalent("mirrored primitive");
     floor.set<MeshRenderer>({{AssetId::generate()}});
@@ -142,6 +180,35 @@ void source_tests() {
     untracked.destruct();
     f.scene.delete_subtree("floor");
     f.equivalent("deleted source", false);
+}
+void controller_prefab_tests() {
+    for (bool planar : {false, true}) {
+        Fixture f;
+        auto floor = f.scene.entity("floor");
+        if (planar)
+            floor.set<CharacterController2D>({});
+        else
+            floor.set<CharacterController>({});
+        auto source = create_prefab_source(f.scene, "floor");
+        f.scene.set_prefab_sources({{source.asset(), source.source}});
+        if (planar)
+            floor.set<CharacterController2D>({false});
+        else
+            floor.set<CharacterController>({false});
+        const auto instance = instantiate_prefab(f.scene, source.asset());
+        auto inherited = f.scene.entity(instance);
+        check(planar ? !inherited.owns<CharacterController2D>()
+                     : !inherited.owns<CharacterController>(),
+              "Controller source fixture did not retain actual prefab inheritance");
+        f.equivalent("Inherited enabled controller source", false);
+        authoring_command(
+            f.scene, "property.set",
+            {{"entity", instance},
+             {"component", planar ? "forge.character_controller_2d" : "forge.character_controller"},
+             {"field", "enabled"},
+             {"value", false}});
+        f.equivalent("Partial disabled controller source override");
+    }
 }
 void prefab_tests() {
     Fixture f;
@@ -303,6 +370,7 @@ int main(int argc, char** argv) {
         check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--equivalence-only"),
               "Need data root and navigation worker");
         source_tests();
+        controller_prefab_tests();
         prefab_tests();
         removed_prefab_test(false);
         removed_prefab_test(true);

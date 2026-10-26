@@ -4,7 +4,8 @@ Navigation lets an object find a route across a floor and around static obstacle
 
 Agents follow baked static geometry. Add **Navigation Avoidance** for local steering
 around other participating agents. Moving obstacles do not automatically change
-the NavMesh, and Navigation Agents cannot also have a Physics Body.
+the NavMesh. Navigation Agents cannot also have a Physics Body, Physics Body 2D
+or an enabled Character Controller in either domain.
 
 In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU time
 spent checking marked surfaces during Play. Rebuild the NavMesh after changing
@@ -15,10 +16,16 @@ marked geometry.
 1. Create a Plane. Set its scale to **20, 1, 20** and position to **0, 0, 0**.
 2. Select it. In Inspector, use **+ Add Component → Navigation / Navigation Surface**. Leave **Enabled** checked.
 3. Create a Cube at **0, 2, 0**, with scale **2, 4, 4**. Add a Navigation Surface to it too.
-4. You can add a second obstacle elsewhere on the floor. Mark every shape that should affect the route.
+4. You can add a second obstacle elsewhere on the floor. Mark every static shape that should affect the route.
 5. Save the scene.
 
 Marked built-in shapes, editable Mesh assets, and static imported Mesh entities contribute. For an imported Model, select its child entity that has a **Mesh Renderer**, then add **Navigation Surface**. Marking only its group/root does not include its children automatically. Unmarked objects are invisible to the build. Keep marked geometry static.
+
+Marked sources and their spatial parents must have no enabled **Character
+Controller** or **Character Controller 2D**. Disable the controller or use another
+object as static navigation geometry. An inherited controller counts too. A
+**Child space: World** object does not follow its structural parent. A failed build
+keeps the previously selected NavMesh.
 
 Skinned characters, morphing meshes, points and lines cannot be baked. The build uses the Mesh's first level of detail and all its triangle parts. The small-scene profile supports up to32 external Mesh assets and16,384 included triangles; an oversized/unsupported Mesh gives a diagnostic and preserves the previous NavMesh. After editing or reimporting a marked Mesh, rebuild that Mesh through its normal Content workflow, then rebuild navigation. Saving its source alone does not change the selected cooked revision.
 
@@ -60,7 +67,7 @@ A build is a separate asset operation. Scene Undo does not undo a navmesh build.
 ## Make an agent follow a path
 
 1. Create another Cube named **Agent** at **-8, 0.1, 0**. A small scale such as **0.2, 0.2, 0.2** makes it easy to see.
-2. Use **+ Add Component → Navigation / Navigation Agent**. Do not mark this moving object as a Navigation Surface or give it a Physics Body.
+2. Use **+ Add Component → Navigation / Navigation Agent**. Do not mark this moving object as a Navigation Surface, give it a Physics Body in either domain, or enable a Character Controller on it.
 3. Choose the generated **NavMesh**.
 4. Set **Destination X = 8**, **Destination Y = 0.1**, and **Destination Z = 0**. Press Enter to commit each numeric field.
 5. Enable **Has destination**. Leave **Enabled** checked and **Speed** at 2.
@@ -69,6 +76,13 @@ A build is a separate asset operation. Scene Undo does not undo a navmesh build.
 8. Click **Stop**. The authored cube returns to its original position.
 
 Destinations use world coordinates: X and Z run across the floor, and Y points upward. **Stopping distance** is the remaining distance along the route to the projected destination. Movement changes position; the agent does not turn to face its route. Its transform origin follows the navigation surface. For a larger visual model, use a child object with an upward local offset.
+
+Keep the agent's spatial parents stationary and free of enabled character
+controllers. A controller on the object or its spatial parent stops navigation
+movement and reports a failed/invalid state. A disabled controller allows ordinary
+navigation. If C++ controls your character, query the Navigation service for a
+route and let that controller own movement; do not add a second active Navigation
+Agent driver.
 
 ## See movement progress
 

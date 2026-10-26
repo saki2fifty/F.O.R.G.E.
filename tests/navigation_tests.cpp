@@ -4,6 +4,7 @@
 #include <cmath>
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
+#include <forge/character_components.hpp>
 #include <forge/navigation.hpp>
 #include <forge/navigation_build.hpp>
 #include <forge/prefab_authoring.hpp>
@@ -138,6 +139,18 @@ int main(int argc, char** argv) {
                   "Moving 2D source changed the navigation catalog");
         }
         scene.entity("floor").remove<PhysicsBody2D>();
+        for (bool planar : {false, true}) {
+            if (planar)
+                scene.entity("floor").set<CharacterController2D>({});
+            else
+                scene.entity("floor").set<CharacterController>({});
+            reject([&] { prepare(); });
+            check(read(AssetCatalog::project_index(root)) == baseline,
+                  "Controller source rejection changed the existing navigation catalog");
+            scene.entity("floor").remove<CharacterController>();
+            scene.entity("floor").remove<CharacterController2D>();
+        }
+
         const auto parent_2d_id =
             authoring_command(scene, "entity.create", {{"name", "Moving 2D source parent"}})
                 .at("selected")
@@ -370,6 +383,31 @@ int main(int argc, char** argv) {
                   observe().status == NavStatus::Invalid,
               "Navigation drove an entity with a 2D body");
         f.scene.entity("agent").remove<PhysicsBody2D>();
+        for (bool planar : {false, true}) {
+            auto actor = f.scene.entity("agent");
+            if (planar)
+                actor.set<CharacterController2D>({});
+            else
+                actor.set<CharacterController>({});
+            stop = f.position();
+            f.tick();
+            check(f.position() == stop && observe().phase == NavigationAgentPhase::Failed &&
+                      observe().status == NavStatus::Invalid && !observe().sampled,
+                  "Navigation moved an enabled controller without a PhysicsRuntime provider");
+            check(f.navigation->find_path({record.id}, {-8, .1, 0}, {8, .1, 0}).status ==
+                      NavStatus::Success,
+                  "Controller conflict disabled unrelated read-only path queries");
+            if (planar)
+                actor.set<CharacterController2D>({false});
+            else
+                actor.set<CharacterController>({false});
+            f.tick();
+            check(f.position() != stop && observe().phase == NavigationAgentPhase::Moving,
+                  "Disabled controller retained navigation pose authority");
+            actor.remove<CharacterController>();
+            actor.remove<CharacterController2D>();
+        }
+
         f.scene.entity("floor").set<LocalTranslation>({0, 1, 0});
         check(f.navigation->project_point({record.id}, {-8, .1, 0}).status == NavStatus::Stale,
               "Changed source not stale");
@@ -408,6 +446,31 @@ int main(int argc, char** argv) {
         f.tick();
         check(f.position() == stop, "Agent followed Dynamic spatial ancestor");
         parent.remove<PhysicsBody>();
+        for (bool planar : {false, true}) {
+            if (planar)
+                parent.set<CharacterController2D>({});
+            else
+                parent.set<CharacterController>({});
+            f.tick();
+            check(f.position() == stop && observe().phase == NavigationAgentPhase::Failed &&
+                      observe().status == NavStatus::Invalid,
+                  "NavigationAgent followed an enabled controller ancestor");
+            agent.set<SpatialBinding>({SpatialMode::World, {}});
+            f.tick();
+            check(f.position() != stop, "World binding retained controller ancestry conflict");
+            stop = f.position();
+            agent.set<SpatialBinding>(
+                {SpatialMode::Explicit, f.engine.world().reference(parent.id()).value()});
+            if (planar)
+                parent.set<CharacterController2D>({false});
+            else
+                parent.set<CharacterController>({false});
+            f.tick();
+            check(f.position() != stop, "Disabled controller ancestor retained pose ownership");
+            stop = f.position();
+            parent.remove<CharacterController>();
+            parent.remove<CharacterController2D>();
+        }
         for (unsigned motion : {1u, 2u}) {
             parent.set<PhysicsBody2D>({motion});
             f.tick();

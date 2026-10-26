@@ -2,6 +2,18 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Navigation movement ownership
+
+- Navigation rejects enabled Character Controllers in both domains on agents,
+  static bake sources and their resolved spatial ancestry, including inherited
+  values and before native realization. World binding still ends traversal;
+  disabled controllers retain ordinary eligibility. Pure path queries remain
+  available for C++ controller policy.
+- Native and authored source capture share the same validation. Failed builds
+  preserve prior catalog/artifact selection. Existing identities, formats, SDK
+  tables and checkpoints are unchanged. A focused MCP navigation route exercises
+  actual publication/rejection without requiring a Windows runtime kit.
+
 ## Checked 2D stair rise
 
 - Character Controller2D adds default-off world-space **Step Height**, with bounded

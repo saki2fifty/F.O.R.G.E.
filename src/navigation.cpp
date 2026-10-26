@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <forge/assets.hpp>
+#include <forge/character_components.hpp>
 #include <forge/navigation.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/scene.hpp>
@@ -158,9 +159,12 @@ struct NavigationRuntime::Impl {
         } catch (const std::exception& error) {
             throw NavigationFailure(NavStatus::Invalid, error.what());
         }
-        if (e.has<PhysicsBody>() || e.has<PhysicsBody2D>())
+        if (e.has<PhysicsBody>() || e.has<PhysicsBody2D>() ||
+            (e.has<CharacterController>() && e.get<CharacterController>().enabled) ||
+            (e.has<CharacterController2D>() && e.get<CharacterController2D>().enabled))
             throw NavigationFailure(NavStatus::Invalid,
-                                    "NavigationAgent movement requires a nonphysics entity");
+                                    "NavigationAgent movement requires an entity without a "
+                                    "physics body or enabled character controller");
         if (e.has<NavigationSurface>() && e.get<NavigationSurface>().enabled)
             throw NavigationFailure(
                 NavStatus::Invalid,
@@ -177,11 +181,15 @@ struct NavigationRuntime::Impl {
                                         "Unresolved navigation spatial ancestry");
             auto ancestor = context.world().entity(current);
             if ((ancestor.has<PhysicsBody>() && ancestor.get<PhysicsBody>().motion != 0) ||
-                (ancestor.has<PhysicsBody2D>() && ancestor.get<PhysicsBody2D>().motion != 0))
-                throw NavigationFailure(
-                    NavStatus::Invalid,
-                    "NavigationAgent cannot follow a moving physics ancestor: " +
-                        std::to_string(current));
+                (ancestor.has<PhysicsBody2D>() && ancestor.get<PhysicsBody2D>().motion != 0) ||
+                (ancestor.has<CharacterController>() &&
+                 ancestor.get<CharacterController>().enabled) ||
+                (ancestor.has<CharacterController2D>() &&
+                 ancestor.get<CharacterController2D>().enabled))
+                throw NavigationFailure(NavStatus::Invalid,
+                                        "NavigationAgent cannot follow a moving physics or "
+                                        "character-controller ancestor: " +
+                                            std::to_string(current));
             current = nodes.at(current).parent;
         }
     }

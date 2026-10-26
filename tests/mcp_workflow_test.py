@@ -11,6 +11,7 @@ import time
 from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
+NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 
 
 @contextmanager
@@ -71,6 +72,20 @@ for legacy in (False, True):
         def write(path, value):
             return ok('forge_source_text_write', path=path, state=text(path)['state'], text=value)
 
+        def navigation_floor():
+            floor = ok('forge_entity_create', arguments=dict(kind=0, name='Navigation floor'))['results'][0]['selected']
+            floor_row = next(row for row in read('forge_scene_read')['entities'] if row['id'] == floor)
+            if 'forge.local_scale' not in floor_row['components']:
+                ok('forge_component_add', arguments=dict(entity=floor, component='forge.local_scale'))
+            ok('forge_property_set_many', arguments=dict(entity=floor, component='forge.local_scale',
+                                                        values=dict(x=20, y=1, z=20)))
+            ok('forge_component_add', arguments=dict(entity=floor, component='forge.navigation_surface'))
+            ok('forge_navigation_build', settings=dict(radius=.4, height=2, climb=.4, slope=45,
+                                                       cell_size=.2, cell_height=.1))
+            navigation = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+            assert navigation['asset'] and not navigation['error'], navigation
+            return floor, navigation
+
         advertised = {t['name']: t for t in client.request('tools/list')['result']['tools']}
         names = set(advertised)
         assert advertised['forge_play_start']['annotations']['openWorldHint']
@@ -78,6 +93,21 @@ for legacy in (False, True):
         assert not advertised['forge_source_text_write']['annotations']['openWorldHint']
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_dependencies_save'} <= names
+        if NAVIGATION_ONLY:
+            floor, navigation = navigation_floor()
+            asset = navigation['asset']
+            index = root / 'Game/forge.assets.json'
+            preserved = index.read_bytes()
+            for component in ('forge.character_controller', 'forge.character_controller_2d'):
+                ok('forge_component_add', arguments=dict(entity=floor, component=component))
+                ok('forge_navigation_build', settings=dict(radius=.4, height=2, climb=.4, slope=45,
+                                                          cell_size=.2, cell_height=.1))
+                rejected = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+                assert 'enabled character controller' in rejected['error'], rejected
+                assert rejected['asset'] == asset and index.read_bytes() == preserved, rejected
+                ok('forge_component_revert', arguments=dict(entity=floor, component=component))
+            print(('legacy' if legacy else 'current') + ': navigation controller rejection retained asset/catalog')
+            continue
         ok('forge_source_folder_create', path='Assets/Shaders')
         shader_file = 'Assets/Shaders/test.hlsl'
         assert text(shader_file)['state'] == 'missing'
@@ -139,17 +169,7 @@ for legacy in (False, True):
         assert read('forge_scene_read') == scene_before
         ok('forge_script_close', state=invalid['state'], discard=True)
 
-        floor = ok('forge_entity_create', arguments=dict(kind=0, name='Navigation floor'))['results'][0]['selected']
-        floor_row = next(row for row in read('forge_scene_read')['entities'] if row['id'] == floor)
-        if 'forge.local_scale' not in floor_row['components']:
-            ok('forge_component_add', arguments=dict(entity=floor, component='forge.local_scale'))
-        ok('forge_property_set_many', arguments=dict(entity=floor, component='forge.local_scale',
-                                                    values=dict(x=20, y=1, z=20)))
-        ok('forge_component_add', arguments=dict(entity=floor, component='forge.navigation_surface'))
-        ok('forge_navigation_build', settings=dict(radius=.4, height=2, climb=.4, slope=45,
-                                                   cell_size=.2, cell_height=.1))
-        navigation = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
-        assert navigation['asset'] and not navigation['error'], navigation
+        floor, navigation = navigation_floor()
         failed(mutate('forge_navigation_cancel', operation='11111111-1111-4111-8111-111111111111'), 'wrong_job')
         cube = ok('forge_entity_create', arguments=dict(kind=0, name='MCP cube'))['results'][0]['selected']
         ok('forge_component_add', arguments=dict(entity=cube, component='forge.navigation_agent'))
@@ -260,4 +280,5 @@ for legacy in (False, True):
 
 with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
     json.dump(CAPTURE, output, separators=(',', ':'))
-print('Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')
+print('Both MCP protocols: navigation ownership verified; no export or Windows execution' if NAVIGATION_ONLY else
+      'Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')

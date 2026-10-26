@@ -1,4 +1,5 @@
 #include "navigation_sources.hpp"
+#include <forge/character_components.hpp>
 #include <forge/physics_components.hpp>
 #include <forge/render_components.hpp>
 
@@ -31,6 +32,10 @@ Json row(flecs::entity e, EntityId id) {
         c["forge.physics_body"] = {{"motion", e.get<PhysicsBody>().motion}};
     if (e.has<PhysicsBody2D>())
         c["forge.physics_body_2d"] = {{"motion", e.get<PhysicsBody2D>().motion}};
+    if (e.has<CharacterController>())
+        c["forge.character_controller"] = {{"enabled", e.get<CharacterController>().enabled}};
+    if (e.has<CharacterController2D>())
+        c["forge.character_controller_2d"] = {{"enabled", e.get<CharacterController2D>().enabled}};
     if (e.has<NavigationAgent>())
         c["forge.navigation_agent"] = {{"enabled", e.get<NavigationAgent>().enabled}};
     const auto binding = e.has<SpatialBinding>() ? e.get<SpatialBinding>() : SpatialBinding{};

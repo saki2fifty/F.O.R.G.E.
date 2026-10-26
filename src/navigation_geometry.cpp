@@ -62,6 +62,12 @@ Sources capture(const nlohmann::json& doc) {
                     components.at(body).at("motion").get<unsigned>() != 0)
                     throw std::runtime_error("Navigation source follows moving physics body: " +
                                              node_id);
+            for (const char* controller :
+                 {"forge.character_controller", "forge.character_controller_2d"})
+                if (components.contains(controller) &&
+                    components.at(controller).at("enabled").get<bool>())
+                    throw std::runtime_error(
+                        "Navigation source follows an enabled character controller: " + node_id);
             if (components.contains("forge.navigation_agent") &&
                 components.at("forge.navigation_agent").at("enabled").get<bool>())
                 throw std::runtime_error("Navigation source follows an enabled NavigationAgent: " +
