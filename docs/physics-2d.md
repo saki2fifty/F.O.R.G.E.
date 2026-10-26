@@ -332,9 +332,9 @@ process hosts. Use a matching SDK and runtime containing this integration.
 
 Add explicitly typed 2D methods through the current service/SDK: copied body
 state, world XY velocity and angular velocity, forces/impulses with optional
-world points, torque/angular impulse, teleports, kinematic targets, closest rays
-and bounded shape overlaps. World positions use doubles; angular controls/state
-use radians and radians/s. No native pointer, handle or borrowed array crosses
+world points, torque/angular impulse, teleports, kinematic targets, closest and
+complete multi-hit rays and bounded shape overlaps. World positions use doubles;
+angular controls/state use radians and radians/s. No native pointer, handle or borrowed array crosses
 the boundary. Owner-thread, fixed-tick, capability and exact-size checks remain.
 Queries support the existing collision mask and sensor inclusion policy.
 Ray origins/endpoints and overlap origins use the supported XY coordinate range.
@@ -342,6 +342,24 @@ The adapter reserves native category bit63 for queries and includes it in native
 shape masks, while body categories remain in the existing lower32 project slots.
 Queries therefore select project layers independently of a body's pair-collision
 mask. This does not add an authored layer or change body-pair collision selection.
+
+`raycast_all_2d` returns the nearest native hit per current canonical body, sorted
+by fraction then identity. Compound/TileMap parts return one object result; the
+existing controller body also participates. It shares the closest-ray callback's
+binding, finite geometry, project-layer and sensor checks, without clipping to the
+first hit. Initial overlap reports fraction 0 and a zero normal, matching FORGE's
+existing closest ray. The adapter uses the general Box2D cast callback; its separate
+`b2World_CastRayClosest` convenience ignores initial overlaps and is not used here.
+One-way boxes remain complete geometric targets. Both ray ends must be finite
+within +/-1e6m and displacement must be nonzero, just as for closest
+XY rays. An absent XY world stays unrealized. Reads do not wake bodies, consume
+contacts or flush commands; stale native generations are omitted.
+
+The complete result bound is 256 bodies and 16384 callbacks. Overflow rejects the
+whole read, with no partial success. The exact SDK callback/client use existing
+`ForgeSdkPhysicsHit2DV1` outputs and the [complete-ray array contract](extension-contracts.md#complete-physics-rays).
+The table extension changes the exact SDK fingerprint; rebuild matching modules.
+No authored identity, native ABI 1 prefix or private checkpoint version changes.
 
 Commands share the existing 4096-entry body FIFO with explicit domain tags.
 PostPhysics commands apply at the following admitted boundary. Limits reject
@@ -684,9 +702,9 @@ the ABI1 prefix is preserved.
 - Separate linear/angular velocity helpers use m/s and radians/s. State and point
   velocity reads copy current realized values without flushing commands or waking
   sleeping bodies. State includes the private simulation epoch.
-- Ray and box/circle/capsule overlap queries copy results with existing project
-  layer masks and optional sensor inclusion. Overlaps return complete sorted,
-  unique canonical references, at most 256. Insufficient caller capacity returns `-2`
+- Closest and complete multi-hit rays and box/circle/capsule overlaps copy results
+  with existing project layer masks and optional sensor inclusion. Overlaps return
+  complete sorted, unique canonical references, at most 256. Insufficient caller capacity returns `-2`
   with cleared valid output slots. Invalid size/capacity buffers are not written.
 - `shape_cast_2d` takes a copied exact-sized `ForgeSdkSweep2DV1` and returns1 hit,
   0 miss or-1 invalid/context. Shape numbers match2D overlaps; dimensions, angle,

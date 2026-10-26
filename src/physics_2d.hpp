@@ -125,6 +125,7 @@ class Native2D {
     std::optional<PhysicsBodyState2D> state(std::uint64_t, EntityRef) const;
     std::optional<Double2> point_velocity(std::uint64_t, EntityRef, Double2) const;
     std::optional<PhysicsHit2D> raycast(Double2, Double2, PhysicsQueryFilter) const;
+    std::vector<PhysicsHit2D> raycast_all(Double2, Double2, PhysicsQueryFilter) const;
     std::vector<EntityRef> overlap(const PhysicsOverlap2D&, PhysicsQueryFilter) const;
     std::optional<PhysicsHit2D> shape_cast(const PhysicsSweep2D&, PhysicsQueryFilter) const;
     // Controller foundation only: capsule cast with native touching-surface

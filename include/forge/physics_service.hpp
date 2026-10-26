@@ -30,6 +30,7 @@ struct PhysicsOverlap {
     LocalRotation rotation;
 };
 inline constexpr std::size_t physics_overlap_limit = 256;
+inline constexpr std::size_t physics_ray_hit_limit = 256;
 struct PhysicsHit {
     EntityRef entity;
     Double3 position{}, normal{};
@@ -93,6 +94,10 @@ class PhysicsService : public CharacterService {
     virtual std::optional<PhysicsHit> raycast(Double3 origin, Double3 displacement) const = 0;
     virtual std::optional<PhysicsHit> raycast_filtered(Double3 origin, Double3 displacement,
                                                        PhysicsQueryFilter) const = 0;
+    // Nearest native hit per current canonical object, sorted by fraction then
+    // identity. Complete copied results; overflow rejects rather than truncates.
+    virtual std::vector<PhysicsHit> raycast_all(Double3 origin, Double3 displacement,
+                                                PhysicsQueryFilter = {}) const = 0;
     virtual std::optional<PhysicsHit> shape_cast(const PhysicsSweep&, PhysicsQueryFilter) const = 0;
     virtual std::uint64_t request_collision_asset(AssetId) = 0;
     virtual RuntimeResourceStatus inspect_collision_asset(std::uint64_t) const = 0;
@@ -140,6 +145,8 @@ class PhysicsService : public CharacterService {
     virtual std::optional<Double2> point_velocity_2d(EntityRef, Double2 world_point) const = 0;
     virtual std::optional<PhysicsHit2D> raycast_2d(Double2 origin, Double2 displacement,
                                                    PhysicsQueryFilter = {}) const = 0;
+    virtual std::vector<PhysicsHit2D> raycast_all_2d(Double2 origin, Double2 displacement,
+                                                     PhysicsQueryFilter = {}) const = 0;
     virtual std::vector<EntityRef> overlap_shape_2d(const PhysicsOverlap2D&,
                                                     PhysicsQueryFilter = {}) const = 0;
     virtual std::optional<PhysicsHit2D> shape_cast_2d(const PhysicsSweep2D&,

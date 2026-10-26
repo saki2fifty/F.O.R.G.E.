@@ -4,6 +4,7 @@
 #include <forge/runtime.hpp>
 #include <iostream>
 #include <limits>
+#include <thread>
 
 using namespace forge;
 namespace {
@@ -109,6 +110,124 @@ void rays_and_overlaps() {
     const auto selected = layered.physics->raycast_2d({0, 4}, {0, -8}, {2, false});
     require(selected && selected->entity == layered.ref(layered.second),
             "Named project query layer was ignored");
+    const auto all = layered.physics->raycast_all_2d({0, 4}, {0, -8}, {2, false});
+    require(all.size() == 1 && all[0].entity == layered.ref(layered.second),
+            "Multi-hit ray ignored the named project query layer");
+}
+void multi_hit_rays() {
+    Fixture empty;
+    require(empty.physics->raycast_all_2d({0, 4}, {0, -8}).empty() &&
+                !empty.physics->status().at("native_2d_realized").get<bool>(),
+            "Empty multi-hit ray realized an absent XY world");
+    for (double offset : {0., -999990., 999990.}) {
+        Fixture test;
+        auto sensor = row(test.first, offset, 2, 0, true);
+        auto solid = row(test.second, offset, 0, 2);
+        solid["components"]["forge.physics_body_2d"]["mask"] = 0;
+        test.load(Json::array({solid, sensor}));
+        const auto before = test.physics->checkpoint(), scene = test.scene.snapshot();
+        const auto hits = test.physics->raycast_all_2d({offset, 4}, {0, -8});
+        require(hits.size() == 2 && hits[0].entity == test.ref(test.first) &&
+                    hits[1].entity == test.ref(test.second) &&
+                    std::abs(hits[0].fraction - .1875) < 1e-5 &&
+                    std::abs(hits[1].fraction - .4375) < 1e-5 && hits[1].normal[1] > .99 &&
+                    std::abs(hits[1].position[1] - .5) < 1e-5,
+                "Planar multi-hit ray lost geometry/order/sensor or applied pair masks");
+        require(test.physics->raycast_all_2d({offset, 4}, {0, -8}, {UINT32_MAX, false}).size() ==
+                        1 &&
+                    test.physics->raycast_all_2d({offset, 4}, {0, -8}, {0, true}).empty(),
+                "Planar multi-hit ray ignored sensor/mask filtering");
+        const auto inside = test.physics->raycast_all_2d({offset, 2}, {0, -4});
+        const auto closest_inside = test.physics->raycast_2d({offset, 2}, {0, -4});
+        require(inside.size() == 2 && inside[0].entity == test.ref(test.first) &&
+                    inside[0].fraction == 0 && inside[0].normal == Double2{} && closest_inside &&
+                    closest_inside->fraction == 0,
+                "Planar multi-hit ray changed the existing initial-overlap policy");
+        rejects([&] { test.physics->raycast_all_2d({offset, 4}, {}); });
+        rejects([&] { test.physics->raycast_all_2d({1000000, 0}, {1, 0}); });
+        rejects([&] {
+            test.physics->raycast_all_2d({offset, 0}, {std::numeric_limits<double>::infinity(), 1});
+        });
+        bool denied = false;
+        std::thread foreign([&] {
+            try {
+                test.physics->raycast_all_2d({offset, 4}, {0, -8});
+            } catch (const std::exception&) {
+                denied = true;
+            }
+        });
+        foreign.join();
+        require(denied && test.physics->checkpoint() == before && test.scene.snapshot() == scene,
+                "Planar rays mutated native/source state or admitted a foreign thread");
+        Fixture recovered;
+        recovered.scene.restore_snapshot(scene);
+        recovered.physics->restore(before);
+        const auto restored = recovered.physics->raycast_all_2d({offset, 4}, {0, -8});
+        require(restored.size() == hits.size(), "Recovered XY ray lost objects");
+        for (std::size_t i = 0; i < hits.size(); ++i)
+            require(restored[i].entity == hits[i].entity &&
+                        restored[i].fraction == hits[i].fraction &&
+                        restored[i].position == hits[i].position &&
+                        restored[i].normal == hits[i].normal,
+                    "Fresh planar recovery changed copied ray geometry");
+        auto empty_scene = scene;
+        empty_scene["entities"] = Json::array();
+        test.scene.restore_snapshot(empty_scene);
+        require(test.physics->raycast_all_2d({offset, 4}, {0, -8}).empty(),
+                "Planar ray exposed removed native targets");
+        test.scene.restore_snapshot(scene);
+        require(test.physics->raycast_all_2d({offset, 4}, {0, -8}).empty(),
+                "Planar ray retargeted retired native shapes to replacement generations");
+        test.physics->synchronize(0);
+        require(test.physics->raycast_all_2d({offset, 4}, {0, -8}).size() == 2,
+                "Planar ray omitted new canonical generations");
+        test.tick(180);
+        const auto sleeping = test.physics->body_state_2d(test.ref(test.second));
+        require(sleeping && !sleeping->active, "Multi-hit fixture did not sleep");
+        test.physics->set_linear_velocity_2d(test.ref(test.second), {1, 0});
+        const auto state = test.physics->checkpoint();
+        (void)test.physics->raycast_all_2d({offset, 4}, {0, -8});
+        require(test.physics->body_state_2d(test.ref(test.second)) == sleeping &&
+                    test.physics->checkpoint() == state,
+                "Planar multi-hit ray woke a body or changed solver state");
+    }
+    Fixture controller;
+    auto avatar = row(controller.first, 0, 0, 0);
+    auto& components = avatar["components"];
+    components.erase("forge.physics_body_2d");
+    components.erase("forge.circle_collider_2d");
+    components["forge.local_scale"] = {{"x", 1}, {"y", 1}, {"z", 1}};
+    components["forge.character_controller_2d"] = Json::object();
+    controller.load(Json::array({avatar}));
+    const auto character_hits = controller.physics->raycast_all_2d({-2, .9}, {4, 0});
+    require(character_hits.size() == 1 &&
+                character_hits[0].entity == controller.ref(controller.first),
+            "Multi-hit XY ray lost the controller body identity");
+    Fixture platform;
+    auto box = row(platform.first, 0, 0, 0);
+    box["components"].erase("forge.circle_collider_2d");
+    box["components"]["forge.box_collider_2d"] = {{"x", 1}, {"y", 1}};
+    box["components"]["forge.physics_body_2d"]["one_way"] = true;
+    platform.load(Json::array({box}));
+    const auto underside = platform.physics->raycast_all_2d({0, -2}, {0, 4});
+    require(underside.size() == 1 && underside[0].entity == platform.ref(platform.first) &&
+                underside[0].normal[1] < -.99,
+            "Geometric multi-hit ray incorrectly applied one-way physical response");
+    Fixture crowded;
+    Json rows = Json::array();
+    for (unsigned i = 0; i <= physics_ray_hit_limit; ++i)
+        rows.push_back(row(EntityId::generate().str(), 0, 0, 0));
+    crowded.load(rows);
+    const auto before = crowded.physics->checkpoint();
+    rejects([&] { crowded.physics->raycast_all_2d({0, 4}, {0, -8}); });
+    require(crowded.physics->checkpoint() == before, "Planar ray overflow changed state");
+    rows.erase(rows.size() - 1);
+    crowded.load(rows);
+    const auto hits = crowded.physics->raycast_all_2d({0, 4}, {0, -8});
+    require(hits.size() == physics_ray_hit_limit, "Planar ray exact capacity failed");
+    for (std::size_t i = 1; i < hits.size(); ++i)
+        require(hits[i - 1].entity < hits[i].entity,
+                "Equal-fraction planar rays did not use canonical identity ordering");
 }
 void swept_shapes() {
     Fixture empty;
@@ -415,6 +534,7 @@ void bounded_zero_dt_retirement() {
 int main() {
     try {
         rays_and_overlaps();
+        multi_hit_rays();
         swept_shapes();
         overlap_capacity();
         steady_sensor_profile();

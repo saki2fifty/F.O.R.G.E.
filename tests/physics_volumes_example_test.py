@@ -5,6 +5,88 @@ import re
 import struct
 import sys
 from physics_velocity_example_test import Worker
+from runtime_client import Runtime, activate
+
+
+def assert_ray(state):
+    control = next(e['components']['project.ray_probe'] for e in state['scene']['entities']
+                   if 'project.ray_probe' in e['components'])
+    dimensions = 2 if control['planar'] else 3
+    suffix = '_2d' if control['planar'] else ''
+    origin = [control['origin_'+axis] for axis in 'xyz'[:dimensions]]
+    delta = [control['delta_'+axis] for axis in 'xyz'[:dimensions]]
+    fractions = []
+    # Independent axis-aligned slab intersection for these original box scenes.
+    for entity in state['scene']['entities']:
+        c = entity['components']
+        body, box = c.get('forge.physics_body'+suffix), c.get('forge.box_collider'+suffix)
+        if body is None or box is None or not body.get('enabled', True):
+            continue
+        if body.get('sensor', False) and not control['include_sensors']:
+            continue
+        position, scale = c['forge.local_translation'], c.get('forge.local_scale', {})
+        near, far = 0., 1.
+        for i, axis in enumerate('xyz'[:dimensions]):
+            half = box[axis]*abs(scale.get(axis, 1))/2
+            low, high = position[axis]-half-origin[i], position[axis]+half-origin[i]
+            if delta[i] == 0:
+                if low > 0 or high < 0:
+                    far = -1
+                    break
+            else:
+                values = sorted((low/delta[i], high/delta[i]))
+                near, far = max(near, values[0]), min(far, values[1])
+        # Native float geometry can admit an endpoint within this tolerance.
+        if near <= far + 1e-6:
+            fractions.append(max(0., min(1., near)))
+    assert control['observed'] and control['last_count'] == len(fractions), (control, fractions)
+    expected = min(fractions) if fractions else -1
+    assert abs(control['nearest_fraction']-expected) < 2e-6, (control, expected)
+    return control
+
+
+def verify_ray_scenes(runtime, project, env):
+    for source in ('body-volumes.scene.json', 'planar-rays.scene.json'):
+        path = project/'Scenes'/source
+        original = path.read_bytes()
+        for sdk_play in (False, True):
+            for include, miss, reverse in ((True, False, False), (False, False, True), (True, True, False)):
+                scene = json.loads(original)
+                data = next(e['components']['project.ray_probe'] for e in scene['entities']
+                            if 'project.ray_probe' in e['components'])
+                data['include_sensors'] = include
+                if miss:
+                    data['origin_y'] = 5
+                if reverse:
+                    data.update(origin_x=5, delta_x=-10)
+                args = ['--sdk-project', project]
+                if sdk_play:
+                    args += ['--sdk-play', 'on', '--user-data', project/'ray-user-data']
+                worker = Runtime(runtime, args, env=env, cwd=project)
+                fresh = None
+                try:
+                    activate(worker, scene, sdk_play)
+                    for tick in range(1, 5):
+                        state = worker.request('step')
+                        control = assert_ray(state)
+                        assert control['last_count'] == (0 if miss else 3 if include else 2)
+                        if tick == 2 and not sdk_play:
+                            checkpoint = state['recovery']
+                            fresh = Runtime(runtime, args, env=env, cwd=project)
+                            fresh.request('replace', scene=state['scene'], recovery=checkpoint,
+                                recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
+                        elif fresh:
+                            other = fresh.request('step')
+                            assert assert_ray(other) == control
+                        rows = [row for row in state['diagnostics']
+                                if row['context'].get('tick') == state['timing']['tick']
+                                and row['text'].startswith('Ray query ')]
+                        assert len(rows) == (1 if tick == 1 else 0), rows
+                finally:
+                    worker.close()
+                    if fresh:
+                        fresh.close()
+                assert path.read_bytes() == original, 'Ray example changed its scene source'
 
 
 def verify(runtime, project, env=None):
@@ -37,6 +119,7 @@ def verify(runtime, project, env=None):
             workers[0].request('replace', scene=scene)
             for tick in range(1,331):
                 left = workers[0].request('step')
+                assert_ray(left)
                 components = actor(left)
                 control = components['project.volume_probe']
                 position = components['forge.local_translation']
@@ -72,8 +155,10 @@ def verify(runtime, project, env=None):
         finally:
             for worker in workers:
                 worker.close()
+    verify_ray_scenes(runtime, project, env)
     print('Compiled C++ volumes: sphere/box equations, sensor filtering, Inspector '
-          'settings, change-only diagnostics and fresh native worker recovery passed')
+          'settings, change-only diagnostics and fresh native worker recovery; complete '
+          '3D/XY rays, reversed segments/misses/sensors and both actual hosts passed')
 
 
 if __name__ == '__main__':

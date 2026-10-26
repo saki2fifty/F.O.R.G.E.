@@ -2,6 +2,7 @@
 #include "bounded_json.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_tile_map.hpp"
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <forge/animation_components.hpp>
@@ -94,6 +95,55 @@ struct Bridge {
         if (bridge.owner != std::this_thread::get_id())
             throw std::runtime_error("SDK requires its owner thread");
         return bridge;
+    }
+    template <std::size_t N, class Hit>
+    static int32_t FORGE_SDK_CALL raycast_many(void* p, const double* origin,
+                                               const double* displacement, uint32_t mask,
+                                               uint32_t sensors, Hit* out, uint32_t capacity) {
+        static_assert(physics_ray_hit_limit == FORGE_SDK_PHYSICS_RAY_HIT_LIMIT);
+        if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_RAY_HIT_LIMIT)
+            return -1;
+        for (uint32_t i = 0; i < capacity; ++i)
+            if (out[i].size != sizeof(out[i]))
+                return -1;
+        // Snapshot both inputs before clearing any potentially aliased output.
+        std::array<double, N> from{}, delta{};
+        if (origin)
+            std::copy_n(origin, N, from.begin());
+        if (displacement)
+            std::copy_n(displacement, N, delta.begin());
+        const auto clear = [&] {
+            for (uint32_t i = 0; i < capacity; ++i) {
+                out[i] = {};
+                out[i].size = sizeof(out[i]);
+            }
+        };
+        clear();
+        try {
+            auto& c = get(p).context;
+            if (!c.input || !origin || !displacement || sensors > 1)
+                return -1;
+            const auto service = c.services.physics();
+            const auto values = [&] {
+                if constexpr (N == 2)
+                    return service->raycast_all_2d(from, delta, {mask, sensors != 0});
+                else
+                    return service->raycast_all(from, delta, {mask, sensors != 0});
+            }();
+            if (values.size() > capacity)
+                return -2;
+            for (std::size_t i = 0; i < values.size(); ++i) {
+                std::memcpy(out[i].scene, values[i].entity.scene.str().c_str(), 37);
+                std::memcpy(out[i].entity, values[i].entity.entity.str().c_str(), 37);
+                std::copy_n(values[i].position.begin(), N, out[i].position);
+                std::copy_n(values[i].normal.begin(), N, out[i].normal);
+                out[i].fraction = values[i].fraction;
+            }
+            return static_cast<int32_t>(values.size());
+        } catch (...) {
+            clear();
+            return -1;
+        }
     }
     std::set<std::uint64_t> resources;
     std::set<std::uint64_t> entity_requests;
@@ -359,6 +409,8 @@ struct Bridge {
     }
 
     explicit Bridge(ModuleContext& c) : context(c) {
+        host.physics_raycast_all = &Bridge::raycast_many<3, ForgeSdkPhysicsHitV1>;
+        host.physics_raycast_all_2d = &Bridge::raycast_many<2, ForgeSdkPhysicsHit2DV1>;
         host.size = sizeof(host);
         host.version = FORGE_NATIVE_SDK_ABI;
         host.world = c.world.c_ptr();

@@ -103,6 +103,46 @@ reflected components; PostPhysics commands take effect at the next boundary.
 Private checkpoint9 and authored formats remain unchanged. The public header
 fingerprint changes, requiring a matching exact SDK/module rebuild; ABI1 remains.
 
+## Complete multi-hit rays
+
+`PhysicsService::raycast_all(origin, displacement, filter)` returns the nearest
+native surface hit for every intersected current canonical object, sorted by
+fraction and then `EntityRef`. Displacement defines the segment length. Results
+copy identity, world position, world normal and fraction; no native handle or
+borrowed view escapes. Several compound children or mesh triangles of one body
+produce one object result. Equal-distance objects use canonical identity order;
+when coincident surfaces belong to the same object, native traversal selects the
+normal. The optimized closest-ray path remains independent.
+
+The 3D face policy matches the existing closest ray: convex shapes are solid for
+a start inside (fraction 0), convex exit faces are ignored, and mesh triangles can
+hit from either side. These are geometric queries, not penetration depth or
+material thickness. Layer masks and sensor inclusion are independent of pair
+collision masks. Current character inner bodies participate under their existing
+canonical identity; stale/retired generations are omitted. Reads do not wake,
+flush commands, synthesize contacts or add recovery state.
+
+Limits are 256 unique native bodies and 16384 native subshape callbacks. Exceeding
+either rejects the complete query; no partial hit list is returned. The collector
+resolves through the existing body/character maps after native traversal, once per
+query. XYZ origin/displacement retain the existing finite +/-1e9m component bound.
+
+The appended exact-SDK `physics_raycast_all` and XY `physics_raycast_all_2d` use the
+existing respective hit PODs. Each output slot needs its exact size; capacity is
+1..`FORGE_SDK_PHYSICS_RAY_HIT_LIMIT`(256). Return 0..256 is the complete count,
+-2 means insufficient caller capacity, and -1 means invalid input/context/native
+budget. Invalid capacity, null output or any wrong-size slot leaves the array
+untouched. Otherwise outputs clear on failure and unused slots clear on success.
+Both ray vectors are copied before output writes, including aliased storage.
+Physics permission and fixed owner-thread scope apply. `sdk::Client::raycast_all`
+and `raycast_all_2d` take ray vectors by value as `std::array`, initialize bounded
+output slots and use the same callbacks. Matching SDK/module rebuilds are required;
+the ABI 1 table prefix, authored formats and private checkpoint 9 stay unchanged.
+
+[PhysicsVolumes](../manual/samples/physics-volumes.md) includes original editable
+3D and XY ray observations. The XY geometric differences and coordinate validation
+remain in [2D physics](physics-2d.md#c-control-and-observations).
+
 ## Instantaneous volume queries
 
 `PhysicsService::overlap_shape` queries current realized geometry using centered

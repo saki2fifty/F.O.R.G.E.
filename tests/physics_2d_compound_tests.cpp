@@ -94,6 +94,9 @@ void geometry_queries_and_recovery(double offset) {
     const auto hit = test.native.raycast({offset + 32, offset + 1}, {0, -3}, {});
     check(hit && hit->entity == floor && std::abs(hit->fraction - 1. / 3) < .001,
           "Compound closest ray lost geometry or its actor binding");
+    const auto all = test.native.raycast_all({offset - 1, offset - .5}, {67, 0}, {});
+    check(all.size() == 1 && all[0].entity == floor && std::abs(all[0].fraction - 1. / 67) < .001,
+          "Multi-hit compound ray duplicated parts or lost the nearest surface");
     const auto floor_epoch = test.native.state(1, floor)->epoch;
     test.desired.at(1).config.parts =
         std::make_shared<const std::vector<BoxPart2D>>(*test.desired.at(1).config.parts);

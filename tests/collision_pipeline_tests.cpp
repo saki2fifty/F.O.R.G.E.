@@ -208,8 +208,31 @@ int main(int argc, char** argv) {
                     require(game.active().physics()->overlap_shape(query, {}) ==
                                 std::vector<EntityRef>{ref},
                             "Compound overlap returned duplicate subshape targets");
+                    const auto hits = game.active().physics()->raycast_all({-2, 0, 0}, {4, 0, 0});
+                    require(hits.size() == 1 && hits[0].entity == ref &&
+                                std::abs(hits[0].fraction - .3125) < 1e-6,
+                            "Compound ray duplicated children or kept a farther surface");
                     require(game.active().physics()->checkpoint() == before,
                             "Compound volume read mutated native state");
+                });
+            }
+            {
+                auto mesh = CollisionSource::from_mesh(
+                    AssetId::generate(), CollisionKind::TriangleMesh, engine_primitive(0));
+                save(root / "Assets/ray-mesh.collision.json", mesh);
+                const auto published = import(service, mesh, "Assets/ray-mesh.collision.json");
+                require(published.published, "Ray mesh fixture failed publication");
+                runtime_collision(root, mesh.asset(), [](GameSession& game) {
+                    const auto physics = game.active().physics();
+                    const auto ref = game.active().scene.reference("collision");
+                    const auto outside = physics->raycast_all({-2, 0, 0}, {4, 0, 0});
+                    const auto inside = physics->raycast_all({0, 0, 0}, {2, 0, 0});
+                    const auto closest = physics->raycast({0, 0, 0}, {2, 0, 0});
+                    require(outside.size() == 1 && outside[0].entity == ref && inside.size() == 1 &&
+                                inside[0].entity == ref && closest && inside[0].fraction > 0 &&
+                                inside[0].fraction < 1 && inside[0].fraction == closest->fraction &&
+                                inside[0].normal == closest->normal,
+                            "Mesh rays duplicated triangles or lost existing backface behavior");
                 });
             }
             auto result = import(service, source);

@@ -116,6 +116,12 @@ void physics_overlap_tests() {
         check(f.physics->overlap_shape(query, {}) == std::vector<EntityRef>{ref} &&
                   !f.physics->body_state(ref)->active && f.physics->checkpoint() == before,
               "Volume missed or woke the sleeping solid after cache End");
+        f.physics->set_linear_velocity(ref, {1, 0, 0});
+        const auto queued = f.physics->checkpoint();
+        const auto rays = f.physics->raycast_all({0, 3, 0}, {0, -5, 0});
+        check(rays.size() == 2 && rays[0].entity == ref && !f.physics->body_state(ref)->active &&
+                  f.physics->checkpoint() == queued,
+              "Multi-hit ray woke a sleeper or flushed its queued velocity command");
     }
     {
         Fixture f;
@@ -145,6 +151,9 @@ void physics_overlap_tests() {
         query.dimensions = {.1, 0, 0};
         check(f.physics->overlap_shape(query, {}) == std::vector<EntityRef>{ref},
               "Volume lost the realized character inner-body identity");
+        const auto rays = f.physics->raycast_all({-2, .9, 0}, {4, 0, 0});
+        check(rays.size() == 1 && rays[0].entity == ref && rays[0].normal[0] < -.99,
+              "Multi-hit ray lost the character inner-body binding");
     }
     {
         Fixture f;

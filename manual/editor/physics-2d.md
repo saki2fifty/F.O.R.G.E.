@@ -252,6 +252,16 @@ gravity applies when the next floor is beyond that distance.
 Saved settings and the compiled game code travel with export. Stop restores the
 saved character positions; runtime inspection does not save a new staircase pose.
 
+## Query objects along a line
+
+Project Code supports closest and complete multi-hit XY rays. Complete rays return
+one nearest hit per object, ordered along the segment, with optional sensor and
+layer filtering. A compound or painted Tile Map contributes one object result.
+A ray starting inside a shape reports fraction **0** and zero normal. A read does
+not wake bodies or change the saved scene. Open the
+[physics volume and ray example](../samples/physics-volumes.md)
+for a ready-to-run XY scene and adjustable ray settings.
+
 ## Export
 
 Save the Scene and choose **Use saved current scene as startup** in Project

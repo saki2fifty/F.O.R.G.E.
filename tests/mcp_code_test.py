@@ -75,7 +75,10 @@ for legacy in (False, True):
         assert not read('forge_code_status')['managed']
         api = read('forge_code_api_list')
         assert api['total'] > 0
-        assert read('forge_code_api_read', path='include/forge/native_sdk.h')['total_bytes'] > 0
+        header = read('forge_code_api_read', path='include/forge/native_sdk.h', limit=262144)
+        assert 'physics_raycast_all' in header['text'] and 'physics_raycast_all_2d' in header['text']
+        helper = read('forge_code_api_read', path='include/forge/sdk_client.hpp', limit=262144)
+        assert 'raycast_all(' in helper['text'] and 'raycast_all_2d(' in helper['text']
         denied = client.tool('forge_code_api_read', target=client.tool('forge_discover')['result']['target'],
                              path='../../src/editor/main.cpp')
         assert not denied['ok'], denied

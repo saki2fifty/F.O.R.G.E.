@@ -6,6 +6,11 @@ Physics makes objects fall, collide, and come to rest during Play. FORGE uses Jo
 
 Edit a body in Inspector, then Play to check how it moves and collides.
 
+C++ Project Code can read the nearest object or every object along a ray, with
+layer and sensor filters. Complete rays return one nearest hit per object, ordered
+along the line. Open the [physics volume and ray example](../samples/physics-volumes.md)
+to inspect counts and try the editable 3D and XY scenes.
+
 ## Make a falling cube
 
 1. Create a cube named **Floor**. Set its position to **(0, -0.5, 0)** and scale to **(10, 1, 10)**.

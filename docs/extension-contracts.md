@@ -25,7 +25,7 @@ These classifications describe supported ownership, not a promise of permanent C
 | LocalTranslation / LocalRotation / LocalScale | A authored; B values | Independent native component ownership/inheritance; SDK installs value-only declarations, not WorldContext or derived-transform writers. |
 | ForgeSdkEntityV1 / entity or Prefab request, inspect, release | B | Intrinsic runtime-only, owner-thread requests published at the next fixed boundary. Prefab groups use existing admitted sources/member maps;4096 new rows per boundary. Scene membership/UUIDs remain authoritative; copied native root handle is borrowed and world-local. |
 | PhysicsBody / Box, Sphere, CapsuleCollider | A authored; B values | No Jolt ID/pointer. Absent body means no separate simulation body; no invented enabled flag. |
-| PhysicsService / PhysicsHit / PhysicsContact | C | Source ray/pose/contact operations; SDK has copied ray hit + queued pose subset. Contact vectors remain built-in. |
+| PhysicsService / PhysicsHit / PhysicsContact | C | Existing source physics owner; SDK copies observations and queries, and queues controls. No solver handles. |
 | Jolt world/body IDs/jobs/state recorder | D | World-owned implementation and private exact recovery. |
 | AudioSource / AudioListener | A authored; B values | Typed clip and playback parameters. Source presence/autoplay differ deliberately from listener enabled. |
 | AudioService / AudioRuntime | C; B command subset | Play/Restart, independent OneShot, Stop and source Pause/Resume are bounded owner-thread commands. miniaudio device/voice/PCM handles are D. |
@@ -67,7 +67,8 @@ Optional provider bits are allowed permissions, not dependencies. A module can d
 |---|---|
 | Capability query | Recognized contract vs invalid request; separate version/available/callable. |
 | Input read | 1 copied action, 0 absent/outside tick/invalid. |
-| Physics ray | 1 hit, 0 valid miss, -1 invalid/unavailable. |
+| Closest physics ray | 1 hit, 0 valid miss, -1 invalid/unavailable. |
+| Complete physics ray | Complete count 0..256; -2 insufficient caller capacity; -1 invalid/context/native budget. |
 | Physics pose / audio command | 1 queued, 0 rejected; realization may diagnose invalid authored configuration later. |
 | Navigation | Callback delivery boolean plus named NavStatus. Partial/failure gives no usable points; capacity limit never truncates a successful path. |
 | UI poll | 1 consumed matching event, 0 none/unavailable, -1 invalid. |
@@ -76,6 +77,35 @@ Optional provider bits are allowed permissions, not dependencies. A module can d
 | Asset resolution/admission | Typed metadata state or source-located exception before publication. Not a physics miss or empty event. |
 
 No universal Result framework is introduced. Client convenience wrappers initialize outputs; C callbacks validate layout and catch C++ exceptions. These are cooperative trusted-code contracts, not a memory-safety sandbox for arbitrary pointers.
+
+## Complete physics rays
+
+`physics_raycast_all` and `physics_raycast_all_2d` copy the nearest native hit per
+canonical object, sorted by fraction then scene/entity UUID pair. Displacement is
+the full segment vector. Multiple compound/mesh/painted shapes on one body produce
+one result; coincident surfaces of the same object retain native normal selection.
+The C++ helpers in `sdk_client.hpp` take vectors by value as `std::array` and
+initialize caller output slots. Native physics owners and optimized closest-ray
+paths retain their responsibilities.
+
+Both callbacks require Physics permission and the fixed owner thread. Capacity is
+1..`FORGE_SDK_PHYSICS_RAY_HIT_LIMIT` (256); each hit output needs its exact POD size.
+A nonnegative return is the complete count; `-2` means insufficient caller capacity
+and `-1` means invalid/context/native budget. Invalid capacity, null output or any
+wrong-size slot leaves the array untouched. Valid slots clear on failure and unused
+slots clear on success. Inputs are copied before clearing and may alias outputs.
+The native work limit is 16384 callbacks; exceeding either native budget rejects
+the complete read. No pointers, native IDs or borrowed buffers are returned.
+
+3D rays retain the existing finite +/-1e9m origin/displacement component bounds,
+convex solid-start hits at fraction 0 and two-sided triangle hits. XY rays require
+nonzero displacement and both ends within finite +/-1e6m. Initial XY overlap returns
+fraction 0 and zero normal through FORGE's general Box2D cast callback. Reads do not
+wake bodies, flush commands, consume contacts, realize an absent XY world or add
+checkpoint state. Project-layer masks and sensor inclusion remain independent of
+body-pair masks. See [2D physics](physics-2d.md) for that domain's full contract.
+Rebuild matching project modules when the exact SDK fingerprint changes. The ABI 1
+table prefix and authored/private checkpoint versions are unchanged.
 
 ## Component authoring audit
 

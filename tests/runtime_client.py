@@ -9,9 +9,9 @@ from pathlib import Path
 
 class Runtime:
     """Bounded requests to a disposable runtime; never load native code here."""
-    def __init__(self, executable: Path, arguments=()):
+    def __init__(self, executable: Path, arguments=(), *, env=None, cwd=None):
         self.process = subprocess.Popen([str(executable), *map(str, arguments)], stdin=subprocess.PIPE,
-                                        stdout=subprocess.PIPE, text=True, bufsize=1)
+                                        stdout=subprocess.PIPE, text=True, bufsize=1, env=env, cwd=cwd)
         self.lines: queue.Queue[str | None] = queue.Queue(maxsize=2)
         self.session = ""
         self.request_id = 0

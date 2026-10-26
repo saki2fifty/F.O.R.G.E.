@@ -1,6 +1,19 @@
-# 2026-10-26 — 2D platforms and navigation
+# 2026-10-26 — Physics and navigation
 
 Local source; Windows verification and numbered delivery remain pending.
+
+## Complete physics rays
+
+- Copied multi-hit rays in3D/XY return the nearest surface per canonical object,
+  sorted along the segment; layer/sensor filters and native geometric rules apply.
+- Bounded collectors reject incomplete results, retain existing physics owners and
+  leave closest-ray traversal, command state and authored data unchanged.
+- Matching size-checked SDK callbacks/C++ clients use complete output-buffer rules;
+  rebuild project modules against the new exact fingerprint. ABI1 prefix and
+  authored/private checkpoint versions are unchanged.
+- PhysicsVolumes includes editable 3D/XY ray observations and usage guidance.
+  Shared example preparation discovers unregistered primary and secondary scenes
+  through the existing source scanner before stamping their matching C++ schemas.
 
 ## Diagnostic text boundaries
 

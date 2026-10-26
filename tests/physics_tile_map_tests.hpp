@@ -122,6 +122,9 @@ inline void test_physics_tile_map(const std::filesystem::path& root,
     const auto hit = world.physics()->raycast_2d({1.5, 2}, {0, -4});
     check(hit && hit->entity == a && std::abs(hit->fraction - .5) < .001,
           "Painted floor ray did not use the shared collision instance");
+    const auto rays = world.physics()->raycast_all_2d({-7, -1}, {14, 0});
+    check(rays.size() == 1 && rays[0].entity == a,
+          "Multi-hit Map ray duplicated cells or leaked native shape identity");
     PhysicsSweep2D sweep;
     sweep.origin = {1.5, 2};
     sweep.displacement = {0, -4};

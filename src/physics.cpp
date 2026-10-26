@@ -2011,6 +2011,80 @@ std::optional<PhysicsHit> PhysicsRuntime::raycast_filtered(Double3 origin, Doubl
                       {normal.GetX(), normal.GetY(), normal.GetZ()},
                       hit.mFraction};
 }
+std::vector<PhysicsHit> PhysicsRuntime::raycast_all(Double3 origin, Double3 displacement,
+                                                    PhysicsQueryFilter filter) const {
+    auto& s = *impl_;
+    s.check();
+    valid_position({origin[0], origin[1], origin[2]});
+    valid_position({displacement[0], displacement[1], displacement[2]});
+    if (!filter.mask)
+        return {};
+    const JPH::RRayCast ray(
+        JPH::RVec3(origin[0], origin[1], origin[2]),
+        JPH::Vec3(float(displacement[0]), float(displacement[1]), float(displacement[2])));
+    struct Collector final : JPH::CastRayCollector {
+        std::map<std::uint32_t, JPH::RayCastResult> hits;
+        std::size_t work = 0;
+        bool failed = false;
+        void AddHit(const JPH::RayCastResult& hit) override {
+            if (++work > 16384 || !std::isfinite(hit.mFraction) || hit.mFraction < 0 ||
+                hit.mFraction > 1) {
+                failed = true;
+                ForceEarlyOut();
+                return;
+            }
+            const auto token = hit.mBodyID.GetIndexAndSequenceNumber();
+            const auto found = hits.find(token);
+            if (found != hits.end()) {
+                if (hit.mFraction < found->second.mFraction)
+                    found->second = hit;
+            } else if (hits.size() == physics_ray_hit_limit) {
+                failed = true;
+                ForceEarlyOut();
+            } else {
+                hits.emplace(token, hit);
+            }
+        }
+    } collector;
+    JPH::RayCastSettings settings;
+    // Match the existing optimized closest-ray triangle/convex face policy.
+    settings.mBackFaceModeTriangles = JPH::EBackFaceMode::CollideWithBackFaces;
+    s.system.GetNarrowPhaseQuery().CastRay(ray, settings, collector, {}, {},
+                                           QueryBodyFilter(filter));
+    if (collector.failed)
+        throw std::runtime_error("Physics multi-hit ray query budget or native result invalid");
+    std::vector<PhysicsHit> result;
+    result.reserve(collector.hits.size());
+    const auto adopt = [&](JPH::BodyID id, EntityRef ref) {
+        const auto found = collector.hits.find(id.GetIndexAndSequenceNumber());
+        if (found == collector.hits.end())
+            return;
+        const auto hit = found->second;
+        collector.hits.erase(found);
+        if (!s.has_realized_target(ref))
+            return;
+        const auto p = ray.GetPointOnRay(hit.mFraction);
+        JPH::BodyLockRead lock(s.system.GetBodyLockInterface(), id);
+        if (!lock.Succeeded())
+            throw std::runtime_error("Multi-hit ray body disappeared");
+        const auto normal = lock.GetBody().GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, p);
+        result.push_back({ref,
+                          {p.GetX(), p.GetY(), p.GetZ()},
+                          {normal.GetX(), normal.GetY(), normal.GetZ()},
+                          hit.mFraction});
+    };
+    // One traversal of existing owners; native tokens never escape the adapter.
+    for (const auto& [id, body] : s.bodies)
+        adopt(body.id, body.ref);
+    for (const auto& [id, character] : s.characters)
+        adopt(character.owner->native().GetInnerBodyID(), character.ref);
+    if (!collector.hits.empty())
+        throw std::runtime_error("Physics multi-hit ray hit an unowned native body");
+    std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
+        return a.fraction != b.fraction ? a.fraction < b.fraction : a.entity < b.entity;
+    });
+    return result;
+}
 std::optional<PhysicsHit> PhysicsRuntime::shape_cast(const PhysicsSweep& request,
                                                      PhysicsQueryFilter filter) const {
     auto& s = *impl_;
@@ -2248,6 +2322,22 @@ std::optional<PhysicsHit2D> PhysicsRuntime::raycast_2d(Double2 origin, Double2 d
         return {};
     }
     return self.native_2d->raycast(origin, displacement, filter);
+}
+std::vector<PhysicsHit2D> PhysicsRuntime::raycast_all_2d(Double2 origin, Double2 displacement,
+                                                         PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    if (!self.native_2d) {
+        physics_detail::validate_ray_2d(origin, displacement);
+        return {};
+    }
+    auto result = self.native_2d->raycast_all(origin, displacement, filter);
+    std::erase_if(result, [&](const auto& hit) {
+        const auto found = self.context.resolve(hit.entity);
+        return found.state != WorldContext::ResolveState::Available ||
+               !self.native_2d->contains(found.entity, hit.entity);
+    });
+    return result;
 }
 std::vector<EntityRef> PhysicsRuntime::overlap_shape_2d(const PhysicsOverlap2D& query,
                                                         PhysicsQueryFilter filter) const {

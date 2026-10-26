@@ -271,6 +271,31 @@
       "spatial": {
         "mode": "world"
       }
+    },
+    {
+      "id": "98830bce-69de-4dea-b7ea-c0c381d5276b",
+      "name": "Ray query",
+      "spatial": {
+        "mode": "world"
+      },
+      "components": {
+        "forge.primitive": {
+          "kind": 4
+        },
+        "project.ray_probe": {
+          "origin_x": -5,
+          "origin_y": 0,
+          "origin_z": 0,
+          "delta_x": 10,
+          "delta_y": 0,
+          "delta_z": 0,
+          "planar": false,
+          "include_sensors": true,
+          "observed": false,
+          "last_count": 0,
+          "nearest_fraction": -1
+        }
+      }
     }
   ]
 }

@@ -34,6 +34,7 @@ class PhysicsRuntime : public PhysicsService {
     std::vector<std::uint64_t> take_discontinuities();
     std::optional<PhysicsHit> raycast(Double3, Double3) const override;
     std::optional<PhysicsHit> raycast_filtered(Double3, Double3, PhysicsQueryFilter) const override;
+    std::vector<PhysicsHit> raycast_all(Double3, Double3, PhysicsQueryFilter = {}) const override;
     std::optional<PhysicsHit> shape_cast(const PhysicsSweep&, PhysicsQueryFilter) const override;
     std::uint64_t request_collision_asset(AssetId) override;
     RuntimeResourceStatus inspect_collision_asset(std::uint64_t) const override;
@@ -63,6 +64,8 @@ class PhysicsRuntime : public PhysicsService {
     std::optional<Double2> point_velocity_2d(EntityRef, Double2) const override;
     std::optional<PhysicsHit2D> raycast_2d(Double2, Double2,
                                            PhysicsQueryFilter = {}) const override;
+    std::vector<PhysicsHit2D> raycast_all_2d(Double2, Double2,
+                                             PhysicsQueryFilter = {}) const override;
     std::vector<EntityRef> overlap_shape_2d(const PhysicsOverlap2D&,
                                             PhysicsQueryFilter = {}) const override;
     std::optional<PhysicsHit2D> shape_cast_2d(const PhysicsSweep2D&,

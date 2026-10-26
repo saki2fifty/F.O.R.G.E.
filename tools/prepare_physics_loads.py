@@ -55,10 +55,17 @@ def prepare(source, output, runtime, tools, module=None, module_kit=None,
     if component not in declarations:
         raise ValueError('Unexpected example schema')
     registry = json.loads((output / 'forge.assets.json').read_text())
-    for asset in registry['assets']:
-        if asset['type'] != 'scene':
-            continue
-        scene_path = (output / asset['source']).resolve()
+    scene_sources = {asset['source'] for asset in registry['assets'] if asset['type'] == 'scene'}
+    # Editable templates may not have registered their scenes yet. Use the source
+    # owner's bounded discovery, including secondary scenes, rather than relying
+    # on an already populated catalog or manufacturing catalog records here.
+    scan = run_json(tools, '--assets', 'scan', output, 'Scenes')
+    if not scan['complete']:
+        raise ValueError('Example scene discovery did not complete')
+    scene_sources.update(file['source'] for file in scan['files']
+                         if file['source_kind'] == 'scene' and not file['alias_of'])
+    for source_path in sorted(scene_sources):
+        scene_path = (output / source_path).resolve()
         if output.resolve() not in scene_path.parents:
             raise ValueError('Example scene source escapes its project')
         scene = json.loads(scene_path.read_text())

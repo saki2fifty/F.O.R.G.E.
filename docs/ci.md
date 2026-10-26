@@ -974,6 +974,31 @@ The observer checks current count/native velocity/independent pose and saves act
 D3D12 pixels, requiring visible cyan geometry and a red actor. Physical Windows
 GPU acceptance remains separate from CI and is not implied by these fixtures.
 
+### Complete multi-hit rays
+
+`native_sdk_physics_rays` executes the actual appended callbacks and C++ clients
+through ordinary and production SDK Play hosts in both domains. It checks copied
+surface geometry, distance order, sensor filters, complete counts, output clearing,
+wrong-size arrays, invalid/null/capacity inputs, aliases, foreign threads, fixed
+scope and denied Physics permission. Native owner cases cover exact/overflow object
+budgets, canonical equal-fraction ordering, retired generations, sleeping/queued
+command purity, characters, compound/painted shapes and two-sided mesh geometry.
+The closest-query and 2D mover consumers retain their existing regression checks.
+
+`native_sdk_physics_volumes_installed` installs and relocates the matching SDK,
+checks local guide links, builds the editable PhysicsVolumes code from installed
+headers, prepares and relocates its project, then runs both original scenes through
+both hosts. Independent box equations cover hit counts/nearest fractions, reversed
+segments, misses, sensor selection, change-only diagnostics and ordinary-worker
+recovery. Preparation discovers unregistered primary/secondary scenes through the
+existing bounded source scanner with the explicit Scenes root. It preserves source
+IDs and rejects mismatched schema stamps and preexisting destinations.
+
+These tests are selected by the existing native SDK/editor acceptance patterns.
+A local Linux pass is not MSVC, full editor interaction, physical GPU, new screenshot
+or graphical exported-game acceptance. SDK Play uses authored restart; ordinary
+worker recovery checks do not claim arbitrary SDK Play state recovery.
+
 ### Slider joints
 
 Core joint tests check kind4 lower/upper endpoints, all principal axes, rotated and

@@ -68,6 +68,13 @@ properties; runtime stance requests use Physics permission and the fixed callbac
 boundary.0 selects automatic half-height. Stop restarts standing; save/export
 preserves authored settings. Native Windows acceptance is a separate gate.
 
+Complete 3D/XY ray queries return the nearest hit per canonical object, ordered
+along the segment. Use the matching `sdk::Client::raycast_all` or `raycast_all_2d`
+helpers with copied vector values and bounded output arrays. The
+[SDK ray contract](extension-contracts.md#complete-physics-rays) defines capacity,
+filters, native geometric limits and output clearing. The editable
+[PhysicsVolumes example](../manual/samples/physics-volumes.md) includes both scenes.
+
 ## Managed source and registration
 
 **Set up C++ code** copies the matching installed SDK template into

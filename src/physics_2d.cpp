@@ -1234,6 +1234,8 @@ struct Native2D::Impl {
         std::optional<PhysicsHit2D> hit;
         std::size_t* shared_work = nullptr;
         const PhysicalMover* response = nullptr;
+        std::array<PhysicsHit2D, physics_ray_hit_limit>* all = nullptr;
+        std::size_t count = 0;
     };
     static float ray_hit(b2ShapeId shape, b2Pos point, b2Vec2 normal, float fraction,
                          void* pointer) noexcept {
@@ -1254,6 +1256,24 @@ struct Native2D::Impl {
             (query.ignore_initial_overlap && fraction == 0) ||
             !physical_response(*body, query.response, &normal))
             return -1;
+        if (query.all) {
+            const PhysicsHit2D hit{
+                body->admitted.ref, {point.x, point.y}, {normal.x, normal.y}, fraction};
+            const auto end = query.all->begin() + query.count;
+            const auto found = std::find_if(query.all->begin(), end, [&](const auto& previous) {
+                return previous.entity == hit.entity;
+            });
+            if (found != end) {
+                if (hit.fraction < found->fraction)
+                    *found = hit;
+            } else if (query.count == query.all->size()) {
+                query.failed = true;
+                return 0;
+            } else {
+                (*query.all)[query.count++] = hit;
+            }
+            return 1; // Do not clip traversal to this object's fraction.
+        }
         if (!query.hit || fraction < query.hit->fraction)
             query.hit = PhysicsHit2D{
                 body->admitted.ref, {point.x, point.y}, {normal.x, normal.y}, fraction};
@@ -2507,6 +2527,28 @@ std::optional<PhysicsHit2D> Native2D::raycast(Double2 origin, Double2 displaceme
         throw std::runtime_error(
             "2D ray query exceeded its work limit or hit an invalid native binding");
     return query.hit;
+}
+std::vector<PhysicsHit2D> Native2D::raycast_all(Double2 origin, Double2 displacement,
+                                                PhysicsQueryFilter filter) const {
+    const auto& self = *impl_;
+    self.check();
+    validate_ray_2d(origin, displacement);
+    if (!realized() || !filter.mask)
+        return {};
+    std::array<PhysicsHit2D, physics_ray_hit_limit> hits{};
+    Impl::RayQuery query{&self, filter};
+    query.all = &hits;
+    b2World_CastRay(self.world, {origin[0], origin[1]},
+                    {float(displacement[0]), float(displacement[1])}, query_filter(filter),
+                    Impl::ray_hit, &query);
+    if (query.failed)
+        throw std::runtime_error(
+            "2D multi-hit ray exceeded its work/body limit or hit an invalid native binding");
+    std::vector<PhysicsHit2D> result(hits.begin(), hits.begin() + query.count);
+    std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
+        return a.fraction != b.fraction ? a.fraction < b.fraction : a.entity < b.entity;
+    });
+    return result;
 }
 std::vector<EntityRef> Native2D::overlap(const PhysicsOverlap2D& request,
                                          PhysicsQueryFilter filter) const {

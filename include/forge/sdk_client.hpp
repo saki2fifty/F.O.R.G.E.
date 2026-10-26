@@ -1,5 +1,6 @@
 #pragma once
 // Header-only convenience over the exact C boundary. Owns no host or world.
+#include <array>
 #include <chrono>
 #include <forge/native_sdk.h>
 namespace forge::sdk {
@@ -145,6 +146,29 @@ class Client {
         out.size = sizeof(out);
         return callable(Capability::Physics) && host_->shape_cast
                    ? host_->shape_cast(host_->context, &request, &out)
+                   : -1;
+    }
+    // Rays are copied by value before output initialization, including aliases.
+    // Complete count, -2 insufficient capacity, -1 invalid/unavailable.
+    int32_t raycast_all(std::array<double, 3> origin, std::array<double, 3> displacement,
+                        uint32_t mask, bool sensors, ForgeSdkPhysicsHitV1* out,
+                        uint32_t capacity) const {
+        if (!prepare_ray_hits(out, capacity))
+            return -1;
+        return callable(Capability::Physics) && host_->physics_raycast_all
+                   ? host_->physics_raycast_all(host_->context, origin.data(), displacement.data(),
+                                                mask, sensors ? 1u : 0u, out, capacity)
+                   : -1;
+    }
+    int32_t raycast_all_2d(std::array<double, 2> origin, std::array<double, 2> displacement,
+                           uint32_t mask, bool sensors, ForgeSdkPhysicsHit2DV1* out,
+                           uint32_t capacity) const {
+        if (!prepare_ray_hits(out, capacity))
+            return -1;
+        return callable(Capability::Physics) && host_->physics_raycast_all_2d
+                   ? host_->physics_raycast_all_2d(host_->context, origin.data(),
+                                                   displacement.data(), mask, sensors ? 1u : 0u,
+                                                   out, capacity)
                    : -1;
     }
     bool move_2d(const char* scene, const char* entity, const double position[2], double angle,
@@ -376,6 +400,15 @@ class Client {
     }
 
   private:
+    template <class Hit> static bool prepare_ray_hits(Hit* out, uint32_t capacity) {
+        if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_RAY_HIT_LIMIT)
+            return false;
+        for (uint32_t i = 0; i < capacity; ++i) {
+            out[i] = {};
+            out[i].size = sizeof(out[i]);
+        }
+        return true;
+    }
     const ForgeSdkWorldV1* host_;
 };
 // Stack-local only: must end before the callback returns or world retires.

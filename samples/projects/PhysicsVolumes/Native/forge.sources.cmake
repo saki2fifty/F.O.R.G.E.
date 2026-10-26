@@ -1,2 +1,2 @@
 # FORGE-managed source inventory.
-target_sources(gameplay PRIVATE Systems/VolumeProbeSystem.cpp)
+target_sources(gameplay PRIVATE Systems/VolumeProbeSystem.cpp Systems/RayProbeSystem.cpp)

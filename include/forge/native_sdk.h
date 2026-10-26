@@ -128,6 +128,7 @@ typedef struct ForgeSdkOverlapV1 {
     float rotation[4]; /* normalized XYZW; identity is0,0,0,1 */
 } ForgeSdkOverlapV1;
 #define FORGE_SDK_PHYSICS_OVERLAP_LIMIT 256u
+#define FORGE_SDK_PHYSICS_RAY_HIT_LIMIT 256u
 typedef struct ForgeSdkCharacterV1 {
     uint32_t size, ground, crouched, shape_change_blocked, jump_accepted;
     double position[3], velocity[3], ground_position[3], ground_normal[3], ground_velocity[3];
@@ -565,6 +566,20 @@ typedef struct ForgeSdkWorldV1 {
     int32_t(FORGE_SDK_CALL* character_command_2d)(void*, const char* scene_uuid,
                                                   const char* entity_uuid, uint32_t operation,
                                                   const double value[2], uint32_t clear_velocity);
+    /* Complete copied rays: nearest native hit per canonical object, sorted by
+       fraction then UUID pair. Capacity1..256; count0..256,-2 insufficient caller
+       capacity,-1 invalid/context/native budget. Physics/fixed owner thread.
+       Every output needs exact size; invalid buffers are untouched. Valid slots
+       clear on failure and unused slots clear on success. Ray inputs are copied
+       before output writes and may alias them. Existing domain face/inside rules. */
+    int32_t(FORGE_SDK_CALL* physics_raycast_all)(void*, const double origin[3],
+                                                 const double displacement[3], uint32_t mask,
+                                                 uint32_t include_sensors, ForgeSdkPhysicsHitV1*,
+                                                 uint32_t capacity);
+    int32_t(FORGE_SDK_CALL* physics_raycast_all_2d)(void*, const double origin[2],
+                                                    const double displacement[2], uint32_t mask,
+                                                    uint32_t include_sensors,
+                                                    ForgeSdkPhysicsHit2DV1*, uint32_t capacity);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;
