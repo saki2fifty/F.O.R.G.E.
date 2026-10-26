@@ -16,7 +16,11 @@ that child before resuming it. The duplicate is child-local and non-inheritable;
 unrelated SDL launches cannot acquire it. POSIX keeps the designated locked open
 file description across exec. A child retains
 ownership if the parent closes its copy. Existing process limits and parent-death
-termination remain in place. Normal completion removes the owned stage.
+termination remain in place. On completion or failure, the producer releases its
+copy and uses the same exclusive-ownership and whole-layout checks as maintenance.
+Returning from the direct worker wait does not authorize deletion while another
+process still holds the lease. An active or unfamiliar stage remains for inspection;
+a recognized stage is removed after ownership can be reacquired.
 
 After interruption, writer-owned `cache-cleanup` or `cache-clear-all` attempts exclusive
 ownership and validates the known layout before deletion. Import inputs must match the

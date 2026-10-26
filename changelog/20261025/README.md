@@ -16,6 +16,11 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Import staging ownership
 
+- Import completion and failure use the same guarded removal as maintenance.
+  Staging still owned by a live worker or containing unfamiliar files is retained;
+  recognized staging is reclaimed once ownership is available. Regression tests
+  exercise actual imports, retained contents and a Linux descendant that starts
+  its own session. This does not claim general process-tree containment.
 - Windows transfers a non-inheritable staging lease directly to the suspended
   worker. Unrelated Play/compiler/game launches cannot inherit that lease.
 - Ownership checks cover an unrelated SDL process, parent-close retention by the

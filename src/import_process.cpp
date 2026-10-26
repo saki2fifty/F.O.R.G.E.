@@ -1,6 +1,7 @@
 #include "import_process.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
+#include "import_job_cleanup.hpp"
 #include "worker_stage_lease.hpp"
 #include <algorithm>
 #include <forge/gltf_accessors.hpp>
@@ -126,11 +127,14 @@ struct JobDirectory {
                                                        .dump());
     }
     ~JobDirectory() {
-        owner.reset(); // The worker has already joined; release Windows deletion exclusion.
-        std::error_code error;
-        if (std::filesystem::weakly_canonical(path, error) == path && !error &&
-            !std::filesystem::is_symlink(path, error))
-            std::filesystem::remove_all(path, error);
+        owner.reset();
+        try {
+            // Supervisor return alone does not prove all copies of the lease
+            // are closed. Retain active or unfamiliar stages for maintenance.
+            (void)cleanup_import_job(path);
+        } catch (...) {
+            // Destruction cannot replace the import result or its diagnostic.
+        }
     }
 };
 Json read_json(const std::filesystem::path& path, std::size_t limit = manifest_limit) {
