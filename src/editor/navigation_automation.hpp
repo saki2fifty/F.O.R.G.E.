@@ -41,7 +41,7 @@ struct NavigationAutomation {
             "assets.write", automation_object({{"visible", {{"type", "boolean"}}}}, {"visible"}),
             true, [&owner, &scene, &files](const Json& request) {
                 files.document.check_ownership();
-                owner.show_ = request.at("visible").get<bool>();
+                owner.show_overlay(request.at("visible").get<bool>());
                 return state(owner, scene, files);
             }));
         Json values;

@@ -160,6 +160,22 @@ During Play, the amber path shows the calculated route. Clearing **Has destinati
 hiding the agent or turning off **Navigation overlay** removes the requested guide.
 The guide is an editor overlay and is absent from exported games.
 
+## Move the destination in Scene
+
+1. Select one placed agent with **Has destination** enabled and its saved NavMesh loaded under **Content → Navigation**.
+2. In **Navigation Agent**, click **Edit destination in Scene**, or choose **Scene / Navigation destination** in the command palette. This opens the Scene view, centers the requested point without changing zoom, and enables **Navigation overlay**.
+3. Drag a colored axis to change one coordinate. Drag the gold center to move across the navigation plane. For 3D, handles change world X/Z and keep Destination Y; for XY they change world X/Y and keep Destination Z.
+4. Use **Snap** or hold **Ctrl** to snap world metres with **View → Snap spacing**.
+5. Release to apply one Undo step. **Escape**, right-click, middle-click or losing application focus cancels the preview.
+6. Press **W** for ordinary object Move or **Q** for selection. Save the Scene to keep the destination, then Play to test its route.
+
+The preview leaves the agent's transform in place. A view looking along the plane
+may hide the center handle; orbit to see both axes and the center. Hidden or
+selection-locked targets are not editable. Loading the saved NavMesh does not bake
+a new one. Prefab instances use ordinary property overrides, Undo and **Revert**.
+Destination editing is unavailable during Play; use **Live gameplay** fields to tune
+a running agent.
+
 Keep the agent's spatial parents stationary and free of enabled character
 controllers. A controller on the object or its spatial parent stops navigation
 movement and reports a failed/invalid state. A disabled controller allows ordinary

@@ -13,6 +13,7 @@ void check(bool ok, const char* why) {
 }
 } // namespace
 
+#include "navigation_destination_gesture_tests.hpp"
 #include "navigation_destination_tests.hpp"
 #include "navigation_region_gesture_tests.hpp"
 #include "navigation_region_helpers_tests.hpp"
@@ -132,6 +133,7 @@ int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need navigation lifecycle scratch root and actual worker");
         const auto root = std::filesystem::absolute(argv[1]);
+        check_destination_gestures(root);
         check_region_gestures(root);
         const auto first = root / "First", second = root / "Second";
         SceneDocument::create_project(first, "First");

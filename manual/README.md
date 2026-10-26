@@ -65,7 +65,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Project Code (C++)](editor/native-gameplay.md)
 - [Gameplay input](editor/input.md)
 - [Physics](editor/physics.md)
-- [3D and 2D navigation and destination guides](editor/navigation.md)
+- [3D and 2D navigation and destination editing](editor/navigation.md)
 - [Audio](editor/audio.md)
 - [Runtime UI](editor/runtime-ui.md)
 - [Flecs Script](editor/flecs-script.md)

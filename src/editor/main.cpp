@@ -618,9 +618,39 @@ int main(int argc, char** argv) {
         auto sdk_build = std::make_unique<forge::SdkBuild>(files.document.project());
         forge::ui::CppSourceEditor cpp_sources;
         cpp_sources.project_changed(files.document.project());
-        component_inspector.edit_rig_target = [&](const std::string& type) {
+        scene_tools.destination_view =
+            [&](const forge::Json& source,
+                const std::string& entity) -> std::optional<forge::NavigationDestinationView> {
+            if (!navigation_tools.overlay_visible())
+                return {};
+            return navigation_tools.requested_destination(source, entity);
+        };
+        component_inspector.scene_target_available = [&](const std::string& entity,
+                                                         const std::string& type) {
+            if (type == "forge.navigation_agent") {
+                const auto target =
+                    navigation_tools.requested_destination(scene.effective_document(), entity);
+                return target && target->selectable;
+            }
+            return bool(forge::rig_target_view(scene.effective_document(), entity, type));
+        };
+        component_inspector.edit_scene_target = [&](const std::string& entity,
+                                                    const std::string& type) {
+            if (!scene.entity(entity)) {
+                message = "Choose a target instance in the current Scene";
+                return;
+            }
+            if (type == "forge.navigation_agent") {
+                if (!component_inspector.scene_target_available(entity, type)) {
+                    message = "Load the saved NavMesh under Content / Navigation and enable Has "
+                              "destination";
+                    return;
+                }
+                navigation_tools.show_overlay(true);
+            }
             modal.cancel();
             blockout.cancel();
+            editor.selection.select_entity(entity);
             scene_tools.target_tool(type);
             workspace.scene = true;
             editor.task.owner = forge::ui::DocumentTask::Scene;
@@ -3063,8 +3093,15 @@ int main(int argc, char** argv) {
                     !edit_locked && editor.selection.entity_count() == 1 &&
                         bool(forge::rig_target_view(authoring_snapshot.effective(scene), selected,
                                                     type)),
-                    [&, type] { component_inspector.edit_rig_target(type); });
+                    [&, type] { component_inspector.edit_scene_target(selected, type); });
             }
+            add_action(
+                "tool.navigation_destination", "Scene / Navigation destination", "",
+                "Move the requested world destination on the saved navigation plane. "
+                "Release commits one Undo step; Escape cancels.",
+                !edit_locked && editor.selection.entity_count() == 1 &&
+                    component_inspector.scene_target_available(selected, "forge.navigation_agent"),
+                [&] { component_inspector.edit_scene_target(selected, "forge.navigation_agent"); });
             auto create_menu = [&] {
                 if (forge::ui::creation_menu(actions, blockout.at_view_target))
                     perform(save_preferences);
@@ -4847,7 +4884,7 @@ int main(int argc, char** argv) {
                                 editor.selection.select_entity(row.at("id").get<std::string>());
                                 break;
                             }
-                        component_inspector.edit_rig_target(key);
+                        component_inspector.edit_scene_target(selected, key);
                         workspace.inspector = false;
                         const auto target =
                             forge::rig_target_view(scene.effective_document(), selected, key);
@@ -5695,6 +5732,10 @@ int main(int argc, char** argv) {
                                  ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar);
                 FORGE_UI_TAB_PROBE(game_view ? "tab:Game" : "tab:Scene");
                 if (view_visible) {
+                    if (!game_view && !play.active() &&
+                        scene_tools.focus_destination(
+                            view_camera, authoring_snapshot.effective(scene), selected))
+                        perform(save_preferences);
                     if (game_view) {
                         game_visible = true;
                         // ImGui focus reflects which panel the user
@@ -5753,7 +5794,7 @@ int main(int argc, char** argv) {
                                     ? (modal.gesture.mode() == forge::TransformGesture::Mode::Scale
                                            ? 3
                                            : 2)
-                                    : (!scene_tools.rig_component.empty()
+                                    : (!scene_tools.target_component.empty()
                                            ? 4
                                            : (scene_tools.move_tool ? 1 : 0));
                             for (auto [id, icon, tool] :
@@ -6213,6 +6254,10 @@ int main(int argc, char** argv) {
 #endif
                             navigation_tools.draw(rendered, view_camera, image_origin, size,
                                                   selected);
+                            scene_tools.draw_destination(
+                                rendered, view_camera, selected, image_origin, size,
+                                !game_view && can_edit && !modal.active() &&
+                                    editor.selection.entity_count() == 1);
                         }
                         if (!game_view)
                             orientation.draw(view_camera, image_origin, size);

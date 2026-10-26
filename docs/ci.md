@@ -1056,6 +1056,22 @@ Existing navigation/XY/live-control workflows still run in that fixture.
 These portable owner/UI checks are separate from the full native editor entry
 point, MSVC, actual pixels and physical review; capture requested guides on Windows.
 
+`navigation_lifecycle` also drives the actual destination Inspector action and
+SceneTools plane/axis handles in those scale/viewport contexts. It checks pinned
+target routing, unavailable/selection-locked targets, exclusive gesture ownership,
+world snapping, detached previews, one Undo/Redo and no-op clicks. Escape, right/
+middle buttons, edit lock, viewport change, selection change, hidden overlay and
+application focus loss cancel without applying the draft. Committed values follow
+normal Scene Save/reopen. Core cases cover mirrored/singular parents, stale Scene
+revisions, copied scope/plane changes and inherited Prefab field masks/Revert.
+Existing rig input tests include focus loss through the shared cancellation guard;
+the native focus event's SDL delivery remains a separate Windows check.
+
+MCP checks edit all three destination fields through the same property batch,
+Undo/Redo and existing qualified target path. The native main entry point and
+command-palette composition remain source-inspected in local editor-off builds;
+portable class/input tests do not establish a full native user walkthrough.
+
 ### Slider joints
 
 Core joint tests check kind4 lower/upper endpoints, all principal axes, rotated and

@@ -131,7 +131,9 @@ int main() {
                     ComponentInspector inspector;
                     inspector.fixture_focus_component = type;
                     unsigned activations = 0;
-                    inspector.edit_rig_target = [&](const auto& component) {
+                    inspector.edit_scene_target = [&](const auto& target_entity,
+                                                      const auto& component) {
+                        check(target_entity == actor, "Inspector target action lost its entity");
                         check(component == type, "Inspector selected the wrong target tool");
                         ++activations;
                         tools.target_tool(component);
@@ -220,7 +222,7 @@ int main() {
                     frame();
                     io.AddMouseButtonEvent(0, false);
                     frame();
-                    check(activations == 1 && tools.rig_component == type &&
+                    check(activations == 1 && tools.target_component == type &&
                               scene.snapshot() == inspector_source,
                           "Inspector target tool did not select the existing viewport owner");
                     inspect = false;
@@ -281,7 +283,7 @@ int main() {
                     check(scene.undo() && scene.snapshot() == original,
                           "Mouse target drag did not use one Undo entry");
                     if (scale == 1.f) {
-                        for (unsigned reason = 0; reason < 7; ++reason) {
+                        for (unsigned reason = 0; reason < 8; ++reason) {
                             io.AddMousePosEvent(10 + start[0], 40 + start[1]);
                             frame();
                             io.AddMouseButtonEvent(0, true);
@@ -307,6 +309,8 @@ int main() {
                                 io.AddMouseButtonEvent(1, true);
                             if (reason == 6)
                                 scene.rename_entity(actor, "External revision");
+                            if (reason == 7)
+                                io.AddFocusEvent(false);
                             const auto expected = scene.snapshot();
                             frame();
                             check(!tools.active() && scene.snapshot() == expected,
@@ -314,6 +318,10 @@ int main() {
                             io.AddKeyEvent(ImGuiKey_Escape, false);
                             io.AddMouseButtonEvent(0, false);
                             io.AddMouseButtonEvent(1, false);
+                            if (reason == 7) {
+                                io.AddFocusEvent(true);
+                                io.AddMousePosEvent(10 + start[0], 40 + start[1]);
+                            }
                             selected = actor;
                             can_edit = true;
                             viewport_origin = {10, 40};
@@ -327,13 +335,13 @@ int main() {
                         frame();
                         io.AddKeyEvent(ImGuiKey_Q, false);
                         frame();
-                        check(tools.rig_component.empty() && !tools.move_tool,
+                        check(tools.target_component.empty() && !tools.move_tool,
                               "Q did not restore object selection from the rig target tool");
                         io.AddKeyEvent(ImGuiKey_W, true);
                         frame();
                         io.AddKeyEvent(ImGuiKey_W, false);
                         frame();
-                        check(tools.rig_component.empty() && tools.move_tool &&
+                        check(tools.target_component.empty() && tools.move_tool &&
                                   scene.snapshot() == original,
                               "W did not restore object Move without changing rig data");
                     }

@@ -1,6 +1,7 @@
 #pragma once
 #include "../builtins.hpp"
 #include <stdexcept>
+#include <string_view>
 namespace forge::ui {
 // Detached spatial guides decode through the same native builtin validation.
 template <class T> T spatial_component_value(const Json& values, const char* name) {

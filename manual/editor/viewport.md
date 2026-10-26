@@ -30,6 +30,12 @@ when it has no visible art. If the same entity also renders a Mesh or Sprite,
 framing includes the art and the independent navigation extent. See
 [Navigation](navigation.md) for outline selection and centered resize handles.
 
+A selected Navigation Agent can show its requested point with **Navigation overlay**.
+Use **Edit destination in Scene** in its Inspector to drag the point along the saved
+navigation plane, with world snapping and one Undo step. **W** restores object Move;
+**Q** restores selection. The [navigation guide](navigation.md) covers prerequisites,
+axis controls, cancellation and saving.
+
 If part of the requested geometry is still loading or has failed, framing preserves the camera and reports that it is not ready. Retry after loading completes. It does not fit an incomplete subset or substitute a cube for a missing model. Very large extents can exceed the current camera framing range.
 
 Left-click visible geometry, a camera/light icon or a visible navigation-region outline to select an object under the

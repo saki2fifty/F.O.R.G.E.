@@ -1,4 +1,5 @@
 #pragma once
+#include "navigation_destination_input_tests.hpp"
 #include <fstream>
 #include <iterator>
 #include <limits>
@@ -200,6 +201,7 @@ inline void check_navigation_destinations(const std::filesystem::path& root,
             shown(scene.effective_document());
             check(AssetCatalog::open_project(root).document() == catalog.document(),
                   "Drawing a destination republished navigation");
+            check_destination_input(tools, scene, project, actor, surface, camera, origin, size);
             test::observe_ui = false;
             ImGui::DestroyContext();
         }
@@ -208,6 +210,15 @@ inline void check_navigation_destinations(const std::filesystem::path& root,
           "Destination drawing or view toggle wrote the saved scene");
     project.open_project(root);
     check(scene.document() == saved, "Destination authored values failed Save/reopen");
+    const auto target = tools.requested_destination(scene.effective_document(), actor);
+    NavigationDestinationGesture persistence;
+    check(target && persistence.begin(scene, *target, -1) &&
+              persistence.update({.4, -.3, .7}, false, 1) && persistence.commit(scene),
+          "Destination persistence fixture did not commit");
+    const auto authored = scene.document();
+    project.save();
+    project.open_project(root);
+    check(scene.document() == authored, "Committed destination gesture failed normal Save/reopen");
     std::cout << (xy ? "XY" : "3D")
               << " requested destination, actual toggle, scale/narrow caption, field/Undo and "
                  "Save/reopen passed\n";

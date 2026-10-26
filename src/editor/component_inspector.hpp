@@ -124,7 +124,9 @@ class ComponentInspector {
     ui::SpriteFrameField sprite_frames;
     std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     std::function<void(const std::string&)> open_cpp_definition;
-    std::function<void(const std::string&)> edit_rig_target;
+    std::function<void(const std::string& entity, const std::string& component)> edit_scene_target;
+    std::function<bool(const std::string& entity, const std::string& component)>
+        scene_target_available;
     static bool runtime_type_available(const Json& type, const Json& components) {
         if (!type.is_object() || !type.contains("fields") || !type.contains("id"))
             return false;
@@ -463,13 +465,25 @@ class ComponentInspector {
                              : "Owned component");
             ui::help("Ownership and explicit intent determine overrides, including values equal to "
                      "the prefab source.");
-            if (AnimationPlaybackAccess::rig_type(key) && edit_rig_target) {
+            if (AnimationPlaybackAccess::rig_type(key) && edit_scene_target) {
                 ImGui::BeginDisabled(!rig_target_view(effective, entity, key));
                 if (ui::button("Edit target in Scene",
                                "Drag target axes in the Scene viewport. "
                                "Targets and snapping use model space. One Undo step on release."))
-                    edit_rig_target(key);
+                    edit_scene_target(entity, key);
                 FORGE_UI_PROBE("rig-target-tool:" + key);
+                ImGui::EndDisabled();
+            }
+            if (key == "forge.navigation_agent" && edit_scene_target) {
+                ImGui::BeginDisabled(!scene_target_available ||
+                                     !scene_target_available(entity, key));
+                if (ui::button("Edit destination in Scene",
+                               "Move the requested destination along world X/Z for 3D or X/Y for "
+                               "XY navigation. Drag an axis or the center; Ctrl snaps. Release "
+                               "commits one Undo step. Load the saved NavMesh under Content / "
+                               "Navigation and enable Has destination first."))
+                    edit_scene_target(entity, key);
+                FORGE_UI_PROBE("navigation:destination-tool");
                 ImGui::EndDisabled();
             }
             Json sprite_fields;

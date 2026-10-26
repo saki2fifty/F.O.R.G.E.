@@ -4,6 +4,12 @@ Local source; Windows verification and numbered delivery remain pending.
 
 ## Navigation requested destinations
 
+- Inspector and command palette can enter a Scene destination tool, with world
+  plane/axis dragging, snapping, detached preview, one Undo, Prefab property overrides
+  and normal saving. Shared target callbacks carry their inspected entity.
+- SceneTools cancels captured previews when the application loses focus; rig and
+  navigation input checks cover the shared guard.
+
 - Navigation overlay shows a selected agent's requested destination and straight
   origin guide, using the saved asset's 3D/XY plane. Disabled guides are gray;
   existing amber runtime routes remain separate.

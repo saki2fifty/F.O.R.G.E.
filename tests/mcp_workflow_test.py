@@ -183,6 +183,17 @@ for legacy in (False, True):
             assert obstacle_width() == 3
             agent = ok('forge_entity_create', arguments=dict(name='Live XY agent'))['results'][0]['selected']
             ok('forge_component_add', arguments=dict(entity=agent, component='forge.navigation_agent'))
+            original_goal = read('forge_scene_read')
+            goal = dict(destination_x=-7.5, destination_y=1.5, destination_z=123)
+            ok('forge_property_set_many', arguments=dict(entity=agent, component='forge.navigation_agent', values=goal))
+            edited_goal = read('forge_scene_read')
+            values = next(row for row in edited_goal['entities'] if row['id'] == agent)['components']['forge.navigation_agent']
+            assert all(values[key] == value for key, value in goal.items())
+            ok('forge_history_undo')
+            assert read('forge_scene_read') == original_goal
+            ok('forge_history_redo')
+            assert read('forge_scene_read') == edited_goal
+            ok('forge_history_undo')
             ok('forge_property_set_many', arguments=dict(entity=agent, component='forge.local_translation',
                                                         values=dict(x=-8, y=1, z=37.125)))
             ok('forge_property_set_many', arguments=dict(entity=agent, component='forge.navigation_agent',

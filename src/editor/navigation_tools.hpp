@@ -1,6 +1,7 @@
 #pragma once
 #include "authoring.hpp"
 #include "document.hpp"
+#include "navigation_destination_view.hpp"
 #include "navigation_sources.hpp"
 #include "property_drawer.hpp"
 #include "spatial_component_value.hpp"
@@ -19,6 +20,20 @@ class NavigationTools {
   public:
     bool pending() const { return job_.valid(); }
     bool overlay_visible() const { return show_; }
+    void show_overlay(bool visible) { show_ = visible; }
+    std::optional<NavigationDestinationView>
+    requested_destination(const Json& source, const std::string& selected) const {
+        try {
+            if (!selected_ || !metadata_.is_object() ||
+                source.at("asset_id").get<AssetId>() != loaded_scene_)
+                return {};
+            return navigation_destination_view(
+                source, selected, selected_,
+                metadata_.at("settings").get<NavigationSettings>().plane, loaded_project_);
+        } catch (const std::exception&) {
+            return {};
+        }
+    }
     void overlay_control() {
         ImGui::Checkbox("Navigation overlay", &show_);
         FORGE_UI_PROBE("navigation:overlay");
@@ -255,7 +270,7 @@ class NavigationTools {
                                        ? metadata_.at("settings").get<NavigationSettings>().plane
                                        : settings_.plane;
         auto projected = [&](Double3 p, NavigationPlane plane) -> std::optional<ImVec2> {
-            p[plane == NavigationPlane::PlanarXY ? 2 : 1] += .02;
+            p = navigation_guide_point(p, plane);
             auto v = project_point(camera, {float(p[0]), float(p[1]), float(p[2])}, size.x, size.y);
             if (!v)
                 return {};
@@ -274,70 +289,40 @@ class NavigationTools {
                 draw->AddTriangle(*a, *b, *c, IM_COL32(80, 205, 190, 100));
             }
         }
-        // A requested point is a detached view of current component values, not
-        // a path query or a promise that projection onto the saved mesh succeeds.
-        if (!selected.empty()) {
-            try {
-                for (const auto& row : doc.at("entities")) {
-                    if (row.at("id") != selected || row.value("prefab", false) ||
-                        !row.value("spatial_resolved", false) ||
-                        !row.at("components").contains("forge.navigation_agent"))
-                        continue;
-                    const auto agent = ui::spatial_component_value<NavigationAgent>(
-                        row.at("components"), "forge.navigation_agent");
-                    if (!agent.has_destination || agent.navmesh.id != selected_)
-                        break;
-                    const auto policies = extract_node_policies(doc);
-                    const auto policy = policies.entities.find(EntityId::parse(selected));
-                    if (policy == policies.entities.end() || !policy->second.valid ||
-                        !policy->second.visible)
-                        break;
-                    const auto world = row.at("world_affine").get<std::array<double, 12>>();
-                    if (!std::all_of(world.begin(), world.end(),
-                                     [](double x) { return std::isfinite(x); }))
-                        break;
-                    const Double3 start{world[3], world[7], world[11]};
-                    Double3 destination{agent.destination_x, agent.destination_y,
-                                        agent.destination_z};
-                    if (overlay_plane == NavigationPlane::PlanarXY)
-                        destination[2] = start[2];
-                    const auto from = overlay(start), to = overlay(destination);
-                    if (!to)
-                        break;
-                    const auto color =
-                        agent.enabled ? IM_COL32(105, 225, 245, 255) : IM_COL32(155, 160, 170, 230);
-                    const float radius = 6 * ui::interface_scale;
-                    if (from)
-                        draw->AddLine(*from, *to, color, ui::interface_scale);
-                    draw->AddQuad({to->x, to->y - radius}, {to->x + radius, to->y},
-                                  {to->x, to->y + radius}, {to->x - radius, to->y}, color,
-                                  1.5f * ui::interface_scale);
-                    FORGE_UI_RECT_PROBE("navigation:requested-destination",
-                                        (ImVec2{to->x - radius, to->y - radius}),
-                                        (ImVec2{to->x + radius, to->y + radius}), agent.enabled);
-                    const char* label = agent.enabled ? "Requested destination"
-                                                      : "Requested destination (disabled)";
-                    const float margin = 4 * ui::interface_scale;
-                    const float wrap_width = std::max(1.f, size.x - 2 * margin);
-                    const auto text_size = ImGui::CalcTextSize(label, nullptr, false, wrap_width);
-                    if (to->x >= origin.x && to->x <= origin.x + size.x && to->y >= origin.y &&
-                        to->y <= origin.y + size.y) {
-                        const ImVec2 at{
-                            std::clamp(to->x + radius + margin, origin.x + margin,
-                                       std::max(origin.x + margin,
-                                                origin.x + size.x - text_size.x - margin)),
-                            std::clamp(to->y + radius + margin, origin.y + margin,
-                                       std::max(origin.y + margin,
-                                                origin.y + size.y - text_size.y - margin))};
-                        draw->AddText(ImGui::GetFont(), ImGui::GetFontSize(), at, color, label,
-                                      nullptr, wrap_width);
-                        FORGE_UI_RECT_PROBE("navigation:requested-destination-label", at,
-                                            (ImVec2{at.x + text_size.x, at.y + text_size.y}), true);
-                    }
-                    break;
+        // This same copied view supplies the Scene target tool; no parallel
+        // asset/plane or destination-selection authority exists.
+        if (const auto target = requested_destination(doc, selected)) {
+            const auto from = overlay(target->origin), to = overlay(target->point);
+            if (to) {
+                const auto color = target->agent.enabled ? IM_COL32(105, 225, 245, 255)
+                                                         : IM_COL32(155, 160, 170, 230);
+                const float radius = 6 * ui::interface_scale;
+                if (from)
+                    draw->AddLine(*from, *to, color, ui::interface_scale);
+                draw->AddQuad({to->x, to->y - radius}, {to->x + radius, to->y},
+                              {to->x, to->y + radius}, {to->x - radius, to->y}, color,
+                              1.5f * ui::interface_scale);
+                FORGE_UI_RECT_PROBE(
+                    "navigation:requested-destination", (ImVec2{to->x - radius, to->y - radius}),
+                    (ImVec2{to->x + radius, to->y + radius}), target->agent.enabled);
+                const char* label = target->agent.enabled ? "Requested destination"
+                                                          : "Requested destination (disabled)";
+                const float margin = 4 * ui::interface_scale;
+                const float wrap_width = std::max(1.f, size.x - 2 * margin);
+                const auto text_size = ImGui::CalcTextSize(label, nullptr, false, wrap_width);
+                if (to->x >= origin.x && to->x <= origin.x + size.x && to->y >= origin.y &&
+                    to->y <= origin.y + size.y) {
+                    const ImVec2 at{std::clamp(to->x + radius + margin, origin.x + margin,
+                                               std::max(origin.x + margin,
+                                                        origin.x + size.x - text_size.x - margin)),
+                                    std::clamp(to->y + radius + margin, origin.y + margin,
+                                               std::max(origin.y + margin,
+                                                        origin.y + size.y - text_size.y - margin))};
+                    draw->AddText(ImGui::GetFont(), ImGui::GetFontSize(), at, color, label, nullptr,
+                                  wrap_width);
+                    FORGE_UI_RECT_PROBE("navigation:requested-destination-label", at,
+                                        (ImVec2{at.x + text_size.x, at.y + text_size.y}), true);
                 }
-            } catch (const std::exception&) {
-                // Invalid/unresolved source has no invented destination guide.
             }
         }
         for (const auto& e : doc.at("entities"))

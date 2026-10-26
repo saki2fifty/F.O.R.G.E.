@@ -168,6 +168,19 @@ performs no query, asset IO, tick, pose write, history or publication. It remain
 project/Scene scoped through the existing overlay owner. The normal checkbox and
 navigation.overlay automation operation change the same transient view flag.
 
+The explicit Scene destination tool reuses that copied view and the existing
+SceneTools gesture owner. It edits world X/Z for3D or X/Y forXY through a detached
+`property.set_many` preview, preserving the other authored coordinate. Release
+submits one ordinary authoring/history operation; equal-value clicks create none.
+Current scope/asset/plane/configuration, Scene revision, selection and editability
+remain checked. Snap uses world metres; no parent inverse or entity pose write is
+needed. Inspector callbacks carry the requested entity, including pinned inspection.
+Shared axis layout/hit and ray/plane math also serve existing rig/region consumers.
+`ImGuiIO::AppFocusLost` cancels shared SceneTools gestures before cleared input can
+leave a preview captured. No source/schema/SDK or runtime navigation state changes.
+Automation/MCP uses the same ordinary destination field batch and history commands;
+no independent screen-drag or gameplay authoring path is introduced.
+
 Private `navigation_debug` adds `diagnostic`, a copied human-readable reason only
 for the current Failed observation/configuration. It reads the existing per-agent
 error map, or its current global agent-limit entry, without inserting/loading or

@@ -408,6 +408,12 @@ not bake, project a point or compute a route. The overlay includes the selected
 agent's requested destination using the selected saved asset's plane, alongside
 existing triangles and runtime paths. Read-only connections do not expose this control.
 
+Destination values remain ordinary `forge.navigation_agent` fields. A
+`forge_property_set_many` batch can edit `destination_x/y/z`, with standard revision
+guards, Undo/Redo and saving. The Scene destination gesture submits that same native
+property operation. It changes two world-plane coordinates, while callers can
+deliberately set all three fields. No MCP screen-coordinate drag tool is advertised.
+
 `forge_dependencies_open/read/edit/save/discard` borrows the selected asset's
 RuntimeDependenciesEditor draft. Edit supplies a finite typed set with reasons
 and optional module ownership. Save reviews source revisions, optional native UI
