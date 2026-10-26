@@ -1,4 +1,6 @@
+#include "animation_playback_access.hpp"
 #include "particle_runtime.hpp"
+#include "runtime_property_tune.hpp"
 #include "runtime_tile_map.hpp"
 #include <exception>
 #include <forge/animation.hpp>
@@ -31,6 +33,33 @@ RuntimeWorld::RuntimeWorld(std::vector<EngineModule> modules, PhysicsConfig phys
       scene(engine.world()), simulation(engine.world(), scene) {}
 std::shared_ptr<PhysicsRuntime> RuntimeWorld::physics() {
     return std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+}
+Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
+                                 const std::string& property, const Json& value) {
+    auto& context = engine.world();
+    if (!context.on_owner_thread() || context.role() != WorldRole::Runtime ||
+        context.world().is_readonly())
+        throw std::runtime_error("Live property tuning requires the writable runtime owner");
+    if (target.scene != scene.asset_id())
+        throw std::runtime_error("Live property targets a different scene asset");
+    if (AnimationPlaybackAccess::rig_type(type)) {
+        if (!engine.services().available(Capability::Animation))
+            throw std::runtime_error("Live IK tuning requires enabled animation");
+        auto applied = AnimationPlaybackAccess::tune_rig(
+            *std::static_pointer_cast<AnimationRuntime>(engine.services().animation()), target,
+            type, property, value);
+        simulation.sync_animation_pose();
+        return applied;
+    }
+    if (RuntimePropertyTune::particle_type(type))
+        return particle_runtime(context)->tune_appearance(target, property, value);
+    if (RuntimePropertyTune::navigation_type(type)) {
+        if (!engine.services().available(Capability::Navigation))
+            throw std::runtime_error("Live navigation tuning requires enabled navigation");
+        return std::static_pointer_cast<NavigationRuntime>(engine.services().navigation())
+            ->tune(target, type, property, value);
+    }
+    return scene.tune_runtime_property(target.entity.str(), type, property, value);
 }
 bool RuntimeWorld::prepare_physics_assets() {
     if (engine.services().available(Capability::Resources))

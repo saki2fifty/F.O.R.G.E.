@@ -107,6 +107,38 @@ body-pair masks. See [2D physics](physics-2d.md) for that domain's full contract
 Rebuild matching project modules when the exact SDK fingerprint changes. The ABI 1
 table prefix and authored/private checkpoint versions are unchanged.
 
+## Canonical query exclusions
+
+The typed `*_excluding` variants of closest/all rays, overlaps and linear sweeps
+accept `ForgeSdkPhysicsExclusionsV1`. A null descriptor means no exclusions.
+Otherwise its size must be exact and count must be0..16. Nonzero count requires
+that many `ForgeSdkEntityRefV1` entries, each with exact size, version 1 and complete
+scene/entity UUIDs. The array is borrowed for the synchronous call. All rows are
+copied before any output write, including an overlap output array used as input.
+Duplicates are valid; unmatched canonical identities simply exclude nothing.
+
+An excluded identity removes its whole native object before closest selection or
+unique-result counting. Layers/sensors and native geometry remain independent;
+the old single 2D sweep ignore combines with the list. Exclusions do not change
+simulation collision, wake bodies, flush commands or create persisted state.
+Physics permission, fixed owner-thread scope and existing request/output sizes
+remain required. Old C callback signatures and POD sizes are unchanged; the new
+input descriptor and appended callbacks require matching rebuilt SDK/modules.
+
+Single queries return 1 hit, 0 miss or -1 invalid/context. Complete queries return the
+count, -2 insufficient caller capacity or -1 invalid/context/native budget. Valid
+outputs clear on failure; wrong-size/capacity arrays remain untouched. Every closest
+ray entry point now snapshots vector inputs before clearing, including original
+unfiltered 3D rays. C++ closest helpers preserve that ordering. C++ sweep/overlap
+helpers take copied request values and initialize their sizes; raw C callers still
+supply exact sizes and receive strict rejection for invalid ones.
+
+`Client` offers the same eight explicit `*_excluding` helpers with
+`std::span<const ForgeSdkEntityRefV1>`. They snapshot the bounded input prefix
+before output initialization, check permissions and delegate to the same host
+callbacks. Empty spans use ordinary callbacks and do not initialize an exclusion
+array. There is no query filter token, retained input view or second physics world.
+
 ## Component authoring audit
 
 All Phase6 components store authored values/references only and use the existing reflection, scene/prefab serialization and override/Revert paths. Defaults match their schema declarations. Null typed references mean unassigned, while wrong asset types/revisions diagnose instead of silently reinterpreting bytes. Physics has body/collider presence; AudioSource has play_on_start and commands; AudioListener/Animator/NavigationAgent/UiDocument have their domain-specific enabled controls. UiDocument.visible only controls presentation. Making all of these an identical enabled field would change semantics and is unnecessary.

@@ -11,7 +11,9 @@
 #include <forge/native_sdk_identity.h>
 #include <forge/project_paths.hpp>
 #include <forge/world.hpp>
+#include <optional>
 #include <set>
+#include <span>
 #include <thread>
 #ifdef FORGE_ENABLE_NATIVE_SDK
 #ifdef _WIN32
@@ -96,52 +98,262 @@ struct Bridge {
             throw std::runtime_error("SDK requires its owner thread");
         return bridge;
     }
-    template <std::size_t N, class Hit>
-    static int32_t FORGE_SDK_CALL raycast_many(void* p, const double* origin,
-                                               const double* displacement, uint32_t mask,
-                                               uint32_t sensors, Hit* out, uint32_t capacity) {
-        static_assert(physics_ray_hit_limit == FORGE_SDK_PHYSICS_RAY_HIT_LIMIT);
-        if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_RAY_HIT_LIMIT)
-            return -1;
+    struct QueryExclusions {
+        std::array<EntityRef, physics_query_exclusion_limit> values{};
+        std::size_t count = 0;
+        explicit QueryExclusions(const ForgeSdkPhysicsExclusionsV1& input) {
+            static_assert(physics_query_exclusion_limit == FORGE_SDK_PHYSICS_EXCLUSION_LIMIT);
+            if (input.size != sizeof(input) || input.count > values.size() ||
+                (input.count && !input.entities))
+                throw std::runtime_error("Invalid physics query exclusion descriptor");
+            for (std::size_t i = 0; i < input.count; ++i) {
+                const auto ref = input.entities[i];
+                if (ref.size != sizeof(ref) || ref.version != 1)
+                    throw std::runtime_error(
+                        "Invalid physics query exclusion reference size/version");
+                values[count++] = {AssetId::parse(bounded(ref.scene_uuid, 36)),
+                                   EntityId::parse(bounded(ref.entity_uuid, 36))};
+            }
+        }
+        std::span<const EntityRef> view() const { return {values.data(), count}; }
+    };
+    template <class Out>
+    static bool valid_query_output(Out* out, uint32_t capacity, uint32_t limit) {
+        if (!out || !capacity || capacity > limit)
+            return false;
         for (uint32_t i = 0; i < capacity; ++i)
             if (out[i].size != sizeof(out[i]))
-                return -1;
-        // Snapshot both inputs before clearing any potentially aliased output.
+                return false;
+        return true;
+    }
+    template <class Out> static void clear_query_output(Out* out, uint32_t capacity) {
+        for (uint32_t i = 0; i < capacity; ++i) {
+            out[i] = {};
+            out[i].size = sizeof(out[i]);
+        }
+    }
+    template <class Out, class Hit> static void copy_query_hit(Out& out, const Hit& hit) {
+        std::memcpy(out.scene, hit.entity.scene.str().c_str(), 37);
+        std::memcpy(out.entity, hit.entity.entity.str().c_str(), 37);
+        std::copy_n(hit.position.begin(), std::size(out.position), out.position);
+        std::copy_n(hit.normal.begin(), std::size(out.normal), out.normal);
+        out.fraction = hit.fraction;
+    }
+    static PhysicsQueryFilter query_filter(uint32_t mask, uint32_t sensors,
+                                           const std::optional<QueryExclusions>& exclusions) {
+        return {mask, sensors != 0, exclusions ? exclusions->view() : std::span<const EntityRef>{}};
+    }
+    template <std::size_t N, class Hit>
+    static int32_t FORGE_SDK_CALL raycast_one(void* p, const double* origin,
+                                              const double* displacement, uint32_t mask,
+                                              uint32_t sensors, Hit* out) {
+        static_assert(std::size(Hit{}.position) == N);
+        return raycast_one<N, Hit>(p, origin, displacement, mask, sensors, nullptr, out);
+    }
+    template <std::size_t N, class Hit>
+    static int32_t FORGE_SDK_CALL raycast_one(void* p, const double* origin,
+                                              const double* displacement, uint32_t mask,
+                                              uint32_t sensors,
+                                              const ForgeSdkPhysicsExclusionsV1* input_exclusions,
+                                              Hit* out) {
+        static_assert(std::size(Hit{}.position) == N);
+        if (!valid_query_output(out, 1, 1))
+            return -1;
         std::array<double, N> from{}, delta{};
         if (origin)
             std::copy_n(origin, N, from.begin());
         if (displacement)
             std::copy_n(displacement, N, delta.begin());
-        const auto clear = [&] {
-            for (uint32_t i = 0; i < capacity; ++i) {
-                out[i] = {};
-                out[i].size = sizeof(out[i]);
-            }
-        };
-        clear();
         try {
+            // The optional payload stays unconstructed on existing empty paths.
+            // Snapshot every exclusion before any possibly aliased output write.
+            std::optional<QueryExclusions> exclusions;
+            if (input_exclusions)
+                exclusions.emplace(*input_exclusions);
+            clear_query_output(out, 1);
             auto& c = get(p).context;
             if (!c.input || !origin || !displacement || sensors > 1)
                 return -1;
             const auto service = c.services.physics();
+            const auto filter = query_filter(mask, sensors, exclusions);
+            const auto hit = [&] {
+                if constexpr (N == 2)
+                    return service->raycast_2d(from, delta, filter);
+                else
+                    return service->raycast_filtered(from, delta, filter);
+            }();
+            if (!hit)
+                return 0;
+            copy_query_hit(*out, *hit);
+            return 1;
+        } catch (...) {
+            clear_query_output(out, 1);
+            return -1;
+        }
+    }
+    template <std::size_t N, class Hit>
+    static int32_t FORGE_SDK_CALL raycast_many(void* p, const double* origin,
+                                               const double* displacement, uint32_t mask,
+                                               uint32_t sensors, Hit* out, uint32_t capacity) {
+        static_assert(std::size(Hit{}.position) == N);
+        return raycast_many<N, Hit>(p, origin, displacement, mask, sensors, nullptr, out, capacity);
+    }
+    template <std::size_t N, class Hit>
+    static int32_t FORGE_SDK_CALL raycast_many(void* p, const double* origin,
+                                               const double* displacement, uint32_t mask,
+                                               uint32_t sensors,
+                                               const ForgeSdkPhysicsExclusionsV1* input_exclusions,
+                                               Hit* out, uint32_t capacity) {
+        static_assert(std::size(Hit{}.position) == N);
+        static_assert(physics_ray_hit_limit == FORGE_SDK_PHYSICS_RAY_HIT_LIMIT);
+        if (!valid_query_output(out, capacity, FORGE_SDK_PHYSICS_RAY_HIT_LIMIT))
+            return -1;
+        std::array<double, N> from{}, delta{};
+        if (origin)
+            std::copy_n(origin, N, from.begin());
+        if (displacement)
+            std::copy_n(displacement, N, delta.begin());
+        try {
+            std::optional<QueryExclusions> exclusions;
+            if (input_exclusions)
+                exclusions.emplace(*input_exclusions);
+            clear_query_output(out, capacity);
+            auto& c = get(p).context;
+            if (!c.input || !origin || !displacement || sensors > 1)
+                return -1;
+            const auto service = c.services.physics();
+            const auto filter = query_filter(mask, sensors, exclusions);
             const auto values = [&] {
                 if constexpr (N == 2)
-                    return service->raycast_all_2d(from, delta, {mask, sensors != 0});
+                    return service->raycast_all_2d(from, delta, filter);
                 else
-                    return service->raycast_all(from, delta, {mask, sensors != 0});
+                    return service->raycast_all(from, delta, filter);
+            }();
+            if (values.size() > capacity)
+                return -2;
+            for (std::size_t i = 0; i < values.size(); ++i)
+                copy_query_hit(out[i], values[i]);
+            return static_cast<int32_t>(values.size());
+        } catch (...) {
+            clear_query_output(out, capacity);
+            return -1;
+        }
+    }
+    template <std::size_t N, class Request, class Hit>
+    static int32_t FORGE_SDK_CALL sweep_one(void* p, const Request* request, Hit* out) {
+        static_assert(std::size(Request{}.origin) == N);
+        return sweep_one<N, Request, Hit>(p, request, nullptr, out);
+    }
+    template <std::size_t N, class Request, class Hit>
+    static int32_t FORGE_SDK_CALL sweep_one(void* p, const Request* request,
+                                            const ForgeSdkPhysicsExclusionsV1* input_exclusions,
+                                            Hit* out) {
+        static_assert(std::size(Request{}.origin) == N);
+        if (!valid_query_output(out, 1, 1))
+            return -1;
+        const bool valid = request && request->size == sizeof(*request);
+        const auto input = valid ? *request : Request{};
+        try {
+            std::optional<QueryExclusions> exclusions;
+            if (input_exclusions)
+                exclusions.emplace(*input_exclusions);
+            clear_query_output(out, 1);
+            auto& c = get(p).context;
+            if (!c.input || !valid || input.include_sensors > 1)
+                return -1;
+            const auto service = c.services.physics();
+            const auto filter = query_filter(input.layer_mask, input.include_sensors, exclusions);
+            const auto hit = [&] {
+                if constexpr (N == 2) {
+                    if (input.ignore_initial_overlap > 1)
+                        throw std::runtime_error("Invalid initial-overlap flag");
+                    PhysicsSweep2D query;
+                    query.shape = PhysicsSweep2D::Shape(input.shape);
+                    query.dimensions = {input.dimensions[0], input.dimensions[1]};
+                    query.origin = {input.origin[0], input.origin[1]};
+                    query.displacement = {input.displacement[0], input.displacement[1]};
+                    query.angle = input.angle;
+                    query.ignore_initial_overlap = input.ignore_initial_overlap != 0;
+                    if (input.ignore_scene[0] || input.ignore_entity[0])
+                        query.ignore = tile_target(input.ignore_scene, input.ignore_entity);
+                    return service->shape_cast_2d(query, filter);
+                } else {
+                    PhysicsSweep query;
+                    query.shape = PhysicsSweep::Shape(input.shape);
+                    query.dimensions = {input.dimensions[0], input.dimensions[1],
+                                        input.dimensions[2]};
+                    query.origin = {input.origin[0], input.origin[1], input.origin[2]};
+                    query.displacement = {input.displacement[0], input.displacement[1],
+                                          input.displacement[2]};
+                    query.rotation = {input.rotation[0], input.rotation[1], input.rotation[2],
+                                      input.rotation[3]};
+                    return service->shape_cast(query, filter);
+                }
+            }();
+            if (!hit)
+                return 0;
+            copy_query_hit(*out, *hit);
+            return 1;
+        } catch (...) {
+            clear_query_output(out, 1);
+            return -1;
+        }
+    }
+    template <std::size_t N, class Request>
+    static int32_t FORGE_SDK_CALL overlap_many(void* p, const Request* request,
+                                               ForgeSdkEntityRefV1* out, uint32_t capacity) {
+        static_assert(std::size(Request{}.origin) == N);
+        return overlap_many<N, Request>(p, request, nullptr, out, capacity);
+    }
+    template <std::size_t N, class Request>
+    static int32_t FORGE_SDK_CALL overlap_many(void* p, const Request* request,
+                                               const ForgeSdkPhysicsExclusionsV1* input_exclusions,
+                                               ForgeSdkEntityRefV1* out, uint32_t capacity) {
+        static_assert(std::size(Request{}.origin) == N);
+        static_assert(physics_overlap_limit == FORGE_SDK_PHYSICS_OVERLAP_LIMIT);
+        if (!valid_query_output(out, capacity, FORGE_SDK_PHYSICS_OVERLAP_LIMIT))
+            return -1;
+        const bool valid = request && request->size == sizeof(*request);
+        const auto input = valid ? *request : Request{};
+        try {
+            std::optional<QueryExclusions> exclusions;
+            if (input_exclusions)
+                exclusions.emplace(*input_exclusions);
+            clear_query_output(out, capacity);
+            auto& c = get(p).context;
+            if (!c.input || !valid || input.include_sensors > 1)
+                return -1;
+            const auto service = c.services.physics();
+            const auto filter = query_filter(input.layer_mask, input.include_sensors, exclusions);
+            const auto values = [&] {
+                if constexpr (N == 2) {
+                    PhysicsOverlap2D query;
+                    query.shape = PhysicsOverlap2D::Shape(input.shape);
+                    query.dimensions = {input.dimensions[0], input.dimensions[1]};
+                    query.origin = {input.origin[0], input.origin[1]};
+                    query.angle = input.angle;
+                    return service->overlap_shape_2d(query, filter);
+                } else {
+                    PhysicsOverlap query;
+                    query.shape = PhysicsOverlap::Shape(input.shape);
+                    query.dimensions = {input.dimensions[0], input.dimensions[1],
+                                        input.dimensions[2]};
+                    query.origin = {input.origin[0], input.origin[1], input.origin[2]};
+                    query.rotation = {input.rotation[0], input.rotation[1], input.rotation[2],
+                                      input.rotation[3]};
+                    return service->overlap_shape(query, filter);
+                }
             }();
             if (values.size() > capacity)
                 return -2;
             for (std::size_t i = 0; i < values.size(); ++i) {
-                std::memcpy(out[i].scene, values[i].entity.scene.str().c_str(), 37);
-                std::memcpy(out[i].entity, values[i].entity.entity.str().c_str(), 37);
-                std::copy_n(values[i].position.begin(), N, out[i].position);
-                std::copy_n(values[i].normal.begin(), N, out[i].normal);
-                out[i].fraction = values[i].fraction;
+                out[i].version = 1;
+                std::memcpy(out[i].scene_uuid, values[i].scene.str().c_str(), 37);
+                std::memcpy(out[i].entity_uuid, values[i].entity.str().c_str(), 37);
             }
             return static_cast<int32_t>(values.size());
         } catch (...) {
-            clear();
+            clear_query_output(out, capacity);
             return -1;
         }
     }
@@ -411,6 +623,16 @@ struct Bridge {
     explicit Bridge(ModuleContext& c) : context(c) {
         host.physics_raycast_all = &Bridge::raycast_many<3, ForgeSdkPhysicsHitV1>;
         host.physics_raycast_all_2d = &Bridge::raycast_many<2, ForgeSdkPhysicsHit2DV1>;
+        host.physics_raycast_excluding = &Bridge::raycast_one<3, ForgeSdkPhysicsHitV1>;
+        host.physics_raycast_all_excluding = &Bridge::raycast_many<3, ForgeSdkPhysicsHitV1>;
+        host.physics_overlap_shape_excluding = &Bridge::overlap_many<3, ForgeSdkOverlapV1>;
+        host.physics_shape_cast_excluding =
+            &Bridge::sweep_one<3, ForgeSdkSweepV1, ForgeSdkPhysicsHitV1>;
+        host.physics_raycast_2d_excluding = &Bridge::raycast_one<2, ForgeSdkPhysicsHit2DV1>;
+        host.physics_raycast_all_2d_excluding = &Bridge::raycast_many<2, ForgeSdkPhysicsHit2DV1>;
+        host.physics_overlap_shape_2d_excluding = &Bridge::overlap_many<2, ForgeSdkOverlap2DV1>;
+        host.physics_shape_cast_2d_excluding =
+            &Bridge::sweep_one<2, ForgeSdkSweep2DV1, ForgeSdkPhysicsHit2DV1>;
         host.size = sizeof(host);
         host.version = FORGE_NATIVE_SDK_ABI;
         host.world = c.world.c_ptr();
@@ -1163,29 +1385,8 @@ struct Bridge {
         };
         host.raycast = [](void* p, const double* origin, const double* displacement,
                           ForgeSdkPhysicsHitV1* out) -> int32_t {
-            try {
-                auto& c = Bridge::get(p).context;
-                if (!origin || !displacement || !out || out->size != sizeof(*out) || !c.input)
-                    return -1;
-                *out = {};
-                out->size = sizeof(*out);
-                auto hit = c.services.physics()->raycast(
-                    {origin[0], origin[1], origin[2]},
-                    {displacement[0], displacement[1], displacement[2]});
-                if (!hit)
-                    return 0;
-                auto scene = hit->entity.scene.str(), entity = hit->entity.entity.str();
-                std::memcpy(out->scene, scene.c_str(), 37);
-                std::memcpy(out->entity, entity.c_str(), 37);
-                for (unsigned i = 0; i < 3; ++i) {
-                    out->position[i] = hit->position[i];
-                    out->normal[i] = hit->normal[i];
-                }
-                out->fraction = hit->fraction;
-                return 1;
-            } catch (...) {
-                return -1;
-            }
+            return Bridge::raycast_one<3, ForgeSdkPhysicsHitV1>(p, origin, displacement, UINT32_MAX,
+                                                                1, out);
         };
         host.character_state = [](void* p, const char* scene, const char* entity,
                                   ForgeSdkCharacterV1* out) -> int32_t {
@@ -1312,70 +1513,8 @@ struct Bridge {
                 return 0;
             }
         };
-        host.raycast_filtered = [](void* p, const double* origin, const double* displacement,
-                                   uint32_t mask, uint32_t sensors,
-                                   ForgeSdkPhysicsHitV1* out) -> int32_t {
-            if (!out || out->size != sizeof(*out))
-                return -1;
-            *out = {};
-            out->size = sizeof(*out);
-            try {
-                auto& c = Bridge::get(p).context;
-                if (!c.input || !origin || !displacement || sensors > 1)
-                    return -1;
-                const auto hit = c.services.physics()->raycast_filtered(
-                    {origin[0], origin[1], origin[2]},
-                    {displacement[0], displacement[1], displacement[2]}, {mask, sensors != 0});
-                if (!hit)
-                    return 0;
-                std::memcpy(out->scene, hit->entity.scene.str().c_str(), 37);
-                std::memcpy(out->entity, hit->entity.entity.str().c_str(), 37);
-                for (unsigned i = 0; i < 3; ++i) {
-                    out->position[i] = hit->position[i];
-                    out->normal[i] = hit->normal[i];
-                }
-                out->fraction = hit->fraction;
-                return 1;
-            } catch (...) {
-                return -1;
-            }
-        };
-        host.shape_cast = [](void* p, const ForgeSdkSweepV1* request,
-                             ForgeSdkPhysicsHitV1* out) -> int32_t {
-            if (!out || out->size != sizeof(*out))
-                return -1;
-            *out = {};
-            out->size = sizeof(*out);
-            try {
-                auto& c = Bridge::get(p).context;
-                if (!c.input || !request || request->size != sizeof(*request) ||
-                    request->include_sensors > 1)
-                    return -1;
-                PhysicsSweep sweep;
-                sweep.shape = PhysicsSweep::Shape(request->shape);
-                sweep.origin = {request->origin[0], request->origin[1], request->origin[2]};
-                sweep.rotation = {request->rotation[0], request->rotation[1], request->rotation[2],
-                                  request->rotation[3]};
-                for (unsigned i = 0; i < 3; ++i) {
-                    sweep.dimensions[i] = request->dimensions[i];
-                    sweep.displacement[i] = request->displacement[i];
-                }
-                const auto hit = c.services.physics()->shape_cast(
-                    sweep, {request->layer_mask, request->include_sensors != 0});
-                if (!hit)
-                    return 0;
-                std::memcpy(out->scene, hit->entity.scene.str().c_str(), 37);
-                std::memcpy(out->entity, hit->entity.entity.str().c_str(), 37);
-                for (unsigned i = 0; i < 3; ++i) {
-                    out->position[i] = hit->position[i];
-                    out->normal[i] = hit->normal[i];
-                }
-                out->fraction = hit->fraction;
-                return 1;
-            } catch (...) {
-                return -1;
-            }
-        };
+        host.raycast_filtered = &Bridge::raycast_one<3, ForgeSdkPhysicsHitV1>;
+        host.shape_cast = &Bridge::sweep_one<3, ForgeSdkSweepV1, ForgeSdkPhysicsHitV1>;
         host.physics_move = [](void* p, const char* scene, const char* entity,
                                const double* position, const float* rotation, uint32_t motion,
                                uint32_t clear) -> int32_t {
@@ -1544,49 +1683,7 @@ struct Bridge {
                 return -1;
             }
         };
-        host.physics_overlap_shape = [](void* p, const ForgeSdkOverlapV1* request,
-                                        ForgeSdkEntityRefV1* out, uint32_t capacity) -> int32_t {
-            static_assert(physics_overlap_limit == FORGE_SDK_PHYSICS_OVERLAP_LIMIT);
-            if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_OVERLAP_LIMIT)
-                return -1;
-            for (uint32_t i = 0; i < capacity; ++i)
-                if (out[i].size != sizeof(out[i]))
-                    return -1;
-            const bool valid_request = request && request->size == sizeof(*request);
-            // Snapshot before clearing caller storage, including overlapping buffers.
-            const auto input = valid_request ? *request : ForgeSdkOverlapV1{};
-            const auto clear = [&] {
-                for (uint32_t i = 0; i < capacity; ++i) {
-                    out[i] = {};
-                    out[i].size = sizeof(out[i]);
-                }
-            };
-            clear();
-            try {
-                auto& c = Bridge::get(p).context;
-                if (!c.input || !valid_request || input.include_sensors > 1)
-                    return -1;
-                PhysicsOverlap shape;
-                shape.shape = PhysicsSweep::Shape(input.shape);
-                shape.origin = {input.origin[0], input.origin[1], input.origin[2]};
-                shape.rotation = {input.rotation[0], input.rotation[1], input.rotation[2],
-                                  input.rotation[3]};
-                std::copy_n(input.dimensions, 3, shape.dimensions.begin());
-                const auto values = c.services.physics()->overlap_shape(
-                    shape, {input.layer_mask, input.include_sensors != 0});
-                if (values.size() > capacity)
-                    return -2;
-                for (std::size_t i = 0; i < values.size(); ++i) {
-                    out[i].version = 1;
-                    std::memcpy(out[i].scene_uuid, values[i].scene.str().c_str(), 37);
-                    std::memcpy(out[i].entity_uuid, values[i].entity.str().c_str(), 37);
-                }
-                return static_cast<int32_t>(values.size());
-            } catch (...) {
-                clear();
-                return -1;
-            }
-        };
+        host.physics_overlap_shape = &Bridge::overlap_many<3, ForgeSdkOverlapV1>;
         host.physics_move_2d = [](void* p, const char* scene, const char* entity,
                                   const double* position, double angle, uint32_t motion,
                                   uint32_t clear) -> int32_t {
@@ -1729,117 +1826,10 @@ struct Bridge {
                 return -1;
             }
         };
-        host.physics_raycast_2d = [](void* p, const double* origin, const double* displacement,
-                                     uint32_t mask, uint32_t sensors,
-                                     ForgeSdkPhysicsHit2DV1* out) -> int32_t {
-            if (!out || out->size != sizeof(*out))
-                return -1;
-            const auto from = origin ? Double2{origin[0], origin[1]} : Double2{};
-            const auto delta = displacement ? Double2{displacement[0], displacement[1]} : Double2{};
-            *out = {};
-            out->size = sizeof(*out);
-            try {
-                auto& c = Bridge::get(p).context;
-                if (!c.input || !origin || !displacement || sensors > 1)
-                    return -1;
-                const auto hit =
-                    c.services.physics()->raycast_2d(from, delta, {mask, sensors != 0});
-                if (!hit)
-                    return 0;
-                std::memcpy(out->scene, hit->entity.scene.str().c_str(), 37);
-                std::memcpy(out->entity, hit->entity.entity.str().c_str(), 37);
-                for (unsigned i = 0; i < 2; ++i) {
-                    out->position[i] = hit->position[i];
-                    out->normal[i] = hit->normal[i];
-                }
-                out->fraction = hit->fraction;
-                return 1;
-            } catch (...) {
-                *out = {};
-                out->size = sizeof(*out);
-                return -1;
-            }
-        };
-        host.physics_overlap_shape_2d = [](void* p, const ForgeSdkOverlap2DV1* request,
-                                           ForgeSdkEntityRefV1* out, uint32_t capacity) -> int32_t {
-            if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_OVERLAP_LIMIT)
-                return -1;
-            for (uint32_t i = 0; i < capacity; ++i)
-                if (out[i].size != sizeof(out[i]))
-                    return -1;
-            const bool valid = request && request->size == sizeof(*request);
-            const auto input = valid ? *request : ForgeSdkOverlap2DV1{};
-            const auto clear = [&] {
-                for (uint32_t i = 0; i < capacity; ++i) {
-                    out[i] = {};
-                    out[i].size = sizeof(out[i]);
-                }
-            };
-            clear();
-            try {
-                auto& c = Bridge::get(p).context;
-                if (!c.input || !valid || input.include_sensors > 1)
-                    return -1;
-                PhysicsOverlap2D shape;
-                shape.shape = PhysicsOverlap2D::Shape(input.shape);
-                shape.dimensions = {input.dimensions[0], input.dimensions[1]};
-                shape.origin = {input.origin[0], input.origin[1]};
-                shape.angle = input.angle;
-                const auto values = c.services.physics()->overlap_shape_2d(
-                    shape, {input.layer_mask, input.include_sensors != 0});
-                if (values.size() > capacity)
-                    return -2;
-                for (std::size_t i = 0; i < values.size(); ++i) {
-                    out[i].version = 1;
-                    std::memcpy(out[i].scene_uuid, values[i].scene.str().c_str(), 37);
-                    std::memcpy(out[i].entity_uuid, values[i].entity.str().c_str(), 37);
-                }
-                return static_cast<int32_t>(values.size());
-            } catch (...) {
-                clear();
-                return -1;
-            }
-        };
-        host.physics_shape_cast_2d = [](void* p, const ForgeSdkSweep2DV1* request,
-                                        ForgeSdkPhysicsHit2DV1* out) -> int32_t {
-            if (!out || out->size != sizeof(*out))
-                return -1;
-            const bool valid = request && request->size == sizeof(*request);
-            const auto input = valid ? *request : ForgeSdkSweep2DV1{};
-            *out = {};
-            out->size = sizeof(*out);
-            try {
-                auto& c = Bridge::get(p).context;
-                if (!c.input || !valid || input.include_sensors > 1 ||
-                    input.ignore_initial_overlap > 1)
-                    return -1;
-                PhysicsSweep2D query;
-                query.shape = PhysicsSweep2D::Shape(input.shape);
-                query.dimensions = {input.dimensions[0], input.dimensions[1]};
-                query.origin = {input.origin[0], input.origin[1]};
-                query.displacement = {input.displacement[0], input.displacement[1]};
-                query.angle = input.angle;
-                query.ignore_initial_overlap = input.ignore_initial_overlap != 0;
-                if (input.ignore_scene[0] || input.ignore_entity[0])
-                    query.ignore = Bridge::tile_target(input.ignore_scene, input.ignore_entity);
-                const auto hit = c.services.physics()->shape_cast_2d(
-                    query, {input.layer_mask, input.include_sensors != 0});
-                if (!hit)
-                    return 0;
-                std::memcpy(out->scene, hit->entity.scene.str().c_str(), 37);
-                std::memcpy(out->entity, hit->entity.entity.str().c_str(), 37);
-                for (unsigned i = 0; i < 2; ++i) {
-                    out->position[i] = hit->position[i];
-                    out->normal[i] = hit->normal[i];
-                }
-                out->fraction = hit->fraction;
-                return 1;
-            } catch (...) {
-                *out = {};
-                out->size = sizeof(*out);
-                return -1;
-            }
-        };
+        host.physics_raycast_2d = &Bridge::raycast_one<2, ForgeSdkPhysicsHit2DV1>;
+        host.physics_overlap_shape_2d = &Bridge::overlap_many<2, ForgeSdkOverlap2DV1>;
+        host.physics_shape_cast_2d =
+            &Bridge::sweep_one<2, ForgeSdkSweep2DV1, ForgeSdkPhysicsHit2DV1>;
         host.physics_contact_count_2d = [](void* p) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;

@@ -75,6 +75,13 @@ helpers with copied vector values and bounded output arrays. The
 filters, native geometric limits and output clearing. The editable
 [PhysicsVolumes example](../manual/samples/physics-volumes.md) includes both scenes.
 
+The matching SDK also offers eight `*_excluding` helpers for closest/all rays,
+overlaps and linear sweeps in 3D/XY. They take a bounded span of canonical SDK
+references, snapshot it before output writes and preserve ordinary access for an
+empty list. [Canonical query exclusions](extension-contracts.md#canonical-query-exclusions)
+explain the 16-entry limit, lifetimes, sizes and query-only behavior. PhysicsVolumes
+contains project-owned marker examples; no engine collision configuration changes.
+
 ## Managed source and registration
 
 **Set up C++ code** copies the matching installed SDK template into
@@ -166,6 +173,9 @@ Admitted reflected values can be tuned in Play's **Live gameplay** Inspector.
 The editor sends session/generation, scene AssetId, EntityId, type, property and
 typed value through the runtime transport. The runtime validates and applies on
 its owner thread between simulation ticks, then acknowledges with a snapshot.
+Both runtime hosts route these requests through `RuntimeWorld::tune_property`;
+the Scene's existing authored codec validates custom fields, while animation,
+navigation and particle services retain their own mutation rules.
 Invalid/stale/unadmitted updates reject; authored scene and prefab overrides are
 unchanged. Stop discards transient tuning. Schema or C++ code changes still need a
 new build and fresh Play. No arbitrary native-object checkpoint or hot reload is

@@ -1,4 +1,4 @@
-# C++ physics volume and ray example
+# C++ physics volumes, rays and exclusions
 
 Copy `Examples/PhysicsVolumes` to a writable folder and open it as a project.
 The combined Windows package includes matching compiled Project Code.
@@ -67,5 +67,36 @@ For export, save the scene and choose **Use saved current scene as startup** in
 Project Settings, then use the matching runtime/module kits described above.
 
 Open **Code → Components → RayProbe.hpp** and **Code → Systems → RayProbeSystem.cpp**
-to study the original implementation. It uses the matching SDK's `raycast_all`
-and `raycast_all_2d` C++ helpers. Players receive the compiled module.
+to study the original implementation. It uses the matching SDK's
+`raycast_all_excluding` and `raycast_all_2d_excluding` C++ helpers. Players receive
+the compiled module.
+
+## Leave selected objects out of a query
+
+Open **Scenes/excluded-rays.scene.json**, select **Left solid**, and find
+**Ray Exclusion** in Inspector. With `enabled` checked, the example's ray leaves
+that cyan object out. It remains visible and still participates in physics.
+
+Press Play and select **Ray query**. The initial `last_count` is **2** instead of
+**3**. Select **Left solid** and turn off its **Ray Exclusion → enabled** value in
+**Live gameplay**: the next physics step brings the ray count back to **3**.
+Turn it on again to return to **2**. These live changes do not save your scene.
+Stop, change the authored checkbox and save to keep a new default.
+
+For XY bodies, open **Scenes/planar-excluded-rays.scene.json** and try the same
+steps. With the left box excluded, the count is **2**, or **1** if you also turn
+`include_sensors` off on Ray Probe. The ordinary volume probe in the 3D scene
+continues to count both cyan solids; the exclusion applies only to the demo's rays.
+
+**Ray Exclusion** is a Component defined by this project's C++ code. It selects
+objects that **RayProbeSystem.cpp** passes to the SDK query; it is not a global
+collision setting. Put it on the actual body object. A compound collider counts
+as that one object; independently simulated children have their own identities.
+The example collects at most **16** enabled, registered exclusions.
+
+In your own code, pass canonical references to the SDK's `*_excluding` helpers.
+Use `entity_reference` during a fixed callback to obtain the calling object's
+reference when you need to ignore its own body. The helpers support closest and
+complete rays, overlaps and linear sweeps. An empty exclusion list keeps normal
+query behavior. Save your chosen scene as startup before exporting with matching
+rebuilt runtime/module kits.

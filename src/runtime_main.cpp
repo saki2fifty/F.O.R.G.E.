@@ -4,7 +4,6 @@
 #include "authored_inspection.hpp"
 #include "cpu_profile_control.hpp"
 #include "json_document.hpp"
-#include "particle_runtime.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
 #include "runtime_tile_map.hpp"
@@ -513,35 +512,8 @@ int main(int argc, char** argv) {
                     } else if (command == "property_tune") {
                         const auto target = forge::RuntimePropertyTune::parse(
                             request, ui_generation, runtime->scene.asset_id());
-                        forge::Json value;
-                        if (forge::RuntimePropertyTune::material_type(target.type) ||
-                            forge::RuntimePropertyTune::sprite_type(target.type)) {
-                            value = runtime->scene.tune_runtime_property(
-                                target.target.entity.str(), target.type, target.property,
-                                request.at("value"));
-                        } else if (forge::RuntimePropertyTune::particle_type(target.type)) {
-                            value = forge::particle_runtime(runtime->engine.world())
-                                        ->tune_appearance(target.target, target.property,
-                                                          request.at("value"));
-                        } else if (forge::RuntimePropertyTune::navigation_type(target.type)) {
-                            if (!runtime->engine.services().available(
-                                    forge::Capability::Navigation))
-                                throw std::runtime_error(
-                                    "Live navigation tuning requires enabled navigation");
-                            value = std::static_pointer_cast<forge::NavigationRuntime>(
-                                        runtime->engine.services().navigation())
-                                        ->tune(target.target, target.type, target.property,
-                                               request.at("value"));
-                        } else {
-                            if (!forge::AnimationPlaybackAccess::rig_type(target.type) ||
-                                !runtime->engine.services().available(forge::Capability::Animation))
-                                throw std::runtime_error("Live property type is not authorable");
-                            value = forge::AnimationPlaybackAccess::tune_rig(
-                                *std::static_pointer_cast<forge::AnimationRuntime>(
-                                    runtime->engine.services().animation()),
-                                target.target, target.type, target.property, request.at("value"));
-                            runtime->simulation.sync_animation_pose();
-                        }
+                        const auto value = runtime->tune_property(
+                            target.target, target.type, target.property, request.at("value"));
                         response["property_tune"] = {{"generation", ui_generation},
                                                      {"entity", target.target.entity},
                                                      {"type", target.type},

@@ -1,6 +1,7 @@
 #pragma once
 #include <forge/native_sdk.h>
 // FORGE_COMPONENT_INCLUDES
+#include "Components/RayExclusion.hpp"
 #include "Components/RayProbe.hpp"
 #include "Components/VolumeProbe.hpp"
 // FORGE_SYSTEM_DECLARATIONS
@@ -9,6 +10,8 @@ void forge_register_system_RayProbeSystem(const ForgeSdkWorldV1*);
 inline int32_t forge_register_components(const ForgeSdkWorldV1* host, char* error,
                                          uint32_t capacity) {
     // FORGE_COMPONENT_CALLS
+    if (!forge_register_component_RayExclusion(host, error, capacity))
+        return 0;
     if (!forge_register_component_VolumeProbe(host, error, capacity))
         return 0;
     if (!forge_register_component_RayProbe(host, error, capacity))

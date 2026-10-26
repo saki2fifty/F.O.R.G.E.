@@ -42,6 +42,11 @@ void character_physics_tests() {
           "Shared host character projection changed existing3D support/velocity meaning");
     const auto hit = f.physics->raycast({0, 1, -5}, {0, 0, 10});
     check(hit && hit->entity == ref, "Character inner body not mapped to EntityRef");
+    const std::array<EntityRef, 1> excluded{ref};
+    const PhysicsQueryFilter filter{UINT32_MAX, true, excluded};
+    check(!f.physics->raycast_filtered({0, 1, -5}, {0, 0, 10}, filter) &&
+              f.physics->raycast_all({0, 1, -5}, {0, 0, 10}, filter).empty(),
+          "Canonical exclusion retained the character inner body");
     f.physics->move_character(ref, {1, 0, 0});
     f.tick(60);
     state = f.physics->character(ref);

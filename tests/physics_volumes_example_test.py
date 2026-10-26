@@ -22,6 +22,8 @@ def assert_ray(state):
         body, box = c.get('forge.physics_body'+suffix), c.get('forge.box_collider'+suffix)
         if body is None or box is None or not body.get('enabled', True):
             continue
+        if c.get('project.ray_exclusion', {}).get('enabled', False):
+            continue
         if body.get('sensor', False) and not control['include_sensors']:
             continue
         position, scale = c['forge.local_translation'], c.get('forge.local_scale', {})
@@ -46,19 +48,30 @@ def assert_ray(state):
 
 
 def verify_ray_scenes(runtime, project, env):
-    for source in ('body-volumes.scene.json', 'planar-rays.scene.json'):
+    for source in ('body-volumes.scene.json', 'planar-rays.scene.json',
+                   'excluded-rays.scene.json', 'planar-excluded-rays.scene.json'):
         path = project/'Scenes'/source
         original = path.read_bytes()
+        marked = any('project.ray_exclusion' in e['components']
+                     for e in json.loads(original)['entities'])
+        cases = [(True, False, False, True), (False, False, True, True), (True, True, False, True)]
+        if marked:
+            cases.append((True, False, False, False))
         for sdk_play in (False, True):
-            for include, miss, reverse in ((True, False, False), (False, False, True), (True, True, False)):
+            for include, miss, reverse, enabled in cases:
                 scene = json.loads(original)
                 data = next(e['components']['project.ray_probe'] for e in scene['entities']
                             if 'project.ray_probe' in e['components'])
+                for row in scene['entities']:
+                    marker = row['components'].get('project.ray_exclusion')
+                    if marker is not None:
+                        marker['enabled'] = enabled
                 data['include_sensors'] = include
                 if miss:
                     data['origin_y'] = 5
                 if reverse:
                     data.update(origin_x=5, delta_x=-10)
+                expected = 0 if miss else (3 if include else 2) - int(marked and enabled)
                 args = ['--sdk-project', project]
                 if sdk_play:
                     args += ['--sdk-play', 'on', '--user-data', project/'ray-user-data']
@@ -69,7 +82,7 @@ def verify_ray_scenes(runtime, project, env):
                     for tick in range(1, 5):
                         state = worker.request('step')
                         control = assert_ray(state)
-                        assert control['last_count'] == (0 if miss else 3 if include else 2)
+                        assert control['last_count'] == expected
                         if tick == 2 and not sdk_play:
                             checkpoint = state['recovery']
                             fresh = Runtime(runtime, args, env=env, cwd=project)
@@ -82,6 +95,33 @@ def verify_ray_scenes(runtime, project, env):
                                 if row['context'].get('tick') == state['timing']['tick']
                                 and row['text'].startswith('Ray query ')]
                         assert len(rows) == (1 if tick == 1 else 0), rows
+                        if source == 'excluded-rays.scene.json':
+                            volume = next(e['components']['project.volume_probe']
+                                for e in state['scene']['entities']
+                                if 'project.volume_probe' in e['components'])
+                            assert volume['last_count'] == 2, 'Ray marker changed ordinary volume query'
+                    if marked and include and not miss and not reverse and enabled:
+                        marker = next(e for e in state['scene']['entities']
+                                      if 'project.ray_exclusion' in e['components'])
+                        target = dict(generation=state['activation']['generation'] if sdk_play else state['world_generation'],
+                                      scene_asset=state['scene']['asset_id'], entity=marker['id'],
+                                      type='project.ray_exclusion', property='enabled')
+                        for value in (False, True):
+                            result = worker.request('property_tune', **target, value=value)
+                            assert result['property_tune']['value'] == value
+                            state = worker.request('step')
+                            assert assert_ray(state)['last_count'] == 3-int(value)
+                        for changes in (dict(value='false'), dict(property='missing'),
+                                        dict(generation=target['generation']+1),
+                                        dict(entity='00000000-0000-4000-8000-000000000000'),
+                                        dict(type='forge.physics_body', property='enabled')):
+                            try:
+                                worker.request('property_tune', **dict(dict(target, value=False), **changes))
+                            except RuntimeError:
+                                pass
+                            else:
+                                raise AssertionError(('Invalid live marker change accepted', changes))
+                            assert assert_ray(worker.request('step'))['last_count'] == 2
                 finally:
                     worker.close()
                     if fresh:
@@ -158,7 +198,8 @@ def verify(runtime, project, env=None):
     verify_ray_scenes(runtime, project, env)
     print('Compiled C++ volumes: sphere/box equations, sensor filtering, Inspector '
           'settings, change-only diagnostics and fresh native worker recovery; complete '
-          '3D/XY rays, reversed segments/misses/sensors and both actual hosts passed')
+          '3D/XY rays, canonical exclusions/live markers, reversed segments/misses/sensors '
+          'and both actual hosts passed')
 
 
 if __name__ == '__main__':

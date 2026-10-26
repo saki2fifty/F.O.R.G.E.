@@ -361,6 +361,15 @@ whole read, with no partial success. The exact SDK callback/client use existing
 The table extension changes the exact SDK fingerprint; rebuild matching modules.
 No authored identity, native ABI 1 prefix or private checkpoint version changes.
 
+Spatial queries also accept up to 16 canonical exclusions through the shared input
+filter, including every part of a painted Map or the controller's physical body.
+Exclusions combine with the single-ignore field of `PhysicsSweep2D`. They do not
+turn geometric queries into physical one-way/controller-response queries. Invalid
+references/count reject before zero-mask/cold-world fast returns. Empty/default
+filters retain current behavior; valid unmatched references have no effect. See
+[canonical query exclusions](extension-contracts.md#canonical-query-exclusions)
+for the matching C/C++ SDK and lifetime contract.
+
 Commands share the existing 4096-entry body FIFO with explicit domain tags.
 PostPhysics commands apply at the following admitted boundary. Limits reject
 without partial SDK output. Overlap results are sorted/unique, limited to 256

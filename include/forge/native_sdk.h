@@ -71,6 +71,15 @@ typedef struct ForgeSdkEntityRefV1 {
     uint32_t size, version;
     char scene_uuid[37], entity_uuid[37];
 } ForgeSdkEntityRefV1;
+#define FORGE_SDK_PHYSICS_EXCLUSION_LIMIT 16u
+/* Input-only, borrowed for this synchronous call. NULL descriptor means none.
+   Exact size; count0..16. Nonzero count requires that many exact-size/version1
+   complete canonical references. Duplicate/unrealized references are valid.
+   The host snapshots all entries before writing aliased query outputs. */
+typedef struct ForgeSdkPhysicsExclusionsV1 {
+    uint32_t size, count;
+    const ForgeSdkEntityRefV1* entities;
+} ForgeSdkPhysicsExclusionsV1;
 typedef struct ForgeSdkAnimationPlaybackV1 {
     uint32_t size, version, state;
     uint32_t enabled, loop, playing, finished, transitioning;
@@ -580,6 +589,44 @@ typedef struct ForgeSdkWorldV1 {
                                                     const double displacement[2], uint32_t mask,
                                                     uint32_t include_sensors,
                                                     ForgeSdkPhysicsHit2DV1*, uint32_t capacity);
+    /* Canonical exclusions apply before closest/result selection. Existing mask,
+       sensor, native geometry, fixed/permission, size and clearing rules remain.
+       Exclusions combine with the single ignore in Sweep2DV1. No native handles,
+       global collision changes or stored query filters. Existing PODs unchanged. */
+    int32_t(FORGE_SDK_CALL* physics_raycast_excluding)(void*, const double origin[3],
+                                                       const double displacement[3], uint32_t mask,
+                                                       uint32_t include_sensors,
+                                                       const ForgeSdkPhysicsExclusionsV1*,
+                                                       ForgeSdkPhysicsHitV1*);
+    int32_t(FORGE_SDK_CALL* physics_raycast_all_excluding)(void*, const double origin[3],
+                                                           const double displacement[3],
+                                                           uint32_t mask, uint32_t include_sensors,
+                                                           const ForgeSdkPhysicsExclusionsV1*,
+                                                           ForgeSdkPhysicsHitV1*,
+                                                           uint32_t capacity);
+    int32_t(FORGE_SDK_CALL* physics_overlap_shape_excluding)(void*, const ForgeSdkOverlapV1*,
+                                                             const ForgeSdkPhysicsExclusionsV1*,
+                                                             ForgeSdkEntityRefV1*,
+                                                             uint32_t capacity);
+    int32_t(FORGE_SDK_CALL* physics_shape_cast_excluding)(void*, const ForgeSdkSweepV1*,
+                                                          const ForgeSdkPhysicsExclusionsV1*,
+                                                          ForgeSdkPhysicsHitV1*);
+    int32_t(FORGE_SDK_CALL* physics_raycast_2d_excluding)(void*, const double origin[2],
+                                                          const double displacement[2],
+                                                          uint32_t mask, uint32_t include_sensors,
+                                                          const ForgeSdkPhysicsExclusionsV1*,
+                                                          ForgeSdkPhysicsHit2DV1*);
+    int32_t(FORGE_SDK_CALL* physics_raycast_all_2d_excluding)(
+        void*, const double origin[2], const double displacement[2], uint32_t mask,
+        uint32_t include_sensors, const ForgeSdkPhysicsExclusionsV1*, ForgeSdkPhysicsHit2DV1*,
+        uint32_t capacity);
+    int32_t(FORGE_SDK_CALL* physics_overlap_shape_2d_excluding)(void*, const ForgeSdkOverlap2DV1*,
+                                                                const ForgeSdkPhysicsExclusionsV1*,
+                                                                ForgeSdkEntityRefV1*,
+                                                                uint32_t capacity);
+    int32_t(FORGE_SDK_CALL* physics_shape_cast_2d_excluding)(void*, const ForgeSdkSweep2DV1*,
+                                                             const ForgeSdkPhysicsExclusionsV1*,
+                                                             ForgeSdkPhysicsHit2DV1*);
 } ForgeSdkWorldV1;
 typedef struct ForgeNativeSdkV1 {
     uint32_t size, version;

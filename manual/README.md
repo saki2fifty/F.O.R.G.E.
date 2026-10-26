@@ -77,7 +77,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Run a standalone game](getting-started/standalone-runtime.md)
 - [Reference game](reference-game.md)
 - [C++ physics contact example](samples/physics-contacts.md)
-- [C++ physics volume and ray example](samples/physics-volumes.md)
+- [C++ physics volumes, rays and exclusions](samples/physics-volumes.md)
 - [C++ physics velocity example](samples/physics-velocity.md)
 - [C++ physics loads example](samples/physics-loads.md)
 

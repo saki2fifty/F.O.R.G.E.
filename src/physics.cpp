@@ -10,6 +10,7 @@
 #include "physics_character.hpp"
 #include "physics_debug.hpp"
 #include "physics_joint_value.hpp"
+#include "physics_query_filter.hpp"
 #include "physics_registration.hpp"
 #include "runtime_tile_map.hpp"
 #include <Jolt/Core/JobSystemThreadPool.h>
@@ -40,6 +41,7 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Physics/StateRecorderImpl.h>
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <forge/build.hpp>
 #include <forge/native_sdk_identity.h>
@@ -109,7 +111,19 @@ struct ProjectGroupFilter final : JPH::GroupFilter {
 };
 struct QueryBodyFilter final : JPH::BodyFilter {
     PhysicsQueryFilter filter;
-    explicit QueryBodyFilter(PhysicsQueryFilter value) : filter(value) {}
+    std::array<std::uint32_t, physics_query_exclusion_limit> exclusions{};
+    std::size_t count = 0;
+    QueryBodyFilter(PhysicsQueryFilter value, std::span<const std::uint32_t> ignored)
+        : filter(value) {
+        if (ignored.size() > exclusions.size())
+            throw std::runtime_error("Physics query exclusion ID count exceeds its bound");
+        std::copy(ignored.begin(), ignored.end(), exclusions.begin());
+        count = ignored.size();
+    }
+    bool ShouldCollide(const JPH::BodyID& id) const override {
+        const auto end = exclusions.begin() + count;
+        return std::find(exclusions.begin(), end, id.GetIndexAndSequenceNumber()) == end;
+    }
     bool ShouldCollideLocked(const JPH::Body& body) const override {
         const auto layer = body.GetCollisionGroup().GetSubGroupID();
         return layer < 32 && (filter.mask & (std::uint32_t{1} << layer)) &&
@@ -1077,6 +1091,59 @@ struct PhysicsRuntime::Impl {
         const auto found = characters.find(resolved.entity);
         return found != characters.end() && found->second.ref == ref;
     }
+    QueryBodyFilter query_filter(PhysicsQueryFilter filter) const {
+        physics_detail::validate_query_filter(filter);
+        std::array<std::uint32_t, physics_query_exclusion_limit> ids{};
+        std::size_t id_count = 0;
+        const auto exclude = [&](JPH::BodyID id) {
+            const auto token = id.GetIndexAndSequenceNumber();
+            const auto end = ids.begin() + id_count;
+            if (std::find(ids.begin(), end, token) != end)
+                return;
+            if (id_count == ids.size())
+                throw std::runtime_error("Physics canonical exclusion resolved to too many bodies");
+            ids[id_count++] = token;
+        };
+        std::array<EntityRef, physics_query_exclusion_limit> unresolved{};
+        std::size_t count = 0;
+        for (const auto& ref : filter.exclusions) {
+            const auto target = context.resolve(ref);
+            bool found = false;
+            if (target.state == WorldContext::ResolveState::Available) {
+                if (const auto body = bodies.find(target.entity);
+                    body != bodies.end() && body->second.ref == ref) {
+                    exclude(body->second.id);
+                    found = true;
+                }
+                if (const auto character = characters.find(target.entity);
+                    character != characters.end() && character->second.ref == ref) {
+                    exclude(character->second.owner->native().GetInnerBodyID());
+                    found = true;
+                }
+            }
+            if (!found)
+                unresolved[count++] = ref;
+        }
+        // Source edits may retire a canonical target before synchronization.
+        // Preserve the existing XY single-ignore rule for its admitted native
+        // representation too. Resolve only through current authoritative owners;
+        // never enter Flecs from a native callback or create a reverse registry.
+        if (count) {
+            const auto contains = [&](const EntityRef& ref) {
+                return std::find(unresolved.begin(), unresolved.begin() + count, ref) !=
+                       unresolved.begin() + count;
+            };
+            for (const auto& [id, body] : bodies)
+                if (contains(body.ref))
+                    exclude(body.id);
+            for (const auto& [id, character] : characters)
+                if (contains(character.ref))
+                    exclude(character.owner->native().GetInnerBodyID());
+        }
+        // The selected native BodyFilter is noncopyable. This prvalue constructs
+        // the adapter directly and copies only our bounded plain ID values.
+        return QueryBodyFilter(filter, {ids.data(), id_count});
+    }
     void erase(std::map<std::uint64_t, Body>::iterator it) {
         // Native constraints borrow body pointers: retire them before body destruction.
         for (auto j = joints.begin(); j != joints.end();) {
@@ -1990,7 +2057,7 @@ std::optional<PhysicsHit> PhysicsRuntime::raycast_filtered(Double3 origin, Doubl
         JPH::RVec3(origin[0], origin[1], origin[2]),
         JPH::Vec3(float(displacement[0]), float(displacement[1]), float(displacement[2])));
     JPH::RayCastResult hit;
-    if (!s.system.GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, QueryBodyFilter(filter)))
+    if (!s.system.GetNarrowPhaseQuery().CastRay(ray, hit, {}, {}, s.query_filter(filter)))
         return {};
     std::optional<EntityRef> ref;
     for (const auto& [id, body] : s.bodies)
@@ -2015,6 +2082,7 @@ std::vector<PhysicsHit> PhysicsRuntime::raycast_all(Double3 origin, Double3 disp
                                                     PhysicsQueryFilter filter) const {
     auto& s = *impl_;
     s.check();
+    physics_detail::validate_query_filter(filter);
     valid_position({origin[0], origin[1], origin[2]});
     valid_position({displacement[0], displacement[1], displacement[2]});
     if (!filter.mask)
@@ -2050,7 +2118,7 @@ std::vector<PhysicsHit> PhysicsRuntime::raycast_all(Double3 origin, Double3 disp
     // Match the existing optimized closest-ray triangle/convex face policy.
     settings.mBackFaceModeTriangles = JPH::EBackFaceMode::CollideWithBackFaces;
     s.system.GetNarrowPhaseQuery().CastRay(ray, settings, collector, {}, {},
-                                           QueryBodyFilter(filter));
+                                           s.query_filter(filter));
     if (collector.failed)
         throw std::runtime_error("Physics multi-hit ray query budget or native result invalid");
     std::vector<PhysicsHit> result;
@@ -2103,7 +2171,7 @@ std::optional<PhysicsHit> PhysicsRuntime::shape_cast(const PhysicsSweep& request
     settings.mBackFaceModeConvex = JPH::EBackFaceMode::CollideWithBackFaces;
     JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
     s.system.GetNarrowPhaseQuery().CastShape(cast, settings, origin, collector, {}, {},
-                                             QueryBodyFilter(filter));
+                                             s.query_filter(filter));
     if (!collector.HadHit())
         return {};
     const auto& hit = collector.mHit;
@@ -2153,7 +2221,7 @@ std::vector<EntityRef> PhysicsRuntime::overlap_shape(const PhysicsOverlap& reque
     settings.mBackFaceMode = JPH::EBackFaceMode::CollideWithBackFaces;
     s.system.GetNarrowPhaseQuery().CollideShape(
         geometry, JPH::Vec3::sOne(), JPH::RMat44::sRotationTranslation(q, origin), settings, origin,
-        collector, {}, {}, QueryBodyFilter(filter));
+        collector, {}, {}, s.query_filter(filter));
     if (collector.overflow)
         throw std::runtime_error("Physics overlap query budget exceeded");
     std::vector<EntityRef> result;
@@ -2318,6 +2386,7 @@ std::optional<PhysicsHit2D> PhysicsRuntime::raycast_2d(Double2 origin, Double2 d
     const auto& self = *impl_;
     self.check();
     if (!self.native_2d) {
+        physics_detail::validate_query_filter(filter);
         physics_detail::validate_ray_2d(origin, displacement);
         return {};
     }
@@ -2328,6 +2397,7 @@ std::vector<PhysicsHit2D> PhysicsRuntime::raycast_all_2d(Double2 origin, Double2
     const auto& self = *impl_;
     self.check();
     if (!self.native_2d) {
+        physics_detail::validate_query_filter(filter);
         physics_detail::validate_ray_2d(origin, displacement);
         return {};
     }
@@ -2344,6 +2414,7 @@ std::vector<EntityRef> PhysicsRuntime::overlap_shape_2d(const PhysicsOverlap2D& 
     const auto& self = *impl_;
     self.check();
     if (!self.native_2d) {
+        physics_detail::validate_query_filter(filter);
         physics_detail::validate_overlap_2d(query);
         return {};
     }
@@ -2360,6 +2431,7 @@ std::optional<PhysicsHit2D> PhysicsRuntime::shape_cast_2d(const PhysicsSweep2D& 
     const auto& self = *impl_;
     self.check();
     if (!self.native_2d) {
+        physics_detail::validate_query_filter(filter);
         physics_detail::validate_sweep_2d(query);
         return {};
     }

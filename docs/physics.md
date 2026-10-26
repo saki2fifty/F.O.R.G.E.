@@ -143,6 +143,44 @@ the ABI 1 table prefix, authored formats and private checkpoint 9 stay unchanged
 3D and XY ray observations. The XY geometric differences and coordinate validation
 remain in [2D physics](physics-2d.md#c-control-and-observations).
 
+## Canonical query exclusions
+
+`PhysicsQueryFilter::exclusions` is a borrowed input span of at most
+`physics_query_exclusion_limit` (16) complete canonical `EntityRef` values. The
+filter applies to closest/all rays, overlaps and linear sweeps in both domains.
+An excluded object contributes no result, including all its compound/mesh/Map
+parts or controller body. Filtering occurs before closest selection and unique
+result budgeting. Duplicate references are harmless; references with no matching
+admitted native representation have no effect. Incomplete identities and excessive
+counts reject even for a zero layer mask or an unrealized XY world.
+
+The input view is valid only during the synchronous call and is never retained.
+3D resolves current canonical owners into a bounded native ID list before native
+traversal. An unresolved-reference fallback traverses existing owner records once,
+so an admitted representation awaiting retirement can still be excluded by its
+canonical identity. No reverse identity registry or Flecs access from native
+callbacks is introduced. XY applies the same identity rule inside its existing
+checked shape callbacks. Existing closest clipping and geometry remain native.
+
+Exclusions are specific to the query. They do not change body pair masks, contacts,
+physical one-way response or controller movement. `PhysicsSweep2D::ignore` remains
+supported and combines with the new list; its initial-overlap flag remains separate.
+Empty filters retain prior hit behavior. No new simulation/checkpoint state exists.
+
+The matching SDK appends eight typed `*_excluding` callbacks, with the existing
+query requests/results and a `ForgeSdkPhysicsExclusionsV1` input descriptor. The
+[installed SDK contract](extension-contracts.md#canonical-query-exclusions)
+defines sizes, versions, aliases and complete-result errors. Existing callbacks
+and POD layouts retain their prefix and signatures; rebuild exact matching SDKs
+and modules. All closest ray paths now copy aliased vectors before clearing valid
+outputs, including the original unfiltered 3D callback. Valid outputs clear on
+context/input failures; wrong-size buffers remain untouched. C++ sweep helpers
+copy requests by value and initialize their exact size.
+
+The original PhysicsVolumes project includes 3D/XY exclusion scenes. Its project-
+owned **Ray Exclusion** marker selects targets for that example's rays; ordinary
+volume reads and physical collision continue to include the marked object.
+
 ## Instantaneous volume queries
 
 `PhysicsService::overlap_shape` queries current realized geometry using centered

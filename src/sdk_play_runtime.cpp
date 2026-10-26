@@ -4,7 +4,6 @@
 #include "audio_source_access.hpp"
 #include "cpu_profile_control.hpp"
 #include "json_document.hpp"
-#include "particle_runtime.hpp"
 #include "play_scene_admission.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
@@ -1251,27 +1250,8 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
             const auto& type = target.type;
             const auto& property = target.property;
             const auto canonical_entity = target.target.entity.str();
-            Json applied;
-            if (AnimationPlaybackAccess::rig_type(type)) {
-                if (!s.game->active().engine.services().available(Capability::Animation))
-                    return s.build_error(id, "Live IK tuning requires enabled animation");
-                applied = AnimationPlaybackAccess::tune_rig(
-                    *std::static_pointer_cast<AnimationRuntime>(
-                        s.game->active().engine.services().animation()),
-                    target.target, type, property, request.at("value"));
-                s.game->active().simulation.sync_animation_pose();
-            } else if (RuntimePropertyTune::particle_type(type)) {
-                applied = particle_runtime(s.game->active().engine.world())
-                              ->tune_appearance(target.target, property, request.at("value"));
-            } else if (RuntimePropertyTune::navigation_type(type)) {
-                if (!s.game->active().engine.services().available(Capability::Navigation))
-                    return s.build_error(id, "Live navigation tuning requires enabled navigation");
-                applied = std::static_pointer_cast<NavigationRuntime>(
-                              s.game->active().engine.services().navigation())
-                              ->tune(target.target, type, property, request.at("value"));
-            } else
-                applied = scene.tune_runtime_property(canonical_entity, type, property,
-                                                      request.at("value"));
+            const auto applied =
+                s.game->active().tune_property(target.target, type, property, request.at("value"));
             auto response = s.snapshot_response(id);
             response["property_tune"] = {{"generation", s.active_generation},
                                          {"entity", canonical_entity},

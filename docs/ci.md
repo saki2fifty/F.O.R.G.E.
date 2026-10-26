@@ -999,6 +999,25 @@ A local Linux pass is not MSVC, full editor interaction, physical GPU, new scree
 or graphical exported-game acceptance. SDK Play uses authored restart; ordinary
 worker recovery checks do not claim arbitrary SDK Play state recovery.
 
+### Canonical physics-query exclusions
+
+The ray SDK probe additionally executes all eight typed exclusion callbacks and
+C++ helpers through both real hosts, with permitted/denied/fixed/foreign contexts.
+Known box geometry checks skipped nearest targets, complete results, aliases of
+canonical input/output rows, duplicate/max/invalid reference descriptors and raw
+size/capacity failures. Original closest-ray aliasing and nonfixed output clearing
+are regression cases. Native3D/XY owners check filters across rays/volumes/sweeps,
+legacy2D single-ignore composition and exclusion before unique-result budgeting.
+
+The installed PhysicsVolumes gate includes the two exclusion scenes and original
+unfiltered scenes. Independent geometry accounts for enabled project-owned markers;
+Live property changes and ordinary recovery use the existing runtime owner. An
+ordinary volume query remains unaffected by the ray selection. Existing RayProbe
+schema/data stays unchanged; the new marker is a separate game-owned concept.
+No new global query manager, authority system, dependency revision or persisted
+simulation filter exists. Matching SDK/module rebuilds are required; native Windows
+and graphical acceptance remain separate from local Linux checks.
+
 ### Slider joints
 
 Core joint tests check kind4 lower/upper endpoints, all principal axes, rotated and

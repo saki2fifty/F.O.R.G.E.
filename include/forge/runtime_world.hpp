@@ -20,6 +20,10 @@ class RuntimeWorld {
     bool prepare_scene_resources();
     // Audio-only owner boundary, without elapsed time or animation resampling.
     bool prepare_audio_sources();
+    // Shared live-property routing; each subsystem retains its validation and
+    // mutation authority. Host generations remain checked by the protocol owner.
+    Json tune_property(EntityRef, const std::string& type, const std::string& property,
+                       const Json& value);
     EngineContext engine;
     Scene scene;
     RuntimeSimulation simulation;

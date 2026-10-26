@@ -260,7 +260,8 @@ layer filtering. A compound or painted Tile Map contributes one object result.
 A ray starting inside a shape reports fraction **0** and zero normal. A read does
 not wake bodies or change the saved scene. Open the
 [physics volume and ray example](../samples/physics-volumes.md)
-for a ready-to-run XY scene and adjustable ray settings.
+for ready-to-run XY scenes, adjustable ray settings and a project-code example
+that leaves selected objects out of the ray.
 
 ## Export
 

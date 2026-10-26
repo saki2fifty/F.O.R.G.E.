@@ -97,6 +97,17 @@ void geometry_queries_and_recovery(double offset) {
     const auto all = test.native.raycast_all({offset - 1, offset - .5}, {67, 0}, {});
     check(all.size() == 1 && all[0].entity == floor && std::abs(all[0].fraction - 1. / 67) < .001,
           "Multi-hit compound ray duplicated parts or lost the nearest surface");
+    const std::array<EntityRef, 1> excluded{floor};
+    const PhysicsQueryFilter filter{UINT32_MAX, true, excluded};
+    check(test.native.overlap(query, filter).empty() &&
+              !test.native.raycast({offset + 32, offset + 1}, {0, -3}, filter) &&
+              test.native.raycast_all({offset - 1, offset - .5}, {67, 0}, filter).empty(),
+          "Canonical exclusion retained a part of a compound body");
+    PhysicsSweep2D sweep;
+    sweep.origin = {offset + 32, offset + 1};
+    sweep.displacement = {0, -3};
+    sweep.dimensions = {.1, 0};
+    check(!test.native.shape_cast(sweep, filter), "Excluded compound still blocked a sweep");
     const auto floor_epoch = test.native.state(1, floor)->epoch;
     test.desired.at(1).config.parts =
         std::make_shared<const std::vector<BoxPart2D>>(*test.desired.at(1).config.parts);

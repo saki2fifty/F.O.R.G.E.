@@ -212,6 +212,22 @@ int main(int argc, char** argv) {
                     require(hits.size() == 1 && hits[0].entity == ref &&
                                 std::abs(hits[0].fraction - .3125) < 1e-6,
                             "Compound ray duplicated children or kept a farther surface");
+                    const std::array<EntityRef, 1> excluded{ref};
+                    const PhysicsQueryFilter filter{UINT32_MAX, true, excluded};
+                    require(game.active().physics()->overlap_shape(query, filter).empty() &&
+                                !game.active().physics()->raycast_filtered({-2, 0, 0}, {4, 0, 0},
+                                                                           filter) &&
+                                game.active()
+                                    .physics()
+                                    ->raycast_all({-2, 0, 0}, {4, 0, 0}, filter)
+                                    .empty(),
+                            "Canonical exclusion retained a compound child");
+                    PhysicsSweep sweep;
+                    sweep.origin = {-2, 0, 0};
+                    sweep.displacement = {4, 0, 0};
+                    sweep.dimensions = {.1, 0, 0};
+                    require(!game.active().physics()->shape_cast(sweep, filter),
+                            "Excluded compound still blocked a 3D sweep");
                     require(game.active().physics()->checkpoint() == before,
                             "Compound volume read mutated native state");
                 });
@@ -233,6 +249,11 @@ int main(int argc, char** argv) {
                                 inside[0].fraction < 1 && inside[0].fraction == closest->fraction &&
                                 inside[0].normal == closest->normal,
                             "Mesh rays duplicated triangles or lost existing backface behavior");
+                    const std::array<EntityRef, 1> excluded{ref};
+                    require(
+                        physics->raycast_all({-2, 0, 0}, {4, 0, 0}, {UINT32_MAX, true, excluded})
+                            .empty(),
+                        "Canonical exclusion retained a triangle of the mesh");
                 });
             }
             auto result = import(service, source);

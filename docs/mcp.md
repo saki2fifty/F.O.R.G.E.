@@ -292,8 +292,10 @@ and guides from the editor-selected matching SDK, not the engine checkout. Read
 paths are relative to `sdk/`, for example `include/forge/native_sdk.h`.
 Complete 3D/XY physics rays are Project Code APIs in that header and
 `include/forge/sdk_client.hpp`. Agents use the same SDK reference reads, source
-editing, build/inspection and Play operations to author and test queries. No
-separate MCP physics world or direct engine-source operation is introduced.
+editing, build/inspection and Play operations to author and test queries. Canonical
+query exclusions use the same public SDK paths, with bounded copied
+reference arrays in Project Code. No separate MCP physics world or direct engine-
+source operation is introduced.
 
 The execution grant adds `forge_code_compiler_test`, `build`, `build_cancel`,
 `inspect`, `inspect_cancel` and migration controls. Compiler tasks use SdkBuild;

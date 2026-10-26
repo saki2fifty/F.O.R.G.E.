@@ -2,6 +2,21 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Canonical physics-query exclusions
+
+- Closest/all rays, overlaps and linear sweeps in 3D/XY accept up to 16 canonical
+  object exclusions before result selection, combining with existing 2D sweep
+  ignore. Layers, sensors, physical collision and query ownership stay independent.
+- Eight typed exact-SDK callbacks and C++ span helpers share existing validation,
+  result conversion, output clearing and default access. Existing C signatures/POD
+  sizes stay unchanged; rebuild against the matching fingerprint.
+- 3D closest ray and sweep input snapshots preserve aliases before output clearing;
+  the original unfiltered ray now also clears valid outputs on context failure.
+- PhysicsVolumes adds original exclusion scenes and a project-owned marker, with
+  live toggles through existing runtime property access. RayProbe schema remains1.
+- Both runtime hosts share live-property routing in RuntimeWorld; ordinary-runtime
+  custom C++ fields use the existing reflected codec, matching SDK Play.
+
 ## Complete physics rays
 
 - Copied multi-hit rays in3D/XY return the nearest surface per canonical object,

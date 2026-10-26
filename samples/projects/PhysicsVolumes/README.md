@@ -42,3 +42,20 @@ nearest hit, including compounds, and results follow distance along the segment.
 A complete result is limited to 256 bodies; exceeding a budget reports failure.
 Keep saved observed/count/nearest at false/0/-1. Stop restores saved values; the
 queries do not mutate source geometry or add recovery state of their own.
+
+## Select query exclusions
+
+`Scenes/excluded-rays.scene.json` and `Scenes/planar-excluded-rays.scene.json`
+mark **Left solid** with the project-owned **Ray Exclusion** Component. Its enabled
+checkbox selects that object's canonical reference for this sample's ray queries.
+The default ray count is 2; disabling the marker restores 3. With sensors excluded,
+the filtered scene counts 1. Live gameplay can toggle the marker; Stop restores
+saved values. The marked object still renders and collides, and the independent
+3D volume probe still includes it.
+
+`RayExclusion.hpp` defines the boolean selection marker. `RayProbeSystem.cpp`
+collects up to 16 registered references and passes a bounded span to the SDK's
+exclusion-enabled rays. This is ordinary game code using the shared physics query
+owner, not a global collision filter or separate physics manager. RayProbe's
+existing data/schema remains unchanged. Save your chosen scene as startup before
+exporting with matching rebuilt SDK/module kits.

@@ -5,11 +5,16 @@
 #include <forge/runtime_resource_service.hpp>
 #include <forge/transform.hpp>
 #include <optional>
+#include <span>
 #include <vector>
 namespace forge {
+inline constexpr std::size_t physics_query_exclusion_limit = 16;
 struct PhysicsQueryFilter {
     std::uint32_t mask = UINT32_MAX;
     bool include_sensors = true;
+    // Borrowed only for the synchronous query; never retained by the service.
+    // Complete canonical references, at most physics_query_exclusion_limit.
+    std::span<const EntityRef> exclusions{};
 };
 // Linear convex sweep. Dimensions: box full XYZ; sphere radius; capsule/cylinder
 // radius and straight height. Local origin is the shape center; no angular sweep.

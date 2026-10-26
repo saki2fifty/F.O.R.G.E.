@@ -133,6 +133,13 @@ inline void test_physics_tile_map(const std::filesystem::path& root,
     check(swept && swept->entity == a && swept->fraction > .4 && swept->fraction < .5 &&
               swept->normal[1] > .99,
           "Swept shape did not use the compound painted floor");
+    const std::array<EntityRef, 1> excluded{a};
+    const PhysicsQueryFilter filter{UINT32_MAX, true, excluded};
+    check(world.physics()->overlap_shape_2d(query, filter).empty() &&
+              !world.physics()->raycast_2d({1.5, 2}, {0, -4}, filter) &&
+              world.physics()->raycast_all_2d({-7, -1}, {14, 0}, filter).empty() &&
+              !world.physics()->shape_cast_2d(sweep, filter),
+          "Canonical query exclusion retained a cell of the painted Map");
     sweep.ignore = a;
     check(!world.physics()->shape_cast_2d(sweep),
           "Canonical sweep exclusion retained a compound floor shape");

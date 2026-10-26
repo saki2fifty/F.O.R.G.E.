@@ -1,5 +1,6 @@
 #include "physics_2d.hpp"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <forge/runtime.hpp>
 #include <iostream>
@@ -119,6 +120,16 @@ void multi_hit_rays() {
     require(empty.physics->raycast_all_2d({0, 4}, {0, -8}).empty() &&
                 !empty.physics->status().at("native_2d_realized").get<bool>(),
             "Empty multi-hit ray realized an absent XY world");
+    const std::array<EntityRef, 1> malformed{};
+    const PhysicsQueryFilter bad_cold{0, true, malformed};
+    PhysicsOverlap2D cold_overlap;
+    PhysicsSweep2D cold_sweep;
+    rejects([&] { empty.physics->raycast_2d({0, 4}, {0, -8}, bad_cold); });
+    rejects([&] { empty.physics->raycast_all_2d({0, 4}, {0, -8}, bad_cold); });
+    rejects([&] { empty.physics->overlap_shape_2d(cold_overlap, bad_cold); });
+    rejects([&] { empty.physics->shape_cast_2d(cold_sweep, bad_cold); });
+    require(!empty.physics->status().at("native_2d_realized").get<bool>(),
+            "Rejected exclusion realized a cold XY world");
     for (double offset : {0., -999990., 999990.}) {
         Fixture test;
         auto sensor = row(test.first, offset, 2, 0, true);
@@ -137,6 +148,41 @@ void multi_hit_rays() {
                         1 &&
                     test.physics->raycast_all_2d({offset, 4}, {0, -8}, {0, true}).empty(),
                 "Planar multi-hit ray ignored sensor/mask filtering");
+        const std::array<EntityRef, 1> ignored{test.ref(test.first)};
+        const PhysicsQueryFilter excluding{UINT32_MAX, true, ignored};
+        const auto remaining = test.physics->raycast_all_2d({offset, 4}, {0, -8}, excluding);
+        const auto closest = test.physics->raycast_2d({offset, 4}, {0, -8}, excluding);
+        require(remaining.size() == 1 && closest && closest->entity == test.ref(test.second) &&
+                    std::abs(closest->fraction - .4375) < 1e-5,
+                "Canonical XY ray exclusion did not reveal the farther target");
+        PhysicsOverlap2D overlap;
+        overlap.origin = {offset, 1};
+        overlap.dimensions = {3, 0};
+        require(test.physics->overlap_shape_2d(overlap, excluding) ==
+                    std::vector<EntityRef>{test.ref(test.second)},
+                "Canonical XY overlap exclusion did not preserve the remaining target");
+        PhysicsSweep2D sweep;
+        sweep.dimensions = {.1, 0};
+        sweep.origin = {offset, 4};
+        sweep.displacement = {0, -8};
+        const auto swept = test.physics->shape_cast_2d(sweep, excluding);
+        require(swept && swept->entity == test.ref(test.second) && swept->fraction > .40 &&
+                    swept->fraction < .44,
+                "Canonical XY sweep exclusion lost closest geometry");
+        sweep.ignore = test.ref(test.second);
+        require(!test.physics->shape_cast_2d(sweep, excluding),
+                "Query exclusions replaced rather than combined with legacy sweep ignore");
+        const std::array<EntityRef, 1> invalid{};
+        std::array<EntityRef, physics_query_exclusion_limit + 1> excessive;
+        excessive.fill(ignored[0]);
+        for (const auto refs :
+             {std::span<const EntityRef>(invalid), std::span<const EntityRef>(excessive)}) {
+            const PhysicsQueryFilter bad{0, true, refs};
+            rejects([&] { test.physics->raycast_2d({offset, 4}, {0, -8}, bad); });
+            rejects([&] { test.physics->raycast_all_2d({offset, 4}, {0, -8}, bad); });
+            rejects([&] { test.physics->overlap_shape_2d(overlap, bad); });
+            rejects([&] { test.physics->shape_cast_2d(sweep, bad); });
+        }
         const auto inside = test.physics->raycast_all_2d({offset, 2}, {0, -4});
         const auto closest_inside = test.physics->raycast_2d({offset, 2}, {0, -4});
         require(inside.size() == 2 && inside[0].entity == test.ref(test.first) &&
@@ -164,6 +210,9 @@ void multi_hit_rays() {
         recovered.physics->restore(before);
         const auto restored = recovered.physics->raycast_all_2d({offset, 4}, {0, -8});
         require(restored.size() == hits.size(), "Recovered XY ray lost objects");
+        require(recovered.physics->raycast_all_2d({offset, 4}, {0, -8}, excluding).size() ==
+                    remaining.size(),
+                "Recovery did not resolve canonical exclusions to new native XY bodies");
         for (std::size_t i = 0; i < hits.size(); ++i)
             require(restored[i].entity == hits[i].entity &&
                         restored[i].fraction == hits[i].fraction &&
@@ -203,6 +252,11 @@ void multi_hit_rays() {
     require(character_hits.size() == 1 &&
                 character_hits[0].entity == controller.ref(controller.first),
             "Multi-hit XY ray lost the controller body identity");
+    const std::array<EntityRef, 1> ignored_controller{controller.ref(controller.first)};
+    const PhysicsQueryFilter controller_filter{UINT32_MAX, true, ignored_controller};
+    require(controller.physics->raycast_all_2d({-2, .9}, {4, 0}, controller_filter).empty() &&
+                !controller.physics->raycast_2d({-2, .9}, {4, 0}, controller_filter),
+            "Canonical exclusion retained the XY controller body");
     Fixture platform;
     auto box = row(platform.first, 0, 0, 0);
     box["components"].erase("forge.circle_collider_2d");
@@ -221,6 +275,10 @@ void multi_hit_rays() {
     const auto before = crowded.physics->checkpoint();
     rejects([&] { crowded.physics->raycast_all_2d({0, 4}, {0, -8}); });
     require(crowded.physics->checkpoint() == before, "Planar ray overflow changed state");
+    const std::array<EntityRef, 1> one{crowded.ref(rows[0].at("id").get<std::string>())};
+    require(crowded.physics->raycast_all_2d({0, 4}, {0, -8}, {UINT32_MAX, true, one}).size() ==
+                physics_ray_hit_limit,
+            "Excluded XY body consumed a complete-ray result slot");
     rows.erase(rows.size() - 1);
     crowded.load(rows);
     const auto hits = crowded.physics->raycast_all_2d({0, 4}, {0, -8});

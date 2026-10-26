@@ -4,6 +4,7 @@
 #include "physics_2d_transform.hpp"
 #include "physics_debug.hpp"
 #include "physics_joint_2d_value.hpp"
+#include "physics_query_filter.hpp"
 #include "runtime_tile_map.hpp"
 #include "tile_map_collision.hpp"
 #include <algorithm>
@@ -1253,6 +1254,7 @@ struct Native2D::Impl {
         }
         if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
             (query.ignore && body->admitted.ref == *query.ignore) ||
+            query_excludes(query.filter, body->admitted.ref) ||
             (query.ignore_initial_overlap && fraction == 0) ||
             !physical_response(*body, query.response, &normal))
             return -1;
@@ -1300,7 +1302,8 @@ struct Native2D::Impl {
             return false;
         }
         if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
-            (query.ignore && body->admitted.ref == *query.ignore))
+            (query.ignore && body->admitted.ref == *query.ignore) ||
+            query_excludes(query.filter, body->admitted.ref))
             return true;
         b2ShapeProxy obstacle{};
         switch (b2Shape_GetType(shape)) {
@@ -1373,7 +1376,8 @@ struct Native2D::Impl {
             return false;
         }
         if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
-            (query.ignore && body->admitted.ref == *query.ignore))
+            (query.ignore && body->admitted.ref == *query.ignore) ||
+            query_excludes(query.filter, body->admitted.ref))
             return true;
         if (!physical_response(*body, query.response))
             return true;
@@ -1465,7 +1469,8 @@ struct Native2D::Impl {
             return false;
         }
         if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
-            (query.ignore && body->admitted.ref == *query.ignore))
+            (query.ignore && body->admitted.ref == *query.ignore) ||
+            query_excludes(query.filter, body->admitted.ref))
             return true;
         const auto normal = value->plane.normal;
         const double length_squared = double(normal.x) * normal.x + double(normal.y) * normal.y;
@@ -1630,7 +1635,8 @@ struct Native2D::Impl {
             query.failed = true;
             return false;
         }
-        if (!query.filter.include_sensors && body->admitted.config.body.sensor)
+        if ((!query.filter.include_sensors && body->admitted.config.body.sensor) ||
+            query_excludes(query.filter, body->admitted.ref))
             return true;
         const auto end = query.refs.begin() + query.count;
         if (std::find(query.refs.begin(), end, body->admitted.ref) != end)
@@ -2516,6 +2522,7 @@ std::optional<PhysicsHit2D> Native2D::raycast(Double2 origin, Double2 displaceme
                                               PhysicsQueryFilter filter) const {
     const auto& self = *impl_;
     self.check();
+    validate_query_filter(filter);
     validate_ray_2d(origin, displacement);
     if (!realized() || !filter.mask)
         return {};
@@ -2532,6 +2539,7 @@ std::vector<PhysicsHit2D> Native2D::raycast_all(Double2 origin, Double2 displace
                                                 PhysicsQueryFilter filter) const {
     const auto& self = *impl_;
     self.check();
+    validate_query_filter(filter);
     validate_ray_2d(origin, displacement);
     if (!realized() || !filter.mask)
         return {};
@@ -2554,6 +2562,7 @@ std::vector<EntityRef> Native2D::overlap(const PhysicsOverlap2D& request,
                                          PhysicsQueryFilter filter) const {
     const auto& self = *impl_;
     self.check();
+    validate_query_filter(filter);
     const auto proxy = overlap_proxy(request);
     if (!realized() || !filter.mask)
         return {};
@@ -2571,6 +2580,7 @@ std::optional<PhysicsHit2D> Native2D::shape_cast(const PhysicsSweep2D& request,
                                                  PhysicsQueryFilter filter) const {
     const auto& self = *impl_;
     self.check();
+    validate_query_filter(filter);
     const auto proxy = sweep_proxy(request);
     if (!realized() || !filter.mask)
         return {};

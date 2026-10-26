@@ -1,8 +1,10 @@
 #pragma once
 // Header-only convenience over the exact C boundary. Owns no host or world.
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <forge/native_sdk.h>
+#include <span>
 namespace forge::sdk {
 enum class Capability : uint32_t {
     Diagnostics = FORGE_SDK_DIAGNOSTICS,
@@ -51,11 +53,13 @@ class Client {
     // 1 hit, 0 miss, -1 invalid/unavailable. No stale output on miss/failure.
     int32_t raycast(const double origin[3], const double displacement[3],
                     ForgeSdkPhysicsHitV1& out) const {
+        if (callable(Capability::Physics) && host_->raycast) {
+            out.size = sizeof(out);
+            return host_->raycast(host_->context, origin, displacement, &out);
+        }
         out = {};
         out.size = sizeof(out);
-        return callable(Capability::Physics)
-                   ? host_->raycast(host_->context, origin, displacement, &out)
-                   : -1;
+        return -1;
     }
     // Current-tick broadcast: 1 event, 0 end/unavailable, -1 invalid/removed target.
     int32_t animation_event(uint32_t index, ForgeSdkAnimationEventV1& out) const {
@@ -134,14 +138,17 @@ class Client {
     }
     int32_t raycast_filtered(const double origin[3], const double displacement[3], uint32_t mask,
                              bool sensors, ForgeSdkPhysicsHitV1& out) const {
+        if (callable(Capability::Physics) && host_->raycast_filtered) {
+            out.size = sizeof(out);
+            return host_->raycast_filtered(host_->context, origin, displacement, mask,
+                                           sensors ? 1u : 0u, &out);
+        }
         out = {};
         out.size = sizeof(out);
-        return callable(Capability::Physics)
-                   ? host_->raycast_filtered(host_->context, origin, displacement, mask,
-                                             sensors ? 1u : 0u, &out)
-                   : -1;
+        return -1;
     }
-    int32_t shape_cast(const ForgeSdkSweepV1& request, ForgeSdkPhysicsHitV1& out) const {
+    int32_t shape_cast(ForgeSdkSweepV1 request, ForgeSdkPhysicsHitV1& out) const {
+        request.size = sizeof(request);
         out = {};
         out.size = sizeof(out);
         return callable(Capability::Physics) && host_->shape_cast
@@ -153,7 +160,7 @@ class Client {
     int32_t raycast_all(std::array<double, 3> origin, std::array<double, 3> displacement,
                         uint32_t mask, bool sensors, ForgeSdkPhysicsHitV1* out,
                         uint32_t capacity) const {
-        if (!prepare_ray_hits(out, capacity))
+        if (!prepare_query_output(out, capacity, FORGE_SDK_PHYSICS_RAY_HIT_LIMIT))
             return -1;
         return callable(Capability::Physics) && host_->physics_raycast_all
                    ? host_->physics_raycast_all(host_->context, origin.data(), displacement.data(),
@@ -163,13 +170,126 @@ class Client {
     int32_t raycast_all_2d(std::array<double, 2> origin, std::array<double, 2> displacement,
                            uint32_t mask, bool sensors, ForgeSdkPhysicsHit2DV1* out,
                            uint32_t capacity) const {
-        if (!prepare_ray_hits(out, capacity))
+        if (!prepare_query_output(out, capacity, FORGE_SDK_PHYSICS_RAY_HIT_LIMIT))
             return -1;
         return callable(Capability::Physics) && host_->physics_raycast_all_2d
                    ? host_->physics_raycast_all_2d(host_->context, origin.data(),
                                                    displacement.data(), mask, sensors ? 1u : 0u,
                                                    out, capacity)
                    : -1;
+    }
+    // Explicit canonical exclusions are copied before output initialization.
+    // Empty lists retain the ordinary callback path; no filter is stored.
+    int32_t raycast_excluding(std::array<double, 3> origin, std::array<double, 3> displacement,
+                              uint32_t mask, bool sensors,
+                              std::span<const ForgeSdkEntityRefV1> excluded,
+                              ForgeSdkPhysicsHitV1& out) const {
+        if (excluded.empty())
+            return raycast_filtered(origin.data(), displacement.data(), mask, sensors, out);
+        return exclusion_query(excluded, &out, 1, 1, [&](const auto* input) {
+            return host_->physics_raycast_excluding
+                       ? host_->physics_raycast_excluding(host_->context, origin.data(),
+                                                          displacement.data(), mask,
+                                                          sensors ? 1u : 0u, input, &out)
+                       : -1;
+        });
+    }
+    int32_t raycast_all_excluding(std::array<double, 3> origin, std::array<double, 3> displacement,
+                                  uint32_t mask, bool sensors,
+                                  std::span<const ForgeSdkEntityRefV1> excluded,
+                                  ForgeSdkPhysicsHitV1* out, uint32_t capacity) const {
+        if (excluded.empty())
+            return raycast_all(origin, displacement, mask, sensors, out, capacity);
+        return exclusion_query(
+            excluded, out, capacity, FORGE_SDK_PHYSICS_RAY_HIT_LIMIT, [&](const auto* input) {
+                return host_->physics_raycast_all_excluding
+                           ? host_->physics_raycast_all_excluding(
+                                 host_->context, origin.data(), displacement.data(), mask,
+                                 sensors ? 1u : 0u, input, out, capacity)
+                           : -1;
+            });
+    }
+    int32_t overlap_shape_excluding(ForgeSdkOverlapV1 request,
+                                    std::span<const ForgeSdkEntityRefV1> excluded,
+                                    ForgeSdkEntityRefV1* out, uint32_t capacity) const {
+        if (excluded.empty())
+            return overlap_shape(request, out, capacity);
+        request.size = sizeof(request);
+        return exclusion_query(excluded, out, capacity, FORGE_SDK_PHYSICS_OVERLAP_LIMIT,
+                               [&](const auto* input) {
+                                   return host_->physics_overlap_shape_excluding
+                                              ? host_->physics_overlap_shape_excluding(
+                                                    host_->context, &request, input, out, capacity)
+                                              : -1;
+                               });
+    }
+    int32_t shape_cast_excluding(ForgeSdkSweepV1 request,
+                                 std::span<const ForgeSdkEntityRefV1> excluded,
+                                 ForgeSdkPhysicsHitV1& out) const {
+        if (excluded.empty())
+            return shape_cast(request, out);
+        request.size = sizeof(request);
+        return exclusion_query(excluded, &out, 1, 1, [&](const auto* input) {
+            return host_->physics_shape_cast_excluding
+                       ? host_->physics_shape_cast_excluding(host_->context, &request, input, &out)
+                       : -1;
+        });
+    }
+    int32_t raycast_2d_excluding(std::array<double, 2> origin, std::array<double, 2> displacement,
+                                 uint32_t mask, bool sensors,
+                                 std::span<const ForgeSdkEntityRefV1> excluded,
+                                 ForgeSdkPhysicsHit2DV1& out) const {
+        if (excluded.empty())
+            return raycast_2d(origin.data(), displacement.data(), mask, sensors, out);
+        return exclusion_query(excluded, &out, 1, 1, [&](const auto* input) {
+            return host_->physics_raycast_2d_excluding
+                       ? host_->physics_raycast_2d_excluding(host_->context, origin.data(),
+                                                             displacement.data(), mask,
+                                                             sensors ? 1u : 0u, input, &out)
+                       : -1;
+        });
+    }
+    int32_t raycast_all_2d_excluding(std::array<double, 2> origin,
+                                     std::array<double, 2> displacement, uint32_t mask,
+                                     bool sensors, std::span<const ForgeSdkEntityRefV1> excluded,
+                                     ForgeSdkPhysicsHit2DV1* out, uint32_t capacity) const {
+        if (excluded.empty())
+            return raycast_all_2d(origin, displacement, mask, sensors, out, capacity);
+        return exclusion_query(
+            excluded, out, capacity, FORGE_SDK_PHYSICS_RAY_HIT_LIMIT, [&](const auto* input) {
+                return host_->physics_raycast_all_2d_excluding
+                           ? host_->physics_raycast_all_2d_excluding(
+                                 host_->context, origin.data(), displacement.data(), mask,
+                                 sensors ? 1u : 0u, input, out, capacity)
+                           : -1;
+            });
+    }
+    int32_t overlap_shape_2d_excluding(ForgeSdkOverlap2DV1 request,
+                                       std::span<const ForgeSdkEntityRefV1> excluded,
+                                       ForgeSdkEntityRefV1* out, uint32_t capacity) const {
+        if (excluded.empty())
+            return overlap_shape_2d(request, out, capacity);
+        request.size = sizeof(request);
+        return exclusion_query(excluded, out, capacity, FORGE_SDK_PHYSICS_OVERLAP_LIMIT,
+                               [&](const auto* input) {
+                                   return host_->physics_overlap_shape_2d_excluding
+                                              ? host_->physics_overlap_shape_2d_excluding(
+                                                    host_->context, &request, input, out, capacity)
+                                              : -1;
+                               });
+    }
+    int32_t shape_cast_2d_excluding(ForgeSdkSweep2DV1 request,
+                                    std::span<const ForgeSdkEntityRefV1> excluded,
+                                    ForgeSdkPhysicsHit2DV1& out) const {
+        if (excluded.empty())
+            return shape_cast_2d(request, out);
+        request.size = sizeof(request);
+        return exclusion_query(excluded, &out, 1, 1, [&](const auto* input) {
+            return host_->physics_shape_cast_2d_excluding
+                       ? host_->physics_shape_cast_2d_excluding(host_->context, &request, input,
+                                                                &out)
+                       : -1;
+        });
     }
     bool move_2d(const char* scene, const char* entity, const double position[2], double angle,
                  bool kinematic = false, bool clear_velocity = false) const {
@@ -222,15 +342,20 @@ class Client {
     }
     int32_t overlap_shape_2d(ForgeSdkOverlap2DV1 request, ForgeSdkEntityRefV1* out,
                              uint32_t capacity) const {
-        if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_OVERLAP_LIMIT)
-            return -1;
         request.size = sizeof(request);
-        for (uint32_t i = 0; i < capacity; ++i) {
-            out[i] = {};
-            out[i].size = sizeof(out[i]);
-        }
+        if (!prepare_query_output(out, capacity, FORGE_SDK_PHYSICS_OVERLAP_LIMIT))
+            return -1;
         return callable(Capability::Physics) && host_->physics_overlap_shape_2d
                    ? host_->physics_overlap_shape_2d(host_->context, &request, out, capacity)
+                   : -1;
+    }
+    int32_t overlap_shape(ForgeSdkOverlapV1 request, ForgeSdkEntityRefV1* out,
+                          uint32_t capacity) const {
+        request.size = sizeof(request);
+        if (!prepare_query_output(out, capacity, FORGE_SDK_PHYSICS_OVERLAP_LIMIT))
+            return -1;
+        return callable(Capability::Physics) && host_->physics_overlap_shape
+                   ? host_->physics_overlap_shape(host_->context, &request, out, capacity)
                    : -1;
     }
     int32_t shape_cast_2d(ForgeSdkSweep2DV1 request, ForgeSdkPhysicsHit2DV1& out) const {
@@ -400,14 +525,33 @@ class Client {
     }
 
   private:
-    template <class Hit> static bool prepare_ray_hits(Hit* out, uint32_t capacity) {
-        if (!out || !capacity || capacity > FORGE_SDK_PHYSICS_RAY_HIT_LIMIT)
+    template <class Out>
+    static bool prepare_query_output(Out* out, uint32_t capacity, uint32_t limit) {
+        if (!out || !capacity || capacity > limit)
             return false;
         for (uint32_t i = 0; i < capacity; ++i) {
             out[i] = {};
             out[i].size = sizeof(out[i]);
         }
         return true;
+    }
+    template <class Out, class Call>
+    int32_t exclusion_query(std::span<const ForgeSdkEntityRefV1> excluded, Out* out,
+                            uint32_t capacity, uint32_t limit, Call&& call) const {
+        if (!out || !capacity || capacity > limit)
+            return -1;
+        // Only constructed on explicit nonempty paths. Unused POD slots are not
+        // read or initialized; the descriptor exposes only the copied prefix.
+        std::array<ForgeSdkEntityRefV1, FORGE_SDK_PHYSICS_EXCLUSION_LIMIT> copied;
+        ForgeSdkPhysicsExclusionsV1 input{sizeof(input), FORGE_SDK_PHYSICS_EXCLUSION_LIMIT + 1,
+                                          nullptr};
+        if (excluded.size() <= copied.size()) {
+            std::copy(excluded.begin(), excluded.end(), copied.begin());
+            input.count = static_cast<uint32_t>(excluded.size());
+            input.entities = input.count ? copied.data() : nullptr;
+        }
+        prepare_query_output(out, capacity, limit);
+        return callable(Capability::Physics) ? call(&input) : -1;
     }
     const ForgeSdkWorldV1* host_;
 };
