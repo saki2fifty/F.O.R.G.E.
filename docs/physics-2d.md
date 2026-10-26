@@ -530,6 +530,46 @@ elapsed path clock is transient C++ state; arbitrary module-state recovery is no
 promised. The existing preparation tool stamps every inspected authored type
 using the runtime schema instead of assuming a one-component module.
 
+### Slope stopping and ceiling response
+
+`floor_stop_on_slope=false` and `slide_on_ceiling=true` preserve older omitted-field
+behavior. Both append to CharacterController2D and its existing derived profile.
+Reflection supplies typed boolean validation, Inspector labels **Stop on slopes** /
+**Slide on ceilings**, MCP discovery, history and persistence. No separate tool or
+agent-only movement implementation is added.
+
+Only Grounded requested locomotion uses these policies. With stopping enabled,
+exactly zero requested world X and negative Y stop on a walkable floor instead of
+projecting downhill. Explicit horizontal intent, jumps and steep walls retain
+normal bounded movement. With ceiling sliding disabled, an upward request stops
+when it opposes a ceiling normal with Y <= -cos(max_slope). Shallower downward
+components on steep walls do not become ceilings. Floating ignores both controls.
+The original request remains persistent; zero clipped velocity describes that
+collision step. Game C++ supplies a later request/gravity. No gravity, friction,
+input deadzone or synthetic force is introduced.
+
+The existing plane solver identifies active initial constraints. A policy stop
+resolves a zero target through the same native feasibility/cast/penetration checks.
+New policy contacts preserve independently checked cast approach travel and stop
+there. Requested remaining motion and clipped velocity become zero. Ordinary
+shallow correction, support/floor following, filters, explicit one-way response,
+iteration/plane/work caps and fail-before-adoption rules stay shared. Separately
+solved moving-support transport is unaffected. Public geometric mover queries keep
+their existing behavior and do not infer controller policy from an ignored entity.
+
+No extra runtime state is required. Fresh recovery compares the two flags in its
+existing exact configuration guard; private codec9/outer2 remain unchanged. The
+public header changes the exact SDK fingerprint, so rebuild matching modules.
+Scene/Prefab formats and authored identities do not change.
+
+Character2D's alternate `Scenes/surface-response.scene.json` is an original two-lane
+comparison using existing assets/module/input. Its green player holds/stops; amber
+keeps defaults. Grounded game policy uses fresh downward gravity rather than
+reusing a preceding slope tangent as upward intent. In air it integrates observed
+vertical velocity. The shared example preparation owner stamps declared components
+in every registered Scene, including non-startup examples; it rejects escaping
+scene sources. Export startup selection remains ordinary Project Settings.
+
 ### Checked crouch and stand
 
 `crouch_height` is authored straight capsule height in local metres.0 automatically

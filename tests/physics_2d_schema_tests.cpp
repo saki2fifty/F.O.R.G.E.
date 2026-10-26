@@ -193,13 +193,19 @@ void controller_schema(EngineContext& engine) {
           std::pair{"layer", offsetof(CharacterController2D, layer)},
           std::pair{"mask", offsetof(CharacterController2D, mask)},
           std::pair{"platform_carry", offsetof(CharacterController2D, platform_carry)},
-          std::pair{"crouch_height", offsetof(CharacterController2D, crouch_height)}}) {
+          std::pair{"crouch_height", offsetof(CharacterController2D, crouch_height)},
+          std::pair{"floor_stop_on_slope", offsetof(CharacterController2D, floor_stop_on_slope)},
+          std::pair{"slide_on_ceiling", offsetof(CharacterController2D, slide_on_ceiling)}}) {
         const auto* member = ecs_struct_get_member(world.c_ptr(), native.id(), name);
         require(member && std::size_t(member->offset) == offset,
                 "2D controller native member offset mismatch");
     }
     require(!CharacterController2D{}.platform_carry &&
                 !type.defaults.at("platform_carry").get<bool>() &&
+                !CharacterController2D{}.floor_stop_on_slope &&
+                CharacterController2D{}.slide_on_ceiling &&
+                !type.defaults.at("floor_stop_on_slope").get<bool>() &&
+                type.defaults.at("slide_on_ceiling").get<bool>() &&
                 detail::canonical_builtin_value(type, Json::object()) == type.defaults,
             "2D controller defaults were not backfilled by the shared schema");
     bool mode_found = false;
@@ -229,6 +235,8 @@ void controller_schema(EngineContext& engine) {
                                        {"radius", 500},
                                        {"max_slope", 85.1},
                                        {"platform_carry", 1},
+                                       {"floor_stop_on_slope", 1},
+                                       {"slide_on_ceiling", "false"},
                                        {"crouch_height", -.001},
                                        {"crouch_height", .601},
                                        {"floor_probe", -1},

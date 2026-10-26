@@ -54,19 +54,25 @@ def prepare(source, output, runtime, tools, module=None, module_kit=None,
     declarations = {entry['id']: entry for entry in inspected['components']}
     if component not in declarations:
         raise ValueError('Unexpected example schema')
-    scene_path = output / settings['startup_scene']['source']
-    scene = json.loads(scene_path.read_text())
-    for entity in scene['entities']:
-        for name, data in entity['components'].items():
-            if name not in declarations:
-                continue
-            declaration = declarations[name]
-            stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
-                         schema_version=declaration['schema_version'], digest=declaration['digest'])
-            if '$forge' in data and data['$forge'] != stamp:
-                raise ValueError('Example source schema needs explicit migration')
-            data['$forge'] = stamp
-    scene_path.write_text(json.dumps(scene, indent=2) + '\n')
+    registry = json.loads((output / 'forge.assets.json').read_text())
+    for asset in registry['assets']:
+        if asset['type'] != 'scene':
+            continue
+        scene_path = (output / asset['source']).resolve()
+        if output.resolve() not in scene_path.parents:
+            raise ValueError('Example scene source escapes its project')
+        scene = json.loads(scene_path.read_text())
+        for entity in scene['entities']:
+            for name, data in entity['components'].items():
+                if name not in declarations:
+                    continue
+                declaration = declarations[name]
+                stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
+                             schema_version=declaration['schema_version'], digest=declaration['digest'])
+                if '$forge' in data and data['$forge'] != stamp:
+                    raise ValueError('Example source schema needs explicit migration')
+                data['$forge'] = stamp
+        scene_path.write_text(json.dumps(scene, indent=2) + '\n')
     # Explicit dependency order supplied by the example's packaging recipe. The
     # ordinary asset owner validates, cooks and publishes each source; this script
     # does not manufacture cache records or rewrite dependency identities.

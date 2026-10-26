@@ -25,6 +25,7 @@ struct MoverProfile2D {
     float minimum_floor_y = -1, floor_probe = .1f;
     bool platform_carry = false;
     float crouch_height = 0; // World straight height;0 uses half standing height.
+    bool floor_stop_on_slope = false, slide_on_ceiling = true;
     bool operator==(const MoverProfile2D&) const = default;
 };
 struct Body2DConfiguration {

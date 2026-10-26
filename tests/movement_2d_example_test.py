@@ -78,9 +78,10 @@ def verify(runtime, project):
         assert abs(player(state)['forge.local_translation']['y'] - 2.6) < .03, player(state)
 
     def advance_ticks(worker, sdk_play, ticks, events=()):
+        input_payload = dict(input_events=list(events)) if events else {}
         if sdk_play:
             worker.request('resume')
-            state = worker.request('snapshot', input_events=list(events))
+            state = worker.request('snapshot', **input_payload)
             target = state['timing']['tick'] + ticks
             deadline = time.monotonic() + 15
             while state['timing']['tick'] < target:
@@ -88,7 +89,7 @@ def verify(runtime, project):
                 time.sleep(.005)
                 state = worker.request('snapshot')
             return worker.request('pause')
-        state = worker.request('step', input_events=list(events))
+        state = worker.request('step', **input_payload)
         for _ in range(ticks - 1):
             state = worker.request('step')
         return state
@@ -133,6 +134,33 @@ def verify(runtime, project):
         assert abs(position['y'] - platform_position['y'] - .1) < .02, (position, platform_position)
         assert player(state)[component]['grounded'], player(state)
         assert abs(player(state)['forge.sprite_renderer']['height'] - .9) < .001, player(state)
+
+    def surface_response(worker, sdk_play):
+        comparison_path = project / 'Scenes/surface-response.scene.json'
+        comparison_saved = comparison_path.read_bytes()
+        source = json.loads(comparison_saved)
+        activate(worker, source, sdk_play)
+        state = advance_ticks(worker, sdk_play, 120)
+        positions = {row['components']['forge.character_controller_2d']['floor_stop_on_slope']:
+                     row['components'] for row in state['scene']['entities']
+                     if component in row['components']}
+        stopped, sliding = positions[True], positions[False]
+        assert stopped[component]['grounded'] and sliding[component]['grounded'], positions
+        assert abs(stopped['forge.local_translation']['x'] + 4) < .005, stopped
+        assert sliding['forge.local_translation']['x'] < 3.95, sliding
+        before_jump = sliding['forge.local_translation']['x']
+        state = advance_ticks(worker, sdk_play, 30, [dict(control='key.space', value=1)])
+        positions = {row['components']['forge.character_controller_2d']['floor_stop_on_slope']:
+                     row['components'] for row in state['scene']['entities']
+                     if component in row['components']}
+        stopped, sliding = positions[True], positions[False]
+        assert not stopped[component]['grounded'] and not sliding[component]['grounded'], positions
+        assert abs(stopped['forge.local_translation']['x'] + 4) < .005, stopped
+        assert sliding['forge.local_translation']['x'] > before_jump + .01, sliding
+        state = advance_ticks(worker, sdk_play, 90, [dict(control='key.space', value=0)])
+        assert all(row['components'][component]['grounded'] for row in state['scene']['entities']
+                   if component in row['components']), state
+        assert comparison_path.read_bytes() == comparison_saved, 'Play changed the comparison Scene'
 
     observations = []
     for sdk_play in (False, True):
@@ -197,6 +225,8 @@ def verify(runtime, project):
                         observations[-1]['platform_ride'] = True
                         crouch_tunnel(worker, True)
                         observations[-1]['crouch_tunnel'] = True
+                        surface_response(worker, True)
+                        observations[-1]['surface_response'] = True
                     continue
                 for tick in range(18):
                     event = dict(input_events=[dict(control='key.d', value=1)]) if tick == 0 else {}
@@ -259,6 +289,8 @@ def verify(runtime, project):
                     observations[-1]['platform_ride'] = True
                     crouch_tunnel(worker, sdk_play)
                     observations[-1]['crouch_tunnel'] = True
+                    surface_response(worker, sdk_play)
+                    observations[-1]['surface_response'] = True
             finally:
                 worker.close()
     assert scene_path.read_bytes() == saved, 'Play changed the saved Scene'

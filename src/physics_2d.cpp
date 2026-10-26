@@ -353,8 +353,11 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D& val
     auto config = inline_configuration_2d(inner, 2, {value.radius, value.height}, scale);
     config.mover_profile = MoverProfile2D{
         value.mode == 1 ? -1.f : float(std::cos(value.max_slope * std::numbers::pi / 180)),
-        value.floor_probe, value.platform_carry,
-        value.crouch_height == 0 ? 0 : dimension(value.crouch_height * scale.y, .01f, 1000)};
+        value.floor_probe,
+        value.platform_carry,
+        value.crouch_height == 0 ? 0 : dimension(value.crouch_height * scale.y, .01f, 1000),
+        value.floor_stop_on_slope,
+        value.slide_on_ceiling};
     validate_geometry(config);
     return config;
 }
@@ -904,8 +907,8 @@ struct Native2D::Impl {
             const PhysicsQueryFilter filter{body.admitted.config.body.mask, false};
             const auto category = std::uint64_t{1} << body.admitted.config.body.layer;
             const PhysicalMover response{&body, {{feet[0], feet[1]}, b2Rot_identity}};
-            const auto motion =
-                motion_mover(request, filter, work, category, profile.minimum_floor_y, &response);
+            const auto motion = motion_mover(request, filter, work, category,
+                                             profile.minimum_floor_y, &response, &profile);
             Double2 next{feet[0] + motion.translation[0], feet[1] + motion.translation[1]};
             Double2 velocity{};
             for (unsigned axis = 0; axis < 2; ++axis)
@@ -1554,7 +1557,8 @@ struct Native2D::Impl {
                              const PhysicalMover* = nullptr) const;
     MoverMotion2D motion_mover(const PhysicsSweep2D&, PhysicsQueryFilter, std::size_t& work,
                                std::uint64_t category = query_category, float minimum_floor_y = -1,
-                               const PhysicalMover* = nullptr) const;
+                               const PhysicalMover* = nullptr,
+                               const MoverProfile2D* locomotion = nullptr) const;
     explicit Impl(const PhysicsConfig& value) : config(value) {}
     ~Impl() {
         if (B2_IS_NON_NULL(world))
@@ -1663,7 +1667,9 @@ Json Body2DConfiguration::json() const {
         result["mover_profile"] = {{"minimum_floor_y", mover_profile->minimum_floor_y},
                                    {"floor_probe", mover_profile->floor_probe},
                                    {"platform_carry", mover_profile->platform_carry},
-                                   {"crouch_height", mover_profile->crouch_height}};
+                                   {"crouch_height", mover_profile->crouch_height},
+                                   {"floor_stop_on_slope", mover_profile->floor_stop_on_slope},
+                                   {"slide_on_ceiling", mover_profile->slide_on_ceiling}};
     if (shape == 3) {
         validate_geometry(*this);
         result["parts"] = Json::array();
@@ -2538,8 +2544,8 @@ double Native2D::Impl::penetration_mover(const PhysicsOverlap2D& request, Physic
 }
 MoverMotion2D Native2D::Impl::motion_mover(const PhysicsSweep2D& request, PhysicsQueryFilter filter,
                                            std::size_t& work, std::uint64_t category,
-                                           float minimum_floor_y,
-                                           const PhysicalMover* response) const {
+                                           float minimum_floor_y, const PhysicalMover* response,
+                                           const MoverProfile2D* locomotion) const {
     check();
     if (request.shape != PhysicsOverlap2D::Shape::Capsule || request.ignore_initial_overlap)
         throw std::runtime_error(
@@ -2573,13 +2579,28 @@ MoverMotion2D Native2D::Impl::motion_mover(const PhysicsSweep2D& request, Physic
     planes.requested_x = float(request.displacement[0]);
     gather_mover_planes(planes, pose, base, category);
     const b2Vec2 requested{float(request.displacement[0]), float(request.displacement[1])};
+    const auto stop_at_surface = [&](b2Vec2 normal) {
+        if (!locomotion || minimum_floor_y < 0 || b2Dot(normal, requested) >= 0)
+            return false;
+        return (locomotion->floor_stop_on_slope && requested.x == 0 && requested.y < 0 &&
+                normal.y >= minimum_floor_y) ||
+               (!locomotion->slide_on_ceiling && requested.y > 0 && normal.y <= -minimum_floor_y);
+    };
     MoverMotion2D result{{recovery.x, recovery.y}, {}, 0};
     for (unsigned iteration = 0; iteration < mover_iteration_limit; ++iteration) {
         auto target = requested;
         if (planes.block_uphill)
             target.x = requested.x > 0 ? std::min(target.x, float(planes.horizontal_limit))
                                        : std::max(target.x, float(planes.horizontal_limit));
-        const auto solved = solve_mover_planes(planes, target);
+        auto solved = solve_mover_planes(planes, target);
+        bool stopped = false;
+        for (std::size_t i = 0; i < planes.count; ++i)
+            stopped |= planes.values[i].push > 0 && stop_at_surface(planes.values[i].plane.normal);
+        // An already touching policy surface must not project idle gravity
+        // downhill or a jump along a ceiling. Keep the same native feasibility
+        // checks; only the remaining requested target changes.
+        if (stopped)
+            solved = solve_mover_planes(planes, {});
         auto cast = request;
         cast.origin = base;
         cast.displacement = {solved.x, solved.y};
@@ -2600,8 +2621,14 @@ MoverMotion2D Native2D::Impl::motion_mover(const PhysicsSweep2D& request, Physic
             intent.x = 0;
         const auto clipped = clip_mover_motion(planes, intent);
         result = {{double(recovery.x) + candidate.x, double(recovery.y) + candidate.y},
-                  {clipped.x, clipped.y},
+                  stopped ? Double2{} : Double2{clipped.x, clipped.y},
                   iteration + 1};
+        // A new contact has already supplied independently checked approach
+        // travel. Stop here rather than feeding it back as tangential intent.
+        if (hit && stop_at_surface({float(hit->normal[0]), float(hit->normal[1])})) {
+            result.clipped_displacement = {};
+            return result;
+        }
         if (!hit || fraction == 1)
             return result;
         const auto prior_count = planes.count;

@@ -233,3 +233,17 @@ stance/blocked state and queued requests; outer2 and authored identity/formats
 remain unchanged. Exact matching SDK fingerprint changes; ABI1 table version stays.
 Copied C state appends posture/blocked flags, with exact-size validation. Existing
 combined debug blockage remains supported alongside precise new flags.
+
+## Optional 2D surface response
+
+Extend the existing controller/profile with default-preserving floor_stop_on_slope
+and slide_on_ceiling flags. Only Grounded locomotion applies these policies:
+downward-only idle intent can stop at walkable floors; upward intent can stop at a
+mirrored walkable-angle ceiling. Existing active planes identify initial contact;
+resolve the zero remaining target through the same native solver and checked
+geometry. New contacts retain checked cast approach travel. No synthetic planes,
+new solver, service, force, input policy or cross-step cache. Moving-support
+transport and geometric queries retain existing behavior. C++ supplies subsequent
+movement/gravity. Exact configuration/fingerprint guards carry these flags without
+changing private codec9, outer2 or authored formats/identity. Shared reflection owns
+Inspector/MCP authoring/history/persistence. The technical contract defines limits.

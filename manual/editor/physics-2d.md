@@ -205,6 +205,27 @@ Physics for the result; blocked standing preserves position, motion and posture.
 The example retries standing each tick while C is released. The engine does not
 create an input binding or resize visual models automatically.
 
+## Slopes and ceilings
+
+Open **Examples/Character2D**, then open **Scenes/surface-response.scene.json**
+from Content. Build Project Code with the matching SDK and press Play. The green
+and amber characters share A/D, Space and C input. Capture Game input to control
+both. The green character holds its place on the ramp when idle; the amber one
+slowly slides downhill. Jump beneath the purple ceilings to compare stopping and
+sliding. Stop returns both to their saved positions.
+
+While stopped, select either character and find **Character Controller 2D**:
+
+- **Stop on slopes** stops downward-only movement on a walkable floor. It defaults off. Horizontal movement and upward jumps remain controlled by C++; steep surfaces still behave as walls.
+- **Slide on ceilings** defaults on. Turn it off to stop the current upward movement at a ceiling. C++ must supply gravity or another movement request afterward; the engine does not add gravity automatically.
+- **Max slope** also defines the ceiling angle: a ceiling must face downward within this angle of vertical. Steeper surfaces keep ordinary wall sliding. These two options apply in Grounded mode; Floating mode ignores them.
+
+Use Undo/Redo to restore a setting. Save before Play or export. **Live gameplay →
+Character movement** shows the resulting velocity and support; runtime changes are
+temporary. Moving-platform transport remains independent of these controls, so an
+idle character can still ride a platform. To export this comparison, choose
+**Use saved current scene as startup** in Project Settings before exporting.
+
 ## Export
 
 Save the Scene and choose **Use saved current scene as startup** in Project

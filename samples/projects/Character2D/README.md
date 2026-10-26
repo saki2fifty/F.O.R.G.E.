@@ -66,3 +66,22 @@ values cannot exceed standing **Height**. Feet and radius stay fixed. Save befor
 Play/export. Runtime posture is temporary; Stop starts standing again. Project input
 owns the C binding; C++ sends checked stance requests through the existing character
 FIFO and reads blocked status after Physics. No native handles or second body exist.
+
+## Compare surface response
+
+Open **Scenes/surface-response.scene.json** from Content. The green and amber
+characters share the same input. Leave input idle: green holds its ramp position,
+while amber slowly drifts downhill. A/D moves both; Space jumps beneath the purple
+ceilings. Green stops at ceiling contact, while amber slides. C still crouches.
+
+Stop and select a character. **Character Controller 2D → Stop on slopes** defaults
+off; **Slide on ceilings** defaults on. This scene sets green to hold/stop and
+amber to the defaults. **Max slope** defines walkable floors and mirrored ceiling
+angles. Floating mode ignores both options. They affect requested locomotion,
+not moving-platform transport. The C++ example supplies fresh downward gravity
+while grounded and integrates observed vertical velocity in air; a blocked jump
+therefore falls on later ticks.
+
+Save authored changes. To export this scene, select **Use saved current scene as
+startup** in Project Settings, then export with the matching runtime/module kit.
+Stop restores authored positions. Both scenes use the same original assets/code.

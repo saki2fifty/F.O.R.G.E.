@@ -2,6 +2,19 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## 2D slope and ceiling response
+
+- Character Controller2D adds **Stop on slopes** and **Slide on ceilings**, with
+  defaults preserving existing sources. Grounded locomotion can hold on walkable
+  ramps or stop upward requests at ceilings through the existing bounded solver.
+  Platform transport remains separate; no implicit gravity is added.
+- Character2D includes an original green/amber surface-response comparison Scene.
+  Its C++ gravity policy distinguishes grounded contact from airborne velocity.
+  Example preparation stamps every registered Scene through the existing schema.
+- Inspector and MCP expose the same typed settings, history and saved values.
+  Matching SDK modules must rebuild; authored identities/formats and private
+  physics checkpoint9/outer2 remain unchanged.
+
 ## Checked 2D crouch and stand
 
 - Character Controller2D adds Crouch height, with0 for automatic bounded half-height.

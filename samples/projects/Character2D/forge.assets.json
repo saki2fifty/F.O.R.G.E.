@@ -235,6 +235,16 @@
       "dependency_edges": [],
       "source_dependencies": [],
       "metadata": {}
+    },
+    {
+      "id": "d397f2cf-1861-41bc-b58f-7687955dadb6",
+      "type": "scene",
+      "schema_version": 5,
+      "source": "Scenes/surface-response.scene.json",
+      "dependencies": [],
+      "dependency_edges": [],
+      "source_dependencies": [],
+      "metadata": {}
     }
   ]
 }

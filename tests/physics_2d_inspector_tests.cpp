@@ -118,7 +118,8 @@ void exercise(const std::filesystem::path& project, float scale) {
     require(!one_way_field.is_null() && one_way_field.at("display_name") == "One-way collision",
             "Inspector did not discover one-way response");
     const auto toggle = [&](const Json& field, const char* component, const char* member) {
-        Json value = false;
+        Json value =
+            scene.effective_document().at("entities")[0].at("components").at(component).at(member);
         ImVec2 checkbox{};
         const auto frame = [&] {
             ImGui::NewFrame();
@@ -153,15 +154,31 @@ void exercise(const std::filesystem::path& project, float scale) {
             "One-way checkbox did not share typed Inspector history");
     authoring_command(scene, "component.add",
                       {{"entity", entity}, {"component", "forge.character_controller_2d"}});
-    Json carry_field;
+    Json carry_field, slope_field, ceiling_field;
     const auto controller_schema = scene.schema();
     for (const auto& component : controller_schema.at("components"))
         if (component.at("id") == "forge.character_controller_2d")
             for (const auto& field : component.at("fields"))
                 if (field.at("id") == "platform_carry")
                     carry_field = field;
+                else if (field.at("id") == "floor_stop_on_slope")
+                    slope_field = field;
+                else if (field.at("id") == "slide_on_ceiling")
+                    ceiling_field = field;
     require(carry_field.at("display_name") == "Follow moving platforms",
             "Inspector did not discover the platform carry setting");
+    require(slope_field.at("display_name") == "Stop on slopes" &&
+                ceiling_field.at("display_name") == "Slide on ceilings",
+            "Inspector did not discover surface response settings");
+    toggle(slope_field, "forge.character_controller_2d", "floor_stop_on_slope");
+    require(scene.entity(entity).get<CharacterController2D>().floor_stop_on_slope && scene.undo() &&
+                !scene.entity(entity).get<CharacterController2D>().floor_stop_on_slope &&
+                scene.redo(),
+            "Slope checkbox lost shared typed history");
+    toggle(ceiling_field, "forge.character_controller_2d", "slide_on_ceiling");
+    require(!scene.entity(entity).get<CharacterController2D>().slide_on_ceiling && scene.undo() &&
+                scene.entity(entity).get<CharacterController2D>().slide_on_ceiling && scene.redo(),
+            "Ceiling checkbox lost shared typed history");
     toggle(carry_field, "forge.character_controller_2d", "platform_carry");
     require(scene.entity(entity).get<CharacterController2D>().platform_carry && scene.undo() &&
                 !scene.entity(entity).get<CharacterController2D>().platform_carry && scene.redo() &&

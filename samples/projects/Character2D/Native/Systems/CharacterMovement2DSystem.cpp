@@ -55,8 +55,8 @@ void forge_register_system_CharacterMovement2DSystem(const ForgeSdkWorldV1* host
             const double vertical =
                 data.grounded && jump.pressed
                     ? data.jump_speed
-                    : std::max(-data.terminal_speed,
-                               observed.velocity[1] - data.gravity * it.delta_time());
+                    : std::max(-data.terminal_speed, (data.grounded ? 0 : observed.velocity[1]) -
+                                                         data.gravity * it.delta_time());
             const double velocity[]{std::clamp(move.x, -1., 1.) * data.speed, vertical};
             if (!client.move_character_2d(ref.scene_uuid, ref.entity_uuid, velocity))
                 throw std::runtime_error("Character Movement 2D movement request was rejected");
