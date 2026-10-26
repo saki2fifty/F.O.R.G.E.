@@ -1,5 +1,6 @@
 #pragma once
 #include "../asset_bytes.hpp"
+#include "../utf8_boundary.hpp"
 #include "authored_components.hpp"
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
@@ -27,9 +28,8 @@ struct CodeAutomation {
         };
         while (start < text.size() && continuation(start))
             ++start;
-        auto end = std::min(text.size(), start + request.value("limit", std::size_t(65536)));
-        while (end > start && end < text.size() && continuation(end))
-            --end;
+        const auto end =
+            detail::utf8_range_end(text, start, start + request.value("limit", std::size_t(65536)));
         const auto safe = automation_text_value(text.substr(start, end - start));
         return {
             {"text", safe}, {"offset", start}, {"next_offset", end}, {"total_bytes", text.size()}};

@@ -45,3 +45,10 @@ save it again or request Reimport. The last published revision remains usable.
 Successful reimport clears that asset's error. **Open source** is offered for the
 supported bounded text-source formats. When unavailable, use the asset/import view
 or your external editor.
+
+## Long engine messages
+
+Engine diagnostic messages retain a bounded prefix of up to 8 KiB. A long message
+ends on a complete character; its severity, category and available object/source
+context remain attached. Process and compiler logs have their own recent-output
+limits described above. Reading a log does not change the authored Scene.

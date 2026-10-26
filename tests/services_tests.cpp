@@ -416,6 +416,59 @@ static void service_tests() {
         check(record["severity"] == "error" && record["context"].contains("entity") &&
                   record["context"].contains("asset"),
               "Diagnostic context lost");
+        auto unicode_boundary = diagnostic;
+        unicode_boundary.text = std::string(8191, 'x') + "\xe7\x95\x8c tail";
+        try {
+            access.emit(unicode_boundary);
+        } catch (const Json::exception&) {
+            throw std::runtime_error(
+                "Valid Unicode diagnostic was split by the 8192-byte text limit");
+        }
+        check(access.diagnostics().back().at("text") == std::string(8191, 'x') &&
+                  unicode_boundary.text.size() > 8192,
+              "Diagnostic limit changed caller bytes or retained a partial character");
+        const auto emit_text = [&](const std::string& text, const std::string& expected) {
+            auto value = diagnostic;
+            value.text = text;
+            access.emit(value);
+            const auto result = access.diagnostics().back();
+            check(result.at("text") == expected && value.text == text &&
+                      result.at("context") == record.at("context") && result.dump().size() <= 16384,
+                  "Bounded diagnostic lost whole-character text, context or caller ownership");
+        };
+        emit_text("Short", "Short");
+        emit_text(std::string(8192, 'a'), std::string(8192, 'a'));
+        emit_text(std::string(9000, 'a'), std::string(8192, 'a'));
+        for (const std::string point : {"\xc3\xa9", "\xe7\x95\x8c", "\xf0\x9f\x98\x80"}) {
+            emit_text(point + " intact", point + " intact");
+            for (std::size_t fragment = 1; fragment < point.size(); ++fragment) {
+                const auto prefix = std::string(8192 - fragment, 'u');
+                emit_text(prefix + point + " tail", prefix);
+            }
+            const auto exact = std::string(8192 - point.size(), 'u') + point;
+            emit_text(exact + " tail", exact);
+            emit_text(std::string(8192, 'u') + point, std::string(8192, 'u'));
+        }
+        const auto before_invalid = access.diagnostics();
+        for (const std::string malformed :
+             {"\xff", "\xe2\x82", "\xed\xa0\x80", "\xc0\xaf", "\xf4\x90\x80\x80"}) {
+            auto bad = diagnostic;
+            bad.text = malformed;
+            reject([&] { access.emit(bad); });
+            check(access.diagnostics() == before_invalid,
+                  "Rejected malformed diagnostic changed the ring or a sequence");
+        }
+        auto bad_context = diagnostic;
+        bad_context.context.source = std::string(17000, 'c');
+        reject([&] { access.emit(bad_context); });
+        bad_context.context.source = "invalid \xff";
+        reject([&] { access.emit(bad_context); });
+        check(access.diagnostics() == before_invalid,
+              "Rejected diagnostic context changed accepted records");
+        access.emit(diagnostic);
+        check(access.diagnostics().back().at("sequence").get<std::uint64_t>() ==
+                  before_invalid.back().at("sequence").get<std::uint64_t>() + 1,
+              "Rejected diagnostic consumed a sequence number");
         reject([&] { fail_invariant(access, "test invariant"); });
         check(access.diagnostics().back()["severity"] == "fatal",
               "Invariant lacked fatal diagnostic");

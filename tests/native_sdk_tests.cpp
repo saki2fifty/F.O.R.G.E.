@@ -163,6 +163,16 @@ int main(int argc, char** argv) {
                       !client.callable(sdk::Capability::Input),
                   "Input availability must differ from current fixed-tick callability");
             check(!client.available(sdk::Capability::Physics), "Missing/restricted physics leaked");
+            const auto sdk_unicode = std::string(8189, 'n') + "\xe7\x95\x8c";
+            check(client.diagnostic(1, sdk_unicode.c_str()) &&
+                      engine.services().diagnostics().back().at("text") == sdk_unicode,
+                  "SDK diagnostic bridge lost a valid bounded Unicode message");
+            const auto before_bad_diagnostic = engine.services().diagnostics();
+            const auto oversized_sdk_text = std::string(8193, 'n');
+            check(!client.diagnostic(1, oversized_sdk_text.c_str()) &&
+                      !client.diagnostic(1, "invalid \xff") &&
+                      engine.services().diagnostics() == before_bad_diagnostic,
+                  "Diagnostic truncation relaxed SDK string limits or invalid-text rejection");
             check(engine.services().available(Capability::Animation) &&
                       !client.available(sdk::Capability::Animation),
                   "SDK Animation descriptor permission bypassed");

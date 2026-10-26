@@ -25,7 +25,15 @@ AssetCatalog stays an explicitly project-owned metadata service. The renderer st
 
 ## Diagnostics and failures
 
-Diagnostic has severity (Trace/Info/Warning/Error/Fatal), category, text and optional typed EntityId/AssetId/PrefabMemberId, source locator, property ID, tick/session and module context. No native pointer is an identity. Storage retains the most recent 256 records, bounded to16KiB each (message capped at8KiB). Runtime errors retain existing `error` text and add structured `diagnostic`; editor command failures bridge into the same contract while keeping the existing Console status behavior. Existing format/API-specific error codes remain owned by their formats rather than being rewritten wholesale.
+Diagnostic has severity (Trace/Info/Warning/Error/Fatal), category, text and optional typed EntityId/AssetId/PrefabMemberId, source locator, property ID, tick/session and module context. No native pointer is an identity. Storage retains the most recent 256 records, bounded to16KiB each (message capped at8KiB on a complete UTF-8 character boundary). Runtime errors retain existing `error` text and add structured `diagnostic`; editor command failures bridge into the same contract while keeping the existing Console status behavior. Existing format/API-specific error codes remain owned by their formats rather than being rewritten wholesale.
+
+The diagnostic service bounds its copied text without changing caller bytes. A valid
+long multibyte message retains only complete characters; malformed retained text or
+context still fails strict JSON serialization before insertion/sequence allocation.
+Record size, ring ordering, capability, owner-thread and lifetime rules are unchanged.
+The lightweight internal suffix-boundary helper is shared with compiler text pages;
+it does not decode/repair text or change page offsets. Existing automation display
+replacement and native SDK string-length admission remain separate policies.
 
 Malformed content, missing assets and unsupported user configuration are recoverable validation errors. Internal invariant failure is a programmer error: `fail_invariant` emits Fatal and throws logic_error so its owner boundary unwinds. Its current use is bootstrap construction, before a live context is exposed. Do not catch it as a successful content operation or continue mutating a corrupt world. Existing Flecs assertions remain upstream invariants.
 

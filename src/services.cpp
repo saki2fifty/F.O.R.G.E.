@@ -1,3 +1,4 @@
+#include "utf8_boundary.hpp"
 #include <algorithm>
 #include <cmath>
 #include <deque>
@@ -184,7 +185,7 @@ void ServiceAccess::emit(Diagnostic d) const {
     require(Capability::Diagnostics);
     auto state = state_.lock();
     // Both count and individual payload size are bounded.
-    d.text.resize(std::min<std::size_t>(d.text.size(), 8192));
+    d.text.resize(detail::utf8_range_end(d.text, 0, 8192));
     auto record = diagnostic_json(d);
     if (record.dump().size() > 16384)
         throw std::runtime_error("Diagnostic context exceeds 16 KiB");

@@ -2,6 +2,14 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Diagnostic text boundaries
+
+- Long valid Unicode diagnostics retain a whole-character prefix at the existing
+  8 KiB limit. Strict malformed-text/context rejection, record/ring limits and
+  sequence/permission/thread/lifetime rules remain unchanged.
+- The core service and compiler text pages share the existing suffix-boundary rule;
+  caller/log bytes and page offsets retain their current ownership and semantics.
+
 ## Navigation runtime feedback
 
 - Navigation progress includes concrete current failure details and expandable
