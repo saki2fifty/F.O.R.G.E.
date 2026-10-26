@@ -2,6 +2,12 @@
 
 Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
+## Project creation
+
+- Publishing a new project uses the shared no-replacement directory operation.
+  A destination created after the final preflight check is preserved, and FORGE
+  discards its own unfinished scaffold instead of replacing that directory.
+
 ## Worker resource admission
 
 - Fixed workers share the existing import staging owner and guarded cleanup.

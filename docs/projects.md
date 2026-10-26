@@ -14,7 +14,7 @@ End-user instructions live in the separate [Projects](../manual/editor/projects.
 
 Startup AssetId is authoritative; the source is a locator hint. Resolution follows moves and rejects missing/duplicate identity. A null startup opens an untitled empty scene. Source paths stay inside the canonical project root; scene destinations cannot overwrite the manifest or `.forge` control files. A missing manifest retains legacy main.scene.json behavior. Version-1 manifests with a startup path remain readable; explicit settings Save upgrades with an original backup. No opening-time manifest write occurs. See [Core services](core-services.md) and [Input](input.md) for validation, ownership and migration policy.
 
-Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the manifest in a sibling directory before renaming it into place. Existing destinations are rejected. Opening the result subsequently acquires project writer ownership.
+Project creation stages `Scenes/main.scene.json`, `Assets`, `Native`, and the manifest in a sibling directory before renaming it into place. The shared no-replacement directory publication rejects existing destinations, including an empty directory created after preflight. Failure discards only the reserved scaffold; a competing destination remains intact. Opening the result subsequently acquires project writer ownership.
 
 ## Authoring document state
 

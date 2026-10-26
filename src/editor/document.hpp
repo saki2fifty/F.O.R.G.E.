@@ -3,6 +3,7 @@
 #include "../asset_storage.hpp"
 #include "../json_document.hpp"
 #include "../json_value_equal.hpp"
+#include "../publish_directory.hpp"
 #include <algorithm>
 #include <cctype>
 #include <forge/prefab_authoring.hpp>
@@ -191,7 +192,7 @@ class SceneDocument {
             atomic_write(stage / "forge.project.json", settings.dump(2));
             if (std::filesystem::exists(target))
                 throw std::runtime_error("Project destination appeared during creation");
-            std::filesystem::rename(stage, target);
+            asset_detail::rename_new_directory(stage, target);
         } catch (...) {
             std::error_code ignored;
             std::filesystem::remove_all(stage, ignored);

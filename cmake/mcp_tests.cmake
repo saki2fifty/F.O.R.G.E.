@@ -94,6 +94,15 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
  add_test(NAME selection_editor COMMAND forge_selection_editor_tests)
  add_test(NAME document_editor COMMAND forge_document_editor_tests)
  set_tests_properties(document_editor PROPERTIES TIMEOUT 120)
+ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_library(forge_project_creation_race_fixture MODULE tests/project_creation_race_fixture.c)
+  target_link_libraries(forge_project_creation_race_fixture PRIVATE ${CMAKE_DL_LIBS})
+  add_test(NAME project_creation_collision COMMAND ${Python3_EXECUTABLE}
+   ${CMAKE_CURRENT_SOURCE_DIR}/tests/project_creation_collision_test.py
+   $<TARGET_FILE:forge_document_editor_tests> $<TARGET_FILE:forge_project_creation_race_fixture>
+   ${CMAKE_BINARY_DIR}/project-creation-collision)
+  set_tests_properties(project_creation_collision PROPERTIES TIMEOUT 30)
+ endif()
  set_tests_properties(selection_editor PROPERTIES TIMEOUT 120)
  foreach(_forge_settings_case IN ITEMS defaults diagnostic queued)
   add_test(NAME settings_lifecycle_${_forge_settings_case} COMMAND forge_settings_lifecycle_editor_tests "${CMAKE_BINARY_DIR}/settings-lifecycle-ui-data" ${_forge_settings_case})

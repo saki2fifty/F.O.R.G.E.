@@ -7,7 +7,9 @@ void require(bool condition, const char* message) {
 }
 int main(int argc, char** argv) {
     try {
-        if (argc == 2)
+        if (argc == 3 && std::string_view(argv[1]) == "--create-project")
+            forge::SceneDocument::create_project(std::filesystem::u8path(argv[2]), "New project");
+        else if (argc == 2)
             test_document_json_records(argv[1]);
         else
             test_documents();
