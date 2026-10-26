@@ -1,5 +1,23 @@
 # FORGE Feature Gallery
 
+## Moving Maps and trigger regions
+
+Open **Scenes/81-moving-tile-maps.scene.json** and Play. The painted course moves
+left/right through the existing Transform Animator; its Physics Body2D is Kinematic.
+Inspect the selected Map's Collision layer, Motion and animation clip. Stop, change
+the saved settings and Save the Scene. This example needs no compiled game module.
+
+Open **Scenes/82-tile-map-triggers.scene.json** and Play. The translucent painted
+regions have Sensor enabled. The four colored visitors pass through those regions
+and land on a separate solid receiver. Ordinary C++ 2D sensor events identify the
+Map actor and visitor; multiple rectangles may emit the same canonical pair.
+Fast-moving sensors can miss crossings. Stop restores the authored state.
+
+Both scenes export with their normal dependency closure. Kinematic/sensor Maps use
+one native body per Map instance, shared layers/masks and ordinary physics queries.
+Dynamic Maps and one-way painted collision remain unsupported. The user manual's
+Tile Maps guide covers authoring, runtime edits, saving, limits and examples.
+
 ## Top-down XY navigation
 
 Open **Scenes/80-xy-navigation.scene.json** and Play. The cyan Sprite routes

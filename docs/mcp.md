@@ -151,6 +151,14 @@ this does not grant file commits, placement or imports.
 
 All mutations retain the complete scene target, observed revision and sequence.
 Job identity is local to its owner; never apply an old batch/job ID to new work.
+Place a published Tile Map with `forge_asset_place`, add `forge.physics_body_2d`
+and `forge.tile_map_collider_2d`, then set the collider's exact layer key. The
+existing `forge_property_set_many` operation authors `motion` (0 Static or1
+Kinematic for Maps) and `sensor` together, with normal revision guards and one
+Undo/Redo step. Sensor applies to the selected layer's rectangles. Save before
+Play/export. A Dynamic Map or one-way Map remains outside the runtime profile;
+the general body schema still supports Dynamic for ordinary inline bodies.
+
 Queue admission is not completion. Inspect the returned owner progress/result;
 failed candidates retain last-good content. Import and source-file commits are
 not Scene Undo entries. A duplicated imported source needs its own valid import

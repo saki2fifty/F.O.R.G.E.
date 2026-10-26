@@ -1,3 +1,4 @@
+#include "asset_automation.hpp"
 #include "automation.hpp"
 #include "content.hpp"
 #include "dependency_automation.hpp"
@@ -9,6 +10,8 @@
 #include "project_automation.hpp"
 #include "project_source_automation.hpp"
 #include "script_automation.hpp"
+#include "texture_authoring.hpp"
+#include "tile_asset_reimport_routes.hpp"
 #include "ui_test_renderer.hpp"
 #include <chrono>
 #include <iostream>
@@ -17,14 +20,18 @@
 // Native owners with the existing recording RmlUi renderer; no GPU is simulated.
 int main(int argc, char** argv) {
     try {
-        if (argc != 6)
+        if (argc != 6 && argc != 7)
             return 2;
         const auto root = std::filesystem::u8path(argv[1]);
         const auto runtime = std::filesystem::u8path(argv[2]);
         const auto kit = std::filesystem::u8path(argv[3]);
         const auto nav_worker = std::filesystem::u8path(argv[4]);
         const auto mode = std::string(argv[5]);
-        forge::SceneDocument::create_project(root / "Game", "MCP game workflows");
+        if (argc == 7)
+            std::filesystem::copy(std::filesystem::u8path(argv[6]), root / "Game",
+                                  std::filesystem::copy_options::recursive);
+        else
+            forge::SceneDocument::create_project(root / "Game", "MCP game workflows");
         std::filesystem::create_directory(root / "Output");
         forge::EngineContext engine;
         forge::Scene scene(engine.world());
@@ -34,7 +41,21 @@ int main(int argc, char** argv) {
         ImGui::CreateContext();
         ImGui::GetIO().IniFilename = nullptr;
         forge::ContentImports imports;
-        imports.routes = [] { return std::vector<forge::AssetReimportRoute>{}; };
+        auto asset_worker = runtime.parent_path() / "forge_asset_build";
+#ifdef _WIN32
+        asset_worker += ".exe";
+#endif
+        imports.routes = [asset_worker] {
+            return forge::tile_asset_reimport_routes(asset_worker, forge::desktop_texture_target());
+        };
+        forge::SourceImport source;
+        source.routes = imports.routes;
+        forge::ContentFiles content_files;
+        forge::SceneAssetDrop placement;
+        forge::ui::EditorSelection selection;
+        files.external_busy = [&] {
+            return source.busy() || content_files.busy() || placement.busy();
+        };
         forge::ui::GameExportTask export_task;
         forge::PlaySession play;
         forge::GameInput input;
@@ -68,6 +89,8 @@ int main(int argc, char** argv) {
                                std::make_move_iterator(values.end()));
             };
             append(forge::ProjectSourceAutomation::methods(files, permissions, blocked));
+            append(forge::asset_automation_methods(scene, files, imports, source, placement,
+                                                   content_files, permissions));
             append(forge::NavigationAutomation::methods(navigation, scene, files, permissions,
                                                         blocked));
             append(forge::DependencyAutomation::methods(
@@ -141,7 +164,10 @@ int main(int argc, char** argv) {
                 content.refresh(files);
             dependencies.poll(files.document, [&] { content.refresh(files); });
             scripts.poll(files.document, problems);
-            imports.suspend(export_task.busy());
+            placement.poll(scene, files, selection, play.active() || export_task.busy(), message);
+            content_files.poll(files.document, scene, imports, message);
+            source.poll(files.document, imports, message);
+            imports.suspend(export_task.busy() || source.busy() || content_files.busy());
             imports.poll(files.document, message);
             export_task.poll(imports, [&] { imports.rescan(); });
             navigation.poll(scene, files.document, play.active(), message);

@@ -479,6 +479,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "0a33eed6-6c57-42c9-8e64-34ab0caf030f",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/81-moving-tile-maps.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "0a422c9a-87b3-49e8-98b2-676bcae6a9f8",
       "metadata": {
         "forge.import": {
@@ -9304,6 +9314,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "f08e33ac-26d1-4e79-a238-374e5c1b0e92",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/82-tile-map-triggers.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

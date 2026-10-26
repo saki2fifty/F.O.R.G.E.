@@ -12,13 +12,17 @@ from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
+MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 
 
 @contextmanager
 def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
         root = Path(temporary)
-        process = subprocess.Popen([HOST, str(root), RUNTIME, KIT, NAV, mode],
+        command = [HOST, str(root), RUNTIME, KIT, NAV, mode]
+        if MAP_PROFILE_ONLY:
+            command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
+        process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    text=True, encoding='utf-8')
         try:
@@ -98,6 +102,53 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if MAP_PROFILE_ONLY:
+            catalog = json.loads((root/'Game/forge.assets.json').read_text())
+            tile_map = next(row['id'] for row in catalog['assets']
+                            if row['source'] == 'Assets/Tiles/PaintedPlatforms.tilemap.json')
+            until(lambda: client.tool('forge_asset_read', target=discovery()['result']['target'],
+                                      asset=tile_map), lambda value: value.get('ok', False))
+            ok('forge_asset_place', asset=tile_map, position=[0, 0, 7], name='MCP trigger Map')
+            placement = until(lambda: read('forge_asset_jobs')['placement'],
+                              lambda row: row['state'] in ('succeeded', 'failed'))
+            assert placement['state'] == 'succeeded', placement
+            actor = placement['entity']
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.physics_body_2d'))
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.tile_map_collider_2d'))
+            ok('forge_property_set', arguments=dict(entity=actor, component='forge.tile_map_collider_2d',
+                                                    field='layer', value=1))
+            original = read('forge_scene_read')
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.physics_body_2d',
+                                                        values=dict(motion=1, sensor=True)))
+            authored = read('forge_scene_read')
+            fields = next(e for e in authored['entities'] if e['id'] == actor)['components']['forge.physics_body_2d']
+            assert fields['motion'] == 1 and fields['sensor'] is True
+            ok('forge_history_undo')
+            assert read('forge_scene_read') == original
+            ok('forge_history_redo')
+            assert read('forge_scene_read') == authored
+            invalid = mutate('forge_property_set_many', arguments=dict(entity=actor,
+                component='forge.physics_body_2d', values=dict(motion=3, sensor=False)))
+            assert not invalid['ok'] and read('forge_scene_read') == authored, invalid
+            stale = arguments(arguments=dict(entity=actor, component='forge.physics_body_2d',
+                                             values=dict(motion=0, sensor=False)))
+            stale['expected_revision'] += 1
+            assert not client.tool('forge_property_set_many', **stale)['ok']
+            assert read('forge_scene_read') == authored
+            ok('forge_document_save')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+            control('forge_play_step')
+            until(lambda: read('forge_play_status'), lambda row: row['timing']['tick'] == paused['timing']['tick'] + 1 and row['control_ready'])
+            running = next(e for e in read('forge_play_snapshot')['entities'] if e['id'] == actor)
+            assert running['components']['forge.physics_body_2d']['sensor'] is True
+            assert running['components']['forge.physics_body_2d']['motion'] == 1
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            print(('legacy' if legacy else 'current') + ': native Map placement, Kinematic/sensor batch, validation/history/revision, Save and actual Play passed')
+            continue
         overlay_source = read('forge_scene_read')
         overlay_settings = (root/'Game/forge.project.json').read_bytes()
         for visible in (False, True, False):

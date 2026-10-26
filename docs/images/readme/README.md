@@ -87,7 +87,14 @@ pixels are unchanged; no generated art, overlays or semantic edits were applied.
 
 ## Painted Tile Map collision
 
-[Game](../../../manual/images/painted-collision-game.png) and [Inspector](../../../manual/images/painted-collision-inspector.png)
+The retained Inspector capture below displays the old **Solid layer** label.
+The current selector is **Collision layer** and supports Static/Kinematic solid
+and sensor Maps. The old Inspector image is omitted from the current manual and
+README; keep its original pixels as historical provenance. A matching native
+Windows recapture is pending in the canonical agent review queue. The Game capture
+still represents unchanged Gallery77 and remains in use. No image was retouched.
+
+[Game](../../../manual/images/painted-collision-game.png) and [Inspector](painted-collision-inspector.png)
 preserve the complete 1280×720 and 1280×800 captures from source
 `27638989a1e506b9766dd1604a62aed38d1ce186`,
 [Windows audit39698636222](https://github.com/saki2fifty/F.O.R.G.E./actions/runs/39698636222),

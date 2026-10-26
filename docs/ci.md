@@ -1037,6 +1037,42 @@ budget. These are correctness workloads, not performance measurements or native
 Windows/GPU acceptance. The public APIs, SDK fingerprint and authored formats are
 unchanged; the new matching test module uses existing callbacks.
 
+### Moving and trigger Tile Map collision
+
+`tile_assets` uses a real published cross-chunk Map through all four supported
+Static/Kinematic and solid/sensor configurations. It checks native targets,
+preserved cells/epochs/depth, rotated ray/overlap/sweep geometry, sensor inclusion,
+canonical exclusions, Begin/End/nonresponse, empty/refill retirement and fresh
+Map-before-physics recovery with continued steps. Unsupported geometry, global
+shape budgets and source replacement still run through the existing Map preflight.
+`physics_2d_debug` covers matching positive previews and rejects Dynamic/one-way Maps.
+`physics_2d_compound` admits4095 Map sensor rectangles plus one visitor at the
+4096-shape ceiling, preserves all4095 native Begin records, rejects a4097th shape
+and avoids replaying retained overlaps. A valid4096-shape Kinematic sensor case
+with two sensor visitors exceeds the existing4096 pair-work cap and must fault;
+no partial native step, event adoption or recovery capture is accepted.
+
+`tile_gallery` executes original scenes81/82 before and after normal dependency
+packaging, source removal and relocation. It observes the painted course following
+its ordinary animation, trigger visitors reaching a solid receiver and native
+transitions without writing saved scenes. This is headless source-free content
+execution, separate from a graphical exported Windows executable.
+
+`native_sdk_moving_tile_map` runs the public C++ Map target/state/query/exclusion/
+event consumer through all four profiles in both real hosts. The installed variant
+builds that consumer using only relocated installed SDK headers/libraries, checks
+shared Flecs linkage on Linux and executes the same workflow. `mcp_map_profile_stdio`
+combines existing native placement and Play owners in its fixture, using a copied
+published Gallery. Both MCP protocols place a Map and author motion/sensor through
+ordinary component/property operations, invalid/stale guards, one Undo/Redo, Save
+and actual Play. Fixture template preparation is not claimed as MCP asset import.
+
+`physics_tile_map_editor` is one shared GPU-independent owner fixture in full-editor
+and portable owner-test configurations. It exercises the actual Sensor checkbox,
+Kinematic preservation/Undo/Redo and async selected Map sensor/solid guide at three
+scales. The normal Collision layer key picker/Prefab/history/stale tests remain.
+Full native Main/MSVC/SDL/pixels and physical Windows captures stay separate.
+
 ### Requested navigation destinations
 
 `navigation_lifecycle` builds real saved3D/XY assets and draws the selected agent's

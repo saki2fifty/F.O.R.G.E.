@@ -194,13 +194,18 @@ void capacity_and_invalid_geometry() {
         bad.at(1).config.parts = std::make_shared<const std::vector<BoxPart2D>>(1, invalid);
         reject([&] { test.native.validate(bad); });
     }
-    for (unsigned motion : {1u, 2u}) {
-        bad = test.desired;
-        bad.at(1).config.body.motion = motion;
-        reject([&] { test.native.validate(bad); });
-    }
+    for (unsigned motion : {0u, 1u})
+        for (bool sensor : {false, true}) {
+            bad = test.desired;
+            bad.at(1).config.body.motion = motion;
+            bad.at(1).config.body.sensor = sensor;
+            test.native.validate(bad); // Detached validation never changes the live realization.
+        }
     bad = test.desired;
-    bad.at(1).config.body.sensor = true;
+    bad.at(1).config.body.motion = 2;
+    reject([&] { test.native.validate(bad); });
+    bad = test.desired;
+    bad.at(1).config.body.one_way = true;
     reject([&] { test.native.validate(bad); });
     bad = test.desired;
     bad.at(1).config.parts.reset();
@@ -208,6 +213,54 @@ void capacity_and_invalid_geometry() {
     test.advance();
     check(test.native.state(1, test.desired.at(1).ref)->epoch == before->epoch,
           "Rejected compound candidates prevented valid unchanged continuation");
+}
+void compound_trigger_budgets() {
+    const auto prepare = [](Fixture& test, unsigned count, bool moving, bool visitor_sensor) {
+        auto parts = std::make_shared<std::vector<BoxPart2D>>();
+        for (unsigned i = 0; i < count; ++i)
+            parts->push_back({{float(i % 64) * .02f, float(i / 64) * .02f}, {.01f, .01f}});
+        test.desired.at(1).config.parts = std::move(parts);
+        test.desired.at(1).config.body.sensor = true;
+        test.desired.at(1).config.body.motion = moving ? 1 : 0;
+        PhysicsBody2D visitor;
+        visitor.motion = 2;
+        visitor.sensor = visitor_sensor;
+        visitor.gravity_factor = 0;
+        test.desired.at(2).config = inline_configuration_2d(visitor, 1, {5, 0}, {1, 1, 1});
+    };
+    Fixture boundary(1);
+    prepare(boundary, 4095, false, false);
+    boundary.advance();
+    check(boundary.native.shape_size() == 4096 && boundary.native.event_count() == 4095,
+          "Maximum compound sensor lost complete native shape-pair events");
+    for (std::size_t i = 0; i < boundary.native.event_count(); ++i) {
+        const auto event = boundary.native.event(i);
+        check(event && event->sensor && event->begin &&
+                  event->first == boundary.desired.at(1).ref &&
+                  event->second == boundary.desired.at(2).ref,
+              "Compound sensor capacity event exposed a cell identity or wrong visitor");
+    }
+    auto excessive = boundary.desired;
+    auto other = excessive.at(2);
+    other.ref.entity = EntityId::generate();
+    excessive.emplace(3, std::move(other));
+    reject([&] { boundary.native.validate(excessive); });
+    check(boundary.native.shape_size() == 4096,
+          "Rejected sensor shape capacity changed the admitted compound");
+    boundary.advance();
+    check(!boundary.native.event_count(), "Retained compound overlaps replayed Begin events");
+
+    Fixture overflow(1);
+    prepare(overflow, 4094, true, true);
+    auto second = overflow.desired.at(2);
+    second.ref.entity = EntityId::generate();
+    overflow.desired.emplace(3, std::move(second));
+    overflow.synchronize();
+    check(overflow.native.shape_size() == 4096,
+          "Sensor pair-work fixture did not fill the ordinary shape budget");
+    reject([&] { overflow.advance(); });
+    reject([&] { overflow.native.adopt_events(overflow.tick); });
+    reject([&] { overflow.native.checkpoint(overflow.desired, 8 * 1024 * 1024); });
 }
 void complete_ray_shape_capacity() {
     Fixture test(4095);
@@ -363,6 +416,7 @@ int main() {
         for (double offset : {0., 999000., -999000.})
             geometry_queries_and_recovery(offset);
         capacity_and_invalid_geometry();
+        compound_trigger_budgets();
         complete_ray_shape_capacity();
         sensor_retirement();
         connected_collision_and_recovery();

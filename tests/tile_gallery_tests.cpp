@@ -1,5 +1,6 @@
 #include "../samples/projects/FeatureGallery/CodeExamples/TileMapEdits.hpp"
 #include "asset_bytes.hpp"
+#include "physics_moving_tile_gallery_tests.hpp"
 #include "physics_tile_gallery_tests.hpp"
 #include "runtime_package.hpp"
 #include "runtime_tile_map.hpp"
@@ -93,6 +94,10 @@ int main(int argc, char** argv) {
         const auto texture = find(catalog, "Assets/Sprites/SignalSheet.png");
         const auto painted_scene = find(catalog, "Scenes/77-painted-2d-collision.scene.json");
         const auto painted_map = find(catalog, "Assets/Tiles/PaintedPlatforms.tilemap.json");
+        const auto moving_scene = find(catalog, "Scenes/81-moving-tile-maps.scene.json");
+        const auto trigger_scene = find(catalog, "Scenes/82-tile-map-triggers.scene.json");
+        const std::array profile_roots{moving_scene, trigger_scene};
+        const auto profile_package = scratch / "moving trigger cooked content";
         const auto definitions = TileSetSource::parse(asset_detail::read_bytes(
             root / "Assets/Tiles/Directions.tileset.json", tile_set_source_byte_limit));
         const auto values = definitions.values();
@@ -132,6 +137,15 @@ int main(int argc, char** argv) {
             package_runtime_content(root, painted_package, painted_roots, {"windows", "d3d12"});
         }
         test_painted_collision_gallery(root, painted_scene, painted_map);
+        {
+            auto lease = std::make_shared<ProjectLease>(root);
+            WorldContext author;
+            Scene schema(author);
+            prepare_runtime_content_catalog(*lease, profile_roots, {}, schema.schema());
+            package_runtime_content(root, profile_package, profile_roots, {"windows", "d3d12"});
+        }
+        test_moving_trigger_gallery(root, moving_scene, true);
+        test_moving_trigger_gallery(root, trigger_scene, false);
         const auto package = scratch / "cooked tile content";
         package_runtime_content(root, package, roots, {"windows", "d3d12"});
         std::filesystem::remove_all(root);
@@ -158,6 +172,14 @@ int main(int argc, char** argv) {
                   painted_catalog.records().contains(painted_map),
               "Painted collision export lost its exact ordinary runtime dependency closure");
         test_painted_collision_gallery(painted_moved, painted_scene, painted_map);
+        const auto profile_moved = scratch / "relocated source-free moving trigger content";
+        std::filesystem::rename(profile_package, profile_moved);
+        const auto profile_catalog = open_runtime_content(profile_moved, {"windows", "d3d12"});
+        check(profile_catalog.records().contains(moving_scene) &&
+                  profile_catalog.records().contains(trigger_scene),
+              "Moving/trigger runtime package lost its scene roots");
+        test_moving_trigger_gallery(profile_moved, moving_scene, true);
+        test_moving_trigger_gallery(profile_moved, trigger_scene, false);
         std::filesystem::remove_all(scratch);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

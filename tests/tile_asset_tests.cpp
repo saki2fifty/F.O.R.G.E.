@@ -11,6 +11,7 @@
 #include "runtime_tile_map.hpp"
 #include "tile_asset_authoring.hpp"
 #include "tile_asset_fixture.hpp"
+#include "tile_asset_reimport_routes.hpp"
 #include "tile_asset_resources.hpp"
 #include "tile_asset_worker.hpp"
 #include "tile_map_document.hpp"
@@ -567,22 +568,13 @@ void runtime_instances(const std::filesystem::path& root, std::shared_ptr<Projec
 void automatic_updates(const std::filesystem::path& root, std::shared_ptr<ProjectLease> lease,
                        const std::filesystem::path& worker, AssetId material_id, AssetId set_id,
                        AssetId map_id) {
-    auto registry = tile_asset_import_registry(worker);
-    AssetReimportService automatic(
-        lease,
-        {{"forge.material.builtin",
-          {"linux", "none", "cpu"},
-          material_import_registry(),
-          [](auto& c, const auto& p, const auto&) { prepare_material_publication(c, p); }},
-         {tile_set_importer_id,
-          {"linux", "none", "cpu"},
-          registry,
-          [](auto& c, const auto& p, const auto&) { prepare_tile_set_publication(c, p); }},
-         {tile_map_importer_id,
-          {"linux", "none", "cpu"},
-          registry,
-          [](auto& c, const auto& p, const auto&) { prepare_tile_map_publication(c, p); }}},
-        {}, 10min, 20ms);
+    auto routes = tile_asset_reimport_routes(worker, {"linux", "none", "cpu"});
+    routes.push_back(
+        {"forge.material.builtin",
+         {"linux", "none", "cpu"},
+         material_import_registry(),
+         [](auto& c, const auto& p, const auto&) { prepare_material_publication(c, p); }});
+    AssetReimportService automatic(lease, std::move(routes), {}, 10min, 20ms);
     std::vector<AssetImportOutcome> outcomes;
     const auto poll = [&] {
         for (auto& outcome : automatic.poll())

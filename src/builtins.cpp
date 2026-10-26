@@ -1442,8 +1442,8 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world&
                    w) { return register_type<CapsuleCollider2D>(w, "forge.capsule_collider_2d"); }),
         descriptor<TileMapCollider2D>("forge.tile_map_collider_2d",
-                                      "Solid occupied cells in one Tile Map layer; requires a "
-                                      "Static nonsensor Physics Body 2D",
+                                      "Occupied cells in one Tile Map layer; requires a Static "
+                                      "or Kinematic Physics Body 2D; Sensor makes a trigger",
                                       "unitless", {}, {}, [](flecs::world& w) {
                                           return register_type<TileMapCollider2D>(
                                               w, "forge.tile_map_collider_2d");
@@ -1458,10 +1458,11 @@ Json registration_options(const Builtin& type, const std::string& field) {
         value["maximum"] = *type.maximum;
     const std::string name = type.name;
     if (name == "forge.tile_map_collider_2d" && field == "layer") {
-        value["display_name"] = "Solid layer";
-        value["description"] = "Every occupied cell in this Tile Map layer is solid. "
-                               "Decorative layers and image flips do not change collision. "
-                               "Zero is unassigned.";
+        value["display_name"] = "Collision layer";
+        value["description"] =
+            "Occupied cells make solid or sensor rectangles, according to Physics Body 2D. "
+            "Decorative layers and image flips do not change collision. "
+            "Zero is unassigned.";
     }
     if (name == "forge.mesh_renderer" && field == "material_variant") {
         value["description"] =

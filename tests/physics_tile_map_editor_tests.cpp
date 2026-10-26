@@ -1,9 +1,12 @@
 #include "component_inspector.hpp"
+#include "physics_overlay.hpp"
 #include "prefabs.hpp"
 #include "tile_map_cook.hpp"
 #include "tile_map_inspector.hpp"
+#include <chrono>
 #include <imgui_internal.h>
 #include <iostream>
+#include <thread>
 
 using namespace forge;
 namespace {
@@ -43,14 +46,15 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     const auto actor = EntityId::generate().str();
     auto renderer = defaults("forge.tile_map_renderer");
     renderer["map"] = source.asset();
-    scene.reset(
-        {{"version", 5},
-         {"asset_id", AssetId::generate()},
-         {"entities", Json::array({{{"id", actor},
-                                    {"name", "Floor"},
-                                    {"components",
-                                     {{"forge.tile_map_renderer", renderer},
-                                      {"forge.tile_map_collider_2d", {{"layer", 1}}}}}}})}});
+    scene.reset({{"version", 5},
+                 {"asset_id", AssetId::generate()},
+                 {"entities",
+                  Json::array({{{"id", actor},
+                                {"name", "Floor"},
+                                {"components",
+                                 {{"forge.tile_map_renderer", renderer},
+                                  {"forge.local_translation", {{"x", 0.0}, {"y", 0.0}, {"z", 0.0}}},
+                                  {"forge.tile_map_collider_2d", {{"layer", 1}}}}}}})}});
     const auto definition = create_prefab_source(scene, actor);
     const auto prefab_asset =
         project.prefabs().create(scene, definition, "Assets/Floor.prefab.json");
@@ -147,6 +151,66 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     frame();
     check(scene.entity(actor).get<TileMapCollider2D>().layer == 42,
           "Drawing a missing layer silently replaced its key");
+    authoring_command(scene, "component.add",
+                      {{"entity", actor}, {"component", "forge.physics_body_2d"}});
+    authoring_command(scene, "property.set_many",
+                      {{"entity", actor},
+                       {"component", "forge.physics_body_2d"},
+                       {"values", {{"motion", 1}, {"sensor", false}}}});
+    authoring_command(scene, "property.set",
+                      {{"entity", actor},
+                       {"component", "forge.tile_map_collider_2d"},
+                       {"field", "layer"},
+                       {"value", 1}});
+    inspector.fixture_focus_component = "forge.physics_body_2d";
+    frame();
+    frame();
+    inspector.fixture_focus_component.clear();
+    const auto before_sensor = scene.document();
+    click("component-field:forge.physics_body_2d:sensor");
+    const auto trigger = scene.document();
+    check(scene.entity(actor).get<PhysicsBody2D>().sensor &&
+              scene.entity(actor).get<PhysicsBody2D>().motion == 1 && scene.undo() &&
+              scene.document() == before_sensor && scene.redo() && scene.document() == trigger,
+          "Map Sensor checkbox did not preserve Kinematic mode and one Undo/Redo step");
+    const std::array<TileMapCellEdit, 1> paint{{{1, {0, 0}, {2, 0}}}};
+    source = source.paint(paint);
+    view.cells = std::make_shared<const TileMapData>(
+        decode_cooked_tile_map(cook_tile_map(source), source.asset()));
+    view.revision = "published painted sensor fixture";
+    {
+        ui::PhysicsOverlay overlay;
+        overlay.visible = true;
+        EditorCamera camera;
+        camera.align(2, 1);
+        camera.target = {.5f, .5f, 0};
+        const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+        for (bool sensor : {true, false}) {
+            if (!sensor)
+                check(scene.undo(), "Map Sensor fixture Undo failed");
+            const auto authored = scene.document();
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+            do {
+                ImGui::NewFrame();
+                ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+                ImGui::SetNextWindowSize({1280, 880}, ImGuiCond_Always);
+                ImGui::Begin("Map collision guide");
+                overlay.draw(scene.effective_document(), actor, camera, {10, 40}, {1200, 800}, root,
+                             catalog, {}, read);
+                ImGui::End();
+                ImGui::Render();
+                if (std::chrono::steady_clock::now() >= deadline)
+                    throw std::runtime_error("Map sensor/solid guide: " + overlay.status());
+                if (!overlay.ready())
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (!overlay.ready());
+            check(overlay.status() == (sensor ? "Tile Map sensor - published layer outline"
+                                              : "Tile Map collision - published layer outline") &&
+                      ImGui::GetDrawData()->TotalVtxCount > 0 && scene.document() == authored,
+                  "Actual Map guide lost sensor/solid status, geometry or source purity");
+        }
+    }
+    inspector.fixture_focus_component = "forge.tile_map_collider_2d";
     prefab.edit_source(project, prefab_asset);
     prefab_mode = true;
     frame();

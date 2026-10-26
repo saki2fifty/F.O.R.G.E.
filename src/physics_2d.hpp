@@ -31,7 +31,7 @@ struct MoverProfile2D {
 };
 struct Body2DConfiguration {
     PhysicsBody2D body;
-    unsigned shape = 0;                // Box, circle, capsule, static compound boxes.
+    unsigned shape = 0;                // Box, circle, capsule, compound boxes.
     std::array<float, 2> dimensions{}; // Effective world geometry, metres.
     std::shared_ptr<const std::vector<BoxPart2D>> parts{};
     // Derived controller role, not an authored PhysicsBody2D. The capsule's

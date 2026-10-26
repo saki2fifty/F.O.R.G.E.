@@ -1,4 +1,5 @@
 #include "../json_document.hpp"
+#include "../tile_asset_reimport_routes.hpp"
 #include "batch_authoring.hpp"
 #include "batch_inspector.hpp"
 #ifdef FORGE_UI_FIXTURE
@@ -1272,16 +1273,10 @@ int main(int argc, char** argv) {
                 routes.push_back(std::move(route));
             for (auto route : shader_imports.automatic_routes())
                 routes.push_back(std::move(route));
-            const auto tiles = forge::tile_asset_import_registry(std::filesystem::path(base) /
-                                                                 "forge_asset_build.exe");
-            routes.push_back({forge::tile_set_importer_id, forge::desktop_texture_target(), tiles,
-                              [](auto& c, const auto& p, const auto&) {
-                                  forge::prepare_tile_set_publication(c, p);
-                              }});
-            routes.push_back({forge::tile_map_importer_id, forge::desktop_texture_target(), tiles,
-                              [](auto& c, const auto& p, const auto&) {
-                                  forge::prepare_tile_map_publication(c, p);
-                              }});
+            for (auto route : forge::tile_asset_reimport_routes(std::filesystem::path(base) /
+                                                                    "forge_asset_build.exe",
+                                                                forge::desktop_texture_target()))
+                routes.push_back(std::move(route));
             routes.push_back({forge::particle_effect_importer, forge::desktop_texture_target(),
                               forge::particle_effect_import_registry(),
                               [](auto& candidate, const auto& plan, const auto&) {

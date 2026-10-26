@@ -134,6 +134,11 @@ void validate_one_way(const PhysicsBody2D& body, unsigned shape) {
     if (body.enabled && body.one_way && (body.motion != 0 || body.sensor || shape != 0))
         throw std::runtime_error("One-way collision requires a Static nonsensor Box Collider 2D");
 }
+void validate_tile_map_body(const PhysicsBody2D& body) {
+    validate_one_way(body, 3);
+    if (body.motion > 1)
+        throw std::runtime_error("Tile Map collision requires Static or Kinematic motion");
+}
 void validate_geometry(const Body2DConfiguration& config) {
     validate_one_way(config.body, config.shape);
     if (config.mover_profile) {
@@ -164,10 +169,10 @@ void validate_geometry(const Body2DConfiguration& config) {
         (void)geometry(config);
         return;
     }
-    if (config.body.motion != 0 || config.body.sensor ||
-        config.dimensions != std::array<float, 2>{} || !config.parts || config.parts->empty() ||
+    validate_tile_map_body(config.body);
+    if (config.dimensions != std::array<float, 2>{} || !config.parts || config.parts->empty() ||
         config.parts->size() > shape_limit)
-        throw std::runtime_error("2D compound boxes require a bounded nonempty Static solid");
+        throw std::runtime_error("2D compound boxes require bounded nonempty geometry");
     for (const auto& part : *config.parts)
         (void)compound_box(part);
 }
@@ -379,9 +384,7 @@ PhysicsOverlap2D controller_shape_2d(const Body2DConfiguration& config, Double2 
 }
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D body, const TileMapData& cells,
                                               std::uint64_t layer, LocalScale scale) {
-    validate_one_way(body, 3);
-    if (body.motion != 0 || body.sensor)
-        throw std::runtime_error("Tile Map Collider 2D requires a Static nonsensor body");
+    validate_tile_map_body(body);
     if (!std::isfinite(scale.x) || !std::isfinite(scale.y) || !std::isfinite(scale.z))
         throw std::runtime_error("2D collider scale must be finite");
     if (scale.x == 0 || scale.y == 0)
@@ -640,9 +643,9 @@ Desired2D desired_bodies_2d(WorldContext& context, const PhysicsConfig& settings
         if (entity.has<TileMapCollider2D>()) {
             const auto collider = entity.get<TileMapCollider2D>();
             detail::validate_reflected_value(entity, collider);
-            if (body.motion != 0 || body.sensor || !entity.has<TileMapRenderer>())
-                throw std::runtime_error(
-                    "Tile Map Collider 2D requires a Static nonsensor body and Tile Map Renderer");
+            validate_tile_map_body(body);
+            if (!entity.has<TileMapRenderer>())
+                throw std::runtime_error("Tile Map Collider 2D requires a Tile Map Renderer");
             const bool overridden = candidate && candidate->entity == id;
             std::shared_ptr<const detail::RuntimeTileMapSnapshot> snapshot;
             const TileMapData* cells = overridden ? candidate->cells : nullptr;

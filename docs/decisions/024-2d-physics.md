@@ -105,6 +105,24 @@ This is exact-build transient recovery, not a new durable format or arbitrary C+
 state restoration. Authored identity/formats and ABI1 are unchanged. Bound total
 native2D shapes to4096 within existing shared body/joint/pair/event/byte budgets.
 
+## Moving and trigger Map extension
+
+The Map profile now admits Static or Kinematic PhysicsBody2D, with the existing
+Sensor flag selecting trigger rectangles. This supersedes only the original
+Static nonsensor restriction above. Every rectangle shares its existing native
+body, motion, filter, sensor flag, epoch and command/recovery lifetime. Dynamic
+Maps remain excluded; no compound Dynamic mass/inertia policy is introduced.
+One-way remains restricted to the existing single Static nonsensor Box profile.
+
+Reuse the checked geometry admission in native realization, Map candidate
+preflight and editor preview. Kinematic targets/rotation use the existing body
+FIFO and native target transform. Map edits still publish cells only after
+physics preflight; empty/refill, independent instances and all shape/pair/event
+budgets retain their existing owners. No authored schema, identity, checkpoint
+layout, ABI or dependency version changes. Sensor observations retain native
+shape-pair multiplicity and discrete sampling; this is not a compound occupancy
+manager or a swept-trigger guarantee.
+
 ## Capacity and failed native steps
 
 The first profile targets 1024 2D bodies within the existing combined 8192-body

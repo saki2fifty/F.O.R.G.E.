@@ -232,7 +232,9 @@ class PhysicsOverlay {
                                            : "2D collision - authored outline");
                 if (show_tile_map)
                     note = disabled ? "Tile Map collision disabled - published layer outline"
-                                    : "Tile Map collision - published layer outline";
+                                    : (components["forge.physics_body_2d"].value("sensor", false)
+                                           ? "Tile Map sensor - published layer outline"
+                                           : "Tile Map collision - published layer outline");
                 if (show_tile_map && good_ == key_ && geometry_.lines.empty())
                     note += " | selected layer is empty";
                 if (show_planar && !show_tile_map && components.contains("forge.box_collider_2d") &&

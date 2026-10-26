@@ -50,15 +50,40 @@ to restore the platform.
 
 For your own Map actor:
 
-1. Add **Physics Body 2D** and leave **Motion** as Static. Turn Sensor off.
-2. Add **Tile Map Collider 2D**. Choose its **Solid layer** by name.
-3. Put decoration in a different layer. Every occupied cell in the selected layer is solid; hiding the layer or renderer does not remove collision.
+1. Add **Physics Body 2D**. Choose **Motion** as Static or Kinematic. Leave **Sensor** off for solid collision.
+2. Add **Tile Map Collider 2D**. Choose its **Collision layer** by name.
+3. Put decoration in a different layer. Every occupied cell contributes a rectangle; hiding the layer or renderer does not remove collision.
 4. Turn on the Scene collision outline to inspect the selected published layer. Save the Scene, then test with ordinary Dynamic2D bodies.
 
-The first profile uses rectangular painted cells and Static Map bodies. It does
-not include slopes, one-way platforms or moving Map bodies. An empty solid layer
-has no collision. Excessively large or complex collision reports a problem and
+Maps use rectangular painted cells with Static or Kinematic bodies. Dynamic
+Maps, per-tile slopes and one-way painted collision are unavailable. An empty
+selected layer has no native shape. Excessively large or complex collision reports a problem and
 keeps the previous working runtime cells and collision.
+
+## Moving Maps and trigger regions
+
+Open **81-moving-tile-maps** in the Feature Gallery and Play. The painted course
+moves left and right using an ordinary transform animation on a Kinematic Map.
+Select the course to inspect its Motion, Collision layer and Transform Animator.
+Stop before changing those saved settings. Move or animate the whole Map actor;
+its rectangles move together. Use C++ Kinematic targets for gameplay-controlled
+motion. Large instantaneous changes should use explicit teleport.
+
+Open **82-tile-map-triggers** and Play. The translucent painted regions have
+**Sensor** enabled. Bodies pass through them and land on the solid receiver below.
+To create a trigger, enable **Sensor** on a Static or Kinematic Map body, choose
+its Collision layer and save the Scene. Sensor regions still respect body layers
+and masks. **Selected collision** identifies a Map sensor and shows its published
+outline; runtime cell edits are not drawn by that authored outline.
+
+C++ can read the ordinary 2D sensor Begin/End events after physics. Several
+rectangles can report the same body pair, so one End does not mean the visitor
+has left every rectangle. Fast-moving sensors can miss crossings. Use suitable
+physics queries when your game needs a separate check. Sensor inclusion in a
+query is independent of whether the Map has solid response.
+
+Both examples can be exported normally. Stop restores the authored transforms
+and cells; runtime movement and trigger events do not save themselves.
 
 ## C++ runtime changes
 

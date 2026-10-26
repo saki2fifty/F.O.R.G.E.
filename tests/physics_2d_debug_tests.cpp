@@ -229,6 +229,16 @@ void tile_map_outlines() {
     rejects([&] { preview(invalid, {1, 1, 0}, &cells); });
     invalid = components;
     invalid["forge.physics_body_2d"]["sensor"] = true;
+    for (unsigned motion : {0u, 1u}) {
+        invalid["forge.physics_body_2d"]["motion"] = motion;
+        const auto sensor = preview(invalid, {1, 1, 0}, &cells);
+        require(sensor.lines.size() == raw.lines.size(),
+                "Static/Kinematic Map sensor lost shared preview geometry");
+    }
+    invalid["forge.physics_body_2d"]["sensor"] = false;
+    require(preview(invalid, {1, 1, 0}, &cells).lines.size() == raw.lines.size(),
+            "Kinematic solid Map lost shared preview geometry");
+    invalid["forge.physics_body_2d"]["one_way"] = true;
     rejects([&] { preview(invalid, {1, 1, 0}, &cells); });
     invalid = components;
     invalid["forge.box_collider_2d"] = {{"x", 1}, {"y", 1}};

@@ -80,7 +80,8 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '75-2d-physics.scene.json', '76-connected-2d-bodies.scene.json',
         '77-painted-2d-collision.scene.json',
         '78-sprite-image-regions.scene.json',
-        '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json'} <= {p.name for p in scenes}
+        '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json',
+        '81-moving-tile-maps.scene.json', '82-tile-map-triggers.scene.json'} <= {p.name for p in scenes}
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]

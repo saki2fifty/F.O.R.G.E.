@@ -30,7 +30,7 @@ choose **+ Add Component → Physics Body 2D**, then add one of:
 - **Box Collider 2D**: full width and height, centered on the entity.
 - **Circle Collider 2D**: radius, centered on the entity.
 - **Capsule Collider 2D**: radius and straight segment height along local Y. Total height includes both rounded ends.
-- **Tile Map Collider 2D**: rectangular collision from one published Tile Map layer, on a Static nonsensor body.
+- **Tile Map Collider 2D**: rectangular collision from one published Tile Map layer, on a Static or Kinematic body; Sensor makes a trigger.
 
 Set **Spatial binding** to **World** before choosing Dynamic. Static bodies
 stay in place; Kinematic bodies follow supported authored/animated targets;
@@ -130,15 +130,16 @@ platforms**, erase the left raised platform, then **Save / Publish**. On the nex
 Play, the amber box drops to the lowest floor. Undo the source edit and
 **Save / Publish** again to restore it.
 
-For your own Map, put **Tile Map Renderer**, a Static nonsensor **Physics Body 2D**
-and **Tile Map Collider 2D** on the same entity. Choose its **Solid layer** in the
+For your own Map, put **Tile Map Renderer**, a Static or Kinematic **Physics Body 2D**
+and **Tile Map Collider 2D** on the same entity. Choose its **Collision layer** in the
 Inspector. Use this collider instead of a Box, Circle or Capsule Collider 2D.
 Publish the Map before Play or export. **Selected collision** outlines the
 published layer; unsaved painting is not yet the active collision.
 
 Each occupied cell contributes its rectangle, including transparent image pixels.
-This profile supports Static rectangular Map collision; moving Maps, per-tile
-slopes and one-way collision on painted Maps are not available.
+Choose Kinematic for a moving Map or enable Sensor for trigger regions. See
+[Tile Maps](tile-maps.md) for the moving-course and trigger examples. Dynamic
+Maps, per-tile slopes and one-way collision on painted Maps are unavailable.
 
 ## Character movement
 
@@ -291,7 +292,3 @@ The editable Movement2D project combines C++ input with walking and jumping.
 ![Dynamic shapes resting on green painted tile platforms](../images/painted-collision-game.png)
 
 Painted solid tiles act as floors while decorative tiles remain non-colliding.
-
-![Scene collision outlines beside the painted layer Inspector](../images/painted-collision-inspector.png)
-
-Inspect the published solid layer before testing the map in Play.

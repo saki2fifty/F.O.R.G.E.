@@ -2,6 +2,15 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Moving and trigger Tile Maps
+
+- Painted Map collision accepts Kinematic bodies and Static/Kinematic sensors
+  through the same geometry, body commands, queries, events and recovery owners.
+- Inspector calls the selected layer **Collision layer**, and the Scene guide
+  identifies Map sensors. Dynamic and one-way Map collision remain unsupported.
+- Gallery81 demonstrates an animated painted course;82 demonstrates painted
+  triggers with a solid receiver. Both use ordinary editable scenes and assets.
+
 ## Navigation requested destinations
 
 - Inspector and command palette can enter a Scene destination tool, with world

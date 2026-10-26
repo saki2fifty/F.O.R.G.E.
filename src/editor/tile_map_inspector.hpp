@@ -16,7 +16,7 @@ inline bool tile_map_layer_field(const PublishedTileMapReader& read, const Json&
     try {
         if (!value.is_number_unsigned() &&
             (!value.is_number_integer() || value.get<std::int64_t>() < 0))
-            throw std::invalid_argument("Solid layer must be an exact Map layer key");
+            throw std::invalid_argument("Collision layer must be an exact Map layer key");
         const auto selected = value.get<std::uint64_t>();
         AssetRef<TileMapAsset> asset;
         if (components.contains("forge.tile_map_renderer")) {
@@ -31,7 +31,7 @@ inline bool tile_map_layer_field(const PublishedTileMapReader& read, const Json&
                 if (layer.id == selected)
                     label = layer.name;
         bool changed = false;
-        ImGui::TextUnformatted("Solid layer");
+        ImGui::TextUnformatted("Collision layer");
         ImGui::SetNextItemWidth(-1);
         if (ImGui::BeginCombo("##solid-layer", label.c_str())) {
             if (ImGui::Selectable("None", selected == 0)) {
@@ -63,8 +63,9 @@ inline bool tile_map_layer_field(const PublishedTileMapReader& read, const Json&
                           : view.status.empty() ? "Preparing published Map layers..."
                                                 : view.status;
         ImGui::TextWrapped("%s", note.c_str());
-        help("Occupied cells in this layer are solid. Hidden layers can provide collision; "
-             "decorative layers and image flips do not change it. Use a Static Physics Body 2D.");
+        help("Occupied cells in this layer make solid or sensor rectangles, according to Physics "
+             "Body 2D. Use Static or Kinematic Motion; Sensor makes a trigger. Hidden layers can "
+             "provide collision; decorative layers and image flips do not change it.");
         return changed;
     } catch (const std::exception& error) {
         field_error(error.what());

@@ -107,8 +107,9 @@ editor show published layer names, including hidden layers, and preserve missing
 keys. Duplicate names never substitute a row index for the key. Source publication
 must finish before a new layer choice is offered.
 
-This profile requires a Static nonsensor PhysicsBody2D. The Map collider is mutually
-exclusive with inline colliders. Every occupied selected-layer cell is solid;
+This profile requires a Static or Kinematic PhysicsBody2D. Sensor may be enabled
+for a trigger layer. The Map collider is mutually exclusive with inline colliders.
+Every occupied selected-layer cell contributes a solid or sensor rectangle;
 renderer visibility, layer visibility and image orientation flags do not change
 collision. Decorative cells belong in another layer. Empty valid layers have no
 native body or placeholder shape; refilling creates a new private realization epoch.
@@ -142,8 +143,28 @@ reuse immutable geometry inside the existing native-body record.
 
 There are at most4096 total native2D shapes across Map rectangles and inline bodies,
 within existing body, joint, pair and event limits. Empty Map actors do not consume
-native body/shape slots. This profile excludes Dynamic/Kinematic/sensor Maps,
-slopes, per-tile polygons, one-way platforms, navigation and character controllers.
+native body/shape slots. This profile excludes Dynamic Maps, slopes, per-tile
+polygons and one-way Map collision. A Map is not itself a character controller or
+a navigation mesh.
+
+### Moving Maps and triggers
+
+Kinematic Maps use the same fixed-boundary target commands or admitted animation
+poses as inline Kinematic bodies. XY translation and pure-Z rotation move all
+rectangles together; depth/scale and Map cells retain their existing owners.
+Changing a target does not rebuild unchanged cells or create per-cell bodies.
+Existing native per-tick speed/rotation admission applies. Use teleport for an
+explicit discontinuity, with the same presentation/support reset policy.
+
+Sensor applies to every rectangle. Existing collision masks, sensor query filters,
+canonical exclusions and copied sensor-first Begin/End events apply. Events retain
+native shape-pair multiplicity: several rectangles can report the same canonical
+body pair. One End does not establish that a visitor left the entire compound.
+Fast-moving sensors can miss crossings; this profile makes no swept-trigger claim.
+Changing geometry or sensor settings uses ordinary native retirement/replacement;
+old Ends keep their old epoch and current availability. Empty/refill and source
+replacement still pass through the existing Map preflight and last-good ownership.
+Fresh recovery restores Map edits before native physics and does not replay events.
 
 ## One-way platforms
 

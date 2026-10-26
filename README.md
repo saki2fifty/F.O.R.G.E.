@@ -102,12 +102,12 @@ actual Windows Game render using the D3D12 WARP software adapter:
 
 Gallery77 uses a painted Tile Map layer for static floors and platforms. Four
 Dynamic shapes land on the green tiles; the blue arrows remain decorative.
-Select the solid layer in the Inspector and see its collision boxes in Scene.
-These Windows D3D12 WARP captures use the actual Game renderer and Inspector controls:
+Select **Collision layer** in the Inspector and see its collision boxes in Scene.
+Gallery81 adds an animated Kinematic painted course;82 uses painted sensor regions
+above a solid receiver. See the [Tile Maps guide](manual/editor/tile-maps.md).
+This actual Windows D3D12 WARP Game capture demonstrates the original static course:
 
-| Game after simulation | Published layer outlines and Inspector |
-| :---: | :---: |
-| [![Four colored shapes resting on painted green platforms while blue arrows remain decorative](manual/images/painted-collision-game.png)](manual/images/painted-collision-game.png) | [![Scene outlines the painted platforms beside the Static Physics Body and Solid platforms layer selector](manual/images/painted-collision-inspector.png)](manual/images/painted-collision-inspector.png) |
+[![Four colored shapes resting on painted green platforms while blue arrows remain decorative](manual/images/painted-collision-game.png)](manual/images/painted-collision-game.png)
 
 ## User manual
 

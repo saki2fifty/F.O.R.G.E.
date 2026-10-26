@@ -5,6 +5,10 @@ store layered grid cells without an entity per cell. FORGE provides central
 source-document tools, native rendering and grid selection, independent runtime
 instances, copied C++ cell queries/queued edits and both Editor Play hosts.
 Original editable Gallery74 demonstrates two layers and mirrored instances.
+[2D physics](physics-2d.md) integrates painted rectangular collision, Kinematic
+Map movement and Static/Kinematic sensor regions through the same Map instances.
+Gallery81/82 demonstrate movement and triggers. Dynamic and one-way Maps remain
+outside the current collision profile.
 
 The source format, cooked profile and runtime budgets below describe implemented
 behavior. [Validation](#validation) records passing automated checks and their scope. Build261020-000194 predates this feature.
@@ -591,4 +595,6 @@ The final Windows gates compile source
 documentation and a genuine README screenshot only.
 
 Physical Windows/GPU, listening and OS file-picker acceptance remain deferred.
-No autotiling, animated tiles, 2D collision or streaming is implied by this profile.
+That historical gate does not validate later 2D collision extensions; their
+current contract and focused checks are recorded in [2D physics](physics-2d.md).
+Autotiling, animated tile definitions and streaming remain outside this profile.
