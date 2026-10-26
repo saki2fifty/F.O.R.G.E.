@@ -209,6 +209,31 @@ void capacity_and_invalid_geometry() {
     check(test.native.state(1, test.desired.at(1).ref)->epoch == before->epoch,
           "Rejected compound candidates prevented valid unchanged continuation");
 }
+void complete_ray_shape_capacity() {
+    Fixture test(4095);
+    const auto floor = test.desired.at(1).ref;
+    auto parts = std::make_shared<std::vector<BoxPart2D>>(*test.desired.at(1).config.parts);
+    parts->push_back({{4095.5f, -.5f}, {1, 1}});
+    test.desired.at(1).config.parts = parts;
+    test.desired.erase(2);
+    test.synchronize();
+    check(test.native.shape_size() == 4096 && test.native.size() == 1,
+          "Maximum XY ray fixture did not admit exactly4096 shapes as one object");
+    test.advance(); // Checkpoint only after the normal pose/event adoption boundary.
+    const auto before = test.native.checkpoint(test.desired, 4 * 1024 * 1024);
+    const std::array<EntityRef, 1> ignored{floor};
+    for (unsigned repeat = 0; repeat < 3; ++repeat) {
+        const auto all = test.native.raycast_all({-1, -.5}, {4098, 0}, {});
+        check(all.size() == 1 && all[0].entity == floor &&
+                  std::abs(all[0].fraction - 1. / 4098) < 1e-6,
+              "Complete ray failed the admitted XY shape ceiling or duplicated compound parts");
+        check(test.native.raycast_all({-1, -.5}, {4098, 0}, {UINT32_MAX, true, ignored}).empty(),
+              "Maximum XY shape traversal retained an excluded compound part");
+    }
+    const auto after = test.native.checkpoint(test.desired, 4 * 1024 * 1024);
+    check(before.metadata == after.metadata && before.bytes == after.bytes,
+          "Maximum XY complete ray changed solver/checkpoint state");
+}
 void sensor_retirement() {
     Fixture test(4, 0, true);
     const auto floor = test.desired.at(1).ref, sensor = test.desired.at(2).ref;
@@ -338,6 +363,7 @@ int main() {
         for (double offset : {0., 999000., -999000.})
             geometry_queries_and_recovery(offset);
         capacity_and_invalid_geometry();
+        complete_ray_shape_capacity();
         sensor_retirement();
         connected_collision_and_recovery();
         std::cout << "Compound2D geometry/query/retirement/recovery/capacity PASS\n";

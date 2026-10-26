@@ -4,6 +4,10 @@ Local source; Windows verification and numbered delivery remain pending.
 
 ## Canonical physics-query exclusions
 
+- Regression coverage executes the 16384-intersection ray-work boundary through
+  real mesh/collision imports and both runtime hosts, including complete overflow
+  clearing and early exclusions. XY coverage exercises its full 4096-shape profile.
+
 - Closest/all rays, overlaps and linear sweeps in 3D/XY accept up to 16 canonical
   object exclusions before result selection, combining with existing 2D sweep
   ignore. Layers, sensors, physical collision and query ownership stay independent.

@@ -1018,6 +1018,25 @@ No new global query manager, authority system, dependency revision or persisted
 simulation filter exists. Matching SDK/module rebuilds are required; native Windows
 and graphical acceptance remain separate from local Linux checks.
 
+### Native ray subshape-work bounds
+
+`native_sdk_physics_ray_work` creates an original glTF with 16385 separated
+triangles, imports its Mesh and Triangle Mesh Collision through the real CLI,
+then queries it through ordinary and SDK Play hosts. A segment intersecting
+exactly 16384 triangles returns one object. Including the next triangle rejects
+the entire read and clears caller outputs. Raw/C++ canonical exclusions and a
+layer filter skip that object and reveal a farther box; optimized closest rays,
+clean retries, ordinary recovery and source-byte preservation remain checked.
+The fixture exercises the subshape-work branch separately from unique-body limits.
+
+The XY owner admits at most 4096 native shapes per world, below its 16384 callback
+work bound for one complete ray. `physics_2d_compound` queries a full 4096-part
+object, excludes every part and compares native checkpoint bytes. It does not
+claim an unreachable single-ray overflow or the separate shared character-work
+budget. These are correctness workloads, not performance measurements or native
+Windows/GPU acceptance. The public APIs, SDK fingerprint and authored formats are
+unchanged; the new matching test module uses existing callbacks.
+
 ### Slider joints
 
 Core joint tests check kind4 lower/upper endpoints, all principal axes, rotated and
