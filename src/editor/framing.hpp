@@ -1,5 +1,6 @@
 #pragma once
 #include "../render_bounds.hpp"
+#include "navigation_region_view.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/scene.hpp>
@@ -42,16 +43,26 @@ inline std::set<EntityId> framing_entities(const Json& source,
 inline std::set<EntityId> framing_entities(const Json& source, const std::string& selected) {
     return framing_entities(source, std::span<const std::string>(&selected, 1));
 }
-// Mesh bounds come from retained render poses. Camera/light helpers have no mesh:
-// include their derived world positions only when framing a selected mesh alongside them.
+// Retained render poses own art bounds. Selected navigation footprints also
+// contribute their full XY extent; other non-mesh helpers contribute positions.
 inline RenderBounds include_selected_helper_positions(const Json& source,
                                                       const std::set<EntityId>& selected,
                                                       const std::set<EntityId>& mesh_entities,
                                                       RenderBounds bounds) {
     for (const auto& row : source.at("entities")) {
         const auto id = row.at("id").get<EntityId>();
-        if (!selected.contains(id) || mesh_entities.contains(id) || row.value("prefab", false) ||
+        if (!selected.contains(id) || row.value("prefab", false) ||
             !row.value("spatial_resolved", true) || !row.contains("world_affine"))
+            continue;
+        if (const auto region = navigation_region_view(row)) {
+            for (const auto& point : region->quad)
+                for (unsigned axis = 0; axis < 3; ++axis) {
+                    bounds.minimum[axis] = std::min(bounds.minimum[axis], point[axis]);
+                    bounds.maximum[axis] = std::max(bounds.maximum[axis], point[axis]);
+                }
+            continue;
+        }
+        if (mesh_entities.contains(id))
             continue;
         const auto world = row.at("world_affine").get<std::array<double, 12>>();
         for (unsigned axis = 0; axis < 3; ++axis) {

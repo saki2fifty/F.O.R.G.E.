@@ -6086,7 +6086,9 @@ int main(int argc, char** argv) {
                                 scene, view_camera, selected, image_origin, size, input,
                                 can_edit && !gizmo && !was_modal && !modal.active(), message,
                                 [&](const forge::Json& snapshot, float x, float y) {
-                                    if (auto hit = spatial_helpers.pick(view_camera, size, {x, y});
+                                    if (auto hit = spatial_helpers.pick(
+                                            view_camera, size, {x, y}, selected,
+                                            navigation_tools.overlay_visible());
                                         !hit.empty())
                                         return hit;
                                     return viewport.pick(snapshot, view_camera,
@@ -6160,7 +6162,8 @@ int main(int argc, char** argv) {
                         if (!game_view)
                             spatial_helpers.draw(view_camera, selected, image_origin, size,
                                                  modal.active() ? ImGui::GetTextLineHeight() + 20
-                                                                : 0);
+                                                                : 0,
+                                                 navigation_tools.overlay_visible());
                         if (!game_view)
                             physics_overlay.draw(rendered, selected, view_camera, image_origin,
                                                  size, files.document.project(),
@@ -6207,8 +6210,7 @@ int main(int argc, char** argv) {
 #else
                             (void)marker;
 #endif
-                            navigation_tools.draw(rendered, view_camera, image_origin, size,
-                                                  selected);
+                            navigation_tools.draw(rendered, view_camera, image_origin, size);
                         }
                         if (!game_view)
                             orientation.draw(view_camera, image_origin, size);

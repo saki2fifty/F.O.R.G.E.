@@ -373,7 +373,10 @@ Create/edit regions with ordinary component/property tools, including validation
 Undo/Redo and Scene Save. XY builds publish guarded schema3 through the same
 worker/job/status/cancel owner. One logical asset per Scene remains authoritative;
 switching plane preserves its ID and requires rebuilding. No independent agent-only
-geometry, bake or persistence path exists.
+geometry, bake or persistence path exists. Scene outline
+selection/framing and centered resize handles are editor conveniences over the same
+qualified width/height fields. Agents continue to use ordinary property tools and
+history/Save; no new tool/schema or screen-coordinate authoring path is required.
 
 `forge_dependencies_open/read/edit/save/discard` borrows the selected asset's
 RuntimeDependenciesEditor draft. Edit supplies a finite typed set with reasons

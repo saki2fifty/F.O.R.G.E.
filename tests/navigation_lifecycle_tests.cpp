@@ -1,5 +1,6 @@
 #include "editor/camera.hpp"
 #include "editor/navigation_automation.hpp"
+#include "editor/spatial_helpers.hpp"
 #include <imgui_internal.h>
 #include <iostream>
 #include <thread>
@@ -12,15 +13,19 @@ void check(bool ok, const char* why) {
 }
 } // namespace
 
+#include "navigation_region_gesture_tests.hpp"
+#include "navigation_region_helpers_tests.hpp"
+#include "navigation_region_input_tests.hpp"
 void planar_editor(const std::filesystem::path& root, const std::filesystem::path& worker) {
     SceneDocument::create_project(root, "Planar navigation");
     EngineContext engine;
     Scene scene(engine.world());
     SceneDocument project(scene);
     project.open_project(root);
-    const auto region = authoring_command(scene, "entity.create", {{"name", "Walkable region"}})
-                            .at("selected")
-                            .get<std::string>();
+    const auto region =
+        authoring_command(scene, "entity.create", {{"kind", 4}, {"name", "Walkable region"}})
+            .at("selected")
+            .get<std::string>();
     authoring_command(scene, "component.add",
                       {{"entity", region}, {"component", "forge.navigation_region_2d"}});
     project.save();
@@ -49,10 +54,13 @@ void planar_editor(const std::filesystem::path& root, const std::filesystem::pat
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
         ui::style(scale);
+        check_region_helpers(scene, region, scale);
         ui::EditorUiContext context;
         ui::ContextScope scope(context);
         test::observe_ui = true;
         EditorCamera camera;
+        ui::SpatialHelpers helpers;
+        std::uint64_t helper_generation = 0;
         camera.align(2, 1);
         camera.distance = 20;
         const auto frame = [&](bool locked = false) {
@@ -63,7 +71,10 @@ void planar_editor(const std::filesystem::path& root, const std::filesystem::pat
             ImGui::Begin("XY navigation authoring");
             ImGui::SetNextItemOpen(true, ImGuiCond_Always);
             tools.content(scene, project, locked, message, catalog);
-            tools.draw(scene.effective_document(), camera, {0, 0}, {1400, 1000}, region);
+            const auto source = scene.effective_document();
+            helpers.update(source, ++helper_generation, 1400, 1000);
+            helpers.draw(camera, region, {0, 0}, {1400, 1000}, 0, tools.overlay_visible());
+            tools.draw(source, camera, {0, 0}, {1400, 1000});
             ImGui::End();
             ImGui::Render();
         };
@@ -107,6 +118,9 @@ void planar_editor(const std::filesystem::path& root, const std::filesystem::pat
         check(scene.document() == saved && scene.can_undo() == had_undo &&
                   AssetCatalog::open_project(root).document() == catalog->document(),
               "Navigation presentation/draft controls changed authored state or catalog");
+        check_region_resize_input(scene, region, scale);
+        if (scale == 2)
+            check_region_resize_input(scene, region, scale, true);
         test::observe_ui = false;
         ImGui::DestroyContext();
     }
@@ -117,6 +131,7 @@ int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need navigation lifecycle scratch root and actual worker");
         const auto root = std::filesystem::absolute(argv[1]);
+        check_region_gestures(root);
         const auto first = root / "First", second = root / "Second";
         SceneDocument::create_project(first, "First");
         SceneDocument::create_project(second, "Second");

@@ -25,9 +25,14 @@ and skeletal bounds; a model root frames its complete placed subtree. **Fit scen
 frames visible meshes together; an explicitly selected hidden mesh can still be
 framed. **Reset view** restores the default camera.
 
+A selected **Navigation Region 2D** frames its full navigation footprint, including
+when it has no visible art. If the same entity also renders a Mesh or Sprite,
+framing includes the art and the independent navigation extent. See
+[Navigation](navigation.md) for outline selection and centered resize handles.
+
 If part of the requested geometry is still loading or has failed, framing preserves the camera and reports that it is not ready. Retry after loading completes. It does not fit an incomplete subset or substitute a cube for a missing model. Very large extents can exceed the current camera framing range.
 
-Left-click visible geometry or a camera/light icon to select an object under the
+Left-click visible geometry, a camera/light icon or a visible navigation-region outline to select an object under the
 pointer. Ctrl-click or Shift-click an object toggles it in the
 selection; clicking without a modifier selects one object. Clicking empty space
 clears selection. Amber guides mark selected objects; primitive bounds can show

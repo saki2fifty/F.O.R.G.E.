@@ -71,6 +71,40 @@ Visual Z, materials and unrelated authored state are excluded. Both profiles ret
 static/body/controller/spatial ancestry rules; agents cannot also be enabled bake
 sources. XY avoidance filters by the selected NavMesh, without a visual-height test.
 
+### Region Scene interaction
+
+The pure region footprint lives in `navigation_region.hpp`; baking and detached
+editor consumers use the same unchanged calculation. NavigationRegionView reads
+one current effective/preview row and rejects invalid/unresolved geometry without
+inventing a substitute shape. SpatialHelpers owns cached region outlines alongside
+its existing Camera/Light/Audio helpers, using the same preview generation and
+hierarchy policies. Navigation overlay shows all visible region edges; selection
+keeps that region's guide available independently. Only edges participate in
+region picking, with scaled tolerance and deterministic distance/depth/identity
+ties. Camera/light/audio icon routing remains ahead of region-outline picking.
+Shared clipped-line projection keeps drawing and picking consistent.
+
+Selection framing adds the full projected XY footprint, including when the actor
+has retained render bounds. Art keeps its actual bounds/depth. The fallback camera
+can frame a region without a rendered Mesh; a helper position is not substituted
+for its dimensions.
+
+SceneTools composes NavigationRegionGesture with Move/Rig/modal input ownership.
+Four edge-midpoint handles edit one centered local extent. Explicit gold squares
+draw and receive clicks above overlapping Move axes; existing active/rig/modal
+ownership is preserved. The projected-axis
+calculation is shared with rig targeting; Ctrl snap is in local metre dimensions.
+Preview uses the ordinary detached authoring candidate; commit uses one property
+command/history operation. No authored transform, source role or other extent is
+written. Neutral/rejected/cancelled releases do not commit. Scene revision/selection,
+edit locks, viewport changes and existing focus/project guards retire the gesture.
+Prefab property inheritance and Save/reopen retain the normal Scene owner.
+
+Automation/MCP already exposes the same width/height properties, validation and
+history operations; this viewport convenience adds no pixel-only game-creation
+capability, separate commands or persistence. Bake/runtime/asset/SDK formats and
+navigation movement semantics are unchanged by these editor interactions.
+
 ### Static Mesh profile
 
 Bake uses LOD0, all its triangle parts, float3 POSITION and indexed or sequential vertices. Imported winding is preserved; a negative world-transform parity reverses triangle winding in a navigation-only copy. Collapsed/zero-area triangles are skipped. Built-in normal-based winding correction and old v1 hashing are unchanged. Entire Mesh admission observes the bounded profile before geometry extraction; decoded candidates share a64MiB job pool. Model-family/cook admission reuses existing immutable selection validation. An independent build job may use that same bounded ResourcePool loader; live-world runtime data belongs solely to RuntimeResources.

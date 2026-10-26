@@ -1,17 +1,20 @@
 #pragma once
 #include "../builtins.hpp"
 #include "authoring.hpp"
+#include "navigation_region_view.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <forge/audio_components.hpp>
 #include <forge/render_scene.hpp>
 #include <numbers>
+#include <tuple>
 namespace forge::ui {
 // Editor-only detached visualization. No hidden entities, meshes or authored state.
 struct SpatialMarker {
     std::string entity, name, note;
     Double3 position{};
-    bool camera = false, audio = false, enabled = true, selectable = true;
+    bool camera = false, audio = false, navigation = false, obstacle = false;
+    bool enabled = true, selectable = true;
     float offset = 0;
     std::vector<std::pair<Double3, Double3>> lines;
 };
@@ -38,11 +41,12 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
     const auto policies = extract_node_policies(source);
     for (const auto& row : source.at("entities")) {
         const auto& c = row.at("components");
-        for (unsigned kind = 0; kind < 3; ++kind) {
-            const bool is_camera = kind == 0, is_audio = kind == 2;
-            const auto component = is_camera  ? "forge.camera"
-                                   : is_audio ? "forge.audio_source"
-                                              : "forge.light";
+        for (unsigned kind = 0; kind < 4; ++kind) {
+            const bool is_camera = kind == 0, is_audio = kind == 2, is_region = kind == 3;
+            const auto component = is_camera   ? "forge.camera"
+                                   : is_audio  ? "forge.audio_source"
+                                   : is_region ? "forge.navigation_region_2d"
+                                               : "forge.light";
             if (!c.contains(component) || row.value("prefab", false) ||
                 !row.value("spatial_resolved", false))
                 continue;
@@ -54,6 +58,7 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
             marker.name = row.value("name", marker.entity);
             marker.camera = is_camera;
             marker.audio = is_audio;
+            marker.navigation = is_region;
             if (is_audio && (c.contains("forge.camera") || c.contains("forge.light")))
                 marker.offset = 1.4f;
             if (!is_audio && c.contains("forge.camera") && c.contains("forge.light"))
@@ -77,7 +82,20 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                         previous = next;
                     }
                 };
-                if (is_camera) {
+                if (is_region) {
+                    const auto region = navigation_region_view(row);
+                    if (!region)
+                        continue;
+                    marker.position = region->center();
+                    marker.enabled = region->region.enabled;
+                    marker.obstacle = region->region.obstacle;
+                    marker.offset = 0;
+                    for (unsigned i = 0; i < 4; ++i)
+                        line(region->quad[i], region->quad[(i + 1) % 4]);
+                    marker.note = marker.obstacle ? "Obstacle" : "Walkable";
+                    marker.note += " | " + helper_number(region->region.width) + " x " +
+                                   helper_number(region->region.height) + " local m";
+                } else if (is_camera) {
                     const auto settings = helper_component<Camera>(c, "forge.camera");
                     marker.enabled = settings.enabled;
                     const auto view = camera_view(settings, world, width, height);
@@ -225,9 +243,10 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                 marker.lines.clear();
                 marker.note = std::string("Invalid spatial helper: ") + error.what();
             }
-            marker.note = std::string(is_camera  ? "Camera | "
-                                      : is_audio ? "Sound | "
-                                                 : "Light | ") +
+            marker.note = std::string(is_region   ? "Navigation Region 2D | "
+                                      : is_camera ? "Camera | "
+                                      : is_audio  ? "Sound | "
+                                                  : "Light | ") +
                           marker.note;
             if (!marker.enabled)
                 marker.note += " | Disabled";
@@ -252,12 +271,13 @@ class SpatialHelpers {
         extent_ = extent;
     }
     const std::vector<SpatialMarker>& markers() const { return markers_; }
-    std::string pick(const EditorCamera& camera, ImVec2 area, ImVec2 mouse) const {
-        if (!visible)
-            return {};
+    std::string pick(const EditorCamera& camera, ImVec2 area, ImVec2 mouse,
+                     const std::string& selected = {}, bool navigation_visible = false) const {
         std::string hit;
         double nearest = std::numeric_limits<double>::infinity();
         for (const auto& marker : markers_) {
+            if (!visible || marker.navigation)
+                continue;
             const auto p = project_point(camera, cast(marker.position), area.x, area.y);
             const double depth =
                 dot(subtract(cast(marker.position), camera.eye()), camera.forward());
@@ -269,18 +289,60 @@ class SpatialHelpers {
                 nearest = depth;
             }
         }
+        if (!hit.empty() || mouse.x < 0 || mouse.y < 0 || mouse.x > area.x || mouse.y > area.y)
+            return hit; // Existing camera/light/audio icons retain their input priority.
+        auto closest = std::tuple{std::numeric_limits<double>::infinity(),
+                                  std::numeric_limits<double>::infinity(), std::string{}};
+        for (const auto& marker : markers_) {
+            if (!marker.navigation || !marker.selectable ||
+                (!navigation_visible && marker.entity != selected))
+                continue;
+            const double depth =
+                dot(subtract(cast(marker.position), camera.eye()), camera.forward());
+            for (const auto& [a, b] : marker.lines) {
+                const auto line = project_line(camera, area, a, b);
+                if (!line)
+                    continue;
+                const auto& [p, q] = *line;
+                const double x = q.x - p.x, y = q.y - p.y, squared = x * x + y * y;
+                if (squared < 1e-8)
+                    continue;
+                const auto fraction =
+                    std::clamp(((mouse.x - p.x) * x + (mouse.y - p.y) * y) / squared, 0., 1.);
+                const auto distance =
+                    std::hypot(mouse.x - p.x - fraction * x, mouse.y - p.y - fraction * y);
+                const auto candidate = std::tuple{distance, depth, marker.entity};
+                if (distance <= 5 * interface_scale && candidate < closest) {
+                    closest = candidate;
+                    hit = marker.entity;
+                }
+            }
+        }
         return hit;
     }
     void draw(const EditorCamera& camera, const std::string& selected, ImVec2 origin, ImVec2 area,
-              float header_offset = 0) const {
-        if (!visible)
-            return;
+              float header_offset = 0, bool navigation_visible = false) const {
         auto* draw = ImGui::GetWindowDrawList();
         draw->PushClipRect(origin, {origin.x + area.x, origin.y + area.y}, true);
         const SpatialMarker* hovered = nullptr;
         ImRect hover_rect;
         float note_y = origin.y + 15 + ImGui::GetTextLineHeight() + header_offset;
         for (const auto& marker : markers_) {
+            if (marker.navigation) {
+                if (navigation_visible || marker.entity == selected) {
+                    const auto color = !marker.enabled   ? IM_COL32(140, 140, 140, 200)
+                                       : marker.obstacle ? IM_COL32(240, 145, 65, 240)
+                                                         : IM_COL32(70, 220, 175, 240);
+                    for (const auto& [a, b] : marker.lines)
+                        draw_line(draw, camera, origin, area, a, b, color);
+                    FORGE_UI_PROBE("navigation:region-guide:" + marker.entity);
+                    if (marker.entity == selected)
+                        FORGE_UI_PROBE("navigation:region-guide");
+                }
+                continue; // Region edges have no camera/light icon or filled hit area.
+            }
+            if (!visible)
+                continue;
             const auto projected = project_point(camera, cast(marker.position), area.x, area.y);
             const bool active = marker.entity == selected;
             const auto color = active            ? IM_COL32(255, 203, 94, 255)
@@ -367,14 +429,14 @@ class SpatialHelpers {
     static Vec3 cast(Double3 value) { return {float(value[0]), float(value[1]), float(value[2])}; }
 
   public:
-    static void draw_line(ImDrawList* draw, const EditorCamera& camera, ImVec2 origin, ImVec2 area,
-                          Double3 da, Double3 db, ImU32 color) {
+    static std::optional<std::pair<ImVec2, ImVec2>>
+    project_line(const EditorCamera& camera, ImVec2 area, Double3 da, Double3 db) {
         auto a = cast(da), b = cast(db);
         float za = dot(subtract(a, camera.eye()), camera.forward()),
               zb = dot(subtract(b, camera.eye()), camera.forward());
         const float clip_depth = EditorCamera::near_plane * 1.01f;
         if (za < clip_depth && zb < clip_depth)
-            return;
+            return {};
         if (za < clip_depth || zb < clip_depth) {
             const float t = (clip_depth - za) / (zb - za);
             Vec3 clipped;
@@ -389,8 +451,15 @@ class SpatialHelpers {
                    q = project_point(camera, b, area.x, area.y);
         if (p && q && std::isfinite((*p)[0]) && std::isfinite((*p)[1]) && std::isfinite((*q)[0]) &&
             std::isfinite((*q)[1]))
-            draw->AddLine({origin.x + (*p)[0], origin.y + (*p)[1]},
-                          {origin.x + (*q)[0], origin.y + (*q)[1]}, color, interface_scale);
+            return std::pair{ImVec2{(*p)[0], (*p)[1]}, ImVec2{(*q)[0], (*q)[1]}};
+        return {};
+    }
+    static void draw_line(ImDrawList* draw, const EditorCamera& camera, ImVec2 origin, ImVec2 area,
+                          Double3 da, Double3 db, ImU32 color) {
+        if (const auto line = project_line(camera, area, da, db))
+            draw->AddLine({origin.x + line->first.x, origin.y + line->first.y},
+                          {origin.x + line->second.x, origin.y + line->second.y}, color,
+                          interface_scale);
     }
 };
 } // namespace forge::ui

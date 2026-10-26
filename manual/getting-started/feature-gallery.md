@@ -23,7 +23,8 @@ remains a separate combined gameplay example.
 Scene **80-xy-navigation** contains a walkable rectangle, an orange obstacle and
 three Sprite agents. Play to see the cyan agent route around the obstacle and
 the green/amber pair steer past each other. Select a region to see its outline;
-change its Width/Height or Obstacle role in Inspector while stopped, then rebuild
+press **F** to frame it and **W** to resize with its gold edge handles. You can also
+change Width/Height or Obstacle in Inspector while stopped, then rebuild
 through **Content → Create / Register → Navigation → Plane → 2D (XY)**.
 Save and select the Scene as startup before export. See [Navigation](../editor/navigation.md).
 

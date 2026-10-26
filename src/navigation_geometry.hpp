@@ -1,4 +1,5 @@
 #pragma once
+#include "navigation_region.hpp"
 #include <forge/geometry.hpp>
 #include <forge/mesh_resource.hpp>
 #include <forge/navigation_build.hpp>
@@ -36,8 +37,6 @@ struct Geometry {
     std::vector<std::array<float, 12>>
         obstacles; // Convex native-XZ masks from world XY, four vertices.
 };
-// Same projected world footprint for authoring guides and bake input.
-std::array<Double3, 4> region_quad(const NavigationRegion2D&, const AffineTransform&);
 Geometry geometry(const nlohmann::json& effective_scene);
 Geometry geometry(const Sources&); // Original primitive-only v1 canonical bytes.
 Geometry geometry(const Sources&, const nlohmann::json& mesh_inputs,

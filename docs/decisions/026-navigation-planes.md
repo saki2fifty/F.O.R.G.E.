@@ -62,3 +62,12 @@ The finite profile excludes automatic art/collision extraction, platformer/off-m
 links, dynamic rebaking, multiple profiles per Scene, cost editing and streaming.
 It does not imply parity with another engine or claim a measured performance gain.
 See [Navigation](../navigation.md) for the current contract and bounds.
+
+## Scene interaction refinement
+
+Region outlines/picking now use the existing SpatialHelpers generation/policy cache;
+NavigationTools still owns overlay/bake controls. The pure footprint is shared by
+bake/view/framing/handles. SceneTools adds a transient centered extent gesture via
+ordinary preview/property/Undo, and projected-axis drag math is shared with rig
+targets. There is no new source format, SDK shape, navigation owner or agent-only
+workflow. Existing generic automation properties retain complete semantic access.

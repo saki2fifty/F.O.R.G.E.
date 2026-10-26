@@ -7,8 +7,10 @@ around the orange obstacle. The green/amber pair steers past each other in the
 right lane, keeping their separate visual depths. Select an agent for
 **Live gameplay → Navigation progress**; Stop restores the authored starts.
 
-Select **Walkable region** or **Obstacle region** to see its Scene outline.
-Outside Play, change **Navigation Region 2D → Width / Height / Obstacle**, then
+Enable the Navigation overlay and click a region outline, or select **Walkable
+region** / **Obstacle region** in Hierarchy. Press **F** to frame its full extent
+and **W** to drag its gold edge handles. Release keeps one Undo step; Escape or
+right-click cancels. Outside Play, change **Navigation Region 2D → Width / Height / Obstacle**, then
 open **Content → Create / Register → Navigation**, choose **Plane → 2D (XY)** and
 **Build NavMesh**. Sprite art and physics are separate from these rectangles.
 Enable **Scene → View → Navigation overlay** for baked triangles and runtime routes.

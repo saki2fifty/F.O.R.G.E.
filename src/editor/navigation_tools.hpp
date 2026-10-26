@@ -13,6 +13,7 @@ class NavigationTools {
 
   public:
     bool pending() const { return job_.valid(); }
+    bool overlay_visible() const { return show_; }
     void overlay_control() {
         ImGui::Checkbox("Navigation overlay", &show_);
         ui::help("Show or hide navigation triangles and paths in the viewport; this does not "
@@ -237,8 +238,7 @@ class NavigationTools {
                  "provides optional local steering for nonphysics agents.");
     }
     template <class View>
-    void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size,
-              const std::string& selected = {}) const {
+    void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size) const {
         if (!doc.contains("asset_id"))
             return;
         auto* draw = ImGui::GetWindowDrawList();
@@ -253,33 +253,6 @@ class NavigationTools {
                 return {};
             return ImVec2{origin.x + (*v)[0], origin.y + (*v)[1]};
         };
-        if (!selected.empty())
-            for (const auto& row : doc.at("entities"))
-                if (row.at("id") == selected && row.value("spatial_resolved", false) &&
-                    row.at("components").contains("forge.navigation_region_2d")) {
-                    try {
-                        const auto& value = row.at("components").at("forge.navigation_region_2d");
-                        const NavigationRegion2D region{
-                            value.at("enabled").get<bool>(), value.at("obstacle").get<bool>(),
-                            value.at("width").get<float>(), value.at("height").get<float>()};
-                        const AffineTransform transform{
-                            row.at("world_affine").get<std::array<double, 12>>()};
-                        const auto quad = navigation_detail::region_quad(region, transform);
-                        const auto color = !region.enabled   ? IM_COL32(140, 140, 140, 200)
-                                           : region.obstacle ? IM_COL32(240, 145, 65, 240)
-                                                             : IM_COL32(70, 220, 175, 240);
-                        for (unsigned i = 0; i < 4; ++i) {
-                            const auto a = projected(quad[i], NavigationPlane::PlanarXY);
-                            const auto b = projected(quad[(i + 1) % 4], NavigationPlane::PlanarXY);
-                            if (a && b)
-                                draw->AddLine(*a, *b, color, 2);
-                        }
-                        FORGE_UI_PROBE("navigation:region-guide");
-                    } catch (const std::exception&) {
-                        // Invalid/unresolved sources have no substitute guide geometry.
-                    }
-                    break;
-                }
         if (!show_ || doc.at("asset_id").get<AssetId>() != loaded_scene_) {
             draw->PopClipRect();
             return;

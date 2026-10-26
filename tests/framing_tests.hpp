@@ -58,4 +58,18 @@ inline void test_framing_selection() {
     if (include_selected_helper_positions(source, {root, camera_id}, {root, camera_id}, mesh) !=
         mesh)
         throw std::runtime_error("Renderable helper bounds were applied twice");
+    const auto region = EntityId::generate();
+    source["entities"].push_back(
+        {{"id", region},
+         {"spatial_resolved", true},
+         {"world_affine", std::array<double, 12>{2, 0, 0, 100, 0, 1, 0, 0, 0, 0, 1, 37}},
+         {"components",
+          {{"forge.navigation_region_2d",
+            {{"enabled", true}, {"obstacle", false}, {"width", 20}, {"height", 6}}}}}});
+    const auto region_bounds = include_selected_helper_positions(source, {region}, {}, mesh);
+    if (region_bounds.minimum != Double3{-1, -3, -1} || region_bounds.maximum != Double3{120, 3, 1})
+        throw std::runtime_error(
+            "Navigation region framing omitted its full world XY footprint or used visual depth");
+    if (include_selected_helper_positions(source, {region}, {region}, mesh) != region_bounds)
+        throw std::runtime_error("Renderable region omitted its independent navigation footprint");
 }

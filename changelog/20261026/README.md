@@ -2,6 +2,18 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Navigation region Scene tools
+
+- Visible region outlines can be selected through the existing Scene-helper owner;
+  selected regions frame their full XY extent, including mixed art/data bounds.
+- Centered Width/Height edge handles use detached previews, local snapping and one
+  property/Undo operation. Cancellation, edit locks, prefab overrides and Save/reopen
+  preserve current ownership. The same projected-axis math serves rig targets.
+- Existing automation/MCP properties cover the resulting edits; no source/asset/SDK
+  format changes. Portable helper tests also exposed a core digest predicate linked
+  through the asset-build layer; the unchanged predicate now belongs to the existing
+  byte utility with a lightweight declaration and compatibility reexport.
+
 ## Top-down XY navigation
 
 - Navigation Region2D rectangles define independent walkable areas and obstacle

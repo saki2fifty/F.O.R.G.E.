@@ -55,7 +55,8 @@ int main() {
                 const auto first = project_debug_point(camera, world, {1000, 800});
                 const auto last = project_debug_point(camera, next, {1000, 800});
                 check(bool(first) && bool(last), "Rig drag projection missing");
-                const auto delta = rig_axis_drag(camera, world, basis, *first, *last, 1000, 800);
+                const auto delta =
+                    projected_axis_drag(camera, world, basis, *first, *last, 1000, 800);
                 check(bool(delta), "Parented mirrored/nonuniform rig axis unavailable");
                 near(*delta, .4, 3e-4);
             }

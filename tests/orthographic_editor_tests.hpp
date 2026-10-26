@@ -228,7 +228,8 @@ inline void test_orthographic_authoring() {
     require(x && y && std::abs(*x - 8.f / 6) < .001f && std::abs(*y + 8.f / 6) < .001f &&
                 !axis_drag(camera, camera.target, 3, {400, 300}, {500, 300}, 800, 600),
             "Orthographic transform drag lost its pixel-to-world mapping");
-    const auto rig = rig_axis_drag(camera, {2, 3, 4}, {-2, 0, 0}, {400, 300}, {500, 300}, 800, 600);
+    const auto rig =
+        projected_axis_drag(camera, {2, 3, 4}, {-2, 0, 0}, {400, 300}, {500, 300}, 800, 600);
     require(rig && std::abs(*rig + 2. / 3) < .001,
             "Orthographic rig drag lost shifted ray origins or mirrored basis units");
     ui::SceneTools tools;

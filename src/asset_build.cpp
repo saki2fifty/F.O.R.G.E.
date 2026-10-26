@@ -123,11 +123,6 @@ std::size_t AssetDependencyGraph::edge_count() const {
     return result;
 }
 
-bool valid_content_digest(std::string_view digest) {
-    return digest.size() == 64 && std::all_of(digest.begin(), digest.end(), [](char c) {
-               return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
-           });
-}
 std::string asset_build_digest(const Json& value) {
     std::size_t count = 0, bytes = 0;
     validate_json(value, 0, count, bytes);

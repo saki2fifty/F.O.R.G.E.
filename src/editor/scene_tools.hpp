@@ -4,6 +4,7 @@
 #include "authoring.hpp"
 #include "camera_controls.hpp"
 #include "editor_state.hpp"
+#include "navigation_region_gesture.hpp"
 #include "rig_target_gesture.hpp"
 #include <functional>
 namespace forge::ui {
@@ -13,21 +14,25 @@ struct SceneTools {
     float snap_step = 1, grid_step = 1, fly_speed = 5, exposure = 0;
     MoveGesture move;
     RigTargetGesture rig;
+    NavigationRegionGesture region;
     std::string rig_component;
-    bool active() const { return move.active() || rig.active(); }
+    bool active() const { return move.active() || rig.active() || region.active(); }
     void cancel() {
         move.cancel();
         rig.cancel();
+        region.cancel();
     }
     bool valid_for(const Scene& scene) const {
-        return move.valid_for(scene) && rig.valid_for(scene);
+        return move.valid_for(scene) && rig.valid_for(scene) && region.valid_for(scene);
     }
     bool selection_matches(const std::vector<std::string>& ids) const {
-        return move.selection_matches(ids) &&
+        return region.selection_matches(ids) && move.selection_matches(ids) &&
                (!rig.active() || (ids.size() == 1 && ids.front() == rig.original().entity));
     }
     Json preview(const Json& source) const {
-        return rig.active() ? rig.preview(source) : move.preview(source);
+        return region.active() ? region.preview(source)
+               : rig.active()  ? rig.preview(source)
+                               : move.preview(source);
     }
     void target_tool(std::string component) {
         cancel();
@@ -118,9 +123,9 @@ struct SceneTools {
         }
         const auto dx = mouse.x - press.x, dy = mouse.y - press.y;
         dragged |= std::hypot(dx, dy) > 2;
-        const auto delta =
-            rig_axis_drag(drag_camera, rig.original().world(), rig.original().axis(rig.axis()),
-                          {press.x, press.y}, {mouse.x, mouse.y}, size.x, size.y);
+        const auto delta = projected_axis_drag(drag_camera, rig.original().world(),
+                                               rig.original().axis(rig.axis()), {press.x, press.y},
+                                               {mouse.x, mouse.y}, size.x, size.y);
         const bool valid = delta && (!dragged || rig.update(*delta, snap || io.KeyCtrl, snap_step));
         if (delta && !valid)
             status = "Rig target move exceeds its supported range";
@@ -211,6 +216,80 @@ struct SceneTools {
         }
         return result;
     }
+    std::array<std::optional<ImVec2>, 4> region_handles(const EditorCamera& camera,
+                                                        const NavigationRegionView& view,
+                                                        ImVec2 size) const {
+        std::array<std::optional<ImVec2>, 4> points;
+        const auto center = project_debug_point(camera, view.center(), size);
+        if (!center)
+            return points;
+        for (unsigned dimension = 0; dimension < 2; ++dimension)
+            for (unsigned negative = 0; negative < 2; ++negative) {
+                auto point = view.center();
+                const auto axis = view.axis(dimension);
+                const auto extent = dimension == 0 ? view.region.width : view.region.height;
+                for (unsigned i = 0; i < 3; ++i)
+                    point[i] += .5 * extent * (negative ? -1 : 1) * axis[i];
+                const auto screen = project_debug_point(camera, point, size);
+                if (screen && std::hypot((*screen)[0] - (*center)[0], (*screen)[1] - (*center)[1]) >
+                                  12 * interface_scale)
+                    points[dimension * 2 + negative] = ImVec2{(*screen)[0], (*screen)[1]};
+            }
+        return points;
+    }
+    bool region_input(Scene& scene, const EditorCamera& camera, const std::string& selected,
+                      ImVec2 mouse, ImVec2 size, const ViewportInput& input, std::string& status) {
+        const auto& io = ImGui::GetIO();
+        if (!region.active() && input.activated && move_tool && rig_component.empty() &&
+            !io.KeyShift && !io.KeyAlt && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            const auto view = navigation_region_view(scene.effective_document(), selected);
+            if (view) {
+                const auto points = region_handles(camera, *view, size);
+                for (unsigned i = 0; i < points.size(); ++i)
+                    if (points[i] && std::abs(mouse.x - points[i]->x) <= 7 * interface_scale &&
+                        std::abs(mouse.y - points[i]->y) <= 7 * interface_scale &&
+                        region.begin(scene, selected, i / 2, i % 2 ? -1 : 1)) {
+                        press = mouse;
+                        drag_size = size;
+                        drag_camera = camera;
+                        dragged = false;
+                        break;
+                    }
+            }
+        }
+        if (!region.active())
+            return false;
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Right) ||
+            ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
+            region.cancel();
+            status = "Region resize cancelled";
+            return true;
+        }
+        dragged |= std::hypot(mouse.x - press.x, mouse.y - press.y) > 2;
+        auto anchor = region.original().center();
+        const auto basis = region.original().axis(region.dimension());
+        const auto extent = region.dimension() == 0 ? region.original().region.width
+                                                    : region.original().region.height;
+        for (unsigned i = 0; i < 3; ++i)
+            anchor[i] += .5 * extent * region.side() * basis[i];
+        const auto delta = projected_axis_drag(drag_camera, anchor, basis, {press.x, press.y},
+                                               {mouse.x, mouse.y}, size.x, size.y);
+        const bool valid =
+            delta && (!dragged || region.update(*delta, snap || io.KeyCtrl, snap_step));
+        if (!valid)
+            status = "Region resize rejected: check the local extent and supported world XY bounds";
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            try {
+                if (valid && dragged && region.commit(scene))
+                    status = "Navigation region resized. Undo restores the drag.";
+                else
+                    region.cancel();
+            } catch (const std::exception& error) {
+                status = error.what();
+            }
+        }
+        return true;
+    }
     void input(Scene& scene, const EditorCamera& camera, std::string& selected, ImVec2 origin,
                ImVec2 size, const ViewportInput& input, bool can_edit, std::string& status,
                const std::function<std::string(const Json&, float, float)>& pick = {},
@@ -221,6 +300,7 @@ struct SceneTools {
             (!can_edit || !valid_for(scene) ||
              (selection && !selection_matches(selection->entities())) ||
              (!selection && rig.active() && rig.original().entity != selected) ||
+             (!selection && region.active() && region.original().entity != selected) ||
              ImGui::IsKeyPressed(ImGuiKey_Escape, false) || std::abs(size.x - drag_size.x) > 0.5f ||
              std::abs(size.y - drag_size.y) > 0.5f || std::abs(origin.x - drag_origin.x) > 0.5f ||
              std::abs(origin.y - drag_origin.y) > 0.5f)) {
@@ -242,6 +322,10 @@ struct SceneTools {
                 target_tool({});
             }
         }
+        if (region.active()) {
+            region_input(scene, camera, selected, mouse, size, input, status);
+            return;
+        }
         const bool was_rig = rig.active();
         if (rig_input(scene, camera, selected, mouse, size, input, status)) {
             if (!was_rig && rig.active())
@@ -252,6 +336,13 @@ struct SceneTools {
             !ImGui::IsMouseDown(ImGuiMouseButton_Right) &&
             !ImGui::IsMouseDown(ImGuiMouseButton_Middle)) {
             const auto doc = scene.effective_document();
+            // Explicit edge squares take priority when a projected Move axis overlaps them.
+            if ((!selection || selection->entities().size() == 1) &&
+                navigation_region_view(doc, selected) &&
+                region_input(scene, camera, selected, mouse, size, input, status)) {
+                drag_origin = origin;
+                return;
+            }
             int hit = -2;
             if (const auto p = entity_position(doc, selected);
                 rig_component.empty() && move_tool && p && !io.KeyCtrl && !io.KeyShift) {
@@ -434,6 +525,40 @@ struct SceneTools {
                     }
                 }
             }
+            if (selected_id == selected && selection.size() == 1 && can_edit && move_tool &&
+                rig_component.empty()) {
+                if (const auto view = navigation_region_view(*entity)) {
+                    const auto policies = extract_node_policies(doc);
+                    const auto policy = policies.entities.find(entity->at("id").get<EntityId>());
+                    if (policy != policies.entities.end() && policy->second.valid &&
+                        policy->second.visible && policy->second.selectable) {
+                        const auto points = region_handles(camera, *view, size);
+                        for (unsigned i = 0; i < points.size(); ++i)
+                            if (points[i]) {
+                                const ImVec2 point{origin.x + points[i]->x,
+                                                   origin.y + points[i]->y};
+                                const auto radius = 4 * interface_scale;
+                                draw->AddRectFilled({point.x - radius, point.y - radius},
+                                                    {point.x + radius, point.y + radius},
+                                                    IM_COL32(255, 203, 94, 255));
+                                draw->AddRect({point.x - radius, point.y - radius},
+                                              {point.x + radius, point.y + radius},
+                                              IM_COL32(32, 40, 48, 255));
+                                FORGE_UI_PROBE("navigation:region-handle:" + std::to_string(i));
+                                if (ImGui::IsMouseHoveringRect(
+                                        {point.x - radius, point.y - radius},
+                                        {point.x + radius, point.y + radius}) &&
+                                    !ImGui::IsAnyMouseDown())
+                                    show_help_at(i / 2 == 0 ? "Width: resize around the center. "
+                                                              "Ctrl snaps local metres."
+                                                            : "Height: resize around the center. "
+                                                              "Ctrl snaps local metres.",
+                                                 ImRect{{point.x - radius, point.y - radius},
+                                                        {point.x + radius, point.y + radius}});
+                            }
+                    }
+                }
+            }
         }
         if (!rig_component.empty() && can_edit) {
             const auto target = rig.active() ? std::optional<RigTargetView>(rig.target())
@@ -462,7 +587,9 @@ struct SceneTools {
             draw->AddText(
                 {origin.x + 10, origin.y + size.y - ImGui::GetTextLineHeight() - 10},
                 IM_COL32(190, 205, 220, 220),
-                rig.active() ? "Rig target | release to apply | Esc cancels | snap in model space"
+                region.active()
+                    ? "Region resize | release to apply | Esc cancels | snap in local metres"
+                : rig.active() ? "Rig target | release to apply | Esc cancels | snap in model space"
                 : move.active()
                     ? "Moving | release to apply | Esc cancels"
                     : (can_edit

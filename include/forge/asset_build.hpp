@@ -1,5 +1,6 @@
 #pragma once
 #include <forge/asset_ref.hpp>
+#include <forge/content_digest.hpp>
 #include <forge/project_paths.hpp>
 #include <functional>
 #include <map>
@@ -75,5 +76,4 @@ struct AssetBuildInput {
 
 // Canonical, bounded JSON identity. Rejects non-finite values rather than hashing null.
 std::string asset_build_digest(const nlohmann::json& value);
-bool valid_content_digest(std::string_view digest);
 } // namespace forge

@@ -1,7 +1,7 @@
 #include "builtins.hpp"
 #include <algorithm>
 #include <cmath>
-#include <forge/asset_build.hpp>
+#include <forge/content_digest.hpp>
 #include <forge/engine_assets.hpp>
 #include <forge/particle_effect.hpp>
 #include <forge/render_scene.hpp>

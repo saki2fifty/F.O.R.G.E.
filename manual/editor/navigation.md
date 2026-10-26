@@ -67,6 +67,35 @@ an explicit rebuild and keeps that asset's identity. 3D Surface markers and 2D
 Region markers are selected independently. Save the Scene and choose it as startup
 before normal export; its built NavMesh is included in the game.
 
+## Select and resize 2D regions in Scene
+
+Enable **Scene → View → Navigation overlay** to show the region outlines. Click
+an outline to select its region, or select it in Hierarchy. The selected outline
+remains visible when the overlay is off. Hidden regions follow their hierarchy
+visibility; locked regions cannot be picked. A disabled region has a gray outline
+and remains editable.
+
+Hover Scene and press **F** to frame the selected region's full XY footprint.
+When a selected region also has visible art, framing includes both. Outlines show
+the navigation plane at world Z0; visual Z remains separate.
+
+Press **W** over Scene to use Move. Four gold squares appear at the selected
+region's edge midpoints. Drag one to change **Width** or **Height** symmetrically
+around its center. The tooltip identifies the dimension. **Ctrl** rounds that
+local dimension to **View → Snap spacing**; entity scale still changes its world
+size. To move the whole region, use the ordinary transform handles. If an edge
+handle is too small or edge-on, zoom in or face the XY plane; Inspector dimensions
+remain available.
+
+Release to keep the resize as one Undo step. **Escape** or right-click cancels.
+Changing selection, losing editing access or resizing the viewport also cancels
+a drag. Handles are unavailable during Play and for hidden or locked regions.
+For multiple selections, use Inspector to edit individual region dimensions.
+
+After resizing, save the Scene and explicitly **Build NavMesh** again. Until then,
+the previous baked asset remains selected and the changed geometry is stale.
+Undo can restore matching geometry; it does not undo a later asset build.
+
 ## Build the NavMesh
 
 Open **Content → Create / Register → Navigation**. Select **Plane → 3D (XZ ground)** for the floor example. Its defaults are:

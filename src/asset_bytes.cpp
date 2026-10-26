@@ -1,9 +1,11 @@
 #include "asset_bytes.hpp"
 #include "native_io_path.hpp"
 #include "native_read_file.hpp"
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <cstdint>
+#include <forge/content_digest.hpp>
 #include <fstream>
 #include <stdexcept>
 namespace forge::asset_detail {
@@ -77,3 +79,11 @@ std::string content_digest(std::span<const std::byte> input) {
     return result;
 }
 } // namespace forge::asset_detail
+
+namespace forge {
+bool valid_content_digest(std::string_view digest) {
+    return digest.size() == 64 && std::all_of(digest.begin(), digest.end(), [](char c) {
+               return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f');
+           });
+}
+} // namespace forge
