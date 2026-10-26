@@ -121,6 +121,9 @@ or authored values. For Navigation Agent, supported live fields include Enabled,
 Has Destination, Speed, Stopping Distance and world destination coordinates; its
 NavMesh asset is selected while authoring. Pause before changing several goal
 coordinates and inspect Navigation progress after Step or Resume.
+Runtime reads also include the current failed agent's concrete details. A corrected
+live target clears the previous reason while Pending; inspect its next tick for
+the route result. Position/goal metrics require a valid sampled path.
 
 To keep supported live values, the agent captures the existing review, stops Play,
 selects fields and applies them to the Scene. That creates one Undo step; saving

@@ -183,10 +183,24 @@ Open **50-navigation-progress** in the Feature Gallery. Select **Agent - inspect
 - **Arrived** means it reached its stopping distance along the route.
 - **Paused** means its configured speed is zero. Pausing the game itself freezes the last displayed observation; Step updates it once.
 - **Pending** means the current settings have not run through a navigation tick yet.
-- **Failed** shows the cause, such as a stale navmesh, an outside destination or an unsupported Physics Body.
+- **Failed** shows the status and **Details** from the last navigation tick. For example, it can identify a conflicting physics component, an unavailable NavMesh or changed source geometry. Ancestor conflicts show the authored name and ID; use Hierarchy's search to find that object.
 - **Blocked** means no progress on one tick. Optional local avoidance can still jam in crowded or blocked spaces.
 
-Distance and speed appear only for a valid sampled route. An exported Gallery50 scene uses the included built NavMesh; it does not need an editor, compiler or navigation build worker to run.
+Distance and speed appear only for a valid sampled route. Expand **World coordinates**
+to see the sampled **Position** and **Projected goal** in X, Y, Z order. These are
+read-only navigation-tick values; the running image can interpolate between ticks.
+Pending, disabled and failed states do not show invented route coordinates. Changing a
+live target clears its previous target-failure details until the next navigation tick.
+
+A failed agent can recover after you correct its settings or sources. For stale
+baked geometry, stop Play, restore matching geometry or rebuild navigation, then
+start again. Use Console/Problems for the timestamped log history; Inspector details
+explain the current failed sample. Some unavailable assets are rejected during
+Scene preparation instead; a failed replacement retains the previous active world. If an agent-count limit recurs after being
+resolved, it produces a fresh warning.
+
+An exported Gallery50 scene uses the included built NavMesh; it does not need an
+editor, compiler or navigation build worker to run.
 
 ## Save, reopen and rebuild
 

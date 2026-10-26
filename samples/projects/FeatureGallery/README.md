@@ -953,3 +953,7 @@ Navigation Agent / Speed or destination. Pause before editing several coordinate
 then Step/Resume and inspect progress. The NavMesh stays authored. Stop restores
 source settings; Keep values after Stop stages chosen scalar values for review,
 ordinary Scene Undo and Save. Runtime movement itself is not kept.
+
+Navigation progress shows concrete failed details. Expand World coordinates for
+sampled position/projected goal; a newly retargeted Pending agent does not keep an
+old failure reason. Find named ancestor conflicts through Hierarchy name/ID search.

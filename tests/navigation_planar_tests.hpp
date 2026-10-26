@@ -7,6 +7,7 @@ void planar_runtime_tests(const std::filesystem::path& root, Scene& authored, As
     authored.entity("floor").set<NavigationSurface>({true});
     const auto snapshot = authored.snapshot();
     navigation_live_tests(root, snapshot);
+    navigation_feedback_tests(root, snapshot);
     Fixture run(root);
     run.scene.restore_snapshot(snapshot);
     const auto ref = run.engine.world().reference(run.scene.entity("agent").id()).value();

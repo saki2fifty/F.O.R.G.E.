@@ -29,6 +29,8 @@ through **Content → Create / Register → Navigation → Plane → 2D (XY)**.
 During Play, select an agent and use Live gameplay to change its Speed or destination.
 Pause before setting several goal coordinates. Stop restores authored values unless
 you keep chosen settings through the runtime tuning review.
+Navigation progress shows concrete failed details and a **World coordinates**
+section for valid route samples.
 Save and select the Scene as startup before export. See [Navigation](../editor/navigation.md).
 
 ## 2D physics

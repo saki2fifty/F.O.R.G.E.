@@ -156,6 +156,35 @@ An invalid request leaves any existing worker output intact.
 
 Detour's native loader trusts section counts and offsets. FORGE checks sizes, full consumption, finite bounds, counts, vertex/detail indices, convex clockwise polygons, reciprocal neighbors, detail ranges and boundary edges before initializing Detour. Only little-endian, 32-bit polygon references, one static tile, one walkable flag/area, no BV tree, no off-mesh data and fresh zeroed link storage are supported. Arbitrary Detour/sample binaries are rejected. The admitted bytes are copied into Detour-owned memory; assets shared by agents remain immutable.
 
+## Read-only runtime feedback
+
+Private `navigation_debug` adds `diagnostic`, a copied human-readable reason only
+for the current Failed observation/configuration. It reads the existing per-agent
+error map, or its current global agent-limit entry, without inserting/loading or
+changing history/ticks/recovery. Disabled/Idle/Pending/successful samples return an
+empty diagnostic. A live configuration change cannot expose the previous config's
+reason. The last failed sample remains attributed to its navigation tick until
+another tick processes non-configuration changes.
+
+The copied reason takes at most2048 native input bytes; JSON output-text replacement
+makes truncated/malformed UTF-8 readable without altering the owning log/error buffer.
+Replacement can expand byte count. The same lightweight `json_output_text.hpp`
+helper serves the existing automation text wrapper; structured/source parsers keep
+strict admission. No SDK observation/POD or Scene/checkpoint schema changes.
+Ancestor ownership errors name the authored parent and persistent EntityId, with
+a bounded display copy of the name, instead of exposing a raw Flecs handle.
+
+Inspector shows failure details and a valid-sample-only World coordinates disclosure
+using the existing position/projected_destination fields. Compact progress remains
+available at narrow scales; expanded fields use normal Inspector scrolling. The
+values describe the fixed navigation sample, not interpolated rendering. Blocked
+feedback permits local avoidance congestion without promising collision response.
+
+The existing global limit dedup entry is retired when that episode resolves, so
+another over-limit episode emits a fresh ordinary timestamped diagnostic. No new
+log, diagnostic owner, persistent history or game-authoring operation is introduced.
+MCP reads the same runtime snapshot/diagnostics through existing Play permissions.
+
 ## Live agent tuning
 
 NavigationRuntime::tune owns temporary NavigationAgent and NavigationAvoidance

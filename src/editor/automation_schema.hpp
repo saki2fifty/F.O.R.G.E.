@@ -1,4 +1,5 @@
 #pragma once
+#include "../json_output_text.hpp"
 #include <algorithm>
 #include <forge/live_authoring.hpp>
 namespace forge {
@@ -27,7 +28,7 @@ inline Json automation_digest() { return automation_text(64, 64); }
 // encoding. Clean only the returned text value; never alter the owning buffer,
 // byte offsets, authored data or structured protocol serialization policy.
 inline Json automation_text_value(const std::string& text) {
-    return Json::parse(Json(text).dump(-1, ' ', false, Json::error_handler_t::replace));
+    return detail::json_output_text(text);
 }
 inline std::filesystem::path automation_relative_path(const std::string& text) {
     const auto path = std::filesystem::u8path(text);

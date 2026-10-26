@@ -184,7 +184,14 @@ for legacy in (False, True):
             assert runtime_agent()['world_affine'] == position
             for field, value in [('speed', -1), ('navmesh', None), ('enabled', 'yes'), ('destination_x', 4091)]:
                 tune_agent(field, value, False)
+            tune_agent('destination_x', 100)
+            control('forge_play_step')
+            paused = until(lambda: read('forge_play_status'), lambda r: r['timing']['tick'] == paused['timing']['tick'] + 1 and r['control_ready'])
+            failure = runtime_agent()['navigation_debug']
+            assert failure['phase'] == 'Failed' and failure['diagnostic'] and not failure['sampled'], failure
             tune_agent('destination_x', -8)
+            pending = runtime_agent()['navigation_debug']
+            assert pending['phase'] == 'Pending' and pending['diagnostic'] == '', pending
             tune_agent('speed', 3)
             control('forge_play_tuning_capture', entity=agent)
             wrong = {key: paused[key] for key in ('launch', 'session', 'generation')}

@@ -89,7 +89,8 @@ struct PlayAutomation {
             }));
         methods.push_back(automation_method(
             "play.snapshot",
-            "Page actual effective runtime entities at the reported snapshot "
+            "Page actual effective runtime entities, including current navigation failure "
+            "details and sampled coordinates where available, at the reported snapshot "
             "version. Running snapshots can change between reads; pause first "
             "for a stable inspection. This never reads an authored-world copy.",
             "play.read",

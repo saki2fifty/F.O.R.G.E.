@@ -10,6 +10,22 @@ void check(bool value, const char* why) {
     if (!value)
         throw std::runtime_error(why);
 }
+template <class Frame> test::UiTarget visible_live_item(Frame&& frame, const std::string& key) {
+    auto& io = ImGui::GetIO();
+    for (unsigned attempt = 0;; ++attempt) {
+        frame();
+        const auto box = test::ui_targets.at(key);
+        if (box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y) {
+            check(box.minimum.x >= box.clip_minimum.x && box.maximum.x <= box.clip_maximum.x,
+                  "Live agent field clips horizontally at a supported scale");
+            return box;
+        }
+        check(attempt < 20, "Live agent field could not be reached by Inspector scrolling");
+        io.AddMousePosEvent((box.clip_minimum.x + box.clip_maximum.x) * .5f,
+                            (box.clip_minimum.y + box.clip_maximum.y) * .5f);
+        io.AddMouseWheelEvent(0, box.minimum.y < box.clip_minimum.y ? 2 : -2);
+    }
+}
 void exercise(float scale, ImVec2 size) {
     EngineContext engine;
     Scene scene(engine.world());
@@ -63,13 +79,18 @@ void exercise(float scale, ImVec2 size) {
         const bool sampled =
             std::string_view(phase) == "Moving" || std::string_view(phase) == "Arrived" ||
             std::string_view(phase) == "Paused" || std::string_view(phase) == "Blocked";
-        (*entity)["navigation_debug"] = {{"phase", phase},
-                                         {"tick", 42},
-                                         {"status", "stale navmesh"},
-                                         {"sampled", sampled},
-                                         {"has_path", sampled},
-                                         {"remaining_distance", 1234.567},
-                                         {"velocity", Double3{1, 2, 3}}};
+        (*entity)["navigation_debug"] = {
+            {"phase", phase},
+            {"tick", 42},
+            {"status", "stale navmesh"},
+            {"sampled", sampled},
+            {"has_path", sampled},
+            {"remaining_distance", 1234.567},
+            {"velocity", Double3{1, 2, 3}},
+            {"position", Double3{1000, -2000, 37.125}},
+            {"projected_destination", Double3{-8, .1, 37.125}},
+            {"diagnostic", "NavigationAgent requires an entity without a physics body or enabled "
+                           "character controller"}};
         check(ComponentInspector::has_runtime_inspection(effective, schema, actor),
               "Editor visibility gate hid navigation-only progress");
         frame();
@@ -80,15 +101,40 @@ void exercise(float scale, ImVec2 size) {
         check(test::ui_targets.contains("navigation_agent:remaining") == sampled &&
                   test::ui_targets.contains("navigation_agent:speed") == sampled,
               "Unprocessed/failed agent exposed invented metrics");
+        check(test::ui_targets.contains("navigation_agent:coordinates") == sampled,
+              "World coordinate disclosure does not follow valid sample/path state");
         check(test::ui_targets.contains("navigation_agent:failure") ==
                   (std::string_view(phase) == "Failed"),
               "Failure reason visibility wrong");
+        check(test::ui_targets.contains("navigation_agent:diagnostic") ==
+                  (std::string_view(phase) == "Failed"),
+              "Concrete navigation reason leaked into another progress phase");
+        if (sampled) {
+            const auto click_coordinates = [&] {
+                const auto box = visible_live_item(frame, "navigation_agent:coordinates");
+                io.AddMousePosEvent(box.minimum.x + 10, (box.minimum.y + box.maximum.y) * .5f);
+                frame();
+                io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+                frame();
+                io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+                frame();
+            };
+            check(!test::ui_targets.contains("navigation_agent:position"),
+                  "Coordinates crowded progress before expanding their disclosure");
+            click_coordinates();
+            check(test::ui_targets.contains("navigation_agent:position") &&
+                      test::ui_targets.contains("navigation_agent:goal"),
+                  "Actual coordinate disclosure omitted position/projected goal");
+            (void)visible_live_item(frame, "navigation_agent:position");
+            (void)visible_live_item(frame, "navigation_agent:goal");
+            click_coordinates();
+        }
+        std::vector<std::string> progress;
         for (const auto& [name, box] : test::ui_targets)
             if (name.starts_with("navigation_agent:"))
-                check(box.minimum.x >= box.clip_minimum.x && box.maximum.x <= box.clip_maximum.x &&
-                          box.minimum.y >= box.clip_minimum.y &&
-                          box.maximum.y <= box.clip_maximum.y,
-                      "Navigation state clipped at supported Inspector size/scale");
+                progress.push_back(name);
+        for (const auto& name : progress)
+            (void)visible_live_item(frame, name);
     }
     check(submissions == 0 && scene.document() == saved,
           "Readonly progress submitted/mutated authored values");
@@ -97,22 +143,9 @@ void exercise(float scale, ImVec2 size) {
 template <class Frame>
 void edit_live_number(Frame&& frame, const std::string& key, const char* text) {
     auto& io = ImGui::GetIO();
-    ImGuiID field_id = 0;
-    for (unsigned attempt = 0;; ++attempt) {
-        frame();
-        const auto box = test::ui_targets.at(key);
-        if (box.minimum.y >= box.clip_minimum.y && box.maximum.y <= box.clip_maximum.y) {
-            check(box.minimum.x >= box.clip_minimum.x && box.maximum.x <= box.clip_maximum.x,
-                  "Live agent field clips horizontally at a supported scale");
-            io.AddMousePosEvent(box.minimum.x + 30, (box.minimum.y + box.maximum.y) * .5f);
-            field_id = box.id;
-            break;
-        }
-        check(attempt < 20, "Live agent field could not be reached by Inspector scrolling");
-        io.AddMousePosEvent((box.clip_minimum.x + box.clip_maximum.x) * .5f,
-                            (box.clip_minimum.y + box.clip_maximum.y) * .5f);
-        io.AddMouseWheelEvent(0, box.minimum.y < box.clip_minimum.y ? 2 : -2);
-    }
+    const auto box = visible_live_item(frame, key);
+    const auto field_id = box.id;
+    io.AddMousePosEvent(box.minimum.x + 30, (box.minimum.y + box.maximum.y) * .5f);
     frame();
     io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
     frame();

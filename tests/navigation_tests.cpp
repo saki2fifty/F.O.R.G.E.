@@ -64,6 +64,7 @@ struct Fixture {
         return scene.entity("agent").get<WorldTransform>().affine.point({0, 0, 0});
     }
 };
+#include "navigation_feedback_tests.hpp"
 #include "navigation_live_tests.hpp"
 #include "navigation_planar_tests.hpp"
 int main(int argc, char** argv) {
@@ -231,6 +232,7 @@ int main(int argc, char** argv) {
             return 0;
         }
         navigation_live_tests(root, snapshot);
+        navigation_feedback_tests(root, snapshot, true);
         {
             const auto destination = root.parent_path() / (AssetId::generate().str() + "-game");
             const std::array roots{record.id};
@@ -421,6 +423,10 @@ int main(int argc, char** argv) {
                   observe().status == NavStatus::Invalid && !observe().has_path &&
                   !observe().sampled,
               "Physics conflict did not keep copied navigation failure");
+        check(f.navigation->debug(f.scene.entity("agent").id())
+                      .value("diagnostic", std::string{})
+                      .find("physics body") != std::string::npos,
+              "Navigation runtime snapshot omitted the concrete movement-ownership failure");
         f.scene.entity("agent").remove<PhysicsBody>();
         f.scene.entity("agent").set<PhysicsBody2D>({});
         stop = f.position();

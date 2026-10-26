@@ -1,4 +1,5 @@
 #include "builtins.hpp"
+#include "json_output_text.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_sources.hpp"
 #include "runtime_property_tune.hpp"
@@ -193,11 +194,20 @@ struct NavigationRuntime::Impl {
                 (ancestor.has<CharacterController>() &&
                  ancestor.get<CharacterController>().enabled) ||
                 (ancestor.has<CharacterController2D>() &&
-                 ancestor.get<CharacterController2D>().enabled))
-                throw NavigationFailure(NavStatus::Invalid,
-                                        "NavigationAgent cannot follow a moving physics or "
-                                        "character-controller ancestor: " +
-                                            std::to_string(current));
+                 ancestor.get<CharacterController2D>().enabled)) {
+                const auto name = ancestor.has<AuthoredName>()
+                                      ? detail::json_output_text(
+                                            ancestor.get<AuthoredName>().value.substr(0, 256))
+                                            .get<std::string>()
+                                      : std::string("Unnamed");
+                const auto reference = context.reference(current);
+                throw NavigationFailure(
+                    NavStatus::Invalid,
+                    "NavigationAgent cannot follow a moving physics or "
+                    "character-controller ancestor: " +
+                        name +
+                        (reference ? " [" + reference->entity.str() + "]" : " (runtime ancestor)"));
+            }
             current = nodes.at(current).parent;
         }
     }
@@ -385,6 +395,8 @@ void NavigationRuntime::tick(float dt, std::uint64_t tick) {
         s.agent_limit = true;
         return;
     }
+    if (s.agent_limit)
+        s.errors.erase(0); // Retire the episode so a later limit can emit a fresh warning.
     s.agent_limit = false;
     auto depth = [&](std::uint64_t id) {
         unsigned n = 0;
@@ -642,7 +654,14 @@ Json NavigationRuntime::debug(flecs::entity_t entity) const {
     Json path = Json::array();
     if (out->has_path)
         path = impl_->agents.at(entity).path;
+    Json diagnostic = "";
+    if (out->phase == NavigationAgentPhase::Failed) {
+        const auto error = impl_->errors.find(impl_->agent_limit ? 0 : entity);
+        if (error != impl_->errors.end())
+            diagnostic = detail::json_output_text(error->second.substr(0, 2048));
+    }
     return {{"path", path},
+            {"diagnostic", std::move(diagnostic)},
             {"status", nav_status_name(out->status)},
             {"phase", navigation_agent_phase_name(out->phase)},
             {"tick", out->tick},

@@ -327,6 +327,13 @@ schema. `input_submit` accepts up to64 validated events from `controls`, using t
 existing input queue and physical release policy; reset releases controls.
 `time_scale` uses the existing finite [0,4] clock policy.
 
+Navigation runtime entity rows include `navigation_debug.diagnostic` for the
+current failed sample. It is bounded display text from the navigation owner,
+not a structured command or persisted source value. Empty means no current failed
+reason. Honor phase/sampled/has_path before interpreting position,
+projected_destination and velocity; a live edit can return Pending before its
+next fixed tick. Read-only snapshots never create another navigation/error owner.
+
 Navigation Agent tuning uses `forge_play_tune` with component
 `forge.navigation_agent` and property enabled, has_destination, speed,
 stopping_distance or destination_x/y/z. Pause to submit several coordinate values

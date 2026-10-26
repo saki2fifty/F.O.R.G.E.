@@ -2,6 +2,17 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Navigation runtime feedback
+
+- Navigation progress includes concrete current failure details and expandable
+  valid-only world position/projected goal. Pending/disabled/idle/success states
+  do not inherit old failure text; ancestor errors identify authored names/IDs.
+- Native display text shares existing JSON replacement behavior with automation;
+  source/structured admission remains strict. Resolved agent-limit episodes retire
+  their dedup marker so recurring limits emit a fresh timestamped warning.
+- Existing runtime/MCP snapshot owners expose the feedback without a new SDK POD,
+  component, source/asset/checkpoint format or error database.
+
 ## Live navigation-agent controls
 
 - Navigation Agent flags, speed, stopping distance and destination coordinates are

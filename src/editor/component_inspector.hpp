@@ -54,6 +54,10 @@ class ComponentInspector {
         if (phase == "Failed") {
             ImGui::TextWrapped("Reason: %s", status.value("status", std::string()).c_str());
             FORGE_UI_PROBE("navigation_agent:failure");
+            if (const auto message = status.value("diagnostic", std::string{}); !message.empty()) {
+                ImGui::TextWrapped("Details: %s", message.c_str());
+                FORGE_UI_PROBE("navigation_agent:diagnostic");
+            }
         }
         if (status.value("sampled", false) && status.value("has_path", false)) {
             ImGui::TextWrapped("Route remaining: %.3f m", status.value("remaining_distance", 0.));
@@ -62,12 +66,25 @@ class ComponentInspector {
             ImGui::TextWrapped("Measured speed: %.3f m/s",
                                std::hypot(velocity[0], velocity[1], velocity[2]));
             FORGE_UI_PROBE("navigation_agent:speed");
+            const bool coordinates = ImGui::TreeNode("World coordinates");
+            FORGE_UI_PROBE("navigation_agent:coordinates");
+            if (coordinates) {
+                const auto position = status.at("position").get<Double3>();
+                const auto goal = status.at("projected_destination").get<Double3>();
+                ImGui::TextWrapped("Position: %.3f, %.3f, %.3f", position[0], position[1],
+                                   position[2]);
+                FORGE_UI_PROBE("navigation_agent:position");
+                ImGui::TextWrapped("Projected goal: %.3f, %.3f, %.3f", goal[0], goal[1], goal[2]);
+                FORGE_UI_PROBE("navigation_agent:goal");
+                ImGui::TreePop();
+            }
         }
         ImGui::TextWrapped("Navigation tick: %llu",
                            static_cast<unsigned long long>(status.value("tick", uint64_t{})));
         FORGE_UI_PROBE("navigation_agent:tick");
         if (phase == "Blocked")
-            ui::help("The agent made no progress on this tick. This is not crowd avoidance.");
+            ui::help("No progress on the last tick. Check route clearance and nearby avoidance "
+                     "participants; local steering can become congested.");
     }
     void draw_character_state(const Json& status) {
         ui::heading("Character movement", "Read-only movement and support from the runtime.");
