@@ -55,14 +55,18 @@ checks while a Dynamic body owns motion.
 Positions use meters and angular values use radians. Commands share the existing
 body FIFO; reads do not flush it. The exact header/table fingerprint changes, so
 rebuild project modules with the matching installed SDK. Native ABI1 remains.
-The separate `character_2d`, `move_character_2d` and `place_character_2d` Client
+The separate `character_2d`, `move_character_2d`, `place_character_2d` and
+`crouch_character_2d` Client
 helpers control Character Controller 2D through the shared character FIFO. They
-copy feet XY, full XY velocity, support and blocked-placement state; C++ supplies
+copy feet XY, locomotion velocity, support, stance and independent placement/shape
+blockage; C++ supplies
 gravity and jump policy. `Examples/Character2D` is the editable controller project.
 Its player does not have an authored Physics Body 2D or Capsule Collider 2D.
 See [2D physics](physics-2d.md#matching-c-sdk) for sizes, limits, units, retirement
-and process/recovery scope. Editor guides, Gallery and export acceptance remain
-part of the unfinished 2D milestone.
+and process/recovery scope. Authored crouch height uses existing Inspector/MCP
+properties; runtime stance requests use Physics permission and the fixed callback
+boundary.0 selects automatic half-height. Stop restarts standing; save/export
+preserves authored settings. Native Windows acceptance is a separate gate.
 
 ## Managed source and registration
 

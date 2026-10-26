@@ -192,7 +192,8 @@ void controller_schema(EngineContext& engine) {
           std::pair{"floor_probe", offsetof(CharacterController2D, floor_probe)},
           std::pair{"layer", offsetof(CharacterController2D, layer)},
           std::pair{"mask", offsetof(CharacterController2D, mask)},
-          std::pair{"platform_carry", offsetof(CharacterController2D, platform_carry)}}) {
+          std::pair{"platform_carry", offsetof(CharacterController2D, platform_carry)},
+          std::pair{"crouch_height", offsetof(CharacterController2D, crouch_height)}}) {
         const auto* member = ecs_struct_get_member(world.c_ptr(), native.id(), name);
         require(member && std::size_t(member->offset) == offset,
                 "2D controller native member offset mismatch");
@@ -214,6 +215,12 @@ void controller_schema(EngineContext& engine) {
                 }
         }
     require(mode_found, "2D controller mode choices missing");
+    for (double legacy_height : {.01, .1, .6}) {
+        const auto legacy = detail::canonical_builtin_value(type, {{"height", legacy_height}});
+        require(legacy.at("crouch_height") == 0,
+                "Old short controllers did not retain automatic crouch height");
+        detail::validate_components({{type.name, legacy}});
+    }
     for (const auto& [field, value] : {std::pair<std::string, Json>{"mode", 2},
                                        {"mode", .5},
                                        {"enabled", 1},
@@ -222,6 +229,8 @@ void controller_schema(EngineContext& engine) {
                                        {"radius", 500},
                                        {"max_slope", 85.1},
                                        {"platform_carry", 1},
+                                       {"crouch_height", -.001},
+                                       {"crouch_height", .601},
                                        {"floor_probe", -1},
                                        {"floor_probe", 1.01},
                                        {"layer", 32},

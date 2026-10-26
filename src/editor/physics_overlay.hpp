@@ -279,6 +279,7 @@ class PhysicsOverlay {
                                                       "In air"};
             note +=
                 " | " + std::string(grounds[std::min(3u, character->at("ground").get<unsigned>())]);
+            note += character->value("crouched", false) ? " | Crouched" : " | Standing";
             const auto vector = [&](const char* field, bool point = false) -> Double3 {
                 if (show_character_2d) {
                     const auto value = character->at(field).get<Double2>();

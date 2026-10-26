@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <forge/character_components.hpp>
+#include <forge/render_components.hpp>
 #include <forge/sdk_client.hpp>
 #include <stdexcept>
 
@@ -23,6 +24,7 @@ ForgeSdkCharacter2DV1 state(const forge::sdk::Client& client, const ForgeSdkEnti
 void forge_register_system_CharacterMovement2DSystem(const ForgeSdkWorldV1* host) {
     flecs::world world(host->world);
     world.component<forge::CharacterController2D>("forge.character_controller_2d");
+    world.component<forge::SpriteRenderer>("forge.sprite_renderer");
     world
         .system<CharacterMovement2D, const forge::CharacterController2D>(
             "gameplay.CharacterMovement2DSystem")
@@ -40,10 +42,13 @@ void forge_register_system_CharacterMovement2DSystem(const ForgeSdkWorldV1* host
             const forge::sdk::Client client(host);
             const auto ref = reference(host, it.entity(row));
             const auto observed = state(client, ref);
-            ForgeSdkActionV1 move{}, jump{};
+            ForgeSdkActionV1 move{}, jump{}, crouch{};
             if (!client.action("706ac33e-a66d-447b-bd53-cd3cff90dab4", move) ||
-                !client.action("89892d64-e827-4b6c-a71f-2ae1551cc9bb", jump))
+                !client.action("89892d64-e827-4b6c-a71f-2ae1551cc9bb", jump) ||
+                !client.action("afa3a3f9-2db0-420e-91b5-c8e141d20483", crouch))
                 throw std::runtime_error("Character Movement 2D cannot read project input");
+            if (!client.crouch_character_2d(ref.scene_uuid, ref.entity_uuid, crouch.held != 0))
+                throw std::runtime_error("Character Movement 2D stance request was rejected");
             data.grounded = observed.ground == 0;
             // The engine clips this full velocity. Game C++ chooses gravity and
             // accepts a new jump only on the input edge while on walkable ground.
@@ -62,8 +67,23 @@ void forge_register_system_CharacterMovement2DSystem(const ForgeSdkWorldV1* host
             "gameplay.CharacterGround2DSystem")
         .kind(host->post_physics_phase)
         .each([host](flecs::entity entity, CharacterMovement2D& data,
-                     const forge::CharacterController2D&) {
-            data.grounded = state(forge::sdk::Client(host), reference(host, entity)).ground == 0;
+                     const forge::CharacterController2D& controller) {
+            const auto observed = state(forge::sdk::Client(host), reference(host, entity));
+            data.grounded = observed.ground == 0;
+            // This example keeps its local, unscaled sprite aligned with the
+            // observed physical stance. Visual presentation remains game policy.
+            if (entity.has<forge::SpriteRenderer>()) {
+                auto& sprite = entity.get_mut<forge::SpriteRenderer>();
+                const auto crouch_height = controller.crouch_height == 0
+                                               ? std::max(.01f, controller.height * .5f)
+                                               : controller.crouch_height;
+                const auto height =
+                    2 * controller.radius + (observed.crouched ? crouch_height : controller.height);
+                if (sprite.height != height) {
+                    sprite.height = height;
+                    entity.modified<forge::SpriteRenderer>();
+                }
+            }
         })
         .add(host->fixed_tag);
 }

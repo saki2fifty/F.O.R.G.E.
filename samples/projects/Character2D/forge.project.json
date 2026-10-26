@@ -48,6 +48,17 @@
             "control": "pad.south"
           }
         ]
+      },
+      {
+        "id": "afa3a3f9-2db0-420e-91b5-c8e141d20483",
+        "name": "Crouch",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "key.c",
+            "x": 1
+          }
+        ]
       }
     ]
   },

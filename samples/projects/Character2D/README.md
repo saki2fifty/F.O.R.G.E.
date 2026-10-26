@@ -9,6 +9,7 @@ The project shares FORGE's original visual and painted-map assets with Movement2
 1. Build Project Code with the matching FORGE SDK, then press Play.
 2. Capture Game input. Use **A/D** or **Left/Right** to walk and **Space** to jump.
    A gamepad's left stick and south button also work. Holding Jump does not repeat.
+   Hold **C** to crouch; release to stand when clearance permits.
 3. Select the player. **Live gameplay → Character movement** reports ground state
    and velocity. **Character Movement 2D** exposes speed, jump speed, gravity and
    terminal speed. Live changes are temporary; Stop restores authored values.
@@ -48,6 +49,20 @@ not report floor support. Platform following defaults off on new controllers.
 Ordinary Kinematic/Dynamic walkable support can carry; sensors, steep surfaces,
 other controllers and moving one-way platforms cannot. The capsule stays upright.
 Jumping adds no automatic platform momentum. Crush reports a movement error; leave
-enough clearance along the path. Stair stepping, crouching and
+enough clearance along the path. Stair stepping and
 navigation are outside the controller's current profile. It is separate from the
 Dynamic-body [Movement2D example](../Movement2D/README.md).
+
+## Crouch and stand
+
+Walk to the right painted ledge and hold C beneath the pink **Low ceiling - hold C
+to crouch**. Release C there: the player stays crouched and Live gameplay reports
+blocked standing. Walk clear to stand again. The example changes its unit-scale
+sprite height from observed posture; the engine keeps physics and visuals separate.
+
+Stop and select the Player to edit **Character Controller 2D → Crouch height**.
+0 automatically halves the effective straight height, with a 0.01 m minimum. Positive
+values cannot exceed standing **Height**. Feet and radius stay fixed. Save before
+Play/export. Runtime posture is temporary; Stop starts standing again. Project input
+owns the C binding; C++ sends checked stance requests through the existing character
+FIFO and reads blocked status after Physics. No native handles or second body exist.

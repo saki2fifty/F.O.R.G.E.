@@ -246,6 +246,7 @@ try:
             controller_2d = row['components'].get('forge.character_controller_2d')
             if controller_2d is not None:
                 controller_2d.setdefault('platform_carry', False)
+                controller_2d.setdefault('crouch_height', 0.)
             joint = row['components'].get('forge.physics_joint')
             if joint is not None:
                 joint.setdefault('min_travel', -1.)

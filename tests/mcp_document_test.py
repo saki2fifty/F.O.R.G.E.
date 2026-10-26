@@ -80,6 +80,8 @@ for legacy in (False, True):
                                  if c['id'] == 'forge.character_controller_2d')
         carry = next(f for f in controller_schema['fields'] if f['id'] == 'platform_carry')
         assert carry['display_name'] == 'Follow moving platforms' and carry['default'] is False, carry
+        crouch = next(f for f in controller_schema['fields'] if f['id'] == 'crouch_height')
+        assert crouch['unit'] == 'm' and crouch['default'] == 0, crouch
         workflows = state['result']['workflow_methods']
         assert {item['method'] for item in workflows} == {
             'project.read', 'document.save', 'document.save_as', 'document.new', 'document.open'}
@@ -132,6 +134,15 @@ for legacy in (False, True):
         assert mutate('forge_history_undo')['result']['changed']
         assert mutate('forge_history_redo')['result']['changed']
         assert status()['dirty']
+        assert mutate('forge_property_set', arguments=dict(entity=rider,
+            component='forge.character_controller_2d', field='crouch_height', value=.2))['ok']
+        for invalid_height in (-.01, .7):
+            before_invalid = discover()
+            invalid = mutate('forge_property_set', arguments=dict(entity=rider,
+                component='forge.character_controller_2d', field='crouch_height', value=invalid_height))
+            assert not invalid['ok'] and discover()['revision'] == before_invalid['revision'], invalid
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
         saved = mutate('forge_document_save')
         assert saved['ok'] and not saved['result']['rediscover'], saved
         saved_path = project / 'Scenes/main.scene.json'
@@ -141,6 +152,7 @@ for legacy in (False, True):
         body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
         assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body
         assert saved_doc['entities'][1]['components']['forge.character_controller_2d']['platform_carry']
+        assert abs(saved_doc['entities'][1]['components']['forge.character_controller_2d']['crouch_height'] - .2) < 1e-6
         assert discover()['result']['target'] == original
 
         # Disk conflict/deletion is not silently overwritten, even for a clean draft.

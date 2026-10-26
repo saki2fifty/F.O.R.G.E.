@@ -77,6 +77,42 @@ def verify(runtime, project):
         assert top > 2.7 and player(state)[component]['grounded'], player(state)
         assert abs(player(state)['forge.local_translation']['y'] - 2.6) < .03, player(state)
 
+    def advance_ticks(worker, sdk_play, ticks, events=()):
+        if sdk_play:
+            worker.request('resume')
+            state = worker.request('snapshot', input_events=list(events))
+            target = state['timing']['tick'] + ticks
+            deadline = time.monotonic() + 15
+            while state['timing']['tick'] < target:
+                assert time.monotonic() < deadline, state
+                time.sleep(.005)
+                state = worker.request('snapshot')
+            return worker.request('pause')
+        state = worker.request('step', input_events=list(events))
+        for _ in range(ticks - 1):
+            state = worker.request('step')
+        return state
+
+    def crouch_tunnel(worker, sdk_play):
+        source = json.loads(saved)
+        actor = next(row for row in source['entities'] if component in row['components'])
+        actor['components']['forge.local_translation'].update(x=1.5, y=2)
+        actor['components'][component]['speed'] = 2
+        activate(worker, source, sdk_play)
+        state = advance_ticks(worker, sdk_play, 45,
+            [dict(control='key.c', value=1), dict(control='key.d', value=1)])
+        position = player(state)['forge.local_translation']
+        assert 2.95 < position['x'] < 3.2 and abs(position['y'] - 2) < .02, player(state)
+        assert abs(player(state)['forge.sprite_renderer']['height'] - .9) < .001, player(state)
+        release = [dict(control='key.c', value=0), dict(control='key.d', value=0)]
+        state = worker.request('step', input_events=release)
+        assert abs(player(state)['forge.sprite_renderer']['height'] - .9) < .001, player(state)
+        assert player(state)[component]['grounded'], player(state)
+        state = advance_ticks(worker, sdk_play, 25, [dict(control='key.d', value=1)])
+        state = worker.request('step', input_events=release)
+        assert player(state)['forge.local_translation']['x'] > 3.8, player(state)
+        assert abs(player(state)['forge.sprite_renderer']['height'] - 1.2) < .001, player(state)
+
     def platform_ride(worker, sdk_play):
         source = json.loads(saved)
         actor = next(row for row in source['entities'] if component in row['components'])
@@ -87,18 +123,7 @@ def verify(runtime, project):
         # same authored C++ system, without synthesizing controller intent.
         platform['components']['project.moving_platform_2d']['end_y'] = 4.5
         activate(worker, source, sdk_play)
-        if sdk_play:
-            start = worker.request('resume')
-            deadline = time.monotonic() + 15
-            state = start
-            while state['timing']['tick'] < start['timing']['tick'] + 90:
-                assert time.monotonic() < deadline, state
-                time.sleep(.005)
-                state = worker.request('snapshot')
-            state = worker.request('pause')
-        else:
-            for _ in range(90):
-                state = worker.request('step')
+        state = advance_ticks(worker, sdk_play, 90, [dict(control='key.c', value=1)])
         position = player(state)['forge.local_translation']
         platform_position = next(row['components']['forge.local_translation']
                                  for row in state['scene']['entities']
@@ -107,6 +132,7 @@ def verify(runtime, project):
         assert abs(position['x'] - platform_position['x']) < .02, (position, platform_position)
         assert abs(position['y'] - platform_position['y'] - .1) < .02, (position, platform_position)
         assert player(state)[component]['grounded'], player(state)
+        assert abs(player(state)['forge.sprite_renderer']['height'] - .9) < .001, player(state)
 
     observations = []
     for sdk_play in (False, True):
@@ -169,6 +195,8 @@ def verify(runtime, project):
                         observations[-1]['one_way_landing'] = True
                         platform_ride(worker, True)
                         observations[-1]['platform_ride'] = True
+                        crouch_tunnel(worker, True)
+                        observations[-1]['crouch_tunnel'] = True
                     continue
                 for tick in range(18):
                     event = dict(input_events=[dict(control='key.d', value=1)]) if tick == 0 else {}
@@ -229,6 +257,8 @@ def verify(runtime, project):
                     observations[-1]['one_way_landing'] = True
                     platform_ride(worker, sdk_play)
                     observations[-1]['platform_ride'] = True
+                    crouch_tunnel(worker, sdk_play)
+                    observations[-1]['crouch_tunnel'] = True
             finally:
                 worker.close()
     assert scene_path.read_bytes() == saved, 'Play changed the saved Scene'

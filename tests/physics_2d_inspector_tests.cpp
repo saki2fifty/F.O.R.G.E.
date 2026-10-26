@@ -1,6 +1,8 @@
+#include "component_inspector.hpp"
 #include "property_drawer.hpp"
 #include <forge/authoring.hpp>
 #include <forge/physics.hpp>
+#include <fstream>
 #include <imgui_internal.h>
 #include <iostream>
 
@@ -165,6 +167,28 @@ void exercise(const std::filesystem::path& project, float scale) {
                 !scene.entity(entity).get<CharacterController2D>().platform_carry && scene.redo() &&
                 scene.entity(entity).get<CharacterController2D>().platform_carry,
             "Moving platform checkbox did not preserve typed Inspector history");
+    const auto captured = project / ("stance-inspector-" + std::to_string(scale) + ".log");
+    std::filesystem::remove(captured);
+    ImGui::NewFrame();
+    ImGui::Begin("Copied character Inspector");
+    ImGui::LogToFile(0, captured.string().c_str());
+    ComponentInspector inspector;
+    inspector.draw_character_state({{"domain", "2d"},
+                                    {"ground", 3},
+                                    {"velocity", {0, 0}},
+                                    {"crouched", true},
+                                    {"shape_blocked", true},
+                                    {"stance_blocked", true},
+                                    {"placement_blocked", false}});
+    ImGui::LogFinish();
+    ImGui::End();
+    ImGui::Render();
+    std::ifstream reading(captured);
+    const std::string text{std::istreambuf_iterator<char>(reading), {}};
+    require(text.find("Crouched") != std::string::npos &&
+                text.find("Standing blocked by solid geometry.") != std::string::npos &&
+                text.find("Placement blocked") == std::string::npos,
+            "Actual Inspector confused a blocked stand with a blocked placement");
     require(!engine.services().available(Capability::Physics), "Inspector created a solver");
     ImGui::DestroyContext();
 }

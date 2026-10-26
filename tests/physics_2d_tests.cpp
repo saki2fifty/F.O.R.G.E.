@@ -271,6 +271,9 @@ void controller_service_motion_and_placement() {
     auto wall = row(EntityId::generate().str(), "Wall", 2.5, 2, 0);
     wall["components"]["forge.box_collider_2d"] = {{"x", 1}, {"y", 6}};
     source["entities"].push_back(wall);
+    auto low_ceiling = row(EntityId::generate().str(), "Crouch clearance", -4, 1, 0);
+    low_ceiling["components"]["forge.box_collider_2d"] = {{"x", 2}, {"y", .2}};
+    source["entities"].push_back(low_ceiling);
     auto spatial = row(EntityId::generate().str(), "Independent falling 3D body", 30, 30, 0);
     spatial["components"].erase("forge.physics_body_2d");
     spatial["components"].erase("forge.box_collider_2d");
@@ -290,6 +293,14 @@ void controller_service_motion_and_placement() {
                 initial.supporting_epoch == test.physics->body_state_2d(floor)->epoch &&
                 initial.epoch != 0 && initial.ground_normal[1] > .9999,
             "Copied controller service lost initial canonical support state");
+    service.crouch_character_2d(ref, true);
+    require(!service.character_2d(ref).crouched, "Queued crouch applied during a state read");
+    test.physics->synchronize(0);
+    require(service.character_2d(ref).crouched &&
+                service.character_2d(ref).position == initial.position,
+            "Service crouch failed or changed feet");
+    service.crouch_character_2d(ref, false);
+    test.physics->synchronize(0);
     service.move_character_2d(ref, {3, -1});
     require(service.character_2d(ref).position == initial.position,
             "Queued velocity moved a controller immediately");
@@ -334,6 +345,28 @@ void controller_service_motion_and_placement() {
                  {"velocity", state.velocity},
                  {"blocked", state.placement_blocked}}
                 .dump());
+    service.place_character_2d(ref, {-4, 0}, true);
+    test.physics->synchronize(0);
+    require(service.character_2d(ref).placement_blocked,
+            "Standing placement under a low ceiling was accepted");
+    service.crouch_character_2d(ref, true);
+    service.place_character_2d(ref, {-4, 0}, true);
+    service.crouch_character_2d(ref, false);
+    test.physics->synchronize(0);
+    state = service.character_2d(ref);
+    require(state.crouched && state.shape_change_blocked && !state.placement_blocked &&
+                state.position == Double2{-4, 0} && state.velocity == Double2{},
+            "Crouch/place/stand FIFO did not use the current effective capsule");
+    service.place_character_2d(ref, {-2, 2}, true);
+    service.crouch_character_2d(ref, false);
+    service.move_character_2d(ref, {-3, 0});
+    test.tick();
+    state = service.character_2d(ref);
+    require(!state.crouched && !state.shape_change_blocked && !state.placement_blocked &&
+                state.velocity == Double2{-3, 0},
+            "Clear placement/standing/movement FIFO lost stance or persistent intent");
+    rejects([&] { service.crouch_character_2d(floor, true); });
+    rejects([&] { service.crouch_character(ref, true); });
     rejects([&] { service.move_character(ref, {}); });
     rejects([&] { (void)service.character(ref); });
     rejects([&] { (void)service.character_2d(floor); });

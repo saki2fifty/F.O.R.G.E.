@@ -146,6 +146,9 @@ void validate_geometry(const Body2DConfiguration& config) {
         if (!std::isfinite(profile.floor_probe) || profile.floor_probe < 0 ||
             profile.floor_probe > 1)
             throw std::runtime_error("2D mover floor probe must be0..1m");
+        if (!std::isfinite(profile.crouch_height) || profile.crouch_height < 0 ||
+            profile.crouch_height > config.dimensions[1])
+            throw std::runtime_error("2D mover crouch height must be0 or no greater than standing");
         (void)dimension(config.dimensions[0], .02f, 500);
         (void)dimension(config.dimensions[1], .01f, 1000);
         if (double(config.dimensions[1]) + 2 * double(config.dimensions[0]) > 1000)
@@ -177,19 +180,31 @@ b2ShapeProxy configured_proxy(const Body2DConfiguration& config, std::size_t par
     const b2Vec2 points[]{shape.capsule.center1, shape.capsule.center2};
     return b2MakeProxy(points, 2, shape.capsule.radius);
 }
+Body2DConfiguration effective_mover_configuration(const Body2DConfiguration& standing,
+                                                  bool crouched) {
+    auto result = standing;
+    if (crouched && standing.mover_profile) {
+        const auto height = standing.mover_profile->crouch_height;
+        result.dimensions[1] = std::max(.01f, height == 0 ? standing.dimensions[1] * .5f : height);
+    }
+    return result;
+}
 // Detached admission uses candidate geometry, including newly created/edited
 // obstacles. It cannot query the old world and accidentally certify stale content.
 void validate_mover_candidates(const Desired2D& desired, const std::vector<std::uint64_t>& changed,
                                const std::map<std::uint64_t, std::uint64_t>& carried_targets,
-                               std::size_t& work) {
+                               const std::set<std::uint64_t>& crouched, std::size_t& work) {
     if (changed.empty())
         return;
     for (const auto& [id, mover] : desired) {
         if (!mover.config.mover_profile)
             continue;
-        const auto proxy = configured_proxy(mover.config);
+        const auto proxy =
+            configured_proxy(effective_mover_configuration(mover.config, crouched.contains(id)));
         const auto test = [&](std::uint64_t other_id) {
             const auto& other = desired.at(other_id);
+            const auto other_config =
+                effective_mover_configuration(other.config, crouched.contains(other_id));
             const auto &a = mover.config.body, &b = other.config.body;
             if (id == other_id || b.sensor)
                 return;
@@ -207,11 +222,11 @@ void validate_mover_candidates(const Desired2D& desired, const std::vector<std::
             const auto rotation = native_rotation(other.pose.rotation);
             const b2Vec2 relative{float(mover.pose.translation.x - other.pose.translation.x),
                                   float(mover.pose.translation.y - other.pose.translation.y)};
-            for (std::size_t part = 0; part < shape_count(other.config); ++part) {
+            for (std::size_t part = 0; part < shape_count(other_config); ++part) {
                 if (++work > query_work_limit)
                     throw std::runtime_error("2D controller candidate work capacity16384 exceeded");
                 const b2DistanceInput input{
-                    configured_proxy(other.config, part),
+                    configured_proxy(other_config, part),
                     proxy,
                     {b2InvRotateVector(rotation, relative), b2InvMulRot(rotation, b2Rot_identity)},
                     false};
@@ -327,6 +342,9 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D& val
     if (value.mode > 1 || !std::isfinite(value.max_slope) || value.max_slope < 0 ||
         value.max_slope > 85)
         throw std::runtime_error("2D controller mode or walkable slope is outside its profile");
+    if (!std::isfinite(value.crouch_height) || value.crouch_height < 0 ||
+        value.crouch_height > value.height)
+        throw std::runtime_error("2D controller crouch height must be0 or no greater than height");
     validate_mover_pose({{}, {}, scale});
     PhysicsBody2D inner;
     inner.motion = 1;
@@ -335,7 +353,8 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D& val
     auto config = inline_configuration_2d(inner, 2, {value.radius, value.height}, scale);
     config.mover_profile = MoverProfile2D{
         value.mode == 1 ? -1.f : float(std::cos(value.max_slope * std::numbers::pi / 180)),
-        value.floor_probe, value.platform_carry};
+        value.floor_probe, value.platform_carry,
+        value.crouch_height == 0 ? 0 : dimension(value.crouch_height * scale.y, .01f, 1000)};
     validate_geometry(config);
     return config;
 }
@@ -411,7 +430,7 @@ LocalTransform controller_debug_pose_2d(const AffineTransform& affine, const Loc
     return pose;
 }
 PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, std::size_t limit,
-                                      const TileMapData* tile_map) {
+                                      const TileMapData* tile_map, bool crouched) {
     if (!limit || limit > 65536)
         throw std::runtime_error("2D preview line budget must be1..65536");
     const auto decoded = [&]<class T>(const char* key) -> T {
@@ -467,6 +486,7 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
         config = controller_configuration_2d(
             decoded.template operator()<CharacterController2D>("forge.character_controller_2d"),
             scale);
+        config = effective_mover_configuration(config, crouched);
     } else if (components.contains("forge.box_collider_2d")) {
         const auto value = decoded.template operator()<BoxCollider2D>("forge.box_collider_2d");
         raw = {value.x, value.y};
@@ -711,6 +731,7 @@ struct Native2D::Impl {
         std::optional<MoverSupport2D> mover_support;
         bool mover_support_valid = false;
         bool mover_placement_blocked = false;
+        bool mover_crouched = false, mover_shape_blocked = false;
         b2ShapeProxy response_proxy{}; // Derived admitted primitive, never another geometry owner.
         std::optional<SideSample> last_start{}, preceding_start{};
         // Borrowed only across one rigid step; never checkpointed or retained
@@ -862,7 +883,8 @@ struct Native2D::Impl {
         return found->second;
     }
     static PhysicsSweep2D mover_request(const Body& body, Double2 feet) {
-        const auto shape = controller_shape_2d(body.admitted.config, feet);
+        const auto shape = controller_shape_2d(
+            effective_mover_configuration(body.admitted.config, body.mover_crouched), feet);
         PhysicsSweep2D request;
         request.shape = shape.shape;
         request.dimensions = shape.dimensions;
@@ -1565,7 +1587,7 @@ struct Native2D::Impl {
             throw std::runtime_error("Native 2D world allocation failed");
         bind_callbacks();
     }
-    Body create(const Body2DDesired& admitted, const LocalTransform& pose) {
+    Body create(const Body2DDesired& admitted, const LocalTransform& pose, bool crouched = false) {
         if (next_epoch >= (std::uint64_t{1} << 60))
             throw std::runtime_error("Private 2D simulation epoch capacity exceeded");
         static constexpr char alphabet[] =
@@ -1574,7 +1596,7 @@ struct Native2D::Impl {
         const auto epoch = next_epoch++;
         for (unsigned i = 0; i < 10; ++i)
             name[9 - i] = alphabet[(epoch >> (i * 6)) & 63];
-        const auto& config = admitted.config;
+        const auto config = effective_mover_configuration(admitted.config, crouched);
         const auto& value = config.body;
         std::vector<b2ShapeId> shapes;
         shapes.reserve(shape_count(config));
@@ -1626,6 +1648,7 @@ struct Native2D::Impl {
         if (value.motion == 2 && value.mass > 0)
             b2Body_SetMassData(id, shape.mass);
         Body record{id, std::move(shapes), admitted, epoch};
+        record.mover_crouched = crouched;
         if (config.shape != 3)
             record.response_proxy = configured_proxy(config);
         return record;
@@ -1639,7 +1662,8 @@ Json Body2DConfiguration::json() const {
     if (mover_profile)
         result["mover_profile"] = {{"minimum_floor_y", mover_profile->minimum_floor_y},
                                    {"floor_probe", mover_profile->floor_probe},
-                                   {"platform_carry", mover_profile->platform_carry}};
+                                   {"platform_carry", mover_profile->platform_carry},
+                                   {"crouch_height", mover_profile->crouch_height}};
     if (shape == 3) {
         validate_geometry(*this);
         result["parts"] = Json::array();
@@ -1834,7 +1858,9 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
              {"epoch", body.epoch},
              {"configuration", body.admitted.config.json()},
              {"target", recovery_pose(body.admitted.pose)},
-             {"native", recovery_native_state(body.id, body.shapes, body.admitted.config)}});
+             {"native", recovery_native_state(body.id, body.shapes,
+                                              effective_mover_configuration(
+                                                  body.admitted.config, body.mover_crouched))}});
         mapping.back()["side_start"] = nullptr;
         if (body.last_start)
             mapping.back()["side_start"] = {
@@ -1843,7 +1869,9 @@ Native2DImage Native2D::checkpoint(const Desired2D& desired, std::size_t remaini
         if (body.admitted.config.mover_profile)
             mapping.back()["mover"] = {{"intent", body.mover_intent},
                                        {"velocity", body.mover_velocity},
-                                       {"placement_blocked", body.mover_placement_blocked}};
+                                       {"placement_blocked", body.mover_placement_blocked},
+                                       {"crouched", body.mover_crouched},
+                                       {"shape_change_blocked", body.mover_shape_blocked}};
     }
     if (joints.size() != self.joints.size())
         throw std::runtime_error("2D joint checkpoint requires synchronized content");
@@ -1887,7 +1915,6 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
     self.check();
     if (realized() || !self.bodies.empty() || !self.joints.empty())
         throw std::runtime_error("2D restoration requires a fresh unpublished owner");
-    validate(desired, 0, {}, {}, joints);
     if (metadata.is_null()) {
         if (!bytes.empty() || !desired.empty() || !joints.empty())
             throw std::runtime_error("Missing 2D recovery image");
@@ -1912,18 +1939,28 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
             throw std::runtime_error("Duplicate canonical 2D identity");
     std::map<std::uint64_t, std::pair<std::uint64_t, const Json*>> epochs;
     std::set<std::uint64_t> seen;
+    auto admission = desired;
     for (const auto& entry : mapping) {
         const auto ref = entry.at("entity").get<EntityRef>();
         if (!entry.at("epoch").is_number_unsigned() || !entities.contains(ref))
             throw std::runtime_error("Invalid 2D recovery identity/epoch");
         const auto id = entities.at(ref), epoch = entry.at("epoch").get<std::uint64_t>();
         const auto& body = desired.at(id);
+        // Crouched clearance cannot certify an invalid authored standing shape.
+        validate_geometry(body.config);
         if (!epoch || epoch >= candidate->next_epoch || !seen.insert(id).second ||
             !epochs.emplace(epoch, std::pair{id, &entry}).second ||
             entry.at("configuration") != body.config.json() ||
             !recovery_pose_matches(entry.at("target"), body.pose))
             throw std::runtime_error("2D recovery configuration/target/binding mismatch");
+        if (body.config.mover_profile) {
+            const bool crouched = entry.at("mover").at("crouched").get<bool>();
+            admission.at(id).config = effective_mover_configuration(body.config, crouched);
+        }
     }
+    // Validate restored clearance against the checkpointed stance, while the
+    // authored standing configuration above remains the identity/config guard.
+    validate(admission, 0, {}, {}, joints);
     candidate->world = b2CreateWorldFromSnapshot(
         reinterpret_cast<const std::uint8_t*>(bytes.data()), int(bytes.size()), 1);
     if (!b2World_IsValid(candidate->world))
@@ -1960,6 +1997,9 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
             throw std::runtime_error("Unknown/duplicate native 2D recovery binding");
         const auto [id, entry] = found->second;
         const auto& body = desired.at(id);
+        const bool crouched =
+            body.config.mover_profile && entry->at("mover").at("crouched").get<bool>();
+        const auto effective = effective_mover_configuration(body.config, crouched);
         std::vector<b2ShapeId> owned_shapes(shape_count(body.config));
         if (b2Body_GetShapeCount(native) != int(owned_shapes.size()) ||
             b2Body_GetShapes(native, owned_shapes.data(), int(owned_shapes.size())) !=
@@ -1967,7 +2007,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
             b2Body_GetUserData(native) ||
             std::any_of(owned_shapes.begin(), owned_shapes.end(),
                         [](auto part) { return b2Shape_GetUserData(part) != nullptr; }) ||
-            entry->at("native") != recovery_native_state(native, owned_shapes, body.config))
+            entry->at("native") != recovery_native_state(native, owned_shapes, effective))
             throw std::runtime_error("2D recovery native binding/state mismatch");
         if (body.config.body.motion == 2 || body.config.mover_profile) {
             const auto position = b2Body_GetPosition(native);
@@ -1981,7 +2021,7 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
             candidate->bodies.emplace(id, Impl::Body{native, std::move(owned_shapes), body, epoch})
                 .first->second;
         if (body.config.shape != 3)
-            record.response_proxy = configured_proxy(body.config);
+            record.response_proxy = configured_proxy(effective);
         const auto& side = entry->at("side_start");
         if (!side.is_null()) {
             const auto position = side.at("position").get<Double2>();
@@ -1993,6 +2033,8 @@ void Native2D::restore(const Json& metadata, const std::string& bytes, const Des
                 Impl::SideSample{{position[0], position[1]}, {rotation[0], rotation[1]}};
         }
         if (body.config.mover_profile) {
+            record.mover_crouched = crouched;
+            record.mover_shape_blocked = entry->at("mover").at("shape_change_blocked").get<bool>();
             record.mover_intent = entry->at("mover").at("intent").get<Double2>();
             record.mover_velocity = entry->at("mover").at("velocity").get<Double2>();
             record.mover_placement_blocked = entry->at("mover").at("placement_blocked").get<bool>();
@@ -2094,12 +2136,16 @@ void Native2D::validate(const Desired2D& desired, float dt,
                    value.second.config.mover_profile->platform_carry;
         });
     std::vector<std::uint64_t> changed;
+    std::set<std::uint64_t> crouched_movers;
     std::map<EntityRef, std::uint64_t> moving_targets;
     for (const auto& [id, value] : desired) {
         const auto old = self.bodies.find(id);
         const bool configuration_changed = old == self.bodies.end() ||
                                            old->second.admitted.ref != value.ref ||
                                            old->second.admitted.config != value.config;
+        if (old != self.bodies.end() && old->second.admitted.ref == value.ref &&
+            value.config.mover_profile && old->second.mover_crouched)
+            crouched_movers.insert(id);
         if (configuration_changed)
             validate_geometry(value.config);
         if (has_carry && dt > 0 && !configuration_changed && value.config.body.motion == 1 &&
@@ -2114,8 +2160,9 @@ void Native2D::validate(const Desired2D& desired, float dt,
             changed.push_back(id);
         if (value.config.mover_profile) {
             validate_mover_pose(value.pose);
-            (void)controller_shape_2d(value.config,
-                                      {value.pose.translation.x, value.pose.translation.y});
+            (void)controller_shape_2d(
+                effective_mover_configuration(value.config, crouched_movers.contains(id)),
+                {value.pose.translation.x, value.pose.translation.y});
         }
         const bool prior_kinematic = old != self.bodies.end() &&
                                      old->second.admitted.ref == value.ref &&
@@ -2169,7 +2216,7 @@ void Native2D::validate(const Desired2D& desired, float dt,
                     carried_targets.emplace(id, target->second);
             }
         }
-    validate_mover_candidates(desired, changed, carried_targets, candidate_work);
+    validate_mover_candidates(desired, changed, carried_targets, crouched_movers, candidate_work);
 }
 void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, float,
                            const std::set<std::uint64_t>& commanded,
@@ -2199,7 +2246,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                 b2Vec2 linear{};
                 Double2 mover_intent{}, mover_velocity{};
                 float angular = 0;
-                bool preserve = false, awake = true;
+                bool preserve = false, awake = true, crouched = false;
                 auto pose = commanded.contains(id) ? initial.at(id).pose : value.pose;
                 if (old != self.bodies.end()) {
                     preserve =
@@ -2209,6 +2256,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                             bool(value.config.mover_profile) &&
                         value.config.body.motion != 0;
                     if (preserve) {
+                        crouched = old->second.mover_crouched;
                         mover_intent = old->second.mover_intent;
                         mover_velocity = old->second.mover_velocity;
                         linear = b2Body_GetLinearVelocity(old->second.id);
@@ -2223,7 +2271,7 @@ void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, f
                     self.retire(old->second);
                     self.bodies.erase(old);
                 }
-                auto body = self.create(value, pose);
+                auto body = self.create(value, pose, crouched);
                 if (preserve) {
                     body.mover_intent = mover_intent;
                     body.mover_velocity = mover_velocity;
@@ -2594,6 +2642,49 @@ void Native2D::move_mover(std::uint64_t entity, EntityRef ref, Double2 velocity)
     body.mover_intent = velocity;
     body.mover_support_valid = false;
 }
+bool Native2D::crouch_mover(std::uint64_t entity, EntityRef ref, bool crouched, std::size_t& work) {
+    auto& self = *impl_;
+    self.check();
+    auto& body = self.mover(entity, ref);
+    body.mover_shape_blocked = false;
+    if (body.mover_crouched == crouched)
+        return true;
+    const auto candidate = effective_mover_configuration(body.admitted.config, crouched);
+    const auto position = b2Body_GetPosition(body.id);
+    const auto shape = controller_shape_2d(candidate, {position.x, position.y});
+    try {
+        // Conservative geometric clearance, as for checked placement. A stance
+        // change cannot create overlap through the passable side of a one-way.
+        const auto depth = self.penetration_mover(shape, {candidate.body.mask, false}, ref, work,
+                                                  std::uint64_t{1} << candidate.body.layer);
+        if (depth > mover_slop + mover_tolerance) {
+            body.mover_shape_blocked = true;
+            return false;
+        }
+        // The public shape setter destroys existing solid contacts but retains
+        // the shape/binding identity. Reserve those Ends before native mutation.
+        const int contacts = b2Body_GetContactCapacity(body.id);
+        if (contacts < 0 || self.pending_end_bound > event_limit - 2 * pair_limit ||
+            std::size_t(contacts) > event_limit - 2 * pair_limit - self.pending_end_bound)
+            throw std::runtime_error("2D stance change exceeds pending event capacity");
+        const auto capsule = geometry(candidate).capsule;
+        self.pending_end_bound += std::size_t(contacts);
+        b2Shape_SetCapsule(body.shapes.front(), &capsule);
+        const auto actual = b2Shape_GetCapsule(body.shapes.front());
+        if (!same_vector(actual.center1, capsule.center1) ||
+            !same_vector(actual.center2, capsule.center2) || actual.radius != capsule.radius)
+            throw std::runtime_error("Native2D rejected the admitted stance geometry");
+        body.mover_crouched = crouched;
+        body.response_proxy = configured_proxy(candidate);
+        body.last_start.reset();
+        body.preceding_start.reset();
+        body.mover_support_valid = false;
+        return true;
+    } catch (...) {
+        self.fault = true;
+        throw;
+    }
+}
 bool Native2D::place_mover(std::uint64_t entity, EntityRef ref, Double2 feet, bool clear_velocity,
                            std::size_t& work) {
     auto& self = *impl_;
@@ -2641,9 +2732,14 @@ std::optional<MoverState2D> Native2D::mover_state(std::uint64_t entity, EntityRe
         body.mover_support_valid
             ? body.mover_support
             : self.support_mover(body, {position.x, position.y}, body.mover_intent, work);
-    return MoverState2D{
-        {position.x, position.y},    body.mover_intent, body.mover_velocity, body.epoch, support,
-        body.mover_placement_blocked};
+    return MoverState2D{{position.x, position.y},
+                        body.mover_intent,
+                        body.mover_velocity,
+                        body.epoch,
+                        support,
+                        body.mover_placement_blocked,
+                        body.mover_crouched,
+                        body.mover_shape_blocked};
 }
 bool Native2D::current(std::uint64_t entity, EntityRef ref, std::uint64_t epoch) const {
     impl_->check();

@@ -150,7 +150,7 @@ Space does not repeat after landing. A gamepad's left stick and south button wor
 Select the Player. **Character Movement 2D** exposes speed, jump speed, gravity and
 terminal speed. Change authored values while stopped and save, or try temporary
 changes in **Live gameplay**. The live **Character movement** section reports
-ground state, velocity and blocked placement. Stop restores authored values.
+ground state, velocity, posture and blocked placement/standing. Stop restores authored values.
 
 Enable **Scene → View → Selected collision** to see the feet-origin capsule and,
 during Play, its support normal and velocity. The player can stand on the painted
@@ -165,8 +165,8 @@ need independent rotation. Do not add an enabled Physics Body or another control
 to the same object.
 
 Grounded mode reports floor support and can follow a nearby descending surface.
-Floating mode accepts XY movement without floor support. Automatic stairs,
-crouching and 2D navigation are unavailable.
+Floating mode accepts XY movement without floor support. Automatic stairs and
+2D navigation are unavailable.
 See the example's **README.md** for the editable source and export experiment.
 
 ### Ride a moving platform
@@ -188,6 +188,22 @@ Walls can stop the carried character. If an elevator traps it against a ceiling
 or another solid, Play reports an embedded/crushed movement error. Stop and leave
 enough clearance or change the path. The engine does not stop the platform for
 the character. Moving one-way platforms are unavailable.
+
+### Crouch under a ceiling
+
+1. Open **Examples/Character2D**, build Project Code and press Play. Capture Game input.
+2. Cross the stepping stone to the right painted ledge. Hold **C** while walking beneath the pink **Low ceiling - hold C to crouch**.
+3. Release C beneath the ceiling. The player stays crouched and **Live gameplay → Character movement** reports **Standing blocked by solid geometry.** Walk clear to stand again.
+4. Stop and select the Player. **Character Controller 2D → Crouch height** sets straight capsule height while crouched. `0` automatically uses half the standing straight height, with a `0.01` metre minimum. A positive value cannot exceed **Height**. Radius and feet position stay fixed.
+5. Save the Scene after changing authored settings. Play starts standing; the example's sprite follows the observed posture. **Selected collision** shows the actual crouched capsule during Play. Export with the matching runtime/module kit to use the same C-key behavior.
+
+Your C++ code requests crouch/stand through `sdk::Client::crouch_character_2d`.
+Place the starting player where its standing capsule fits; crouch is requested
+during Play.
+The return value says the request was queued. Read copied character state after
+Physics for the result; blocked standing preserves position, motion and posture.
+The example retries standing each tick while C is released. The engine does not
+create an input binding or resize visual models automatically.
 
 ## Export
 

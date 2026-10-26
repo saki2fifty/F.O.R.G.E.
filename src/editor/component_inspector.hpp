@@ -83,10 +83,21 @@ class ComponentInspector {
             ImGui::Text("Velocity: X %.3f, Y %.3f, Z %.3f m/s", velocity.at(0).get<double>(),
                         velocity.at(1).get<double>(), velocity.at(2).get<double>());
         FORGE_UI_PROBE("character:velocity");
-        if (status.value("shape_blocked", false)) {
-            ImGui::TextWrapped("%s", status.value("domain", std::string{}) == "2d"
-                                         ? "Placement blocked by solid geometry."
-                                         : "Placement or shape change blocked by solid geometry.");
+        ImGui::TextUnformatted(status.value("crouched", false) ? "Crouched" : "Standing");
+        FORGE_UI_PROBE("character:stance");
+        if (status.value("domain", std::string{}) == "2d" && status.contains("stance_blocked")) {
+            if (status.value("placement_blocked", false)) {
+                ImGui::TextWrapped("Placement blocked by solid geometry.");
+                FORGE_UI_PROBE("character:blocked");
+            }
+            if (status.value("stance_blocked", false)) {
+                ImGui::TextWrapped("%s", status.value("crouched", false)
+                                             ? "Standing blocked by solid geometry."
+                                             : "Crouching blocked by solid geometry.");
+                FORGE_UI_PROBE("character:stance_blocked");
+            }
+        } else if (status.value("shape_blocked", false)) {
+            ImGui::TextWrapped("Placement or shape change blocked by solid geometry.");
             FORGE_UI_PROBE("character:blocked");
         }
     }

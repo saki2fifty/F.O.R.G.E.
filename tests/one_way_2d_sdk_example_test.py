@@ -57,6 +57,7 @@ def main():
             if name == 'Character2D':
                 assert all(r['one_way_landing'] for r in observations)
                 assert all(r['platform_ride'] for r in observations)
+                assert all(r['crouch_tunnel'] for r in observations)
     print('Relocated installed SDK/public one-way defaults/compiled Movement2D and Character2D/both hosts passed')
 
 

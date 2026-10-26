@@ -454,7 +454,7 @@ PhysicsDebugGeometry prepare_physics_debug(const Json& components, LocalScale sc
     if (!limit || limit > 65536)
         throw std::runtime_error("Physics preview triangle budget must be1..65536");
     if (physics_debug_uses_planar(components))
-        return physics_detail::prepare_debug_2d(components, scale, limit, tile_map);
+        return physics_detail::prepare_debug_2d(components, scale, limit, tile_map, crouched);
     const auto registration_lease = physics_detail::registration();
     auto decoded = [&]<class T>(const char* key) -> T {
         const auto& value = components.at(key);
@@ -768,6 +768,8 @@ struct PhysicsRuntime::Impl {
                 if (command.kind == 0)
                     native_2d->move_mover(id, command.ref,
                                           {command.velocity[0], command.velocity[1]});
+                else if (command.kind == 2)
+                    native_2d->crouch_mover(id, command.ref, command.flag, placement_work);
                 else if (command.kind == 3) {
                     if (native_2d->place_mover(id, command.ref,
                                                {command.position.x, command.position.y},
@@ -825,7 +827,7 @@ struct PhysicsRuntime::Impl {
             const auto entity = context.world().entity(found.entity);
             if (!entity.has<CharacterController2D>() ||
                 !entity.get<CharacterController2D>().enabled ||
-                (command.kind != 0 && command.kind != 3))
+                (command.kind != 0 && command.kind != 2 && command.kind != 3))
                 throw std::runtime_error(
                     "Missing/disabled2D character command target or unsupported request");
             // Every target/domain is revalidated together before native writes.
@@ -2400,6 +2402,8 @@ CharacterState2D PhysicsRuntime::character_2d(EntityRef ref) const {
     result.velocity = value->velocity;
     result.epoch = value->epoch;
     result.placement_blocked = value->placement_blocked;
+    result.crouched = value->crouched;
+    result.shape_change_blocked = value->shape_change_blocked;
     if (value->support) {
         result.supporting_entity = value->support->entity;
         result.supporting_epoch = value->support->epoch;
@@ -2431,6 +2435,14 @@ void PhysicsRuntime::place_character_2d(EntityRef ref, Double2 feet, bool clear)
     command.flag = clear;
     impl_->queue_character(command);
 }
+void PhysicsRuntime::crouch_character_2d(EntityRef ref, bool crouched) {
+    Impl::CharacterCommand command;
+    command.ref = ref;
+    command.planar = true;
+    command.kind = 2;
+    command.flag = crouched;
+    impl_->queue_character(command);
+}
 Json PhysicsRuntime::character_debug(EntityRef ref) const {
     impl_->check();
     const auto found = impl_->context.resolve(ref);
@@ -2449,7 +2461,10 @@ Json PhysicsRuntime::character_debug(EntityRef ref) const {
                   {"ground_velocity", value.ground_velocity},
                   {"epoch", value.epoch},
                   {"supporting_epoch", value.supporting_epoch},
-                  {"shape_blocked", value.placement_blocked}};
+                  {"crouched", value.crouched},
+                  {"placement_blocked", value.placement_blocked},
+                  {"stance_blocked", value.shape_change_blocked},
+                  {"shape_blocked", value.placement_blocked || value.shape_change_blocked}};
         if (value.supporting_entity)
             result["support"] = *value.supporting_entity;
     } else {
@@ -2546,7 +2561,7 @@ Json PhysicsRuntime::checkpoint() const {
         mapping.push_back({{"entity", b.ref},
                            {"body", b.id.GetIndexAndSequenceNumber()},
                            {"configuration", b.config.json()}});
-    Json out = {{"version", 8},
+    Json out = {{"version", 9},
                 {"build", build_id},
                 {"source", source_commit},
                 {"runtime", FORGE_NATIVE_SDK_FINGERPRINT},
@@ -2626,7 +2641,7 @@ void PhysicsRuntime::restore(const Json& payload) {
     auto checked = payload;
     auto checksum = checked.at("integrity").get<std::string>();
     checked.erase("integrity");
-    if (digest(checked.dump()) != checksum || checked.at("version") != 8 ||
+    if (digest(checked.dump()) != checksum || checked.at("version") != 9 ||
         checked.at("build") != build_id || checked.at("source") != source_commit ||
         checked.at("runtime") != FORGE_NATIVE_SDK_FINGERPRINT ||
         checked.at("jolt") != "e77f175595e64cb44218cc9d9d56fc365ad0e36a-double-sse2-rtti" ||
@@ -2740,7 +2755,7 @@ void PhysicsRuntime::restore(const Json& payload) {
         if (c.kind > 3 || resolved.state != WorldContext::ResolveState::Available ||
             (c.planar ? !desired_2d.contains(resolved.entity) ||
                             !desired_2d.at(resolved.entity).config.mover_profile ||
-                            (c.kind != 0 && c.kind != 3)
+                            (c.kind != 0 && c.kind != 2 && c.kind != 3)
                       : !desired_chars.contains(resolved.entity)) ||
             !std::isfinite(c.speed) || c.speed < 0 || c.speed > 1000000)
             throw std::runtime_error("Invalid character recovery command");
@@ -2751,6 +2766,8 @@ void PhysicsRuntime::restore(const Json& payload) {
             (c.velocity[2] != 0 || c.position.z != 0 || !equivalent(c.rotation, LocalRotation{}) ||
              std::hypot(c.velocity[0], c.velocity[1]) > 1000000))
             throw std::runtime_error("Invalid2D character recovery request");
+        if (c.planar && c.kind == 2 && (c.velocity != Double3{} || c.speed != 0 || p != Double3{}))
+            throw std::runtime_error("Invalid2D stance recovery payload");
         if (c.planar && c.kind == 3)
             (void)physics_detail::controller_shape_2d(desired_2d.at(resolved.entity).config,
                                                       {c.position.x, c.position.y});

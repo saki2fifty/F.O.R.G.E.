@@ -46,24 +46,42 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 before.size = sizeof(before);
                 before.epoch = 42;
                 before.position[0] = 42;
+                before.crouched = before.shape_change_blocked = 42;
                 require(!host->character_state_2d(host->context, scene, id, &before) &&
-                            !before.epoch && before.position[0] == 0 &&
+                            !before.epoch && before.position[0] == 0 && !before.crouched &&
+                            !before.shape_change_blocked &&
                             !host->character_command_2d(host->context, scene, id, 0, zero, 0) &&
-                            !client.place_character_2d(scene, id, zero, true),
+                            !client.place_character_2d(scene, id, zero, true) &&
+                            !client.crouch_character_2d(scene, id, true),
                         "Character2D SDK bypassed Physics permission");
                 require(host->diagnostic(host->context, 1, "Character2D SDK denied") == 1,
                         "Character2D denied diagnostic unavailable");
 #else
                 require(client.character_2d(scene, id, before) && before.epoch,
                         "Character2D SDK state unavailable before Physics");
+                require(before.crouched == (*frame >= 2 && *frame <= 21) &&
+                            !before.shape_change_blocked &&
+                            client.crouch_character_2d(scene, id, *frame <= 20),
+                        "Character2D SDK stance queue or copied state is inconsistent");
                 if (*frame == 1) {
                     const double invalid[]{std::numeric_limits<double>::infinity(), 0};
                     const double huge[]{1000001, 0};
+                    const double bad_stances[][2]{{.5, 0},
+                                                  {2, 0},
+                                                  {1, 1},
+                                                  {std::numeric_limits<double>::infinity(), 0},
+                                                  {std::numeric_limits<double>::quiet_NaN(), 0}};
+                    for (const auto& stance : bad_stances)
+                        require(!host->character_command_2d(host->context, scene, id, 2, stance, 0),
+                                "Character2D SDK accepted an invalid stance payload");
+                    require(!host->character_command_2d(host->context, scene, id, 2, zero, 1) &&
+                                !host->character_command_2d(host->context, scene, id, 3, zero, 0),
+                            "Character2D SDK accepted unsupported stance flags/operation");
                     for (const auto* value : {invalid, huge, static_cast<const double*>(nullptr)})
                         require(!client.move_character_2d(scene, id, value) &&
                                     !client.place_character_2d(scene, id, value, false),
                                 "Character2D SDK accepted invalid vector");
-                    require(!host->character_command_2d(host->context, scene, id, 2, zero, 0) &&
+                    require(!host->character_command_2d(host->context, scene, id, 3, zero, 0) &&
                                 !host->character_command_2d(host->context, scene, id, 0, zero, 1) &&
                                 !host->character_command_2d(host->context, scene, id, 1, zero, 2),
                             "Character2D SDK accepted invalid operation/flag");
@@ -87,7 +105,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                         state.size = sizeof(state);
                         state.epoch = 42;
                         rejected = !host->character_state_2d(host->context, scene, id, &state) &&
-                                   !state.epoch && !client.move_character_2d(scene, id, zero);
+                                   !state.epoch && !client.move_character_2d(scene, id, zero) &&
+                                   !client.crouch_character_2d(scene, id, true);
                     });
                     foreign.join();
                     require(rejected, "Character2D SDK accepted foreign-thread access");
@@ -119,7 +138,8 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 }
                 require(client.character_2d(scene, id, after) &&
                             before.position[0] == after.position[0] &&
-                            before.position[1] == after.position[1] && before.epoch == after.epoch,
+                            before.position[1] == after.position[1] &&
+                            before.epoch == after.epoch && before.crouched == after.crouched,
                         "Character2D SDK read flushed pending commands");
 #endif
             })

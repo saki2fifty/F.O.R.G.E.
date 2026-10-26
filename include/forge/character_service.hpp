@@ -19,6 +19,7 @@ struct CharacterState2D {
     std::uint64_t epoch = 0, supporting_epoch = 0;
     CharacterGround ground = CharacterGround::InAir;
     bool placement_blocked = false;
+    bool crouched = false, shape_change_blocked = false;
 };
 class CharacterService {
   public:
@@ -32,9 +33,12 @@ class CharacterService {
     virtual void place_character(EntityRef, LocalTranslation, LocalRotation,
                                  bool clear_velocity) = 0;
     virtual CharacterState2D character_2d(EntityRef) const = 0;
-    // Full world XY velocity in m/s; game C++ supplies gravity and jumping.
-    // Copied state velocity is clipped intent, excluding recovery/floor follow.
+    // Full world-axis XY locomotion velocity; game C++ supplies gravity/jumping.
+    // Copied velocity excludes recovery, floor follow and support transport.
     virtual void move_character_2d(EntityRef, Double2 velocity) = 0;
+    // Checked feet-preserving stance at the shared fixed command boundary.
+    // Blocked changes preserve geometry/motion and report shape_change_blocked.
+    virtual void crouch_character_2d(EntityRef, bool crouched) = 0;
     // Checked feet placement, preserving Z. The next fixed boundary reports a
     // blocked destination in CharacterState2D without changing the current pose.
     virtual void place_character_2d(EntityRef, Double2 feet, bool clear_velocity) = 0;

@@ -76,6 +76,7 @@ class PhysicsRuntime : public PhysicsService {
     void place_character(EntityRef, LocalTranslation, LocalRotation, bool) override;
     CharacterState2D character_2d(EntityRef) const override;
     void move_character_2d(EntityRef, Double2) override;
+    void crouch_character_2d(EntityRef, bool) override;
     void place_character_2d(EntityRef, Double2, bool) override;
     Json checkpoint() const;
     // Fresh, unpublished world only. Scene/config reconstruction must precede this call.

@@ -53,6 +53,7 @@ void exercise(const std::filesystem::path& project, float scale) {
     EditorCamera camera;
     camera.target = {0, 0, 7};
     camera.distance = 8;
+    Json runtime;
     auto draw = [&](const Json& snapshot, const std::string& selected) {
         ImGui::NewFrame();
         ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
@@ -61,7 +62,7 @@ void exercise(const std::filesystem::path& project, float scale) {
         const auto vertices = ImGui::GetWindowDrawList()->VtxBuffer.Size;
         const auto commands = ImGui::GetWindowDrawList()->CmdBuffer.Size;
         const auto active = ImGui::GetCurrentContext()->ActiveId;
-        overlay.draw(snapshot, selected, camera, {20, 40}, {760, 520}, project, catalog, {},
+        overlay.draw(snapshot, selected, camera, {20, 40}, {760, 520}, project, catalog, runtime,
                      read_map);
         require(active == ImGui::GetCurrentContext()->ActiveId, "Planar guide claimed UI input");
         const auto added = ImGui::GetWindowDrawList()->VtxBuffer.Size - vertices;
@@ -162,6 +163,27 @@ void exercise(const std::filesystem::path& project, float scale) {
             "Valid empty published layer retained old collision or failed readiness");
     require(scene.document() == authored && !engine.services().available(Capability::Physics),
             "Published Map outline changed authoring source or created a solver");
+    auto character_scene = snapshot;
+    auto& character_components = character_scene["entities"][0]["components"];
+    character_components.erase("forge.physics_body_2d");
+    character_components.erase("forge.circle_collider_2d");
+    character_components["forge.character_controller_2d"] = Json::object();
+    runtime = {{"character_debug",
+                {{"entity", id},
+                 {"domain", "2d"},
+                 {"ground", 3},
+                 {"crouched", true},
+                 {"shape_blocked", true},
+                 {"stance_blocked", true},
+                 {"placement_blocked", false},
+                 {"velocity", {0, 0}}}}};
+    require(await(character_scene, true) > 0 &&
+                overlay.status().find("Crouched") != std::string::npos,
+            "Runtime crouch did not select the current capsule guide/status");
+    runtime["character_debug"]["crouched"] = false;
+    require(await(character_scene, true) > 0 &&
+                overlay.status().find("Standing") != std::string::npos,
+            "Stance-only change retained the previous async guide");
     ImGui::DestroyContext();
 }
 } // namespace

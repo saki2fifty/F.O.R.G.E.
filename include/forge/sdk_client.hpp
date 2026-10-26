@@ -120,6 +120,11 @@ class Client {
         return callable(Capability::Physics) && host_->character_command_2d &&
                host_->character_command_2d(host_->context, scene, entity, 0, velocity, 0) == 1;
     }
+    bool crouch_character_2d(const char* scene, const char* entity, bool crouched) const {
+        const double value[]{crouched ? 1. : 0., 0.};
+        return callable(Capability::Physics) && host_->character_command_2d &&
+               host_->character_command_2d(host_->context, scene, entity, 2, value, 0) == 1;
+    }
     bool place_character_2d(const char* scene, const char* entity, const double feet[2],
                             bool clear_velocity) const {
         return callable(Capability::Physics) && host_->character_command_2d &&

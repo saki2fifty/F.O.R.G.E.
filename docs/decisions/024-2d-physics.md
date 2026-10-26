@@ -214,3 +214,22 @@ process hosts. Its complete Linux/Windows matrix, native editor/source acceptanc
 and same-runner benchmark, reviewed images and shared source-free/fresh-runner
 exports pass. Physical acceptance and numbered delivery remain separate. See the
 [2D integration contract](../physics-2d.md).
+
+## Checked 2D stance extension
+
+Extend existing CharacterService/FIFO with planar kind2 and reuse C command2D
+operation2. Existing native body records own stance/blocked flags; standing
+configuration remains authoritative. Crouch height0 selects bounded automatic
+half-height and avoids invalidating older short characters. Checked geometry
+updates use the same Kinematic shape/body binding and preserve feet/motion/epoch.
+Reserve native contact destruction Ends before the public shape setter; retain
+existing query/work/event/fault budgets and conservative placement-style clearance.
+No second queue, native world, source override or pose authority is introduced.
+
+All physical/query/debug consumers use effective stance. Replacement preserves it;
+fresh recovery separately guards standing configuration and checks effective
+clearance/native shape before rebinding hooks. Advance private physics8 to9 for
+stance/blocked state and queued requests; outer2 and authored identity/formats
+remain unchanged. Exact matching SDK fingerprint changes; ABI1 table version stays.
+Copied C state appends posture/blocked flags, with exact-size validation. Existing
+combined debug blockage remains supported alongside precise new flags.

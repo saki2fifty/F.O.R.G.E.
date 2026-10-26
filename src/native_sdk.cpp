@@ -1190,6 +1190,8 @@ struct Bridge {
                 out->epoch = value.epoch;
                 out->supporting_epoch = value.supporting_epoch;
                 out->placement_blocked = value.placement_blocked;
+                out->crouched = value.crouched;
+                out->shape_change_blocked = value.shape_change_blocked;
                 for (unsigned i = 0; i < 2; ++i) {
                     out->position[i] = value.position[i];
                     out->velocity[i] = value.velocity[i];
@@ -1214,15 +1216,20 @@ struct Bridge {
                                        const double* value, uint32_t clear) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;
-                if (!c.input || op > 1 || clear > 1 || (op == 0 && clear) || !value)
+                if (!c.input || op > 2 || clear > 1 || (op != 1 && clear) || !value)
                     return 0;
                 const auto ref = Bridge::tile_target(scene, entity);
                 const Double2 input{value[0], value[1]};
                 auto service = c.services.physics();
                 if (op == 0)
                     service->move_character_2d(ref, input);
-                else
+                else if (op == 1)
                     service->place_character_2d(ref, input, clear != 0);
+                else {
+                    if ((input[0] != 0 && input[0] != 1) || input[1] != 0)
+                        return 0;
+                    service->crouch_character_2d(ref, input[0] == 1);
+                }
                 return 1;
             } catch (...) {
                 return 0;

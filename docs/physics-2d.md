@@ -478,7 +478,7 @@ use one copied selected-character projection through both process hosts.
 
 The editable `Examples/Character2D` project supplies C++ input, gravity, edge-triggered
 jumping and final grounded feedback. Its player has no authored body/collider.
-It reuses FORGE's own Sprite/Map resources. Stair stepping, crouching, explicit
+It reuses FORGE's own Sprite/Map resources. Stair stepping, explicit
 push controls, platform parenting and 2D navigation are outside this profile.
 
 ### Following moving platforms
@@ -519,8 +519,8 @@ world-space. Persistent intent never accumulates platform velocity. Explicit
 separating jump intent detaches before transport; no departure momentum is added.
 Game C++ can choose a departure policy. There is no transform parenting or second
 pose writer. Fresh recovery derives support and samples the next rigid step through
-the same path. No cross-step carry state is persisted: private codec8 and outer2
-remain unchanged. The component header changes the exact SDK fingerprint, requiring
+the same path. Carry adds no cross-step state; current private codec9 includes
+stance state, with outer2 unchanged. The component header changes the exact SDK fingerprint, requiring
 matching rebuilt modules without changing authored identities or scene formats.
 
 Character2D includes original Moving Platform2D C++ code and a cyan Kinematic
@@ -529,6 +529,48 @@ platform. Editable endpoints and one-direction duration drive ordinary
 elapsed path clock is transient C++ state; arbitrary module-state recovery is not
 promised. The existing preparation tool stamps every inspected authored type
 using the runtime schema instead of assuming a one-component module.
+
+### Checked crouch and stand
+
+`crouch_height` is authored straight capsule height in local metres.0 automatically
+halves effective standing straight height, with the native0.01m minimum. A positive
+value must not exceed authored standing height. Both use the same upright scale
+conversion. Radius and feet stay fixed. Controllers start standing, including older
+source documents that omit this additive field.
+
+`crouch_character_2d(ref, bool)` copies a stance request into the existing4096
+character FIFO(kind2), sharing order with movement/placement. A successful change
+updates the same Kinematic capsule through the pinned public shape setter. Body,
+shape binding and realization epoch stay unchanged. Intent, clipped velocity,
+feet/Z and presentation rotation/scale are retained. Existing native body records
+own posture and blocked status; no authored runtime height override or second owner.
+
+Clearance checks geometric solids with mutual masks, excluding self/sensors, as
+for checked placement. It remains conservative on a one-way surface's passable
+side. A blocked change consumes the request, preserves geometry/pose/motion and
+reports `shape_change_blocked`; repeat the request to retry. Requesting current
+stance succeeds and clears that flag without changing geometry. Placement/stance
+blockage are independent. Clearance shares the16384 command-boundary query budget.
+Reserve contact destruction Ends within the existing pending-event bound before
+changing shape. Query/native failures fault before partial adoption; blocked
+standing is a valid result.
+
+Movement, support, one-way proxies, queries and detached admission use effective
+stance. Configuration replacement preserves crouch while checking new geometry.
+Recovery guards authored standing configuration, then validates checkpointed effective
+clearance and native shape before binding callbacks. Private physics checkpoint9
+retains stance/blocked flags and pending kind2 requests; checkpoint8 rejects.
+Outer2 and authored Scene/Prefab identity/formats are unchanged. Arbitrary C++ state
+is not recovered.
+
+Selected collision uses effective runtime crouch geometry. Live gameplay reports
+Standing/Crouched and distinguishes blocked standing from placement. Combined
+`shape_blocked` remains supported; `stance_blocked` and `placement_blocked` provide
+precise feedback. Character2D binds C through project input and requests stance each
+fixed tick. Releasing C under its pink ceiling keeps crouch; the example retries
+standing as it walks clear. Its unit-scale sprite follows observed stance through
+game C++. Stop resets posture; save/export preserves authored settings and compiled
+input behavior.
 
 ## Matching C++ SDK
 
@@ -539,9 +581,12 @@ unchanged. No Box2D header, native ID or application pointer enters this boundar
 
 `ForgeSdkCharacter2DV1` and the appended `character_state_2d` /
 `character_command_2d` callbacks expose the distinct feet-origin controller.
-Client helpers are `character_2d`, `move_character_2d` and `place_character_2d`.
-Raw command0 is full XY velocity,1 checked feet placement; value[2] is required.
-clear_velocity is0/1 and must be0 for movement. State and commands return1 for
+Client helpers are `character_2d`, `move_character_2d`, `place_character_2d` and
+`crouch_character_2d`. Raw command0 is world-axis locomotion velocity,1 checked feet
+placement,2 checked stance. value[2] is required: stance uses `{0,0}` for standing
+and `{1,0}` for crouching. clear_velocity is0/1 and must be0 except for placement.
+Copied state appends crouched/shape-change-blocked flags; placement status stays
+separate. State and commands return1 for
 success/copied or queued,0 for rejection/unavailable. Exact-size state output
 clears on failure; invalid-size output is untouched. Fixed owner-thread execution
 and Physics permission apply. Reads never flush requests. Exceptions and native
@@ -612,7 +657,7 @@ across ticks and copies all8160 End/Begin observations when1020 visitors are
 replaced. A separate16384 zero-dt retirement check rejects further replacement
 before native writes, then permits it after adoption releases that window.
 
-Private checkpoint8 preserves native 2D bytes, admitted configuration, private epochs,
+Private checkpoint9 preserves native 2D bytes, admitted configuration, private epochs,
 next epoch and queued domain-tagged commands inside the existing owner. Recorded
 one-way side-start samples stay in the same body records and are validated on
 fresh recovery before callback rebinding. The private outer version remains2.

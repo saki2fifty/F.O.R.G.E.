@@ -23,6 +23,7 @@ struct CharacterController2D {
     float floor_probe = .1f;          // World metres; zero disables floor following.
     std::uint32_t layer = 0, mask = UINT32_MAX;
     bool platform_carry = false; // Grounded transport; intent stays relative to the support.
+    float crouch_height = 0;     // Straight height;0 automatically halves standing height.
     bool operator==(const CharacterController2D&) const = default;
 };
 } // namespace forge

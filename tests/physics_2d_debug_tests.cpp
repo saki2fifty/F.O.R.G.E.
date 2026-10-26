@@ -305,6 +305,11 @@ void controller_outline_and_frames() {
         bounds(geometry, .8, 2, 66); // Physical feetY0, full height4m.
     };
     verify(input);
+    auto crouched_outline = prepare_physics_debug(input, {-2, 2, 0}, PhysicsDebugCollision{}, true);
+    for (auto& line : crouched_outline.lines)
+        for (auto& point : line)
+            point[1] -= 1.4;
+    bounds(crouched_outline, .8, 1.4, 66); // Crouched total height2.8m; feet stay0.
     auto unused = input;
     unused["forge.physics_body_2d"] = {{"enabled", false}};
     unused["forge.tile_map_collider_2d"] = {{"layer", 1}};

@@ -5,6 +5,7 @@
 #include "physics_2d_mover_tests.hpp"
 #include "physics_2d_one_way_tests.hpp"
 #include "physics_2d_platform_carry_tests.hpp"
+#include "physics_2d_stance_tests.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -302,6 +303,11 @@ int main() {
         forge::test::test_platform_carry_obstruction();
         forge::test::test_platform_carry_lifetime_recovery();
         forge::test::test_platform_carry_dynamic_and_teleport();
+        forge::test::test_mover_stance_clearance();
+        forge::test::test_mover_stance_filters_and_budget();
+        forge::test::test_mover_stance_candidates_and_recovery();
+        forge::test::test_mover_stance_sensor_events();
+        forge::test::test_mover_stance_one_way_clearance();
         forge::test::test_mover_velocity_precision();
         std::cout << "Native mover support/carry/floor-follow/lifetime/recovery PASS\n";
         for (double offset : {0., 999000., -999000.})

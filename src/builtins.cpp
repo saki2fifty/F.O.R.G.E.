@@ -175,7 +175,8 @@ template <class T> Json encode(const T& p) {
                 {"floor_probe", p.floor_probe},
                 {"layer", p.layer},
                 {"mask", p.mask},
-                {"platform_carry", p.platform_carry}};
+                {"platform_carry", p.platform_carry},
+                {"crouch_height", p.crouch_height}};
     else if constexpr (std::is_same_v<T, CharacterController>)
         return {{"enabled", p.enabled},
                 {"shape", p.shape},
@@ -503,7 +504,11 @@ template <class T> Value decode(const Json& p) {
                 p.value("floor_probe", defaults.floor_probe),
                 p.value("layer", defaults.layer),
                 p.value("mask", defaults.mask),
-                p.value("platform_carry", defaults.platform_carry)};
+                p.value("platform_carry", defaults.platform_carry),
+                p.value("crouch_height", defaults.crouch_height)};
+        if (value.crouch_height > value.height)
+            throw std::runtime_error(
+                "Character Controller 2D crouch height exceeds standing height");
         if (double(value.height) + 2 * double(value.radius) > 1000)
             throw std::runtime_error("Character Controller 2D total capsule height exceeds1000m");
         return value;
@@ -1020,7 +1025,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("floor_probe")
             .template member<std::uint32_t>("layer")
             .template member<std::uint32_t>("mask")
-            .template member<bool>("platform_carry");
+            .template member<bool>("platform_carry")
+            .template member<float>("crouch_height");
     else if constexpr (std::is_same_v<T, CharacterController>)
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("shape")
@@ -1527,6 +1533,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
         value["nullable"] = true;
     }
     if (name == "forge.character_controller_2d") {
+        if (field == "crouch_height") {
+            value["maximum"] = 1000;
+            value["unit"] = "meters";
+            value["description"] = "Crouched straight capsule height;0 halves standing height "
+                                   "with the native minimum. Positive values cannot exceed height";
+        }
         if (field == "platform_carry") {
             value.erase("minimum");
             value.erase("maximum");

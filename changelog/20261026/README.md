@@ -2,6 +2,23 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Checked 2D crouch and stand
+
+- Character Controller2D adds Crouch height, with0 for automatic bounded half-height.
+  Checked stance requests share the existing character FIFO and C++ SDK operation
+  table. Blocked changes preserve geometry, feet and motion; copied stance and
+  shape-change status are separate from placement status.
+- Native2D updates its existing Kinematic shape, preserving binding/epoch. Movement,
+  support, queries, candidate checks, replacement and Scene guides use effective
+  stance. Private physics checkpoint9 retains stance and pending requests; outer2,
+  authored identities and native ABI1 table version remain unchanged. Matching SDK
+  modules must rebuild.
+- Character2D includes a C-key input action and a pink low-clearance obstacle. Its
+  C++ visual follows observed posture and retries standing when the path clears.
+  Inspector and MCP use the same reflected authoring fields, history and Save.
+- The root SDK example fixture now compiles its moving-platform source and declares
+  the JSON header dependency required by its Sprite Renderer consumer.
+
 ## Moving-platform character transport
 
 - Character Controller2D adds default-off **Follow moving platforms**. Grounded

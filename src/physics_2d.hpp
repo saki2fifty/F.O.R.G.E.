@@ -24,6 +24,7 @@ struct BoxPart2D {
 struct MoverProfile2D {
     float minimum_floor_y = -1, floor_probe = .1f;
     bool platform_carry = false;
+    float crouch_height = 0; // World straight height;0 uses half standing height.
     bool operator==(const MoverProfile2D&) const = default;
 };
 struct Body2DConfiguration {
@@ -60,7 +61,7 @@ PhysicsOverlap2D controller_shape_2d(const Body2DConfiguration&, Double2 feet);
 Body2DConfiguration tile_map_configuration_2d(PhysicsBody2D, const TileMapData&,
                                               std::uint64_t layer, LocalScale);
 PhysicsDebugGeometry prepare_debug_2d(const Json&, LocalScale, std::size_t line_limit,
-                                      const TileMapData* = nullptr);
+                                      const TileMapData* = nullptr, bool crouched = false);
 LocalTransform debug_pose_2d(const AffineTransform&);
 LocalTransform controller_debug_pose_2d(const AffineTransform&, const LocalTransform& hint);
 struct Native2DImage {
@@ -85,6 +86,7 @@ struct MoverState2D {
     std::uint64_t epoch = 0;
     std::optional<MoverSupport2D> support;
     bool placement_blocked = false;
+    bool crouched = false, shape_change_blocked = false;
 };
 // Reads the existing effective graph and schema. No native creation or ECS writes.
 class Native2D;
@@ -138,6 +140,7 @@ class Native2D {
     // Private fixed-boundary controller operations. Outer CharacterService owns
     // command admission/FIFO; body APIs cannot control this representation.
     void move_mover(std::uint64_t, EntityRef, Double2 velocity);
+    bool crouch_mover(std::uint64_t, EntityRef, bool crouched, std::size_t& query_work);
     bool place_mover(std::uint64_t, EntityRef, Double2 feet, bool clear_velocity,
                      std::size_t& query_work);
     std::optional<MoverState2D> mover_state(std::uint64_t, EntityRef) const;
