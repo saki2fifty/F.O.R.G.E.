@@ -43,6 +43,29 @@ effective parents must remain in XY with Z-only rotation and no shear. A body
 cannot also run an enabled 3D body or Character Controller. Visual children can
 follow a Dynamic body; another simulated body cannot inherit its movement.
 
+## Create a one-way platform
+
+1. Add **Physics Body 2D** and **Box Collider 2D** to an ordinary entity.
+2. Set **Motion** to **Static**, leave **Sensor** off, then enable **One-way collision**.
+3. Set the Box width and height to match the platform. Objects can pass through from below and land on its local positive Y face. Z rotation changes that face; negative Y scale reverses it.
+4. Enable **Selected collision** in Scene. The arrow points toward the solid face.
+5. Leave **One-way margin** at `0.02 m` initially. It controls tolerance near the solid face; the permitted range is `0` to `1 m`, with a minimum effective contact tolerance of `0.005 m`.
+6. Save and Play. Stop restores the authored scene. Save before exporting with the matching runtime kit; the saved platform behavior also works in the game.
+
+Try **Scenes/79-one-way-platforms.scene.json** in FeatureGallery. The two left
+circles fall onto ordinary and one-way platforms. On the right, reverse gravity
+pushes two circles upward: the ordinary platform stops one, while the one-way
+platform lets the other reach the ceiling. No Project Code build is needed.
+
+In **Examples/Character2D**, walk slightly left under the green platform and jump.
+The character passes through its underside and lands on top. Its C++ code still
+chooses jump speed and gravity; the controller handles the platform response.
+
+This setting supports Static nonsensor Box platforms. Moving platforms and painted
+Tile Map one-way collision are unavailable. Geometric ray, overlap and sweep
+queries still see the whole Box. Checked character placement rejects embedded
+positions even when the character could pass through during ordinary movement.
+
 ## Settings and C++
 
 Density is kg/m². Mass `0` derives mass from density and scaled area; a positive
@@ -115,7 +138,7 @@ published layer; unsaved painting is not yet the active collision.
 
 Each occupied cell contributes its rectangle, including transparent image pixels.
 This profile supports Static rectangular Map collision; moving Maps, per-tile
-slopes and one-way platforms are not available.
+slopes and one-way collision on painted Maps are not available.
 
 ## Character movement
 

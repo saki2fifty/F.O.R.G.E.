@@ -129,6 +129,23 @@ void domain_selection() {
     components.erase("forge.box_collider");
     bounds(prepare_physics_debug(components, {1, 1, 0}), .5, .5, 64);
 }
+void one_way_guides() {
+    const Json components{{"forge.physics_body_2d", {{"one_way", true}}},
+                          {"forge.box_collider_2d", {{"x", 4}, {"y", .5}}}};
+    for (float x : {-2.f, 2.f})
+        for (float y : {-3.f, 3.f}) {
+            const auto geometry = prepare_physics_debug(components, {x, y, 0});
+            require(geometry.lines.size() == 7 && !geometry.truncated,
+                    "One-way Box outline lost its three-line face arrow");
+            const auto& arrow = geometry.lines[4];
+            require(arrow[0] == std::array<float, 3>{0, .25f * y, 0} &&
+                        (arrow[1][1] - arrow[0][1]) * y > 0 && arrow[1][0] == 0,
+                    "One-way arrow did not follow the signed physical +Y face");
+            const auto limited = prepare_physics_debug(components, {x, y, 0}, {}, false, 5);
+            require(limited.truncated && limited.lines.size() == 5,
+                    "One-way guide exceeded the shared line budget");
+        }
+}
 void tile_map_outlines() {
     constexpr std::uint64_t solid = UINT64_MAX - 1;
     auto source = TileMapValue::create(AssetId::generate(), AssetId::generate());
@@ -325,6 +342,7 @@ void controller_outline_and_frames() {
 int main() {
     try {
         outlines();
+        one_way_guides();
         domain_selection();
         tile_map_outlines();
         parent_frames();

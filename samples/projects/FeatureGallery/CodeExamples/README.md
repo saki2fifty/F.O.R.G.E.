@@ -36,6 +36,14 @@ private engine header is needed.
 
 ## 2D bodies and sensors
 
+Scene79 demonstrates one-way platforms without optional code. In a matching SDK
+project, `forge::PhysicsBody2D` exposes `one_way` and `one_way_margin`. A fixed
+system before Physics can copy an existing Static nonsensor Box body's component,
+change those values and set the component back. The ordinary physics owner admits
+the change at synchronization. Margin is world metres in0..1; it defaults to0.02.
+Queries remain geometric, and runtime changes do not save the Scene. Inspector
+and MCP use the same reflected fields through ordinary authored property edits.
+
 Scene75 runs its saved bodies and moving platform without an optional module.
 `Physics2D.hpp` provides small helpers for code in a matching SDK project. In a
 registered fixed system **before Physics**, obtain the actor's canonical

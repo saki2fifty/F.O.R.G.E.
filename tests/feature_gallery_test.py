@@ -79,7 +79,8 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '73-sprite-image-fill.scene.json', '74-tile-maps.scene.json',
         '75-2d-physics.scene.json', '76-connected-2d-bodies.scene.json',
         '77-painted-2d-collision.scene.json',
-        '78-sprite-image-regions.scene.json'} <= {p.name for p in scenes}
+        '78-sprite-image-regions.scene.json',
+        '79-one-way-platforms.scene.json'} <= {p.name for p in scenes}
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]
@@ -238,6 +239,10 @@ try:
                 body.setdefault('max_linear_velocity', 500.)
                 body.setdefault('max_angular_velocity', 2700.)
                 body.setdefault('allow_sleeping', True)
+            planar_body = row['components'].get('forge.physics_body_2d')
+            if planar_body is not None:
+                planar_body.setdefault('one_way', False)
+                planar_body.setdefault('one_way_margin', .02)
             joint = row['components'].get('forge.physics_joint')
             if joint is not None:
                 joint.setdefault('min_travel', -1.)

@@ -1814,6 +1814,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "2616d8b1-6dc1-42cc-8944-6d642b338dbe",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/79-one-way-platforms.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "264a0ff1-2184-4c5d-a623-d865a861b49b",
       "metadata": {},
       "schema_version": 3,

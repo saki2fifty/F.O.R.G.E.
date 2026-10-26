@@ -71,6 +71,11 @@ for legacy in (False, True):
         catalog = client.request('tools/list')['result']['tools']
         assert len(catalog) == 42, len(catalog)
         state = discover()
+        body_schema = next(c for c in state['result']['schema']['components']
+                           if c['id'] == 'forge.physics_body_2d')
+        fields = {f['id']: f for f in body_schema['fields']}
+        assert fields['one_way']['display_name'] == 'One-way collision'
+        assert fields['one_way_margin']['unit'] == 'm'
         workflows = state['result']['workflow_methods']
         assert {item['method'] for item in workflows} == {
             'project.read', 'document.save', 'document.save_as', 'document.new', 'document.open'}
@@ -95,6 +100,20 @@ for legacy in (False, True):
 
         created = mutate('forge_entity_create', arguments=dict(kind=0, name='Saved agent cube'))
         assert created['ok'], created
+        cube = created['result']['results'][0]['selected']
+        for component in ('forge.physics_body_2d', 'forge.box_collider_2d'):
+            result = mutate('forge_component_add', arguments=dict(entity=cube, component=component))
+            assert result['ok'], result
+        for field, value in (('one_way', True), ('one_way_margin', .05)):
+            result = mutate('forge_property_set', arguments=dict(entity=cube,
+                component='forge.physics_body_2d', field=field, value=value))
+            assert result['ok'], result
+        before_invalid = discover()
+        invalid = mutate('forge_property_set', arguments=dict(entity=cube,
+            component='forge.physics_body_2d', field='one_way_margin', value=-1))
+        assert not invalid['ok'] and discover()['revision'] == before_invalid['revision'], invalid
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
         assert status()['dirty']
         saved = mutate('forge_document_save')
         assert saved['ok'] and not saved['result']['rediscover'], saved
@@ -102,6 +121,8 @@ for legacy in (False, True):
         saved_bytes = saved_path.read_bytes()
         saved_doc = json.loads(saved_bytes)
         assert saved_doc['entities'][0]['name'] == 'Saved agent cube'
+        body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
+        assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body
         assert discover()['result']['target'] == original
 
         # Disk conflict/deletion is not silently overwritten, even for a clean draft.

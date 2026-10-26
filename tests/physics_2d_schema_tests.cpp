@@ -55,7 +55,9 @@ void native_layout(EngineContext& engine) {
           std::pair{"lock_x", offsetof(PhysicsBody2D, lock_x)},
           std::pair{"lock_y", offsetof(PhysicsBody2D, lock_y)},
           std::pair{"lock_rotation", offsetof(PhysicsBody2D, lock_rotation)},
-          std::pair{"bullet", offsetof(PhysicsBody2D, bullet)}}) {
+          std::pair{"bullet", offsetof(PhysicsBody2D, bullet)},
+          std::pair{"one_way", offsetof(PhysicsBody2D, one_way)},
+          std::pair{"one_way_margin", offsetof(PhysicsBody2D, one_way_margin)}}) {
         const auto* member = ecs_struct_get_member(world.c_ptr(), type.id(), field);
         require(member && std::size_t(member->offset) == offset,
                 "2D native member offset mismatch");
@@ -109,6 +111,7 @@ void reflected_units(EngineContext& engine) {
             "Area density and volume density must use separate units");
     check("forge.physics_body_2d", "density", area_density, "kg/m^2");
     check("forge.physics_body_2d", "mass", EcsKiloGrams, "kg");
+    check("forge.physics_body_2d", "one_way_margin", EcsMeters, "m");
     check("forge.physics_body", "density", volume_density, "kg/m^3");
     check("forge.physics_body", "mass", EcsKiloGrams, "kg");
     check("forge.box_collider_2d", "x", EcsMeters, "m");
@@ -152,6 +155,10 @@ void scalar_admission(EngineContext& engine) {
                                        {"gravity_factor", -11},
                                        {"lock_x", 1},
                                        {"bullet", "yes"},
+                                       {"one_way", 1},
+                                       {"one_way_margin", -.001},
+                                       {"one_way_margin", 1.001},
+                                       {"one_way_margin", std::numeric_limits<double>::quiet_NaN()},
                                        {"angular_damping", 10001}}) {
         auto bad = body.defaults;
         bad[field] = value;

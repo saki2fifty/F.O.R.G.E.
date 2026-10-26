@@ -22,6 +22,12 @@ The painted floors and stepping stone are solid. The marked sensor does not bloc
 the controller. A/D walks into walls rather than passing through them. Landing on
 walkable surfaces permits another jump; air and steep surfaces do not.
 
+Walk slightly left to stand under the green **One-way platform - walk left then
+jump through**. Press Jump: the character passes through the underside and lands
+on top. Stop and select that platform to edit **One-way collision** or **One-way
+margin** in Physics Body 2D. **Selected collision** points an arrow toward its
+solid face. Save the scene before exporting the same behavior.
+
 ## What owns what
 
 **Character Controller 2D** owns the physical feet position and bounded movement.

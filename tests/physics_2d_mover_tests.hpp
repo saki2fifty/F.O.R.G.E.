@@ -17,8 +17,10 @@ struct MoverGeometryFixture {
         value.layers[1] = "Mover target";
         return value;
     }
-    PhysicsConfig config = settings();
-    physics_detail::Native2D native{config};
+    explicit MoverGeometryFixture(PhysicsConfig input = settings())
+        : config(input), native(config) {}
+    PhysicsConfig config;
+    physics_detail::Native2D native;
     physics_detail::Desired2D desired;
     AssetId scene = AssetId::generate();
     EntityRef add(physics_detail::Body2DConfiguration config, double x, double y,

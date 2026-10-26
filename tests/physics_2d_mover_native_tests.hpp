@@ -3,6 +3,7 @@
 
 namespace forge::test {
 struct MoverNativeFixture : MoverGeometryFixture {
+    using MoverGeometryFixture::MoverGeometryFixture;
     std::uint64_t tick = 0;
     EntityRef actor(double x, double y, float floor_y = -1) {
         PhysicsBody2D inner;

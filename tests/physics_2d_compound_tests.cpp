@@ -3,6 +3,7 @@
 #include "physics_2d_mover_native_tests.hpp"
 #include "physics_2d_mover_support_tests.hpp"
 #include "physics_2d_mover_tests.hpp"
+#include "physics_2d_one_way_tests.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -273,6 +274,14 @@ int main() {
         forge::test::test_mover_motion_sleep();
         forge::test::test_mover_motion_limits();
         std::cout << "Checked mover motion/feasibility/shared-budget PASS\n";
+        forge::test::test_one_way_profile();
+        forge::test::test_one_way_rigid();
+        forge::test::test_one_way_point_motion();
+        forge::test::test_one_way_character();
+        forge::test::test_one_way_recovery();
+        forge::test::test_one_way_character_recovery();
+        forge::test::test_one_way_toggle();
+        std::cout << "One-way rigid/CCD/character/geometric-query/fresh-recovery PASS\n";
         forge::test::test_mover_native_motion();
         forge::test::test_mover_placement_budget();
         forge::test::test_mover_native_filters();

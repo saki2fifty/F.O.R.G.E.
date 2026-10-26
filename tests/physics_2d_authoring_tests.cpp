@@ -1,3 +1,4 @@
+#include <cmath>
 #include <filesystem>
 #include <forge/authoring.hpp>
 #include <forge/physics.hpp>
@@ -112,8 +113,12 @@ void prefab_intent() {
                                    {"components",
                                     {{"forge.local_scale", {{"x", -1}, {"y", 1}, {"z", 0}}},
                                      {"forge.physics_body_2d",
-                                      {{"motion", 2}, {"mass", 2}, {"future_options", opaque}}},
-                                     {"forge.circle_collider_2d", {{"radius", .5}}}}}}})}});
+                                      {{"motion", 0},
+                                       {"mass", 2},
+                                       {"one_way", true},
+                                       {"one_way_margin", .02},
+                                       {"future_options", opaque}}},
+                                     {"forge.box_collider_2d", {{"x", 4}, {"y", .2}}}}}}})}});
     scene.publish_prefab_sources({{asset, prefab.source}}, [] {});
     const auto id = EntityId::generate().str();
     auto document = scene.document();
@@ -129,6 +134,10 @@ void prefab_intent() {
     require(scene.entity(id).has<PhysicsBody2D>() && !scene.entity(id).owns<PhysicsBody2D>(),
             "Prefab Body2D inheritance lost");
     const auto inherited = scene.document();
+    command(scene, "property.set", id, "forge.physics_body_2d", "one_way", false);
+    require(!scene.entity(id).get<PhysicsBody2D>().one_way && scene.undo() &&
+                scene.document() == inherited && scene.entity(id).get<PhysicsBody2D>().one_way,
+            "One-way prefab override/Undo lost inherited response");
     command(scene, "property.set", id, "forge.physics_body_2d", "mass", 2);
     const auto intended = scene.document();
     require(row(intended, id).at("property_overrides").at("forge.physics_body_2d").at("mass") ==
@@ -148,9 +157,12 @@ void prefab_intent() {
     auto& body = updated["members"][0]["components"]["forge.physics_body_2d"];
     body["mass"] = 3;
     body["density"] = 4;
+    body["one_way_margin"] = .1;
     scene.publish_prefab_sources({{asset, updated}}, [] {});
     require(scene.entity(id).get<PhysicsBody2D>().mass == 2 &&
-                scene.entity(id).get<PhysicsBody2D>().density == 4,
+                scene.entity(id).get<PhysicsBody2D>().density == 4 &&
+                scene.entity(id).get<PhysicsBody2D>().one_way &&
+                std::abs(scene.entity(id).get<PhysicsBody2D>().one_way_margin - .1f) < 1e-6f,
             "Source publication lost Body2D property boundaries");
     command(scene, "property.revert", id, "forge.physics_body_2d", "mass");
     require(!scene.entity(id).owns<PhysicsBody2D>() &&

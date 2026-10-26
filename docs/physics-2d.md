@@ -145,6 +145,35 @@ within existing body, joint, pair and event limits. Empty Map actors do not cons
 native body/shape slots. This profile excludes Dynamic/Kinematic/sensor Maps,
 slopes, per-tile polygons, one-way platforms, navigation and character controllers.
 
+## One-way platforms
+
+`PhysicsBody2D.one_way` defaults to false. Enable it only on a Static nonsensor
+body with one Box Collider 2D. The solid face is transformed local +Y; signed Y
+scale reverses it, and supported Z rotation rotates it. `one_way_margin` is a
+finite world-space tolerance in0..1m, default0.02m, with effective minimum0.005m
+native slop. Inactive values remain authored. Moving and painted Map one-way
+platforms are outside this profile.
+
+Native rigid response uses both exact-pin pre-solve and pre-continuous callbacks.
+The existing body record supplies current/preceding fixed-start side evidence;
+front-facing contacts and relative angular-aware contact-point velocity decide
+response. Upward passage, later descent, shallow overlap and deep starts below
+are distinct cases. Source moves, replacement and placement invalidate continuity.
+Callback work shares the existing16384 fixed query/controller budget; overflow
+faults before partial-step adoption. Default-off worlds avoid side sampling.
+
+Character Controller 2D applies the same side admission through its existing
+physical planes, casts, penetration recovery, support and floor-follow paths.
+Public rays/overlaps/sweeps remain geometric and still observe the complete Box;
+checked character placement also retains conservative geometric clearance.
+No command implicitly becomes a filtered physical query from its ignored entity.
+
+The shared authored schema exposes both fields to Inspector and the existing
+automation/MCP component/property operations, including revisions, validation,
+history and persistence. No special agent-only physics implementation is needed.
+Selected collision adds a bounded arrow toward the solid face, using the same
+signed physical shape conversion. Gallery79 and Character2D are ordinary consumers.
+
 ## Connected bodies
 
 The connected-body extension adds distinct `PhysicsJoint2D` values through the
@@ -533,9 +562,11 @@ across ticks and copies all8160 End/Begin observations when1020 visitors are
 replaced. A separate16384 zero-dt retirement check rejects further replacement
 before native writes, then permits it after adoption releases that window.
 
-Private checkpoint7 preserves native 2D bytes, admitted configuration, private epochs,
-next epoch and queued domain-tagged commands inside the existing owner. Native
-snapshots scrub hooks and do not provide fresh-world application bindings.
+Private checkpoint8 preserves native 2D bytes, admitted configuration, private epochs,
+next epoch and queued domain-tagged commands inside the existing owner. Recorded
+one-way side-start samples stay in the same body records and are validated on
+fresh recovery before callback rebinding. The private outer version remains2.
+Native snapshots scrub hooks and do not provide fresh-world application bindings.
 Ten-character native debug tags encode the record epoch, bounded to 60 bits;
 supported queries reacquire candidate handles before checked hook rebinding.
 Capture requires synchronized adopted state, including completed retirement events. A realized empty world retains its next epoch. Native Kinematic target and actual solver poses are preserved separately because target integration promises a close pose, not exact arrival.

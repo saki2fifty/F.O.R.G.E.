@@ -81,6 +81,32 @@ void connected_playback(const std::filesystem::path& root, AssetId scene_id) {
               std::abs(state("Green motor carriage").position[0] - 7.5) < .01,
           "Connected Gallery did not demonstrate pendulum, elastic rest and limited motor");
 }
+void one_way_playback(const std::filesystem::path& root, AssetId scene_id) {
+    EngineContext engine(WorldRole::Runtime, false, {physics_module()});
+    Scene scene(engine.world());
+    scene.restore_snapshot(load_game_scene(root, {scene_id}));
+    RuntimeSimulation simulation(engine.world(), scene);
+    const auto physics = std::static_pointer_cast<PhysicsRuntime>(engine.services().physics());
+    physics->synchronize(0);
+    std::map<std::string, EntityRef> refs;
+    const auto effective = scene.effective_document();
+    for (const auto& row : effective.at("entities"))
+        refs.emplace(row.at("name").get<std::string>(), scene.reference(row.at("id")));
+    for (unsigned tick = 0; tick < 240; ++tick)
+        simulation.tick(1.f / 60);
+    for (const auto& [name, expected] : {std::pair{"Falling against ordinary comparison", .475},
+                                         std::pair{"Falling through one-way comparison", .475},
+                                         std::pair{"Rising against ordinary comparison", -.475},
+                                         std::pair{"Rising through one-way comparison", 3.95}}) {
+        const auto state = physics->body_state_2d(refs.at(name));
+        check(state && std::abs(state->position[1] - expected) < .025 &&
+                  std::abs(state->linear_velocity[1]) < .01,
+              "One-way Gallery did not demonstrate solid-side landing/opposite-side passage");
+    }
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    check(frame.diagnostics.empty() && frame.cameras.size() == 1 && frame.sprites.size() == 10,
+          "One-way Gallery lost its camera or ordinary Sprite visuals");
+}
 void playback(const std::filesystem::path& root, const AssetCatalog& catalog, AssetId scene_id) {
     EngineContext engine(WorldRole::Runtime, false, {physics_module(), animation_module(root)});
     Scene scene(engine.world());
@@ -191,6 +217,7 @@ int main(int argc, char** argv) {
         auto catalog = AssetCatalog::open_project(root);
         const auto scene = asset(catalog, "Scenes/75-2d-physics.scene.json");
         const auto connected = asset(catalog, "Scenes/76-connected-2d-bodies.scene.json");
+        const auto one_way = asset(catalog, "Scenes/79-one-way-platforms.scene.json");
         const auto solid = asset(catalog, "Assets/Physics2D/Solid.material.json");
         const auto badge = asset(catalog, "Assets/Sprites/Badge.material.json");
         const auto clip = asset(catalog, "Assets/Physics2D/Platform.animation.json");
@@ -202,18 +229,22 @@ int main(int argc, char** argv) {
             const auto lease = std::make_shared<ProjectLease>(root);
             EngineContext author(WorldRole::Authoring, false, {physics_module()});
             Scene schema(author.world());
-            const std::array roots{scene, connected};
+            const std::array roots{scene, connected, one_way};
             prepare_runtime_content_catalog(*lease, roots, {}, schema.schema());
         }
         catalog = AssetCatalog::open_project(root);
         playback(root, catalog, scene);
         connected_playback(root, connected);
+        one_way_playback(root, one_way);
         const auto package = scratch / "prepared content";
         const std::array roots{scene};
         package_runtime_content(root, package, roots, {"windows", "d3d12"});
         const auto connected_package = scratch / "connected prepared content";
         const std::array connected_roots{connected};
         package_runtime_content(root, connected_package, connected_roots, {"windows", "d3d12"});
+        const auto one_way_package = scratch / "one-way prepared content";
+        const std::array one_way_roots{one_way};
+        package_runtime_content(root, one_way_package, one_way_roots, {"windows", "d3d12"});
         std::filesystem::remove_all(root);
         const auto moved = scratch / "relocated source-free content";
         std::filesystem::rename(package, moved);
@@ -246,6 +277,9 @@ int main(int argc, char** argv) {
                   "Connected Gallery package leaked authored source");
         }
         connected_playback(connected_moved, connected);
+        const auto one_way_moved = scratch / "relocated one-way source-free content";
+        std::filesystem::rename(one_way_package, one_way_moved);
+        one_way_playback(one_way_moved, one_way);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

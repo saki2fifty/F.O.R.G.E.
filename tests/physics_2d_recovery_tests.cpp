@@ -398,7 +398,7 @@ void controller_queue_recovery() {
     original.physics->place_character_2d(ref, {999989, 3}, true);
     original.physics->move_character_2d(ref, {-1, 2});
     const auto checkpoint = original.physics->checkpoint();
-    require(checkpoint.at("version") == 7 && checkpoint.at("character_commands").size() == 3,
+    require(checkpoint.at("version") == 8 && checkpoint.at("character_commands").size() == 3,
             "2D character requests did not use the versioned shared private checkpoint");
     Fixture copy;
     copy.actor = original.actor;
@@ -473,7 +473,7 @@ int main() {
         native_remaining_budget();
         parent_frame_recovery();
         controller_queue_recovery();
-        std::cout << "2D character FIFO/version7/fresh-recovery/rejection PASS\n";
+        std::cout << "2D character FIFO/version8/fresh-recovery/rejection PASS\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

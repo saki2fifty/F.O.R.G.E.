@@ -46,6 +46,37 @@ def verify(runtime, project):
 
     initial_position = next(row['components']['forge.local_translation']
                             for row in original['entities'] if component in row['components'])
+    def one_way_jump(worker, sdk_play, speed, jump_speed):
+        # Exercise the shipped platform with the actual C++ input/movement
+        # systems. SDK Play owns its fixed clock; Step releases its input.
+        source = json.loads(saved)
+        actor = next(row for row in source['entities'] if component in row['components'])
+        actor['components']['forge.local_translation'].update(x=-4.8, y=1.0)
+        actor['components'][component].update(speed=speed, jump_speed=jump_speed)
+        activate(worker, source, sdk_play)
+        for _ in range(100):
+            state = worker.request('step')
+        assert player(state)[component]['grounded'], player(state)
+        if sdk_play:
+            worker.request('resume')
+            start = worker.request('snapshot', input_events=[dict(control='key.space', value=1)])
+            top = player(start)['forge.local_translation']['y']
+            deadline = time.monotonic() + 15
+            while state['timing']['tick'] < start['timing']['tick'] + 150:
+                assert time.monotonic() < deadline, state
+                time.sleep(.005)
+                state = worker.request('snapshot')
+                top = max(top, player(state)['forge.local_translation']['y'])
+            state = worker.request('pause')
+        else:
+            state = worker.request('step', input_events=[dict(control='key.space', value=1)])
+            top = player(state)['forge.local_translation']['y']
+            for _ in range(150):
+                state = worker.request('step')
+                top = max(top, player(state)['forge.local_translation']['y'])
+        assert top > 2.7 and player(state)[component]['grounded'], player(state)
+        assert abs(player(state)['forge.local_translation']['y'] - 2.6) < .03, player(state)
+
     observations = []
     for sdk_play in (False, True):
         for speed, jump_speed in ((4., 6.), (2., 8.)):
@@ -102,6 +133,9 @@ def verify(runtime, project):
                     reset = activate(worker, original, True)
                     assert player(reset)[component]['speed'] == 4
                     assert player(reset)['forge.local_translation'] == initial_position
+                    if controller:
+                        one_way_jump(worker, True, speed, jump_speed)
+                        observations[-1]['one_way_landing'] = True
                     continue
                 for tick in range(18):
                     event = dict(input_events=[dict(control='key.d', value=1)]) if tick == 0 else {}
@@ -157,6 +191,9 @@ def verify(runtime, project):
                 assert player(reset)[component]['speed'] == 4
                 assert player(reset)['forge.local_translation'] == initial_position
                 assert reset['timing']['tick'] == 0
+                if controller:
+                    one_way_jump(worker, sdk_play, speed, jump_speed)
+                    observations[-1]['one_way_landing'] = True
             finally:
                 worker.close()
     assert scene_path.read_bytes() == saved, 'Play changed the saved Scene'

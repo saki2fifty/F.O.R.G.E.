@@ -20,6 +20,11 @@ remains a separate combined gameplay example.
 
 ## 2D physics
 
+Scene **79-one-way-platforms** compares landing from above and passage from below.
+Select a green platform to edit **One-way collision** and **One-way margin**.
+**Selected collision** shows the solid-face arrow. Save and choose this scene as
+startup to export the same behavior.
+
 Scene **75-2d-physics** contains falling boxes, a circle and a capsule, a moving
 platform and a pass-through sensor. Change body settings in Inspector while
 stopped, then compare Play. **Selected collision** shows the authored collider.

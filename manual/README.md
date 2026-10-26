@@ -46,7 +46,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 - [World sprites and image sheets](editor/sprites.md)
 - [Tile Sets and Tile Maps](editor/tile-maps.md)
-- [2D physics](editor/physics-2d.md)
+- [2D physics and one-way platforms](editor/physics-2d.md)
 
 ## Animation
 

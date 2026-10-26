@@ -1,5 +1,21 @@
 # FORGE Feature Gallery
 
+## One-way platforms
+
+Open **Scenes/79-one-way-platforms.scene.json**, Play and open Game. The left
+two circles land from above. On the right, reverse gravity pushes circles toward
+the platforms: the gray ordinary Box blocks its circle, while the green one-way
+Box lets its circle reach the ordinary ceiling.
+
+Stop, select **One-way - rising from below** and turn off **One-way collision**:
+the circle now stops at its underside. Undo restores passage. **One-way margin**
+controls solid-side tolerance in world metres. **Selected collision** shows an
+arrow toward the platform's solid face; negative Y scale reverses that face.
+
+Save the Scene, choose it as startup and export with the matching runtime kit.
+This scene needs no project C++ module. For a controllable jumping character,
+open the separate [Character2D project](../Character2D/README.md).
+
 ## Sprite image regions
 
 Open **Scenes/78-sprite-image-regions.scene.json**. The top row shows the complete

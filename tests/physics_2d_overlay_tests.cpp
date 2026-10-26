@@ -94,6 +94,16 @@ void exercise(const std::filesystem::path& project, float scale) {
     const auto snapshot = scene.effective_document();
     require(await(snapshot, true) > 0 && overlay.status() == "2D sensor - authored outline",
             "Actual planar overlay/status missing");
+    auto one_way = snapshot;
+    auto& one_way_components = one_way["entities"][0]["components"];
+    one_way_components.erase("forge.circle_collider_2d");
+    one_way_components["forge.box_collider_2d"] = {{"x", 4}, {"y", .25}};
+    one_way_components["forge.physics_body_2d"]["sensor"] = false;
+    one_way_components["forge.physics_body_2d"]["one_way"] = true;
+    require(await(one_way, true) > 0 &&
+                overlay.status().find("arrow points toward solid face") != std::string::npos,
+            "One-way Scene guide lost its solid-face explanation");
+    await(snapshot, true);
     // Disabled 3D asset choices must not start resource IO or hide the 2D shape.
     auto mixed = snapshot;
     mixed["entities"][0]["components"]["forge.physics_body"] = {{"enabled", false}};
@@ -107,6 +117,7 @@ void exercise(const std::filesystem::path& project, float scale) {
     require(await(snapshot, true) > 0, "Corrected authored outline did not recover");
     auto disabled = snapshot;
     disabled["entities"][0]["components"]["forge.physics_body_2d"]["enabled"] = false;
+    disabled["entities"][0]["components"]["forge.physics_body_2d"]["one_way"] = true;
     require(await(disabled, true) > 0 &&
                 overlay.status() == "2D collision disabled - authored outline",
             "Disabled planar source preview lost its status");

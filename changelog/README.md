@@ -1,5 +1,7 @@
 # Changelog
 
+- [2026-10-26](20261026/README.md) — One-way 2D platforms, Inspector/MCP properties, solid-face guides, Gallery79 and Character2D example. Local source; Windows verification and delivery pending.
+
 - [2026-10-25](20261025/README.md) — Illustrated, task-based manual; corrected onboarding and feature descriptions; local-image rendering and package checks. Local source, existing Build213 ZIP unchanged.
 
 - [2026-10-24](20261024/README.md) — MCP C++, Play, UI/shader sources, navigation, declarations, captures and export through existing owners; separate execution/output grants. Development source, not in Build208.

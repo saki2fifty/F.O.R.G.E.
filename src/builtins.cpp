@@ -220,7 +220,9 @@ template <class T> Json encode(const T& p) {
                 {"lock_x", p.lock_x},
                 {"lock_y", p.lock_y},
                 {"lock_rotation", p.lock_rotation},
-                {"bullet", p.bullet}};
+                {"bullet", p.bullet},
+                {"one_way", p.one_way},
+                {"one_way_margin", p.one_way_margin}};
     else if constexpr (std::is_same_v<T, BoxCollider2D>)
         return {{"x", p.x}, {"y", p.y}};
     else if constexpr (std::is_same_v<T, TileMapCollider2D>)
@@ -550,6 +552,8 @@ template <class T> Value decode(const Json& p) {
         v.lock_y = p.value("lock_y", v.lock_y);
         v.lock_rotation = p.value("lock_rotation", v.lock_rotation);
         v.bullet = p.value("bullet", v.bullet);
+        v.one_way = p.value("one_way", v.one_way);
+        v.one_way_margin = p.value("one_way_margin", v.one_way_margin);
         return v;
     } else if constexpr (std::is_same_v<T, BoxCollider2D>)
         return T{p.at("x"), p.at("y")};
@@ -1056,7 +1060,9 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("lock_x")
             .template member<bool>("lock_y")
             .template member<bool>("lock_rotation")
-            .template member<bool>("bullet");
+            .template member<bool>("bullet")
+            .template member<bool>("one_way")
+            .template member<float>("one_way_margin");
     else if constexpr (std::is_same_v<T, BoxCollider2D>)
         c.template member<float>("x").template member<float>("y");
     else if constexpr (std::is_same_v<T, TileMapCollider2D>)
@@ -1813,7 +1819,7 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.physics_body_2d") {
         if (field == "enabled" || field == "sensor" || field == "allow_sleeping" ||
             field == "lock_x" || field == "lock_y" || field == "lock_rotation" ||
-            field == "bullet") {
+            field == "bullet" || field == "one_way") {
             value.erase("minimum");
             value.erase("maximum");
         }
@@ -1855,6 +1861,21 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] =
                 "Extra Dynamic-solid continuous checks against moving bodies. Ordinary native "
                 "continuous collision remains enabled. Inactive choices are preserved.";
+        if (field == "one_way") {
+            value["display_name"] = "One-way collision";
+            value["description"] =
+                "Static nonsensor Box Collider 2D: land on its transformed local +Y face and "
+                "pass from the opposite side. Geometric queries still see the whole shape.";
+        }
+        if (field == "one_way_margin") {
+            value["display_name"] = "One-way margin";
+            value["minimum"] = 0;
+            value["maximum"] = 1;
+            value["unit"] = "meters";
+            value["description"] =
+                "World-space solid-side tolerance. The native 0.005m contact slop is the minimum; "
+                "inactive values are preserved.";
+        }
         if (field == "allow_sleeping")
             value["description"] =
                 "Allow Dynamic bodies to sleep when settled; disabling uses more physics work";

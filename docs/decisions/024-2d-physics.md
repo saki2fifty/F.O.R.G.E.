@@ -143,6 +143,34 @@ build/source/fingerprint guards and combined byte limits remain unchanged; older
 checkpoints reject. No authored identity/Scene migration or arbitrary C++ recovery
 is introduced. The integration contract owns numerical details and limits.
 
+## One-way surface extension
+
+Use an optional default-off response setting on existing PhysicsBody2D. The
+selected profile is a Static nonsensor single Box, solid on its transformed local
++Y face. Signed Y scale reverses that face; margins are world metres. No moving or
+painted one-way platform profile, new contact owner, pair database or native world
+is introduced. Ordinary ray/overlap/sweep queries remain geometric; checked feet
+placement remains conservative. Native CharacterController2D physical response
+uses explicit context through its existing plane/cast/penetration/support path.
+
+The existing native body record keeps the preceding admitted fixed-step start.
+It supplies solid-side evidence when native contact creation lags a crossing;
+zero-dt inspection never rolls history. Creation, replacement and discontinuous
+placement invalidate it. Native response also checks front-facing contact normals
+and angular-aware relative point velocity. Both public exact-pin pre-solve and
+pre-continuous hooks are required; pre-solve alone can clamp allowed fast travel.
+Their work shares the existing16384 fixed controller/query work envelope, and
+failure prevents partial-step adoption. Hooks allocate nothing and access no ECS.
+Default-off worlds do not sample side history or request pre-solve events.
+
+Advance the private physics block from7 to8 to preserve the required body-owned
+side-start sample through fresh-candidate recovery. The ordinary outer checkpoint
+stays2. Configuration, sample values, native pre-solve flags and fresh bindings
+are checked before hooks are installed on the unpublished candidate. SDK public
+layout changes require an exact matching rebuilt kit; ABI1 and authored Scene /
+Prefab identity/formats stay unchanged. This decision selects the implementation
+boundary; the technical contract and validation gates determine feature completion.
+
 ## Evidence and completion boundary
 
 Exact-pin native tests and original probes establish double-position geometry,

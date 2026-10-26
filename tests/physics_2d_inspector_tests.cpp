@@ -109,6 +109,43 @@ void exercise(const std::filesystem::path& project, float scale) {
     require(scene.undo() && scene.entity(entity).get<PhysicsBody2D>().mask == 2 && scene.redo() &&
                 scene.entity(entity).get<PhysicsBody2D>().mask == 6,
             "Mask selector Undo/Redo lost typed intent");
+    Json one_way_field;
+    for (const auto& field : schema.at("fields"))
+        if (field.at("id") == "one_way")
+            one_way_field = field;
+    require(!one_way_field.is_null() && one_way_field.at("display_name") == "One-way collision",
+            "Inspector did not discover one-way response");
+    Json one_way = false;
+    ImVec2 checkbox{};
+    auto toggle_frame = [&] {
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({700, 500}, ImGuiCond_Always);
+        ImGui::Begin("One-way Inspector");
+        if (property_field(project, one_way_field, one_way))
+            authoring_command(scene, "property.set",
+                              {{"entity", entity},
+                               {"component", "forge.physics_body_2d"},
+                               {"field", "one_way"},
+                               {"value", one_way}});
+        const auto position = ImGui::GetItemRectMin();
+        checkbox = {position.x + ImGui::GetFrameHeight() * .5f,
+                    position.y + ImGui::GetFrameHeight() * .5f};
+        ImGui::End();
+        ImGui::Render();
+    };
+    toggle_frame();
+    toggle_frame();
+    io.AddMousePosEvent(checkbox.x, checkbox.y);
+    toggle_frame();
+    io.AddMouseButtonEvent(0, true);
+    toggle_frame();
+    io.AddMouseButtonEvent(0, false);
+    toggle_frame();
+    require(scene.entity(entity).get<PhysicsBody2D>().one_way && scene.undo() &&
+                !scene.entity(entity).get<PhysicsBody2D>().one_way && scene.redo() &&
+                scene.entity(entity).get<PhysicsBody2D>().one_way,
+            "One-way checkbox did not share typed Inspector history");
     require(!engine.services().available(Capability::Physics), "Inspector created a solver");
     ImGui::DestroyContext();
 }

@@ -178,6 +178,8 @@ jobs:
           if($LASTEXITCODE) { throw 'Shared connected 2D export failed' }
           python tests/physics_2d_standalone_test.py --painted --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/painted-2d-export" --retain "$b/standalone-delivery/painted-2d-game"
           if($LASTEXITCODE) { throw 'Shared painted 2D export failed' }
+          python tests/physics_2d_standalone_test.py --one-way --tools "$b/forge_tools.exe" --gallery samples/projects/FeatureGallery --kit "$b/runtime-kit" --evidence "$b/grid-test-images/one-way-2d-export" --retain "$b/standalone-delivery/one-way-2d-game"
+          if($LASTEXITCODE) { throw 'Shared one-way 2D export failed' }
           Copy-Item tests/standalone_relocated_probe.py "$b/standalone-delivery/probe.py"
           cmake -S samples/reference_game -B "$b/reference-build" -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=cl -DFORGE_NATIVE_SDK="$b/installed-sdk"
           if($LASTEXITCODE) { throw 'Reference SDK consumer configure failed' }
