@@ -28,7 +28,7 @@ void validate_limits(const WorkerLimits& limits) {
         !limits.cpu_seconds || limits.cpu_seconds > 3600 || limits.cancellation_grace_ms > 5000)
         throw std::runtime_error("Invalid asset worker resource limits");
 }
-bool output_exceeded(const std::filesystem::path& path, const WorkerLimits& limits, bool flat) {
+bool output_exceeded(const std::filesystem::path& path, const WorkerLimits& limits) {
     if (std::filesystem::is_symlink(std::filesystem::symlink_status(path)) ||
         !std::filesystem::is_directory(path))
         return true;
@@ -60,7 +60,7 @@ bool output_exceeded(const std::filesystem::path& path, const WorkerLimits& limi
             if (n > limits.file_bytes || n > limits.total_bytes - total)
                 return true;
             total += n;
-        } else if (flat || !std::filesystem::is_directory(status))
+        } else
             return true;
     }
     return false;
@@ -83,7 +83,7 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
         !std::filesystem::is_directory(staging))
         throw std::runtime_error("Asset worker staging must be an existing absolute directory");
     const auto output = kind == WorkerKind::Import ? staging / "output" : staging;
-    if (output_exceeded(output, resource, kind == WorkerKind::Import))
+    if (output_exceeded(output, resource))
         throw std::runtime_error("Asset worker staging already violates output limits");
     const auto cancel_marker = staging / "cancel.request";
     if (kind == WorkerKind::Import &&
@@ -93,7 +93,7 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
     std::optional<std::chrono::steady_clock::time_point> cancel_deadline;
     auto check = [&] {
         const auto now = std::chrono::steady_clock::now();
-        if (now > deadline || output_exceeded(output, resource, kind == WorkerKind::Import))
+        if (now > deadline || output_exceeded(output, resource))
             throw std::runtime_error("Asset build exceeded time or output limits");
         if (!cancel.stop_requested())
             return;
@@ -264,7 +264,7 @@ void run_worker(WorkerKind kind, const std::filesystem::path& executable,
 #endif
     if (std::chrono::steady_clock::now() > deadline)
         throw std::runtime_error("Asset build exceeded its wall-time limit");
-    if (cancel.stop_requested() || output_exceeded(output, resource, kind == WorkerKind::Import))
+    if (cancel.stop_requested() || output_exceeded(output, resource))
         throw std::runtime_error("Asset build cancelled or exceeded output limits");
 }
 } // namespace forge::asset_detail

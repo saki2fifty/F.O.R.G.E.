@@ -98,6 +98,12 @@ bounded grace period and waits before deleting staging. A late result cannot pub
 Trusted bounded pure transformations may run on a background task without subprocess overhead;
 parsers/converters with crash/resource risk use the established isolated candidate model.
 
+Current fixed worker layouts contain flat ordinary files. The supervisor checks
+the import worker's `output/` directory and each other worker's complete staging
+root before launch, during execution and after exit. Nested directories, links
+and special files are rejected, so byte/file-count monitoring cannot skip an
+unaccounted subtree. This is polling and final admission, not an OS disk quota.
+
 The shared `parse_bounded_json` asset reader rejects raw NUL bytes, oversized
 input, excess nesting/events and duplicate keys. A string
 terminator cannot hide a suffix within a declared input range. Escaped JSON

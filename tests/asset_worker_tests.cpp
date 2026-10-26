@@ -2,6 +2,7 @@
 #include <chrono>
 #include <fstream>
 #include <iostream>
+#include <string_view>
 #include <thread>
 
 using namespace forge::asset_detail;
@@ -115,6 +116,40 @@ int main(int argc, char** argv) {
             rejected = true;
         }
         require(rejected, "Stale cancellation staging was reused");
+        // Every existing converter/inspection kind uses a flat working layout.
+        // A nested tree must not bypass the shared file-count/byte accounting,
+        // either before launch or when produced by a successful worker.
+        unsigned shape_failures = 0;
+        for (auto kind : {WorkerKind::Animation, WorkerKind::Navigation, WorkerKind::Script,
+                          WorkerKind::Schema, WorkerKind::UiInspection}) {
+            for (const auto* mode : {"ordinary", "preexisting", "nested"}) {
+                const auto stage = root / ("shape-" + std::to_string(++sequence));
+                std::filesystem::create_directory(stage);
+                const bool before_launch = std::string_view(mode) == "preexisting";
+                std::ofstream(stage / "request.txt") << (before_launch ? "ordinary" : mode);
+                if (before_launch) {
+                    std::filesystem::create_directory(stage / "nested");
+                    std::ofstream(stage / "nested/oversized.bin") << std::string(9000, 'x');
+                }
+                bool rejected = false;
+                try {
+                    run_worker(kind, executable, stage, {}, limits);
+                } catch (const std::exception&) {
+                    rejected = true;
+                }
+                const bool expected_rejection = std::string_view(mode) != "ordinary";
+                const bool correct =
+                    rejected == expected_rejection &&
+                    (!before_launch || !std::filesystem::exists(stage / "started.txt")) &&
+                    (expected_rejection || std::filesystem::is_regular_file(stage / "result.txt"));
+                if (!correct) {
+                    ++shape_failures;
+                    std::cerr << "Worker output shape mismatch: kind=" << int(kind)
+                              << " case=" << mode << '\n';
+                }
+            }
+        }
+        require(shape_failures == 0, "Worker nested output bypassed resource admission");
         std::cout << "Asset worker limits, output shape, cancellation/grace and timeout passed\n";
         return 0;
     } catch (const std::exception& error) {

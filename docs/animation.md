@@ -74,6 +74,8 @@ Objects bound process memory to512MiB, forbid child processes, and terminate the
 worker on job closure. POSIX applies address-space/file/CPU limits and owns a process
 group. Both enforce cancellation, a30-second wall deadline and output monitoring;
 each admitted output is at most16MiB and total staging is checked against32MiB.
+The fixed converter layout contains ordinary files only; nested directories and
+links are rejected before launch, while running, and after completion.
 Windows output monitoring is polling, not a disk quota. Tool failure never publishes.
 
 Settings are runtime skeleton/animation output, no additive conversion, no root-motion

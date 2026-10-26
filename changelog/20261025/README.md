@@ -2,6 +2,12 @@
 
 Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
+## Worker resource admission
+
+- Animation, navigation, Script, SDK inspection and UI inspection enforce the same
+  flat output-file policy as imports. Nested directories are rejected before
+  launch and during/following execution so output budgets cover all admitted files.
+
 ## Project Code setup
 
 - Compiler and exported-game commands use a private native supervisor with a

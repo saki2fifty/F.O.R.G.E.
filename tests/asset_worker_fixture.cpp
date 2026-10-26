@@ -25,6 +25,26 @@ int main(int argc, char** argv) {
         }
         return 23;
     }
+    const bool flat_worker = (argc == 2 && (std::string(argv[1]) == "--build-navigation" ||
+                                            std::string(argv[1]) == "--script-worker" ||
+                                            std::string(argv[1]) == "--inspect-sdk-worker" ||
+                                            std::string(argv[1]) == "--inspect-ui-worker")) ||
+                             (argc == 3 && std::string(argv[1]) == "--file=source.gltf" &&
+                              std::string(argv[2]) == "--config_file=config.json");
+    if (flat_worker) {
+        std::ofstream("started.txt") << "started";
+        std::string mode;
+        std::ifstream("request.txt") >> mode;
+        if (mode == "nested") {
+            std::filesystem::create_directory("nested");
+            for (unsigned i = 0; i < 3; ++i)
+                std::ofstream("nested/file" + std::to_string(i)) << std::string(3000, 'x');
+        } else if (mode == "ordinary") {
+            std::ofstream("result.txt") << "ordinary flat result";
+        } else
+            return 11;
+        return 0;
+    }
     if (argc != 2 || std::string(argv[1]) != "--build-asset")
         return 1;
     std::string mode;

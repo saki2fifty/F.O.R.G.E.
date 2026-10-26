@@ -15,6 +15,8 @@ struct WorkerLimits {
     unsigned cancellation_grace_ms = 0;
 };
 // Fixed commands only. Explicit executable/cwd, cancellation, bounded child lifetime.
+// Existing workers produce flat ordinary files. Import monitors output/; other
+// kinds monitor the entire staging root. Nested directories are not admitted.
 void run_worker(WorkerKind, const std::filesystem::path& executable,
                 const std::filesystem::path& staging, std::stop_token cancel,
                 WorkerLimits limits = {}, const WorkerStageLease* staging_owner = nullptr);
