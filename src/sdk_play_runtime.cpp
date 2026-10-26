@@ -1265,10 +1265,10 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
                               ->tune_appearance(target.target, property, request.at("value"));
             } else if (RuntimePropertyTune::navigation_type(type)) {
                 if (!s.game->active().engine.services().available(Capability::Navigation))
-                    return s.build_error(id, "Live avoidance tuning requires enabled navigation");
+                    return s.build_error(id, "Live navigation tuning requires enabled navigation");
                 applied = std::static_pointer_cast<NavigationRuntime>(
                               s.game->active().engine.services().navigation())
-                              ->tune_avoidance(target.target, property, request.at("value"));
+                              ->tune(target.target, type, property, request.at("value"));
             } else
                 applied = scene.tune_runtime_property(canonical_entity, type, property,
                                                       request.at("value"));

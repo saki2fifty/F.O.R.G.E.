@@ -13,6 +13,7 @@ class NavigationRuntime final : public NavigationService {
     NavResult find_path(AssetRef<NavMeshAsset>, Double3, Double3) override;
     std::optional<NavigationAgentObservation> agent_state(EntityRef) const override;
     // Private editor Play transport; no movement or authored history is advanced.
+    Json tune(EntityRef, const std::string& type, const std::string& property, const Json& value);
     Json tune_avoidance(EntityRef, const std::string& property, const Json& value);
     Json debug(flecs::entity_t) const;
     Json checkpoint();

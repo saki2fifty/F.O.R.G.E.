@@ -64,6 +64,10 @@ for legacy in (False, True):
             assert value['ok'], value
             return value['result']
 
+        def control(tool, **extra):
+            state = until(lambda: read('forge_play_status'), lambda r: r['control_ready'])
+            return ok(tool, launch=state['launch'], session=state['session'], generation=state['generation'], **extra)
+
         def edit_settings(tool, **extra):
             return ok(tool, state=read('forge_project_settings_read')['state'], **extra)
 
@@ -152,7 +156,58 @@ for legacy in (False, True):
             ok('forge_component_revert', arguments=dict(entity=floor, component='forge.character_controller_2d'))
             ok('forge_document_save')
             assert obstacle_width() == 3
-            print(('legacy' if legacy else 'current') + ': navigation ownership, XY profile, schema, property history and save verified')
+            agent = ok('forge_entity_create', arguments=dict(name='Live XY agent'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=agent, component='forge.navigation_agent'))
+            ok('forge_property_set_many', arguments=dict(entity=agent, component='forge.local_translation',
+                                                        values=dict(x=-8, y=1, z=37.125)))
+            ok('forge_property_set_many', arguments=dict(entity=agent, component='forge.navigation_agent',
+                                                        values=dict(navmesh=asset, has_destination=True, destination_x=8, destination_y=1)))
+            edit_settings('forge_project_settings_game_defaults')
+            edit_settings('forge_project_settings_save')
+            ok('forge_document_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda r: r['ready'] and r['control_ready'])
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda r: r['paused'] and r['control_ready'])
+            def runtime_agent():
+                return next(row for row in read('forge_play_snapshot')['entities'] if row['id'] == agent)
+            position = runtime_agent()['world_affine']
+            def tune_agent(field, value, accepted=True):
+                control('forge_play_tune', entity=agent, component='forge.navigation_agent', property=field, value=value)
+                result = until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
+                assert ('error' not in result['tune_ack']) is accepted, result
+                assert result['timing']['tick'] == paused['timing']['tick'], result
+                return result
+            tune_agent('speed', 0)
+            assert runtime_agent()['components']['forge.navigation_agent']['speed'] == 0
+            assert runtime_agent()['world_affine'] == position
+            for field, value in [('speed', -1), ('navmesh', None), ('enabled', 'yes'), ('destination_x', 4091)]:
+                tune_agent(field, value, False)
+            tune_agent('destination_x', -8)
+            tune_agent('speed', 3)
+            control('forge_play_tuning_capture', entity=agent)
+            wrong = {key: paused[key] for key in ('launch', 'session', 'generation')}
+            wrong['generation'] += 1
+            failed(mutate('forge_play_tune', **wrong, entity=agent, component='forge.navigation_agent', property='speed', value=4), 'stale_play')
+            control('forge_play_step')
+            until(lambda: read('forge_play_status'), lambda r: r['timing']['tick'] == paused['timing']['tick'] + 1 and r['control_ready'])
+            assert read('forge_scene_read') == authored
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            review = read('forge_play_tuning_read')
+            assert {field['property'] for field in review['fields']} == {'speed', 'destination_x'}, review
+            ok('forge_play_tuning_apply', state=review['state'])
+            kept = read('forge_scene_read')
+            assert next(row for row in kept['entities'] if row['id'] == agent)['components']['forge.navigation_agent']['speed'] == 3
+            ok('forge_history_undo')
+            assert read('forge_scene_read') == authored
+            ok('forge_history_redo')
+            assert read('forge_scene_read') == kept
+            ok('forge_document_save')
+            with editor('read') as (_, read_config), Client(read_config, legacy) as restricted:
+                assert 'forge_play_tune' not in {tool['name'] for tool in restricted.request('tools/list')['result']['tools']}
+            print(('legacy' if legacy else 'current') + ': navigation ownership, XY profile, live agent validation, keep-values/history and execution grant verified')
             continue
         ok('forge_source_folder_create', path='Assets/Shaders')
         shader_file = 'Assets/Shaders/test.hlsl'
@@ -236,9 +291,6 @@ for legacy in (False, True):
         started = ok('forge_play_start')
         active = until(lambda: read('forge_play_status'), lambda r: r['ready'] and r['control_ready'])
         assert active['launch'] == started['launch']
-        def control(tool, **extra):
-            state = until(lambda: read('forge_play_status'), lambda r: r['control_ready'])
-            return ok(tool, launch=state['launch'], session=state['session'], generation=state['generation'], **extra)
 
         wrong = dict(launch=active['launch'], session=active['session'], generation=active['generation'] + 1)
         failed(mutate('forge_play_pause', **wrong), 'stale_play')
@@ -326,5 +378,5 @@ for legacy in (False, True):
 
 with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
     json.dump(CAPTURE, output, separators=(',', ':'))
-print('Both MCP protocols: navigation ownership and XY authoring verified; no export or Windows execution' if NAVIGATION_ONLY else
+print('Both MCP protocols: navigation ownership, XY authoring and live controls verified; no export or Windows execution' if NAVIGATION_ONLY else
       'Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')

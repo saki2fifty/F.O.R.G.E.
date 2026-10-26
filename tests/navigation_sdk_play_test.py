@@ -46,6 +46,48 @@ try:
         expected.append(observation(state)['position'])
     assert any('navigation SDK queries passed' in item['text'] for item in state['diagnostics']), state
     assert state['recovery'] is None, 'SDK Play must not advertise unsupported native recovery'
+    # Exercise the production host's shared live owner while the world is paused.
+    generation = state['activation']['generation']
+    target = dict(generation=generation, scene_asset=scene['asset_id'],
+                  entity=next(row for row in state['effective_scene']['entities'] if row['name'] == 'Agent')['id'],
+                  type='forge.navigation_agent')
+    tick = state['timing']['tick']
+    original_pose = observation(state)['position']
+    def tune(field, value):
+        result = first.request('property_tune', **target, property=field, value=value)
+        assert result['property_tune']['value'] == value
+        assert result['timing']['tick'] == tick
+        return result
+    tune('enabled', False)
+    tune('has_destination', False)
+    tune('destination_x', -8)
+    tune('destination_y', 1)
+    tune('destination_z', -99)
+    tune('stopping_distance', .25)
+    tune('speed', 0)
+    tune('enabled', True)
+    tune('has_destination', True)
+    paused = first.request('step')
+    assert observation(paused)['position'] == original_pose
+    assert next(row for row in paused['effective_scene']['entities'] if row['name'] == 'Agent')['navigation_debug']['phase'] == 'Paused'
+    tick = paused['timing']['tick']
+    for changed in [dict(target, generation=generation+1), dict(target, scene_asset='11111111-1111-4111-8111-111111111111')]:
+        try:
+            first.request('property_tune', **changed, property='speed', value=3)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError('SDK Play accepted stale/foreign live target')
+    for field, value in [('navmesh', None), ('speed', -1), ('enabled', 'yes')]:
+        try:
+            first.request('property_tune', **target, property=field, value=value)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError(('SDK Play accepted invalid live field', field, value))
+    tune('speed', 3)
+    resumed = first.request('step')
+    assert observation(resumed)['position'] != original_pose
     try:
         first.request('replace', scene=scene, recovery={})
     except RuntimeError as error:
@@ -74,4 +116,4 @@ finally:
         first.close()
     if second:
         second.close()
-print('Production SDK Play: XY queries, copied progress, return journey and clean authored restart passed')
+print('Production SDK Play: XY queries, live controls/authority, copied progress, return journey and clean authored restart passed')

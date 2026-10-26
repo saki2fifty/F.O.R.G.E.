@@ -2,6 +2,17 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Live navigation-agent controls
+
+- Navigation Agent flags, speed, stopping distance and destination coordinates are
+  tunable in Live gameplay through the same runtime owner in ordinary and SDK Play.
+  Existing validation/generation checks retain prior values after rejected edits;
+  routing applies the new configuration on a fixed tick. NavMesh selection stays authored.
+- MCP live tuning and the frozen Keep values after Stop review use the same fields.
+  Selected values apply through ordinary Scene history/Prefab overrides/Save, without
+  copying runtime movement. Recovery2 remains in its supporting path; SDK Play keeps
+  authored restart. No component layout, source format or SDK header change.
+
 ## Navigation region Scene tools
 
 - Visible region outlines can be selected through the existing Scene-helper owner;

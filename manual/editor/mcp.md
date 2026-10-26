@@ -117,7 +117,10 @@ logs, supply validated input, adjust supported live fields, control watched
 sounds/animations and use declared game-UI commands. It must use the current Play
 launch/session/world and check actual acknowledgements. A queued tuning request
 can still be rejected by the runtime. These changes do not silently change source
-or authored values.
+or authored values. For Navigation Agent, supported live fields include Enabled,
+Has Destination, Speed, Stopping Distance and world destination coordinates; its
+NavMesh asset is selected while authoring. Pause before changing several goal
+coordinates and inspect Navigation progress after Step or Resume.
 
 To keep supported live values, the agent captures the existing review, stops Play,
 selects fields and applies them to the Scene. That creates one Undo step; saving

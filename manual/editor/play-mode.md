@@ -17,7 +17,7 @@ Play becomes available after the initial source scan and queued asset imports fi
 - **Restart** starts again from your authored scene.
 - **Stop** ends play and returns to authored positions.
 
-The runtime keeps its own clock. Editor FPS and snapshot polling do not set gameplay speed. Running presentation blends between completed simulation poses; paused presentation shows the latest completed state. Without a gameplay module, objects normally stay stationary even though the tick counter increases.
+The runtime keeps its own clock. Editor FPS and snapshot polling do not set gameplay speed. Running presentation blends between completed simulation poses; paused presentation shows the latest completed state. Built-in systems such as navigation and physics can move objects without a project C++ module.
 
 Large scene updates are sent in bounded pieces while gameplay continues. If an update is still being received, the next control waits for that update to finish; it is not silently dropped.
 

@@ -225,7 +225,9 @@ struct PlayAutomation {
         methods.push_back(automation_method(
             "play.tune",
             "Queue one reflected runtime property through the actual live-tuning "
-            "owner. Poll play.status.tune_ack for runtime validation. This never "
+            "owner, including Navigation Agent flags, speed, stopping distance and destination "
+            "coordinates (not its NavMesh asset). Poll play.status.tune_ack for runtime "
+            "validation. This never "
             "changes source, component schemas or authored values.",
             "play.execute", automation_object(tune_properties, tune_required), true,
             [&files, &play, providers](const Json& request) {

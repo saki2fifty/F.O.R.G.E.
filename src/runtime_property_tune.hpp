@@ -10,7 +10,16 @@ struct RuntimePropertyTune {
     EntityRef target;
     std::string type, property;
     static bool navigation_type(std::string_view type) {
-        return type == "forge.navigation_avoidance";
+        return type == "forge.navigation_avoidance" || type == "forge.navigation_agent";
+    }
+    static bool navigation_property(std::string_view type, std::string_view property) {
+        if (type == "forge.navigation_avoidance")
+            return property == "enabled" || property == "horizon";
+        if (type == "forge.navigation_agent")
+            return property == "enabled" || property == "has_destination" || property == "speed" ||
+                   property == "stopping_distance" || property == "destination_x" ||
+                   property == "destination_y" || property == "destination_z";
+        return false;
     }
     static bool particle_type(std::string_view type) { return type == "forge.particle_emitter"; }
     static bool material_type(std::string_view type) { return type == "forge.mesh_renderer"; }

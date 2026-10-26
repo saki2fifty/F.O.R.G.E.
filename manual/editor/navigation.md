@@ -149,6 +149,32 @@ navigation. If C++ controls your character, query the Navigation service for a
 route and let that controller own movement; do not add a second active Navigation
 Agent driver.
 
+## Tune an agent during Play
+
+Select an agent in Hierarchy during Play. Open **Inspector → Live gameplay →
+Navigation Agent**. These fields affect the running copy:
+
+- **Speed** changes its movement rate. Set it to **0** to hold that agent while other gameplay continues.
+- **Enabled** turns its navigation movement on or off. **Has Destination** starts or clears its route request.
+- **Destination X**, **Destination Y** and **Destination Z** set a world-space goal. Use X/Z for 3D or X/Y for top-down 2D. XY movement keeps visual Z.
+- **Stopping Distance** changes how close along the route it tries to get.
+
+For a goal requiring several coordinate changes, **Pause** first, enter each value,
+then **Step** or **Resume**. Edits themselves do not advance simulation. Navigation
+uses the new settings on its next fixed tick. Watch **Navigation progress** for the
+result; a goal outside the walkable area can fail even when its numeric values are
+valid. A rejected field value retains the previous value. The NavMesh asset is
+chosen in the authored Inspector while stopped.
+
+Collapse the Navigation Agent section to reach Navigation Avoidance in a short
+Inspector, or scroll to the controls. Supported live fields remain available while
+the game is paused. Their temporary values do not change the Scene or Prefab source.
+
+To keep selected settings, choose **Keep values after Stop...**, Stop, then use
+**Run → Review runtime tuning... → Apply to Scene** and save. This uses one Scene
+Undo step and copies only selected tunable values; it does not keep the agent's
+runtime position or change its NavMesh. See [Play mode](play-mode.md).
+
 ## See movement progress
 
 Open **50-navigation-progress** in the Feature Gallery. Select **Agent - inspect progress during Play**, then press Play. The cube travels around the obstacle and stops. In Inspector's **Live gameplay → Navigation progress**, watch the state, route distance, measured speed and navigation tick. These are read-only runtime observations; Stop restores the saved scene.

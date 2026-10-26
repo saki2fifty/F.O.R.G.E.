@@ -156,6 +156,31 @@ An invalid request leaves any existing worker output intact.
 
 Detour's native loader trusts section counts and offsets. FORGE checks sizes, full consumption, finite bounds, counts, vertex/detail indices, convex clockwise polygons, reciprocal neighbors, detail ranges and boundary edges before initializing Detour. Only little-endian, 32-bit polygon references, one static tile, one walkable flag/area, no BV tree, no off-mesh data and fresh zeroed link storage are supported. Arbitrary Detour/sample binaries are rejected. The admitted bytes are copied into Detour-owned memory; assets shared by agents remain immutable.
 
+## Live agent tuning
+
+NavigationRuntime::tune owns temporary NavigationAgent and NavigationAvoidance
+edits; tune_avoidance remains a compatibility wrapper. RuntimePropertyTune provides
+one shared type/property predicate for the runtime, live Inspector and frozen
+keep-values review. Agent fields are enabled, has_destination, speed,
+stopping_distance and destination_x/y/z. The NavMesh AssetRef, bake sources and
+geometry are excluded. No source/asset/SDK header or checkpoint format changes.
+
+Both ordinary and SDK Play hosts retain their generation/scene/entity/role/thread/
+writability checks and dispatch through that owner. A copied candidate uses the
+existing component codec and reflected range/type validation before one component
+write. Missing components, Prefab templates and forbidden properties reject; no
+arbitrary property registration or second runtime API is created. Edits do not tick,
+move, save or create authoring history. Existing configuration comparison invalidates
+a copied progress sample/path as necessary; the next fixed tick performs ordinary
+routing, ownership and movement checks. Numeric admission is not route reachability.
+
+Live inherited values materialize only temporary runtime component state; the authored
+Prefab source is unchanged. Existing recovery2 records semantic config/ownership,
+including these live values, in its supporting runtime. Production SDK Play continues
+to reject recovery and restarts from authored content. Keeping values instead uses
+the existing frozen review, scalar allowlist, Stop lock and ordinary property history/
+Prefab intent/Save owner. Transforms and the NavMesh reference are never reviewed.
+
 ## Runtime ownership
 
 `forge.navigation` uses EngineModule lifecycle. Authoring/validation compositions receive schemas; runtime compositions provide a world-scoped Navigation service. No ImGui, renderer or audio device is required. Primitive-only compositions remain usable without a Resources provider. External Mesh geometry lazily requests builtin CPU Resources after bootstrap and holds world-scoped subscriptions; it never creates a competing runtime mesh pool. A selected Mesh load holds the agent Pending (no sample/tick0); missing providers or failed/stale selection prevents movement. Retaining last-good bytes does not authorize following a NavMesh built against a different selected revision. Provider shutdown revokes CPU leases. Synchronization reads retained data/revisions, without re-decoding cooked Mesh files on each tick. Owner-thread queries return owned FORGE waypoint arrays with explicit success, missing/stale, outside, no-path, partial, invalid, unavailable and limit statuses. Partial paths are diagnosed and not followed. Query scratch is private to the runtime world; immutable meshes are shared within its cache.

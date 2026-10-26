@@ -327,6 +327,15 @@ schema. `input_submit` accepts up to64 validated events from `controls`, using t
 existing input queue and physical release policy; reset releases controls.
 `time_scale` uses the existing finite [0,4] clock policy.
 
+Navigation Agent tuning uses `forge_play_tune` with component
+`forge.navigation_agent` and property enabled, has_destination, speed,
+stopping_distance or destination_x/y/z. Pause to submit several coordinate values
+without intervening simulation. The next fixed tick recomputes the route through
+NavigationRuntime; the NavMesh asset remains outside live tuning. The same
+reflected validation, execution grant, observed launch/session/generation, queued
+ack and keep-values capture/Stop/review/history paths apply. No extra MCP schema,
+pose writer or independent navigation implementation is introduced.
+
 Compiler text pages and Play/exported-game log text share UTF-8-safe response
 conversion. Invalid or incomplete native output bytes appear as replacement
 characters in the returned text, so they cannot break the JSON log response.

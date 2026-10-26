@@ -26,6 +26,9 @@ the green/amber pair steer past each other. Select a region to see its outline;
 press **F** to frame it and **W** to resize with its gold edge handles. You can also
 change Width/Height or Obstacle in Inspector while stopped, then rebuild
 through **Content → Create / Register → Navigation → Plane → 2D (XY)**.
+During Play, select an agent and use Live gameplay to change its Speed or destination.
+Pause before setting several goal coordinates. Stop restores authored values unless
+you keep chosen settings through the runtime tuning review.
 Save and select the Scene as startup before export. See [Navigation](../editor/navigation.md).
 
 ## 2D physics

@@ -146,7 +146,9 @@ int main(int argc, char** argv) {
             export_task.poll(imports, [&] { imports.rescan(); });
             navigation.poll(scene, files.document, play.active(), message);
             play.pump();
-            if (play.ready() && play.ui_snapshot().is_object()) {
+            if (play.ready() && play.ui_snapshot().is_object() &&
+                (presenter || (play.ui_snapshot().contains("documents") &&
+                               !play.ui_snapshot().at("documents").empty()))) {
                 const auto& snapshot = play.ui_snapshot();
                 const auto generation = snapshot.at("generation").get<std::uint64_t>();
                 if (!presenter) {

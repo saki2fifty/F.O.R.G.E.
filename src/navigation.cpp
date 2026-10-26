@@ -1,6 +1,7 @@
 #include "builtins.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_sources.hpp"
+#include "runtime_property_tune.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/assets.hpp>
@@ -652,32 +653,46 @@ Json NavigationRuntime::debug(flecs::entity_t entity) const {
             {"projected_destination", out->projected_destination},
             {"remaining_distance", out->remaining_distance}};
 }
-Json NavigationRuntime::tune_avoidance(EntityRef ref, const std::string& property,
-                                       const Json& value) {
+Json NavigationRuntime::tune(EntityRef ref, const std::string& type, const std::string& property,
+                             const Json& value) {
     if (!impl_ || impl_->context.role() != WorldRole::Runtime ||
         !impl_->context.on_owner_thread() || impl_->context.world().is_readonly())
-        throw std::runtime_error("Live avoidance tuning requires the runtime navigation owner");
+        throw std::runtime_error("Live navigation tuning requires the runtime navigation owner");
     impl_->check();
+    if (!RuntimePropertyTune::navigation_property(type, property))
+        throw std::runtime_error("Live navigation property is unavailable");
     const auto resolved = impl_->context.resolve(ref);
     if (resolved.state != WorldContext::ResolveState::Available ||
         ref.scene != impl_->scene->asset_id())
-        throw std::runtime_error("Live avoidance target is unavailable");
+        throw std::runtime_error("Live navigation target is unavailable");
     auto e = impl_->context.world().entity(resolved.entity);
     if (impl_->scene->entity(ref.entity.str()) != e)
-        throw std::runtime_error("Live avoidance target belongs to another Scene instance");
-    if (e.has(flecs::Prefab) || !e.has<NavigationAgent>() || !e.has<NavigationAvoidance>())
+        throw std::runtime_error("Live navigation target belongs to another Scene instance");
+    if (e.has(flecs::Prefab) || !e.has<NavigationAgent>() ||
+        (type == "forge.navigation_avoidance" && !e.has<NavigationAvoidance>()))
         throw std::runtime_error(
-            "Live avoidance tuning requires an existing navigation participant");
-    const auto& codec = navigation_descriptor("forge.navigation_avoidance");
+            "Live navigation tuning requires an existing navigation participant");
+    const auto& codec = navigation_descriptor(type);
     auto candidate = codec.read(e, true);
     if (!candidate.contains(property))
-        throw std::runtime_error("Live avoidance property is unavailable");
+        throw std::runtime_error("Live navigation property is unavailable");
     candidate[property] = value;
-    detail::validate_components({{"forge.navigation_avoidance", candidate}});
-    const auto typed = std::get<NavigationAvoidance>(codec.decode(candidate));
-    detail::validate_reflected_value(e, typed);
-    e.set<NavigationAvoidance>(typed);
+    detail::validate_components({{type, candidate}});
+    const auto decoded = codec.decode(candidate);
+    if (type == "forge.navigation_agent") {
+        const auto& typed = std::get<NavigationAgent>(decoded);
+        detail::validate_reflected_value(e, typed);
+        e.set<NavigationAgent>(typed);
+    } else {
+        const auto& typed = std::get<NavigationAvoidance>(decoded);
+        detail::validate_reflected_value(e, typed);
+        e.set<NavigationAvoidance>(typed);
+    }
     return codec.read(e, true).at(property);
+}
+Json NavigationRuntime::tune_avoidance(EntityRef ref, const std::string& property,
+                                       const Json& value) {
+    return tune(ref, "forge.navigation_avoidance", property, value);
 }
 Json NavigationRuntime::checkpoint() {
     Json revisions = Json::array(), agents = Json::array();

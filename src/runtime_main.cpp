@@ -527,11 +527,11 @@ int main(int argc, char** argv) {
                             if (!runtime->engine.services().available(
                                     forge::Capability::Navigation))
                                 throw std::runtime_error(
-                                    "Live avoidance tuning requires enabled navigation");
+                                    "Live navigation tuning requires enabled navigation");
                             value = std::static_pointer_cast<forge::NavigationRuntime>(
                                         runtime->engine.services().navigation())
-                                        ->tune_avoidance(target.target, target.property,
-                                                         request.at("value"));
+                                        ->tune(target.target, target.type, target.property,
+                                               request.at("value"));
                         } else {
                             if (!forge::AnimationPlaybackAccess::rig_type(target.type) ||
                                 !runtime->engine.services().available(forge::Capability::Animation))

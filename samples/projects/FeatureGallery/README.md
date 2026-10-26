@@ -947,3 +947,9 @@ the named audio/light object as Preview object. Volume, pitch and light intensit
 share three editable keys. Preview displays values; sound starts in Play. Save &
 Publish applies edits to Play/export. Export includes the cooked clip and tone;
 no source editor or compiler is needed. Channel/master volume still applies.
+
+In80-xy-navigation, select a Sprite agent during Play and adjust Live gameplay /
+Navigation Agent / Speed or destination. Pause before editing several coordinates,
+then Step/Resume and inspect progress. The NavMesh stays authored. Stop restores
+source settings; Keep values after Stop stages chosen scalar values for review,
+ordinary Scene Undo and Save. Runtime movement itself is not kept.

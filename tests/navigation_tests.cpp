@@ -64,6 +64,7 @@ struct Fixture {
         return scene.entity("agent").get<WorldTransform>().affine.point({0, 0, 0});
     }
 };
+#include "navigation_live_tests.hpp"
 #include "navigation_planar_tests.hpp"
 int main(int argc, char** argv) {
     try {
@@ -229,6 +230,7 @@ int main(int argc, char** argv) {
             std::cout << std::filesystem::absolute(root).string() << "\n";
             return 0;
         }
+        navigation_live_tests(root, snapshot);
         {
             const auto destination = root.parent_path() / (AssetId::generate().str() + "-game");
             const std::array roots{record.id};

@@ -125,6 +125,8 @@ class ComponentInspector {
                                         const Json& components) {
         const auto name = field.at("id").get<std::string>();
         return components.at(key).contains(name) &&
+               (!RuntimePropertyTune::navigation_type(key) ||
+                RuntimePropertyTune::navigation_property(key, name)) &&
                (!RuntimePropertyTune::particle_type(key) ||
                 RuntimePropertyTune::particle_property(name)) &&
                (!RuntimePropertyTune::material_type(key) ||
@@ -247,8 +249,10 @@ class ComponentInspector {
                 continue;
             const auto key = type.at("id").get<std::string>();
             ui::IdScope component_scope(key.c_str());
-            if (!ImGui::CollapsingHeader(type.value("display_name", key).c_str(),
-                                         ImGuiTreeNodeFlags_DefaultOpen))
+            const bool expanded = ImGui::CollapsingHeader(type.value("display_name", key).c_str(),
+                                                          ImGuiTreeNodeFlags_DefaultOpen);
+            FORGE_UI_PROBE("runtime-component:" + key);
+            if (!expanded)
                 continue;
             Json sprite_fields;
             const Json* fields = &type.at("fields");
