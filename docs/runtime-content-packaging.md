@@ -304,6 +304,14 @@ The user-selected output root is canonicalized at admission, consistently with
 ProjectPaths, so Windows short-name aliases resolve to the same destination and
 recovery journal. A destination that is itself a symbolic link is rejected.
 Internal control, candidate and metadata paths retain unredirected-path checks.
+Recovery checks the destination, candidate and previous directory paths before
+restoring or removing any distribution, including when a redirected directory
+contains files matching the recorded manifest. The existing path guard rejects
+symbolic links and resolved aliases in these internal paths. This is admission
+under the cooperative destination lease, not isolation from an external process
+changing the filesystem concurrently. Unjournaled `work-*` directories are not
+reclaimed by recovery; a normally completed or cancelled exporter removes only
+its uniquely reserved scratch directory.
 
 Runtime-kit collection explicitly seeds both Diligent D3D12 and Archiver target
 files into CMake's dependency resolver. The pinned Archiver factory uses explicit

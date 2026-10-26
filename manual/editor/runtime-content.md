@@ -51,6 +51,12 @@ is refused. Source project files and scene Undo are unchanged; newly discovered 
 resource registrations are a separate saved catalog update. Export packages saved
 content and current cooked artifacts; it does not compile arbitrary gameplay code.
 
+After an interrupted export, retry with the same destination to let FORGE recover
+the last completed game. If the new game was already published, it remains the
+completed output. If recovery reports changed files or a redirected folder, keep
+those files for inspection and choose a new destination to export again. Do not
+replace export folders with symbolic links or edit their staging folders.
+
 ## Declare content chosen at runtime
 
 1. Select the owning UI document or scene in **Content**.

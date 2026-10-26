@@ -2,6 +2,15 @@
 
 Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
+## Export recovery
+
+- Recovery rejects redirected destination, candidate and previous directories
+  before restoring or cleaning up an interrupted export, even when the redirected
+  files match the recorded manifest. It reuses the existing path guard and retains
+  the current journal format and destination ownership.
+- Regression coverage includes each promotion checkpoint, first export, all
+  pre-promotion cancellation stages, changed/unlisted files and unowned scratch.
+
 ## Project creation
 
 - Publishing a new project uses the shared no-replacement directory operation.

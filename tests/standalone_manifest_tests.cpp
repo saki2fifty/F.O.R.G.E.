@@ -16,14 +16,14 @@ int main(int argc, char** argv) {
             if (!ok)
                 throw std::runtime_error(why);
         };
-        auto reject = [&](auto f) {
+        auto reject = [&](auto f, const char* reason = "Invalid distribution admitted") {
             bool rejected = false;
             try {
                 f();
             } catch (const std::exception&) {
                 rejected = true;
             }
-            check(rejected, "Invalid distribution admitted");
+            check(rejected, reason);
         };
         const auto scratch = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         const auto project = scratch / "source", out = scratch / "game";
@@ -120,18 +120,26 @@ int main(int argc, char** argv) {
             check(asset_storage::read(exported / "forge.standalone.json") == first,
                   "Unsupported legacy source replaced the good export");
             std::filesystem::remove(project / "Native/gameplay.cpp");
-            std::stop_source stop;
-            reject([&] {
-                export_standalone_game(
-                    lease, request, {},
-                    [&](const GameExportProgress& p) {
-                        if (p.completed == 4)
-                            stop.request_stop();
-                    },
-                    stop.get_token());
-            });
-            check(asset_storage::read(exported / "forge.standalone.json") == first,
-                  "Cancelled export changed last good");
+            for (unsigned boundary = 0; boundary <= 5; ++boundary) {
+                std::stop_source stop;
+                reject([&] {
+                    export_standalone_game(
+                        lease, request, {},
+                        [&](const GameExportProgress& p) {
+                            if (p.completed == boundary)
+                                stop.request_stop();
+                        },
+                        stop.get_token());
+                });
+                check(asset_storage::read(exported / "forge.standalone.json") == first,
+                      "Cancelled export changed last good");
+            }
+            for (const auto& entry : std::filesystem::directory_iterator(scratch))
+                if (path_utf8(entry.path().filename()).starts_with(".forge-export-"))
+                    for (const auto& staged : std::filesystem::directory_iterator(entry.path()))
+                        check(!path_utf8(staged.path().filename()).starts_with("work-") &&
+                                  staged.path().filename() != "transaction.json",
+                              "Cancelled export left owned scratch or a promotion journal");
             asset_storage::replace(kit / "forge_game", "corrupt");
             reject([&] { export_standalone_game(lease, request); });
             check(asset_storage::read(exported / "forge.standalone.json") == first,
@@ -201,6 +209,126 @@ int main(int argc, char** argv) {
                       !std::filesystem::exists(control / "candidate"),
                   "Interrupted promotion did not recover previous game");
             recover_game_export(exported); // Idempotent.
+
+            // Exercise the actual recovery owner at every promotion checkpoint.
+            // The two manifests differ, so retaining the wrong generation fails.
+            check(first != committed, "Recovery fixture needs distinct generations");
+            auto clone = [&](const std::filesystem::path& path, const std::string& text) {
+                std::filesystem::copy(exported, path, std::filesystem::copy_options::recursive);
+                asset_storage::replace(path / "forge.standalone.json", text);
+            };
+            auto control_for = [](const std::filesystem::path& path) {
+                const auto name = path_utf8(path.filename());
+                return path.parent_path() /
+                       (".forge-export-" +
+                        asset_detail::content_digest(std::as_bytes(std::span(name))).substr(0, 24));
+            };
+            const auto old_hash = asset_detail::content_digest(std::as_bytes(std::span(*first)));
+            auto journal_for = [&](const std::filesystem::path& path, bool had_previous) {
+                return Json{{"version", 1},
+                            {"destination", path_utf8(path)},
+                            {"candidate", hash},
+                            {"previous", had_previous ? old_hash : ""}};
+            };
+            struct Checkpoint {
+                const char* name;
+                bool had_previous, candidate, previous, promoted;
+            };
+            for (const auto& point : {Checkpoint{"journal", true, false, false, false},
+                                      Checkpoint{"candidate", true, true, false, false},
+                                      Checkpoint{"previous", true, true, true, false},
+                                      Checkpoint{"promoted", true, false, true, true},
+                                      Checkpoint{"first-journal", false, false, false, false},
+                                      Checkpoint{"first-candidate", false, true, false, false},
+                                      Checkpoint{"first-promoted", false, false, false, true}}) {
+                const auto destination = scratch / point.name;
+                const auto journal_root = control_for(destination);
+                std::filesystem::create_directory(journal_root);
+                if (point.promoted)
+                    clone(destination, *committed);
+                else if (point.had_previous && !point.previous)
+                    clone(destination, *first);
+                if (point.candidate)
+                    clone(journal_root / "candidate", *committed);
+                if (point.previous)
+                    clone(journal_root / "previous", *first);
+                asset_storage::replace(journal_root / "transaction.json",
+                                       journal_for(destination, point.had_previous).dump());
+                // Unjournaled scratch is not owned by recovery.
+                std::filesystem::create_directory(journal_root / "work-unrecognized");
+                asset_storage::replace(journal_root / "work-unrecognized/user.txt", "keep");
+                recover_game_export(destination);
+                recover_game_export(destination);
+                if (point.had_previous || point.promoted)
+                    check(asset_storage::read(destination / "forge.standalone.json") ==
+                              (point.promoted ? committed : first),
+                          "Recovery retained the wrong generation");
+                else
+                    check(!std::filesystem::exists(destination),
+                          "Recovery published an uncommitted first export");
+                check(!std::filesystem::exists(journal_root / "transaction.json") &&
+                          !std::filesystem::exists(journal_root / "candidate") &&
+                          !std::filesystem::exists(journal_root / "previous") &&
+                          asset_storage::read(journal_root / "work-unrecognized/user.txt") ==
+                              "keep",
+                      "Recovery left its transaction or removed unrelated scratch");
+            }
+
+            // Recovery must reject redirected roots before any restore/cleanup.
+            for (const char* slot : {"previous", "candidate"}) {
+                const auto destination = scratch / (std::string("redirected-") + slot);
+                const auto journal_root = control_for(destination);
+                const auto external = scratch / (std::string("external-") + slot);
+                std::filesystem::create_directory(journal_root);
+                clone(external, slot == std::string_view("previous") ? *first : *committed);
+                std::error_code link_error;
+                std::filesystem::create_directory_symlink(external, journal_root / slot,
+                                                          link_error);
+                if (link_error) {
+                    std::cout << "SKIP recovery directory-link fixture: " << link_error.message()
+                              << '\n';
+                    continue;
+                }
+                const auto other = slot == std::string_view("previous") ? "candidate" : "previous";
+                clone(journal_root / other,
+                      slot == std::string_view("previous") ? *committed : *first);
+                const auto journal = journal_for(destination, true).dump();
+                asset_storage::replace(journal_root / "transaction.json", journal);
+                reject([&] { recover_game_export(destination); },
+                       "Recovery admitted a redirected staging root");
+                check(!std::filesystem::exists(destination) &&
+                          std::filesystem::is_symlink(journal_root / slot) &&
+                          std::filesystem::exists(journal_root / other) &&
+                          asset_storage::read(journal_root / "transaction.json") == journal,
+                      "Recovery changed redirected transaction paths");
+                (void)verify_distribution_files(external, "forge.standalone.json",
+                                                "forge.standalone");
+            }
+            // Unknown or modified bytes must survive a refused recovery.
+            for (const char* slot : {"previous", "candidate", "destination"}) {
+                const auto destination = scratch / (std::string("modified-") + slot);
+                const auto journal_root = control_for(destination);
+                std::filesystem::create_directory(journal_root);
+                clone(destination, *committed);
+                clone(journal_root / "previous", *first);
+                clone(journal_root / "candidate", *committed);
+                const auto edited =
+                    slot == std::string_view("destination") ? destination : journal_root / slot;
+                const auto journal = journal_for(destination, true).dump();
+                asset_storage::replace(journal_root / "transaction.json", journal);
+                for (const char* file : {"user.txt", "forge_game"}) {
+                    asset_storage::replace(edited / file, "user changes");
+                    reject([&] { recover_game_export(destination); },
+                           "Recovery admitted modified distribution contents");
+                    check(asset_storage::read(edited / file) == "user changes" &&
+                              asset_storage::read(journal_root / "transaction.json") == journal &&
+                              asset_storage::read(destination / "forge.standalone.json") ==
+                                  committed,
+                          "Recovery changed modified data or the committed output");
+                    if (file == std::string_view("user.txt"))
+                        std::filesystem::remove(edited / file);
+                }
+            }
             std::filesystem::create_directory(scratch / "unrelated");
             asset_storage::replace(scratch / "unrelated/user.txt", "keep");
             request.destination = scratch / "unrelated";

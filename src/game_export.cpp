@@ -60,6 +60,10 @@ struct Output {
         require(journal.at("version") == 1 && journal.at("destination") == path_utf8(destination),
                 "Export recovery journal does not match destination");
         const auto stage = control / "candidate", previous = control / "previous";
+        // Content admission canonicalizes roots. Reject redirected transaction
+        // paths first, before restoring or removing any distribution.
+        for (const auto& path : {destination, stage, previous})
+            asset_storage::ordinary(path);
         const auto candidate_hash = journal.at("candidate").get<std::string>();
         const auto previous_hash = journal.at("previous").get<std::string>();
         if (std::filesystem::exists(destination)) {
