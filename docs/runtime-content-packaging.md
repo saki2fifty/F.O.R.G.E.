@@ -290,6 +290,16 @@ committed. This is recoverable directory replacement, not a claim that two renam
 are one atomic filesystem operation. Unrecognized or externally modified output
 is preserved with a diagnostic. Cancellation ends at the promotion boundary.
 
+Exported-game tests reuse that same destination writer lease. Before verification
+or launch, `GameTestLease` writes a bounded private `game-test.json` marker in the
+existing sibling control directory. It holds ownership through verification and
+the `BuildCommand` run. Confirmed retirement removes only the unchanged marker;
+shutdown/helper failure without confirmation retains it. A later exporter/test
+refuses that destination instead of replacing potentially live output. Choosing
+another destination remains available. This is temporary physical ownership, not
+another asset catalog or a standalone manifest-version change. Directly launched
+games outside FORGE's test operation do not participate in this cooperative lease.
+
 The user-selected output root is canonicalized at admission, consistently with
 ProjectPaths, so Windows short-name aliases resolve to the same destination and
 recovery journal. A destination that is itself a symbolic link is rejected.

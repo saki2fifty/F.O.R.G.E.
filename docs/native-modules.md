@@ -99,6 +99,30 @@ in the built-in C++ document. **Test compiler tools** uses a disposable starter
 and never publishes it. Externally maintained exact-SDK layouts retain their
 external build workflow.
 
+Native commands use the private `forge_tools --command-worker` mode, dispatched
+before world initialization. The editor's existing `BuildCommand` sends a bounded
+framed argument record and owns all SDL streams on its caller thread. The helper
+inherits the selected environment/working directory; target stdin is null, and
+target stdout/stderr share the log pipe. A separate receipt reports target exit
+status and confirmed descendant retirement. No public automation/MCP method
+exposes an arbitrary command launcher.
+
+On Linux, only the isolated helper becomes a subreaper; it terminates and joins
+adopted descendants, including new sessions. Windows attaches the suspended target
+to a kill-on-close Job before it runs, then verifies Job retirement. Cancel and
+timeouts keep the task busy while bounded pumping continues. Shutdown joins the
+helper; sending a termination request or observing helper exit alone is not proof
+that writers have stopped. OS teardown has no promised fixed latency. Other OS
+families are not admitted by this supervisor.
+
+Incremental storage uses `.forge/sdk-build/builds/<UUID>`. Before launch, SdkBuild
+claims the bounded `cache-ready.json` pointer into its unique candidate directory.
+Only confirmed retirement republishes a reusable pointer. A missing receipt or
+interrupted editor leaves that generation/candidate retained, and retry selects
+fresh storage. Normal completion, compiler failure and confirmed cancellation reuse
+the same generation. Legacy `.forge/sdk-build/build` data is preserved; it is not
+silently adopted. Private cache paths reject redirects into authored storage.
+
 The installed SDK's configure gate reports expected and detected values for
 compiler/version, platform/architecture/configuration, flags/toolset and CRT
 without relaxing exact admission. Windows deployment rejects CMake older than

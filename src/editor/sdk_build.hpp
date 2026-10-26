@@ -111,6 +111,7 @@ class SdkBuild {
         if (busy())
             return;
         operation_id_ = AssetId::generate().str();
+        stop_ = std::stop_source{};
         try {
             project.check_ownership();
             check_sdk(sdk);
@@ -139,7 +140,8 @@ class SdkBuild {
             timed_log_.clear();
             ++log_revision_;
             error_.clear();
-            work_ = ProjectPaths(project_).resolve(".forge/sdk-build");
+            work_ = project_ / ".forge/sdk-build";
+            asset_storage::ordinary(work_);
             std::filesystem::create_directories(work_);
             log_file_.close();
             log_file_.open(work_ / "build.log", std::ios::trunc);
@@ -148,10 +150,11 @@ class SdkBuild {
             candidate_root_ = work_ / AssetId::generate().str();
             std::filesystem::create_directory(candidate_root_);
             source_ = project_ / "Native";
-            build_ = work_ / "build";
             ninja_ = ninja;
-            if (!test)
+            if (!test) {
                 source_digest_ = gameplay_source_digest(project_);
+                claim_build_cache();
+            }
             if (test) {
                 // Keep CMake's nested compiler scratch/PDB paths below Windows limits.
                 // This disposable readiness probe owns no project source or deployment.
@@ -174,14 +177,26 @@ class SdkBuild {
     }
     void cancel() {
         stop_.request_stop();
-        command_.close();
-        if (phase_ != Phase::Inspect)
+        command_.cancel();
+        if (phase_ != Phase::Inspect && busy())
             fail("Build cancelled; the last good module is unchanged.");
     }
     void pump(SceneDocument& project) {
         if (!busy())
             return;
         try {
+            if (phase_ == Phase::Stopping) {
+                std::string output;
+                int code = 0;
+                if (command_.running()) {
+                    const auto finished = command_.pump(output, code);
+                    append_output(output);
+                    if (!finished)
+                        return;
+                }
+                fail(error_);
+                return;
+            }
             project.check_ownership();
             if (project.project() != project_ || project.settings().document() != expected_)
                 throw std::runtime_error(
@@ -265,14 +280,7 @@ class SdkBuild {
                 }
                 return;
             }
-            log_file_ << output;
-            log_file_.flush();
-            log_ += output;
-            timed_log_.append(output);
-            if (!output.empty())
-                ++log_revision_;
-            if (log_.size() > 256 * 1024)
-                log_.erase(0, log_.size() - 256 * 1024);
+            append_output(output);
             if (!finished)
                 return;
             if (code)
@@ -331,7 +339,16 @@ class SdkBuild {
     }
 
   private:
-    enum class Phase { Idle, Discover, Environment, Configure, Compile, Install, Inspect };
+    enum class Phase {
+        Idle,
+        Discover,
+        Environment,
+        Configure,
+        Compile,
+        Install,
+        Inspect,
+        Stopping
+    };
     Phase phase_ = Phase::Idle;
     std::filesystem::path project_, sdk_, work_, candidate_root_, kits_, unpublished_deployment_;
     BuildCommand command_;
@@ -341,7 +358,56 @@ class SdkBuild {
     std::uint64_t log_revision_ = 0;
     std::string operation_id_;
     std::filesystem::path source_, build_, probe_root_;
+    std::string cache_generation_;
+    bool cache_claimed_ = false;
     std::string ninja_, discovery_;
+    void append_output(std::string_view output) {
+        if (output.empty())
+            return;
+        log_file_ << output;
+        log_file_.flush();
+        log_ += output;
+        timed_log_.append(output);
+        ++log_revision_;
+        if (log_.size() > 256 * 1024)
+            log_.erase(0, log_.size() - 256 * 1024);
+    }
+    void claim_build_cache() {
+        // Only a completed task publishes a reusable generation. Claim its
+        // pointer before launching anything; editor/helper death then leaves no
+        // reusable pointer, so a later session selects fresh storage.
+        const auto ready = work_ / "cache-ready.json";
+        const auto generations = work_ / "builds";
+        asset_storage::ordinary(generations);
+        std::filesystem::create_directories(generations);
+        cache_generation_.clear();
+        if (std::filesystem::exists(std::filesystem::symlink_status(ready))) {
+            const auto text = asset_storage::read(ready, 1024);
+            if (!text)
+                throw std::runtime_error("SDK build cache pointer disappeared; retry.");
+            const auto value =
+                asset_detail::parse_bounded_json(std::as_bytes(std::span(*text)), 1024, 64, 4);
+            const auto generation = value.at("generation").get<std::string>();
+            if (!value.is_object() || value.size() != 3 ||
+                value.at("format") != "forge.sdk-build-cache" || value.at("version") != 1 ||
+                AssetId::parse(generation).str() != generation)
+                throw std::runtime_error("Unrecognized SDK build cache pointer; retained.");
+            const auto directory = generations / generation;
+            asset_storage::ordinary(directory);
+            if (std::filesystem::is_directory(directory))
+                cache_generation_ = generation;
+            std::filesystem::rename(ready, candidate_root_ / "cache-claim.json");
+            asset_storage::sync_directory(work_);
+            asset_storage::sync_directory(candidate_root_);
+        }
+        if (cache_generation_.empty()) {
+            cache_generation_ = AssetId::generate().str();
+            if (!std::filesystem::create_directory(generations / cache_generation_))
+                throw std::runtime_error("Cannot reserve SDK build cache generation.");
+        }
+        build_ = generations / cache_generation_;
+        cache_claimed_ = true;
+    }
     void configure() {
         command_.start({cmake_, "-S", path_utf8(source_), "-B", path_utf8(build_), "-G", "Ninja",
                         "-DCMAKE_BUILD_TYPE=Release",
@@ -438,20 +504,42 @@ class SdkBuild {
             throw std::runtime_error("Native SDK installation is incomplete.");
     }
     void cleanup() {
+        const auto safe = command_.retired();
+        if (cache_claimed_ && safe) {
+            try {
+                asset_storage::replace(work_ / "cache-ready.json",
+                                       Json{{"format", "forge.sdk-build-cache"},
+                                            {"version", 1},
+                                            {"generation", cache_generation_}}
+                                           .dump());
+            } catch (...) {
+                // A missing pointer conservatively forces fresh storage next
+                // time. It never makes an uncertain generation reusable.
+            }
+        }
+        cache_claimed_ = false;
+        cache_generation_.clear();
         std::error_code ignored;
         if (!candidate_root_.empty()) {
-            std::filesystem::remove_all(candidate_root_, ignored);
+            if (safe)
+                std::filesystem::remove_all(candidate_root_, ignored);
             candidate_root_.clear();
         }
         if (!probe_root_.empty()) {
-            std::filesystem::remove_all(probe_root_, ignored);
+            if (safe)
+                std::filesystem::remove_all(probe_root_, ignored);
             probe_root_.clear();
         }
     }
     void fail(const std::string& error) {
         stop_.request_stop();
-        command_.close();
         error_ = error;
+        command_.cancel();
+        if (command_.running()) {
+            phase_ = Phase::Stopping;
+            status_ = "Stopping compiler processes before releasing build files.";
+            return;
+        }
         if (inspection_.valid()) {
             if (inspection_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
                 return;
@@ -460,14 +548,18 @@ class SdkBuild {
             } catch (...) {
             }
         }
+        const auto safe = command_.retired();
         cleanup();
         if (!unpublished_deployment_.empty()) {
             std::error_code ignored;
-            std::filesystem::remove_all(unpublished_deployment_, ignored);
+            if (safe)
+                std::filesystem::remove_all(unpublished_deployment_, ignored);
             unpublished_deployment_.clear();
         }
         phase_ = Phase::Idle;
         status_ = "Build failed; the last good module and project settings remain active.";
+        if (!safe)
+            status_ += " Unconfirmed working files were retained; retry uses a fresh build cache.";
     }
 };
 } // namespace forge

@@ -1,4 +1,5 @@
 #include "asset_tools_cli.hpp"
+#include "command_worker.hpp"
 #include "ecs_tools_cli.hpp"
 #include "json_document.hpp"
 #include "mcp.hpp"
@@ -15,6 +16,8 @@
 #endif
 // Authoring stdio is memory-only. Asset writes require the project writer lease.
 int main(int argc, char** argv) {
+    if (argc == 2 && std::string(argv[1]) == "--command-worker")
+        return forge::command_worker_stdio();
 #ifdef _WIN32
     if (argc == 2 && (std::string(argv[1]) == "--stdio" || std::string(argv[1]) == "--mcp-stdio" ||
                       std::string(argv[1]) == "--ecs-stdio")) {

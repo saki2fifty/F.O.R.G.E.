@@ -19,6 +19,15 @@ SDK package tests verify relocation and shared-library dependency identity.
 
 ## Consequences
 
+Private managed-build caches use unique generations and a bounded reusable-pointer
+record. The existing SdkBuild task claims the pointer before launching commands
+and republishes it only after confirmed retirement. Interruption retains uncertain
+files and selects fresh storage on retry; successful work keeps incremental reuse.
+Existing legacy cache files remain untouched. Exported-game tests similarly reuse
+the existing destination lease/control directory and retain an unconfirmed run
+marker across restart. These records govern disposable physical storage, not
+project/asset identity, authored schemas, SDK ABI or a new authoritative database.
+
 Profiles are editor development, exact SDK development, shipping visual runtime
 and headless server. Current implementation supplies the first two plus headless
 runtime foundations, not a production exporter. Shipping strips editor/compiler/

@@ -41,6 +41,11 @@ the target Windows machine and run `forge_game.exe`. Keep its content, DLLs and
 manifest together. Player saves, settings and runtime logs live in the OS user-data
 location, independently of the installation folder.
 
+When an agent starts an exported-game test, the Export Game window shows its test
+status. Use **Stop game test** and wait for shutdown to finish before rebuilding
+that output. If FORGE reports that shutdown could not be confirmed, choose another
+export destination; the previous game folder is retained.
+
 Rebuilding replaces only an existing validated FORGE export. An unrelated folder
 is refused. Source project files and scene Undo are unchanged; newly discovered UI
 resource registrations are a separate saved catalog update. Export packages saved

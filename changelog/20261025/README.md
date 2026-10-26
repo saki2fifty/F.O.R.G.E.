@@ -4,6 +4,14 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Project Code setup
 
+- Compiler and exported-game commands use a private native supervisor with a
+  separate shutdown receipt. Cancellation keeps the task busy while descendants
+  retire; output pumping stays bounded. Unconfirmed compiler work is retained and
+  retry uses a fresh incremental cache. Normal confirmed builds reuse their cache.
+- Exported-game tests hold the existing destination lease through verification
+  and execution. An unconfirmed test leaves a marker that prevents replacement
+  of that output across restart. The export window labels active game tests and
+  their stop control separately from export preparation.
 - SDK compatibility errors show expected and detected toolchain values and the
   selected SDK configuration. Exact compiler, architecture, flags and CRT rules
   are unchanged.

@@ -86,6 +86,12 @@ source drafts to be saved; turning it off affects future saves and does not
 cancel a running build. Use **Cancel build** for that. Cancelling a candidate
 never replaces the previous good module.
 
+After **Cancel build**, wait for the stopping status to finish before starting
+another build. You can continue using the editor while the compiler shuts down.
+If FORGE reports an unexpected compiler shutdown, retry **Build Project Code**;
+it uses fresh temporary build storage when the previous work cannot be safely
+reused. Your saved C++ source and last good module remain available.
+
 ## Export
 
 Save the scene, build current gameplay, then choose **Run → Export Game...**.

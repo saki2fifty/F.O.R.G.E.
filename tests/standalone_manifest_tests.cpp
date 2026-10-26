@@ -149,6 +149,41 @@ int main(int argc, char** argv) {
                                                          std::as_bytes(std::span(destination_name)))
                                                          .substr(0, 24));
             const auto committed = asset_storage::read(exported / "forge.standalone.json");
+            {
+                GameTestLease run(exported);
+                reject([&] { recover_game_export(exported); });
+                reject([&] { export_standalone_game(lease, request); });
+                check(asset_storage::read(exported / "forge.standalone.json") == committed,
+                      "A running game test allowed export replacement");
+                run.finish(true);
+            }
+            check(!std::filesystem::exists(control / "game-test.json"),
+                  "Confirmed game retirement retained its marker");
+            recover_game_export(exported);
+            for (const auto explicit_finish : {false, true}) {
+                {
+                    GameTestLease interrupted(exported);
+                    if (explicit_finish)
+                        interrupted.finish(false);
+                }
+                reject([&] { recover_game_export(exported); });
+                reject([&] { export_standalone_game(lease, request); });
+                reject([&] { GameTestLease retry(exported); });
+                check(asset_storage::read(exported / "forge.standalone.json") == committed &&
+                          std::filesystem::is_regular_file(control / "game-test.json"),
+                      "Unconfirmed game test output was replaced or its marker lost");
+                // Only this test's explicitly created marker, after its fixture
+                // has proved the blocked restart. No product recovery heuristic.
+                std::filesystem::remove(control / "game-test.json");
+            }
+            {
+                GameTestLease changed(exported);
+                asset_storage::replace(control / "game-test.json", "external change");
+                reject([&] { changed.finish(true); });
+            }
+            check(asset_storage::read(control / "game-test.json") == "external change",
+                  "Game completion erased a changed ownership record");
+            std::filesystem::remove(control / "game-test.json");
             const auto hash = asset_detail::content_digest(
                 asset_detail::read_bytes(exported / "forge.standalone.json", 16 * 1024 * 1024));
             std::filesystem::copy(exported, control / "candidate",

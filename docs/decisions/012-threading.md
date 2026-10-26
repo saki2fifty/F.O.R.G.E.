@@ -52,6 +52,16 @@ See `docs/transport.md` for the byte-level contract and lifecycle pseudocode.
 
 ## Consequences
 
+Managed compiler and exported-game commands retain their existing editor task
+owners. A private mode in the already packaged forge_tools executable owns native
+descendants; it starts before ECS/world initialization and has no editor pointers.
+BuildCommand owns its SDL process/streams on one caller thread and pumps bounded
+launch/log/receipt data. Cancellation keeps the task busy until retirement is
+confirmed. A missing receipt forbids working-file cleanup/reuse. This introduces
+neither another editor transport thread nor a replacement task scheduler; the
+PlaySession transport owner above is unchanged. See
+[native command lifetime](../native-modules.md#build-and-source-identity).
+
 No worker retains a raw mutable world or editor document pointer across a job.
 Every task has owner/generation, cancellation and bounded completion data. Publication
 checks current source/dependency revisions. GPU upload fences and audio thread handoff

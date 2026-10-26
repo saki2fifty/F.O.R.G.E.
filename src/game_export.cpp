@@ -46,6 +46,10 @@ struct Output {
         asset_storage::ordinary(control);
         std::filesystem::create_directory(control);
         lock = std::make_unique<ProjectLease>(control);
+        require(
+            !std::filesystem::exists(std::filesystem::symlink_status(control / "game-test.json")),
+            "A previous game test has unconfirmed process retirement. Its output was "
+            "retained; choose another export destination.");
     }
     void recover() {
         const auto text = asset_storage::read(control / "transaction.json", 65536);
@@ -132,6 +136,32 @@ Json inventory(const std::filesystem::path& root, std::stop_token stop) {
     return files;
 }
 } // namespace
+struct GameTestLease::State {
+    Output output;
+    std::string marker;
+    explicit State(const std::filesystem::path& destination) : output(destination) {
+        output.recover();
+        marker =
+            Json{{"format", "forge.game-test"}, {"version", 1}, {"run", AssetId::generate().str()}}
+                .dump();
+        asset_storage::replace(output.control / "game-test.json", marker);
+    }
+};
+GameTestLease::GameTestLease(const std::filesystem::path& destination)
+    : state_(std::make_unique<State>(destination)) {}
+GameTestLease::~GameTestLease() = default;
+void GameTestLease::finish(bool writers_retired) {
+    if (!state_)
+        return;
+    if (writers_retired) {
+        state_->output.lock->check();
+        const auto file = state_->output.control / "game-test.json";
+        require(asset_storage::read(file, 4096) == state_->marker,
+                "Game test ownership marker changed; retained for inspection");
+        asset_storage::erase_file(file);
+    }
+    state_.reset();
+}
 void recover_game_export(const std::filesystem::path& destination) {
     Output(destination).recover();
 }

@@ -40,9 +40,17 @@ class GameExportTask {
     std::filesystem::path project_, observed_project_;
     Json result_;
     BuildCommand game_;
+    std::shared_ptr<GameTestLease> game_lease_;
+    bool game_started_ = false;
     bool preparing_run_ = false, running_ = false, startup_verification_ = false;
     std::optional<int> exit_code_;
     TimedTextLog run_log_;
+    void release_game_test() {
+        if (game_lease_) {
+            game_lease_->finish(!game_started_ || game_.retired());
+            game_lease_.reset();
+        }
+    }
 
     void observe_project(const std::filesystem::path& project) {
         const bool changed = observed_project_ != project;
@@ -66,7 +74,17 @@ class GameExportTask {
     }
 
   public:
-    ~GameExportTask() { stop_.request_stop(); }
+    ~GameExportTask() {
+        stop_.request_stop();
+        if (job_.valid())
+            job_.wait();
+        game_.close();
+        try {
+            release_game_test();
+        } catch (...) {
+            // An unchanged/retired receipt is required to remove the marker.
+        }
+    }
     bool busy() const { return pending_ || job_.valid() || running_; }
     bool writing() const { return job_.valid(); }
     const std::string& output() const { return output_; }
@@ -136,17 +154,27 @@ class GameExportTask {
         const auto root = std::filesystem::u8path(output_);
         const auto expected = result_.at("manifest");
         auto writer = document.writer_guard();
+        auto run_lease = std::make_shared<GameTestLease>(root);
+        game_started_ = false;
         stop_ = std::stop_source{};
         const auto token = stop_.get_token();
-        job_ = std::async(std::launch::async, [root, expected, token] {
-            const auto verified =
-                verify_distribution_files(root, "forge.standalone.json", "forge.standalone", token);
-            if (verified != expected)
-                throw std::runtime_error("The completed export changed; rebuild it before running");
-            const auto executable = ProjectPaths(root).resolve(
-                std::filesystem::u8path(verified.at("executable").get<std::string>()));
-            return Json{{"executable", path_utf8(executable)}};
-        });
+        try {
+            job_ = std::async(std::launch::async, [root, expected, token, run_lease] {
+                (void)run_lease; // Retain the destination owner throughout verification.
+                const auto verified = verify_distribution_files(root, "forge.standalone.json",
+                                                                "forge.standalone", token);
+                if (verified != expected)
+                    throw std::runtime_error(
+                        "The completed export changed; rebuild it before running");
+                const auto executable = ProjectPaths(root).resolve(
+                    std::filesystem::u8path(verified.at("executable").get<std::string>()));
+                return Json{{"executable", path_utf8(executable)}};
+            });
+        } catch (...) {
+            run_lease->finish(true);
+            throw;
+        }
+        game_lease_ = std::move(run_lease);
         writer_ = std::move(writer);
         operation_ = AssetId::generate().str();
         preparing_run_ = true;
@@ -169,8 +197,7 @@ class GameExportTask {
     void cancel() {
         stop_.request_stop();
         if (running_) {
-            game_.close();
-            running_ = false;
+            game_.cancel();
         }
         if (pending_) {
             pending_ = false;
@@ -186,6 +213,7 @@ class GameExportTask {
                 run_log_.append(output);
                 if (finished) {
                     running_ = false;
+                    release_game_test();
                     exit_code_ = code;
                     if (code)
                         error_ = "Exported game exited with code " + std::to_string(code);
@@ -193,6 +221,12 @@ class GameExportTask {
             } catch (const std::exception& e) {
                 running_ = false;
                 game_.close();
+                try {
+                    release_game_test();
+                } catch (const std::exception& cleanup) {
+                    error_ = std::string(e.what()) + "; " + cleanup.what();
+                    return;
+                }
                 error_ = e.what();
             }
         }
@@ -244,6 +278,7 @@ class GameExportTask {
                         arguments.emplace_back("--show-fps");
                     }
                     game_.start(arguments, nullptr, std::filesystem::u8path(output_), 0);
+                    game_started_ = true;
                     running_ = true;
                 } else {
                     output_ = result.at("destination");
@@ -254,6 +289,14 @@ class GameExportTask {
                     editor_context->problems.resolve("game-export");
             } catch (const std::exception& e) {
                 error_ = e.what();
+                if (preparing_run_) {
+                    game_.close();
+                    try {
+                        release_game_test();
+                    } catch (const std::exception& cleanup) {
+                        error_ += "; " + std::string(cleanup.what());
+                    }
+                }
                 report_error("game-export", error_);
             }
             writer_.reset();
@@ -346,19 +389,29 @@ class GameExportTask {
             if (dirty_drafts)
                 ImGui::TextWrapped("Save or discard unsaved authoring drafts to export.");
             if (busy()) {
-                GameExportProgress value;
-                {
-                    std::lock_guard lock(progress_->mutex);
-                    value = progress_->value;
+                if (running_ || preparing_run_) {
+                    ImGui::TextWrapped("%s", stop_.stop_requested() ? "Stopping game test..."
+                                             : running_             ? "Game test is running."
+                                                                    : "Checking exported game...");
+                    if (button(running_ ? "Stop game test" : "Cancel game test",
+                               "Request shutdown and wait for the game processes to exit."))
+                        cancel();
+                    FORGE_UI_PROBE("export:cancel");
+                } else {
+                    GameExportProgress value;
+                    {
+                        std::lock_guard lock(progress_->mutex);
+                        value = progress_->value;
+                    }
+                    ImGui::TextWrapped("%s", pending_ ? "Waiting for imports to finish..."
+                                                      : value.stage.c_str());
+                    ImGui::ProgressBar(float(value.completed) / float(value.total));
+                    help("Measured export stages; byte-level ETA is not estimated.");
+                    if (button("Cancel export", "Cancel preparation. Once final promotion starts, "
+                                                "FORGE completes or recovers it before returning."))
+                        cancel();
+                    FORGE_UI_PROBE("export:cancel");
                 }
-                ImGui::TextWrapped("%s", pending_ ? "Waiting for imports to finish..."
-                                                  : value.stage.c_str());
-                ImGui::ProgressBar(float(value.completed) / float(value.total));
-                help("Measured export stages; byte-level ETA is not estimated.");
-                if (button("Cancel export", "Cancel preparation. Once final promotion starts, "
-                                            "FORGE completes or recovers it before returning."))
-                    cancel();
-                FORGE_UI_PROBE("export:cancel");
             }
             if (!error_.empty())
                 field_error(error_);

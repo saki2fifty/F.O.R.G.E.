@@ -1,6 +1,7 @@
 #pragma once
 #include "runtime_package.hpp"
 #include <map>
+#include <memory>
 namespace forge {
 struct GameExportRequest {
     std::filesystem::path destination, runtime_kit, inspection_runtime;
@@ -21,4 +22,17 @@ nlohmann::json export_standalone_game(const ProjectLease&, const GameExportReque
 // Recover an interrupted promotion before reusing the output. Never adopts an
 // unrelated directory. A completed promotion remains committed on recovery.
 void recover_game_export(const std::filesystem::path& destination);
+// Reuses the export destination's existing control directory/writer lease.
+// An unfinished run marker prevents replacement after editor/helper interruption.
+class GameTestLease {
+    struct State;
+    std::unique_ptr<State> state_;
+
+  public:
+    explicit GameTestLease(const std::filesystem::path& destination);
+    ~GameTestLease();
+    GameTestLease(const GameTestLease&) = delete;
+    GameTestLease& operator=(const GameTestLease&) = delete;
+    void finish(bool writers_retired);
+};
 } // namespace forge
