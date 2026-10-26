@@ -1,4 +1,4 @@
-#include "import_job_cleanup.hpp"
+#include "worker_staging.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
 #include "native_io_path.hpp"
@@ -12,6 +12,24 @@ namespace forge::asset_detail {
 namespace {
 using Json = nlohmann::json;
 constexpr std::uint64_t maximum_bytes = 16ull * 1024 * 1024 * 1024;
+struct Layout {
+    std::string_view kind, parent, format;
+};
+constexpr Layout layouts[]{
+    {"import", ".forge/jobs", "forge.import-job"},
+    {"model-animation", ".forge/jobs", "forge.import-job"},
+    {"animation", ".forge/animation-staging", "forge.worker-stage"},
+    {"navigation", ".forge/navigation-staging", "forge.worker-stage"},
+    {"script", ".forge/cache/script", "forge.worker-stage"},
+    {"schema", ".forge/schema-jobs", "forge.worker-stage"},
+    {"ui-inspection", ".forge/ui-inspection", "forge.worker-stage"},
+};
+const Layout& layout(std::string_view kind) {
+    for (const auto& value : layouts)
+        if (value.kind == kind)
+            return value;
+    throw std::runtime_error("Unknown worker staging layout");
+}
 void require(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
@@ -75,12 +93,14 @@ Json cleanup_job(const std::filesystem::path& job, Budget& budget, std::stop_tok
         require(bool(owner), "Worker ownership is still active; retry after it exits");
         const auto text = owner->marker();
         const auto marker = parse_bounded_json(std::as_bytes(std::span(text)), 512, 64, 4);
-        require(marker.is_object() && marker.size() == 4 &&
-                    marker.at("format") == "forge.import-job" && marker.at("version") == 1 &&
+        require(marker.is_object() && marker.size() == 4 && marker.at("version") == 1 &&
                     marker.at("job").get<std::string>() == name,
                 "Unknown worker marker format or identity; retained for inspection");
         const auto kind = marker.at("kind").get<std::string>();
-        require(kind == "import" || kind == "model-animation", "Unknown worker staging layout");
+        const auto& shape = layout(kind);
+        require(marker.at("format") == shape.format &&
+                    job.parent_path().filename() == std::filesystem::path(shape.parent).filename(),
+                "Worker marker does not match staging layout");
         std::set<std::string> input_names;
         const auto request = job / "request.json";
         if (kind == "import" && std::filesystem::exists(request)) {
@@ -103,10 +123,26 @@ Json cleanup_job(const std::filesystem::path& job, Budget& budget, std::stop_tok
                         "Invalid or duplicate worker input name");
             }
         }
-        std::set<std::string> converter_files{"source.gltf", "config.json", "animation.bin",
-                                              "skeleton.ozz"};
-        for (unsigned i = 0; i < 64; ++i)
-            converter_files.insert("clip-" + std::to_string(i) + ".ozz");
+        std::set<std::string> root_files;
+        if (kind == "model-animation" || kind == "animation") {
+            root_files = {"source.gltf", "config.json", "skeleton.ozz"};
+            const unsigned clips = kind == "model-animation" ? 64 : 8;
+            for (unsigned i = 0; i < clips; ++i)
+                root_files.insert("clip-" + std::to_string(i) + ".ozz");
+            if (kind == "model-animation")
+                root_files.insert("animation.bin");
+            else
+                for (unsigned i = 0; i < 16; ++i)
+                    root_files.insert("buffer-" + std::to_string(i) + ".bin");
+        } else if (kind == "navigation") {
+            root_files = {"source.json", "navigation.fnav", "error.txt"};
+        } else {
+            root_files = {"request.json", "result.json", "error.json"};
+            if (kind == "import")
+                root_files.erase("result.json");
+            if (kind == "script")
+                root_files.erase("error.json");
+        }
         std::vector<File> files;
         std::vector<std::filesystem::path> directories;
         for (const auto& entry : std::filesystem::directory_iterator(job)) {
@@ -126,8 +162,7 @@ Json cleanup_job(const std::filesystem::path& job, Budget& budget, std::stop_tok
                          stop);
                 directories.push_back(entry.path());
             } else {
-                require(kind == "import" ? (item == "request.json" || item == "error.json")
-                                         : converter_files.contains(item),
+                require(root_files.contains(item),
                         "Unknown worker root contents retained for inspection");
                 file(entry, files, budget);
             }
@@ -165,22 +200,57 @@ Json cleanup_job(const std::filesystem::path& job, Budget& budget, std::stop_tok
     return row;
 }
 } // namespace
-Json cleanup_import_job(const std::filesystem::path& job, std::stop_token stop) {
+WorkerStaging::WorkerStaging(const std::filesystem::path& project, std::string_view kind) {
+    const auto& shape = layout(kind);
+    // Keep the lexical private location until the redirect check. Resolving
+    // first would hide an in-project symlink to authored storage.
+    const auto parent = ProjectPaths(project).root() / shape.parent;
+    ordinary(parent);
+    std::filesystem::create_directories(native_io_path(parent));
+    ordinary(parent);
+    path = parent / AssetId::generate().str();
+    require(std::filesystem::create_directory(native_io_path(path)),
+            "Cannot reserve unique worker staging");
+    // A failed marker write leaves an unrecognized private folder for inspection.
+    owner = std::make_unique<WorkerStageLease>(path / "owner.lock",
+                                               Json{{"format", shape.format},
+                                                    {"version", 1},
+                                                    {"job", path.filename().string()},
+                                                    {"kind", kind}}
+                                                   .dump());
+}
+WorkerStaging::~WorkerStaging() {
+    owner.reset();
+    try {
+        (void)cleanup_worker_stage(path);
+    } catch (...) {
+        // Destruction must preserve the producer's result/diagnostic. Retain
+        // active or unfamiliar contents for writer-owned maintenance.
+    }
+}
+Json cleanup_worker_stage(const std::filesystem::path& job, std::stop_token stop) {
     Budget budget;
     return cleanup_job(native_io_path(job), budget, stop);
 }
-Json cleanup_import_jobs(const ProjectLease& lease, std::stop_token stop) {
+Json cleanup_worker_stages(const ProjectLease& lease, std::stop_token stop) {
     lease.check();
-    const auto root = native_io_path(ProjectPaths(lease.root()).resolve(".forge/jobs"));
-    ordinary(root);
-    if (!std::filesystem::exists(root))
-        return Json::array();
-    require(std::filesystem::is_directory(root), "Worker staging root is not a directory");
+    const ProjectPaths paths(lease.root());
+    std::set<std::string_view> parents;
+    for (const auto& shape : layouts)
+        parents.insert(shape.parent);
     std::vector<std::filesystem::path> jobs;
-    for (const auto& entry : std::filesystem::directory_iterator(root)) {
+    for (const auto parent : parents) {
         require(!stop.stop_requested(), "Worker cleanup cancelled");
-        require(jobs.size() < 4096, "Too many worker entries; retained for inspection");
-        jobs.push_back(entry.path());
+        const auto root = native_io_path(paths.root() / parent);
+        ordinary(root);
+        if (!std::filesystem::exists(root))
+            continue;
+        require(std::filesystem::is_directory(root), "Worker staging root is not a directory");
+        for (const auto& entry : std::filesystem::directory_iterator(root)) {
+            require(!stop.stop_requested(), "Worker cleanup cancelled");
+            require(jobs.size() < 4096, "Too many worker entries; retained for inspection");
+            jobs.push_back(entry.path());
+        }
     }
     std::sort(jobs.begin(), jobs.end());
     Json result = Json::array();

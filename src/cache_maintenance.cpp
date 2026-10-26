@@ -1,5 +1,5 @@
 #include "cache_maintenance.hpp"
-#include "import_job_cleanup.hpp"
+#include "worker_staging.hpp"
 #include <forge/derived_cache.hpp>
 namespace forge {
 nlohmann::json maintain_asset_cache(const ProjectLease& lease, CacheMaintenance operation,
@@ -59,7 +59,7 @@ nlohmann::json maintain_asset_cache(const ProjectLease& lease, CacheMaintenance 
             if (!entry.at("removed").get<bool>())
                 result["ok"] = false;
     if (operation == CacheMaintenance::Cleanup || operation == CacheMaintenance::ClearAll) {
-        result["worker_jobs"] = asset_detail::cleanup_import_jobs(lease, stop);
+        result["worker_jobs"] = asset_detail::cleanup_worker_stages(lease, stop);
         for (const auto& entry : result["worker_jobs"])
             if (!entry.at("removed").get<bool>())
                 result["ok"] = false;

@@ -3,6 +3,7 @@
 #include "model_render_resource.hpp"
 #include "navigation_asset.hpp"
 #include "navigation_sources.hpp"
+#include "worker_staging.hpp"
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
 #include <fstream>
@@ -24,24 +25,18 @@ void write(const std::filesystem::path& p, std::span<const std::byte> data) {
 }
 } // namespace
 struct NavigationCandidate::Impl {
-    std::filesystem::path root, staging;
+    std::filesystem::path root;
+    WorkerStaging work;
     AssetCatalog catalog;
     std::string baseline, geometry_digest;
     AssetRecord record;
     bool published = false;
     explicit Impl(const std::filesystem::path& project)
-        : root(ProjectPaths(project).root()), catalog(root) {
+        : root(ProjectPaths(project).root()), work(root, "navigation"), catalog(root) {
         baseline = index_digest(AssetCatalog::project_index(root));
         catalog = AssetCatalog::open_project(root);
         if (index_digest(AssetCatalog::project_index(root)) != baseline)
             throw std::runtime_error("Catalog changed during navigation preparation");
-        staging =
-            ProjectPaths(root).resolve(".forge/navigation-staging/" + AssetId::generate().str());
-        std::filesystem::create_directories(staging);
-    }
-    ~Impl() {
-        std::error_code ec;
-        std::filesystem::remove_all(staging, ec);
     }
 };
 NavigationCandidate::NavigationCandidate(std::unique_ptr<Impl> p) : impl_(std::move(p)) {}
@@ -100,18 +95,18 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                  {"settings", settings}};
     Json input = {{"metadata", meta}, {"vertices", g.vertices}};
     auto text = input.dump();
-    write(c->staging / "source.json", std::as_bytes(std::span(text)));
+    write(c->work.path / "source.json", std::as_bytes(std::span(text)));
     try {
-        run_worker(WorkerKind::Navigation, worker, c->staging, cancel);
+        run_worker(WorkerKind::Navigation, worker, c->work.path, cancel, {}, c->work.owner.get());
     } catch (const std::exception&) {
-        if (std::filesystem::is_regular_file(c->staging / "error.txt")) {
-            auto error = read_bytes(c->staging / "error.txt", 8192);
+        if (std::filesystem::is_regular_file(c->work.path / "error.txt")) {
+            auto error = read_bytes(c->work.path / "error.txt", 8192);
             throw std::runtime_error(
                 std::string(reinterpret_cast<const char*>(error.data()), error.size()));
         }
         throw;
     }
-    auto data = read_bytes(c->staging / "navigation.fnav", max_nav_bytes + 65556);
+    auto data = read_bytes(c->work.path / "navigation.fnav", max_nav_bytes + 65556);
     auto admitted = admit(data);
     for (const auto& [key, value] : meta.items())
         if (admitted.metadata.at(key) != value)
@@ -155,7 +150,7 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     if (index_digest(index) != c.baseline ||
         navigation_geometry_digest(c.root, current, c.record.metadata) != c.geometry_digest)
         throw std::runtime_error("Navigation source/catalog changed; candidate discarded");
-    auto data = read_bytes(c.staging / "navigation.fnav", max_nav_bytes + 65556);
+    auto data = read_bytes(c.work.path / "navigation.fnav", max_nav_bytes + 65556);
     if (content_digest(data) != c.record.metadata.at("sha256").get<std::string>())
         throw std::runtime_error("Navigation candidate changed before publication");
     (void)admit(data);
@@ -164,7 +159,7 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     std::filesystem::create_directories(destination.parent_path());
     if (std::filesystem::exists(destination))
         throw std::runtime_error("Navigation artifact revision already exists");
-    std::filesystem::rename(c.staging / "navigation.fnav", destination);
+    std::filesystem::rename(c.work.path / "navigation.fnav", destination);
     try {
         if (c.catalog.records().contains(c.record.id))
             c.catalog.replace(c.record);

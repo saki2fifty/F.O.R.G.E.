@@ -4,6 +4,10 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <thread>
+#ifdef __linux__
+#include <sys/types.h>
+#include <unistd.h>
+#endif
 int main(int argc, char** argv) {
     using Json = nlohmann::json;
     if (argc != 2 || std::string(argv[1]) != "--inspect-sdk-worker")
@@ -12,8 +16,42 @@ int main(int argc, char** argv) {
     const auto root = std::filesystem::u8path(request.at("project").get<std::string>());
     std::string mode;
     std::ifstream(root / "fixture.mode") >> mode;
+#ifdef __linux__
+    if (mode == "escaped" || mode == "escaped-wait") {
+        std::ofstream(root / "fixture.stage") << std::filesystem::current_path().string();
+        const auto child = fork();
+        if (child < 0)
+            return 20;
+        if (child == 0) {
+            if (setsid() < 0)
+                _exit(21);
+            std::ofstream(root / "fixture.pid") << getpid();
+            std::ofstream(root / "fixture.child-ready") << "ready";
+            const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+            while (!std::filesystem::exists(root / "fixture.release")) {
+                if (std::chrono::steady_clock::now() >= end)
+                    _exit(22);
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+            _exit(0);
+        }
+        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (!std::filesystem::exists(root / "fixture.child-ready")) {
+            if (std::chrono::steady_clock::now() >= end)
+                return 23;
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
+        // Cancellation becomes observable only after the descendant identity
+        // is closed on disk, so the controller can always retire that child.
+        std::ofstream(root / "fixture.ready") << "ready";
+        if (mode == "escaped-wait")
+            std::this_thread::sleep_for(std::chrono::seconds(60));
+        std::filesystem::copy_file(root / "fixture-manifest.json", "result.json");
+        return 0;
+    }
+#endif
     if (mode == "wait") {
-        std::ofstream("started.txt") << "waiting";
+        std::ofstream(root / "fixture.started") << "waiting";
         std::this_thread::sleep_for(std::chrono::seconds(60));
         return 3;
     }

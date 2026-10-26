@@ -238,8 +238,11 @@ removes recognized flat staging (and, for clear-all, quarantine) entries. Unknow
 redirected, nested or excessive data is retained with diagnostics. Cache operations
 are disposable-data maintenance, not authored transactions or scene Undo.
 
-Import staging has a separate ownership check: a bounded `forge.import-job` marker
-holds an OS lease transferred only to its worker. Closing the editor's copy alone
+Worker staging has a separate ownership check: a bounded `forge.import-job` or
+`forge.worker-stage` marker holds an OS lease transferred only to its worker.
+Imports, animation conversion, navigation, Script, SDK inspection and UI inspection
+share this owner and the [recognized layouts](import-settings.md#worker-staging-ownership-and-recovery).
+Closing the editor's copy alone
 does not release a running child's ownership. Producer completion/failure cleanup,
 `cache-cleanup` and `cache-clear-all` share the same removal routine. They
 try exclusive acquisition and preflight the complete recognized job layout before
@@ -247,7 +250,7 @@ removing files. They preserve active, unmarked, malformed, redirected, aliased a
 unfamiliar data with per-job diagnostics. Cleanup admits at most4096 job entries,
 100000 files,16GiB of payload sizes and64MiB of metadata per pass. It removes only
 enumerated ordinary files and then empty directories, never an unchecked tree.
-Producer cleanup failure retains staging without replacing the import result or
+Producer cleanup failure retains staging without replacing the operation's result or
 its diagnostic; subsequent maintenance reports the retained job. This ownership
 check does not establish general descendant containment on POSIX.
 

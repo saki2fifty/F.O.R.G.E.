@@ -64,7 +64,7 @@ universal glTF import. FBX is unsupported. Model/mesh/material/image import uses
 The source must contain one complete JSON record. Raw NUL bytes, trailing
 non-whitespace bytes and additional values are rejected before source rewriting
 or converter launch. Rejection retains the source, catalog and published
-artifacts, and releases unpublished staging files. Repairing the source permits
+artifacts, and releases recognized, unowned staging files. Repairing the source permits
 conversion through the same workflow.
 The owned fixtures cover translation and quaternion rotation on a two-joint hierarchy;
 broader DCC export compatibility requires additional fixtures.
@@ -77,6 +77,9 @@ each admitted output is at most16MiB and total staging is checked against32MiB.
 The fixed converter layout contains ordinary files only; nested directories and
 links are rejected before launch, while running, and after completion.
 Windows output monitoring is polling, not a disk quota. Tool failure never publishes.
+The candidate retains the shared [worker staging lease](import-settings.md#worker-staging-ownership-and-recovery)
+through publication/discard. Active or unfamiliar staging is retained for guarded
+maintenance; a direct worker exit does not prove every inherited lease has closed.
 
 Settings are runtime skeleton/animation output, no additive conversion, no root-motion
 extraction,30Hz sampling, optimization enabled, and **iframe_interval=0**.

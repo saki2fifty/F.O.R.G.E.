@@ -44,6 +44,10 @@ Points/lines, joint/weight streams, prepared joint palettes, morph targets/names
 5. Recheck geometry and catalog revisions on the authoring owner thread.
 6. Move an immutable artifact into `Assets/Navigation/Generated/<AssetId>/` and atomically select it through the catalog.
 
+The candidate holds the shared [worker staging lease](import-settings.md#worker-staging-ownership-and-recovery)
+through publication/discard. Cleanup removes only a recognized, unowned stage;
+active or unfamiliar contents remain for guarded maintenance.
+
 Errors, cancellation or stale candidates preserve the previous catalog and artifact. The project writer lease applies to editor publication. Asset builds have their own ownership boundary: scene Undo does not undo navmesh builds. Old immutable revisions remain available; this phase does not introduce asset garbage collection.
 
 The retained FORGENAV v1 envelope records logical asset/source-scene identity, included EntityIds, geometry digest, settings, exact Recast revision, binary-layout/subset marker, bounds and tile digest. New builds use explicit FORGENAV envelope/catalog schema2 and geometry bridge2. They record up to32 unique external Mesh AssetIds and exact immutable pool selection keys, with typed Build dependencies on the source Scene and selected Meshes. Geometry SHA256 hashes ordered source identities, evaluated affines, shape kinds/Mesh IDs and selected revisions. Source names, materials and runtime agent positions are excluded. Mesh bytes are admitted only during bake; runtime compares small descriptors and selection stamps. Selected v1 assets retain their original triangle-based digest and bytes; envelope/catalog versions must agree. Known Mesh provenance cannot be downgraded into v1, and future versions are rejected.

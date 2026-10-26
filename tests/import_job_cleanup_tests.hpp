@@ -1,6 +1,7 @@
 #pragma once
-#include "import_job_cleanup.hpp"
 #include "worker_stage_lease.hpp"
+#include "worker_staging.hpp"
+#include <tuple>
 
 void check_import_job_cleanup(const ProjectLease& lease) {
     using namespace forge::asset_detail;
@@ -29,14 +30,14 @@ void check_import_job_cleanup(const ProjectLease& lease) {
     auto live = make("import");
     input(live);
     write(live.path / "output/partial.bin", "unfinished output");
-    auto result = cleanup_import_jobs(lease);
+    auto result = cleanup_worker_stages(lease);
     check(result.size() == 1 && result[0]["removed"] == false &&
               std::filesystem::exists(live.path / "input/part.bin"),
           "Cleanup removed an actively owned job");
     live.owner.reset();
-    result = cleanup_import_jobs(lease);
+    result = cleanup_worker_stages(lease);
     check(result.size() == 1 && result[0]["removed"] == true &&
-              !std::filesystem::exists(live.path) && cleanup_import_jobs(lease).empty(),
+              !std::filesystem::exists(live.path) && cleanup_worker_stages(lease).empty(),
           "Abandoned import stage was not safely removed/idempotent");
     auto partial = make("import");
     std::filesystem::create_directory(partial.path / "input");
@@ -45,9 +46,55 @@ void check_import_job_cleanup(const ProjectLease& lease) {
     write(animation.path / "config.json", "interrupted write");
     write(animation.path / "clip-63.ozz", "partial output");
     animation.owner.reset();
-    result = cleanup_import_jobs(lease);
+    result = cleanup_worker_stages(lease);
     check(result.size() == 2 && result[0]["removed"] == true && result[1]["removed"] == true,
           "Recognized partial preparation/conversion was retained");
+
+    // The same owner and cleanup cover the five legacy fixed-worker layouts.
+    for (const auto [kind, input_name, output_name] :
+         {std::tuple{"animation", "buffer-15.bin", "clip-7.ozz"},
+          std::tuple{"navigation", "source.json", "navigation.fnav"},
+          std::tuple{"script", "request.json", "result.json"},
+          std::tuple{"schema", "request.json", "error.json"},
+          std::tuple{"ui-inspection", "request.json", "result.json"}}) {
+        std::filesystem::path path;
+        {
+            WorkerStaging work(root, kind);
+            path = work.path;
+            write(path / input_name, "partial input");
+            write(path / output_name, "partial output");
+            const auto live_result = cleanup_worker_stages(lease);
+            check(live_result.size() == 1 && live_result[0]["removed"] == false,
+                  "Maintenance erased a live legacy worker candidate");
+        }
+        check(!std::filesystem::exists(path), "Recognized retired worker stage survived");
+        {
+            WorkerStaging work(root, kind);
+            path = work.path;
+            write(path / input_name, "partial input");
+            write(path / "unexpected/note.txt", "preserve");
+        }
+        check(std::filesystem::exists(path / input_name) &&
+                  std::filesystem::exists(path / "unexpected/note.txt"),
+              "Producer partially removed an unfamiliar worker stage");
+        const auto retained = cleanup_worker_stages(lease);
+        check(retained.size() == 1 && retained[0]["removed"] == false,
+              "Maintenance disagreed with guarded producer teardown");
+        std::filesystem::remove(path / "unexpected/note.txt");
+        std::filesystem::remove(path / "unexpected");
+        const auto recovered = cleanup_worker_stages(lease);
+        check(recovered.size() == 1 && recovered[0]["removed"] == true &&
+                  cleanup_worker_stages(lease).empty(),
+              "Recognized worker recovery was not idempotent");
+#ifndef _WIN32
+        const auto parent = path.parent_path();
+        std::filesystem::remove(parent);
+        std::filesystem::create_directory_symlink(root / "Assets", parent);
+        rejects([&] { WorkerStaging redirected(root, kind); });
+        rejects([&] { cleanup_worker_stages(lease); });
+        std::filesystem::remove(parent);
+#endif
+    }
 
     auto unknown = make("import");
     input(unknown);
@@ -80,7 +127,7 @@ void check_import_job_cleanup(const ProjectLease& lease) {
     write(redirected.path / "unrecognized.txt", "preserve");
 #endif
     redirected.owner.reset();
-    result = cleanup_import_jobs(lease);
+    result = cleanup_worker_stages(lease);
     check(result.size() == 8 &&
               std::all_of(result.begin(), result.end(),
                           [](const auto& row) { return row.at("removed") == false; }) &&
@@ -93,7 +140,7 @@ void check_import_job_cleanup(const ProjectLease& lease) {
           "Writer-owned cleanup did not expose retained worker diagnostics");
     std::stop_source cancelled;
     cancelled.request_stop();
-    rejects([&] { cleanup_import_jobs(lease, cancelled.get_token()); });
+    rejects([&] { cleanup_worker_stages(lease, cancelled.get_token()); });
     check(std::filesystem::exists(unknown.path / "user-notes.txt"),
           "Cancelled cleanup changed staging");
     for (const auto& path : {unknown.path, nested.path, malformed.path, future.path, alias.path,

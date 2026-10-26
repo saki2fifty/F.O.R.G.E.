@@ -1,4 +1,4 @@
-"""Exercise the real read-only asset CLI with a portable temporary project."""
+"""Exercise asset inspection and writer-owned maintenance through the real CLI."""
 import hashlib
 import json
 from pathlib import Path
@@ -79,6 +79,27 @@ with tempfile.TemporaryDirectory(dir=scratch) as temporary:
                       'cache-clear-all'):
         extra = ('0',) if operation == 'cache-prune' else ()
         assert request(operation, project, *extra)['statistics']['entries'] == 0
+    stages = []
+    for kind, parent, filename in (
+        ('animation', '.forge/animation-staging', 'clip-7.ozz'),
+        ('navigation', '.forge/navigation-staging', 'navigation.fnav'),
+        ('script', '.forge/cache/script', 'result.json'),
+        ('schema', '.forge/schema-jobs', 'result.json'),
+        ('ui-inspection', '.forge/ui-inspection', 'result.json'),
+    ):
+        job = str(uuid.uuid4())
+        stage = project / parent / job
+        stage.mkdir(parents=True)
+        (stage / 'owner.lock').write_text(json.dumps({
+            'format': 'forge.worker-stage', 'version': 1, 'job': job, 'kind': kind,
+        }), encoding='utf-8')
+        (stage / filename).write_bytes(b'interrupted candidate')
+        stages.append(stage)
+    reclaimed = request('cache-cleanup', project)['worker_jobs']
+    assert {row['job'] for row in reclaimed} == {stage.name for stage in stages}
+    assert all(row['removed'] for row in reclaimed)
+    assert all(not stage.exists() for stage in stages)
+    assert request('cache-cleanup', project)['worker_jobs'] == []
     request('cache-prune', project, '-1', success=False)
     request('cache-prune', project, '1.5', success=False)
     request('cache-clear-asset', project, a, success=False)

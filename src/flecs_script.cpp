@@ -2,6 +2,7 @@
 #include "asset_storage.hpp"
 #include "asset_worker.hpp"
 #include "json_document.hpp"
+#include "worker_staging.hpp"
 #include <forge/flecs_script.hpp>
 #include <forge/project_paths.hpp>
 #include <forge/scene.hpp>
@@ -280,21 +281,15 @@ Json preview_flecs_script(const std::filesystem::path& project, const std::files
     (void)paths.resolve(locator);
     if (code.size() > text_limit || previous.size() > text_limit)
         throw std::runtime_error("Script exceeds 1 MiB");
-    const auto staging = paths.cache() / "script" / EntityId::generate().str();
-    std::filesystem::create_directories(staging);
-    struct Cleanup {
-        std::filesystem::path path;
-        ~Cleanup() {
-            std::error_code e;
-            std::filesystem::remove_all(path, e);
-        }
-    } cleanup{staging};
+    asset_detail::WorkerStaging work(paths.root(), "script");
+    const auto& staging = work.path;
     atomic_write(staging / "request.json", Json{{"project", path_utf8(paths.root())},
                                                 {"source", path_utf8(locator)},
                                                 {"code", code},
                                                 {"previous", previous}}
                                                .dump());
-    asset_detail::run_worker(asset_detail::WorkerKind::Script, executable, staging, cancel);
+    asset_detail::run_worker(asset_detail::WorkerKind::Script, executable, staging, cancel, {},
+                             work.owner.get());
     const auto output = staging / "result.json";
     if (!std::filesystem::is_regular_file(output) ||
         std::filesystem::file_size(output) > 16 * text_limit)

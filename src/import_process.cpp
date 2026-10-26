@@ -1,8 +1,7 @@
 #include "import_process.hpp"
 #include "asset_bytes.hpp"
 #include "bounded_json.hpp"
-#include "import_job_cleanup.hpp"
-#include "worker_stage_lease.hpp"
+#include "worker_staging.hpp"
 #include <algorithm>
 #include <forge/gltf_accessors.hpp>
 #include <fstream>
@@ -109,34 +108,7 @@ std::vector<ArtifactFile> read_files(const std::filesystem::path& directory, con
     require(names.empty(), "Import manifest file missing");
     return result;
 }
-struct JobDirectory {
-    std::filesystem::path path;
-    std::unique_ptr<WorkerStageLease> owner;
-    JobDirectory(const std::filesystem::path& project, const char* kind) {
-        const ProjectPaths paths(project);
-        const auto parent = paths.resolve(".forge/jobs");
-        ordinary(parent);
-        std::filesystem::create_directories(parent);
-        path = parent / AssetId::generate().str();
-        require(std::filesystem::create_directory(path), "Cannot reserve unique import staging");
-        owner = std::make_unique<WorkerStageLease>(path / "owner.lock",
-                                                   Json{{"format", "forge.import-job"},
-                                                        {"version", 1},
-                                                        {"job", path.filename().string()},
-                                                        {"kind", kind}}
-                                                       .dump());
-    }
-    ~JobDirectory() {
-        owner.reset();
-        try {
-            // Supervisor return alone does not prove all copies of the lease
-            // are closed. Retain active or unfamiliar stages for maintenance.
-            (void)cleanup_import_job(path);
-        } catch (...) {
-            // Destruction cannot replace the import result or its diagnostic.
-        }
-    }
-};
+
 Json read_json(const std::filesystem::path& path, std::size_t limit = manifest_limit) {
     ordinary(path);
     return parse_bounded_json(read_bytes(path, limit), limit);
@@ -148,7 +120,7 @@ std::vector<ArtifactFile> run_import_process(const std::filesystem::path& execut
                                              std::stop_token stop) {
     require(!stop.stop_requested(), "Import cancelled before snapshot");
     auto manifest = files_manifest(request.inputs, limits);
-    JobDirectory job(project, "import");
+    WorkerStaging job(project, "import");
     require(std::filesystem::create_directory(job.path / "input") &&
                 std::filesystem::create_directory(job.path / "output"),
             "Cannot create import directories");
@@ -280,7 +252,7 @@ std::vector<ArtifactFile> run_model_animation_process(const std::filesystem::pat
         expected.insert(filename);
         outputs.push_back(filename);
     }
-    JobDirectory job(project, "model-animation");
+    WorkerStaging job(project, "model-animation");
     expected.insert("owner.lock");
     for (const auto& input : inputs)
         write(job.path / input.name, input.bytes);

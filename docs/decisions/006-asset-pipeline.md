@@ -27,13 +27,16 @@ are deliberately not implemented in this package.
 
 ## Consequences
 
-Temporary import storage remains owned by the supervisor and its designated
+Temporary import, animation, navigation, Script and inspection storage remains
+owned by the existing candidate/inspection owner and its designated
 worker through the existing OS lease. The Windows parent handle is never broadly
 inheritable: the suspended child receives a non-inheritable duplicate before it
 runs. An unrelated process must not retain another job's lease. POSIX retains
 its designated child descriptor across exec. Producer teardown and maintenance
 share exclusive acquisition and recognized-layout preflight before removing any
-payload. A direct worker exit alone does not release another holder's ownership.
+payload. Fixed worker layouts share that storage owner and maintenance path;
+they do not recursively erase directories from independent destructors. A direct
+worker exit alone does not release another holder's ownership.
 This changes neither logical asset identity nor catalog publication; see
 [staging ownership](../import-settings.md).
 

@@ -2,12 +2,32 @@
 
 **Shared import registry used by the Phase7 asset tools and editor documents.**
 
-## Import staging ownership and recovery
+## Worker staging ownership and recovery
 
 Each shared import and canonical model-animation conversion owns a unique
 `.forge/jobs/<UUID>` folder. Its private `owner.lock` contains a bounded version1
 `forge.import-job` marker with the job UUID and recognized layout. This is temporary
 storage ownership, not an asset, session or runtime identity.
+
+The same temporary-directory owner covers animation-only conversion, navigation
+bakes, Script previews, SDK metadata/migration inspection and UI dependency
+inspection. These retain their existing directories and use a bounded version1
+`forge.worker-stage` marker:
+
+| Worker | Project-relative staging parent | Recognized payload |
+| --- | --- | --- |
+| Animation-only conversion | `.forge/animation-staging` | `source.gltf`, `config.json`, `buffer-0.bin` through `buffer-15.bin`, `skeleton.ozz`, `clip-0.ozz` through `clip-7.ozz` |
+| Navigation bake | `.forge/navigation-staging` | `source.json`, `navigation.fnav`, `error.txt` |
+| Script preview | `.forge/cache/script` | `request.json`, `result.json` |
+| SDK inspection/migration | `.forge/schema-jobs` | `request.json`, `result.json`, `error.json` |
+| UI dependency inspection | `.forge/ui-inspection` | `request.json`, `result.json`, `error.json` |
+
+Each job has a unique UUID subdirectory. Candidate owners retain the lease through
+publication or discard; inspection owners retain it until their copied result is
+validated. They share the import producer's guarded teardown and maintenance
+recovery. The low-level process supervisor remains independent of catalogs and
+editor state. Existing unmarked folders are retained, without inventing ownership
+or migrating authored data.
 
 The supervisor keeps the OS lease through preparation and joined worker completion.
 Windows keeps the parent handle non-inheritable, creates the worker suspended with
@@ -23,7 +43,7 @@ process still holds the lease. An active or unfamiliar stage remains for inspect
 a recognized stage is removed after ownership can be reacquired.
 
 After interruption, writer-owned `cache-cleanup` or `cache-clear-all` attempts exclusive
-ownership and validates the known layout before deletion. Import inputs must match the
+ownership across these staging parents and validates the known layout before deletion. Import inputs must match the
 bounded request manifest; canonical conversion admits only its expected source/config,
 skeleton and clip files. Partial preparation is eligible when its marker and remaining
 contents are recognizable. Live jobs, unknown versions/layouts, legacy unmarked jobs,

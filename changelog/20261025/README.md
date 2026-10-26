@@ -4,6 +4,11 @@ Local source changes; the existing Windows Build 213 ZIP is unchanged.
 
 ## Worker resource admission
 
+- Fixed workers share the existing import staging owner and guarded cleanup.
+  A surviving designated lease prevents removal after completion or cancellation;
+  cache maintenance can reclaim recognized staging after ownership retires.
+  Animation/navigation candidates retain the lease through publication/discard.
+  Unknown, redirected or legacy unmarked contents remain with diagnostics.
 - Animation, navigation, Script, SDK inspection and UI inspection enforce the same
   flat output-file policy as imports. Nested directories are rejected before
   launch and during/following execution so output budgets cover all admitted files.

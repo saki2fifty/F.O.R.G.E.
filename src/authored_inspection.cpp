@@ -5,6 +5,7 @@
 #include "authored_schema.hpp"
 #include "bounded_json.hpp"
 #include "json_value_equal.hpp"
+#include "worker_staging.hpp"
 #include <forge/native_sdk.hpp>
 #include <forge/native_sdk_identity.h>
 #include <forge/project.hpp>
@@ -41,24 +42,7 @@ void write(const std::filesystem::path& path, const Json& value, std::size_t lim
     if (out.fail())
         throw std::runtime_error("Cannot close schema inspection output");
 }
-struct Staging {
-    std::filesystem::path path;
-    explicit Staging(const std::filesystem::path& project) {
-        const ProjectPaths paths(project);
-        const auto parent = paths.resolve(".forge/schema-jobs");
-        ordinary(parent);
-        std::filesystem::create_directories(parent);
-        path = parent / AssetId::generate().str();
-        if (!std::filesystem::create_directory(path))
-            throw std::runtime_error("Cannot reserve schema inspection staging");
-    }
-    ~Staging() {
-        std::error_code error;
-        if (std::filesystem::weakly_canonical(path, error) == path && !error &&
-            !std::filesystem::is_symlink(path, error))
-            std::filesystem::remove_all(path, error);
-    }
-};
+
 Json request_authoring(const std::filesystem::path& runtime, const std::filesystem::path& project,
                        const std::string& expected, const Json& migration, std::stop_token stop) {
     if (expected.size() != 64 ||
@@ -67,7 +51,7 @@ Json request_authoring(const std::filesystem::path& runtime, const std::filesyst
     if (stop.stop_requested())
         throw std::runtime_error("Schema inspection cancelled");
     const ProjectPaths paths(project);
-    Staging work(paths.root());
+    asset_detail::WorkerStaging work(paths.root(), "schema");
     const auto settings_before = ProjectSettings(paths.root()).document();
     Json request{{"project", path_utf8(paths.root())}, {"fingerprint", expected}};
     const bool migrate = !migration.is_null();
@@ -78,11 +62,11 @@ Json request_authoring(const std::filesystem::path& runtime, const std::filesyst
     write(work.path / "request.json", request, input_bytes);
     asset_detail::WorkerLimits limits;
     limits.file_bytes = output_bytes;
-    limits.total_bytes = output_bytes + input_bytes;
+    limits.total_bytes = output_bytes + input_bytes + 512;
     limits.files = 4;
     try {
-        asset_detail::run_worker(asset_detail::WorkerKind::Schema, runtime, work.path, stop,
-                                 limits);
+        asset_detail::run_worker(asset_detail::WorkerKind::Schema, runtime, work.path, stop, limits,
+                                 work.owner.get());
     } catch (...) {
         if (!stop.stop_requested() && std::filesystem::is_regular_file(work.path / "error.json")) {
             const auto error = read(work.path / "error.json", 16384);

@@ -3,6 +3,7 @@
 #include "asset_bytes.hpp"
 #include "gltf_transform.hpp"
 #include "json_document.hpp"
+#include "worker_staging.hpp"
 #include <forge/animation_conversion.hpp>
 #include <forge/assets.hpp>
 #include <forge/project_paths.hpp>
@@ -32,7 +33,8 @@ struct Input {
 };
 } // namespace
 struct AnimationCandidate::Impl {
-    std::filesystem::path root, staging;
+    std::filesystem::path root;
+    WorkerStaging work;
     AssetCatalog catalog;
     std::string baseline;
     std::vector<Input> inputs;
@@ -40,18 +42,11 @@ struct AnimationCandidate::Impl {
     std::vector<std::pair<std::filesystem::path, std::filesystem::path>> artifacts;
     bool published = false;
     explicit Impl(const std::filesystem::path& project)
-        : root(ProjectPaths(project).root()), catalog(root) {
+        : root(ProjectPaths(project).root()), work(root, "animation"), catalog(root) {
         baseline = index_digest(AssetCatalog::project_index(root));
         catalog = AssetCatalog::open_project(root);
         if (index_digest(AssetCatalog::project_index(root)) != baseline)
             throw std::runtime_error("Asset catalog changed while preparing conversion");
-        staging =
-            ProjectPaths(root).resolve(".forge/animation-staging/" + AssetId::generate().str());
-        std::filesystem::create_directories(staging);
-    }
-    ~Impl() {
-        std::error_code ec;
-        std::filesystem::remove_all(staging, ec);
     }
 };
 AnimationCandidate::AnimationCandidate(std::unique_ptr<Impl> p) : impl_(std::move(p)) {}
@@ -112,7 +107,7 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
             candidate->inputs.push_back({dependency, digest});
             dependencies.push_back({{"source", path_utf8(dependency)}, {"sha256", digest}});
             auto filename = "buffer-" + std::to_string(buffer_index) + ".bin";
-            write(candidate->staging / filename, buffer_data);
+            write(candidate->work.path / filename, buffer_data);
             buffer["uri"] = filename;
         }
         ++buffer_index;
@@ -149,10 +144,10 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
         node.erase("matrix");
         node.update(rest);
     }
-    write(candidate->staging / "source.gltf", bytes(doc.dump()));
-    write(candidate->staging / "config.json", bytes(settings.dump()));
-    run_converter(converter, candidate->staging, cancel);
-    auto skeleton_bytes = read_bytes(candidate->staging / "skeleton.ozz", max_archive_bytes);
+    write(candidate->work.path / "source.gltf", bytes(doc.dump()));
+    write(candidate->work.path / "config.json", bytes(settings.dump()));
+    run_converter(converter, candidate->work.path, cancel, candidate->work.owner.get());
+    auto skeleton_bytes = read_bytes(candidate->work.path / "skeleton.ozz", max_archive_bytes);
     auto skeleton = std::make_shared<Skeleton>(skeleton_bytes);
     auto skeleton_digest = content_digest(skeleton_bytes);
     AssetRecord source_record{AssetId::generate(), "animation_source", locator, 1, {}};
@@ -209,11 +204,11 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
                                   {source_record.id},
                                   skeleton_metadata});
     candidate->artifacts.push_back(
-        {candidate->staging / "skeleton.ozz", paths.resolve(destination / "skeleton.ozz")});
+        {candidate->work.path / "skeleton.ozz", paths.resolve(destination / "skeleton.ozz")});
     for (const auto& entry : settings["animations"]) {
         const auto name = entry.at("clip").get<std::string>(),
                    filename = entry.at("filename").get<std::string>();
-        auto clip_bytes = read_bytes(candidate->staging / filename, max_archive_bytes);
+        auto clip_bytes = read_bytes(candidate->work.path / filename, max_archive_bytes);
         auto clip = std::make_shared<Clip>(clip_bytes);
         Sampler sampler(skeleton, clip);
         for (float ratio : {0.f, .25f, .5f, .75f, 1.f})
@@ -230,7 +225,7 @@ AnimationCandidate prepare_animation_conversion(const std::filesystem::path& roo
                                       {skeleton_id, source_record.id},
                                       metadata});
         candidate->artifacts.push_back(
-            {candidate->staging / filename, paths.resolve(destination / filename)});
+            {candidate->work.path / filename, paths.resolve(destination / filename)});
     }
     source_record.metadata = {{"version", 1}, {"source_sha256", candidate->inputs.front().digest}};
     candidate->records.push_back(source_record);

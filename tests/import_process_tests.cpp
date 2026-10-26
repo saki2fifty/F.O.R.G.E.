@@ -1,6 +1,6 @@
-#include "import_job_cleanup.hpp"
 #include "import_process.hpp"
 #include "worker_stage_lease.hpp"
+#include "worker_staging.hpp"
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -164,11 +164,11 @@ int main(int argc, char** argv) {
                       std::filesystem::is_regular_file(stage / "input/part.bin") &&
                       std::filesystem::is_regular_file(stage / "output/result.bin"),
                   "Producer cleanup erased unrecognized stage contents");
-            const auto result = cleanup_import_jobs(lease);
+            const auto result = cleanup_worker_stages(lease);
             check(result.size() == 1 && result[0].at("removed") == false,
                   "Maintenance disagreed with producer retention");
             std::filesystem::remove(stage / "user-notes.txt");
-            check(cleanup_import_jobs(lease)[0].at("removed") == true,
+            check(cleanup_worker_stages(lease)[0].at("removed") == true,
                   "Recognized repaired stage was not reclaimed");
         }
 #ifdef __linux__
@@ -181,17 +181,17 @@ int main(int argc, char** argv) {
                   "Producer cleanup erased a stage still owned by a live descendant");
             check(!WorkerStageLease::try_open(stage / "owner.lock"),
                   "Live descendant lost staging ownership");
-            const auto result = cleanup_import_jobs(lease);
+            const auto result = cleanup_worker_stages(lease);
             check(result.size() == 1 && result[0].at("removed") == false,
                   "Maintenance removed a live stage");
             descendant.finish();
-            check(cleanup_import_jobs(lease)[0].at("removed") == true,
+            check(cleanup_worker_stages(lease)[0].at("removed") == true,
                   "Retired descendant stage was not reclaimed");
         }
 #endif
         else
             throw std::runtime_error("Unknown import fixture mode");
-        check(read(root / "source.txt") == "saved source" && cleanup_import_jobs(lease).empty(),
+        check(read(root / "source.txt") == "saved source" && cleanup_worker_stages(lease).empty(),
               "Cleanup changed saved source or left recognized staging");
         std::cout << "Import producer and maintenance ownership checks passed\n";
         return 0;

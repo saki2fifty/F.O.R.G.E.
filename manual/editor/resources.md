@@ -71,9 +71,11 @@ zero removes all unselected revisions. Currently selected catalog revisions are
 protected even if that leaves the cache above the requested budget.
 
 `cache-cleanup` removes abandoned, recognized publication staging directories and
-import-worker folders. It first checks that neither an editor nor a surviving
-worker still owns the folder. Active jobs are retained; retry after they exit.
-The JSON result's `worker_jobs` list shows which import folders were removed and
+worker folders for imports, animation conversion, navigation builds, Script
+previews, Project Code inspection and UI dependency inspection. It first checks
+that neither an editor nor a surviving worker still owns the folder. Active jobs
+are retained; retry after they exit.
+The JSON result's `worker_jobs` list shows which worker folders were removed and
 why others were retained.
 
 Unexpected names, nested contents, redirected or hard-linked files, excessive data
