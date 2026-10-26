@@ -142,6 +142,24 @@ A build is a separate asset operation. Scene Undo does not undo a navmesh build.
 
 For a 3D NavMesh, destinations use world X/Z across the floor and Y upward. For an XY NavMesh, use X/Y across the region; visual Z remains unchanged. **Stopping distance** is the remaining distance along the route to the projected destination. Movement changes position; the agent does not turn to face its route. Its transform origin follows the navigation surface. For a larger visual model, use a child object with an upward local offset.
 
+## See the requested destination
+
+1. Build the NavMesh, or expand **Content → Navigation** to load its saved overlay.
+2. Select the agent and confirm its **NavMesh** matches that Scene's saved asset.
+3. Enable **Has destination** and turn on **Navigation overlay** in the Scene tools.
+
+A cyan diamond labeled **Requested destination** shows the selected agent's
+destination. A thin cyan line joins its world origin to that point. Edit the
+destination fields in Inspector to move the guide; normal Undo, Save and reopening
+keep their usual behavior. A disabled agent has a gray guide.
+
+For XY navigation the guide keeps the agent's visual Z. For 3D it uses all three
+world coordinates. The requested point still needs projection onto the NavMesh
+when the game runs; a visible diamond does not confirm that a route is available.
+During Play, the amber path shows the calculated route. Clearing **Has destination**,
+hiding the agent or turning off **Navigation overlay** removes the requested guide.
+The guide is an editor overlay and is absent from exported games.
+
 Keep the agent's spatial parents stationary and free of enabled character
 controllers. A controller on the object or its spatial parent stops navigation
 movement and reports a failed/invalid state. A disabled controller allows ordinary

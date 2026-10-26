@@ -158,6 +158,16 @@ Detour's native loader trusts section counts and offsets. FORGE checks sizes, fu
 
 ## Read-only runtime feedback
 
+The existing NavigationTools viewport overlay can show the selected agent's
+requested destination before Play. It reads the current effective component and
+world affine, uses the selected saved NavMesh metadata's plane and requires that
+asset reference to match. XY uses the agent's visual Z; 3D uses requested XYZ.
+Hidden/unresolved/prefab-source/invalid/cleared requests have no invented guide.
+This detached cyan guide is distinct from the amber calculated runtime path and
+performs no query, asset IO, tick, pose write, history or publication. It remains
+project/Scene scoped through the existing overlay owner. The normal checkbox and
+navigation.overlay automation operation change the same transient view flag.
+
 Private `navigation_debug` adds `diagnostic`, a copied human-readable reason only
 for the current Failed observation/configuration. It reads the existing per-agent
 error map, or its current global agent-limit entry, without inserting/loading or

@@ -2,6 +2,15 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Navigation requested destinations
+
+- Navigation overlay shows a selected agent's requested destination and straight
+  origin guide, using the saved asset's 3D/XY plane. Disabled guides are gray;
+  existing amber runtime routes remain separate.
+- Automation/MCP can show or hide that same overlay and read its current visibility,
+  with asset-authoring permission and normal target/revision/sequence validation.
+- Camera/light/audio and navigation guides share the existing builtin value decoder.
+
 ## Canonical physics-query exclusions
 
 - Regression coverage executes the 16384-intersection ray-work boundary through

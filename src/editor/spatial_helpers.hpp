@@ -2,6 +2,7 @@
 #include "../builtins.hpp"
 #include "authoring.hpp"
 #include "navigation_region_view.hpp"
+#include "spatial_component_value.hpp"
 #include "ui_probe.hpp"
 #include "widgets.hpp"
 #include <forge/audio_components.hpp>
@@ -27,13 +28,6 @@ inline Double3 helper_add(Double3 a, Double3 b, double scale = 1) {
     for (unsigned i = 0; i < 3; ++i)
         a[i] += b[i] * scale;
     return a;
-}
-template <class T> T helper_component(const Json& values, const char* name) {
-    detail::validate_components(Json{{name, values.at(name)}});
-    for (const auto& type : detail::builtins())
-        if (std::string_view(type.name) == name)
-            return std::get<T>(type.decode(values.at(name)));
-    throw std::runtime_error("Unknown spatial helper component");
 }
 inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned width,
                                                   unsigned height, double extent) {
@@ -96,7 +90,7 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                     marker.note += " | " + helper_number(region->region.width) + " x " +
                                    helper_number(region->region.height) + " local m";
                 } else if (is_camera) {
-                    const auto settings = helper_component<Camera>(c, "forge.camera");
+                    const auto settings = spatial_component_value<Camera>(c, "forge.camera");
                     marker.enabled = settings.enabled;
                     const auto view = camera_view(settings, world, width, height);
                     const bool ortho =
@@ -136,7 +130,8 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                                 }
                     }
                 } else if (is_audio) {
-                    const auto settings = helper_component<AudioSource>(c, "forge.audio_source");
+                    const auto settings =
+                        spatial_component_value<AudioSource>(c, "forge.audio_source");
                     marker.note = !settings.spatialized ? "Nonspatial sound; direction inactive"
                                   : !settings.cone_enabled
                                       ? "Omnidirectional spatial sound"
@@ -191,7 +186,7 @@ inline std::vector<SpatialMarker> spatial_markers(const Json& source, unsigned w
                         marker.note += "; angular guide at " + helper_number(radius) + " m";
                     }
                 } else {
-                    const auto settings = helper_component<Light>(c, "forge.light");
+                    const auto settings = spatial_component_value<Light>(c, "forge.light");
                     marker.enabled = settings.enabled;
                     const auto light = light_view(settings, world);
                     const auto kind = LightKind(light.kind);

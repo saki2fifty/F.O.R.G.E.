@@ -400,6 +400,14 @@ selection/framing and centered resize handles are editor conveniences over the s
 qualified width/height fields. Agents continue to use ordinary property tools and
 history/Save; no new tool/schema or screen-coordinate authoring path is required.
 
+The asset-authoring grant also exposes `forge_navigation_overlay`, with a required
+boolean `visible`. It uses the same NavigationTools view flag as the editor checkbox;
+status includes `overlay_visible` even before a bake is loaded. Normal qualified
+target/revision/sequence checks apply. It changes no Scene history or file and does
+not bake, project a point or compute a route. The overlay includes the selected
+agent's requested destination using the selected saved asset's plane, alongside
+existing triangles and runtime paths. Read-only connections do not expose this control.
+
 `forge_dependencies_open/read/edit/save/discard` borrows the selected asset's
 RuntimeDependenciesEditor draft. Edit supplies a finite typed set with reasons
 and optional module ownership. Save reviews source revisions, optional native UI

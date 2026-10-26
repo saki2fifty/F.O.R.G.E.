@@ -3,9 +3,14 @@
 #include "document.hpp"
 #include "navigation_sources.hpp"
 #include "property_drawer.hpp"
+#include "spatial_component_value.hpp"
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <forge/assets.hpp>
 #include <forge/authoring.hpp>
 #include <forge/navigation_build.hpp>
+#include <forge/render_scene.hpp>
 #include <future>
 namespace forge {
 class NavigationTools {
@@ -16,8 +21,10 @@ class NavigationTools {
     bool overlay_visible() const { return show_; }
     void overlay_control() {
         ImGui::Checkbox("Navigation overlay", &show_);
-        ui::help("Show or hide navigation triangles and paths in the viewport; this does not "
-                 "rebuild navigation.");
+        FORGE_UI_PROBE("navigation:overlay");
+        ui::help("Show navigation triangles, runtime paths and the selected agent's requested "
+                 "destination. The cyan straight guide shows input coordinates; the amber "
+                 "runtime path shows the calculated route. This does not rebuild navigation.");
     }
     NavigationTools(WorldContext& context, std::filesystem::path worker)
         : context_(context),
@@ -238,7 +245,8 @@ class NavigationTools {
                  "provides optional local steering for nonphysics agents.");
     }
     template <class View>
-    void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size) const {
+    void draw(const Json& doc, const View& camera, ImVec2 origin, ImVec2 size,
+              const std::string& selected = {}) const {
         if (!doc.contains("asset_id"))
             return;
         auto* draw = ImGui::GetWindowDrawList();
@@ -264,6 +272,72 @@ class NavigationTools {
             if (a && b && c) {
                 draw->AddTriangleFilled(*a, *b, *c, IM_COL32(45, 180, 175, 45));
                 draw->AddTriangle(*a, *b, *c, IM_COL32(80, 205, 190, 100));
+            }
+        }
+        // A requested point is a detached view of current component values, not
+        // a path query or a promise that projection onto the saved mesh succeeds.
+        if (!selected.empty()) {
+            try {
+                for (const auto& row : doc.at("entities")) {
+                    if (row.at("id") != selected || row.value("prefab", false) ||
+                        !row.value("spatial_resolved", false) ||
+                        !row.at("components").contains("forge.navigation_agent"))
+                        continue;
+                    const auto agent = ui::spatial_component_value<NavigationAgent>(
+                        row.at("components"), "forge.navigation_agent");
+                    if (!agent.has_destination || agent.navmesh.id != selected_)
+                        break;
+                    const auto policies = extract_node_policies(doc);
+                    const auto policy = policies.entities.find(EntityId::parse(selected));
+                    if (policy == policies.entities.end() || !policy->second.valid ||
+                        !policy->second.visible)
+                        break;
+                    const auto world = row.at("world_affine").get<std::array<double, 12>>();
+                    if (!std::all_of(world.begin(), world.end(),
+                                     [](double x) { return std::isfinite(x); }))
+                        break;
+                    const Double3 start{world[3], world[7], world[11]};
+                    Double3 destination{agent.destination_x, agent.destination_y,
+                                        agent.destination_z};
+                    if (overlay_plane == NavigationPlane::PlanarXY)
+                        destination[2] = start[2];
+                    const auto from = overlay(start), to = overlay(destination);
+                    if (!to)
+                        break;
+                    const auto color =
+                        agent.enabled ? IM_COL32(105, 225, 245, 255) : IM_COL32(155, 160, 170, 230);
+                    const float radius = 6 * ui::interface_scale;
+                    if (from)
+                        draw->AddLine(*from, *to, color, ui::interface_scale);
+                    draw->AddQuad({to->x, to->y - radius}, {to->x + radius, to->y},
+                                  {to->x, to->y + radius}, {to->x - radius, to->y}, color,
+                                  1.5f * ui::interface_scale);
+                    FORGE_UI_RECT_PROBE("navigation:requested-destination",
+                                        (ImVec2{to->x - radius, to->y - radius}),
+                                        (ImVec2{to->x + radius, to->y + radius}), agent.enabled);
+                    const char* label = agent.enabled ? "Requested destination"
+                                                      : "Requested destination (disabled)";
+                    const float margin = 4 * ui::interface_scale;
+                    const float wrap_width = std::max(1.f, size.x - 2 * margin);
+                    const auto text_size = ImGui::CalcTextSize(label, nullptr, false, wrap_width);
+                    if (to->x >= origin.x && to->x <= origin.x + size.x && to->y >= origin.y &&
+                        to->y <= origin.y + size.y) {
+                        const ImVec2 at{
+                            std::clamp(to->x + radius + margin, origin.x + margin,
+                                       std::max(origin.x + margin,
+                                                origin.x + size.x - text_size.x - margin)),
+                            std::clamp(to->y + radius + margin, origin.y + margin,
+                                       std::max(origin.y + margin,
+                                                origin.y + size.y - text_size.y - margin))};
+                        draw->AddText(ImGui::GetFont(), ImGui::GetFontSize(), at, color, label,
+                                      nullptr, wrap_width);
+                        FORGE_UI_RECT_PROBE("navigation:requested-destination-label", at,
+                                            (ImVec2{at.x + text_size.x, at.y + text_size.y}), true);
+                    }
+                    break;
+                }
+            } catch (const std::exception&) {
+                // Invalid/unresolved source has no invented destination guide.
             }
         }
         for (const auto& e : doc.at("entities"))

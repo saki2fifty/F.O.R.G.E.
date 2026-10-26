@@ -9,13 +9,15 @@ struct NavigationAutomation {
         files.document.check_ownership();
         if (owner.loaded_project_ != files.document.project() ||
             owner.loaded_scene_ != scene.asset_id())
-            return {{"busy", false}, {"started", false}};
+            return {
+                {"busy", false}, {"started", false}, {"overlay_visible", owner.overlay_visible()}};
         return {{"started", true},
                 {"busy", owner.pending()},
                 {"operation", owner.operation_},
                 {"settings", owner.settings_},
                 {"asset", owner.selected_ ? Json(owner.selected_) : Json()},
                 {"status", owner.status_},
+                {"overlay_visible", owner.overlay_visible()},
                 {"error", owner.error_}};
     }
     static std::vector<LiveAuthoringMethod> methods(NavigationTools& owner, Scene& scene,
@@ -31,6 +33,17 @@ struct NavigationAutomation {
             [&owner, &scene, &files](const Json&) { return state(owner, scene, files); }));
         if (!permissions.assets)
             return result;
+        result.push_back(automation_method(
+            "navigation.overlay",
+            "Show or hide the existing navigation overlay, including saved mesh triangles, "
+            "runtime paths and the selected agent's requested destination. This changes only "
+            "the current editor view, without Scene history, asset publication or file writes.",
+            "assets.write", automation_object({{"visible", {{"type", "boolean"}}}}, {"visible"}),
+            true, [&owner, &scene, &files](const Json& request) {
+                files.document.check_ownership();
+                owner.show_ = request.at("visible").get<bool>();
+                return state(owner, scene, files);
+            }));
         Json values;
         for (const auto* name : {"radius", "height", "climb", "slope", "cell_size", "cell_height"})
             values[name] = {{"type", "number"}};

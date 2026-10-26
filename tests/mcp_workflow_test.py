@@ -96,7 +96,32 @@ for legacy in (False, True):
         assert advertised['forge_export_start']['annotations']['openWorldHint']
         assert not advertised['forge_source_text_write']['annotations']['openWorldHint']
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
-                'forge_script_preview', 'forge_navigation_build', 'forge_dependencies_save'} <= names
+                'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
+                'forge_dependencies_save'} <= names
+        overlay_source = read('forge_scene_read')
+        overlay_settings = (root/'Game/forge.project.json').read_bytes()
+        for visible in (False, True, False):
+            changed = ok('forge_navigation_overlay', visible=visible)
+            assert changed['overlay_visible'] is visible
+            assert read('forge_navigation_status')['overlay_visible'] is visible
+            assert read('forge_scene_read') == overlay_source
+            assert (root/'Game/forge.project.json').read_bytes() == overlay_settings
+        invalid_overlay = mutate('forge_navigation_overlay', visible='yes')
+        assert not invalid_overlay['ok'] and not read('forge_navigation_status')['overlay_visible']
+        wrong_revision = arguments(visible=True)
+        wrong_revision['expected_revision'] += 1
+        assert not client.tool('forge_navigation_overlay', **wrong_revision)['ok']
+        replayed = arguments(visible=True)
+        accepted_overlay = client.tool('forge_navigation_overlay', **replayed)
+        assert accepted_overlay['ok']
+        cached_overlay = client.tool('forge_navigation_overlay', **replayed)
+        assert cached_overlay['ok'] and cached_overlay['result'] == accepted_overlay['result']
+        failed(client.tool('forge_navigation_overlay', **dict(replayed, visible=False)), 'sequence_conflict')
+        assert read('forge_navigation_status')['overlay_visible']
+        ok('forge_navigation_overlay', visible=False)
+        cached_overlay = client.tool('forge_navigation_overlay', **replayed)
+        assert cached_overlay['ok'] and cached_overlay['result'] == accepted_overlay['result']
+        assert not read('forge_navigation_status')['overlay_visible'], 'Old receipt reapplied a view change'
         if NAVIGATION_ONLY:
             floor, navigation = navigation_floor()
             asset = navigation['asset']
@@ -213,7 +238,10 @@ for legacy in (False, True):
             assert read('forge_scene_read') == kept
             ok('forge_document_save')
             with editor('read') as (_, read_config), Client(read_config, legacy) as restricted:
-                assert 'forge_play_tune' not in {tool['name'] for tool in restricted.request('tools/list')['result']['tools']}
+                denied_names = {tool['name'] for tool in restricted.request('tools/list')['result']['tools']}
+                assert 'forge_play_tune' not in denied_names and 'forge_navigation_overlay' not in denied_names
+                denied = restricted.request('tools/call', dict(name='forge_navigation_overlay', arguments=dict(visible=True)))
+                assert 'error' in denied or denied['result']['isError'], denied
             print(('legacy' if legacy else 'current') + ': navigation ownership, XY profile, live agent validation, keep-values/history and execution grant verified')
             continue
         ok('forge_source_folder_create', path='Assets/Shaders')

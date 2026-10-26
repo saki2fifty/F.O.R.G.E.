@@ -82,6 +82,13 @@ reviews. Prefabs use the existing source editor and library. Applying instance
 overrides requires review and acknowledgment because it saves both the prefab
 and the current scene; the normal Scene Undo and Redo replay that pair.
 
+## See navigation in the editor
+
+With asset authoring enabled, an agent can use `forge_navigation_overlay` with
+`visible: true` or `false` to show or hide the navigation overlay. This includes
+the selected agent's requested destination. `forge_navigation_status` reports
+`overlay_visible`. The view setting does not save the Scene or add an Undo entry.
+
 ## Projects and settings
 
 Enable **Allow a project workspace** and choose your **Projects** folder before

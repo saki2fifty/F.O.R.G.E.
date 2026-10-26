@@ -13,6 +13,7 @@ void check(bool ok, const char* why) {
 }
 } // namespace
 
+#include "navigation_destination_tests.hpp"
 #include "navigation_region_gesture_tests.hpp"
 #include "navigation_region_helpers_tests.hpp"
 #include "navigation_region_input_tests.hpp"
@@ -234,6 +235,10 @@ int main(int argc, char** argv) {
               "Scene switching retained the previous scene's navigation cache");
         ImGui::DestroyContext();
         planar_editor(root / "Planar", std::filesystem::absolute(argv[2]));
+        check_navigation_destinations(root / "GoalsXY", std::filesystem::absolute(argv[2]),
+                                      NavigationPlane::PlanarXY);
+        check_navigation_destinations(root / "Goals3D", std::filesystem::absolute(argv[2]),
+                                      NavigationPlane::Spatial3D);
         std::cout << "Actual baked navigation overlay respects project/scene boundaries and saved "
                      "reload\n";
     } catch (const std::exception& error) {

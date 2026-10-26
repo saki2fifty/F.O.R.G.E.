@@ -1037,6 +1037,25 @@ budget. These are correctness workloads, not performance measurements or native
 Windows/GPU acceptance. The public APIs, SDK fingerprint and authored formats are
 unchanged; the new matching test module uses existing callbacks.
 
+### Requested navigation destinations
+
+`navigation_lifecycle` builds real saved3D/XY assets and draws the selected agent's
+requested point through NavigationTools. Actual ImGui geometry/coordinates and
+wrapped caption bounds are checked at100/150/200% in ordinary and420px viewports.
+The existing checkbox is exercised with real input. Invalid, cleared, hidden,
+hidden-parent, nonfinite, unresolved, unselected, wrong-asset and wrong-Scene targets
+do not invent a guide. Authored field changes, Undo, saved source bytes and reopen
+are checked; existing project/Scene cache and region gesture tests remain active.
+Camera/light/audio consumers exercise the extracted shared builtin value decoder.
+
+`mcp_navigation_stdio` exercises the same overlay flag through both actual MCP
+protocols: grant discovery/denial, strict boolean inputs, qualified revisions,
+idempotent receipts, conflicting sequence reuse and unchanged Scene/settings.
+An old receipt returns its cached result without reapplying the view change.
+Existing navigation/XY/live-control workflows still run in that fixture.
+These portable owner/UI checks are separate from the full native editor entry
+point, MSVC, actual pixels and physical review; capture requested guides on Windows.
+
 ### Slider joints
 
 Core joint tests check kind4 lower/upper endpoints, all principal axes, rotated and
