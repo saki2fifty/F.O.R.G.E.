@@ -18,6 +18,15 @@ with another startup scene to export a different demonstration.
 The gallery contains ordinary saved project content. Most scenes need no C++ compiler; optional C++ examples require the matching development tools to build. The included [reference game](../reference-game.md)
 remains a separate combined gameplay example.
 
+## Top-down 2D navigation
+
+Scene **80-xy-navigation** contains a walkable rectangle, an orange obstacle and
+three Sprite agents. Play to see the cyan agent route around the obstacle and
+the green/amber pair steer past each other. Select a region to see its outline;
+change its Width/Height or Obstacle role in Inspector while stopped, then rebuild
+through **Content → Create / Register → Navigation → Plane → 2D (XY)**.
+Save and select the Scene as startup before export. See [Navigation](../editor/navigation.md).
+
 ## 2D physics
 
 Scene **79-one-way-platforms** compares landing from above and passage from below.

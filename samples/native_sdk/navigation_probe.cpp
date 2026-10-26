@@ -19,6 +19,19 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char*, uint32_t) {
     probe.destruct();
     if (!matched)
         return 0;
+#ifdef FORGE_NAVIGATION_PLANAR
+    const auto region = w.component<forge::NavigationRegion2D>("forge.navigation_region_2d");
+    const auto* region_info = ecs_get_type_info(w.c_ptr(), region.id());
+    if (!region_info || region_info->size != sizeof(forge::NavigationRegion2D) ||
+        region_info->alignment != alignof(forge::NavigationRegion2D))
+        return 0;
+    auto planar = w.entity().add(flecs::Prefab).set<forge::NavigationRegion2D>({true, true, 2, 4});
+    const auto region_matched =
+        planar.get<forge::NavigationRegion2D>() == forge::NavigationRegion2D{true, true, 2, 4};
+    planar.destruct();
+    if (!region_matched)
+        return 0;
+#endif
     return 1;
 }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
@@ -97,10 +110,18 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char*, uint32_t) {
             }
             const auto id = a.navmesh.id.str();
             double start[3]{-8, .1, 0}, end[3]{8, .1, 0}, points[192]{};
+#ifdef FORGE_NAVIGATION_PLANAR
+            start[2] = 37.125;
+            end[2] = -19;
+#endif
             ForgeSdkNavResultV1 out{sizeof(out), 0, 0, 64, points};
             bool ok = (h->capabilities & FORGE_SDK_NAVIGATION) &&
                       h->navigation_query(h->context, id.c_str(), 1, start, end, &out) &&
                       out.status == 0 && out.count > 2;
+#ifdef FORGE_NAVIGATION_PLANAR
+            for (unsigned i = 0; i < out.count && i < 64; ++i)
+                ok = ok && points[i * 3 + 2] == 37.125;
+#endif
             out.capacity = 1;
             ok = ok && h->navigation_query(h->context, id.c_str(), 1, start, end, &out) &&
                  out.status == 7 && out.count == 0;

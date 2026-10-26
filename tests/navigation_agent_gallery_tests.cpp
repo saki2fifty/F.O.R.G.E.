@@ -85,20 +85,75 @@ void exercise(const std::filesystem::path& root, const Json& source,
           "Gallery50 did not arrive and stop");
     check(read(root / saved_path) == saved, "Gameplay rewrote saved Gallery50");
 }
+void exercise_planar(const std::filesystem::path& root, const Json& source,
+                     const std::filesystem::path& saved_path) {
+    EngineContext engine(WorldRole::Runtime, false, {navigation_module(root)});
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    RuntimeSimulation simulation(engine.world(), scene);
+    const auto navigation = engine.services().navigation();
+    std::vector<std::pair<EntityRef, double>> participants;
+    for (const auto& row : source.at("entities"))
+        if (row.at("components").contains("forge.navigation_agent")) {
+            const auto entity = scene.entity(row.at("id"));
+            participants.emplace_back(engine.world().reference(entity.id()).value(),
+                                      row.at("components").at("forge.local_translation").at("z"));
+        }
+    check(participants.size() == 3, "Gallery80 requires one routed and two avoiding agents");
+    const auto saved = read(root / saved_path);
+    bool around = false, deviated = false;
+    double separation = 100;
+    for (unsigned tick = 1; tick <= 660; ++tick) {
+        simulation.tick(1.f / 60);
+        std::vector<NavigationAgentObservation> states;
+        for (const auto& [ref, depth] : participants) {
+            const auto state = navigation->agent_state(ref).value();
+            check(state.sampled && state.has_path && state.status == NavStatus::Success &&
+                      state.tick == tick && state.position[2] == depth && state.velocity[2] == 0 &&
+                      std::hypot(state.velocity[0], state.velocity[1]) <= 2.501,
+                  "Gallery80 lost logical XY movement/progress or changed visual depth");
+            states.push_back(state);
+        }
+        const auto& route = states[0];
+        check(!(std::abs(route.position[0]) < 1 && std::abs(route.position[1]) < 2),
+              "Gallery80 route entered its obstacle mask");
+        around |= std::abs(route.position[1]) > 2.3;
+        separation =
+            std::min(separation, std::hypot(states[1].position[0] - states[2].position[0],
+                                            states[1].position[1] - states[2].position[1]));
+        deviated |= std::abs(states[1].position[0] - 5) > .2;
+        if (tick == 1 || tick == 300 || tick == 660) {
+            const auto rendered = extract_render_scene(simulation.presentation(.5));
+            check(rendered.cameras.size() == 1 && rendered.sprites.size() == 5,
+                  "Gallery80 lost its ordinary camera or five Sprite render submissions");
+        }
+    }
+    for (const auto& [ref, depth] : participants)
+        check(navigation->agent_state(ref)->phase == NavigationAgentPhase::Arrived,
+              "Gallery80 agent failed to arrive");
+    check(around && deviated && separation > .65 && read(root / saved_path) == saved,
+          "Gallery80 route/avoidance failed or gameplay rewrote the saved Scene");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
-        check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--static-mesh"),
+        check(argc == 3 || (argc == 4 && (std::string_view(argv[3]) == "--static-mesh" ||
+                                          std::string_view(argv[3]) == "--planar")),
               "Need Gallery project and scratch root");
-        const bool cooked = argc == 4;
+        const bool planar = argc == 4 && std::string_view(argv[3]) == "--planar";
+        const bool cooked = argc == 4 && !planar;
         const auto root = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         std::filesystem::copy(argv[1], root, std::filesystem::copy_options::recursive);
         const auto scene_path =
-            std::filesystem::path(cooked ? "Scenes/51-static-mesh-navigation.scene.json"
-                                         : "Scenes/50-navigation-progress.scene.json");
+            std::filesystem::path(planar   ? "Scenes/80-xy-navigation.scene.json"
+                                  : cooked ? "Scenes/51-static-mesh-navigation.scene.json"
+                                           : "Scenes/50-navigation-progress.scene.json");
         const auto source = read(root / scene_path);
-        exercise(root, source, scene_path, cooked);
+        if (planar)
+            exercise_planar(root, source, scene_path);
+        else
+            exercise(root, source, scene_path, cooked);
         const auto game = root.string() + "-game";
         const auto moved = game + "-relocated";
         const std::array roots{source.at("asset_id").get<AssetId>()};
@@ -107,13 +162,20 @@ int main(int argc, char** argv) {
         const auto hidden = root.string() + "-source-offline";
         std::filesystem::rename(root, hidden);
         const auto catalog = open_runtime_content(moved, {"windows", "d3d12"});
-        check(catalog.records().size() == (cooked ? 3u : 2u),
-              "Gallery50 export retained unrelated content or lost navmesh");
+        check(catalog.records().size() == (planar   ? 3u
+                                           : cooked ? 3u
+                                                    : 2u),
+              "Gallery export retained unrelated content or lost required assets");
         const auto shipped_path = catalog.records().at(roots[0]).source;
-        exercise(moved, read(std::filesystem::path(moved) / shipped_path), shipped_path, cooked);
+        if (planar)
+            exercise_planar(moved, read(std::filesystem::path(moved) / shipped_path), shipped_path);
+        else
+            exercise(moved, read(std::filesystem::path(moved) / shipped_path), shipped_path,
+                     cooked);
         std::filesystem::remove_all(hidden);
         std::filesystem::remove_all(moved);
-        std::cout << "Gallery50 actual navigation observations, obstacle/arrival, render and "
+        std::cout << (planar ? "Gallery80 XY " : "Gallery50 ")
+                  << "actual navigation observations, obstacle/arrival, render and "
                      "relocated source-offline export passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

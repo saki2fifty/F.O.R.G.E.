@@ -1,12 +1,20 @@
 #pragma once
+#include <cstdint>
 #include <forge/asset_ref.hpp>
 namespace forge {
+enum class NavigationPlane : std::uint32_t { Spatial3D, PlanarXY };
 struct NavMeshAsset {
     static constexpr const char* type = "navmesh";
 };
 struct NavigationSurface {
     bool enabled = true;
     bool operator==(const NavigationSurface&) const = default;
+};
+// Independent, centered navigation geometry in world XY; not a physics collider.
+struct NavigationRegion2D {
+    bool enabled = true, obstacle = false;
+    float width = 10, height = 10;
+    bool operator==(const NavigationRegion2D&) const = default;
 };
 struct NavigationAgent {
     AssetRef<NavMeshAsset> navmesh;

@@ -3,6 +3,7 @@
 #include <forge/mesh_resource.hpp>
 #include <forge/navigation_build.hpp>
 #include <functional>
+#include <optional>
 #include <set>
 namespace forge::navigation_detail {
 inline constexpr std::size_t max_mesh_inputs = 32;
@@ -13,14 +14,17 @@ struct Surface {
     AffineTransform transform;
     unsigned primitive = no_primitive;
     AssetId mesh;
+    std::optional<NavigationRegion2D> region;
 };
 struct Sources {
     AssetId scene;
     nlohmann::json identities = nlohmann::json::array();
     std::vector<Surface> surfaces;
     std::set<AssetId> meshes;
+    NavigationPlane plane = NavigationPlane::Spatial3D;
 };
-Sources capture(const nlohmann::json& effective_scene);
+Sources capture(const nlohmann::json& effective_scene,
+                NavigationPlane = NavigationPlane::Spatial3D);
 nlohmann::json mesh_inputs(const Sources&, const std::function<std::string(AssetId)>& revision);
 std::string source_digest(const Sources&, const nlohmann::json& mesh_inputs);
 struct Geometry {
@@ -29,7 +33,11 @@ struct Geometry {
     nlohmann::json sources = nlohmann::json::array();
     AssetId scene;
     std::string digest;
+    std::vector<std::array<float, 12>>
+        obstacles; // Convex native-XZ masks from world XY, four vertices.
 };
+// Same projected world footprint for authoring guides and bake input.
+std::array<Double3, 4> region_quad(const NavigationRegion2D&, const AffineTransform&);
 Geometry geometry(const nlohmann::json& effective_scene);
 Geometry geometry(const Sources&); // Original primitive-only v1 canonical bytes.
 Geometry geometry(const Sources&, const nlohmann::json& mesh_inputs,

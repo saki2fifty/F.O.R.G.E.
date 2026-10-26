@@ -160,6 +160,66 @@
     },
     {
       "dependencies": [
+        "6bf09156-e36a-49a9-963d-31a795d6cc4a"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "build",
+          "revision": "f90403cd8a4e3bfba00067a4326d22ba996333865d1df20e150881fe16e1af84",
+          "role": "navigation.scene",
+          "target": "6bf09156-e36a-49a9-963d-31a795d6cc4a",
+          "type": "scene"
+        }
+      ],
+      "id": "073002cc-c75d-475e-a462-a21abcd07c6f",
+      "metadata": {
+        "asset_id": "073002cc-c75d-475e-a462-a21abcd07c6f",
+        "bounds": {
+          "cell_inverse": 5.0,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "maximum": [
+            10.0,
+            4.099999904632568,
+            7.0
+          ],
+          "minimum": [
+            -10.0,
+            -0.20000000298023224,
+            -7.0
+          ],
+          "radius": 0.4000000059604645
+        },
+        "geometry_sha256": "f90403cd8a4e3bfba00067a4326d22ba996333865d1df20e150881fe16e1af84",
+        "geometry_version": 3,
+        "layout": "le-polyref32-detour7-static-single-v1",
+        "mesh_inputs": [],
+        "recast_revision": "6dc1667f580357e8a2154c28b7867bea7e8ad3a7",
+        "settings": {
+          "cell_height": 0.10000000149011612,
+          "cell_size": 0.20000000298023224,
+          "climb": 0.4000000059604645,
+          "height": 2.0,
+          "plane": 1,
+          "radius": 0.4000000059604645,
+          "slope": 45.0
+        },
+        "sha256": "91ea1eeacc11fc4423de0a757a9e3b26835529fae59337f96c5b11cd14f0e767",
+        "source_scene": "6bf09156-e36a-49a9-963d-31a795d6cc4a",
+        "sources": [
+          "1f5f5e1c-1260-4a41-bf1f-8f8f891abf33",
+          "40e5ba13-f819-4419-a363-fc8205fa036d"
+        ],
+        "tile_sha256": "bdc562a0ba99bfd566df6b87ca0696d8f4016ca1b937688cc8a92df44da06df5",
+        "version": 3
+      },
+      "schema_version": 3,
+      "source": "Assets/Navigation/Generated/073002cc-c75d-475e-a462-a21abcd07c6f/b25562de-1555-46f0-9b55-04f9463728cf.fnav",
+      "source_dependencies": [],
+      "type": "navmesh"
+    },
+    {
+      "dependencies": [
         "08e7e8fb-e562-43eb-84e2-da2617a5a983"
       ],
       "dependency_edges": [
@@ -4628,6 +4688,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "6bf09156-e36a-49a9-963d-31a795d6cc4a",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/80-xy-navigation.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],

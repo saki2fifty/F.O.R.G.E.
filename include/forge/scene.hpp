@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <filesystem>
+#include <forge/navigation_components.hpp>
 #include <forge/prefab.hpp>
 #include <forge/scene_identity.hpp>
 #include <forge/world.hpp>
@@ -30,7 +31,7 @@ class Scene {
     Json ui_document_rows() const;
     // Narrow copied intent for removed prefab members that still own an enabled
     // NavigationSurface. Native-only capture must not silently omit these errors.
-    Json unresolved_navigation_sources() const;
+    Json unresolved_navigation_sources(NavigationPlane plane = NavigationPlane::Spatial3D) const;
     // Detached command/gesture projection; never a mutable live representation.
     Json preview_document(const Json& intended) const;
     static void validate_document(const Json& document);

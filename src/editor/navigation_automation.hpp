@@ -34,9 +34,13 @@ struct NavigationAutomation {
         Json values;
         for (const auto* name : {"radius", "height", "climb", "slope", "cell_size", "cell_height"})
             values[name] = {{"type", "number"}};
+        values["plane"] = {{"type", "integer"},
+                           {"enum", {0, 1}},
+                           {"description", "0: spatial 3D (default); 1: top-down XY regions."}};
         result.push_back(automation_method(
             "navigation.build",
-            "Bake marked static geometry through the existing native worker "
+            "Bake marked static 3D geometry or rectangular XY regions through the existing native "
+            "worker "
             "and stale-geometry publication check. Settings use the native "
             "agent/voxel profile; poll navigation.status and assign the asset "
             "with ordinary component/property tools.",

@@ -3,6 +3,7 @@ import json
 import queue
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 
@@ -67,3 +68,25 @@ class Runtime:
         self.reader.join(timeout=5)
         if self.process.stdout:
             self.process.stdout.close()
+
+
+def activate(worker, scene, sdk_play):
+    state = worker.request('replace', scene=scene)
+    if not sdk_play:
+        return state
+    deadline = time.monotonic() + 15
+    while not state.get('candidate'):
+        assert time.monotonic() < deadline, state
+        time.sleep(.005)
+        state = worker.request('snapshot')
+    ticket = state['candidate']['ticket']
+    candidate = worker.request('candidate', ticket=ticket)['candidate']
+    assert candidate['ticket'] == ticket and candidate['session'] == worker.session
+    state = worker.request('snapshot', candidate_ack=dict(
+        session=worker.session, ticket=ticket, accepted=True, diagnostic=''))
+    while state['activation']['generation'] != ticket:
+        assert time.monotonic() < deadline, state
+        time.sleep(.005)
+        state = worker.request('snapshot')
+    return worker.request('snapshot', editor_epoch=dict(
+        epoch=ticket, captured=False, input_device='EditorHost'))

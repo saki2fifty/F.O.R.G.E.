@@ -67,6 +67,11 @@ template <class T> Json encode(const T& p) {
                 {"layer", p.layer}};
     else if constexpr (std::is_same_v<T, NavigationSurface>)
         return {{"enabled", p.enabled}};
+    else if constexpr (std::is_same_v<T, NavigationRegion2D>)
+        return {{"enabled", p.enabled},
+                {"obstacle", p.obstacle},
+                {"width", p.width},
+                {"height", p.height}};
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         return {{"enabled", p.enabled}, {"horizon", p.horizon}};
     else if constexpr (std::is_same_v<T, NavigationAgent>)
@@ -337,6 +342,8 @@ template <class T> Value decode(const Json& p) {
         return v;
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         return T{p.at("enabled")};
+    else if constexpr (std::is_same_v<T, NavigationRegion2D>)
+        return T{p.at("enabled"), p.at("obstacle"), p.at("width"), p.at("height")};
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         return T{p.at("enabled"), p.at("horizon")};
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
@@ -899,6 +906,11 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("layer");
     } else if constexpr (std::is_same_v<T, NavigationSurface>)
         c.template member<bool>("enabled");
+    else if constexpr (std::is_same_v<T, NavigationRegion2D>)
+        c.template member<bool>("enabled")
+            .template member<bool>("obstacle")
+            .template member<float>("width")
+            .template member<float>("height");
     else if constexpr (std::is_same_v<T, NavigationAvoidance>)
         c.template member<bool>("enabled").template member<float>("horizon");
     else if constexpr (std::is_same_v<T, NavigationAgent>) {
@@ -1338,6 +1350,12 @@ const std::array<Builtin, builtin_count>& builtins() {
             [](flecs::world& w) {
                 return register_type<NavigationSurface>(w, "forge.navigation_surface");
             }),
+        descriptor<NavigationRegion2D>(
+            "forge.navigation_region_2d",
+            "Centered rectangular XY walkable region or obstacle mask", "unitless", {}, {},
+            [](flecs::world& w) {
+                return register_type<NavigationRegion2D>(w, "forge.navigation_region_2d");
+            }),
         descriptor<NavigationAgent>(
             "forge.navigation_agent", "Fixed-tick path following for nonphysics entities",
             "unitless", {}, {},
@@ -1540,6 +1558,22 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.asset_collider" && field == "asset") {
         value["asset_type"] = CollisionAsset::type;
         value["nullable"] = true;
+    }
+    if (name == "forge.navigation_region_2d") {
+        if (field == "width" || field == "height") {
+            value["minimum"] = .01;
+            value["maximum"] = 1000;
+            value["unit"] = "meters";
+            value["description"] =
+                "Local rectangle extent; resolved world XY is used by the navigation bake";
+        } else {
+            value.erase("minimum");
+            value.erase("maximum");
+            value["description"] = field == "enabled"
+                                       ? "Include this static region in XY navigation"
+                                       : "Subtract this rectangle from walkable XY navigation; no "
+                                         "physics collider is created";
+        }
     }
     if (name == "forge.character_controller_2d") {
         if (field == "step_height") {

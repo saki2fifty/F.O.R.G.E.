@@ -914,19 +914,28 @@ void Scene::restore_child_order(const Json& document) {
                             static_cast<int32_t>(children.size()));
     }
 }
-Json Scene::unresolved_navigation_sources() const {
+Json Scene::unresolved_navigation_sources(NavigationPlane plane) const {
+    if (plane != NavigationPlane::Spatial3D && plane != NavigationPlane::PlanarXY)
+        throw std::runtime_error("Unsupported navigation source plane");
+    const auto* marker = plane == NavigationPlane::PlanarXY ? "forge.navigation_region_2d"
+                                                            : "forge.navigation_surface";
     Json result = Json::array();
     for (const auto& item : opaque_.at("entities")) {
         if (!item.contains("prefab_member"))
             continue;
         const auto& components = item.at("components");
-        if (!components.contains("forge.navigation_surface") ||
-            !components.at("forge.navigation_surface").at("enabled").get<bool>() ||
+        if (!components.contains(marker) || !components.at(marker).at("enabled").get<bool>() ||
             entity(item.at("id")))
             continue;
         Json row = {{"id", item.at("id")},
                     {"prefab", item.value("prefab", false)},
-                    {"components", {{"forge.navigation_surface", {{"enabled", true}}}}}};
+                    {"components", Json::object()}};
+        auto& intent = row["components"][marker];
+        intent = {{"enabled", true}};
+        if (plane == NavigationPlane::PlanarXY)
+            for (const auto* field : {"obstacle", "width", "height"})
+                if (components.at(marker).contains(field))
+                    intent[field] = components.at(marker).at(field);
         auto& out = row["components"];
         if (components.contains("forge.primitive"))
             out["forge.primitive"] = {{"kind", components.at("forge.primitive").at("kind")}};

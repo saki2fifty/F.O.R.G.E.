@@ -6207,7 +6207,8 @@ int main(int argc, char** argv) {
 #else
                             (void)marker;
 #endif
-                            navigation_tools.draw(rendered, view_camera, image_origin, size);
+                            navigation_tools.draw(rendered, view_camera, image_origin, size,
+                                                  selected);
                         }
                         if (!game_view)
                             orientation.draw(view_camera, image_origin, size);

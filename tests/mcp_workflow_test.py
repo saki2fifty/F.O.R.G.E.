@@ -106,7 +106,53 @@ for legacy in (False, True):
                 assert 'enabled character controller' in rejected['error'], rejected
                 assert rejected['asset'] == asset and index.read_bytes() == preserved, rejected
                 ok('forge_component_revert', arguments=dict(entity=floor, component=component))
-            print(('legacy' if legacy else 'current') + ': navigation controller rejection retained asset/catalog')
+            # Switch the same Scene's one logical asset to an explicit XY profile.
+            # Existing 3D source geometry remains present and is not selected.
+            ok('forge_component_add', arguments=dict(entity=floor, component='forge.navigation_region_2d'))
+            ok('forge_property_set_many', arguments=dict(entity=floor, component='forge.local_scale',
+                                                        values=dict(x=1, y=1, z=0)))
+            ok('forge_property_set_many', arguments=dict(entity=floor, component='forge.navigation_region_2d',
+                                                        values=dict(width=20, height=20)))
+            obstacle = ok('forge_entity_create', arguments=dict(name='XY obstacle'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=obstacle, component='forge.navigation_region_2d'))
+            ok('forge_property_set_many', arguments=dict(entity=obstacle, component='forge.navigation_region_2d',
+                                                        values=dict(obstacle=True, width=2, height=4)))
+            def obstacle_width():
+                row = next(row for row in read('forge_scene_read')['entities'] if row['id'] == obstacle)
+                return row['components']['forge.navigation_region_2d']['width']
+            ok('forge_property_set', arguments=dict(entity=obstacle, component='forge.navigation_region_2d',
+                                                    field='width', value=3))
+            assert obstacle_width() == 3
+            ok('forge_history_undo')
+            assert obstacle_width() == 2
+            ok('forge_history_redo')
+            assert obstacle_width() == 3
+            rejected = mutate('forge_property_set', arguments=dict(entity=obstacle,
+                              component='forge.navigation_region_2d', field='width', value=0))
+            assert not rejected['ok'] and obstacle_width() == 3, rejected
+            settings = dict(radius=.4, height=2, climb=.4, slope=45,
+                            cell_size=.2, cell_height=.1, plane=1)
+            ok('forge_navigation_build', settings=settings)
+            planar = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+            assert planar['asset'] == asset and not planar['error'] and planar['settings']['plane'] == 1, planar
+            catalog = json.loads(index.read_text(encoding='utf-8'))
+            records = catalog['assets']
+            if isinstance(records, dict):
+                records = records.values()
+            selected = next(record for record in records if record['id'] == asset)
+            assert selected['schema_version'] == 3 and selected['metadata']['geometry_version'] == 3, selected
+            preserved = index.read_bytes()
+            for invalid in (-1, 2, .5, 'xy'):
+                rejected = mutate('forge_navigation_build', settings=dict(settings, plane=invalid))
+                assert not rejected['ok'] and index.read_bytes() == preserved, rejected
+            ok('forge_component_add', arguments=dict(entity=floor, component='forge.character_controller_2d'))
+            ok('forge_navigation_build', settings=settings)
+            rejected = until(lambda: read('forge_navigation_status'), lambda r: not r['busy'])
+            assert 'enabled character controller' in rejected['error'] and index.read_bytes() == preserved, rejected
+            ok('forge_component_revert', arguments=dict(entity=floor, component='forge.character_controller_2d'))
+            ok('forge_document_save')
+            assert obstacle_width() == 3
+            print(('legacy' if legacy else 'current') + ': navigation ownership, XY profile, schema, property history and save verified')
             continue
         ok('forge_source_folder_create', path='Assets/Shaders')
         shader_file = 'Assets/Shaders/test.hlsl'
@@ -280,5 +326,5 @@ for legacy in (False, True):
 
 with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
     json.dump(CAPTURE, output, separators=(',', ':'))
-print('Both MCP protocols: navigation ownership verified; no export or Windows execution' if NAVIGATION_ONLY else
+print('Both MCP protocols: navigation ownership and XY authoring verified; no export or Windows execution' if NAVIGATION_ONLY else
       'Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')

@@ -24,6 +24,24 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
         require(indices[i] == int(i));
     for (float v : verts)
         require(std::isfinite(v) && std::abs(v) <= 4090);
+    const bool planar = settings.plane == NavigationPlane::PlanarXY;
+    require(g.obstacles.size() <= 512 && (planar || g.obstacles.empty()));
+    if (planar) {
+        for (std::size_t i = 1; i < verts.size(); i += 3)
+            require(verts[i] == 0);
+        for (const auto& mask : g.obstacles) {
+            for (unsigned i = 0; i < 12; ++i)
+                require(std::isfinite(mask[i]) && std::abs(mask[i]) <= 4090 &&
+                        (i % 3 != 1 || mask[i] == 0));
+            for (unsigned i = 0; i < 4; ++i) {
+                const auto a = i * 3, b = ((i + 1) % 4) * 3, c = ((i + 2) % 4) * 3;
+                const double turn =
+                    (double(mask[b]) - mask[a]) * (double(mask[c + 2]) - mask[b + 2]) -
+                    (double(mask[b + 2]) - mask[a + 2]) * (double(mask[c]) - mask[b]);
+                require(turn > 1e-10); // Canonical convex winding; reject float-collapsed masks.
+            }
+        }
+    }
     rcContext ctx;
     rcConfig cfg{};
     cfg.cs = settings.cell_size;
@@ -61,6 +79,9 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
     require(bool(compact));
     require(
         rcBuildCompactHeightfield(&ctx, cfg.walkableHeight, cfg.walkableClimb, *solid, *compact));
+    for (const auto& mask : g.obstacles)
+        rcMarkConvexPolyArea(&ctx, mask.data(), 4, cfg.bmin[1] - cfg.ch, cfg.bmax[1] + cfg.ch,
+                             RC_NULL_AREA, *compact);
     require(rcErodeWalkableArea(&ctx, cfg.walkableRadius, *compact));
     require(rcBuildDistanceField(&ctx, *compact));
     require(rcBuildRegions(&ctx, *compact, 0, 0, 0));
@@ -135,7 +156,7 @@ std::vector<std::byte> build_tile(const Geometry& g, NavigationSettings settings
     require(bytes > 0 && bytes <= int(max_nav_bytes));
     std::vector<std::byte> out(bytes);
     std::memcpy(out.data(), data, bytes);
-    validate_tile(out);
+    validate_tile(out, settings.plane);
     return out;
 }
 } // namespace forge::navigation_detail

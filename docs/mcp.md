@@ -366,7 +366,14 @@ is separate from C++ gameplay and has no advertised document/Scene Undo.
 
 `forge_navigation_status/build/cancel` uses NavigationTools and its bounded static
 bake worker. The native settings/profile and stale-geometry publication check
-remain authoritative. Publication is separate from Scene Undo.
+remain authoritative. Publication is separate from Scene Undo. Settings add optional
+integer `plane`:0(default) uses3D NavigationSurface geometry;1 uses top-down XY
+NavigationRegion2D rectangles. The six numeric profile fields remain required.
+Create/edit regions with ordinary component/property tools, including validation,
+Undo/Redo and Scene Save. XY builds publish guarded schema3 through the same
+worker/job/status/cancel owner. One logical asset per Scene remains authoritative;
+switching plane preserves its ID and requires rebuilding. No independent agent-only
+geometry, bake or persistence path exists.
 
 `forge_dependencies_open/read/edit/save/discard` borrows the selected asset's
 RuntimeDependenciesEditor draft. Edit supplies a finite typed set with reasons

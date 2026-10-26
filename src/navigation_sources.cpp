@@ -22,6 +22,13 @@ Json row(flecs::entity e, EntityId id) {
         out["prefab"] = true;
     if (e.has<NavigationSurface>())
         c["forge.navigation_surface"] = {{"enabled", e.get<NavigationSurface>().enabled}};
+    if (e.has<NavigationRegion2D>()) {
+        const auto& region = e.get<NavigationRegion2D>();
+        c["forge.navigation_region_2d"] = {{"enabled", region.enabled},
+                                           {"obstacle", region.obstacle},
+                                           {"width", region.width},
+                                           {"height", region.height}};
+    }
     if (e.has<Primitive>())
         c["forge.primitive"] = {{"kind", e.get<Primitive>().kind}};
     if (e.has<MeshRenderer>()) {
@@ -57,7 +64,8 @@ Json row(flecs::entity e, EntityId id) {
 }
 } // namespace
 Sources capture_native(WorldContext& context, const Scene& scene,
-                       const flecs::query<const PersistentEntityId>& candidates) {
+                       const flecs::query<const PersistentEntityId>& candidates,
+                       NavigationPlane plane) {
     if (context.world().c_ptr() != scene.world().c_ptr())
         throw std::logic_error("Navigation capture requires the Scene's owning world");
     context.evaluate_world_transforms();
@@ -70,7 +78,11 @@ Sources capture_native(WorldContext& context, const Scene& scene,
         return rows.try_emplace(id, row(e, id)).second;
     };
     candidates.each([&](flecs::entity e, const PersistentEntityId& id) {
-        if (e.has<NavigationSurface>() && e.get<NavigationSurface>().enabled && !declared_prefab(e))
+        const bool enabled =
+            plane == NavigationPlane::PlanarXY
+                ? e.has<NavigationRegion2D>() && e.get<NavigationRegion2D>().enabled
+                : e.has<NavigationSurface>() && e.get<NavigationSurface>().enabled;
+        if (enabled && !declared_prefab(e))
             add(e, id.value);
     });
     if (rows.size() > 512)
@@ -106,8 +118,8 @@ Sources capture_native(WorldContext& context, const Scene& scene,
     Json doc = {{"asset_id", scene.asset_id()}, {"entities", Json::array()}};
     for (auto& [id, value] : rows)
         doc["entities"].push_back(std::move(value));
-    for (auto& value : scene.unresolved_navigation_sources())
+    for (auto& value : scene.unresolved_navigation_sources(plane))
         doc["entities"].push_back(std::move(value));
-    return capture(doc);
+    return capture(doc, plane);
 }
 } // namespace forge::navigation_detail

@@ -56,7 +56,9 @@ bool point(Double3 v) {
 }
 NavResult result(NavStatus s) { return {s, {}, nav_status_name(s)}; }
 } // namespace
-void validate_tile(std::span<const std::byte> bytes) {
+void validate_tile(std::span<const std::byte> bytes, MeshSpace space) {
+    require(space == MeshSpace::Spatial3D || space == MeshSpace::PlanarXY,
+            "Unsupported navigation coordinate space");
     Reader r(bytes);
     auto h = r.array<dtMeshHeader>(1)[0];
     require(h.magic == DT_NAVMESH_MAGIC && h.version == DT_NAVMESH_VERSION,
@@ -100,6 +102,15 @@ void validate_tile(std::span<const std::byte> bytes) {
     };
     checkVerts(verts);
     checkVerts(detailVerts);
+    if (space == MeshSpace::PlanarXY) {
+        const auto flat = [&](const auto& data) {
+            for (std::size_t i = 1; i < data.size(); i += 3)
+                require(std::abs(data[i] - verts[1]) <= .0001f,
+                        "XY navigation requires a flat native tile");
+        };
+        flat(verts);
+        flat(detailVerts);
+    }
     unsigned edges = 0, nextVert = 0, nextTri = 0;
     for (int i = 0; i < h.polyCount; ++i) {
         const auto& p = polys[i];
@@ -177,10 +188,13 @@ nlohmann::json tile_properties(std::span<const std::byte> bytes) {
 }
 struct Mesh::Impl {
     std::unique_ptr<dtNavMesh, decltype(&dtFreeNavMesh)> mesh{dtAllocNavMesh(), dtFreeNavMesh};
+    MeshSpace space = MeshSpace::Spatial3D;
+    float altitude = 0; // Derived flat native Y; never a second authored position.
 };
-Mesh::Mesh(std::span<const std::byte> bytes) {
-    validate_tile(bytes);
+Mesh::Mesh(std::span<const std::byte> bytes, MeshSpace space) {
+    validate_tile(bytes, space);
     impl_ = std::make_unique<Impl>();
+    impl_->space = space;
     require(bool(impl_->mesh), "Cannot allocate navmesh");
     auto* data = static_cast<unsigned char*>(dtAlloc(bytes.size(), DT_ALLOC_PERM));
     require(data, "Cannot allocate navmesh tile");
@@ -190,8 +204,10 @@ Mesh::Mesh(std::span<const std::byte> bytes) {
         dtFree(data);
         throw std::runtime_error("Detour rejected admitted navmesh");
     }
+    impl_->altitude = static_cast<const dtNavMesh*>(impl_->mesh.get())->getTile(0)->verts[1];
 }
 Mesh::~Mesh() = default;
+MeshSpace Mesh::space() const { return impl_->space; }
 std::vector<Double3> Mesh::triangles() const {
     const auto* tile = static_cast<const dtNavMesh*>(impl_->mesh.get())->getTile(0);
     std::vector<Double3> out;
@@ -200,7 +216,7 @@ std::vector<Double3> Mesh::triangles() const {
         for (unsigned j = 1; j + 1 < p.vertCount; ++j)
             for (auto v : {p.verts[0], p.verts[j], p.verts[j + 1]}) {
                 auto* xyz = &tile->verts[v * 3];
-                out.push_back({xyz[0], xyz[1], xyz[2]});
+                out.push_back(world_coordinates(impl_->space, {xyz[0], xyz[1], xyz[2]}));
             }
     }
     return out;
@@ -217,6 +233,9 @@ struct Query::Impl {
                 "Cannot allocate nav query");
     }
     dtPolyRef nearest(Double3 p, float* projected) {
+        p = native_coordinates(owner->space(), p);
+        if (owner->space() == MeshSpace::PlanarXY)
+            p[1] = owner->impl_->altitude;
         float v[3]{float(p[0]), float(p[1]), float(p[2])}, ext[3]{.5f, 2, .5f};
         dtPolyRef ref = 0;
         auto s = query->findNearestPoly(v, ext, &filter, &ref, projected);
@@ -231,7 +250,9 @@ NavResult Query::project(Double3 p) {
     float pos[3];
     if (!impl_->nearest(p, pos))
         return result(NavStatus::StartOutside);
-    return {NavStatus::Success, {{pos[0], pos[1], pos[2]}}, {}};
+    return {NavStatus::Success,
+            {world_coordinates(impl_->owner->space(), {pos[0], pos[1], pos[2]}, p[2])},
+            {}};
 }
 NavResult Query::path(Double3 a, Double3 b) {
     if (!point(a) || !point(b))
@@ -265,14 +286,19 @@ NavResult Query::path(Double3 a, Double3 b) {
         Double3 p{points[i * 3], points[i * 3 + 1], points[i * 3 + 2]};
         if (!point(p))
             return result(NavStatus::Invalid);
-        out.points.push_back(p);
+        out.points.push_back(world_coordinates(impl_->owner->space(), p, a[2]));
     }
     return out;
 }
 NavResult Query::move(Double3 a, Double3 b) {
     if (!point(a) || !point(b))
         return result(NavStatus::Invalid);
-    float start[3], target[3]{float(b[0]), float(b[1]), float(b[2])}, end[3]{};
+    auto native_target = native_coordinates(impl_->owner->space(), b);
+    if (impl_->owner->space() == MeshSpace::PlanarXY)
+        native_target[1] = impl_->owner->impl_->altitude;
+    float start[3],
+        target[3]{float(native_target[0]), float(native_target[1]), float(native_target[2])},
+        end[3]{};
     auto ref = impl_->nearest(a, start);
     if (!ref)
         return result(NavStatus::StartOutside);
@@ -292,7 +318,7 @@ NavResult Query::move(Double3 a, Double3 b) {
     Double3 p{on_surface[0], on_surface[1], on_surface[2]};
     if (!point(p))
         return result(NavStatus::Invalid);
-    return {NavStatus::Success, {p}, {}};
+    return {NavStatus::Success, {world_coordinates(impl_->owner->space(), p, a[2])}, {}};
 }
 NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previous, float speed,
                                 float radius, float horizon,
@@ -329,9 +355,12 @@ NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previ
     auto& solver = *impl_->avoidance;
     solver.reset();
     for (const auto& neighbour : neighbours) {
-        float p[3]{float(neighbour.position[0]), float(neighbour.position[1]),
-                   float(neighbour.position[2])};
-        float v[3]{float(neighbour.velocity[0]), 0, float(neighbour.velocity[2])};
+        auto position = native_coordinates(impl_->owner->space(), neighbour.position);
+        if (impl_->owner->space() == MeshSpace::PlanarXY)
+            position[1] = impl_->owner->impl_->altitude;
+        const auto velocity = native_coordinates(impl_->owner->space(), neighbour.velocity);
+        float p[3]{float(position[0]), float(position[1]), float(position[2])};
+        float v[3]{float(velocity[0]), 0, float(velocity[2])};
         solver.addCircle(p, radius, v, v);
     }
     dtPolyRef nearby[max_nearby]{};
@@ -356,8 +385,10 @@ NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previ
             solver.addSegment(walls + wall * 6, walls + wall * 6 + 3);
     }
     const dtObstacleAvoidanceParams parameters{.45f, 3.f, .8f, 1.f, 4.f, horizon, 0, 7, 3, 3};
-    float wanted[3]{float(desired[0]), 0, float(desired[2])};
-    float old[3]{float(previous[0]), 0, float(previous[2])}, output[3]{};
+    const auto native_desired = native_coordinates(impl_->owner->space(), desired);
+    const auto native_previous = native_coordinates(impl_->owner->space(), previous);
+    float wanted[3]{float(native_desired[0]), 0, float(native_desired[2])};
+    float old[3]{float(native_previous[0]), 0, float(native_previous[2])}, output[3]{};
     if (solver.sampleVelocityAdaptive(center, radius, speed, old, wanted, output, &parameters) <= 0)
         return result(NavStatus::Invalid);
     Double3 velocity{output[0], 0, output[2]};
@@ -367,7 +398,7 @@ NavResult Query::avoid_velocity(Double3 position, Double3 desired, Double3 previ
     if (length > speed)
         for (auto& v : velocity)
             v *= speed / length;
-    return {NavStatus::Success, {velocity}, {}};
+    return {NavStatus::Success, {world_coordinates(impl_->owner->space(), velocity)}, {}};
 }
 } // namespace navigation_detail
 } // namespace forge

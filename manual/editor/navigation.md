@@ -1,6 +1,6 @@
 # Navigation
 
-Navigation lets an object find a route across a floor and around static obstacles. You first build a **NavMesh** from marked scene shapes, then give an object a **Navigation Agent** and a destination.
+Navigation lets an object find a route across a floor and around static obstacles. Build a **NavMesh** from marked 3D shapes or 2D regions, then give an object a **Navigation Agent** and a destination. Choose the plane explicitly when building.
 
 Agents follow baked static geometry. Add **Navigation Avoidance** for local steering
 around other participating agents. Moving obstacles do not automatically change
@@ -11,7 +11,7 @@ In **Window → Profiler → Play runtime**, **NavSourceCapture** shows the CPU 
 spent checking marked surfaces during Play. Rebuild the NavMesh after changing
 marked geometry.
 
-## Build a floor and obstacles
+## Build a 3D floor and obstacles
 
 1. Create a Plane. Set its scale to **20, 1, 20** and position to **0, 0, 0**.
 2. Select it. In Inspector, use **+ Add Component → Navigation / Navigation Surface**. Leave **Enabled** checked.
@@ -31,9 +31,45 @@ Skinned characters, morphing meshes, points and lines cannot be baked. The build
 
 Open **51-static-mesh-navigation** in Feature Gallery for a saved editable Mesh floor, static obstacle and ready-built route. Play, select the agent, and inspect **Live gameplay → Navigation progress**. You can export this scene without sending its editable Mesh source or a navigation build worker. Scene50 continues to demonstrate built-in shapes and retained older navigation assets.
 
+## Build top-down 2D navigation
+
+Open Gallery **80-xy-navigation** for a ready example. Press Play: the cyan agent
+routes around the orange obstacle; the green and amber agents steer past each
+other in the right lane. Their Sprites use an ordinary orthographic Camera. Select
+an agent to inspect **Live gameplay → Navigation progress**. Stop restores its
+starting position. This Scene needs no project C++ module.
+
+To create your own:
+
+1. Create an empty entity. Add **Navigation / Navigation Region 2D** in Inspector.
+2. Leave **Enabled** on and **Obstacle** off. Set **Width = 20** and **Height = 14**. This centered rectangle is walkable. Its entity transform controls its XY position, rotation and scale; visual Z does not change the navigation footprint.
+3. Create another empty entity with the same component. Enable **Obstacle** and set **Width = 2**, **Height = 4**. Put it in the walkable rectangle's center.
+4. Select either region to see its outline in Scene: green for walkable, orange for obstacle, gray for disabled. Add Sprites separately if you want visible art.
+5. Open **Content → Create / Register → Navigation**. Set **Plane → 2D (XY)**. Choose **Agent radius** for clearance and **Cell size** for build resolution, then click **Build NavMesh**. Enable **Scene → View → Navigation overlay**.
+6. Create **Entity → Create → Rendering → Sprite**. Assign a published [image Material](sprites.md), set its size to **0.7 × 0.7 m** and position to **-8, 0, 0**. Add **Navigation Agent**, choose the generated NavMesh, set **Destination X = 8**, **Destination Y = 0**, and enable **Has destination**.
+7. Add **Entity → Create → Rendering → Camera**. Set position to **0, 0, -20**, rotation to **0, 0, 0**, **Projection → Orthographic**, and **Orthographic Height = 17**. The Camera looks along +Z. An unlit Sprite image material needs no scene light.
+8. Save, press **Play** and open **Game**. The Sprite follows the opening around the obstacle. In Scene, the navigation overlay shows its route.
+
+Regions are independent navigation data. Sprite artwork, colliders and painted
+TileMaps are not included automatically. Overlapping walkable rectangles form a
+union; obstacle rectangles cut that union before agent-radius clearance is applied.
+An obstacle outside all walkable rectangles adds no walkable area. Add at least
+one walkable region. Keep sources and their spatial parents static and free of
+enabled Character Controllers, as in 3D.
+
+XY destinations and movement use world X/Y. The agent keeps its starting world Z;
+**Destination Z** does not move it between visual depths. Avoidance considers
+participants on the same NavMesh even when their visual Z differs. This is
+top-down routing; it does not plan platformer jumps, falls or moving platforms.
+
+A Scene has one generated navigation asset/profile. Switching **Plane** requires
+an explicit rebuild and keeps that asset's identity. 3D Surface markers and 2D
+Region markers are selected independently. Save the Scene and choose it as startup
+before normal export; its built NavMesh is included in the game.
+
 ## Build the NavMesh
 
-Open **Content → Create / Register → Navigation**. The defaults work for this example:
+Open **Content → Create / Register → Navigation**. Select **Plane → 3D (XZ ground)** for the floor example. Its defaults are:
 
 - **Agent radius: 0.4 m.** Clearance around obstacles and floor edges.
 - **Agent height: 2 m.** Required space above the floor.
@@ -56,7 +92,7 @@ not rebuild or change the asset.
 
 Open Gallery scene **52-navigation-avoidance** and press **Play**. Two agents pass each other in one lane; another goes around a parked agent in the other lane. The saved scene includes its built navigation, camera and light, and can be exported normally.
 
-Add **Navigation Avoidance** to each Navigation Agent that should participate. Enable it and set **Horizon** to the number of seconds to look ahead (default 2). The baked navigation radius and height define the agent's footprint. Idle and paused participants stay in the way; disabled agents or agents without this component do not participate.
+Add **Navigation Avoidance** to each Navigation Agent that should participate. Enable it and set **Horizon** to the number of seconds to look ahead (default 2). The baked radius defines clearance. In 3D, height also filters vertically separated participants; XY ignores visual depth. Idle and paused participants stay in the way; disabled agents or agents without this component do not participate.
 
 During Play, select an agent and adjust **Enabled** or **Horizon** in **Live gameplay**. These changes affect the running world; Stop restores the authored scene. Edit the regular Inspector outside Play to save the settings.
 
@@ -67,15 +103,15 @@ A build is a separate asset operation. Scene Undo does not undo a navmesh build.
 ## Make an agent follow a path
 
 1. Create another Cube named **Agent** at **-8, 0.1, 0**. A small scale such as **0.2, 0.2, 0.2** makes it easy to see.
-2. Use **+ Add Component → Navigation / Navigation Agent**. Do not mark this moving object as a Navigation Surface, give it a Physics Body in either domain, or enable a Character Controller on it.
+2. Use **+ Add Component → Navigation / Navigation Agent**. Do not mark this moving object as a Navigation Surface or Navigation Region 2D, give it a Physics Body in either domain, or enable a Character Controller on it.
 3. Choose the generated **NavMesh**.
 4. Set **Destination X = 8**, **Destination Y = 0.1**, and **Destination Z = 0**. Press Enter to commit each numeric field.
 5. Enable **Has destination**. Leave **Enabled** checked and **Speed** at 2.
-6. Click **Play**. The cube should travel around the obstacle and stop near the destination.
+6. Make sure the Scene has a [game Camera and Light](../getting-started/first-scene.md), save, then click **Play**. The cube should travel around the obstacle and stop near the destination.
 7. Click **Pause**. It stops. **Step** moves it one simulation tick; **Resume** continues.
 8. Click **Stop**. The authored cube returns to its original position.
 
-Destinations use world coordinates: X and Z run across the floor, and Y points upward. **Stopping distance** is the remaining distance along the route to the projected destination. Movement changes position; the agent does not turn to face its route. Its transform origin follows the navigation surface. For a larger visual model, use a child object with an upward local offset.
+For a 3D NavMesh, destinations use world X/Z across the floor and Y upward. For an XY NavMesh, use X/Y across the region; visual Z remains unchanged. **Stopping distance** is the remaining distance along the route to the projected destination. Movement changes position; the agent does not turn to face its route. Its transform origin follows the navigation surface. For a larger visual model, use a child object with an upward local offset.
 
 Keep the agent's spatial parents stationary and free of enabled character
 controllers. A controller on the object or its spatial parent stops navigation
@@ -93,7 +129,7 @@ Open **50-navigation-progress** in the Feature Gallery. Select **Agent - inspect
 - **Paused** means its configured speed is zero. Pausing the game itself freezes the last displayed observation; Step updates it once.
 - **Pending** means the current settings have not run through a navigation tick yet.
 - **Failed** shows the cause, such as a stale navmesh, an outside destination or an unsupported Physics Body.
-- **Blocked** means no progress on one tick. Agents still do not avoid each other or moving obstacles.
+- **Blocked** means no progress on one tick. Optional local avoidance can still jam in crowded or blocked spaces.
 
 Distance and speed appear only for a valid sampled route. An exported Gallery50 scene uses the included built NavMesh; it does not need an editor, compiler or navigation build worker to run.
 
@@ -111,7 +147,7 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 
 ## Common messages
 
-- **No enabled geometry:** add an enabled Navigation Surface to the floor and obstacles.
+- **No enabled geometry:** add enabled Navigation Surfaces for 3D, or Navigation Region 2D rectangles for XY. Check **Plane** and include a walkable region.
 - **Stale navmesh:** rebuild after changing included geometry.
 - **Point outside navmesh:** put the agent and destination over a teal walkable region. Projection searches nearby, not across the entire world.
 - **Partial / no path:** the destination is disconnected. Check gaps, clearance, slope and included obstacles.
@@ -119,4 +155,4 @@ Create a prefab from an agent using the normal [prefab workflow](prefabs.md). In
 - **Physics ownership error:** remove the agent's Physics Body and any moving physics spatial ancestor, or use an independent World spatial binding.
 - **Build/query limit:** reduce the included area or geometry, or increase cell size. A single build supports at most 512 × 512 cells.
 
-Navigation is currently limited to static primitive scenes within roughly four kilometres of the origin and 64 agents. There are no jump links, moving platforms, collision-aware characters or crowd avoidance. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.
+Navigation supports static shapes/Meshes in 3D and rectangular regions in XY, within roughly four kilometres of the origin and 64 agents. There are no jump links, moving-platform routes, automatic physics-character movement or dynamic NavMesh rebuilding. Optional avoidance is local steering and does not guarantee collision prevention. See [Play mode](play-mode.md) and [Transforms](transforms.md) for related controls.

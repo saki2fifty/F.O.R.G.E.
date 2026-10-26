@@ -49,7 +49,7 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                                        std::stop_token cancel) {
     validate_navigation_settings(settings);
     auto c = std::make_unique<NavigationCandidate::Impl>(project);
-    const auto source = capture(doc);
+    const auto source = capture(doc, settings.plane);
     const auto catalog = std::make_shared<const AssetCatalog>(c->catalog);
     const auto inputs = mesh_inputs(
         source, [&](AssetId id) { return asset_detail::selected_mesh_revision(*catalog, {id}); });
@@ -85,15 +85,18 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
             id = key;
             found = true;
         }
+    const unsigned version = settings.plane == NavigationPlane::PlanarXY ? 3 : 2;
     Json meta = {{"asset_id", id},
-                 {"version", 2},
-                 {"geometry_version", 2},
+                 {"version", version},
+                 {"geometry_version", version},
                  {"mesh_inputs", inputs},
                  {"source_scene", g.scene},
                  {"sources", g.sources},
                  {"geometry_sha256", g.digest},
                  {"settings", settings}};
     Json input = {{"metadata", meta}, {"vertices", g.vertices}};
+    if (settings.plane == NavigationPlane::PlanarXY)
+        input["obstacles"] = g.obstacles;
     auto text = input.dump();
     write(c->work.path / "source.json", std::as_bytes(std::span(text)));
     try {
@@ -126,7 +129,7 @@ NavigationCandidate prepare_navigation(const std::filesystem::path& project, con
                  NavMeshAsset::type,
                  std::filesystem::path("Assets/Navigation/Generated") / id.str() /
                      (AssetId::generate().str() + ".fnav"),
-                 2,
+                 version,
                  {g.scene},
                  admitted.metadata};
     c->record.metadata["sha256"] = content_digest(data);
@@ -175,24 +178,29 @@ AssetRecord NavigationCandidate::publish(const Json& current) {
     return c.record;
 }
 namespace {
-bool mesh_provenance(const Json& meta) {
-    if (meta.at("version") == 1)
+bool mesh_provenance(const Json& meta, const Sources& source) {
+    // Legacy digest-only callers predate settings metadata.
+    if (meta.at("version") == 1) {
+        if (source.plane != NavigationPlane::Spatial3D)
+            throw std::runtime_error("Legacy navigation requires spatial sources");
         return false;
-    if (meta.at("version") != 2 || meta.at("geometry_version") != 2)
-        throw std::runtime_error("Unsupported navigation geometry provenance version");
-    return true;
+    }
+    const auto settings = provenance_settings(meta);
+    if (settings.plane != source.plane)
+        throw std::runtime_error("Navigation source/provenance plane mismatch");
+    return settings.plane == NavigationPlane::Spatial3D;
 }
 } // namespace
 std::string navigation_detail::selected_geometry_digest(const std::filesystem::path& project,
                                                         const Sources& source, const Json& meta) {
-    if (!mesh_provenance(meta))
+    if (!mesh_provenance(meta, source))
         return geometry(source).digest;
     auto catalog = AssetCatalog::open_project(project);
     return selected_geometry_digest(catalog, source, meta);
 }
 std::string navigation_detail::selected_geometry_digest(const AssetCatalog& catalog,
                                                         const Sources& source, const Json& meta) {
-    if (!mesh_provenance(meta))
+    if (!mesh_provenance(meta, source))
         return geometry(source).digest;
     auto inputs = mesh_inputs(
         source, [&](AssetId id) { return asset_detail::selected_mesh_revision(catalog, {id}); });
@@ -200,8 +208,8 @@ std::string navigation_detail::selected_geometry_digest(const AssetCatalog& cata
 }
 std::string navigation_geometry_digest(const std::filesystem::path& project, const Json& doc,
                                        const Json& meta) {
-    if (!mesh_provenance(meta))
+    if (meta.at("version") == 1)
         return navigation_geometry_digest(doc);
-    return selected_geometry_digest(project, capture(doc), meta);
+    return selected_geometry_digest(project, capture(doc, provenance_settings(meta).plane), meta);
 }
 } // namespace forge

@@ -1,6 +1,21 @@
-# 2026-10-26 — 2D platforms
+# 2026-10-26 — 2D platforms and navigation
 
 Local source; Windows verification and numbered delivery remain pending.
+
+## Top-down XY navigation
+
+- Navigation Region2D rectangles define independent walkable areas and obstacle
+  masks. Navigation builds explicitly select3D orXY through the existing worker,
+  asset, runtime and editor owners. XY queries/agents/avoidance preserve visual Z.
+- New XY assets use guarded envelope/catalog/geometry3. Existing3D settings and
+  envelope1/2 retain their semantics; rebuilds preserve logical AssetId. Exact SDK
+  modules rebuild for the added public source type. Recovery2 remains unchanged.
+- Plane selection, selected-region outlines, reflected properties/history/Save,
+  automation/MCP and cooked relocation use shared owners. Original Gallery80
+  includes an obstacle route, avoiding Sprite pair and orthographic Camera.
+- Native/actual ImGui/MCP/process/installed-SDK and relocated cook checks are
+  separate from pending Windows rendering/input/export and authentic screenshots.
+  This finite profile does not extract colliders/TileMaps or plan platformer links.
 
 ## Navigation movement ownership
 

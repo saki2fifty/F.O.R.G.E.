@@ -1,5 +1,22 @@
 # FORGE Feature Gallery
 
+## Top-down XY navigation
+
+Open **Scenes/80-xy-navigation.scene.json** and Play. The cyan Sprite routes
+around the orange obstacle. The green/amber pair steers past each other in the
+right lane, keeping their separate visual depths. Select an agent for
+**Live gameplay → Navigation progress**; Stop restores the authored starts.
+
+Select **Walkable region** or **Obstacle region** to see its Scene outline.
+Outside Play, change **Navigation Region 2D → Width / Height / Obstacle**, then
+open **Content → Create / Register → Navigation**, choose **Plane → 2D (XY)** and
+**Build NavMesh**. Sprite art and physics are separate from these rectangles.
+Enable **Scene → View → Navigation overlay** for baked triangles and runtime routes.
+
+Save, choose this Scene as startup and export normally with the matching runtime
+kit. It needs no project C++ module. Routing is top-down; platformer links and
+runtime obstacle rebaking are unavailable. Local avoidance can jam in dense spaces.
+
 ## One-way platforms
 
 Open **Scenes/79-one-way-platforms.scene.json**, Play and open Game. The left

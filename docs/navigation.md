@@ -12,7 +12,7 @@ Recast, Detour and its obstacle-velocity sampling source are compiled. The upstr
 
 `NavigationSurface { enabled }` marks static shapes and Mesh leaf entities for inclusion. `NavigationAgent` stores an optional typed NavMesh AssetRef, enabled/destination flags, speed, stopping distance and a world-space destination. Flecs owns both components, their reflection and component/property prefab inheritance. Scene version and persistent identity formats are unchanged. Routes, polygon references and query scratch are never scene or prefab state.
 
-Six settings belong to a scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Successful publication preserves its AssetId and records the settings. There is one navigation asset/profile per scene in this foundation. Multiple profiles later require explicit selection; they do not require replacing AssetId.
+An explicit plane and six numeric settings belong to a scene's generated navigation asset: radius, height, climb, slope, cell size and cell height. Plane defaults to Spatial3D; PlanarXY is opt-in. Successful publication preserves its AssetId and records the settings. There is one navigation asset/profile per scene in this foundation. Multiple profiles later require explicit selection; they do not require replacing AssetId.
 
 The editor's regular navigation poll clears cached selection, settings, metadata
 and overlay triangles when the project root or Scene identity changes, even with
@@ -39,6 +39,38 @@ existing source validation fail; disabling/removing it can reuse unchanged valid
 geometry. Failed builds keep the last catalog selection/artifact. No source digest,
 asset identity, envelope version, SDK or checkpoint format changes are needed.
 
+### Explicit XY region profile
+
+`NavigationRegion2D { enabled=true, obstacle=false, width=10, height=10 }` is
+ordinary reflected Navigation-family data. Width/height are centered local metre
+extents, each0.01–1000. The shared `region_quad` projects the resolved affine onto
+world XY, normalizes mirrored winding and rejects degenerate/out-of-bounds
+footprints. Zero visual-depth scale is valid. Selected-region editor outlines use
+that same quad. Sprites/colliders/TileMaps are not automatic bake inputs.
+
+Walkable rectangles contribute upward triangles in native XZ. Obstacle rectangles
+are convex null-area masks on the compact Recast heightfield, applied before radius
+erosion using the exact pinned `rcMarkConvexPolyArea` API. Overlapping walkable
+rectangles form a union. At least one walkable rectangle is required; all sources
+share the512-entity limit. Arbitrary polygons, per-tile extraction and platformer
+links are outside this profile.
+
+One `navigation_space.hpp` boundary maps world XY to native XZ and native Y to an
+internal flat altitude derived from admitted tile vertices. Mesh/Query projection,
+paths, surface moves, avoidance and triangles all use it. Projection preserves the
+input visual Z; paths/moves preserve starting Z; velocity Z is0. Destination Z is
+validated for finiteness/bounds but does not select a floor or drive visual depth.
+Flatness of every base/detail vertex is checked before Detour initialization.
+No second authored height, coordinate database or transform writer is introduced.
+
+Native capture maintains independent derived validation state for each plane.
+Unselected 3D source errors cannot poison XY and vice versa. Only3D owns external
+Mesh resource subscriptions. XY hashes ordered scene/source IDs, the six affine
+coefficients contributing to world XY, rectangle dimensions and obstacle roles.
+Visual Z, materials and unrelated authored state are excluded. Both profiles retain
+static/body/controller/spatial ancestry rules; agents cannot also be enabled bake
+sources. XY avoidance filters by the selected NavMesh, without a visual-height test.
+
 ### Static Mesh profile
 
 Bake uses LOD0, all its triangle parts, float3 POSITION and indexed or sequential vertices. Imported winding is preserved; a negative world-transform parity reverses triangle winding in a navigation-only copy. Collapsed/zero-area triangles are skipped. Built-in normal-based winding correction and old v1 hashing are unchanged. Entire Mesh admission observes the bounded profile before geometry extraction; decoded candidates share a64MiB job pool. Model-family/cook admission reuses existing immutable selection validation. An independent build job may use that same bounded ResourcePool loader; live-world runtime data belongs solely to RuntimeResources.
@@ -60,7 +92,24 @@ active or unfamiliar contents remain for guarded maintenance.
 
 Errors, cancellation or stale candidates preserve the previous catalog and artifact. The project writer lease applies to editor publication. Asset builds have their own ownership boundary: scene Undo does not undo navmesh builds. Old immutable revisions remain available; this phase does not introduce asset garbage collection.
 
-The retained FORGENAV v1 envelope records logical asset/source-scene identity, included EntityIds, geometry digest, settings, exact Recast revision, binary-layout/subset marker, bounds and tile digest. New builds use explicit FORGENAV envelope/catalog schema2 and geometry bridge2. They record up to32 unique external Mesh AssetIds and exact immutable pool selection keys, with typed Build dependencies on the source Scene and selected Meshes. Geometry SHA256 hashes ordered source identities, evaluated affines, shape kinds/Mesh IDs and selected revisions. Source names, materials and runtime agent positions are excluded. Mesh bytes are admitted only during bake; runtime compares small descriptors and selection stamps. Selected v1 assets retain their original triangle-based digest and bytes; envelope/catalog versions must agree. Known Mesh provenance cannot be downgraded into v1, and future versions are rejected.
+The retained FORGENAV v1 envelope records logical asset/source-scene identity, included EntityIds, geometry digest, settings, exact Recast revision, binary-layout/subset marker, bounds and tile digest. New spatial3D builds use explicit FORGENAV envelope/catalog schema2 and geometry bridge2. They record up to32 unique external Mesh AssetIds and exact immutable pool selection keys, with typed Build dependencies on the source Scene and selected Meshes. Geometry SHA256 hashes ordered source identities, evaluated affines, shape kinds/Mesh IDs and selected revisions. Source names, materials and runtime agent positions are excluded. Mesh bytes are admitted only during bake; runtime compares small descriptors and selection stamps. Selected v1 assets retain their original triangle-based digest and bytes; envelope/catalog versions must agree. Known Mesh provenance cannot be downgraded into v1, and future versions are rejected.
+
+XY builds use envelope/catalog/geometry3 with required settings `plane:1` and an
+empty Mesh input list. A shared provenance validator is used by the worker, writer,
+reader and version-aware source checks. Versions1/2 require Spatial3D; version3
+requires PlanarXY. Header/catalog/metadata versions must agree. Malformed worker
+masks, unsupported basis/version combinations and nonflat tiles are rejected,
+even with consistent checksums. XY requests require bounded four-vertex masks;
+spatial requests reject planar mask payloads. Failed requests retain previous
+output/catalog selection.
+
+Default spatial settings retain exactly the old six-field JSON representation;
+only XY adds `plane`. Existing v1/v2 files need no rewrite or migration. Switching
+plane explicitly rebuilds the one Scene-owned logical asset, preserving AssetId
+and old immutable artifacts. The recovery-supporting runtime path remains version2: exact asset revisions
+already bind coordinate semantics, and routes are recomputed through their admitted
+Mesh. Production SDK Play continues to restart from authored content and rejects
+recovery requests; arbitrary native state is not migrated. Matching direct-Flecs modules rebuild against the changed public headers.
 
 The catalog also verifies the entire artifact digest. Checksums establish consistency; they do not replace structural admission.
 
@@ -86,6 +135,7 @@ Pause performs no movement; Step advances one fixed tick. Presentation reads do 
 | Resource | Initial bound |
 | --- | --- |
 | Included entities / triangles | 512 / 16,384 |
+| XY source shape | Centered rectangles; world XY projection; obstacle subtraction |
 | External Mesh inputs / retained CPU data | 32 / 64 MiB |
 | Per-Mesh bake profile | 32 MiB scalars, 65,536 vertices, 49,152 indices, 512 parts, 16 LODs |
 | Geometry coordinate magnitude | 4,090 metres; generated bounds within 4,096 |
@@ -106,7 +156,7 @@ Exceeding these bounds returns a diagnostic rather than silently truncating a pa
 
 ## Deferred work
 
-Full crowd management, TileCache, dynamic obstacles, multiple agent profiles, navigation volumes/cost editing, off-mesh links, moving platforms, world streaming, character controllers, generic cooking and save-game formats are deferred. Phase 6F runtime UI is not part of this phase.
+Full crowd management, TileCache/dynamic rebaking, multiple profiles per Scene, arbitrary XY polygons/automatic collider or TileMap extraction, cost editing, off-mesh/platformer links, moving-platform routing and world streaming are deferred. Physics-character driving and general save-game formats remain separate work. Current cooked navigation/export uses the existing runtime package owner.
 
 See the [Navigation user guide](../manual/editor/navigation.md) for the no-code workflow.
 
@@ -216,15 +266,16 @@ is introduced. Only the unchanged, attributed DetourObstacleAvoidance.cpp from t
 same Recast1.6.0 pin supplies velocity sampling.
 
 All enabled participants use one copied tick-start pose/previous-velocity set.
-Only participants on the same NavMesh selection with overlapping vertical height
-influence each other. Idle, paused and arrived participants remain neighbours;
+Only participants on the same NavMesh selection influence each other. Spatial3D
+also requires overlapping vertical height; XY ignores visual Z. Idle, paused and arrived participants remain neighbours;
 disabled, deleted, invalid and unavailable participants are excluded. An agent
 without NavigationAvoidance does not become a predictive obstacle. Geometry/stale
 asset, physics and spatial restrictions remain in force. Avoidance additionally
 requires stationary spatial ancestry; World binding ends this traversal. Moving
 navigation parents cannot add another movement authority to a participating child.
 
-Steering is planar; existing Detour movement follows surface height. A bounded
+Steering uses the selected plane. Spatial3D Detour movement follows surface height;
+XY movement preserves visual Z. A bounded
 adjustment of up to 8 surface queries keeps full world displacement within the
 fixed-tick speed budget on slopes/steps. An initial height offset that cannot fit
 that budget is rejected: align the agent's movement anchor with the navmesh.

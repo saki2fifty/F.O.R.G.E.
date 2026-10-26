@@ -30,11 +30,41 @@ bool digest(const std::string& s) {
            });
 }
 } // namespace
+NavigationSettings provenance_settings(const nlohmann::json& meta) {
+    const auto version = meta.at("version");
+    require(version.is_number_integer() && (version == 1 || version == 2 || version == 3),
+            "Unsupported navigation envelope version");
+    auto settings = meta.at("settings").get<NavigationSettings>();
+    require((version == 3) == (settings.plane == NavigationPlane::PlanarXY),
+            "Navigation envelope version/plane mismatch");
+    if (version == 1) {
+        require(!meta.contains("geometry_version") && !meta.contains("mesh_inputs"),
+                "Mesh provenance cannot be downgraded to navigation v1");
+    } else {
+        require(meta.at("geometry_version").is_number_integer() &&
+                    meta.at("geometry_version") == version,
+                "Unsupported navigation geometry version");
+        const auto& inputs = meta.at("mesh_inputs");
+        require(inputs.is_array() && inputs.size() <= 32 && (version != 3 || inputs.empty()),
+                "Invalid navigation Mesh inputs for this plane");
+        std::set<AssetId> meshes;
+        for (const auto& input : inputs) {
+            require(input.is_object() && input.size() == 2 &&
+                        meshes.insert(input.at("asset_id").get<AssetId>()).second &&
+                        digest(input.at("revision").get<std::string>()),
+                    "Invalid or repeated navigation Mesh provenance");
+        }
+    }
+    return settings;
+}
 std::vector<std::byte> envelope(nlohmann::json meta, std::span<const std::byte> tile) {
-    validate_tile(tile);
+    // Preserve v1 callers which historically omitted the version field.
+    if (!meta.contains("version"))
+        meta["version"] = 1;
+    const auto settings = provenance_settings(meta);
+    validate_tile(tile, settings.plane);
     meta["bounds"] = tile_properties(tile);
     const unsigned version = meta.value("version", 1u);
-    require(version == 1 || version == 2, "Unsupported navigation envelope version");
     meta["version"] = version;
     meta["recast_revision"] = recast_revision;
     meta["layout"] = "le-polyref32-detour7-static-single-v1";
@@ -57,7 +87,7 @@ Admitted admit(std::span<const std::byte> bytes) {
             "Invalid navigation envelope size");
     require(std::equal(magic.begin(), magic.end(), bytes.begin(),
                        [](char a, std::byte b) { return a == std::to_integer<char>(b); }) &&
-                (u32(bytes, 8) == 1 || u32(bytes, 8) == 2),
+                (u32(bytes, 8) == 1 || u32(bytes, 8) == 2 || u32(bytes, 8) == 3),
             "Unsupported navigation envelope");
     const auto n = u32(bytes, 12), t = u32(bytes, 16);
     require(n > 0 && n <= 65536 && t > 0 && t <= max_nav_bytes &&
@@ -78,46 +108,31 @@ Admitted admit(std::span<const std::byte> bytes) {
     (void)meta.at("source_scene").get<AssetId>();
     require(digest(meta.at("geometry_sha256").get<std::string>()),
             "Invalid navigation geometry digest");
-    (void)meta.at("settings").get<NavigationSettings>();
+    const auto settings = provenance_settings(meta);
     const auto& ids = meta.at("sources");
     require(ids.is_array() && !ids.empty() && ids.size() <= 512,
             "Invalid navigation source identities");
     std::set<EntityId> unique;
     for (const auto& id : ids)
         require(unique.insert(id.get<EntityId>()).second, "Repeated navigation source identity");
-    if (meta.at("version") == 1) {
-        require(!meta.contains("geometry_version") && !meta.contains("mesh_inputs"),
-                "Mesh provenance cannot be downgraded to navigation v1");
-    } else {
-        require(meta.at("geometry_version") == 2, "Unsupported navigation geometry version");
-        const auto& inputs = meta.at("mesh_inputs");
-        require(inputs.is_array() && inputs.size() <= 32, "Navigation Mesh input limit");
-        std::set<AssetId> meshes;
-        for (const auto& input : inputs) {
-            require(input.is_object() && input.size() == 2 &&
-                        meshes.insert(input.at("asset_id").get<AssetId>()).second &&
-                        digest(input.at("revision").get<std::string>()),
-                    "Invalid or repeated navigation Mesh provenance");
-        }
-    }
     auto tile = bytes.subspan(20 + n, t);
     require(meta.at("tile_sha256").get<std::string>() == asset_detail::content_digest(tile),
             "Navigation tile digest mismatch");
     // Structural validation precedes all Detour runtime calls, even if checksums match.
     auto properties = tile_properties(tile);
     require(meta.at("bounds") == properties, "Navmesh bounds/properties mismatch");
-    auto settings = meta.at("settings").get<NavigationSettings>();
     require(
         properties.at("radius") == settings.radius && properties.at("height") == settings.height &&
             properties.at("climb") == settings.climb &&
             std::abs(properties.at("cell_inverse").get<float>() - 1 / settings.cell_size) < .0001f,
         "Navmesh agent settings mismatch");
-    auto mesh = std::make_shared<Mesh>(tile);
+    auto mesh = std::make_shared<Mesh>(tile, settings.plane);
     return {std::move(meta), std::move(mesh)};
 }
 Admitted load(const std::filesystem::path& root, const AssetRecord& record) {
     require(record.type == NavMeshAsset::type &&
-                (record.schema_version == 1 || record.schema_version == 2),
+                (record.schema_version == 1 || record.schema_version == 2 ||
+                 record.schema_version == 3),
             "Wrong navigation asset type/version");
     auto bytes =
         asset_detail::read_bytes(ProjectPaths(root).resolve(record.source), max_nav_bytes + 65556);

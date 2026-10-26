@@ -7,14 +7,15 @@
 namespace forge {
 struct NavigationSettings {
     float radius = .4f, height = 2, climb = .4f, slope = 45, cell_size = .2f, cell_height = .1f;
+    NavigationPlane plane = NavigationPlane::Spatial3D;
     bool operator==(const NavigationSettings&) const = default;
 };
 void to_json(nlohmann::json&, const NavigationSettings&);
 void from_json(const nlohmann::json&, NavigationSettings&);
 void validate_navigation_settings(const NavigationSettings&);
-// Evaluated scene snapshot only. Authored components remain the source of truth.
+// Legacy spatial3D evaluated snapshot digest. Authored components remain authoritative.
 std::string navigation_geometry_digest(const nlohmann::json& effective_scene);
-// Version-aware provenance check; v2 reads selection metadata only, never mesh bytes.
+// Version/plane-aware digest; v2 reads Mesh selection metadata only, never mesh bytes.
 std::string navigation_geometry_digest(const std::filesystem::path& project,
                                        const nlohmann::json& effective_scene,
                                        const nlohmann::json& baked_metadata);

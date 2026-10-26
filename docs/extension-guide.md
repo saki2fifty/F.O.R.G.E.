@@ -399,6 +399,23 @@ next boundary. Observation does not queue movement or introduce an AI controller
 The callback changes the exact private SDK fingerprint: rebuild modules with the
 matching SDK. Existing authored NavigationAgent layout and NavMesh format are unchanged.
 
+### XY navigation assets
+
+The same `navigation_query` and copied agent APIs operate in world XY when the
+selected asset was baked with Plane2D(XY). Projection returns input visual Z;
+paths and movement keep starting Z; copied velocity Z is0. Destination Z does not
+change visual depth. Both endpoints must still contain finite bounded values.
+A Navigation Agent retains sole nonphysics movement authority. Character-controller
+code can query routes without adding an active Navigation Agent writer.
+
+`NavigationRegion2D` is public reflected source data, separate from Sprite art and
+colliders. Bake static regions in the editor/MCP before Play. Runtime source changes
+invalidate that asset; they do not rebuild it. The installed sample target
+`planar_navigation_gameplay` exercises queries, region layout and copied progress
+through the matching shared SDK. Rebuild modules against that exact SDK; authored
+NavigationAgent layout and recovery2 stay unchanged. XY assets use the guarded
+navigation envelope3; existing3D envelope1/2 assets retain their original semantics.
+
 ## Overlapping audio effects
 
 During a fixed owner callback, `forge::sdk::Client(host).audio_one_shot(scene_uuid,

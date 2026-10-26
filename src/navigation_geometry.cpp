@@ -1,5 +1,7 @@
 #include "navigation_geometry.hpp"
 #include "asset_bytes.hpp"
+#include "navigation_space.hpp"
+#include <algorithm>
 #include <forge/geometry.hpp>
 #include <set>
 namespace forge {
@@ -7,7 +9,8 @@ void validate_navigation_settings(const NavigationSettings& s) {
     auto range = [](float v, float lo, float hi) { return std::isfinite(v) && v >= lo && v <= hi; };
     if (!range(s.radius, .05f, 5) || !range(s.height, .2f, 10) || !range(s.climb, 0, 2) ||
         !range(s.slope, 0, 60) || !range(s.cell_size, .05f, 1) ||
-        !range(s.cell_height, .025f, .5f) || s.climb >= s.height || s.cell_height > s.height / 2)
+        !range(s.cell_height, .025f, .5f) || s.climb >= s.height || s.cell_height > s.height / 2 ||
+        (s.plane != NavigationPlane::Spatial3D && s.plane != NavigationPlane::PlanarXY))
         throw std::runtime_error("Invalid navigation settings: radius .05-5 m, height .2-10 m, "
                                  "climb 0-2 m below height, slope 0-60 degrees, cells .05-1 m / "
                                  ".025-.5 m; at least two cells of clearance required");
@@ -15,15 +18,28 @@ void validate_navigation_settings(const NavigationSettings& s) {
 void to_json(nlohmann::json& j, const NavigationSettings& s) {
     j = {{"radius", s.radius}, {"height", s.height},       {"climb", s.climb},
          {"slope", s.slope},   {"cell_size", s.cell_size}, {"cell_height", s.cell_height}};
+    if (s.plane != NavigationPlane::Spatial3D)
+        j["plane"] = unsigned(s.plane);
 }
 void from_json(const nlohmann::json& j, NavigationSettings& s) {
     s = {j.at("radius"), j.at("height"),    j.at("climb"),
          j.at("slope"),  j.at("cell_size"), j.at("cell_height")};
+    if (j.contains("plane")) {
+        const auto& plane = j.at("plane");
+        if (!plane.is_number_integer() || (plane != 0 && plane != 1))
+            throw std::runtime_error("Navigation plane must be integer 0 (3D) or 1 (XY)");
+        s.plane = plane == 1 ? NavigationPlane::PlanarXY : NavigationPlane::Spatial3D;
+    }
     validate_navigation_settings(s);
 }
 namespace navigation_detail {
-Sources capture(const nlohmann::json& doc) {
+Sources capture(const nlohmann::json& doc, NavigationPlane plane) {
+    if (plane != NavigationPlane::Spatial3D && plane != NavigationPlane::PlanarXY)
+        throw std::runtime_error("Unsupported navigation source plane");
+    const auto* marker = plane == NavigationPlane::PlanarXY ? "forge.navigation_region_2d"
+                                                            : "forge.navigation_surface";
     Sources g;
+    g.plane = plane;
     g.scene = doc.at("asset_id").get<AssetId>();
     std::map<EntityId, const Json*> included;
     std::map<std::string, const Json*> entities;
@@ -31,8 +47,8 @@ Sources capture(const nlohmann::json& doc) {
         entities.emplace(e.at("id").get<std::string>(), &e);
     for (const auto& e : doc.at("entities")) {
         const auto& c = e.at("components");
-        if (e.value("prefab", false) || !c.contains("forge.navigation_surface") ||
-            !c.at("forge.navigation_surface").at("enabled").get<bool>())
+        if (e.value("prefab", false) || !c.contains(marker) ||
+            !c.at(marker).at("enabled").get<bool>())
             continue;
         if (included.size() >= 512)
             throw std::runtime_error("Navigation geometry exceeds 512 entities");
@@ -42,12 +58,13 @@ Sources capture(const nlohmann::json& doc) {
     for (const auto& [id, ep] : included) {
         const auto& e = *ep;
         const auto& c = e.at("components");
-        if (!c.contains("forge.primitive") && !c.contains("forge.mesh_renderer"))
+        if (plane == NavigationPlane::Spatial3D && !c.contains("forge.primitive") &&
+            !c.contains("forge.mesh_renderer"))
             throw std::runtime_error("NavigationSurface requires mesh geometry, not a group: " +
                                      id.str());
         for (const char* body : {"forge.physics_body", "forge.physics_body_2d"})
             if (c.contains(body) && c.at(body).at("motion").get<unsigned>() != 0)
-                throw std::runtime_error("NavigationSurface must be static: " + id.str());
+                throw std::runtime_error("Navigation source must be static: " + id.str());
         if (!e.value("spatial_resolved", false) || !e.contains("world_affine"))
             throw std::runtime_error("Navigation requires resolved WorldTransform: " + id.str());
         std::set<std::string> ancestry;
@@ -95,8 +112,16 @@ Sources capture(const nlohmann::json& doc) {
         // Keep TRS representability validation; signed/zero visual scales are valid.
         // Forward geometry handles their winding and skips collapsed triangles.
         (void)decompose(transform);
-        Surface source{id, transform, primitive_kind(e), {}};
-        if (source.primitive == no_primitive) {
+        Surface source{id, transform};
+        if (plane == NavigationPlane::PlanarXY) {
+            const auto& data = c.at(marker);
+            source.region = NavigationRegion2D{data.at("enabled"), data.at("obstacle"),
+                                               data.at("width"), data.at("height")};
+            (void)region_quad(*source.region, transform);
+        } else {
+            source.primitive = primitive_kind(e);
+        }
+        if (plane == NavigationPlane::Spatial3D && source.primitive == no_primitive) {
             if (!c.contains("forge.mesh_renderer") ||
                 !c.at("forge.mesh_renderer").value("enabled", true) ||
                 c.at("forge.mesh_renderer").at("mesh").is_null())
@@ -108,14 +133,43 @@ Sources capture(const nlohmann::json& doc) {
             g.meshes.insert(source.mesh);
             if (g.meshes.size() > max_mesh_inputs)
                 throw std::runtime_error("Navigation exceeds 32 selected Mesh inputs");
-        } else if (source.primitive >= primitive_meshes().size())
+        } else if (plane == NavigationPlane::Spatial3D &&
+                   source.primitive >= primitive_meshes().size())
             throw std::runtime_error("Unsupported navigation primitive");
         g.identities.push_back(id);
         g.surfaces.push_back(source);
     }
     if (g.surfaces.empty())
-        throw std::runtime_error("No enabled NavigationSurface geometry");
+        throw std::runtime_error(plane == NavigationPlane::PlanarXY
+                                     ? "No enabled NavigationRegion2D geometry"
+                                     : "No enabled NavigationSurface geometry");
     return g;
+}
+std::array<Double3, 4> region_quad(const NavigationRegion2D& region,
+                                   const AffineTransform& transform) {
+    if (!std::isfinite(region.width) || !std::isfinite(region.height) || region.width < .01f ||
+        region.width > 1000 || region.height < .01f || region.height > 1000)
+        throw std::runtime_error("Navigation Region2D dimensions must be.01..1000m");
+    const double x = .5 * region.width, y = .5 * region.height;
+    std::array<Double3, 4> points{{{-x, -y, 0}, {x, -y, 0}, {x, y, 0}, {-x, y, 0}}};
+    for (auto& point : points) {
+        point = transform.point(point);
+        for (unsigned axis = 0; axis < 2; ++axis)
+            if (!std::isfinite(point[axis]) || std::abs(point[axis]) > 4090)
+                throw std::runtime_error("XY navigation region exceeds +/-4090m");
+        point[2] = 0;
+    }
+    double area = 0;
+    for (unsigned i = 0; i < 4; ++i) {
+        const auto& a = points[i];
+        const auto& b = points[(i + 1) % 4];
+        area += a[0] * b[1] - a[1] * b[0];
+    }
+    if (!std::isfinite(area) || std::abs(area) < 1e-10)
+        throw std::runtime_error("Navigation Region2D has collapsed XY geometry");
+    if (area < 0)
+        std::reverse(points.begin(), points.end());
+    return points;
 }
 nlohmann::json mesh_inputs(const Sources& source,
                            const std::function<std::string(AssetId)>& revision) {
@@ -125,6 +179,26 @@ nlohmann::json mesh_inputs(const Sources& source,
     return result;
 }
 std::string source_digest(const Sources& source, const Json& inputs) {
+    if (source.plane == NavigationPlane::PlanarXY) {
+        if (!inputs.is_array() || !inputs.empty())
+            throw std::runtime_error("XY regions do not use external Mesh provenance");
+        Json regions = Json::array();
+        for (const auto& surface : source.surfaces) {
+            if (!surface.region)
+                throw std::runtime_error("XY navigation needs region geometry");
+            const auto& matrix = surface.transform.m;
+            const auto& region = *surface.region;
+            regions.push_back(
+                {{"entity", surface.entity},
+                 {"xy", {matrix[0], matrix[1], matrix[3], matrix[4], matrix[5], matrix[7]}},
+                 {"width", region.width},
+                 {"height", region.height},
+                 {"obstacle", region.obstacle}});
+        }
+        const auto text =
+            Json{{"bridge", 3}, {"plane", 1}, {"scene", source.scene}, {"regions", regions}}.dump();
+        return asset_detail::content_digest(std::as_bytes(std::span(text)));
+    }
     Json surfaces = Json::array();
     for (const auto& s : source.surfaces) {
         Json value = {{"entity", s.entity}, {"affine", s.transform.m}};
@@ -139,6 +213,39 @@ std::string source_digest(const Sources& source, const Json& inputs) {
             .dump();
     return asset_detail::content_digest(std::as_bytes(std::span(text)));
 }
+namespace {
+Geometry planar_geometry(const Sources& source) {
+    Geometry result;
+    result.scene = source.scene;
+    result.sources = source.identities;
+    for (const auto& surface : source.surfaces) {
+        if (!surface.region)
+            throw std::runtime_error("XY navigation needs region geometry");
+        const auto quad = region_quad(*surface.region, surface.transform);
+        std::array<float, 12> native{};
+        for (unsigned i = 0; i < 4; ++i) {
+            const auto point = native_coordinates(MeshSpace::PlanarXY, quad[i]);
+            for (unsigned axis = 0; axis < 3; ++axis)
+                native[i * 3 + axis] = float(point[axis]);
+        }
+        if (surface.region->obstacle) {
+            result.obstacles.push_back(native);
+            continue;
+        }
+        // Positive world-XY winding maps to downward native Y. Reverse each
+        // triangle so the existing slope classifier sees a walkable floor.
+        for (unsigned corner : {0u, 2u, 1u, 0u, 3u, 2u}) {
+            result.indices.push_back(int(result.indices.size()));
+            result.vertices.insert(result.vertices.end(), native.begin() + corner * 3,
+                                   native.begin() + corner * 3 + 3);
+        }
+    }
+    if (result.vertices.empty())
+        throw std::runtime_error("XY navigation needs at least one walkable region");
+    result.digest = source_digest(source, Json::array());
+    return result;
+}
+} // namespace
 namespace {
 void triangle(Geometry& g, AffineTransform transform, Float3 a, Float3 b, Float3 d) {
     if (transform_parity(transform) == TransformParity::Negative)
@@ -228,6 +335,8 @@ Geometry triangles(const Sources& source,
 } // namespace
 Geometry geometry(const nlohmann::json& doc) { return geometry(capture(doc)); }
 Geometry geometry(const Sources& source) {
+    if (source.plane == NavigationPlane::PlanarXY)
+        return planar_geometry(source);
     auto g = triangles(source, {});
     Json canonical = {
         {"bridge", 1}, {"scene", g.scene}, {"sources", g.sources}, {"vertices", g.vertices}};
@@ -237,6 +346,11 @@ Geometry geometry(const Sources& source) {
 }
 Geometry geometry(const Sources& source, const Json& inputs,
                   const std::function<const MeshResourceData&(AssetId)>& mesh) {
+    if (source.plane == NavigationPlane::PlanarXY) {
+        if (!inputs.is_array() || !inputs.empty())
+            throw std::runtime_error("XY regions do not use external Mesh provenance");
+        return planar_geometry(source);
+    }
     auto g = triangles(source, mesh);
     g.digest = source_digest(source, inputs);
     return g;

@@ -64,11 +64,55 @@ struct Fixture {
         return scene.entity("agent").get<WorldTransform>().affine.point({0, 0, 0});
     }
 };
+#include "navigation_planar_tests.hpp"
 int main(int argc, char** argv) {
     try {
         check((argc == 3 || argc == 4), "Need test root and worker");
+        if (argc == 4 && std::string_view(argv[3]) == "--bake-planar-gallery") {
+            const auto project = std::filesystem::absolute(argv[1]);
+            const auto path = project / "Scenes/80-xy-navigation.scene.json";
+            EngineContext engine;
+            Scene gallery(engine.world());
+            gallery.restore_snapshot(Json::parse(read(path)));
+            NavigationSettings settings;
+            settings.plane = NavigationPlane::PlanarXY;
+            const auto record = prepare_navigation(project, gallery.effective_document(), settings,
+                                                   std::filesystem::absolute(argv[2]))
+                                    .publish(gallery.effective_document());
+            engine.world().world().each([&](flecs::entity e, const NavigationAgent& a) {
+                auto value = a;
+                value.navmesh = {record.id};
+                e.set<NavigationAgent>(value);
+            });
+            std::ofstream(path) << gallery.snapshot().dump(2) << '\n';
+            std::cout << record.id.str() << '\n';
+            return 0;
+        }
         auto root = std::filesystem::path(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
+        if (argc == 4 && std::string_view(argv[3]) == "--prepare-planar") {
+            EngineContext engine;
+            Scene prepared(engine.world());
+            prepared.restore_snapshot(input());
+            prepared.entity("floor").set<LocalScale>({1, 1, 0});
+            prepared.entity("floor").set<NavigationRegion2D>({true, false, 20, 20});
+            prepared.entity("obstacle").set<LocalScale>({1, 1, 0});
+            prepared.entity("obstacle").set<LocalTranslation>({0, 0, 19});
+            prepared.entity("obstacle").set<NavigationRegion2D>({true, true, 2, 4});
+            NavigationSettings settings;
+            settings.plane = NavigationPlane::PlanarXY;
+            const auto record = prepare_navigation(root, prepared.effective_document(), settings,
+                                                   std::filesystem::absolute(argv[2]))
+                                    .publish(prepared.effective_document());
+            prepared.entity("agent").set<LocalTranslation>({-8, .1, 37.125});
+            prepared.entity("agent").set<NavigationAgent>(
+                {{record.id}, true, true, 2, .1f, 8, .1, -19});
+            std::ofstream(root / "scene.json") << prepared.snapshot().dump(2) << '\n';
+            std::cout << std::filesystem::absolute(root).string() << '\n';
+            return 0;
+        }
+        if (argc == 3)
+            planar_asset_tests(root, std::filesystem::absolute(argv[2]));
         EngineContext author;
         Scene scene(author.world());
         scene.restore_snapshot(input());

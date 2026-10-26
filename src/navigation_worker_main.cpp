@@ -28,7 +28,20 @@ int main(int argc, char** argv) {
         g.indices.resize(g.vertices.size() / 3);
         std::iota(g.indices.begin(), g.indices.end(), 0);
         auto meta = input.at("metadata");
-        auto tile = build_tile(g, meta.at("settings").get<NavigationSettings>());
+        const auto settings = provenance_settings(meta);
+        if (settings.plane == NavigationPlane::PlanarXY) {
+            const auto& masks = input.at("obstacles");
+            if (!masks.is_array() || masks.size() > 512)
+                throw std::runtime_error("Navigation obstacle count limit");
+            for (const auto& mask : masks) {
+                if (!mask.is_array() || mask.size() != 12)
+                    throw std::runtime_error("Navigation obstacle requires four vertices");
+                g.obstacles.push_back(mask.get<std::array<float, 12>>());
+            }
+        } else if (input.contains("obstacles")) {
+            throw std::runtime_error("Spatial navigation does not accept planar obstacle masks");
+        }
+        auto tile = build_tile(g, settings);
         auto data = envelope(meta, tile);
         (void)admit(data);
         std::ofstream out("navigation.fnav", std::ios::binary | std::ios::trunc);

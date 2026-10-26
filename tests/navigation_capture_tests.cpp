@@ -1,4 +1,5 @@
 #include "navigation_sources.hpp"
+#include <cstddef>
 #include <forge/authoring.hpp>
 #include <forge/character_components.hpp>
 #include <forge/navigation.hpp>
@@ -181,6 +182,74 @@ void source_tests() {
     f.scene.delete_subtree("floor");
     f.equivalent("deleted source", false);
 }
+void planar_capture_tests() {
+    Fixture f;
+    auto floor = f.scene.entity("floor");
+    floor.remove<NavigationSurface>();
+    floor.set<LocalScale>({1, 1, 0});
+    floor.set<NavigationRegion2D>({true, false, 20, 20});
+    auto compare = [&] {
+        const auto before = f.scene.document();
+        const auto source =
+            navigation_detail::capture(f.scene.effective_document(), NavigationPlane::PlanarXY);
+        const auto native = navigation_detail::capture_native(
+            f.engine.world(), f.scene, f.candidates, NavigationPlane::PlanarXY);
+        const auto a = navigation_detail::geometry(source), b = navigation_detail::geometry(native);
+        check(a.digest == b.digest && a.vertices == b.vertices && a.obstacles == b.obstacles &&
+                  source.identities == native.identities && source.meshes.empty() &&
+                  native.meshes.empty(),
+              "XY native capture differs from authored region geometry");
+        check(f.scene.document() == before, "XY source capture authored scene values");
+    };
+    compare();
+    auto region = floor.get<NavigationRegion2D>();
+    region.width = 2;
+    region.height = 4;
+    region.obstacle = true;
+    floor.set<NavigationRegion2D>(region);
+    f.scene.entity("parent").set<NavigationRegion2D>({true, false, 20, 20});
+    compare();
+    auto component = f.engine.world().world().lookup("forge.navigation_region_2d");
+    const auto* info = ecs_get_type_info(f.engine.world().world().c_ptr(), component.id());
+    check(info && std::size_t(info->size) == sizeof(NavigationRegion2D),
+          "XY region has wrong reflected native size");
+    for (const auto& [name, offset] :
+         {std::pair{"enabled", offsetof(NavigationRegion2D, enabled)},
+          std::pair{"obstacle", offsetof(NavigationRegion2D, obstacle)},
+          std::pair{"width", offsetof(NavigationRegion2D, width)},
+          std::pair{"height", offsetof(NavigationRegion2D, height)}}) {
+        const auto* member =
+            ecs_struct_get_member(f.engine.world().world().c_ptr(), component.id(), name);
+        check(member && std::size_t(member->offset) == offset,
+              "XY region has wrong reflected member offset");
+    }
+    const auto selected = floor.get<PersistentEntityId>().value.str();
+    authoring_command(f.scene, "property.set",
+                      {{"entity", selected},
+                       {"component", "forge.navigation_region_2d"},
+                       {"field", "width"},
+                       {"value", 3}});
+    check(f.scene.entity(selected).get<NavigationRegion2D>().width == 3 && f.scene.undo() &&
+              f.scene.entity(selected).get<NavigationRegion2D>().width == 2 && f.scene.redo() &&
+              f.scene.entity(selected).get<NavigationRegion2D>().width == 3,
+          "XY region property edit lost native value/Undo/Redo");
+    compare();
+    const auto before_invalid = f.scene.document();
+    bool rejected = false;
+    try {
+        authoring_command(f.scene, "property.set",
+                          {{"entity", selected},
+                           {"component", "forge.navigation_region_2d"},
+                           {"field", "height"},
+                           {"value", 0}});
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    check(rejected && f.scene.document() == before_invalid,
+          "Invalid XY region dimensions changed the scene");
+    f.equivalent("XY region is not an implicit3D navigation source", false);
+    std::cout << "XY source native/schema/history/validation PASS\n";
+}
 void controller_prefab_tests() {
     for (bool planar : {false, true}) {
         Fixture f;
@@ -336,6 +405,10 @@ void runtime_tests(const std::filesystem::path& root, const std::filesystem::pat
     auto nav = std::static_pointer_cast<NavigationRuntime>(engine.services().navigation());
     check(nav->project_point({record.id}, {0, .1, 0}).status == NavStatus::Success,
           "Native capture lost admitted route");
+    scene.entity("floor").set<NavigationRegion2D>({true, false, 0, 0});
+    check(nav->project_point({record.id}, {0, .1, 0}).status == NavStatus::Success,
+          "Invalid unselected XY geometry poisoned the spatial navigation profile");
+    scene.entity("floor").remove<NavigationRegion2D>();
     for (int i = 0; i < 8; ++i)
         nav->synchronize();
     check(engine.services().profiles().empty(), "Disabled capture profiling collected data");
@@ -370,6 +443,7 @@ int main(int argc, char** argv) {
         check(argc == 3 || (argc == 4 && std::string_view(argv[3]) == "--equivalence-only"),
               "Need data root and navigation worker");
         source_tests();
+        planar_capture_tests();
         controller_prefab_tests();
         prefab_tests();
         removed_prefab_test(false);

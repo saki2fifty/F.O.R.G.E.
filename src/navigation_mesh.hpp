@@ -1,4 +1,5 @@
 #pragma once
+#include "navigation_space.hpp"
 #include <forge/navigation_service.hpp>
 #include <memory>
 #include <span>
@@ -7,11 +8,12 @@ inline constexpr const char* recast_revision = "6dc1667f580357e8a2154c28b7867bea
 inline constexpr std::size_t max_nav_bytes = 4 * 1024 * 1024;
 inline constexpr unsigned max_polygons = 4096, max_waypoints = 64;
 nlohmann::json tile_properties(std::span<const std::byte> bytes);
-void validate_tile(std::span<const std::byte> bytes);
+void validate_tile(std::span<const std::byte> bytes, MeshSpace = MeshSpace::Spatial3D);
 class Mesh {
   public:
-    explicit Mesh(std::span<const std::byte> bytes);
+    explicit Mesh(std::span<const std::byte> bytes, MeshSpace = MeshSpace::Spatial3D);
     ~Mesh();
+    MeshSpace space() const;
     std::vector<Double3> triangles() const;
 
   private:

@@ -12,6 +12,107 @@ void check(bool ok, const char* why) {
 }
 } // namespace
 
+void planar_editor(const std::filesystem::path& root, const std::filesystem::path& worker) {
+    SceneDocument::create_project(root, "Planar navigation");
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root);
+    const auto region = authoring_command(scene, "entity.create", {{"name", "Walkable region"}})
+                            .at("selected")
+                            .get<std::string>();
+    authoring_command(scene, "component.add",
+                      {{"entity", region}, {"component", "forge.navigation_region_2d"}});
+    project.save();
+    NavigationSettings settings;
+    settings.plane = NavigationPlane::PlanarXY;
+    NavigationTools tools(engine.world(), worker);
+    tools.build(scene, project, settings);
+    std::string message;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (tools.pending()) {
+        tools.poll(scene, project, false, message);
+        check(std::chrono::steady_clock::now() < deadline, "Planar editor bake timed out");
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    check(message.find("failed") == std::string::npos, "Planar editor bake failed");
+    const auto saved = scene.document();
+    const bool had_undo = scene.can_undo();
+    const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
+    for (const float scale : {1.f, 1.5f, 2.f}) {
+        ImGui::CreateContext();
+        auto& io = ImGui::GetIO();
+        io.IniFilename = nullptr;
+        io.DisplaySize = {1400, 1000};
+        io.DeltaTime = 1.f / 60;
+        unsigned char* pixels;
+        int width, height;
+        io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+        ui::style(scale);
+        ui::EditorUiContext context;
+        ui::ContextScope scope(context);
+        test::observe_ui = true;
+        EditorCamera camera;
+        camera.align(2, 1);
+        camera.distance = 20;
+        const auto frame = [&](bool locked = false) {
+            test::ui_targets.clear();
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize(io.DisplaySize, ImGuiCond_Always);
+            ImGui::Begin("XY navigation authoring");
+            ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+            tools.content(scene, project, locked, message, catalog);
+            tools.draw(scene.effective_document(), camera, {0, 0}, {1400, 1000}, region);
+            ImGui::End();
+            ImGui::Render();
+        };
+        frame();
+        frame();
+        check(test::ui_targets.contains("navigation:status:NavMesh ready") &&
+                  test::ui_targets.contains("navigation:region-guide") &&
+                  test::ui_targets.contains("navigation:setting:Agent radius") &&
+                  !test::ui_targets.contains("navigation:setting:Agent height"),
+              "Actual XY UI did not load saved plane, region guide or relevant controls");
+        const auto click = [&](const std::string& key) {
+            const auto box = test::ui_targets.at(key);
+            io.AddMousePosEvent((box.minimum.x + box.maximum.x) * .5f,
+                                (box.minimum.y + box.maximum.y) * .5f);
+            frame();
+            io.AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+            frame();
+            io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+            frame();
+        };
+        click("navigation:setting:Plane");
+        frame();
+        check(test::ui_targets.contains("navigation:plane:0"), "Plane selector did not open");
+        click("navigation:plane:0");
+        frame();
+        check(test::ui_targets.contains("navigation:setting:Agent height") &&
+                  test::ui_targets.contains(
+                      "navigation:status:Navigation is stale — rebuild before Play"),
+              "Actual plane selection did not change controls and mark the draft stale");
+        click("navigation:setting:Plane");
+        frame();
+        click("navigation:plane:1");
+        frame();
+        check(test::ui_targets.contains("navigation:status:NavMesh ready") &&
+                  !test::ui_targets.contains("navigation:setting:Agent height"),
+              "Selecting XY again did not restore saved readiness");
+        frame(true);
+        check(!test::ui_targets.at("navigation:setting:Plane").enabled &&
+                  !test::ui_targets.at("button:Build NavMesh").enabled,
+              "Play lock allowed changing or building the navigation profile");
+        check(scene.document() == saved && scene.can_undo() == had_undo &&
+                  AssetCatalog::open_project(root).document() == catalog->document(),
+              "Navigation presentation/draft controls changed authored state or catalog");
+        test::observe_ui = false;
+        ImGui::DestroyContext();
+    }
+    std::cout << "Actual XY plane selection/guide/ready-stale/Play lock at 100/150/200% passed\n";
+}
+
 int main(int argc, char** argv) {
     try {
         check(argc == 3, "Need navigation lifecycle scratch root and actual worker");
@@ -117,6 +218,7 @@ int main(int argc, char** argv) {
                   !NavigationAutomation::state(navigation, scene, files).at("started").get<bool>(),
               "Scene switching retained the previous scene's navigation cache");
         ImGui::DestroyContext();
+        planar_editor(root / "Planar", std::filesystem::absolute(argv[2]));
         std::cout << "Actual baked navigation overlay respects project/scene boundaries and saved "
                      "reload\n";
     } catch (const std::exception& error) {
