@@ -178,7 +178,8 @@ template <class T> Json encode(const T& p) {
                 {"platform_carry", p.platform_carry},
                 {"crouch_height", p.crouch_height},
                 {"floor_stop_on_slope", p.floor_stop_on_slope},
-                {"slide_on_ceiling", p.slide_on_ceiling}};
+                {"slide_on_ceiling", p.slide_on_ceiling},
+                {"step_height", p.step_height}};
     else if constexpr (std::is_same_v<T, CharacterController>)
         return {{"enabled", p.enabled},
                 {"shape", p.shape},
@@ -509,7 +510,8 @@ template <class T> Value decode(const Json& p) {
                 p.value("platform_carry", defaults.platform_carry),
                 p.value("crouch_height", defaults.crouch_height),
                 p.value("floor_stop_on_slope", defaults.floor_stop_on_slope),
-                p.value("slide_on_ceiling", defaults.slide_on_ceiling)};
+                p.value("slide_on_ceiling", defaults.slide_on_ceiling),
+                p.value("step_height", defaults.step_height)};
         if (value.crouch_height > value.height)
             throw std::runtime_error(
                 "Character Controller 2D crouch height exceeds standing height");
@@ -1032,7 +1034,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("platform_carry")
             .template member<float>("crouch_height")
             .template member<bool>("floor_stop_on_slope")
-            .template member<bool>("slide_on_ceiling");
+            .template member<bool>("slide_on_ceiling")
+            .template member<float>("step_height");
     else if constexpr (std::is_same_v<T, CharacterController>)
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("shape")
@@ -1539,6 +1542,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
         value["nullable"] = true;
     }
     if (name == "forge.character_controller_2d") {
+        if (field == "step_height") {
+            value["maximum"] = 1;
+            value["unit"] = "meters";
+            value["description"] = "Maximum Grounded stair rise in world metres;0 disables. "
+                                   "Requires walkable support, forward clearance and headroom";
+        }
         if (field == "floor_stop_on_slope" || field == "slide_on_ceiling") {
             value.erase("minimum");
             value.erase("maximum");

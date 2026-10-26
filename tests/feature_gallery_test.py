@@ -249,6 +249,7 @@ try:
                 controller_2d.setdefault('crouch_height', 0.)
                 controller_2d.setdefault('floor_stop_on_slope', False)
                 controller_2d.setdefault('slide_on_ceiling', True)
+                controller_2d.setdefault('step_height', 0.)
             joint = row['components'].get('forge.physics_joint')
             if joint is not None:
                 joint.setdefault('min_travel', -1.)

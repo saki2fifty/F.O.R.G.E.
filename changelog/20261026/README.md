@@ -2,6 +2,17 @@
 
 Local source; Windows verification and numbered delivery remain pending.
 
+## Checked 2D stair rise
+
+- Character Controller2D adds default-off world-space **Step Height**, with bounded
+  headroom/tread/actual-endpoint clearance through existing native casts and work
+  limits. Stepping preserves requested horizontal distance and separates vertical
+  correction from velocity. Floating, air and upward intent keep ordinary movement.
+- Character2D includes an original green/amber three-tread comparison and a taller
+  jump barrier. Reflected Inspector/MCP settings, history/Save and all registered
+  sample Scenes use existing owners. Matching SDK modules must rebuild; source
+  formats/identity and private checkpoint9/outer2 remain unchanged.
+
 ## 2D slope and ceiling response
 
 - Character Controller2D adds **Stop on slopes** and **Slide on ceilings**, with

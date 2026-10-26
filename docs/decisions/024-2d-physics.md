@@ -247,3 +247,19 @@ transport and geometric queries retain existing behavior. C++ supplies subsequen
 movement/gravity. Exact configuration/fingerprint guards carry these flags without
 changing private codec9, outer2 or authored formats/identity. Shared reflection owns
 Inspector/MCP authoring/history/persistence. The technical contract defines limits.
+
+## Optional checked 2D stair rise
+
+Extend the existing Grounded controller/profile with default-off world-space
+step_height0..1m. Following an ordinary horizontally blocked move, require current
+walkable support and non-upward intent. Existing physical casts check up, forward
+and down; a one-radius forward probe proves a walkable tread but is not adopted.
+Independently check actual requested-X clearance and bounded rise. Keep horizontal
+travel within the request; correction does not become jump velocity. The actual
+capsule may briefly lack support over its leading edge. Conservative headroom/
+tread failures retain ordinary movement. Native failure uses existing fail-before-
+adoption/query-work policy. Effective stance and physical one-way/filter context
+stay shared. No new solver, cross-step cache, queue or pose authority. Configuration
+and matching SDK fingerprint extend; private9/outer2 and authored identity/formats
+remain unchanged. This extends the earlier no-stairs profile deliberately; detailed
+limits and completion evidence belong in the2D integration contract.

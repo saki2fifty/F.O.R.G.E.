@@ -162,6 +162,22 @@ def verify(runtime, project):
                    if component in row['components']), state
         assert comparison_path.read_bytes() == comparison_saved, 'Play changed the comparison Scene'
 
+    def stair_course(worker, sdk_play):
+        course_path = project / 'Scenes/stair-steps.scene.json'
+        course_saved = course_path.read_bytes()
+        activate(worker, json.loads(course_saved), sdk_play)
+        state = advance_ticks(worker, sdk_play, 120, [dict(control='key.d', value=1)])
+        actors = {row['components']['forge.character_controller_2d']['step_height'] > 0:
+                  row['components'] for row in state['scene']['entities']
+                  if component in row['components']}
+        stepping, blocked = actors[True], actors[False]
+        assert stepping['forge.local_translation']['x'] > .95, stepping
+        assert abs(stepping['forge.local_translation']['y'] - .75) < .02, stepping
+        assert blocked['forge.local_translation']['x'] < -1.5, blocked
+        assert abs(blocked['forge.local_translation']['y'] + 4) < .02, blocked
+        assert stepping[component]['grounded'] and blocked[component]['grounded'], actors
+        assert course_path.read_bytes() == course_saved, 'Play changed the stair Scene'
+
     observations = []
     for sdk_play in (False, True):
         for speed, jump_speed in ((4., 6.), (2., 8.)):
@@ -227,6 +243,8 @@ def verify(runtime, project):
                         observations[-1]['crouch_tunnel'] = True
                         surface_response(worker, True)
                         observations[-1]['surface_response'] = True
+                        stair_course(worker, True)
+                        observations[-1]['stair_course'] = True
                     continue
                 for tick in range(18):
                     event = dict(input_events=[dict(control='key.d', value=1)]) if tick == 0 else {}
@@ -291,6 +309,8 @@ def verify(runtime, project):
                     observations[-1]['crouch_tunnel'] = True
                     surface_response(worker, sdk_play)
                     observations[-1]['surface_response'] = True
+                    stair_course(worker, sdk_play)
+                    observations[-1]['stair_course'] = True
             finally:
                 worker.close()
     assert scene_path.read_bytes() == saved, 'Play changed the saved Scene'

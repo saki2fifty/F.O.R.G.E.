@@ -59,6 +59,7 @@ def main():
                 assert all(r['platform_ride'] for r in observations)
                 assert all(r['crouch_tunnel'] for r in observations)
                 assert all(r['surface_response'] for r in observations)
+                assert all(r['stair_course'] for r in observations)
     print('Relocated installed SDK/public one-way defaults/compiled Movement2D and Character2D/both hosts passed')
 
 

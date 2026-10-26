@@ -49,8 +49,8 @@ not report floor support. Platform following defaults off on new controllers.
 Ordinary Kinematic/Dynamic walkable support can carry; sensors, steep surfaces,
 other controllers and moving one-way platforms cannot. The capsule stays upright.
 Jumping adds no automatic platform momentum. Crush reports a movement error; leave
-enough clearance along the path. Stair stepping and
-navigation are outside the controller's current profile. It is separate from the
+enough clearance along the path. Optional **Step Height** enables bounded stair
+rise; 2D navigation remains outside this profile. It is separate from the
 Dynamic-body [Movement2D example](../Movement2D/README.md).
 
 ## Crouch and stand
@@ -60,7 +60,7 @@ to crouch**. Release C there: the player stays crouched and Live gameplay report
 blocked standing. Walk clear to stand again. The example changes its unit-scale
 sprite height from observed posture; the engine keeps physics and visuals separate.
 
-Stop and select the Player to edit **Character Controller 2D → Crouch height**.
+Stop and select the Player to edit **Character Controller 2D → Crouch Height**.
 0 automatically halves the effective straight height, with a 0.01 m minimum. Positive
 values cannot exceed standing **Height**. Feet and radius stay fixed. Save before
 Play/export. Runtime posture is temporary; Stop starts standing again. Project input
@@ -76,7 +76,7 @@ ceilings. Green stops at ceiling contact, while amber slides. C still crouches.
 
 Stop and select a character. **Character Controller 2D → Stop on slopes** defaults
 off; **Slide on ceilings** defaults on. This scene sets green to hold/stop and
-amber to the defaults. **Max slope** defines walkable floors and mirrored ceiling
+amber to the defaults. **Max Slope** defines walkable floors and mirrored ceiling
 angles. Floating mode ignores both options. They affect requested locomotion,
 not moving-platform transport. The C++ example supplies fresh downward gravity
 while grounded and integrates observed vertical velocity in air; a blocked jump
@@ -85,3 +85,22 @@ therefore falls on later ticks.
 Save authored changes. To export this scene, select **Use saved current scene as
 startup** in Project Settings, then export with the matching runtime/module kit.
 Stop restores authored positions. Both scenes use the same original assets/code.
+
+## Compare stair stepping
+
+Open **Scenes/stair-steps.scene.json**, build Project Code, Play and capture input.
+Hold D: green climbs the three0.25m treads while amber stops at the first. Both use
+the same A/D, Space and C controls. The red1.5m barrier requires jumping.
+
+Stop and edit **Character Controller 2D → Step Height**.0 disables; green uses0.3m.
+The maximum is1 world metre and is independent of presentation scale. Save before
+Play/export. Use **Use saved current scene as startup** in Project Settings to
+export the stair course with the matching runtime/module kit.
+
+Automatic rise needs current walkable support, horizontal movement, non-upward
+intent, clear headroom and a walkable tread ahead. Floating, airborne movement and
+jumps keep ordinary motion. The actual stance supplies clearance. Read-only forward
+lookahead adds no horizontal travel. Narrow/blocked treads may require jumping.
+A rounded leading edge can briefly report **In air**; releasing input there falls
+normally. Step correction is not upward velocity. Floor Probe still controls
+following downward drops; game C++ supplies gravity beyond its range.

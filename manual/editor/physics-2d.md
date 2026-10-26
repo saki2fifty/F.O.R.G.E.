@@ -88,8 +88,8 @@ both support it. Stop restores saved state; save/publish before export. See the
 project's **README.md** for the
 experiment, C++ source and matching runtime/module-kit export workflow. This
 example uses a Dynamic body and capsule sweeps. For the dedicated controller,
-use **Examples/Character2D** as described below. Automatic stairs and 2D navigation
-are unavailable.
+use **Examples/Character2D** as described below. Its optional **Step Height**
+handles bounded stair rise; 2D navigation remains unavailable.
 
 Bullet improves high-speed solid collision with supported receivers. It does
 not guarantee exact projectile timing or every fast sensor crossing. The native
@@ -165,8 +165,8 @@ need independent rotation. Do not add an enabled Physics Body or another control
 to the same object.
 
 Grounded mode reports floor support and can follow a nearby descending surface.
-Floating mode accepts XY movement without floor support. Automatic stairs and
-2D navigation are unavailable.
+Floating mode accepts XY movement without floor support. Grounded mode can use
+optional **Step Height** for bounded stair rise; 2D navigation remains unavailable.
 See the example's **README.md** for the editable source and export experiment.
 
 ### Ride a moving platform
@@ -194,7 +194,7 @@ the character. Moving one-way platforms are unavailable.
 1. Open **Examples/Character2D**, build Project Code and press Play. Capture Game input.
 2. Cross the stepping stone to the right painted ledge. Hold **C** while walking beneath the pink **Low ceiling - hold C to crouch**.
 3. Release C beneath the ceiling. The player stays crouched and **Live gameplay → Character movement** reports **Standing blocked by solid geometry.** Walk clear to stand again.
-4. Stop and select the Player. **Character Controller 2D → Crouch height** sets straight capsule height while crouched. `0` automatically uses half the standing straight height, with a `0.01` metre minimum. A positive value cannot exceed **Height**. Radius and feet position stay fixed.
+4. Stop and select the Player. **Character Controller 2D → Crouch Height** sets straight capsule height while crouched. `0` automatically uses half the standing straight height, with a `0.01` metre minimum. A positive value cannot exceed **Height**. Radius and feet position stay fixed.
 5. Save the Scene after changing authored settings. Play starts standing; the example's sprite follows the observed posture. **Selected collision** shows the actual crouched capsule during Play. Export with the matching runtime/module kit to use the same C-key behavior.
 
 Your C++ code requests crouch/stand through `sdk::Client::crouch_character_2d`.
@@ -218,13 +218,39 @@ While stopped, select either character and find **Character Controller 2D**:
 
 - **Stop on slopes** stops downward-only movement on a walkable floor. It defaults off. Horizontal movement and upward jumps remain controlled by C++; steep surfaces still behave as walls.
 - **Slide on ceilings** defaults on. Turn it off to stop the current upward movement at a ceiling. C++ must supply gravity or another movement request afterward; the engine does not add gravity automatically.
-- **Max slope** also defines the ceiling angle: a ceiling must face downward within this angle of vertical. Steeper surfaces keep ordinary wall sliding. These two options apply in Grounded mode; Floating mode ignores them.
+- **Max Slope** also defines the ceiling angle: a ceiling must face downward within this angle of vertical. Steeper surfaces keep ordinary wall sliding. These two options apply in Grounded mode; Floating mode ignores them.
 
 Use Undo/Redo to restore a setting. Save before Play or export. **Live gameplay →
 Character movement** shows the resulting velocity and support; runtime changes are
 temporary. Moving-platform transport remains independent of these controls, so an
 idle character can still ride a platform. To export this comparison, choose
 **Use saved current scene as startup** in Project Settings before exporting.
+
+## Walking up steps
+
+Open **Examples/Character2D → Scenes/stair-steps.scene.json** in Content. Build
+Project Code, Play and capture Game input. Hold **D**: the green character climbs
+three 0.25 m treads; the amber character stops at the first. Both share A/D, Space
+and C. The red barrier is too tall for automatic stepping; jump to cross it.
+
+While stopped, select a character. **Character Controller 2D → Step Height** is the
+maximum automatic rise in world metres, from 0 to 1. It defaults to 0 (off); the
+green character uses 0.3. Presentation scale does not multiply this distance.
+Use Undo/Redo, save, then Play again. Choose **Use saved current scene as startup**
+in Project Settings before exporting this comparison.
+
+Stepping needs walkable ground, horizontal movement, a non-upward request,
+headroom and a walkable tread ahead. It uses the current standing or crouched
+capsule. A jump, Floating mode or movement in air does not gain an automatic step.
+Narrow or obstructed treads can remain blocked; increase clearance or jump.
+Stepping never adds horizontal distance beyond the movement request. The character
+can briefly report **In air** while crossing a rounded leading edge; releasing movement
+there lets it fall normally. Vertical correction is separate from jump velocity.
+For walking down larger drops, **Floor Probe** controls ground following; ordinary
+gravity applies when the next floor is beyond that distance.
+
+Saved settings and the compiled game code travel with export. Stop restores the
+saved character positions; runtime inspection does not save a new staircase pose.
 
 ## Export
 

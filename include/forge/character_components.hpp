@@ -26,6 +26,7 @@ struct CharacterController2D {
     float crouch_height = 0;          // Straight height;0 automatically halves standing height.
     bool floor_stop_on_slope = false; // Stop downward-only intent on walkable floors.
     bool slide_on_ceiling = true;     // Otherwise stop the upward request at a ceiling.
+    float step_height = 0;            // Optional Grounded rise in world metres;0 disables.
     bool operator==(const CharacterController2D&) const = default;
 };
 } // namespace forge

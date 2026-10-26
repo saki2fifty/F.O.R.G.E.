@@ -245,6 +245,16 @@
       "dependency_edges": [],
       "source_dependencies": [],
       "metadata": {}
+    },
+    {
+      "id": "5d3083b7-8b61-4b55-b66a-86e09a92805d",
+      "type": "scene",
+      "schema_version": 5,
+      "source": "Scenes/stair-steps.scene.json",
+      "dependencies": [],
+      "dependency_edges": [],
+      "source_dependencies": [],
+      "metadata": {}
     }
   ]
 }

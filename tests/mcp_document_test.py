@@ -87,6 +87,9 @@ for legacy in (False, True):
         assert controller_fields['floor_stop_on_slope']['default'] is False
         assert controller_fields['slide_on_ceiling']['display_name'] == 'Slide on ceilings'
         assert controller_fields['slide_on_ceiling']['default'] is True
+        step = controller_fields['step_height']
+        assert step['display_name'] == 'Step Height'
+        assert step['default'] == 0 and step['unit'] == 'm' and step['maximum'] == 1
         workflows = state['result']['workflow_methods']
         assert {item['method'] for item in workflows} == {
             'project.read', 'document.save', 'document.save_as', 'document.new', 'document.open'}
@@ -157,6 +160,15 @@ for legacy in (False, True):
             assert not invalid['ok'] and discover()['revision'] == before_invalid['revision'], invalid
             assert mutate('forge_history_undo')['result']['changed']
             assert mutate('forge_history_redo')['result']['changed']
+        assert mutate('forge_property_set', arguments=dict(entity=rider,
+            component='forge.character_controller_2d', field='step_height', value=.3))['ok']
+        for invalid_step in (-.01, 1.01, '0.3'):
+            before_invalid = discover()
+            invalid = mutate('forge_property_set', arguments=dict(entity=rider,
+                component='forge.character_controller_2d', field='step_height', value=invalid_step))
+            assert not invalid['ok'] and discover()['revision'] == before_invalid['revision'], invalid
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
         saved = mutate('forge_document_save')
         assert saved['ok'] and not saved['result']['rediscover'], saved
         saved_path = project / 'Scenes/main.scene.json'
@@ -169,6 +181,7 @@ for legacy in (False, True):
         assert abs(saved_doc['entities'][1]['components']['forge.character_controller_2d']['crouch_height'] - .2) < 1e-6
         assert saved_doc['entities'][1]['components']['forge.character_controller_2d']['floor_stop_on_slope']
         assert not saved_doc['entities'][1]['components']['forge.character_controller_2d']['slide_on_ceiling']
+        assert abs(saved_doc['entities'][1]['components']['forge.character_controller_2d']['step_height'] - .3) < 1e-6
         assert discover()['result']['target'] == original
 
         # Disk conflict/deletion is not silently overwritten, even for a clean draft.

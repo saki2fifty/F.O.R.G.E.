@@ -146,6 +146,9 @@ void validate_geometry(const Body2DConfiguration& config) {
         if (!std::isfinite(profile.floor_probe) || profile.floor_probe < 0 ||
             profile.floor_probe > 1)
             throw std::runtime_error("2D mover floor probe must be0..1m");
+        if (!std::isfinite(profile.step_height) || profile.step_height < 0 ||
+            profile.step_height > 1)
+            throw std::runtime_error("2D mover step height must be0..1m");
         if (!std::isfinite(profile.crouch_height) || profile.crouch_height < 0 ||
             profile.crouch_height > config.dimensions[1])
             throw std::runtime_error("2D mover crouch height must be0 or no greater than standing");
@@ -357,7 +360,8 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D& val
         value.platform_carry,
         value.crouch_height == 0 ? 0 : dimension(value.crouch_height * scale.y, .01f, 1000),
         value.floor_stop_on_slope,
-        value.slide_on_ceiling};
+        value.slide_on_ceiling,
+        value.step_height};
     validate_geometry(config);
     return config;
 }
@@ -895,6 +899,74 @@ struct Native2D::Impl {
         request.ignore = body.admitted.ref;
         return request;
     }
+    std::optional<MoverMotion2D> step_mover(const Body& body, Double2 feet,
+                                            const PhysicsSweep2D& request,
+                                            const MoverMotion2D& ordinary,
+                                            PhysicsQueryFilter filter, std::uint64_t category,
+                                            std::size_t& work) const {
+        const auto& profile = *body.admitted.config.mover_profile;
+        const float dx = float(request.displacement[0]);
+        if (profile.step_height == 0 || profile.minimum_floor_y < 0 || dx == 0 ||
+            request.displacement[1] > 0 ||
+            ordinary.clipped_displacement[0] * std::copysign(1.f, dx) > .5 * std::abs(dx))
+            return {};
+        const auto support = support_mover(body, feet, body.mover_intent, work);
+        if (!support || !support->walkable)
+            return {};
+        const Double2 start{feet[0] + ordinary.translation[0], feet[1] + ordinary.translation[1]};
+        const double remaining = feet[0] + dx - start[0];
+        if (remaining * dx <= 0 || std::abs(remaining) > 1000)
+            return {};
+        // Look ahead by one effective radius to prove a walkable tread beyond
+        // the rounded leading cap. Only the requested X endpoint is adopted.
+        const double forward =
+            std::copysign(std::min(1000., std::abs(remaining) + request.dimensions[0]), dx);
+        const double center_height = request.origin[1] - feet[1];
+        if (std::abs(start[0] + forward) > 1000000 ||
+            start[1] + center_height + profile.step_height > 1000000 ||
+            std::abs(start[1] + center_height - .01) > 1000000)
+            return {};
+        const auto cast_segment = [&](Double2 origin, Double2 displacement) {
+            auto cast = mover_request(body, origin);
+            cast.displacement = displacement;
+            cast.ignore_initial_overlap = true;
+            const PhysicalMover response{&body, {{origin[0], origin[1]}, b2Rot_identity}};
+            return cast_mover(cast, filter, work, category, &response);
+        };
+        const auto clear = [&](Double2 origin) {
+            const auto shape = mover_request(body, origin);
+            const PhysicalMover response{&body, {{origin[0], origin[1]}, b2Rot_identity}};
+            return penetration_mover({shape.shape, shape.dimensions, shape.origin, 0}, filter,
+                                     body.admitted.ref, work, category,
+                                     &response) <= mover_slop + mover_tolerance;
+        };
+        const auto overhead = cast_segment(start, {0, profile.step_height});
+        const double lift = profile.step_height * (overhead ? overhead->fraction : 1);
+        if (lift <= mover_slop + mover_tolerance)
+            return {};
+        const Double2 raised{start[0], start[1] + lift};
+        const Double2 probe{start[0] + forward, raised[1]};
+        if (!clear(raised) || cast_segment(raised, {forward, 0}) || !clear(probe))
+            return {};
+        const double down = lift + .01;
+        const auto landing = cast_segment(probe, {0, -down});
+        if (!landing || landing->normal[1] < profile.minimum_floor_y)
+            return {};
+        Double2 next{feet[0] + dx, probe[1] - down * landing->fraction};
+        if (next[1] <= start[1] + mover_slop ||
+            next[1] > feet[1] + profile.step_height + mover_tolerance)
+            return {};
+        const auto actual_down = cast_segment({next[0], raised[1]}, {0, next[1] - raised[1]});
+        if (actual_down) {
+            if (actual_down->normal[1] < profile.minimum_floor_y)
+                return {};
+            next[1] = raised[1] + (next[1] - raised[1]) * actual_down->fraction;
+        }
+        if (next[1] > feet[1] + profile.step_height + mover_tolerance || !clear(next) ||
+            std::hypot(double(dx), next[1] - feet[1]) > 1000)
+            return {};
+        return MoverMotion2D{{dx, next[1] - feet[1]}, {dx, 0}, ordinary.iterations};
+    }
     void step_movers(float dt, std::size_t& work) {
         for (auto id : mover_order) {
             auto& body = bodies.at(id);
@@ -907,8 +979,10 @@ struct Native2D::Impl {
             const PhysicsQueryFilter filter{body.admitted.config.body.mask, false};
             const auto category = std::uint64_t{1} << body.admitted.config.body.layer;
             const PhysicalMover response{&body, {{feet[0], feet[1]}, b2Rot_identity}};
-            const auto motion = motion_mover(request, filter, work, category,
-                                             profile.minimum_floor_y, &response, &profile);
+            auto motion = motion_mover(request, filter, work, category, profile.minimum_floor_y,
+                                       &response, &profile);
+            if (const auto step = step_mover(body, feet, request, motion, filter, category, work))
+                motion = *step;
             Double2 next{feet[0] + motion.translation[0], feet[1] + motion.translation[1]};
             Double2 velocity{};
             for (unsigned axis = 0; axis < 2; ++axis)
@@ -1669,7 +1743,8 @@ Json Body2DConfiguration::json() const {
                                    {"platform_carry", mover_profile->platform_carry},
                                    {"crouch_height", mover_profile->crouch_height},
                                    {"floor_stop_on_slope", mover_profile->floor_stop_on_slope},
-                                   {"slide_on_ceiling", mover_profile->slide_on_ceiling}};
+                                   {"slide_on_ceiling", mover_profile->slide_on_ceiling},
+                                   {"step_height", mover_profile->step_height}};
     if (shape == 3) {
         validate_geometry(*this);
         result["parts"] = Json::array();

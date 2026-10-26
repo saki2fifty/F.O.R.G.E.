@@ -478,8 +478,8 @@ use one copied selected-character projection through both process hosts.
 
 The editable `Examples/Character2D` project supplies C++ input, gravity, edge-triggered
 jumping and final grounded feedback. Its player has no authored body/collider.
-It reuses FORGE's own Sprite/Map resources. Stair stepping, explicit
-push controls, platform parenting and 2D navigation are outside this profile.
+It reuses FORGE's own Sprite/Map resources. Explicit push controls, platform parenting and 2D navigation remain outside this
+profile. Optional bounded stair rise is described below.
 
 ### Following moving platforms
 
@@ -569,6 +569,48 @@ reusing a preceding slope tangent as upward intent. In air it integrates observe
 vertical velocity. The shared example preparation owner stamps declared components
 in every registered Scene, including non-startup examples; it rejects escaping
 scene sources. Export startup selection remains ordinary Project Settings.
+
+### Checked stair rise
+
+`step_height` appends to CharacterController2D/its existing native profile, defaults
+0(off), and accepts0..1 world metres without presentation scaling. Typed reflection
+supplies **Step Height**, units, range, Inspector/MCP validation, history and Save.
+No new command, copied state, source format/identity or private codec is required.
+The existing exact configuration guard includes the field; private9/outer2 remain.
+The public header changes the SDK fingerprint; rebuild matching modules.
+
+After ordinary checked locomotion substantially clips horizontal intent (remaining
+clipped X at most half the requested magnitude), a Grounded controller may try a
+step. Require current walkable support, nonzero requested X and non-upward Y.
+Start at the ordinary independently feasible endpoint. Sweep upward at most the
+configured rise, bounded by overhead contact. Sweep forward toward requested X
+plus one effective capsule radius of read-only landing evidence (capped1000m).
+Sweep downward there and require walkable support with positive rise no greater
+than the configured maximum. Check a downward path at the actual requested-X
+endpoint and independently validate penetration before adoption. The extra probe
+endpoint is never adopted; horizontal movement does not exceed the request.
+
+Each segment uses the current physical one-way response context, mutual masks,
+sensor exclusion and effective crouched capsule. All queries/clearance/support
+observations share the existing16384-work bound. World/query endpoints remain in
+the existing±1e6m profile; an out-of-range optional probe declines the candidate.
+A failed ordinary clearance candidate retains ordinary movement; native query/
+budget failure faults before partial-step adoption or continuation. No hidden
+body transform, synthetic plane, new solver, persistent step cache or pose writer.
+
+Vertical rise is correction, not requested/jump velocity. Rounded-cap overhang can
+briefly leave actual support before reaching the proved tread; ordinary gravity
+and movement apply, and stopping there can fall. Narrow/obstructed treads can
+conservatively decline. Rises within native0.005m contact slop do not get a separate
+correction. Floating, in-air and explicit upward movement keep existing behavior;
+they can already project onto curved geometry and are not forcibly stopped.
+Separate moving-platform transport precedes locomotion; floor following still
+handles descent within floor_probe. No automatic downward step range is added.
+
+Original Character2D `Scenes/stair-steps.scene.json` compares green0.3m rise to
+amber default-off on three0.25m treads, with a taller red barrier requiring a jump.
+Both use existing module/assets/input and ordinary saved-current startup/export.
+The same module preparation owner stamps all registered Scenes.
 
 ### Checked crouch and stand
 

@@ -195,7 +195,8 @@ void controller_schema(EngineContext& engine) {
           std::pair{"platform_carry", offsetof(CharacterController2D, platform_carry)},
           std::pair{"crouch_height", offsetof(CharacterController2D, crouch_height)},
           std::pair{"floor_stop_on_slope", offsetof(CharacterController2D, floor_stop_on_slope)},
-          std::pair{"slide_on_ceiling", offsetof(CharacterController2D, slide_on_ceiling)}}) {
+          std::pair{"slide_on_ceiling", offsetof(CharacterController2D, slide_on_ceiling)},
+          std::pair{"step_height", offsetof(CharacterController2D, step_height)}}) {
         const auto* member = ecs_struct_get_member(world.c_ptr(), native.id(), name);
         require(member && std::size_t(member->offset) == offset,
                 "2D controller native member offset mismatch");
@@ -206,6 +207,7 @@ void controller_schema(EngineContext& engine) {
                 CharacterController2D{}.slide_on_ceiling &&
                 !type.defaults.at("floor_stop_on_slope").get<bool>() &&
                 type.defaults.at("slide_on_ceiling").get<bool>() &&
+                CharacterController2D{}.step_height == 0 && type.defaults.at("step_height") == 0 &&
                 detail::canonical_builtin_value(type, Json::object()) == type.defaults,
             "2D controller defaults were not backfilled by the shared schema");
     bool mode_found = false;
@@ -239,6 +241,8 @@ void controller_schema(EngineContext& engine) {
                                        {"slide_on_ceiling", "false"},
                                        {"crouch_height", -.001},
                                        {"crouch_height", .601},
+                                       {"step_height", -.01},
+                                       {"step_height", 1.01},
                                        {"floor_probe", -1},
                                        {"floor_probe", 1.01},
                                        {"layer", 32},

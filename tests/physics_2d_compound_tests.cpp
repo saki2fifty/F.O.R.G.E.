@@ -6,6 +6,7 @@
 #include "physics_2d_one_way_tests.hpp"
 #include "physics_2d_platform_carry_tests.hpp"
 #include "physics_2d_stance_tests.hpp"
+#include "physics_2d_step_tests.hpp"
 #include "physics_2d_surface_response_tests.hpp"
 #include <cmath>
 #include <iostream>
@@ -309,6 +310,11 @@ int main() {
         forge::test::test_mover_stance_candidates_and_recovery();
         forge::test::test_mover_stance_sensor_events();
         forge::test::test_mover_stance_one_way_clearance();
+        forge::test::test_mover_steps();
+        forge::test::test_mover_step_rejections();
+        forge::test::test_mover_step_effective_geometry_and_filters();
+        forge::test::test_mover_step_recovery();
+        forge::test::test_mover_step_carry_and_work_bound();
         forge::test::test_mover_floor_stop();
         forge::test::test_mover_ceiling_response();
         forge::test::test_mover_surface_response_exclusions();
