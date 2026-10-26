@@ -191,12 +191,15 @@ void controller_schema(EngineContext& engine) {
           std::pair{"max_slope", offsetof(CharacterController2D, max_slope)},
           std::pair{"floor_probe", offsetof(CharacterController2D, floor_probe)},
           std::pair{"layer", offsetof(CharacterController2D, layer)},
-          std::pair{"mask", offsetof(CharacterController2D, mask)}}) {
+          std::pair{"mask", offsetof(CharacterController2D, mask)},
+          std::pair{"platform_carry", offsetof(CharacterController2D, platform_carry)}}) {
         const auto* member = ecs_struct_get_member(world.c_ptr(), native.id(), name);
         require(member && std::size_t(member->offset) == offset,
                 "2D controller native member offset mismatch");
     }
-    require(detail::canonical_builtin_value(type, Json::object()) == type.defaults,
+    require(!CharacterController2D{}.platform_carry &&
+                !type.defaults.at("platform_carry").get<bool>() &&
+                detail::canonical_builtin_value(type, Json::object()) == type.defaults,
             "2D controller defaults were not backfilled by the shared schema");
     bool mode_found = false;
     const auto schema = detail::builtin_schema();
@@ -218,6 +221,7 @@ void controller_schema(EngineContext& engine) {
                                        {"height", .009},
                                        {"radius", 500},
                                        {"max_slope", 85.1},
+                                       {"platform_carry", 1},
                                        {"floor_probe", -1},
                                        {"floor_probe", 1.01},
                                        {"layer", 32},

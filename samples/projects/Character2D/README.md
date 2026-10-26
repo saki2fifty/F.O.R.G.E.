@@ -28,6 +28,13 @@ on top. Stop and select that platform to edit **One-way collision** or **One-way
 margin** in Physics Body 2D. **Selected collision** points an arrow toward its
 solid face. Save the scene before exporting the same behavior.
 
+Cross the stepping stone to the right painted ledge, then jump onto the cyan **Moving platform - jump aboard**.
+The player enables **Character Controller 2D → Follow moving platforms**. It rides
+without changing its walking speed and can jump off. Stop and select the platform:
+**Moving Platform 2D** exposes start/end X/Y in world metres and **duration**, seconds
+for one direction. Duration is0.1..60s and path speed at most20m/s. Its Kinematic
+body receives ordinary C++ targets. Save before Play/export; Stop resets the path.
+
 ## What owns what
 
 **Character Controller 2D** owns the physical feet position and bounded movement.
@@ -37,6 +44,10 @@ system copies the final grounded observation after physics. The sprite's bottom
 pivot follows the feet; there is no hidden Physics Body 2D or Capsule Collider 2D.
 
 This example uses Grounded mode. Floating mode accepts full XY velocity but does
-not report floor support. Stair stepping, moving-platform carry, crouching and
+not report floor support. Platform following defaults off on new controllers.
+Ordinary Kinematic/Dynamic walkable support can carry; sensors, steep surfaces,
+other controllers and moving one-way platforms cannot. The capsule stays upright.
+Jumping adds no automatic platform momentum. Crush reports a movement error; leave
+enough clearance along the path. Stair stepping, crouching and
 navigation are outside the controller's current profile. It is separate from the
 Dynamic-body [Movement2D example](../Movement2D/README.md).

@@ -455,7 +455,8 @@ physical surface point/point velocity, complete canonical support reference, and
 own/support simulation epochs. OnGround/OnSteepGround/InAir use the existing
 CharacterGround numbers0/1/3. No support means an absent reference and epoch0.
 The support observation's1cm contact band does not enlarge the physical capsule.
-Moving support velocity is an observation; automatic platform carry is not promised.
+Moving support velocity is a world-space observation. Optional platform transport
+is described below; the default controller does not acquire it implicitly.
 
 Checked placement queues feet XY and preserves Z. A blocked destination consumes
 the request, reports placement_blocked, and preserves pose/motion. Successful
@@ -478,7 +479,56 @@ use one copied selected-character projection through both process hosts.
 The editable `Examples/Character2D` project supplies C++ input, gravity, edge-triggered
 jumping and final grounded feedback. Its player has no authored body/collider.
 It reuses FORGE's own Sprite/Map resources. Stair stepping, crouching, explicit
-push controls, platform parenting/carry and 2D navigation are outside this profile.
+push controls, platform parenting and 2D navigation are outside this profile.
+
+### Following moving platforms
+
+`CharacterController2D.platform_carry` defaults false and is displayed as
+**Follow moving platforms**. Grounded characters can ride an ordinary nonsensor
+Kinematic or Dynamic walkable support. Floating mode, steep surfaces, sensors,
+masked bodies and other controllers do not provide transport. Moving one-way
+platforms remain outside the admitted one-way profile.
+
+Native2D temporarily samples the current support's rigid transform in its existing
+controller body record. After rigid motion, the lower capsule cap center retains
+its rigid offset to that support, including rotation; the feet follow while the
+capsule stays upright. Each step
+casts a straight displacement, not a curved angular sweep. Samples live only
+within that step. Static relocation, teleport, replacement and placement do not
+replay old displacement. Scaling is not platform motion.
+
+Carry uses bounded move/slide before requested locomotion, excluding only the
+carrier because an elevator can already intersect the old capsule. The following
+ordinary locomotion solve includes every solid, including the carrier, and owns
+independent starting/endpoint checks and bounded shallow recovery. Walls clip transport.
+An unavoidable crush or deep overlap faults before partial-step adoption or
+continuation, consistent with the existing deep-overlap policy. Stop Play and
+change the path or geometry; the engine does not stop or rewind the platform.
+Carry is bounded to1000m per step and the existing finite world/endpoints profile.
+Its casts, planes and penetration checks share the fixed16384-work limit.
+
+Detached geometry admission exempts only an unchanged continuously targeted
+Kinematic body proved to currently support an unchanged opt-in controller.
+That proof shares the candidate16384-work budget. New obstacles, shape edits,
+teleports and unrelated moving bodies retain admission checks. Dynamic support
+transport uses actual native displacement.
+
+Requested/copied character velocity describes relative locomotion and excludes
+transport, shallow correction and floor following. Ground point velocity remains
+world-space. Persistent intent never accumulates platform velocity. Explicit
+separating jump intent detaches before transport; no departure momentum is added.
+Game C++ can choose a departure policy. There is no transform parenting or second
+pose writer. Fresh recovery derives support and samples the next rigid step through
+the same path. No cross-step carry state is persisted: private codec8 and outer2
+remain unchanged. The component header changes the exact SDK fingerprint, requiring
+matching rebuilt modules without changing authored identities or scene formats.
+
+Character2D includes original Moving Platform2D C++ code and a cyan Kinematic
+platform. Editable endpoints and one-direction duration drive ordinary
+`sdk::Client::move_2d(..., true)` requests. The player enables carry. The example's
+elapsed path clock is transient C++ state; arbitrary module-state recovery is not
+promised. The existing preparation tool stamps every inspected authored type
+using the runtime schema instead of assuming a one-component module.
 
 ## Matching C++ SDK
 

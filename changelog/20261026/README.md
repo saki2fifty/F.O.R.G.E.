@@ -1,6 +1,26 @@
-# 2026-10-26 — One-way 2D platforms
+# 2026-10-26 — 2D platforms
 
 Local source; Windows verification and numbered delivery remain pending.
+
+## Moving-platform character transport
+
+- Character Controller2D adds default-off **Follow moving platforms**. Grounded
+  characters can ride ordinary moving Kinematic/Dynamic support while retaining
+  relative locomotion velocity and game-owned gravity/jump policy.
+- Existing native records, bounded movement queries and endpoint admission handle
+  translation, rotation, wall clipping and fail-before-adoption crush. No parenting,
+  second pose authority, dependency or persisted carry cache was added.
+- Shared Inspector/automation/MCP fields retain validation, Undo/Redo and Save.
+  The component header requires a matching SDK/module rebuild; Scene/Prefab identity
+  formats and private recovery versions remain unchanged.
+- Character2D includes an original editable Moving Platform2D component/system
+  and a cyan platform. The ordinary example preparation tool admits multiple
+  inspected authored types in the same module.
+- Focused controller, fresh recovery, actual Inspector/MCP and relocated installed
+  SDK example checks accompany the workflow. Native Windows verification remains
+  separately pending.
+
+## One-way platforms
 
 - Physics Body 2D has default-off One-way collision and a world-space One-way
   margin. The selected profile uses Static nonsensor Box platforms and their

@@ -51,16 +51,18 @@ def prepare(source, output, runtime, tools, module=None, module_kit=None,
         dependencies=dependencies if dependencies is not None else ['forge.physics'])]
     settings_path.write_text(json.dumps(settings, indent=2) + '\n')
     inspected = run_json(runtime, '--inspect-sdk', output)
-    declaration, = inspected['components']
-    if declaration['id'] != component:
+    declarations = {entry['id']: entry for entry in inspected['components']}
+    if component not in declarations:
         raise ValueError('Unexpected example schema')
-    stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
-                 schema_version=declaration['schema_version'], digest=declaration['digest'])
     scene_path = output / settings['startup_scene']['source']
     scene = json.loads(scene_path.read_text())
     for entity in scene['entities']:
-        data = entity['components'].get(component)
-        if data is not None:
+        for name, data in entity['components'].items():
+            if name not in declarations:
+                continue
+            declaration = declarations[name]
+            stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
+                         schema_version=declaration['schema_version'], digest=declaration['digest'])
             if '$forge' in data and data['$forge'] != stamp:
                 raise ValueError('Example source schema needs explicit migration')
             data['$forge'] = stamp

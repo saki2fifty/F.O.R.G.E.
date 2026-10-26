@@ -4,6 +4,7 @@
 #include "physics_2d_mover_support_tests.hpp"
 #include "physics_2d_mover_tests.hpp"
 #include "physics_2d_one_way_tests.hpp"
+#include "physics_2d_platform_carry_tests.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -296,8 +297,13 @@ int main() {
         forge::test::test_mover_support_curves();
         forge::test::test_mover_support_recovery();
         forge::test::test_mover_support_fixed_budget();
+        forge::test::test_platform_carry_motion();
+        forge::test::test_platform_carry_rotation();
+        forge::test::test_platform_carry_obstruction();
+        forge::test::test_platform_carry_lifetime_recovery();
+        forge::test::test_platform_carry_dynamic_and_teleport();
         forge::test::test_mover_velocity_precision();
-        std::cout << "Native mover support/floor-follow/lifetime/recovery PASS\n";
+        std::cout << "Native mover support/carry/floor-follow/lifetime/recovery PASS\n";
         for (double offset : {0., 999000., -999000.})
             geometry_queries_and_recovery(offset);
         capacity_and_invalid_geometry();

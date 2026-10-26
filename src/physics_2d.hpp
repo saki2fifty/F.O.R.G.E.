@@ -23,6 +23,7 @@ struct BoxPart2D {
 };
 struct MoverProfile2D {
     float minimum_floor_y = -1, floor_probe = .1f;
+    bool platform_carry = false;
     bool operator==(const MoverProfile2D&) const = default;
 };
 struct Body2DConfiguration {

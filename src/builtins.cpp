@@ -167,10 +167,15 @@ template <class T> Json encode(const T& p) {
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController2D>)
-        return {{"enabled", p.enabled},     {"mode", p.mode},
-                {"radius", p.radius},       {"height", p.height},
-                {"max_slope", p.max_slope}, {"floor_probe", p.floor_probe},
-                {"layer", p.layer},         {"mask", p.mask}};
+        return {{"enabled", p.enabled},
+                {"mode", p.mode},
+                {"radius", p.radius},
+                {"height", p.height},
+                {"max_slope", p.max_slope},
+                {"floor_probe", p.floor_probe},
+                {"layer", p.layer},
+                {"mask", p.mask},
+                {"platform_carry", p.platform_carry}};
     else if constexpr (std::is_same_v<T, CharacterController>)
         return {{"enabled", p.enabled},
                 {"shape", p.shape},
@@ -490,11 +495,15 @@ template <class T> Value decode(const Json& p) {
         return T{p.at("enabled")};
     else if constexpr (std::is_same_v<T, CharacterController2D>) {
         const T defaults{};
-        T value{
-            p.value("enabled", defaults.enabled),     p.value("mode", defaults.mode),
-            p.value("radius", defaults.radius),       p.value("height", defaults.height),
-            p.value("max_slope", defaults.max_slope), p.value("floor_probe", defaults.floor_probe),
-            p.value("layer", defaults.layer),         p.value("mask", defaults.mask)};
+        T value{p.value("enabled", defaults.enabled),
+                p.value("mode", defaults.mode),
+                p.value("radius", defaults.radius),
+                p.value("height", defaults.height),
+                p.value("max_slope", defaults.max_slope),
+                p.value("floor_probe", defaults.floor_probe),
+                p.value("layer", defaults.layer),
+                p.value("mask", defaults.mask),
+                p.value("platform_carry", defaults.platform_carry)};
         if (double(value.height) + 2 * double(value.radius) > 1000)
             throw std::runtime_error("Character Controller 2D total capsule height exceeds1000m");
         return value;
@@ -1010,7 +1019,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("max_slope")
             .template member<float>("floor_probe")
             .template member<std::uint32_t>("layer")
-            .template member<std::uint32_t>("mask");
+            .template member<std::uint32_t>("mask")
+            .template member<bool>("platform_carry");
     else if constexpr (std::is_same_v<T, CharacterController>)
         c.template member<bool>("enabled")
             .template member<std::uint32_t>("shape")
@@ -1517,6 +1527,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
         value["nullable"] = true;
     }
     if (name == "forge.character_controller_2d") {
+        if (field == "platform_carry") {
+            value.erase("minimum");
+            value.erase("maximum");
+            value["display_name"] = "Follow moving platforms";
+            value["description"] = "Carry grounded feet with an ordinary moving support; "
+                                   "locomotion velocity excludes transport, jumping detaches";
+        }
         if (field == "enabled") {
             value.erase("minimum");
             value.erase("maximum");

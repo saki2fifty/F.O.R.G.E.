@@ -61,7 +61,7 @@ In **Examples/Character2D**, walk slightly left under the green platform and jum
 The character passes through its underside and lands on top. Its C++ code still
 chooses jump speed and gravity; the controller handles the platform response.
 
-This setting supports Static nonsensor Box platforms. Moving platforms and painted
+This setting supports Static nonsensor Box platforms. Moving one-way platforms and painted
 Tile Map one-way collision are unavailable. Geometric ray, overlap and sweep
 queries still see the whole Box. Checked character placement rejects embedded
 positions even when the character could pass through during ordinary movement.
@@ -165,9 +165,29 @@ need independent rotation. Do not add an enabled Physics Body or another control
 to the same object.
 
 Grounded mode reports floor support and can follow a nearby descending surface.
-Floating mode accepts XY movement without floor support. This profile does not
-provide automatic stairs, crouching, moving-platform carry or 2D navigation.
+Floating mode accepts XY movement without floor support. Automatic stairs,
+crouching and 2D navigation are unavailable.
 See the example's **README.md** for the editable source and export experiment.
+
+### Ride a moving platform
+
+1. Open **Examples/Character2D**, build Project Code and press Play.
+2. Use A/D and Space to cross the stepping stone to the right painted ledge, then jump onto the cyan **Moving platform - jump aboard**. Once landed, the player travels with it while standing still and can walk or jump off.
+3. Stop and select the player. **Character Controller 2D → Follow moving platforms** enables this behavior. It is off by default on new controllers; the example turns it on.
+4. Select the platform. **Moving Platform 2D** contains start/end X/Y positions and **duration**, the seconds for one direction of travel. Keep duration between `0.1` and `60`, and path speed at most `20` metres/second. Its **Physics Body 2D → Motion** is **Kinematic**.
+5. Change an endpoint or duration while stopped, save the Scene and Play again. Export with the matching runtime and module kit to keep the saved path and controller setting in the game.
+
+For your own platform, use an ordinary Kinematic or Dynamic nonsensor body and
+move it through the corresponding C++ body controls. Only walkable support carries
+a Grounded character. The capsule stays upright on rotating platforms. Jumping
+detaches without automatic momentum from the platform. Reported character velocity
+excludes transport; support velocity remains world-space. This does not parent
+transforms or follow a teleported platform.
+
+Walls can stop the carried character. If an elevator traps it against a ceiling
+or another solid, Play reports an embedded/crushed movement error. Stop and leave
+enough clearance or change the path. The engine does not stop the platform for
+the character. Moving one-way platforms are unavailable.
 
 ## Export
 

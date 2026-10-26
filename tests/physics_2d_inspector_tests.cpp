@@ -115,37 +115,56 @@ void exercise(const std::filesystem::path& project, float scale) {
             one_way_field = field;
     require(!one_way_field.is_null() && one_way_field.at("display_name") == "One-way collision",
             "Inspector did not discover one-way response");
-    Json one_way = false;
-    ImVec2 checkbox{};
-    auto toggle_frame = [&] {
-        ImGui::NewFrame();
-        ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
-        ImGui::SetNextWindowSize({700, 500}, ImGuiCond_Always);
-        ImGui::Begin("One-way Inspector");
-        if (property_field(project, one_way_field, one_way))
-            authoring_command(scene, "property.set",
-                              {{"entity", entity},
-                               {"component", "forge.physics_body_2d"},
-                               {"field", "one_way"},
-                               {"value", one_way}});
-        const auto position = ImGui::GetItemRectMin();
-        checkbox = {position.x + ImGui::GetFrameHeight() * .5f,
-                    position.y + ImGui::GetFrameHeight() * .5f};
-        ImGui::End();
-        ImGui::Render();
+    const auto toggle = [&](const Json& field, const char* component, const char* member) {
+        Json value = false;
+        ImVec2 checkbox{};
+        const auto frame = [&] {
+            ImGui::NewFrame();
+            ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+            ImGui::SetNextWindowSize({700, 500}, ImGuiCond_Always);
+            ImGui::Begin("Planar checkbox Inspector");
+            if (property_field(project, field, value))
+                authoring_command(scene, "property.set",
+                                  {{"entity", entity},
+                                   {"component", component},
+                                   {"field", member},
+                                   {"value", value}});
+            const auto position = ImGui::GetItemRectMin();
+            checkbox = {position.x + ImGui::GetFrameHeight() * .5f,
+                        position.y + ImGui::GetFrameHeight() * .5f};
+            ImGui::End();
+            ImGui::Render();
+        };
+        frame();
+        frame();
+        io.AddMousePosEvent(checkbox.x, checkbox.y);
+        frame();
+        io.AddMouseButtonEvent(0, true);
+        frame();
+        io.AddMouseButtonEvent(0, false);
+        frame();
     };
-    toggle_frame();
-    toggle_frame();
-    io.AddMousePosEvent(checkbox.x, checkbox.y);
-    toggle_frame();
-    io.AddMouseButtonEvent(0, true);
-    toggle_frame();
-    io.AddMouseButtonEvent(0, false);
-    toggle_frame();
+    toggle(one_way_field, "forge.physics_body_2d", "one_way");
     require(scene.entity(entity).get<PhysicsBody2D>().one_way && scene.undo() &&
                 !scene.entity(entity).get<PhysicsBody2D>().one_way && scene.redo() &&
                 scene.entity(entity).get<PhysicsBody2D>().one_way,
             "One-way checkbox did not share typed Inspector history");
+    authoring_command(scene, "component.add",
+                      {{"entity", entity}, {"component", "forge.character_controller_2d"}});
+    Json carry_field;
+    const auto controller_schema = scene.schema();
+    for (const auto& component : controller_schema.at("components"))
+        if (component.at("id") == "forge.character_controller_2d")
+            for (const auto& field : component.at("fields"))
+                if (field.at("id") == "platform_carry")
+                    carry_field = field;
+    require(carry_field.at("display_name") == "Follow moving platforms",
+            "Inspector did not discover the platform carry setting");
+    toggle(carry_field, "forge.character_controller_2d", "platform_carry");
+    require(scene.entity(entity).get<CharacterController2D>().platform_carry && scene.undo() &&
+                !scene.entity(entity).get<CharacterController2D>().platform_carry && scene.redo() &&
+                scene.entity(entity).get<CharacterController2D>().platform_carry,
+            "Moving platform checkbox did not preserve typed Inspector history");
     require(!engine.services().available(Capability::Physics), "Inspector created a solver");
     ImGui::DestroyContext();
 }

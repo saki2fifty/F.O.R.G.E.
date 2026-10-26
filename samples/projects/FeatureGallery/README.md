@@ -14,7 +14,8 @@ arrow toward the platform's solid face; negative Y scale reverses that face.
 
 Save the Scene, choose it as startup and export with the matching runtime kit.
 This scene needs no project C++ module. For a controllable jumping character,
-open the separate [Character2D project](../Character2D/README.md).
+open the separate [Character2D project](../Character2D/README.md). It also contains
+an editable moving platform and a player with **Follow moving platforms** enabled.
 
 ## Sprite image regions
 

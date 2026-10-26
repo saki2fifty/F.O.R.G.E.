@@ -22,6 +22,7 @@ struct CharacterController2D {
     float max_slope = 50;             // Walkable degrees, Grounded only.
     float floor_probe = .1f;          // World metres; zero disables floor following.
     std::uint32_t layer = 0, mask = UINT32_MAX;
+    bool platform_carry = false; // Grounded transport; intent stays relative to the support.
     bool operator==(const CharacterController2D&) const = default;
 };
 } // namespace forge

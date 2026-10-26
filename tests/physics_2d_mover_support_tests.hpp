@@ -144,6 +144,7 @@ inline void test_mover_support_curves() {
                                                    : "00000000-0000-4000-8000-000000000001");
         test.desired.at(lower_id).ref = lower;
         test.desired.at(upper_id).ref = upper;
+        test.desired.at(upper_id).config.mover_profile->platform_carry = true;
         test.synchronize();
         test.native.move_mover(test.id(lower), lower, {1, 0});
         test.native.move_mover(test.id(upper), upper, {0, -1});
@@ -152,7 +153,8 @@ inline void test_mover_support_curves() {
         const auto b = test.native.mover_state(test.id(upper), upper);
         check_mover(
             a && b && b->support && b->support->entity == lower && b->support->epoch == a->epoch &&
-                b->support->velocity == a->velocity && b->support->point[1] > 1.19,
+                b->support->velocity == a->velocity && b->support->point[1] > 1.19 &&
+                std::abs(b->position[0]) < .001,
             "Controller support lost final-phase velocity, epoch or capsule surface position");
     }
     MoverNativeFixture spinning;

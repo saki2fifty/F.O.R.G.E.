@@ -179,11 +179,11 @@ b2ShapeProxy configured_proxy(const Body2DConfiguration& config, std::size_t par
 }
 // Detached admission uses candidate geometry, including newly created/edited
 // obstacles. It cannot query the old world and accidentally certify stale content.
-void validate_mover_candidates(const Desired2D& desired,
-                               const std::vector<std::uint64_t>& changed) {
+void validate_mover_candidates(const Desired2D& desired, const std::vector<std::uint64_t>& changed,
+                               const std::map<std::uint64_t, std::uint64_t>& carried_targets,
+                               std::size_t& work) {
     if (changed.empty())
         return;
-    std::size_t work = 0;
     for (const auto& [id, mover] : desired) {
         if (!mover.config.mover_profile)
             continue;
@@ -192,6 +192,12 @@ void validate_mover_candidates(const Desired2D& desired,
             const auto& other = desired.at(other_id);
             const auto &a = mover.config.body, &b = other.config.body;
             if (id == other_id || b.sensor)
+                return;
+            // An unchanged Kinematic support target is continuous motion,
+            // not newly embedded authored geometry. Carry performs its own
+            // bounded path and endpoint checks after that rigid motion.
+            const auto carried = carried_targets.find(id);
+            if (carried != carried_targets.end() && carried->second == other_id)
                 return;
             if (a.layer >= 32 || b.layer >= 32)
                 throw std::runtime_error("2D controller collision layer exceeds31");
@@ -329,7 +335,7 @@ Body2DConfiguration controller_configuration_2d(const CharacterController2D& val
     auto config = inline_configuration_2d(inner, 2, {value.radius, value.height}, scale);
     config.mover_profile = MoverProfile2D{
         value.mode == 1 ? -1.f : float(std::cos(value.max_slope * std::numbers::pi / 180)),
-        value.floor_probe};
+        value.floor_probe, value.platform_carry};
     validate_geometry(config);
     return config;
 }
@@ -691,6 +697,11 @@ struct Native2D::Impl {
         b2Pos position{};
         b2Rot rotation = b2Rot_identity;
     };
+    struct Body;
+    struct CarryStart {
+        const Body* support;
+        SideSample pose;
+    };
     struct Body {
         b2BodyId id{};
         std::vector<b2ShapeId> shapes;
@@ -702,6 +713,9 @@ struct Native2D::Impl {
         bool mover_placement_blocked = false;
         b2ShapeProxy response_proxy{}; // Derived admitted primitive, never another geometry owner.
         std::optional<SideSample> last_start{}, preceding_start{};
+        // Borrowed only across one rigid step; never checkpointed or retained
+        // across synchronization, body replacement or command application.
+        std::optional<CarryStart> carry_start{};
     };
     std::size_t response_work = 0;
     bool response_failed = false;
@@ -804,9 +818,12 @@ struct Native2D::Impl {
     struct PhysicalMover {
         const Body* actor;
         SideSample pose;
+        const Body* ignored_support = nullptr;
     };
     static bool physical_response(const Body& platform, const PhysicalMover* mover,
                                   const b2Vec2* outward = nullptr) noexcept {
+        if (mover && mover->ignored_support == &platform)
+            return false;
         if (!mover || !platform.admitted.config.body.one_way)
             return true;
         const auto normal = one_way_normal(platform);
@@ -857,15 +874,17 @@ struct Native2D::Impl {
         for (auto id : mover_order) {
             auto& body = bodies.at(id);
             const auto position = b2Body_GetPosition(body.id);
-            auto request = mover_request(body, {position.x, position.y});
+            const auto feet = carry_mover(body, {position.x, position.y}, work);
+            body.carry_start.reset();
+            auto request = mover_request(body, feet);
             request.displacement = {body.mover_intent[0] * dt, body.mover_intent[1] * dt};
             const auto& profile = *body.admitted.config.mover_profile;
             const PhysicsQueryFilter filter{body.admitted.config.body.mask, false};
             const auto category = std::uint64_t{1} << body.admitted.config.body.layer;
-            const PhysicalMover response{&body, sample(body)};
+            const PhysicalMover response{&body, {{feet[0], feet[1]}, b2Rot_identity}};
             const auto motion =
                 motion_mover(request, filter, work, category, profile.minimum_floor_y, &response);
-            Double2 next{position.x + motion.translation[0], position.y + motion.translation[1]};
+            Double2 next{feet[0] + motion.translation[0], feet[1] + motion.translation[1]};
             Double2 velocity{};
             for (unsigned axis = 0; axis < 2; ++axis)
                 velocity[axis] =
@@ -911,14 +930,57 @@ struct Native2D::Impl {
         if (mover_order.size() > 1)
             refresh_mover_supports(work);
     }
-    void refresh_mover_supports(std::size_t& work) {
+    void refresh_mover_supports(std::size_t& work, bool capture_carry = false) {
         for (auto id : mover_order) {
             auto& body = bodies.at(id);
             const auto position = b2Body_GetPosition(body.id);
+            const Body* supporting = nullptr;
             body.mover_support =
-                support_mover(body, {position.x, position.y}, body.mover_intent, work);
+                support_mover(body, {position.x, position.y}, body.mover_intent, work, &supporting);
             body.mover_support_valid = true;
+            if (capture_carry) {
+                body.carry_start.reset();
+                if (body.admitted.config.mover_profile->platform_carry && body.mover_support &&
+                    body.mover_support->walkable && supporting &&
+                    supporting->admitted.config.body.motion != 0 &&
+                    !supporting->admitted.config.mover_profile)
+                    body.carry_start = CarryStart{supporting, sample(*supporting)};
+            }
         }
+    }
+    Double2 carry_mover(const Body& body, Double2 feet, std::size_t& work) const {
+        if (!body.carry_start)
+            return feet;
+        const auto& start = *body.carry_start;
+        const auto end = sample(*start.support);
+        if (start.pose.position.x == end.position.x && start.pose.position.y == end.position.y &&
+            start.pose.rotation.c == end.rotation.c && start.pose.rotation.s == end.rotation.s)
+            return feet;
+        // Transport the lower cap center in the support's rigid frame. This
+        // keeps the round cap supported as the floor tilts while the capsule
+        // stays upright. Subtract double origins before rotation.
+        const double radius = body.admitted.config.dimensions[0];
+        const double x = feet[0] - start.pose.position.x;
+        const double y = feet[1] - start.pose.position.y + radius;
+        const double local_x = start.pose.rotation.c * x + start.pose.rotation.s * y;
+        const double local_y = -start.pose.rotation.s * x + start.pose.rotation.c * y;
+        auto request = mover_request(body, feet);
+        request.displacement = {end.position.x - feet[0] + end.rotation.c * local_x -
+                                    end.rotation.s * local_y,
+                                end.position.y - feet[1] + end.rotation.s * local_x +
+                                    end.rotation.c * local_y - radius};
+        if (std::hypot(request.displacement[0], request.displacement[1]) > 1000)
+            throw std::runtime_error("2D platform carry exceeds1000m per fixed step");
+        const PhysicsQueryFilter filter{body.admitted.config.body.mask, false};
+        const auto category = std::uint64_t{1} << body.admitted.config.body.layer;
+        // The support has already moved and can intersect the old capsule.
+        // Exclude just that support during transport. The ordinary locomotion
+        // solve immediately afterward includes every solid, including this
+        // carrier, and owns bounded shallow recovery plus endpoint validation.
+        const PhysicalMover transport{&body, {{feet[0], feet[1]}, b2Rot_identity}, start.support};
+        const auto motion = motion_mover(request, filter, work, category, -1, &transport);
+        const Double2 next{feet[0] + motion.translation[0], feet[1] + motion.translation[1]};
+        return next;
     }
     struct Joint {
         b2JointId id{};
@@ -1267,6 +1329,7 @@ struct Native2D::Impl {
         double departure_tolerance = 0;
         std::optional<MoverSupport2D> support;
         const PhysicalMover* response = nullptr;
+        const Body* support_body = nullptr;
     };
     static bool mover_plane_hit(b2ShapeId shape, const b2PlaneResult* value,
                                 void* pointer) noexcept {
@@ -1336,6 +1399,7 @@ struct Native2D::Impl {
                 query.support =
                     MoverSupport2D{body->admitted.ref, body->epoch, {normal.x, normal.y}, point,
                                    velocity,           walkable};
+                query.support_body = body;
             }
         }
         for (std::size_t i = 0; i < query.count; ++i) {
@@ -1380,7 +1444,8 @@ struct Native2D::Impl {
         }
     }
     std::optional<MoverSupport2D> support_mover(const Body& body, Double2 feet, Double2 intent,
-                                                std::size_t& work) const {
+                                                std::size_t& work,
+                                                const Body** supporting = nullptr) const {
         const auto floor = body.admitted.config.mover_profile->minimum_floor_y;
         if (floor < 0)
             return {};
@@ -1396,6 +1461,8 @@ struct Native2D::Impl {
         gather_mover_planes(planes, {request.shape, request.dimensions, request.origin, 0},
                             request.origin, std::uint64_t{1} << body.admitted.config.body.layer,
                             .01f);
+        if (supporting)
+            *supporting = planes.support_body;
         return planes.support;
     }
     static void check_mover_planes(const MoverPlanes& planes, b2Vec2 value) {
@@ -1571,7 +1638,8 @@ Json Body2DConfiguration::json() const {
         {"body", detail::encode_builtin_value(body)}, {"shape", shape}, {"dimensions", dimensions}};
     if (mover_profile)
         result["mover_profile"] = {{"minimum_floor_y", mover_profile->minimum_floor_y},
-                                   {"floor_probe", mover_profile->floor_probe}};
+                                   {"floor_probe", mover_profile->floor_probe},
+                                   {"platform_carry", mover_profile->platform_carry}};
     if (shape == 3) {
         validate_geometry(*this);
         result["parts"] = Json::array();
@@ -2020,7 +2088,13 @@ void Native2D::validate(const Desired2D& desired, float dt,
     const bool has_movers = std::any_of(desired.begin(), desired.end(), [](const auto& value) {
         return bool(value.second.config.mover_profile);
     });
+    const bool has_carry =
+        has_movers && std::any_of(desired.begin(), desired.end(), [](const auto& value) {
+            return value.second.config.mover_profile &&
+                   value.second.config.mover_profile->platform_carry;
+        });
     std::vector<std::uint64_t> changed;
+    std::map<EntityRef, std::uint64_t> moving_targets;
     for (const auto& [id, value] : desired) {
         const auto old = self.bodies.find(id);
         const bool configuration_changed = old == self.bodies.end() ||
@@ -2028,6 +2102,9 @@ void Native2D::validate(const Desired2D& desired, float dt,
                                            old->second.admitted.config != value.config;
         if (configuration_changed)
             validate_geometry(value.config);
+        if (has_carry && dt > 0 && !configuration_changed && value.config.body.motion == 1 &&
+            !value.config.mover_profile && !placements.contains(id))
+            moving_targets.emplace(value.ref, id);
         if (has_movers &&
             (configuration_changed ||
              !equivalent(LocalTranslation{value.pose.translation.x, value.pose.translation.y, 0},
@@ -2073,7 +2150,26 @@ void Native2D::validate(const Desired2D& desired, float dt,
                                          "use an explicit placement command");
         }
     }
-    validate_mover_candidates(desired, changed);
+    std::size_t candidate_work = 0;
+    std::map<std::uint64_t, std::uint64_t> carried_targets;
+    if (!changed.empty() && !moving_targets.empty())
+        for (auto id : self.mover_order) {
+            const auto& body = self.bodies.at(id);
+            const auto next = desired.find(id);
+            if (next == desired.end() || next->second.ref != body.admitted.ref ||
+                next->second.config != body.admitted.config || placements.contains(id) ||
+                !body.admitted.config.mover_profile->platform_carry)
+                continue;
+            const auto position = b2Body_GetPosition(body.id);
+            const auto support = self.support_mover(body, {position.x, position.y},
+                                                    body.mover_intent, candidate_work);
+            if (support && support->walkable) {
+                const auto target = moving_targets.find(support->entity);
+                if (target != moving_targets.end())
+                    carried_targets.emplace(id, target->second);
+            }
+        }
+    validate_mover_candidates(desired, changed, carried_targets, candidate_work);
 }
 void Native2D::synchronize(const Desired2D& desired, const Desired2D& initial, float,
                            const std::set<std::uint64_t>& commanded,
@@ -2658,7 +2754,7 @@ void Native2D::step(float dt, std::uint64_t tick) {
             body.last_start = Impl::sample(body);
         }
     try {
-        self.refresh_mover_supports(mover_work);
+        self.refresh_mover_supports(mover_work, true);
     } catch (...) {
         self.fault = true;
         throw;

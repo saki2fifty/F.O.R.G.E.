@@ -132,8 +132,8 @@ Use upright World binding and shared native/outline capsule conversion.
 Bounded plane response, independent penetration admission and read-only support
 observation compose existing exact-pin public APIs. Native callback work is bounded;
 a failed composed movement or placement batch must fault before adoption or
-continuation. Floor following is vertical and does not promise stairs or platform
-carry. Both real hosts use one copied character-debug projection; the editor owns
+continuation. Floor following is vertical; stairs remain outside this profile and
+platform transport requires the option below. Both real hosts use one copied character-debug projection; the editor owns
 only inspection/Scene guides. C SDK tail additions retain ABI1 and change the exact
 fingerprint so modules rebuild.
 
@@ -142,6 +142,27 @@ and copied placement status. The outer ordinary-Play checkpoint stays2. Exact
 build/source/fingerprint guards and combined byte limits remain unchanged; older
 checkpoints reject. No authored identity/Scene migration or arbitrary C++ recovery
 is introduced. The integration contract owns numerical details and limits.
+
+### Optional moving-support transport
+
+Extend the same controller with default-off platform_carry. Existing Native2D body
+records hold only a transient pre-step reference/rigid transform of currently
+walkable ordinary Kinematic/Dynamic support. Derive transport from actual rigid
+motion of the lower capsule cap center and run existing bounded move/slide before
+relative locomotion. Exclude only the carrier during transport. The following
+ordinary locomotion owns shallow recovery and endpoint checks against all solids.
+Crush follows the existing fail-before-adoption deep-overlap policy. No new
+parenting, pose authority, service, native world or durable contact cache.
+Other controllers and moving one-way surfaces are excluded. Separating intent
+detaches without departure momentum. The capsule stays upright; each step casts
+linear transport displacement, not an angular swept volume.
+
+Detached admission may exempt a continuous unchanged Kinematic target only after
+proving current walkable support of an unchanged opt-in controller. Share that
+proof with the existing candidate-work bound; retain edited/new geometry admission.
+No carried state survives the fixed step, so private codec8/outer2 do not change.
+The additive flag and matching SDK fingerprint preserve authored identities and
+old default behavior. Technical/manual contracts define numerical limits.
 
 ## One-way surface extension
 

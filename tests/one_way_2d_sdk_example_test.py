@@ -29,6 +29,8 @@ def main():
             shutil.copytree(source / 'samples/projects' / name / 'Native', client)
             (client / 'one_way_boundary.cpp').write_text(
                 '#include <forge/physics_components.hpp>\n'
+                '#include <forge/character_components.hpp>\n'
+                'static_assert(!forge::CharacterController2D{}.platform_carry);\n'
                 'static_assert(!forge::PhysicsBody2D{}.one_way);\n'
                 'static_assert(forge::PhysicsBody2D{}.one_way_margin == .02f);\n', encoding='utf-8')
             with (client / 'CMakeLists.txt').open('a', encoding='utf-8') as output:
@@ -54,6 +56,7 @@ def main():
             assert len(observations) == 4
             if name == 'Character2D':
                 assert all(r['one_way_landing'] for r in observations)
+                assert all(r['platform_ride'] for r in observations)
     print('Relocated installed SDK/public one-way defaults/compiled Movement2D and Character2D/both hosts passed')
 
 

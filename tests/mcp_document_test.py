@@ -76,6 +76,10 @@ for legacy in (False, True):
         fields = {f['id']: f for f in body_schema['fields']}
         assert fields['one_way']['display_name'] == 'One-way collision'
         assert fields['one_way_margin']['unit'] == 'm'
+        controller_schema = next(c for c in state['result']['schema']['components']
+                                 if c['id'] == 'forge.character_controller_2d')
+        carry = next(f for f in controller_schema['fields'] if f['id'] == 'platform_carry')
+        assert carry['display_name'] == 'Follow moving platforms' and carry['default'] is False, carry
         workflows = state['result']['workflow_methods']
         assert {item['method'] for item in workflows} == {
             'project.read', 'document.save', 'document.save_as', 'document.new', 'document.open'}
@@ -114,6 +118,19 @@ for legacy in (False, True):
         assert not invalid['ok'] and discover()['revision'] == before_invalid['revision'], invalid
         assert mutate('forge_history_undo')['result']['changed']
         assert mutate('forge_history_redo')['result']['changed']
+        character = mutate('forge_entity_create', arguments=dict(kind=0, name='Platform rider'))
+        assert character['ok'], character
+        rider = character['result']['results'][0]['selected']
+        assert mutate('forge_component_add', arguments=dict(
+            entity=rider, component='forge.character_controller_2d'))['ok']
+        assert mutate('forge_property_set', arguments=dict(entity=rider,
+            component='forge.character_controller_2d', field='platform_carry', value=True))['ok']
+        before_invalid = discover()
+        invalid = mutate('forge_property_set', arguments=dict(entity=rider,
+            component='forge.character_controller_2d', field='platform_carry', value=1))
+        assert not invalid['ok'] and discover()['revision'] == before_invalid['revision'], invalid
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
         assert status()['dirty']
         saved = mutate('forge_document_save')
         assert saved['ok'] and not saved['result']['rediscover'], saved
@@ -123,6 +140,7 @@ for legacy in (False, True):
         assert saved_doc['entities'][0]['name'] == 'Saved agent cube'
         body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
         assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body
+        assert saved_doc['entities'][1]['components']['forge.character_controller_2d']['platform_carry']
         assert discover()['result']['target'] == original
 
         # Disk conflict/deletion is not silently overwritten, even for a clean draft.

@@ -77,6 +77,37 @@ def verify(runtime, project):
         assert top > 2.7 and player(state)[component]['grounded'], player(state)
         assert abs(player(state)['forge.local_translation']['y'] - 2.6) < .03, player(state)
 
+    def platform_ride(worker, sdk_play):
+        source = json.loads(saved)
+        actor = next(row for row in source['entities'] if component in row['components'])
+        platform = next(row for row in source['entities']
+                        if 'project.moving_platform_2d' in row['components'])
+        actor['components']['forge.local_translation'].update(x=1.5, y=3.6)
+        # An uphill diagonal path also tests vertical transport through the
+        # same authored C++ system, without synthesizing controller intent.
+        platform['components']['project.moving_platform_2d']['end_y'] = 4.5
+        activate(worker, source, sdk_play)
+        if sdk_play:
+            start = worker.request('resume')
+            deadline = time.monotonic() + 15
+            state = start
+            while state['timing']['tick'] < start['timing']['tick'] + 90:
+                assert time.monotonic() < deadline, state
+                time.sleep(.005)
+                state = worker.request('snapshot')
+            state = worker.request('pause')
+        else:
+            for _ in range(90):
+                state = worker.request('step')
+        position = player(state)['forge.local_translation']
+        platform_position = next(row['components']['forge.local_translation']
+                                 for row in state['scene']['entities']
+                                 if 'project.moving_platform_2d' in row['components'])
+        assert position['x'] > 2.9 and position['y'] > 4.05, (position, platform_position)
+        assert abs(position['x'] - platform_position['x']) < .02, (position, platform_position)
+        assert abs(position['y'] - platform_position['y'] - .1) < .02, (position, platform_position)
+        assert player(state)[component]['grounded'], player(state)
+
     observations = []
     for sdk_play in (False, True):
         for speed, jump_speed in ((4., 6.), (2., 8.)):
@@ -136,6 +167,8 @@ def verify(runtime, project):
                     if controller:
                         one_way_jump(worker, True, speed, jump_speed)
                         observations[-1]['one_way_landing'] = True
+                        platform_ride(worker, True)
+                        observations[-1]['platform_ride'] = True
                     continue
                 for tick in range(18):
                     event = dict(input_events=[dict(control='key.d', value=1)]) if tick == 0 else {}
@@ -194,6 +227,8 @@ def verify(runtime, project):
                 if controller:
                     one_way_jump(worker, sdk_play, speed, jump_speed)
                     observations[-1]['one_way_landing'] = True
+                    platform_ride(worker, sdk_play)
+                    observations[-1]['platform_ride'] = True
             finally:
                 worker.close()
     assert scene_path.read_bytes() == saved, 'Play changed the saved Scene'

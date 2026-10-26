@@ -243,6 +243,9 @@ try:
             if planar_body is not None:
                 planar_body.setdefault('one_way', False)
                 planar_body.setdefault('one_way_margin', .02)
+            controller_2d = row['components'].get('forge.character_controller_2d')
+            if controller_2d is not None:
+                controller_2d.setdefault('platform_carry', False)
             joint = row['components'].get('forge.physics_joint')
             if joint is not None:
                 joint.setdefault('min_travel', -1.)
