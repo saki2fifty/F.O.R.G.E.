@@ -40,6 +40,24 @@ Static placement comes from evaluated world transforms. Kinematic targets use up
 
 Config changes are compared against realized settings at a safe boundary. Compatible motion-type rebuilds preserve linear/angular velocity and activation. Motion-type changes initialize new state. Unchanged bodies are not ordinarily recreated or reactivated. Retiring or rebuilding a solid Static/Kinematic body wakes moving bodies intersecting its previous world bounds, so sleeping bodies respond when support is removed or its collision mask changes. Sensors do not trigger this support wake. Invalid realization is diagnosed; no approximation discards shear. Dynamic direct transform writes are rejected; gameplay must use explicit teleport. Teleport writes supported local channels and resets existing presentation history after the tick.
 
+## Detached synchronization preflight
+
+After preparing required collision assets, each synchronization captures one
+current transform-node snapshot for the initial 3D, 2D and character admissions.
+Private planning functions borrow a supplied snapshot only for the synchronous
+call; callers without one still capture their own. No node pointer or body plan
+is retained across synchronization calls.
+
+FIFO teleport and kinematic targets edit detached nodes. If a pose target was
+admitted, both final body domains are planned again from those nodes. With no pose
+targets, including force/impulse/velocity-only commands, the current call's already
+validated initial body plans remain the final plans. Joint/shape/capacity checks,
+dynamic-writer validation, native retirement and publication retain their order.
+Every call still validates current configuration: mass, damping, enabled state and
+other source edits are applied or rejected normally. Failed admission preserves
+native state and pending intent for a valid retry. This reuses work within one
+owner boundary; it is not a persistent cache or a second transform authority.
+
 ## Body motion tuning
 
 PhysicsBody's trailing `linear_damping` and `angular_damping` default to .05 per

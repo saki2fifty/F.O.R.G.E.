@@ -3,6 +3,43 @@
 Measurements are source- and workload-specific, not a claim
 about physical-GPU FPS or every scene. See [CI](ci.md) for reproducible tooling.
 
+## Reusing detached physics preflight — 2026-10-27
+
+Physics synchronization now captures one current detached transform snapshot for
+initial domain validation. Private planners borrow that snapshot during the call.
+If FIFO pose planning admitted no target, the initial 3D/2D body plans serve as the
+final plans; target commands still rebuild both. Every call continues to validate
+current controls, joints, shapes, writer authority and capacity before publication.
+There is no cross-tick cache. See [Physics](physics.md) for the ownership contract.
+
+The same checked free-fall workload below was run sequentially before and after
+on the shared Linux/QEMU GCC12 Release host, with the same Jolt revision/options,
+CPU affinity and sampling policy. Each size has 48 samples across three fresh
+processes; both reports independently verify all 14,016 final bodies. No other
+build or timing job ran during either report. Source/binary/raw report hashes and
+the retained original runtime are recorded under
+`AgentFiles/build/phase165-physics-preflight-reuse`.
+
+| Bodies | Sync before | Sync after | Change | Fixed tick before | Fixed tick after | Change |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 1.084 ms | 0.498 ms | -54.1% | 1.967 ms | 1.253 ms | -36.3% |
+| 512 | 7.212 ms | 3.746 ms | -48.1% | 11.979 ms | 8.230 ms | -31.3% |
+| 4096 | 60.335 ms | 33.700 ms | -44.1% | 90.636 ms | 64.743 ms | -28.6% |
+
+This is sequential before/after stage wall time, with profiling overhead included;
+shared-VM scheduling and allocator/cache conditions can affect the result. It is
+not a paired physical benchmark, a contact-heavy game result, an optimization of
+Jolt's solver, or a gameFPS claim. Complete tick time includes its stages; do not
+add independent medians. The older baseline below retains its original meaning.
+
+Twenty-six focused native/SDK/installed-SDK/Play/MCP/recovery checks pass, including
+current mass/damping and failure-retained load intent without a pose command.
+Strict ASan/UBSan/leak proof compiles the changed FORGE physics and actual test
+units; unchanged Jolt/Box2D native libraries remain normal. No public SDK data,
+ABI, dependency pin, authored format, UI control or automation operation changes.
+Native Windows/full entry-point and controlled physical/game continuity remain
+pending. Manual/package owner trees and workflows are unchanged.
+
 ## Dynamic 3D physics CPU reports — 2026-10-27
 
 The optional `physics` workload in [CPU profiling](cpu-profiling.md) uses the
@@ -77,9 +114,9 @@ and its evidence are retained separately; final source includes ordered history.
 
 `tools/benchmark_runtime.py` records checked, repeatable scope reports through the
 existing ordinary runtime client/collector. See [CPU profiling](cpu-profiling.md)
-for invocation, sampling and comparison admission. Engine/collector source and
-the measured executable are unchanged from local5453f78; the tool's receipt links
-its exact hashes to that build. Checkout hints in an arbitrary report are not
+for invocation, sampling and comparison admission. For that original baseline, engine/collector source and
+the measured executable matched local5453f78; its receipt links
+the exact hashes to that build. Later pose/physics changes have separate evidence above. Checkout hints in an arbitrary report are not
 independent binary-origin proof.
 
 One local GCC12 Release run used Linux/QEMU Virtual CPU2.5+,24logical processors,

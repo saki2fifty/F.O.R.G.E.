@@ -609,8 +609,10 @@ struct PhysicsRuntime::Impl {
     std::unique_ptr<physics_detail::Native2D> native_2d;
     physics_detail::Desired2D
     desired_2d(const std::map<std::uint64_t, TransformNode>* nodes = nullptr) {
-        return physics_detail::desired_bodies_2d(
-            context, config, nodes ? *nodes : context.transform_nodes(), native_2d.get());
+        if (nodes)
+            return physics_detail::desired_bodies_2d(context, config, *nodes, native_2d.get());
+        return physics_detail::desired_bodies_2d(context, config, context.transform_nodes(),
+                                                 native_2d.get());
     }
     struct JointDesired {
         PhysicsJoint config;
@@ -681,7 +683,9 @@ struct PhysicsRuntime::Impl {
         std::map<std::uint64_t, std::pair<CharacterController, LocalTransform>>;
     CharacterDesired
     desired_characters(const std::map<std::uint64_t, TransformNode>* planned = nullptr) {
-        const auto nodes = planned ? *planned : context.transform_nodes();
+        const auto captured =
+            planned ? std::map<std::uint64_t, TransformNode>{} : context.transform_nodes();
+        const auto& nodes = planned ? *planned : captured;
         const auto evaluated = evaluate_transforms(nodes);
         std::vector<flecs::entity_t> candidates;
         auto q = context.world().query<const CharacterController>();
@@ -1174,9 +1178,11 @@ struct PhysicsRuntime::Impl {
         api.DestroyBody(it->second.id);
         bodies.erase(it);
     }
-    std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>
-    desired(const std::map<std::uint64_t, TransformNode>* planned = nullptr) {
-        const auto nodes = planned ? *planned : context.transform_nodes();
+    using Desired3D = std::map<std::uint64_t, std::pair<Configuration, LocalTransform>>;
+    Desired3D desired(const std::map<std::uint64_t, TransformNode>* planned = nullptr) {
+        const auto captured =
+            planned ? std::map<std::uint64_t, TransformNode>{} : context.transform_nodes();
+        const auto& nodes = planned ? *planned : captured;
         const auto evaluated = evaluate_transforms(nodes);
         std::map<std::uint64_t, std::pair<Configuration, LocalTransform>> result;
         std::vector<flecs::entity_t> candidates;
@@ -1678,9 +1684,12 @@ void PhysicsRuntime::synchronize(float dt) {
         s.native_2d->validate_step();
     if (!s.prepare_assets(true))
         throw std::runtime_error("Required collision assets are still preparing");
-    const auto initial = s.desired();
-    const auto initial_2d = s.desired_2d();
-    const auto initial_characters = s.desired_characters();
+    // Detached owner-thread snapshot shared only within this preflight. Every
+    // domain still validates current configuration before any native/ECS writes.
+    auto nodes = s.context.transform_nodes();
+    const auto initial = s.desired(&nodes);
+    const auto initial_2d = s.desired_2d(&nodes);
+    const auto initial_characters = s.desired_characters(&nodes);
     if (initial.size() + initial_2d.size() + initial_characters.size() > max_bodies)
         throw std::runtime_error("Combined rigid/character body capacity exceeded");
     for (const auto& command : s.character_commands) {
@@ -1696,7 +1705,6 @@ void PhysicsRuntime::synchronize(float dt) {
                                                       {command.position.x, command.position.y});
         }
     }
-    auto nodes = s.context.transform_nodes();
     std::set<std::uint64_t> commanded;
     std::map<std::uint64_t, LocalTransform> placements_2d;
     for (const auto& [id, value] : initial_2d)
@@ -1770,8 +1778,17 @@ void PhysicsRuntime::synchronize(float dt) {
         nodes.at(id).local.rotation = local.rotation;
         commanded.insert(id);
     }
-    const auto desired = s.desired(&nodes);
-    const auto desired_2d = s.desired_2d(&nodes);
+    // Loads and velocity commands leave the detached poses unchanged. Rebuild
+    // only when FIFO pose planning admitted a target, retaining the initial plans
+    // for ordinary ticks. Nothing is cached across synchronization calls.
+    std::optional<Impl::Desired3D> planned;
+    std::optional<physics_detail::Desired2D> planned_2d;
+    if (!commanded.empty()) {
+        planned = s.desired(&nodes);
+        planned_2d = s.desired_2d(&nodes);
+    }
+    const auto& desired = planned ? *planned : initial;
+    const auto& desired_2d = planned_2d ? *planned_2d : initial_2d;
     const auto desired_joints = s.desired_joints(desired);
     const auto desired_joints_2d = physics_detail::desired_joints_2d(s.context, desired_2d, s.tick);
     Impl::validate_joint_capacity(desired_joints.size(), desired_joints_2d.size());

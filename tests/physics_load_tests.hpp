@@ -45,6 +45,34 @@ void physics_load_tests() {
                     check(std::abs(coordinate(f, axis) - first - velocity * damping * dt) < 1e-6,
                           "One-step force/impulse persisted into a later fixed tick");
                 }
+    {
+        // A load-only tick still realizes current configuration. Rejected source
+        // edits must preserve the native state and queued force for a later retry.
+        Fixture f;
+        free_world(f, 2);
+        const auto ref = cube_ref(f);
+        f.physics->add_force(ref, {0, 24, 0});
+        auto entity = f.scene.entity("cube");
+        auto changed = entity.get<PhysicsBody>();
+        changed.mass = 4;
+        changed.linear_damping = 0;
+        entity.set<PhysicsBody>(changed);
+        f.tick();
+        const double dt = double(1.f / 60), first = 24 * dt * dt / 4;
+        check(std::abs(y(f) - first) < 1e-7, "Load-only preflight reused stale mass or damping");
+        f.physics->add_force(ref, {0, 24, 0});
+        auto disabled = changed;
+        disabled.enabled = false;
+        entity.set<PhysicsBody>(disabled);
+        const auto state = f.physics->status(), snapshot = f.scene.snapshot();
+        reject([&] { f.physics->synchronize(1.f / 60); });
+        check(f.physics->status() == state && f.scene.snapshot() == snapshot,
+              "Rejected load-only preflight retired a body or changed source channels");
+        entity.set<PhysicsBody>(changed);
+        f.tick();
+        check(std::abs(y(f) - 3 * first) < 1e-7,
+              "Rejected load-only preflight lost pending force or native velocity");
+    }
     for (bool force : {false, true}) {
         Fixture f;
         free_world(f, 2);

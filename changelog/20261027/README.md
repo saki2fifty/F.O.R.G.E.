@@ -1,5 +1,15 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Physics preflight reuse
+
+Physics synchronization shares one detached node snapshot within the call and
+reuses already validated body plans when no pose target changed it. Current
+configuration still validates every tick; FIFO targets rebuild both domains.
+Focused regression and strict FORGE-unit checks preserve loads, failure retention,
+controllers, joints, recovery and SDK/MCP behavior. Checked sequential VM free-fall
+medians decrease; scope and limits are in the performance evidence. No persistent
+cache, SDK/ABI/dependency change, manual workflow or gameFPS claim.
+
 ## Pose capture ownership and history
 
 Fixed-tick presentation adopts its newly owning node map and aligns sorted history

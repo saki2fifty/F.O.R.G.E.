@@ -12,6 +12,15 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Physics preflight reuse is checked through actual 3D/2D bodies, controllers,
+joints/loads/pose commands, rejected configuration, recovery, both SDK hosts,
+relocated installed SDK and MCP Play consumers. The load-only regression changes
+mass/damping, then rejects a disabled target and verifies retained force/velocity
+on retry. Strict ASan/UBSan/leak coverage compiles the changed FORGE physics and
+actual test units; unchanged native libraries remain normal. Compare the checked
+physics workload with identical sampling/native/configuration policy; stage wall
+time is not per-worker or physical/game performance.
+
 `runtime_cpu_benchmark` includes selected dynamic 3D physics fixtures, independent
 all-body local/world free-fall proof, active/gravity/tick invariants, physics scope
 coverage, native provenance and compatible legacy/custom reports. Eight functional
