@@ -8,6 +8,15 @@ semantics; interpolation, parent/generation snaps and protocol/SDK values remain
 unchanged. Measured method-only reductions are documented with their scope and
 shared-VM limits. No new pose store, cache, game-authoring API or dependency.
 
+## Dynamic 3D physics CPU reports
+
+The source benchmark tool adds optional free-falling box workloads and the existing
+physics synchronization, step and adoption scopes. Independent per-body local/world
+pose checks, source controls, active counts, native provenance and versioned baseline
+admission accompany raw measurements. Existing transform reports stay supported;
+there is no runtime/SDK/dependency change. Timings describe joined stage wall time,
+with collision-heavy games, physical performance and Windows execution separate.
+
 ## Repeatable runtime CPU reports
 
 Developer source tooling runs deterministic flat/hierarchical transform workloads

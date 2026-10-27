@@ -3,6 +3,43 @@
 Measurements are source- and workload-specific, not a claim
 about physical-GPU FPS or every scene. See [CI](ci.md) for reproducible tooling.
 
+## Dynamic 3D physics CPU reports — 2026-10-27
+
+The optional `physics` workload in [CPU profiling](cpu-profiling.md) uses the
+existing runtime, native Jolt owner and five collected host scopes. Original boxes
+fall separately under gravity; independent equations check every final local/world
+pose, active body count and unchanged controls. This covers synchronization and
+integration of many independent bodies, with no contact/constraint/character load.
+
+One Linux/QEMU Virtual CPU 2.5+ run used GCC12 Release, 24 logical processors and
+allowed affinity 0..23, with no concurrent build or timing job. Jolt remains pinned
+at 5.6.0/e77f175; double positions and the recorded baseline native options are
+unchanged. Each size used three fresh processes, 8 warmup and 16 measured ticks per
+process. All 9 runs verified 14,016 final bodies; 144 measured ticks retain 720 scope
+samples. The maximum 272-tick sampling policy is checked separately with 4 bodies.
+Collection overhead is included; native plan-observation ticks are discarded.
+
+| Bodies | Fixed tick | Synchronization | Native step | Adoption | Pose capture |
+| --- | ---: | ---: | ---: | ---: | ---: |
+|64 |1.967 ms |1.084 ms |0.221 ms |0.057 ms |0.054 ms |
+|512 |11.979 ms |7.212 ms |0.654 ms |0.435 ms |0.408 ms |
+|4096 |90.636 ms |60.335 ms |3.888 ms |4.064 ms |3.165 ms |
+
+Each column is a median over 48 samples. The complete tick includes its stages;
+do not add it to those columns or add independent medians to reconstruct a tick.
+PhysicsStep is joined native wall time; worker count/utilization was not measured.
+Scene setup, full source/recovery serialization, pipe transport, readback checks and
+fixture retirement/shutdown are outside the scopes. These are neither gameFPS nor
+physical performance, nor evidence of contact-heavy throughput or improvement.
+
+Raw report, original executable/tool/client/compiler/native/configuration metadata,
+independent correctness and the matching source/binary receipt are under
+`AgentFiles/build/phase164-physics-cpu-workloads`. Arbitrary report source hints
+remain explicitly unverified; that matching receipt establishes this run's build
+attribution. The original transform baseline below retains its own older binary.
+Native Windows execution and controlled physical/game workload continuity remain
+pending. The tool changes no runtime, native library, SDK, collector or game API.
+
 ## Repeatable transform CPU reports — 2026-10-27
 
 ### Owned pose capture and ordered history synchronization

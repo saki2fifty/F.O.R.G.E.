@@ -12,6 +12,15 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+`runtime_cpu_benchmark` includes selected dynamic 3D physics fixtures, independent
+all-body local/world free-fall proof, active/gravity/tick invariants, physics scope
+coverage, native provenance and compatible legacy/custom reports. Eight functional
+methods cover negative admission, raw summaries, real subprocess comparisons and
+immutable outputs; the actual large quiet workload remains a separate measurement
+gate. This source-tool change reuses the existing runtime/collector/client and
+changes no native code/ABI/game-creation operation; unchanged attributable native
+sanitizer/manual/package evidence remains reusable.
+
 Pose-history ownership uses `runtime_clock_and_interpolation` for both legacy
 copying and owned-value admission: local interpolation, parent/resolution snaps,
 sparse insertion/removal, generation recycling, empty captures and unchanged caller
@@ -23,7 +32,7 @@ native/configuration and quiet paired runs; it is separate from full-tick costs.
 Strict sanitizer proof covers changed Runtime/Clock FORGE units; unchanged native
 libraries remain normal. Public SDK/ABI/format/automation operations are unchanged.
 
-`runtime_cpu_benchmark` runs five source-tool checks: independent fixture parent
+The original transform subset of `runtime_cpu_benchmark` covers: independent fixture parent
 sums/canonical IDs, statistics, rejected world/source changes, report/baseline
 admission, and actual small runtime reports with comparison/immutable-output
 preservation. It is a correctness gate, with no noisy performance threshold.

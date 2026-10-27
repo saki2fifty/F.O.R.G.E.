@@ -227,8 +227,8 @@ and `--repeats` (1..5). Stable synthetic canonical UUIDv4 fixture IDs never ente
 user project. Construction/load/IPC/serialization/readback validation stay outside
 measured scopes. Only real FixedSimulationTick and PresentationPoseCapture records
 are used; profiling overhead remains included, native dispatch tracing is off.
-This does not measure gameFPS, renderer/assets/animation/physics throughput or
-physical hardware. It is a representative transform CPU subset.
+This default profile does not measure gameFPS, renderer/assets/animation/physics
+throughput or physical hardware. It is a representative transform CPU subset.
 
 Reading cpu_profile schedules a native lifetime-plan capture on the next tick.
 The runner consumes that tick outside each at-most8-tick measured chunk, then
@@ -306,3 +306,45 @@ samples without reading a CPU clock. No installed SDK header, versioned native
 function table or ABI fingerprint changes. FORGE_DISABLE_PROFILING removes both
 collectors. Native backend query heaps may be allocated when the device is created;
 FORGE creates no query objects or timing submissions until GPU collection starts.
+
+### Dynamic 3D physics workload
+
+Select workloads explicitly to include isolated free-falling boxes:
+
+```sh
+python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --workloads physics --counts 64 512 4096 --warmup 8 --samples 16 --repeats 3 --output /path/to/evidence/physics.json
+```
+
+`--workloads` accepts distinct `flat`, `hierarchy` and `physics` names. The default
+keeps the original two transform workloads/revision1 reports. A custom selection
+uses workload revision2; it compares only against the same selection, fixture and
+sampling policy. Selecting physics additionally collects the existing
+PhysicsSynchronization, PhysicsStep and PhysicsAdoption wall-time scopes for each
+case, alongside complete tick and pose capture. These stages are included in the
+complete tick: do not sum them with that parent scope. PhysicsStep joins native
+workers; the report does not measure each worker's utilization.
+
+The physics fixture places unit boxes on a 3 m grid, at 100 m height, with zero initial
+velocity, zero damping and sleeping disabled. At 60 Hz, every final local position
+and derived world affine matrix must match independent symplectic Euler free fall:
+`y = 100 - 9.81 * tick * (tick + 1) / (2 * 60 * 60)`. The 0.0002 m numeric tolerance
+accounts for native float velocities/timestep and double positions. Identity,
+rotation, scale and body controls remain unchanged; active body counts, tick and
+gravity must match. Only the expected simulated translation may change. Identical
+motion preserves box separation; no floor, contacts, constraints, characters or
+rendering are exercised. These costs are not a claim about collision-heavy games.
+
+The same 1..4096 entity and bounded sampling limits apply. After validated final
+readback, the tool unloads its disposable fixture through existing world replacement
+before requesting the small shutdown reply. This cleanup is outside measurement;
+it preserves the normal transport limits and avoids repeating a large final world
+inside the runtime's bounded Quit interval.
+
+Physics reports require the unmodified configured Jolt Git checkout, found through
+`FETCHCONTENT_SOURCE_DIR_JOLT` or the build's `_deps/jolt-src`. They retain its source
+revision and native CMake options, and reject differing native provenance in baseline
+comparisons. Source/runtime/cache/tool hashes and the existing explicit unverified
+binary-origin label still apply: selected checkout metadata does not independently
+prove which source produced an arbitrary executable. Keep its matching build receipt.
+Native Windows execution, physical performance and broader contact/game workloads
+remain separate acceptance.
