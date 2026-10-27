@@ -193,7 +193,9 @@ for legacy in (False, True):
             clip = next(a for a in json.loads((root/'Game/forge.assets.json').read_text())['assets']
                         if a['source'] == 'Assets/FalloffTone.wav')['id']
             ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.audio_source',
-                values=dict(clip=clip, spatialized=False, loop=True, play_on_start=True)))
+                values=dict(clip=clip, spatialized=False, loop=True, play_on_start=True,
+                            low_pass_enabled=True, low_pass_hz=800.,
+                            high_pass_enabled=True, high_pass_hz=100.)))
             ok('forge_property_set', arguments=dict(entity=actor, component='forge.audio_source',
                                                    field='pause_with_game', value=False))
             assert ok('forge_history_undo')['changed']
@@ -210,6 +212,11 @@ for legacy in (False, True):
             control('forge_play_tune', entity=actor, component='forge.audio_source', property='pause_with_game', value=False)
             observed = until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('pause_with_game') is False)
             assert not observed['source']['paused'], observed
+            assert observed['source']['low_pass_enabled'] and observed['source']['high_pass_enabled'], observed
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='low_pass_hz', value=200.)
+            until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('low_pass_hz') == 200.)
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='high_pass_enabled', value=False)
+            until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('high_pass_enabled') is False)
             control('forge_play_audio_control', entity=actor, operation='one_shot')
             until(lambda: read('forge_play_audio'), lambda row: row['value'].get('one_shots') == 1)
             control('forge_play_audio_control', entity=actor, operation='stop')
@@ -218,6 +225,10 @@ for legacy in (False, True):
             rejected = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
             assert not rejected['tune_ack']['ok'], rejected
             assert read('forge_play_audio')['source']['pause_with_game'] is False
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='low_pass_hz', value=20001.)
+            rejected = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            assert not rejected['tune_ack']['ok'], rejected
+            assert read('forge_play_audio')['source']['low_pass_hz'] == 200.
             assert read('forge_play_status')['timing']['tick'] == tick
             assert read('forge_scene_read') == authored
             control('forge_play_stop')

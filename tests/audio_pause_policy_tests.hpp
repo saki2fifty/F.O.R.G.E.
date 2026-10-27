@@ -130,6 +130,18 @@ void audio_pause_lifecycle_tests(const std::filesystem::path& root, AssetId clip
     });
     check(active_world.scene.snapshot() == before_bad && energy(current) > 1e-5,
           "Invalid live pause policy changed the admitted world/audio");
+    const auto dry_energy = energy(current);
+    active_world.tune_property(live_ref, "forge.audio_source", "low_pass_hz", 100.f);
+    active_world.tune_property(live_ref, "forge.audio_source", "low_pass_enabled", true);
+    (void)energy(current);
+    check(energy(current) < dry_energy * .01 && current->status().at("tick") == 0,
+          "RuntimeWorld did not apply the live filter without a fixed tick");
+    const auto filter_snapshot = active_world.scene.snapshot();
+    reject([&] {
+        active_world.tune_property(live_ref, "forge.audio_source", "high_pass_hz", 20001.f);
+    });
+    check(active_world.scene.snapshot() == filter_snapshot,
+          "Invalid live filter changed the admitted world");
     fail_control = true;
     reject([&] { session.control_frame(); });
     check(session.status().at("state") == "faulted" &&
@@ -150,6 +162,8 @@ void audio_paused_device_tests(const std::filesystem::path& root, AssetId clip) 
     config["pause_with_game"] = false;
     config["play_on_start"] = false;
     config["pitch"] = 4.f;
+    config["low_pass_enabled"] = true;
+    config["low_pass_hz"] = 1000.f;
     scene.restore_snapshot(doc);
     RuntimeSimulation simulation(engine.world(), scene);
     simulation.sync_audio();
@@ -160,6 +174,16 @@ void audio_paused_device_tests(const std::filesystem::path& root, AssetId clip) 
     audio->control_unpaused_source(ref, AudioSourceOperation::OneShot);
     check(audio->status().at("one_shots") == 1, "Null-device UI one-shot was not created");
     const auto initial = audio->status();
+    for (unsigned i = 0; i < 40; ++i) {
+        auto value = scene.entity("speaker").get<AudioSource>();
+        value.low_pass_enabled = i % 3 != 0;
+        value.high_pass_enabled = i % 2 != 0;
+        value.low_pass_hz = i % 2 ? 400.f : 4000.f;
+        value.high_pass_hz = i % 2 ? 20.f : 200.f;
+        scene.entity("speaker").set(value);
+        audio->refresh_sources();
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (audio->status().at("one_shots") != 0) {
         audio->poll_loading();

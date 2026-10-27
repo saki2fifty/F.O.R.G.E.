@@ -106,6 +106,7 @@ struct Fixture {
 #include "audio_attenuation_tests.hpp"
 #include "audio_cone_tests.hpp"
 #include "audio_doppler_tests.hpp"
+#include "audio_filter_tests.hpp"
 #include "audio_mix_tests.hpp"
 #include "audio_one_shot_tests.hpp"
 #include "audio_pause_policy_tests.hpp"
@@ -128,6 +129,7 @@ int main(int argc, char** argv) {
         audio_one_shot_tests(root, record.id);
         audio_source_pause_tests(root);
         audio_pause_policy_tests(root, record.id);
+        audio_filter_tests(root, record.id);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));
@@ -523,6 +525,25 @@ int main(int argc, char** argv) {
         });
         check(author.scene.snapshot() == before_bad_pause,
               "Invalid pause-policy value changed the authored scene");
+        authoring_command(author.scene, "property.set",
+                          {{"entity", a},
+                           {"component", "forge.audio_source"},
+                           {"field", "low_pass_hz"},
+                           {"value", 20000.f}});
+        expected = library.source(prefab);
+        candidate = expected;
+        candidate["members"][0]["components"]["forge.audio_source"]["low_pass_enabled"] = true;
+        candidate["members"][0]["components"]["forge.audio_source"]["low_pass_hz"] = 1000.f;
+        library.publish(author.scene, expected, candidate);
+        check(author.scene.entity(a).get<AudioSource>().low_pass_enabled &&
+                  author.scene.entity(a).get<AudioSource>().low_pass_hz == 20000 &&
+                  author.scene.entity(b).get<AudioSource>().low_pass_hz == 1000,
+              "Filter equal-value override lost intent or independent inheritance");
+        authoring_command(
+            author.scene, "property.revert",
+            {{"entity", a}, {"component", "forge.audio_source"}, {"field", "low_pass_hz"}});
+        check(author.scene.entity(a).get<AudioSource>().low_pass_hz == 1000,
+              "Filter Revert did not restore the Prefab cutoff");
         const auto wrong_ref = author.ref();
         std::thread wrong([&] { reject([&] { author.audio->play(wrong_ref); }); });
         wrong.join();

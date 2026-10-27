@@ -1,5 +1,13 @@
 # 2026-10-27 — Runtime timing, input, profiling and audio
 
+## Source audio filters
+
+Audio Sources provide optional low-pass and high-pass filters with saved cutoff
+settings, true bypass defaults, per-voice processing and live source/one-shot
+updates. Existing Scene/Prefab/history, Inspector, C++ values and MCP controls
+share those fields. Gallery85 compares the same recording with either filter.
+Exact SDK modules require rebuilding; Windows and physical listening remain pending.
+
 ## Independent audio pause
 
 Audio Sources now have a saved Pause with game policy, on by default. Opted-out

@@ -222,3 +222,11 @@ semantics. Audio capability discovery no longer marks the service FIXED_ONLY.
 Rebuild exact-SDK modules for the appended value/fingerprint contract. The public
 unpaused_audio.cpp sample uses Gallery84's persistent references and control input;
 no native audio handle or new gameplay clock crosses the boundary. See [Audio](audio.md).
+
+
+AudioSource's public values include optional low/high-pass filters and finite
+20–20000 Hz cutoffs. `samples/native_sdk/audio_probe.cpp` demonstrates fixed-domain
+component writes; its installed `audio_gameplay` target uses only public headers.
+The existing unpaused example can play filtered UI sources during game Pause.
+Native DSP nodes remain private; no new Audio command, callback layout or ABI
+number is needed. Header fingerprint changes require a matching module rebuild.

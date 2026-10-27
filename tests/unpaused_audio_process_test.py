@@ -12,6 +12,10 @@ runtime, module = (Path(p).resolve() for p in sys.argv[1:3])
 source = Path(__file__).resolve().parents[1]
 gallery = source / 'samples/projects/FeatureGallery'
 scene = json.loads((gallery / 'Scenes/84-independent-audio.scene.json').read_text())
+for actor in scene['entities']:
+    if actor['id'] == '15100000-1510-4151-8151-151000000002':
+        actor['components']['forge.audio_source'].update(low_pass_enabled=True, low_pass_hz=1200.,
+                                                       high_pass_enabled=True, high_pass_hz=100.)
 scene_id = scene['asset_id']
 ui_ref = dict(scene=scene_id, entity='15100000-1510-4151-8151-151000000002')
 game_ref = dict(scene=scene_id, entity='15100000-1510-4151-8151-151000000003')
@@ -47,6 +51,8 @@ for sdk_play in (False, True):
             state = worker.request('snapshot', audio_source_watch=ui_ref)
             assert state['timing']['paused'] and state['audio']['paused']
             assert not state['audio']['suspended'] and not state['audio_source']['paused'], state
+            assert state['audio_source']['low_pass_enabled'] and state['audio_source']['high_pass_enabled'], state
+            assert state['audio_source']['low_pass_hz'] == 1200 and state['audio_source']['high_pass_hz'] == 100
             assert worker.request('snapshot', audio_source_watch=game_ref)['audio_source']['paused']
 
             def press(key, expected, shots):

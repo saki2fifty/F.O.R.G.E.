@@ -169,6 +169,40 @@ and UI one-shots. Focused PCM/mixed-frequency/lifecycle/Prefab/UI/host/installed
 MCP checks are attributed separately from native Windows, physical listening,
 graphical EXE export and new authentic captures, which remain queued.
 
+## Source filters
+
+AudioSource appends `low_pass_enabled`/`high_pass_enabled` (both false),
+`low_pass_hz` (20000) and `high_pass_hz` (20). Reflection admits finite cutoffs
+from 20 through 20000 Hz even when disabled. Old Scene/Prefab documents normalize
+these defaults through the existing codec; source authoring, equal-value override
+intent, Revert, history, live tuning and exact public SDK values share the fields.
+No asset format, clip PCM, dependency pin or C callback table is changed. Rebuild
+exact modules against the changed value fingerprint.
+
+Each existing stable Voice optionally owns up to two native miniaudio nodes:
+second-order Butterworth HPF then LPF, at the engine's output channels/sample rate.
+Processing follows that voice's pitch/spatial/gain stage. Primary and one-shot
+voices keep independent DSP histories and share source settings. Both disabled
+keeps the old sound-to-group connection without filter nodes or extra allocation;
+disabled cutoff values do not alter the output samples.
+
+The owner builds detached replacement nodes before reconnecting sound output,
+then retires the previous chain with the native detach/wait mechanism. It never
+calls native filter reinit while device processing may read that state. Unchanged
+settings do no filter reconstruction. A game-pause routing change reconnects only
+the chain output, preserving DSP and clip state. Changing cutoffs/enabled flags
+preserves the sound cursor but resets filter history; native cached quanta and
+state reset can produce a short transition or click. There is no sample-accurate
+or smoothed automation promise. Native audio callbacks perform no FORGE ECS work,
+asset IO, chain construction or authoring mutation.
+
+RuntimeWorld live tuning calls the existing source refresh path without a fixed
+tick/new velocity sample. Copied source observations report admitted filter flags
+and cutoffs. Full/game/source pause, mute, one-shot limits and retirement retain
+the current audio owners. This is per-source filtering, not a general DSP graph,
+shared effect buses, send/return routing, acoustic occlusion or reverb. Gallery85
+compares the same original recording with dry/low-pass/high-pass sources.
+
 ## Common mix channels
 
 AudioSource `bus` selects the reflected stable FORGE values:0 Master,1 Music,
@@ -199,7 +233,7 @@ Project Settings owns shared defaults; Inspector owns each source route and its
 independent prefab mask. Gallery33 uses the original tone at three pitches for
 separate audible channels, with relocated source-free PCM proof. SDK component
 layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
-This batch supplies four common channels. Custom buses, effects, streaming and
+This batch supplies four common channels. Custom buses, shared effects, streaming and
 separate custom bus graphs remain future capabilities.
 
 ## Live Play mix and status
@@ -403,7 +437,7 @@ generations, routing and voices. Seek and stopped Timeline preview request no
 sound. Existing effects retain their ordinary audio lifetime. Private animation
 recovery preserves cue intent without recovering or replaying audio cursors.
 
-Later work includes streaming music, voice stealing, custom buses, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
+Later work includes streaming music, voice stealing, custom buses, cue graphs, shared effects/reverb, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
 ## AudioClip import and selected revisions

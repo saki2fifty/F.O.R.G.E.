@@ -47,14 +47,16 @@ bool same_failed_config(const AudioSource& a, const AudioSource& b) {
         return true;
     if (a.clip != b.clip || a.play_on_start != b.play_on_start || a.loop != b.loop ||
         a.spatialized != b.spatialized || a.attenuation != b.attenuation ||
-        a.cone_enabled != b.cone_enabled || a.bus != b.bus)
+        a.cone_enabled != b.cone_enabled || a.bus != b.bus ||
+        a.pause_with_game != b.pause_with_game || a.low_pass_enabled != b.low_pass_enabled ||
+        a.high_pass_enabled != b.high_pass_enabled)
         return false;
     const std::array left{a.gain,    a.pitch,       a.minimum_distance, a.maximum_distance,
                           a.rolloff, a.inner_angle, a.outer_angle,      a.outer_gain,
-                          a.doppler};
+                          a.doppler, a.low_pass_hz, a.high_pass_hz};
     const std::array right{b.gain,    b.pitch,       b.minimum_distance, b.maximum_distance,
                            b.rolloff, b.inner_angle, b.outer_angle,      b.outer_gain,
-                           b.doppler};
+                           b.doppler, b.low_pass_hz, b.high_pass_hz};
     for (unsigned i = 0; i < left.size(); ++i)
         if (!(left[i] == right[i] || (std::isnan(left[i]) && std::isnan(right[i]))))
             return false;
@@ -104,6 +106,50 @@ struct AudioRuntime::Impl {
     ResourcePool<AudioClipAsset> clips{{2, max_voices, 4096, max_cache}};
     std::map<AssetId, ResourceTicket> requests;
     std::map<std::uint64_t, AssetId> pending_sources;
+    struct Filters {
+        ma_lpf_node low{};
+        ma_hpf_node high{};
+        bool low_ready = false, high_ready = false;
+        float low_hz = 0, high_hz = 0;
+        // Build detached nodes; never reinitialize DSP state on the device thread.
+        void initialize(ma_engine& engine, const AudioSource& source) {
+            auto* graph = ma_engine_get_node_graph(&engine);
+            const auto channels = ma_engine_get_channels(&engine);
+            const auto rate = ma_engine_get_sample_rate(&engine);
+            if (source.low_pass_enabled) {
+                const auto config = ma_lpf_node_config_init(channels, rate, source.low_pass_hz, 2);
+                checked(ma_lpf_node_init(graph, &config, nullptr, &low), "Low-pass filter");
+                low_ready = true;
+                low_hz = source.low_pass_hz;
+            }
+            if (source.high_pass_enabled) {
+                const auto config = ma_hpf_node_config_init(channels, rate, source.high_pass_hz, 2);
+                checked(ma_hpf_node_init(graph, &config, nullptr, &high), "High-pass filter");
+                high_ready = true;
+                high_hz = source.high_pass_hz;
+            }
+            if (high_ready && low_ready)
+                checked(ma_node_attach_output_bus(&high, 0, &low, 0), "Audio filter chain");
+        }
+        bool matches(const AudioSource& source) const {
+            return low_ready == source.low_pass_enabled && high_ready == source.high_pass_enabled &&
+                   (!low_ready || low_hz == source.low_pass_hz) &&
+                   (!high_ready || high_hz == source.high_pass_hz);
+        }
+        ma_node* input() {
+            return high_ready ? static_cast<ma_node*>(&high) : static_cast<ma_node*>(&low);
+        }
+        ma_node* output() {
+            return low_ready ? static_cast<ma_node*>(&low) : static_cast<ma_node*>(&high);
+        }
+        ~Filters() {
+            // Native node uninit detaches and waits for in-flight processing.
+            if (high_ready)
+                ma_hpf_node_uninit(&high, nullptr);
+            if (low_ready)
+                ma_lpf_node_uninit(&low, nullptr);
+        }
+    };
     struct Voice {
         AudioSource authored;
         EntityRef ref;
@@ -115,6 +161,7 @@ struct AudioRuntime::Impl {
         bool follows_game_pause = true;
         float source_volume = 1;
         AudioMotion motion;
+        std::unique_ptr<Filters> filters;
         ~Voice() {
             if (ready)
                 ma_sound_uninit(&sound);
@@ -366,11 +413,27 @@ struct AudioRuntime::Impl {
     void configure_voice(Voice& v, flecs::entity e, float fixed_delta, bool loading_only,
                          bool one_shot = false) {
         const auto& config_value = v.authored;
-        if (v.follows_game_pause != config_value.pause_with_game) {
-            auto* parent = config_value.pause_with_game ? &pausable_group : &group;
-            checked(ma_node_attach_output_bus(&v.sound, 0, parent, 0), "Audio pause routing");
-            v.follows_game_pause = config_value.pause_with_game;
+        auto* parent = config_value.pause_with_game ? &pausable_group : &group;
+        const bool filtered = config_value.low_pass_enabled || config_value.high_pass_enabled;
+        if (v.filters ? !v.filters->matches(config_value) : filtered) {
+            std::unique_ptr<Filters> next;
+            if (filtered) {
+                next = std::make_unique<Filters>();
+                next->initialize(engine, config_value);
+                checked(ma_node_attach_output_bus(next->output(), 0, parent, 0),
+                        "Audio filter output");
+            }
+            checked(ma_node_attach_output_bus(
+                        &v.sound, 0, next ? next->input() : static_cast<ma_node*>(parent), 0),
+                    "Audio filter input");
+            v.filters = std::move(next);
+        } else if (v.follows_game_pause != config_value.pause_with_game) {
+            checked(ma_node_attach_output_bus(v.filters ? v.filters->output()
+                                                        : static_cast<ma_node*>(&v.sound),
+                                              0, parent, 0),
+                    "Audio pause routing");
         }
+        v.follows_game_pause = config_value.pause_with_game;
         ma_sound_set_looping(&v.sound, (one_shot ? false : config_value.loop));
         ma_sound_set_pitch(&v.sound, config_value.pitch);
         ma_sound_set_spatialization_enabled(&v.sound, config_value.spatialized);
@@ -801,6 +864,10 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
                 {"paused", runtime.impl_->is_paused || (runtime.impl_->is_game_paused &&
                                                         entity.get<AudioSource>().pause_with_game)},
                 {"pause_with_game", entity.get<AudioSource>().pause_with_game},
+                {"low_pass_enabled", entity.get<AudioSource>().low_pass_enabled},
+                {"high_pass_enabled", entity.get<AudioSource>().high_pass_enabled},
+                {"low_pass_hz", entity.get<AudioSource>().low_pass_hz},
+                {"high_pass_hz", entity.get<AudioSource>().high_pass_hz},
                 {"duration", 0}};
     if (found == runtime.impl_->voices.end() || !found->second->ready ||
         found->second->ref != ref || !entity.has<AudioSource>() ||
@@ -822,6 +889,10 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             {"paused", runtime.impl_->is_paused || (runtime.impl_->is_game_paused &&
                                                     found->second->authored.pause_with_game)},
             {"pause_with_game", found->second->authored.pause_with_game},
+            {"low_pass_enabled", found->second->authored.low_pass_enabled},
+            {"high_pass_enabled", found->second->authored.high_pass_enabled},
+            {"low_pass_hz", found->second->authored.low_pass_hz},
+            {"high_pass_hz", found->second->authored.high_pass_hz},
             {"loop", found->second->authored.loop},
             {"duration", found->second->clip->duration()}};
 }

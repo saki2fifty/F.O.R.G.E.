@@ -23,6 +23,8 @@ struct AudioSource {
     float doppler = 0;
     // Keep music/UI playback advancing when only gameplay is paused.
     bool pause_with_game = true;
+    bool low_pass_enabled = false, high_pass_enabled = false;
+    float low_pass_hz = 20000, high_pass_hz = 20;
     bool operator==(const AudioSource&) const = default;
 };
 struct AudioListener {

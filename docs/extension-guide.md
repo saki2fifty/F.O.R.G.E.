@@ -524,3 +524,15 @@ music/UI sources through public control callbacks. AudioSource.pause_with_game
 is on by default; only opted-out active sources accept control-domain audio
 commands. Ordinary fixed audio calls keep queued semantics. Rebuild against the
 matching SDK after the appended value/fingerprint change. See [the audio contract](extension-contracts.md).
+
+
+## Source filter values
+
+The installed audio_gameplay sample writes AudioSource.low_pass_enabled,
+high_pass_enabled, low_pass_hz and high_pass_hz through ordinary fixed-domain
+component values. Both filters default off; cutoff defaults are 20000/20 Hz and
+admitted finite values range from 20 through 20000. Existing audio commands retain
+their permission/pause policy, and one-shots inherit these source values. No
+native filter node or coefficient crosses the SDK. Rebuild for the matching value
+fingerprint; changing live filter values resets DSP history without restarting
+the clip. See [the audio contract](extension-contracts.md).

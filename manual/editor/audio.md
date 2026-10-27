@@ -186,6 +186,31 @@ Open **84 — Independent audio** in the Feature Gallery. The gameplay speaker
 pauses with the game; the music speaker continues. Select the UI speaker and use
 **Live sound → Play one-shot** while paused to hear its independent effect.
 
+## Filter a source's sound
+
+1. Select a sound entity and expand **Inspector → Audio Source**.
+2. Enable **Low-pass filter** and lower **Low-pass cutoff (Hz)** to soften high frequencies. Try 1000 Hz for a muffled sound.
+3. Enable **High-pass filter** and raise **High-pass cutoff (Hz)** to reduce low frequencies. Try 200 Hz to remove bass.
+4. Play the scene and compare the sound with each filter turned off. For a permanent setting, stop Play, edit the authored values and save the scene.
+
+Both filters are off by default. Cutoffs range from 20 to 20000 Hz, including
+when their filters are disabled. You can enable both to keep a band of frequencies.
+These settings affect the source and its overlapping one-shots, after pitch and
+spatial processing. They do not alter the imported recording or its waveform.
+Prefabs can supply the same settings, with ordinary instance overrides and Revert.
+
+Live filter changes update the current sounds without restarting their clips or
+advancing gameplay. A paused gameplay sound stays silent; a source with **Pause
+with game** turned off can still be heard. Changing or enabling a filter resets
+its internal filter state and may cause a short transition or click. The controls
+do not provide a smoothed, sample-accurate automation envelope.
+
+Open **85 — Audio filters** in the Feature Gallery. Only **Dry tone** starts
+automatically. Stop it under **Live sound**, then use **Play / Restart** on either
+filtered speaker to compare the same recording. Saved filter settings also apply
+in an exported game. These are source filters; custom effect buses, reverb,
+send/return routing and automatic acoustic occlusion are unavailable.
+
 ## Start or stop a source during Play
 
 Select an entity with an Audio Source while Play is active. The tinted **Live

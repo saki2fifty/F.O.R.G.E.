@@ -640,3 +640,11 @@ retain source/world/sequence checks. Copied source observations expose effective
 paused state separately from the overall game pause. No new tool family or agent
 implementation is added. The focused MCP audio pause gate exercises both framing
 modes through SDK Play, including live edits, one-shots, Stop and authored isolation.
+
+
+Source filter authoring uses the same Audio Source schema and property operations:
+low_pass_enabled/high_pass_enabled and low_pass_hz/high_pass_hz. Existing Play tune
+and audio observations expose live admitted filter values without advancing fixed
+time. Finite 20–20000 Hz validation and bad-value preservation belong to the shared
+Scene/runtime owners. No separate agent filter graph, tool family or mutation path
+is added; saved settings reach source/one-shot playback and export.

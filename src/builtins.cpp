@@ -169,7 +169,11 @@ template <class T> Json encode(const T& p) {
                 {"outer_gain", p.outer_gain},
                 {"bus", p.bus},
                 {"doppler", p.doppler},
-                {"pause_with_game", p.pause_with_game}};
+                {"pause_with_game", p.pause_with_game},
+                {"low_pass_enabled", p.low_pass_enabled},
+                {"high_pass_enabled", p.high_pass_enabled},
+                {"low_pass_hz", p.low_pass_hz},
+                {"high_pass_hz", p.high_pass_hz}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -499,6 +503,10 @@ template <class T> Value decode(const Json& p) {
         v.bus = p.value("bus", 0u);
         v.doppler = p.value("doppler", 0.f);
         v.pause_with_game = p.value("pause_with_game", true);
+        v.low_pass_enabled = p.value("low_pass_enabled", false);
+        v.high_pass_enabled = p.value("high_pass_enabled", false);
+        v.low_pass_hz = p.value("low_pass_hz", 20000.f);
+        v.high_pass_hz = p.value("high_pass_hz", 20.f);
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
         if (v.outer_angle < v.inner_angle)
@@ -1034,7 +1042,11 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("outer_gain")
             .template member<std::uint32_t>("bus")
             .template member<float>("doppler")
-            .template member<bool>("pause_with_game");
+            .template member<bool>("pause_with_game")
+            .template member<bool>("low_pass_enabled")
+            .template member<bool>("high_pass_enabled")
+            .template member<float>("low_pass_hz")
+            .template member<float>("high_pass_hz");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -1980,6 +1992,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
                     "preserves playback position; Pause with game controls pause behavior"},
             {"pause_with_game", "Pause this sound with gameplay. Disable for music or UI sounds "
                                 "that should continue while the game is paused"},
+            {"low_pass_enabled", "Soften high frequencies on this source and its one-shots"},
+            {"high_pass_enabled", "Reduce low frequencies on this source and its one-shots"},
+            {"low_pass_hz", "Low-pass cutoff in Hz; frequencies above it are reduced. Changing "
+                            "an active filter resets filter state without restarting the clip"},
+            {"high_pass_hz", "High-pass cutoff in Hz; frequencies below it are reduced. Changing "
+                             "an active filter resets filter state without restarting the clip"},
             {"play_on_start", "Start when this source is first realized; recovered autoplay "
                               "restarts at the beginning"},
             {"loop", "Repeat the clip after reaching its end"},
@@ -2012,6 +2030,16 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
         if (field == "pause_with_game")
             value["display_name"] = "Pause with game";
+        if (field == "low_pass_enabled" || field == "high_pass_enabled")
+            value["display_name"] =
+                field == "low_pass_enabled" ? "Low-pass filter" : "High-pass filter";
+        if (field == "low_pass_hz" || field == "high_pass_hz") {
+            value["display_name"] =
+                field == "low_pass_hz" ? "Low-pass cutoff (Hz)" : "High-pass cutoff (Hz)";
+            value["minimum"] = 20;
+            value["maximum"] = 20000;
+            value["unit"] = "Hz";
+        }
         if (field == "cone_enabled")
             value["display_name"] = "Directional sound";
         if (field == "inner_angle" || field == "outer_angle") {
@@ -2829,8 +2857,10 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")
-        for (const auto* field : {"attenuation", "rolloff", "cone_enabled", "inner_angle",
-                                  "outer_angle", "outer_gain", "bus", "doppler", "pause_with_game"})
+        for (const auto* field :
+             {"attenuation", "rolloff", "cone_enabled", "inner_angle", "outer_angle", "outer_gain",
+              "bus", "doppler", "pause_with_game", "low_pass_enabled", "high_pass_enabled",
+              "low_pass_hz", "high_pass_hz"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

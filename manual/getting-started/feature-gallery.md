@@ -172,6 +172,10 @@ Change mono, peak normalization and silence trimming under Import settings,
 then reimport. The source remains unchanged; Play and export use the processed
 clip. See [Process a clip during import](../editor/audio.md).
 
+Scene **85 — Audio filters** compares a dry tone with low-pass and high-pass
+processing of the same recording. Stop the dry speaker and restart either
+filtered speaker under **Live sound**. See [Filter a sound](../editor/audio.md).
+
 Scene **84 — Independent audio** compares ordinary gameplay sound with music
 that continues while game Play is paused. The UI speaker can play a one-shot from
 **Live sound** during Pause. Select each speaker's **Pause with game** option to

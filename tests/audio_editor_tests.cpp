@@ -263,6 +263,18 @@ int main(int argc, char** argv) {
                 require(scene.undo() && scene.entity(id).get<AudioSource>().pause_with_game &&
                             scene.redo() && !scene.entity(id).get<AudioSource>().pause_with_game,
                         "Pause-policy checkbox lost Scene Undo/Redo");
+                click("low_pass_enabled");
+                click("high_pass_enabled");
+                numeric("low_pass_hz", "4000");
+                numeric("high_pass_hz", "100");
+                require(scene.entity(id).get<AudioSource>().low_pass_enabled &&
+                            scene.entity(id).get<AudioSource>().high_pass_enabled &&
+                            scene.entity(id).get<AudioSource>().low_pass_hz == 4000 &&
+                            scene.entity(id).get<AudioSource>().high_pass_hz == 100,
+                        "Actual filter controls did not author the source");
+                require(scene.undo() && scene.entity(id).get<AudioSource>().high_pass_hz == 20 &&
+                            scene.redo() && scene.entity(id).get<AudioSource>().high_pass_hz == 100,
+                        "Filter cutoff lost Scene Undo/Redo");
                 project.save();
                 click("bus");
                 key(ImGuiKey_DownArrow);
@@ -285,6 +297,11 @@ int main(int argc, char** argv) {
                         "Audio settings did not survive save/reopen");
                 require(!scene.entity(id).get<AudioSource>().pause_with_game,
                         "Audio pause policy did not survive Save/reopen");
+                require(scene.entity(id).get<AudioSource>().low_pass_enabled &&
+                            scene.entity(id).get<AudioSource>().high_pass_enabled &&
+                            scene.entity(id).get<AudioSource>().low_pass_hz == 4000 &&
+                            scene.entity(id).get<AudioSource>().high_pass_hz == 100,
+                        "Audio filters did not survive Save/reopen");
                 cone = scene.entity(id).get<AudioSource>();
                 require(cone.doppler == 1.5f && cone.bus == 1 && cone.cone_enabled &&
                             cone.inner_angle == 40 && cone.outer_angle == 100 &&

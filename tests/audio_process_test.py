@@ -112,6 +112,10 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
     assert cone['cone_enabled'] and cone['inner_angle']==40 and cone['outer_angle']==100
     assert abs(cone['outer_gain']-.4)<1e-6
     assert cone['bus']==2
+    assert cone['low_pass_enabled'] and cone['high_pass_enabled']
+    assert cone['low_pass_hz']==4000 and cone['high_pass_hz']==100
+    assert status['low_pass_enabled'] and status['high_pass_enabled']
+    assert status['low_pass_hz']==4000 and status['high_pass_hz']==100
     assert any(d['text']=='Audio SDK command queued' for d in stepped['diagnostics'])
     assert not any(d['text']=='Invalid audio SDK operation accepted' for d in stepped['diagnostics'])
   transient=worker.request('audio_source',source=ref,operation='one_shot',audio_source_watch=ref)

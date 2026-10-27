@@ -1,5 +1,14 @@
 # FORGE Feature Gallery
 
+## Audio filters
+
+Open **Scenes/85-audio-filters.scene.json**. Only Dry tone starts automatically.
+Use Live sound to stop it and restart the low-pass or high-pass speaker. All
+three use the same original recording. Filter settings are ordinary saved Audio
+Source properties and apply to overlapping one-shots as well as the main sound.
+Live changes preserve clip position; changing filter state can cause a short
+transition. Save authored values to use them in export.
+
 ## Independent music and UI sound
 
 Open **Scenes/84-independent-audio.scene.json** and Play. Pause the game: the
