@@ -62,6 +62,18 @@ Json mapping() {
                   Json::array({{{"control", "touch." + std::to_string(slot) + "." + field}}})}});
     return {{"version", 1}, {"actions", actions}};
 }
+std::vector<InputEvent> queued_touch(SdlTouches& touches, SDL_Event value, bool accept = true,
+                                     std::optional<SdlTouches::Viewport> viewport = {}) {
+    check(SDL_PushEvent(&value), SDL_GetError());
+    SDL_Event event{};
+    std::vector<InputEvent> result;
+    while (SDL_PollEvent(&event))
+        if (sdl_finger_event(event)) {
+            auto values = touches.event(event, accept, viewport);
+            result.insert(result.end(), values.begin(), values.end());
+        }
+    return result;
+}
 void adapter(SDL_Window* window) {
     SdlTouches touches(window);
     RuntimeInput input;
@@ -69,16 +81,12 @@ void adapter(SDL_Window* window) {
     input.configure(InputMap(source));
     auto queue = [&](SDL_Event value, bool accept = true,
                      std::optional<SdlTouches::Viewport> viewport = {}) {
-        // Native SDL queue, not an invented second event representation.
-        check(SDL_PushEvent(&value), SDL_GetError());
-        SDL_Event event{};
-        std::vector<InputEvent> result;
-        while (SDL_PollEvent(&event))
-            if (sdl_finger_event(event)) {
-                auto values = touches.event(event, accept, viewport);
-                input.submit(values);
-                result.insert(result.end(), values.begin(), values.end());
-            }
+        auto result = queued_touch(touches, value, accept, viewport);
+        input.submit(result);
+        // Preserve the four-field raw-contact assertions; gesture deltas are
+        // checked independently through this same queue and RuntimeInput owner.
+        std::erase_if(
+            result, [](const auto& event) { return event.control.starts_with("touch.gesture."); });
         return result;
     };
     check(queue(finger(window, SDL_EVENT_FINGER_MOTION, 1, 1)).empty(),
@@ -166,7 +174,12 @@ void adapter(SDL_Window* window) {
     check(resolved.at("input_map") == source, "Gamepad settings altered touch bindings");
 }
 void editor(SDL_Window* window, const char* runtime) {
-    const auto source = mapping();
+    auto source = mapping();
+    source["actions"].push_back(
+        {{"id", ActionId::generate()},
+         {"name", "Gesture pending release"},
+         {"kind", "axis1"},
+         {"bindings", Json::array({{{"control", "touch.gesture.pinch"}}})}});
     PlaySession play;
     play.configure(60, InputMap(source));
     play.start(runtime, {{"version", 1}, {"entities", Json::array()}}, true);
@@ -202,6 +215,21 @@ void editor(SDL_Window* window, const char* runtime) {
     check(value(values, 0).at("held") == true, "Native touch did not reach actual Play");
     near(value(values, 1).at("x"), .55);
     near(value(values, 2).at("x"), .5);
+    input.event(finger(window, SDL_EVENT_FINGER_DOWN, 1, 2, .75f, .5f), play);
+    input.event(finger(window, SDL_EVENT_FINGER_MOTION, 1, 2, .8f, .5f), play);
+    const auto reset_before = play.input_reset_serial();
+    input.release(play, true);
+    check(play.input_reset_serial() != reset_before,
+          "Retained menu routing did not neutralize pending gestures");
+    values = tick();
+    near(value(values, 32).at("x"), 0);
+    check(input.captured() && value(values, 0).at("held") == false,
+          "Keeping menu routing retained a released native contact");
+    input.event(finger(window, SDL_EVENT_FINGER_MOTION, 1, 1), play);
+    check(value(tick(), 0).at("held") == false,
+          "Released contact revived through retained routing");
+    input.event(finger(window, SDL_EVENT_FINGER_DOWN, 1, 1), play);
+    check(value(tick(), 0).at("held") == true, "Fresh contact failed through retained routing");
     SDL_Event mouse{};
     mouse.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
     mouse.button.which = SDL_TOUCH_MOUSEID;
@@ -219,11 +247,13 @@ void editor(SDL_Window* window, const char* runtime) {
     check(value(tick(), 0).at("held") == false, "Editor recapture revived old contact");
     play.stop();
 }
+#include "touch_gesture_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
         Platform platform;
         adapter(platform.window);
+        gestures(platform.window);
         if (argc > 1)
             editor(platform.window, argv[1]);
         std::cout << "SDL queued touch slots/bounds/cancel/neutralization and actual captured Play "

@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <forge/input.hpp>
+#include <numbers>
 #include <optional>
 
 namespace forge {
@@ -29,7 +30,10 @@ class SdlTouches {
         bool operator==(const Viewport&) const = default;
     };
     explicit SdlTouches(SDL_Window* window = nullptr) : window_(window) {}
-    void reset() { contacts_ = {}; }
+    void reset() {
+        contacts_ = {};
+        gesture_pair_.reset();
+    }
     std::vector<InputEvent> synchronize(bool accept, std::optional<Viewport> viewport = {}) {
         int width = 0, height = 0;
         const auto window_id = window_ ? SDL_GetWindowID(window_) : 0;
@@ -52,6 +56,7 @@ class SdlTouches {
         width_ = width;
         height_ = height;
         area_ = area;
+        update_gesture(result);
         return result;
     }
     bool owns(const SDL_Event& event) const {
@@ -64,14 +69,17 @@ class SdlTouches {
             event.tfinger.touchID == SDL_PEN_TOUCHID)
             return result;
         const auto& finger = event.tfinger;
-        const Contact key{finger.touchID, finger.fingerID};
-        auto found = std::find(contacts_.begin(), contacts_.end(), std::optional<Contact>(key));
+        const auto key = std::pair{finger.touchID, finger.fingerID};
+        auto found = std::find_if(contacts_.begin(), contacts_.end(), [&](const auto& contact) {
+            return contact && contact->key == key;
+        });
         const bool ending =
             event.type == SDL_EVENT_FINGER_UP || event.type == SDL_EVENT_FINGER_CANCELED;
         if (ending) {
             if (found != contacts_.end()) {
                 append(result, std::size_t(found - contacts_.begin()), false, 0, 0, 0);
                 found->reset();
+                update_gesture(result);
             }
             return result;
         }
@@ -87,16 +95,67 @@ class SdlTouches {
             found = std::find(contacts_.begin(), contacts_.end(), std::nullopt);
             if (found == contacts_.end())
                 return result;
-            *found = key;
+            *found = Contact{key};
         } else if (found == contacts_.end())
             return result; // No late join after capture loss, overflow or an outside start.
-        append(result, std::size_t(found - contacts_.begin()), true, std::clamp(x, 0., 1.),
-               std::clamp(y, 0., 1.), finger.pressure);
+        (*found)->x = std::clamp(x, 0., 1.);
+        (*found)->y = std::clamp(y, 0., 1.);
+        append(result, std::size_t(found - contacts_.begin()), true, (*found)->x, (*found)->y,
+               finger.pressure);
+        update_gesture(result);
         return result;
     }
 
   private:
-    using Contact = std::pair<SDL_TouchID, SDL_FingerID>;
+    struct Contact {
+        std::pair<SDL_TouchID, SDL_FingerID> key;
+        double x = 0, y = 0;
+    };
+    void update_gesture(std::vector<InputEvent>& result) {
+        const bool was_active = gesture_pair_.has_value();
+        const bool retained =
+            gesture_pair_ && contacts_[(*gesture_pair_)[0]] && contacts_[(*gesture_pair_)[1]];
+        if (!retained) {
+            gesture_pair_.reset();
+            std::array<std::size_t, 2> selected{};
+            unsigned count = 0;
+            for (std::size_t i = 0; i < contacts_.size() && count < selected.size(); ++i)
+                if (contacts_[i])
+                    selected[count++] = i;
+            if (count == selected.size())
+                gesture_pair_ = selected;
+        }
+        if (was_active != gesture_pair_.has_value())
+            result.push_back({"touch.gesture.active", gesture_pair_ ? 1. : 0.});
+        if (!gesture_pair_)
+            return;
+        const auto& first = *contacts_[(*gesture_pair_)[0]];
+        const auto& second = *contacts_[(*gesture_pair_)[1]];
+        const std::array center{(first.x + second.x) / 2, (first.y + second.y) / 2};
+        const std::array vector{(second.x - first.x) * area_.width,
+                                (second.y - first.y) * area_.height};
+        if (retained) {
+            const auto emit = [&](const char* field, double value) {
+                if (value != 0 && std::isfinite(value))
+                    result.push_back({std::string("touch.gesture.") + field, value});
+            };
+            emit("pan_x", center[0] - gesture_center_[0]);
+            emit("pan_y", center[1] - gesture_center_[1]);
+            const auto before = std::hypot(gesture_vector_[0], gesture_vector_[1]);
+            const auto after = std::hypot(vector[0], vector[1]);
+            // Coincident/subpixel contacts have no useful scale or angle. Rebase
+            // once separated; never divide by distance or invent a first jump.
+            if (before >= 1 && after >= 1 && std::isfinite(before) && std::isfinite(after)) {
+                emit("pinch", std::log(after) - std::log(before));
+                emit("rotation",
+                     std::remainder(std::atan2(vector[1], vector[0]) -
+                                        std::atan2(gesture_vector_[1], gesture_vector_[0]),
+                                    2 * std::numbers::pi));
+            }
+        }
+        gesture_center_ = center;
+        gesture_vector_ = vector;
+    }
     static void append(std::vector<InputEvent>& result, std::size_t slot, bool down, double x,
                        double y, double pressure) {
         const auto prefix = "touch." + std::to_string(slot) + ".";
@@ -112,5 +171,7 @@ class SdlTouches {
     Viewport area_;
     bool owned_ = false;
     std::array<std::optional<Contact>, touch_contact_limit> contacts_{};
+    std::optional<std::array<std::size_t, 2>> gesture_pair_;
+    std::array<double, 2> gesture_center_{}, gesture_vector_{};
 };
 } // namespace forge

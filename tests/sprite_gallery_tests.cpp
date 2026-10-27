@@ -92,7 +92,8 @@ int main(int argc, char** argv) {
         const auto regions = asset(catalog, "Scenes/78-sprite-image-regions.scene.json");
         const auto banks = asset(catalog, "Scenes/87-sprite-frame-regions.scene.json");
         const auto touch = asset(catalog, "Scenes/88-touch-input.scene.json");
-        const std::array roots{basics, frames, panels, regions, banks, touch};
+        const auto gestures = asset(catalog, "Scenes/89-touch-gestures.scene.json");
+        const std::array roots{basics, frames, panels, regions, banks, touch, gestures};
         const auto badge = asset(catalog, "Assets/Sprites/Badge.png");
         const auto sheet = asset(catalog, "Assets/Sprites/SignalSheet.png");
         const auto badge_material = asset(catalog, "Assets/Sprites/Badge.material.json");
@@ -134,17 +135,21 @@ int main(int argc, char** argv) {
         }
         EngineContext authored;
         Scene scene(authored.world());
-        std::map<EntityId, SpriteRenderer> fill_values, region_values, bank_values, touch_values;
+        std::map<EntityId, SpriteRenderer> fill_values, region_values, bank_values, touch_values,
+            gesture_values;
         for (const auto id : roots) {
             scene.load(root / catalog.records().at(id).source);
             const auto rendered = extract_render_scene(scene.effective_document());
             check(rendered.diagnostics.empty() && rendered.meshes.empty() &&
-                      rendered.sprites.size() == (id == touch ? 1u
+                      rendered.sprites.size() == (id == touch || id == gestures ? 1u
                                                   : id == basics || id == regions || id == banks
                                                       ? 6u
                                                       : 5u) &&
                       rendered.cameras.size() == 1,
                   "Gallery Sprite Scene did not use typed extraction");
+            if (id == gestures)
+                for (const auto& sprite : rendered.sprites)
+                    gesture_values.emplace(sprite.entity, sprite.renderer);
             if (id == touch)
                 for (const auto& sprite : rendered.sprites)
                     touch_values.emplace(sprite.entity, sprite.renderer);
@@ -175,7 +180,7 @@ int main(int argc, char** argv) {
         const auto relocated = scratch / "relocated sprite content";
         std::filesystem::rename(package, relocated);
         const auto loaded = open_runtime_content(relocated, {"windows", "d3d12"});
-        check(loaded.records().size() == 13,
+        check(loaded.records().size() == 14,
               "Sprite content dependency closure is incomplete or oversized");
         for (const auto& file : std::filesystem::recursive_directory_iterator(relocated)) {
             if (!file.is_regular_file())
@@ -223,6 +228,12 @@ int main(int argc, char** argv) {
             packed_touch.emplace(sprite.entity, sprite.renderer);
         check(touch_values.size() == 1 && packed_touch == touch_values,
               "Relocated source-free content lost original touch canvas or marker");
+        restored.restore_snapshot(load_game_scene(relocated, {gestures}));
+        std::map<EntityId, SpriteRenderer> packed_gestures;
+        for (const auto& sprite : extract_render_scene(restored.effective_document()).sprites)
+            packed_gestures.emplace(sprite.entity, sprite.renderer);
+        check(gesture_values.size() == 1 && packed_gestures == gesture_values,
+              "Relocated source-free content lost original gesture canvas or marker");
         std::cout << "Gallery71/72/73/78 real texture/material/region/fill/animation consumers and "
                      "relocated "
                      "source-free content closure passed\n";

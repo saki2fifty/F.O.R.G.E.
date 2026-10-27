@@ -27,7 +27,7 @@ While gameplay input is captured:
 - **F7** advances one tick while paused.
 - **Esc** releases the physical relative mouse capture. The SDK play path ships a neutral edge before the Escape down/up to gameplay so the runtime's release-guard sees the actual physical state, then retains logical menu routing so runtime menu keys keep working; the legacy path only releases the capture. Whether the game opens Pause or its in-game menu on Escape is project policy; FORGE does not decide for you.
 
-Pause, hold Space, then press F7 twice. The first tick consumes the press; the second still shows held without adding another press. Release Space and Step again to consume its release. While paused, the monitor continues showing the last completed tick until you Step or Resume.
+Test native presses during running Play with **Capture gameplay input**. Pause shows the last completed input tick; Step advances one fixed tick. Clock controls first release gameplay capture and neutralize pending physical input, so a held key or finger does not survive that release. Resume and capture again, then make a fresh press to continue testing. While paused, the monitor shows the last completed tick until Step or Resume.
 
 Held values can apply to every catch-up tick. Press/release edges apply once. A quick press and release before a tick retains both edges; multiple identical edges within one tick interval coalesce into its boolean flags. Mouse movement and wheel deltas are accumulated and consumed on one tick, then return to zero.
 
@@ -48,7 +48,7 @@ Gamepad controls use **pad.** names. FORGE starts with the first connected gamep
 
 ## Touch contacts
 
-Bind **touch.0.down/x/y/pressure** through **touch.7.down/x/y/pressure** for up to eight captured contacts. Each held finger keeps its slot; release clears its values. Use separate axis1 actions for screen X/Y coordinates. See [Touch input](touch-input.md) for capture, UI ownership, limits and the original Gallery88 C++ example.
+Bind **touch.0.down/x/y/pressure** through **touch.7.down/x/y/pressure** for up to eight captured contacts. Each held finger keeps its slot; release clears its values. Use separate axis1 actions for screen X/Y coordinates. See [Touch input](touch-input.md) for capture, two-finger pan/pinch/rotation, UI ownership, limits and original Gallery88/89 C++ examples.
 
 ## Who owns the controls?
 

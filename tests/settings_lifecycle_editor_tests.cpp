@@ -86,8 +86,8 @@ int main(int argc, char** argv) {
             ImGui::Render();
         };
         const auto mode = std::string_view(argv[2]);
-        if (mode == "analog" || mode == "touch") {
-            const bool touch = mode == "touch";
+        if (mode == "analog" || mode == "touch" || mode == "gesture") {
+            const bool touch = mode == "touch", gesture = mode == "gesture";
             io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
             const auto id = ActionId::generate();
             const Json input{
@@ -144,7 +144,7 @@ int main(int argc, char** argv) {
             };
             frame();
             click("settings:input:action:" + id.str());
-            if (touch) {
+            if (touch || gesture) {
                 for (float scale : {1.f, 1.5f, 2.f}) {
                     ui::style(scale);
                     frame();
@@ -153,20 +153,28 @@ int main(int argc, char** argv) {
                     frame();
                     io.AddKeyEvent(ImGuiKey_End, false);
                     frame();
+                    if (touch)
+                        for (unsigned row = 0; row < 5; ++row) {
+                            io.AddKeyEvent(ImGuiKey_UpArrow, true);
+                            frame();
+                            io.AddKeyEvent(ImGuiKey_UpArrow, false);
+                            frame();
+                        }
                     io.AddKeyEvent(ImGuiKey_Enter, true);
                     frame();
                     io.AddKeyEvent(ImGuiKey_Enter, false);
                     frame();
                     const auto binding =
                         read().at("draft").at("input").at("actions")[0].at("bindings")[0];
-                    check(binding.at("control") == "touch.7.pressure",
+                    check(binding.at("control") ==
+                              (touch ? "touch.7.pressure" : "touch.gesture.rotation"),
                           "Actual Settings combo did not select the final touch control");
                     check(!test::ui_targets.contains("settings:input:negative-direction"),
                           "Touch pressure offers a meaningless negative direction");
                 }
                 check(settings.save(files.document, status), "Touch settings could not be saved");
                 check(ProjectSettings(first).input().actions()[0].bindings[0].control ==
-                          "touch.7.pressure",
+                          (touch ? "touch.7.pressure" : "touch.gesture.rotation"),
                       "Selected touch control did not survive settings reopen");
                 std::cout
                     << "Native Settings touch control selection/range/Save passed at3scales\n";

@@ -671,3 +671,9 @@ apply; successful authoring does not prove an unavailable image is usable.
 ### Touch controls
 
 `forge_play_controls` discovers `touch.0.down/x/y/pressure` through `touch.7.down/x/y/pressure` and each control's numeric minimum/maximum. Use existing project-settings edit/save operations to bind ActionIds, then generation-checked `forge_play_input_submit` and `forge_play_input` to test/observe RuntimeInput. Coordinates/pressure are0..1, down is0/1, reset clears values; invalid batches reject before queue mutation. Agent-injected semantic values do not simulate an operating-system finger/device or certify physical capture. No separate touch tools or input database.
+
+### Touch gesture units and deterministic observation
+
+`forge_play_controls` also advertises `touch.gesture.active` and relative `pan_x/pan_y/pinch/rotation`, with units in the native tool description. Bind separate Axis1 actions through the existing settings edit/save owner. Pan is normalized image-center motion, pinch is log-scale delta, and rotation is clockwise radians. A semantic contact injection does not synthesize an SDL finger; submit the intended gesture values directly.
+
+For exact relative observation, pause Play with physical capture released, submit the semantic batch, Step once and read `forge_play_input`. Step again to verify zero relative deltas. Active down/up in one batch retains both digital edges without discarding its movement. Keep existing revision/launch/session/generation guards; relative values do not allow analog deadzones/response curves. No new tools or authoring database.

@@ -10353,6 +10353,14 @@
       "schema_version": 5,
       "dependencies": [],
       "metadata": {}
+    },
+    {
+      "id": "15600000-1560-4156-8156-156000000000",
+      "type": "scene",
+      "source": "Scenes/89-touch-gestures.scene.json",
+      "schema_version": 5,
+      "dependencies": [],
+      "metadata": {}
     }
   ],
   "version": 2

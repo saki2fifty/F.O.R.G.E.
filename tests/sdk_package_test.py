@@ -17,9 +17,10 @@ focused_targets = {
     '--navigation-only': 'planar_navigation_gameplay', '--time-only': 'time_scale_gameplay',
     '--feedback-only': 'gamepad_feedback_gameplay', '--input-only': 'gameplay',
     '--audio-pause-only': 'unpaused_audio_gameplay', '--audio-filters-only': 'audio_gameplay',
-    '--tile-one-way-only': 'tile_physics_gameplay', '--touch-only': 'touch_input_gameplay', '--sprite-frames-only': 'sprite_image_gameplay',
+    '--tile-one-way-only': 'tile_physics_gameplay', '--gestures-only': 'touch_gestures_gameplay', '--touch-only': 'touch_input_gameplay', '--sprite-frames-only': 'sprite_image_gameplay',
 }
 if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
+    gestures_only = sys.argv[4] == '--gestures-only'
     touch_only = sys.argv[4] == '--touch-only'
     sprite_frames_only = sys.argv[4] == '--sprite-frames-only'
     tile_one_way_only = sys.argv[4] == '--tile-one-way-only'
@@ -49,8 +50,8 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
-        if touch_only:
-            subprocess.run([sys.executable, str(Path(__file__).with_name('touch_input_process_test.py')),
+        if touch_only or gestures_only:
+            subprocess.run([sys.executable, str(Path(__file__).with_name('touch_gesture_process_test.py' if gestures_only else 'touch_input_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)), str(module),
                             str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery')],
                            env=env, cwd=moved, check=True, timeout=90)

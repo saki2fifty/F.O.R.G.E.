@@ -1519,3 +1519,9 @@ Main/physical hardware and new Inspector captures remain separate acceptance gat
 `settings_lifecycle_touch` selects native touch controls and verifies unipolar presentation/Save/reopen at100/150/200%; the analog case retains existing conditioning coverage.
 
 `touch_input_process` runs original Gallery88's public C++ marker in both real Play hosts, verifying independent coordinates/pressure and neutral restart. `native_sdk_touch_input_installed` builds the same module from relocated installed headers/sample/runtime. `mcp_touch_input_stdio` covers discovery/ranges, settings save, invalid/stale submissions and Play values in both framing modes. The Sprite Gallery content fixture includes88 in a relocated cooked closure after source removal. These are local desktop checks, not physical touch/Main/Windows graphical export acceptance.
+
+### Touch gesture checks
+
+`touch_input` includes queued native SDL centroid/log-distance/angle-aspect and branch-crossing cases, third-contact/pair replacement/coincidence/reset, quick-gesture edges and independent fixed/control one-latch consumption. Actual keep-routing release covers pending gesture neutralization. Settings touch/gesture cases select native controls at3scales; runtime_ui_input retains Rml capture ownership.
+
+`touch_gestures_process` and `native_sdk_touch_gestures_installed` exercise original Gallery89's exact C++ canvas, one-time application, bounded pan/scale, both Play hosts, source isolation and neutral restart; the installed module uses one shared example source. `mcp_touch_gestures_stdio` covers discovery/units, native settings rejection/save and exact paused Step observations in both framings. Sprite Gallery cooks/includes89 and tests its relocated source-free identity/values. Existing raw88 consumers remain covered. Native Main/game_main/MSVC, actual touch hardware and graphical EXE acceptance are separate pending gates.

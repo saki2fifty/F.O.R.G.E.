@@ -465,10 +465,15 @@ try:
             assert sum(item['high_pass_enabled'] for item in sources) == 1
             assert next(item for item in sources if item['low_pass_enabled'])['low_pass_hz'] == 100
             assert next(item for item in sources if item['high_pass_enabled'])['high_pass_hz'] == 1000
+        if path.name.startswith('89-'):
+            assert len(loaded['entities']) == 2
+            assert [a['bindings'][0]['control'] for a in project['input']['actions']
+                    if a['name'].startswith('Touch gesture ')] == [
+                'touch.gesture.'+f for f in ('active','pan_x','pan_y','pinch','rotation')]
         if path.name.startswith('88-'):
             assert len(loaded['entities']) == 2
             assert any('forge.sprite_renderer' in row['components'] for row in loaded['entities'])
-            assert [a['bindings'][0]['control'] for a in project['input']['actions']] == [
+            assert [a['bindings'][0]['control'] for a in project['input']['actions'] if a['name'].startswith('Touch0 ')] == [
                 'touch.0.'+field for field in ('down', 'x', 'y', 'pressure')]
         if path.name.startswith('87-'):
             sprites = [row['components']['forge.sprite_renderer'] for row in loaded['entities']

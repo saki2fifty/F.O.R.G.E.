@@ -167,7 +167,10 @@ struct PlayAutomation {
                 return review(tuning);
             }));
         methods.push_back(automation_method(
-            "play.controls", "List the engine's actual semantic input controls and value kinds.",
+            "play.controls",
+            "List actual semantic controls and value kinds. Touch gesture pan_x/y are "
+            "normalized image deltas, pinch is log-scale delta, rotation is clockwise "
+            "radians. Relative values accumulate for one latch in their input domain.",
             "play.read", automation_object(), false, [&files](const Json&) {
                 files.document.check_ownership();
                 Json controls = Json::array();

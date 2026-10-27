@@ -64,7 +64,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 - [Project Code (C++ components, systems and unscaled timers)](editor/native-gameplay.md)
 - [Gameplay input, analog response and controller vibration](editor/input.md)
-- [Touch contacts and coordinates](editor/touch-input.md)
+- [Touch contacts, pan, pinch and rotation](editor/touch-input.md)
 - [Physics](editor/physics.md)
 - [3D and 2D navigation and destination editing](editor/navigation.md)
 - [Audio: import, preview, filters, mixing and music/UI pause](editor/audio.md)

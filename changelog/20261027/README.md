@@ -104,3 +104,9 @@ Local source; Windows verification and numbered delivery remain pending.
 - Eight stable touch slots with independent normalized X/Y/pressure, cancellation and focus/size/reset neutralization through the existing SDL/action owners.
 - UI-owned touch gestures stay in UI; emulated mouse/touch gameplay duplicates are filtered. Semantic ranges and validation agree across Settings, runtime and automation/MCP.
 - Original Gallery88, optional exact-SDK Sprite cursor example, installed client and focused SDL/UI/Play/MCP/source-free checks. Physical/native Windows touch acceptance remains queued.
+
+### Two-finger gestures
+
+- Derive stable-pair pan, aspect-correct logarithmic pinch and wrapped rotation through existing touch/input owners, with coincidence/replacement guards and ordinary one-latch semantics.
+- Expose the same controls/units through Settings, C++, automation and MCP. Retained menu routing neutralizes pending physical input on release.
+- Original Gallery89 and public installed C++ canvas example; source-free/SDK/both-host/UI/MCP checks. Windows/Main/physical touch/export review remains queued.

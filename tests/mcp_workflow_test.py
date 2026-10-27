@@ -16,6 +16,7 @@ MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
 PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
+GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
 TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
@@ -110,9 +111,44 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if GESTURES_ONLY:
+            assert 'log-scale' in advertised['forge_play_controls']['description']
+            controls = {row['id']: row for row in read('forge_play_controls')['controls']}
+            assert controls['touch.gesture.active']['digital']
+            assert all(controls['touch.gesture.'+f]['relative'] for f in ('pan_x','pan_y','pinch','rotation'))
+            fields = ('active','pan_x','pan_y','pinch','rotation')
+            actions = [dict(id=f'15600000-1560-4156-8156-00000000001{i}', name='Gesture '+field,
+                            kind='digital' if field == 'active' else 'axis1',
+                            bindings=[dict(control='touch.gesture.'+field)]) for i,field in enumerate(fields)]
+            mapping = dict(version=1, actions=actions)
+            edit_settings('forge_project_settings_edit', patch=[dict(op='replace', path='/input', value=mapping)])
+            before = read('forge_project_settings_read')
+            bad = mutate('forge_project_settings_edit', state=before['state'],
+                         patch=[dict(op='add', path='/input/actions/1/bindings/0/deadzone',value=.2)])
+            assert not bad['ok'] and read('forge_project_settings_read')['state'] == before['state']
+            edit_settings('forge_project_settings_save')
+            authored = read('forge_scene_read');ok('forge_play_start')
+            control('forge_play_pause')
+            until(lambda: read('forge_play_status'), lambda s: s['paused'] and s['control_ready'])
+            control('forge_play_input_submit', events=[dict(control='touch.gesture.'+f,value=v)
+                for f,v in [('active',1),('pan_x',-.25),('pan_y',.125),('pinch',.5),('rotation',-.75),('active',0)]])
+            control('forge_play_step')
+            def values():
+                return {r['id']:r for r in read('forge_play_input')['value'].get('actions',[])}
+            observed = until(values, lambda r: r.get(actions[0]['id'],{}).get('presses',0) == 1)
+            assert observed[actions[0]['id']]['releases'] == 1 and not observed[actions[0]['id']]['held']
+            for action,expected in zip(actions[1:],(-.25,.125,.5,-.75)):
+                assert observed[action['id']]['x'] == expected, observed
+            control('forge_play_step')
+            until(values, lambda r: all(r.get(a['id'],{}).get('x') == 0 for a in actions))
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            assert json.loads((root/'Game/forge.project.json').read_text())['input'] == mapping
+            print(('legacy' if legacy else 'current') + ': gesture discovery/settings/rejection/relative Step/MCP passed')
+            continue
         if TOUCH_ONLY:
             controls = read('forge_play_controls')['controls']
-            touches = {row['id']: row for row in controls if row['id'].startswith('touch.')}
+            touches = {row['id']: row for row in controls if row['id'].startswith('touch.') and not row['id'].startswith('touch.gesture.')}
             assert len(touches) == 32 and touches['touch.7.pressure']['minimum'] == 0
             assert touches['touch.0.down']['digital'] and touches['touch.0.x']['maximum'] == 1
             actions = [dict(id=f'15500000-1550-4155-8155-00000000001{i}', name='Touch '+field,

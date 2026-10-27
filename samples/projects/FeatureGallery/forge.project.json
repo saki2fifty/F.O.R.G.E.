@@ -48,6 +48,56 @@
             "control": "touch.0.pressure"
           }
         ]
+      },
+      {
+        "id": "15600000-1560-4156-8156-000000000010",
+        "name": "Touch gesture active",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.gesture.active"
+          }
+        ]
+      },
+      {
+        "id": "15600000-1560-4156-8156-000000000011",
+        "name": "Touch gesture pan_x",
+        "kind": "axis1",
+        "bindings": [
+          {
+            "control": "touch.gesture.pan_x"
+          }
+        ]
+      },
+      {
+        "id": "15600000-1560-4156-8156-000000000012",
+        "name": "Touch gesture pan_y",
+        "kind": "axis1",
+        "bindings": [
+          {
+            "control": "touch.gesture.pan_y"
+          }
+        ]
+      },
+      {
+        "id": "15600000-1560-4156-8156-000000000013",
+        "name": "Touch gesture pinch",
+        "kind": "axis1",
+        "bindings": [
+          {
+            "control": "touch.gesture.pinch"
+          }
+        ]
+      },
+      {
+        "id": "15600000-1560-4156-8156-000000000014",
+        "name": "Touch gesture rotation",
+        "kind": "axis1",
+        "bindings": [
+          {
+            "control": "touch.gesture.rotation"
+          }
+        ]
       }
     ]
   },

@@ -112,7 +112,7 @@ class GameInput {
                 capture_error_ = e.what();
             }
         }
-        if (captured_ && !keep_routing)
+        if (captured_)
             play.input_event({{}, 0, true});
         if (!keep_routing) {
             captured_ = false;
