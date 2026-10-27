@@ -468,9 +468,12 @@ int main(int argc, char** argv) {
                         }
                         replacement_phase("replace-audio-ready");
                         // Publish only a complete validated reconstruction.
+                        if (runtime)
+                            runtime->simulation.suspend_audio();
                         runtime.swap(candidate);
                         runtime->engine.services().profiling(profiling_enabled);
                         clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
+                        runtime->simulation.activate_audio(clock.paused());
                         ui_commands.reset(session, ++ui_generation);
                         replacement_phase("replace-published");
                     } else if (command == "refresh_model_assets") {

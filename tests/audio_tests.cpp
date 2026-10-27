@@ -108,6 +108,7 @@ struct Fixture {
 #include "audio_doppler_tests.hpp"
 #include "audio_mix_tests.hpp"
 #include "audio_one_shot_tests.hpp"
+#include "audio_pause_policy_tests.hpp"
 #include "audio_source_control_tests.hpp"
 int main(int argc, char** argv) {
     try {
@@ -126,6 +127,7 @@ int main(int argc, char** argv) {
         audio_source_control_tests(root, record.id);
         audio_one_shot_tests(root, record.id);
         audio_source_pause_tests(root);
+        audio_pause_policy_tests(root, record.id);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));
@@ -494,6 +496,33 @@ int main(int argc, char** argv) {
         check(author.scene.entity(a).get<AudioSource>().cone_enabled &&
                   author.scene.entity(a).get<AudioSource>().outer_gain == .25f,
               "Directional property revert discarded independent outside-volume intent");
+        authoring_command(author.scene, "property.set",
+                          {{"entity", a},
+                           {"component", "forge.audio_source"},
+                           {"field", "pause_with_game"},
+                           {"value", true}});
+        expected = library.source(prefab);
+        candidate = expected;
+        candidate["members"][0]["components"]["forge.audio_source"]["pause_with_game"] = false;
+        library.publish(author.scene, expected, candidate);
+        check(author.scene.entity(a).get<AudioSource>().pause_with_game &&
+                  !author.scene.entity(b).get<AudioSource>().pause_with_game,
+              "Equal pause-policy override lost intent or blocked independent inheritance");
+        authoring_command(
+            author.scene, "property.revert",
+            {{"entity", a}, {"component", "forge.audio_source"}, {"field", "pause_with_game"}});
+        check(!author.scene.entity(a).get<AudioSource>().pause_with_game,
+              "Pause-policy Revert did not restore the Prefab value");
+        const auto before_bad_pause = author.scene.snapshot();
+        reject([&] {
+            authoring_command(author.scene, "property.set",
+                              {{"entity", a},
+                               {"component", "forge.audio_source"},
+                               {"field", "pause_with_game"},
+                               {"value", 1}});
+        });
+        check(author.scene.snapshot() == before_bad_pause,
+              "Invalid pause-policy value changed the authored scene");
         const auto wrong_ref = author.ref();
         std::thread wrong([&] { reject([&] { author.audio->play(wrong_ref); }); });
         wrong.join();

@@ -1133,6 +1133,14 @@
       "type": "model_node"
     },
     {
+      "id": "15100000-1510-4151-8151-151000000000",
+      "type": "scene",
+      "source": "Scenes/84-independent-audio.scene.json",
+      "schema_version": 1,
+      "dependencies": [],
+      "metadata": {}
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "15e09146-b361-4bfd-98a2-a0583420edd5",

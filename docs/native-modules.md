@@ -211,3 +211,14 @@ integration; PreFixed observes previously realized state. Reads do not wake a bo
 or consume queued commands. See [body motion](physics.md). Angular observations
 use radians/s; authored angular limits use degrees/s. The PhysicsLoads example
 reports each cube's measured first-step speed through ordinary diagnostics.
+
+### Music and UI sound during Pause
+
+AudioSource.pause_with_game defaults totrue. Set it tofalse for sound that should
+continue while gameplay is paused. In SDK control callbacks, existing
+sdk::Client audio operations can target only active opted-out sources; ordinary
+sources and suspended output reject. Fixed callbacks retain their queued audio
+semantics. Audio capability discovery no longer marks the service FIXED_ONLY.
+Rebuild exact-SDK modules for the appended value/fingerprint contract. The public
+unpaused_audio.cpp sample uses Gallery84's persistent references and control input;
+no native audio handle or new gameplay clock crosses the boundary. See [Audio](audio.md).

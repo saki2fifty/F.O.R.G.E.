@@ -168,7 +168,8 @@ template <class T> Json encode(const T& p) {
                 {"outer_angle", p.outer_angle},
                 {"outer_gain", p.outer_gain},
                 {"bus", p.bus},
-                {"doppler", p.doppler}};
+                {"doppler", p.doppler},
+                {"pause_with_game", p.pause_with_game}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -497,6 +498,7 @@ template <class T> Value decode(const Json& p) {
         v.outer_gain = p.value("outer_gain", .25f);
         v.bus = p.value("bus", 0u);
         v.doppler = p.value("doppler", 0.f);
+        v.pause_with_game = p.value("pause_with_game", true);
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
         if (v.outer_angle < v.inner_angle)
@@ -1031,7 +1033,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("outer_angle")
             .template member<float>("outer_gain")
             .template member<std::uint32_t>("bus")
-            .template member<float>("doppler");
+            .template member<float>("doppler")
+            .template member<bool>("pause_with_game");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -1973,8 +1976,10 @@ Json registration_options(const Builtin& type, const std::string& field) {
     if (name == "forge.audio_source") {
         static const std::map<std::string, const char*> help = {
             {"clip", "Registered AudioClip identity; null leaves this source unassigned"},
-            {"bus", "Route through Master, Music, Effects or Dialogue volume. All channels "
-                    "follow gameplay pause; changing channel preserves playback position"},
+            {"bus", "Route through Master, Music, Effects or Dialogue volume. Changing channel "
+                    "preserves playback position; Pause with game controls pause behavior"},
+            {"pause_with_game", "Pause this sound with gameplay. Disable for music or UI sounds "
+                                "that should continue while the game is paused"},
             {"play_on_start", "Start when this source is first realized; recovered autoplay "
                               "restarts at the beginning"},
             {"loop", "Repeat the clip after reaching its end"},
@@ -2005,6 +2010,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
         if (field == "bus") {
             value["display_name"] = "Mix channel";
         }
+        if (field == "pause_with_game")
+            value["display_name"] = "Pause with game";
         if (field == "cone_enabled")
             value["display_name"] = "Directional sound";
         if (field == "inner_angle" || field == "outer_angle") {
@@ -2823,7 +2830,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.audio_source")
         for (const auto* field : {"attenuation", "rolloff", "cone_enabled", "inner_angle",
-                                  "outer_angle", "outer_gain", "bus", "doppler"})
+                                  "outer_angle", "outer_gain", "bus", "doppler", "pause_with_game"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

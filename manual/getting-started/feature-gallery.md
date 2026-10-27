@@ -172,6 +172,11 @@ Change mono, peak normalization and silence trimming under Import settings,
 then reimport. The source remains unchanged; Play and export use the processed
 clip. See [Process a clip during import](../editor/audio.md).
 
+Scene **84 — Independent audio** compares ordinary gameplay sound with music
+that continues while game Play is paused. The UI speaker can play a one-shot from
+**Live sound** during Pause. Select each speaker's **Pause with game** option to
+inspect its policy. See [Audio pause and playback](../editor/audio.md).
+
 Scene **83 — Audio source codecs** compares the same original stereo recording
 as WAV, FLAC and MP3. Only WAV starts automatically. Enable one speaker at a time
 with **Play On Start**, or open a clip from **Assets/AudioCodecs** to preview it.

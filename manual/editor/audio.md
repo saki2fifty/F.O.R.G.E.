@@ -126,8 +126,8 @@ Open **Tools → Project Settings → Game defaults**. The four volume sliders s
 shared starting values. Master affects all sounds; the other sliders affect
 sources assigned to that channel. **Save Settings** applies defaults to the next
 Play/export. A game's saved player preferences can override these defaults.
-Zero volume mutes without stopping a sound's playback position. All four channels
-pause with gameplay.
+Zero volume mutes without stopping a sound's playback position. Each source
+chooses whether it pauses with gameplay through **Pause with game**.
 
 Scene **33 — Audio mixer** plays low, middle and high tones through Music,
 Effects and Dialogue. Stop Play, change one channel's default volume, save settings
@@ -162,6 +162,30 @@ Create a prefab from an entity with AudioSource, then instantiate it twice. Edit
 
 Use the existing prefab property **Revert** controls or the component header’s **Remove component / Revert component** to return to inheritance. Scene edits and Revert participate in scene Undo/Redo. Direct prefab source publication has the existing separate history boundary; it is not undone by scene Undo.
 
+## Keep music or UI sounds playing during Pause
+
+1. Stop Play and select the sound entity in **Hierarchy**.
+2. In **Inspector → Audio Source**, turn off **Pause with game**.
+3. For background music, enable **Loop** and **Play On Start**. Choose **Music** under **Mix channel** if you want the music volume slider to control it.
+4. Save the scene, press Play, then press Pause. This sound continues; sources with **Pause with game** enabled stop advancing until Resume.
+
+The option is on by default. It applies to both the main sound and its overlapping
+one-shots, independently of their mix channel. The game's paused simulation does
+not advance when an independent sound plays. **Pause sound** still pauses that
+particular source, and **Stop sound** stops it and all of its effects.
+
+Live changes affect the current Play session. To save a policy permanently, stop
+Play, change the authored Inspector value and save the scene. Prefabs can supply
+the policy, and an instance can override or revert it like other sound properties.
+
+Stop, scene replacement and runtime faults silence the old scene's sound.
+Preparing an unopened scene never starts its music. The Audio clip document's
+preview Pause always pauses its preview, regardless of game source settings.
+
+Open **84 — Independent audio** in the Feature Gallery. The gameplay speaker
+pauses with the game; the music speaker continues. Select the UI speaker and use
+**Live sound → Play one-shot** while paused to hear its independent effect.
+
 ## Start or stop a source during Play
 
 Select an entity with an Audio Source while Play is active. The tinted **Live
@@ -174,16 +198,17 @@ keeps its place; the button becomes **Resume sound** so you can continue there.
 Restart returns to the beginning. Stop clears the paused position; Resume does
 not restart a stopped or finished sound.
 
-Paused game Play remains silent and does not advance game time; game Resume lets
-a restarted sound play. A source you paused separately stays paused when the game
-resumes. Resuming that source while the game is paused also keeps the game silent.
+Sources with **Pause with game** enabled remain silent during game Pause; Resume
+lets a restarted sound play. Sources with that option disabled can play while the
+game is paused. A source you paused separately stays paused when the game resumes.
 Controls wait for the current source status and briefly disable while applying.
 
 Use **Play one-shot** for repeated effects. Each click plays the selected clip once
 alongside existing sound, keeping the main sound's position. The panel shows how
 many overlapping effects are active (up to16 per source). The source's Loop setting
 still controls its main sound; these effects finish once. Stop clears them all.
-Pause/Resume also works when only effects are active. Paused game Play stays silent.
+Pause/Resume also works when only effects are active. The source's **Pause with game**
+policy applies to its effects too.
 A full voice budget reports a rejected effect instead of replacing existing sound.
 
 These are temporary playback commands. They do not edit saved scene values.
@@ -229,7 +254,7 @@ data is diagnosed; reimport from the source to rebuild it.
 
 ## Recovery and limitations
 
-After crash/reload recovery, FORGE rebuilds audio from the recovered component configuration. **Play On Start** voices restart from the beginning; other voices remain stopped. A paused recovery remains silent until Resume. Sample positions, manual playback commands and music continuity are not restored or saved in scenes.
+After crash/reload recovery, FORGE rebuilds audio from the recovered component configuration. **Play On Start** voices restart from the beginning; other voices remain stopped. If recovery remains paused, only sources with **Pause with game** turned off can play. Sample positions, manual playback commands and music continuity are not restored or saved in scenes.
 
 Use mono or stereo WAV, FLAC or MP3 files. For WAV, start with 16-bit PCM at 24, 48 or 96 kHz;
 unsupported or invalid encodings report an import error.

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "contexts": [
+    {"name": "Audio", "phase": "control", "active": true, "consume": true, "priority": 10}
+  ],
+  "actions": [
+    {"id": "15100000-1510-4151-8151-1510000000b1", "name": "UI one-shot", "kind": "digital", "context": "Audio", "bindings": [{"control": "key.r"}]},
+    {"id": "15100000-1510-4151-8151-1510000000b2", "name": "Stop UI sound", "kind": "digital", "context": "Audio", "bindings": [{"control": "key.t"}]},
+    {"id": "15100000-1510-4151-8151-1510000000b3", "name": "Check gameplay policy", "kind": "digital", "context": "Audio", "bindings": [{"control": "key.y"}]}
+  ]
+}

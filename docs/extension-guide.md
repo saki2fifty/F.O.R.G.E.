@@ -515,3 +515,12 @@ Editor playback requires a focused visible Game panel with routed input; the
 standalone host requires its game window's focus. Stop and focus/device/session
 changes stop owned feedback. No trigger motors, effect mixing or persistent
 haptic data are supplied. No new SDK C callback/layout is needed.
+
+## Music and UI audio during gameplay Pause
+
+The installed sdk/sample directory contains unpaused_audio.cpp, its guide and an
+input map. Build unpaused_audio_gameplay to exercise Gallery84's independent
+music/UI sources through public control callbacks. AudioSource.pause_with_game
+is on by default; only opted-out active sources accept control-domain audio
+commands. Ordinary fixed audio calls keep queued semantics. Rebuild against the
+matching SDK after the appended value/fingerprint change. See [the audio contract](extension-contracts.md).

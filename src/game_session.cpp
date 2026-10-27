@@ -167,7 +167,7 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
     candidate_->simulation.reset_presentation();
     const auto controls = config_.controls ? candidate_->engine.world().services().game() : nullptr;
     if (active_)
-        active_->simulation.audio_paused(true);
+        active_->simulation.suspend_audio();
     clock_.restore_tick(0, now); // A new world starts a new simulation timeline.
     active_.swap(candidate_);
     active_preparation_.swap(candidate_preparation_);
@@ -184,12 +184,11 @@ void GameSession::activate(std::uint64_t ticket, RuntimeClock::Time now, bool ru
     try {
         if (config_.controls)
             config_.controls->activate(controls);
-        active_->simulation.audio_paused(!run);
+        active_->simulation.activate_audio(!run);
         if (run)
             clock_.resume(now);
     } catch (const std::exception& e) {
-        faulted_ = true;
-        error_ = e.what();
+        fault(e.what());
         loading_.state = "faulted";
         loading_.error_code = "game.scene.activate";
         loading_.error = error_.substr(0, 1024);
@@ -238,16 +237,26 @@ void GameSession::resume(RuntimeClock::Time now) {
     active_->simulation.audio_paused(false);
     clock_.resume(now);
 }
+void GameSession::fault(std::string error) {
+    faulted_ = true;
+    error_ = std::move(error);
+    if (active_)
+        try {
+            active_->simulation.suspend_audio();
+        } catch (const std::exception& suspension) {
+            error_ += std::string("; audio suspension failed: ") + suspension.what();
+        } catch (...) {
+            error_ += "; audio suspension failed";
+        }
+}
 void GameSession::tick(float dt) {
     try {
         active_->simulation.tick(dt);
     } catch (const std::exception& e) {
-        faulted_ = true;
-        error_ = e.what();
+        fault(e.what());
         throw;
     } catch (...) {
-        faulted_ = true;
-        error_ = "Non-standard native exception in fixed tick";
+        fault("Non-standard native exception in fixed tick");
         throw;
     }
 }
@@ -287,12 +296,10 @@ void GameSession::control_frame() {
             std::static_pointer_cast<AudioRuntime>(active_->engine.services().audio())
                 ->poll_loading();
     } catch (const std::exception& e) {
-        faulted_ = true;
-        error_ = std::string("Game control callback failed: ") + e.what();
+        fault(std::string("Game control callback failed: ") + e.what());
         throw;
     } catch (...) {
-        faulted_ = true;
-        error_ = "Game control callback failed";
+        fault("Game control callback failed");
         throw;
     }
 }

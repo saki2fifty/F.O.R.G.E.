@@ -93,7 +93,9 @@ struct AudioRuntime::Impl {
     AssetCatalog catalog;
     ma_engine engine{};
     ma_sound_group group{};
-    bool engine_ready = false, group_ready = false, stopped = false, is_paused = true;
+    ma_sound_group pausable_group{};
+    bool engine_ready = false, group_ready = false, pausable_group_ready = false;
+    bool stopped = false, is_paused = true, is_game_paused = false;
     std::uint64_t tick = 0;
     std::atomic<unsigned> device_events{0};
     std::atomic<std::uint64_t> mixed_frames{0};
@@ -110,6 +112,7 @@ struct AudioRuntime::Impl {
         ma_sound sound{};
         bool ready = false, buffer_ready = false;
         bool source_paused = false, start_pending = false;
+        bool follows_game_pause = true;
         float source_volume = 1;
         AudioMotion motion;
         ~Voice() {
@@ -193,6 +196,10 @@ struct AudioRuntime::Impl {
             group_ready = true;
             ma_sound_group_set_volume(&group, config.master_volume);
             checked(ma_sound_group_stop(&group), "Pause initial audio group");
+            checked(ma_sound_group_init(&engine, 0, &group, &pausable_group),
+                    "Pausable audio group");
+            pausable_group_ready = true;
+            checked(ma_sound_group_start(&pausable_group), "Start pausable audio group");
             if (!ec.noDevice)
                 checked(ma_engine_start(&engine), "Audio device start");
         } catch (...) {
@@ -217,6 +224,10 @@ struct AudioRuntime::Impl {
         pending_sources.clear();
         requests.clear();
         clips.close();
+        if (pausable_group_ready) {
+            ma_sound_group_uninit(&pausable_group);
+            pausable_group_ready = false;
+        }
         if (group_ready) {
             ma_sound_group_uninit(&group);
             group_ready = false;
@@ -269,7 +280,7 @@ struct AudioRuntime::Impl {
                                                              : info.diagnostic);
         return clips.acquire(found->second);
     }
-    void queue(EntityRef ref, AudioSourceOperation operation) {
+    void queue(EntityRef ref, AudioSourceOperation operation, bool unpaused_only = false) {
         check();
         if (std::uint32_t(operation) > std::uint32_t(AudioSourceOperation::OneShot))
             throw std::runtime_error("Unknown audio source operation");
@@ -279,7 +290,15 @@ struct AudioRuntime::Impl {
             throw std::runtime_error("Audio command references missing, ambiguous or stale source");
         if (commands.size() >= max_commands)
             throw std::runtime_error("Audio command limit reached");
-        const auto selected_clip = world.world().entity(r.entity).get<AudioSource>().clip.id;
+        const auto& source = world.world().entity(r.entity).get<AudioSource>();
+        if (unpaused_only) {
+            const auto voice = voices.find(r.entity);
+            if (is_paused || source.pause_with_game ||
+                (voice != voices.end() && voice->second->authored.pause_with_game))
+                throw std::runtime_error(
+                    "Control-domain audio requires active output and Pause with game disabled");
+        }
+        const auto selected_clip = source.clip.id;
         if (operation == AudioSourceOperation::OneShot) {
             std::size_t queued = 0;
             for (auto it = commands.rbegin(); it != commands.rend(); ++it) {
@@ -301,6 +320,18 @@ struct AudioRuntime::Impl {
         return count;
     }
     std::size_t voice_count() const { return voices.size() + shot_count(); }
+    void update_output_pause() {
+        // Preserve full-root silence/cursor behavior for ordinary scenes. Keep
+        // the root active during game pause only when independent sources need it.
+        const bool independent =
+            !is_paused && is_game_paused && std::ranges::any_of(voices, [](const auto& entry) {
+                return !entry.second->authored.pause_with_game;
+            });
+        const bool should_play = !is_paused && (!is_game_paused || independent);
+        if (bool(ma_sound_group_is_playing(&group)) != should_play)
+            checked(should_play ? ma_sound_group_start(&group) : ma_sound_group_stop(&group),
+                    "Audio output pause/resume");
+    }
     void reap_shots() {
         for (auto& [id, source] : voices) {
             if (source->one_shots.empty())
@@ -324,15 +355,22 @@ struct AudioRuntime::Impl {
                 "Audio buffer");
         voice.buffer_ready = true;
         voice.buffer.sampleRate = voice.clip->rate;
-        checked(ma_sound_init_from_data_source(&engine, &voice.buffer, 0, &group, &voice.sound),
+        auto* parent = voice.authored.pause_with_game ? &pausable_group : &group;
+        checked(ma_sound_init_from_data_source(&engine, &voice.buffer, 0, parent, &voice.sound),
                 "Audio voice");
         voice.ready = true;
+        voice.follows_game_pause = voice.authored.pause_with_game;
         // Source sample rate is supplied before attaching the buffer to the engine.
         ma_sound_set_pitch(&voice.sound, voice.authored.pitch);
     }
     void configure_voice(Voice& v, flecs::entity e, float fixed_delta, bool loading_only,
                          bool one_shot = false) {
         const auto& config_value = v.authored;
+        if (v.follows_game_pause != config_value.pause_with_game) {
+            auto* parent = config_value.pause_with_game ? &pausable_group : &group;
+            checked(ma_node_attach_output_bus(&v.sound, 0, parent, 0), "Audio pause routing");
+            v.follows_game_pause = config_value.pause_with_game;
+        }
         ma_sound_set_looping(&v.sound, (one_shot ? false : config_value.loop));
         ma_sound_set_pitch(&v.sound, config_value.pitch);
         ma_sound_set_spatialization_enabled(&v.sound, config_value.spatialized);
@@ -581,6 +619,7 @@ struct AudioRuntime::Impl {
         }
         clips.collect();
         flush_commands(created_voices);
+        update_output_pause();
     }
     void flush_commands(const std::set<std::uint64_t>& created = {}) {
         reap_shots();
@@ -714,11 +753,20 @@ void AudioRuntime::paused(bool value) {
     impl_->check();
     if (value == impl_->is_paused)
         return;
-    checked(value ? ma_sound_group_stop(&impl_->group) : ma_sound_group_start(&impl_->group),
-            "Audio pause/resume");
     impl_->is_paused = value;
+    impl_->update_output_pause();
 }
 void AudioRuntime::play(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Restart); }
+void AudioRuntime::game_paused(bool value) {
+    impl_->check();
+    if (value == impl_->is_game_paused)
+        return;
+    checked(value ? ma_sound_group_stop(&impl_->pausable_group)
+                  : ma_sound_group_start(&impl_->pausable_group),
+            "Gameplay audio pause/resume");
+    impl_->is_game_paused = value;
+    impl_->update_output_pause();
+}
 void AudioRuntime::play_one_shot(EntityRef ref) {
     impl_->queue(ref, AudioSourceOperation::OneShot);
 }
@@ -732,6 +780,10 @@ void AudioRuntime::master_volume(float value) {
 void AudioRuntime::stop_source(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Stop); }
 void AudioRuntime::pause_source(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Pause); }
 void AudioRuntime::resume_source(EntityRef ref) { impl_->queue(ref, AudioSourceOperation::Resume); }
+void AudioRuntime::control_unpaused_source(EntityRef ref, AudioSourceOperation operation) {
+    impl_->queue(ref, operation, true);
+    impl_->flush_commands();
+}
 Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
     runtime.impl_->check();
     const auto resolved = runtime.impl_->world.resolve(ref);
@@ -741,8 +793,14 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
     const auto entity = runtime.impl_->world.world().entity(resolved.entity);
     if (entity.has<AudioSource>() && runtime.impl_->pending_sources.contains(resolved.entity) &&
         entity.get<AudioSource>().clip.id == runtime.impl_->pending_sources.at(resolved.entity))
-        return {{"source", ref},    {"available", false},     {"pending", true},
-                {"playing", false}, {"source_paused", false}, {"paused", runtime.impl_->is_paused},
+        return {{"source", ref},
+                {"available", false},
+                {"pending", true},
+                {"playing", false},
+                {"source_paused", false},
+                {"paused", runtime.impl_->is_paused || (runtime.impl_->is_game_paused &&
+                                                        entity.get<AudioSource>().pause_with_game)},
+                {"pause_with_game", entity.get<AudioSource>().pause_with_game},
                 {"duration", 0}};
     if (found == runtime.impl_->voices.end() || !found->second->ready ||
         found->second->ref != ref || !entity.has<AudioSource>() ||
@@ -761,7 +819,9 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             {"pending", false},
             {"playing", bool(ma_sound_is_playing(&found->second->sound))},
             {"source_paused", found->second->source_paused},
-            {"paused", runtime.impl_->is_paused},
+            {"paused", runtime.impl_->is_paused || (runtime.impl_->is_game_paused &&
+                                                    found->second->authored.pause_with_game)},
+            {"pause_with_game", found->second->authored.pause_with_game},
             {"loop", found->second->authored.loop},
             {"duration", found->second->clip->duration()}};
 }
@@ -802,7 +862,8 @@ Json AudioRuntime::status() const {
             {"output", impl_->config.output == AudioOutput::Offline          ? "offline"
                        : impl_->config.output == AudioOutput::NullDeviceTest ? "null_test"
                                                                              : "device"},
-            {"paused", impl_->is_paused},
+            {"paused", impl_->is_paused || impl_->is_game_paused},
+            {"suspended", impl_->is_paused},
             {"voices", impl_->voice_count()},
             {"source_voices", impl_->voices.size()},
             {"one_shots", impl_->shot_count()},
@@ -841,6 +902,10 @@ void AudioRuntime::poll_loading() {
     impl_->reap_shots();
     if (!impl_->pending_sources.empty() || impl_->clips.statistics().pending)
         impl_->sync(impl_->tick, 0, {}, true);
+}
+void AudioRuntime::refresh_sources() {
+    impl_->check();
+    impl_->sync(impl_->tick, 0, {}, true);
 }
 void AudioRuntime::read_offline(std::span<float> out) {
     impl_->check();

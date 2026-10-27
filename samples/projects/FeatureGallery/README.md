@@ -1,5 +1,13 @@
 # FORGE Feature Gallery
 
+## Independent music and UI sound
+
+Open **Scenes/84-independent-audio.scene.json** and Play. Pause the game: the
+lower gameplay tone pauses while the higher music tone continues. Select the
+UI speaker and choose Live sound > Play one-shot while paused. Pause with game
+is an ordinary saved Audio Source property, enabled by default. Stop and scene
+replacement silence all old output. Export uses the same saved policy.
+
 ## Audio source codec comparison
 
 Open **Scenes/83-audio-source-codecs.scene.json**. Three speakers play the same

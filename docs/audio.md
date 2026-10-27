@@ -123,6 +123,52 @@ behind after parent rotation. Offline independent cosine equations, disabled/
 nonspatial settings, transformed direction, degenerate-direction recovery and
 exact sample-cursor continuity form the focused gate. Device listening is separate.
 
+## Per-source game pause
+
+`AudioSource.pause_with_game` defaults totrue. The appended reflected bool is
+optional in old Scene/Prefab documents and participates in the existing
+encode/decode/defaults/Inspector/history/override/Save and native value paths.
+The exact SDK fingerprint changes; rebuild modules against matching headers and
+runtime. C callback table layout/ABI1 and dependency pins are unchanged.
+
+AudioRuntime retains one Master output group for full suspension/gain and one
+native child group for pausable sources. Opted-out sources attach to Master;
+ordinary sources attach to the child. Native reattachment preserves data sources
+and cursors, including live one-shots. No clock, PCM copies or mixer owner is
+added. Native graph/device buffering governs transition boundaries; mixed-output
+checks distinguish a prior cached mix quantum from steady paused output. Ordinary
+scenes retain the existing exact silence/cursor gate by stopping Master during
+game Pause when no admitted source needs independent output. Source enumeration
+is needed only during active game Pause.
+
+Full suspension stays separate from game pause. Preparation keeps Master stopped;
+activation starts only a published world, including independent music in a paused
+world. Replacement suspends old output before committing the new world; Stop
+retires it. Fixed/control faults suspend output and retain the original diagnostic.
+Explicit Audio clip preview Pause still suspends all preview output. Step retains
+the game pause state; opted-out sounds continue on the device sample clock.
+
+AudioSourceAccess reports each voice's effective `paused` state and admitted
+`pause_with_game` policy. Runtime `paused` remains logical game/full pause;
+`suspended` identifies complete output suspension. Controls/mix/status use the
+same owner and never tick ECS. Poll loading already reaps completed one-shots
+while paused.
+
+The existing `audio_source` SDK callback and `sdk::Client` support opted-out UI
+operations during control callbacks. Audio capability discovery is owner-thread
+and callable in fixed/control scopes; it no longer advertises FIXED_ONLY. Control
+requests recheck live identity, selected clip, output activation and both current/
+admitted source policy through the existing queue, then flush without pose sampling
+or fixed time. Preparation and ordinary gameplay-only targets reject. Fixed calls
+retain deferred synchronization semantics. The internal retained protocol driver
+supports source controls but does not run SDK control callbacks; production C++
+uses SDK Play. Both hosts retain the source policy and protocol controls.
+
+Original Gallery84 and the installed `unpaused_audio.cpp` sample exercise music
+and UI one-shots. Focused PCM/mixed-frequency/lifecycle/Prefab/UI/host/installed-SDK/
+MCP checks are attributed separately from native Windows, physical listening,
+graphical EXE export and new authentic captures, which remain queued.
+
 ## Common mix channels
 
 AudioSource `bus` selects the reflected stable FORGE values:0 Master,1 Music,
@@ -143,7 +189,7 @@ For this flat gain-only mixer, channel gain multiplies each existing voice's
 spatial-admitted source gain before the common gameplay Master group. This is
 linear volume mixing; no extra graph node or dynamic attachment is required.
 Master-route sources bypass category gain, but retain Master output gain.
-All channels follow gameplay pause. Channel/master updates validate every value
+Each source follows its own `pause_with_game` policy, independently of its channel. Channel/master updates validate every value
 before applying any gain. Zero volume mutes while source time continues.
 Changing route retains the voice, waveform cursor, clip and cache. Source volume
 retains the existing spatial-validity gate, so mixer edits cannot unmute an
@@ -154,7 +200,7 @@ independent prefab mask. Gallery33 uses the original tone at three pitches for
 separate audible channels, with relocated source-free PCM proof. SDK component
 layout/fingerprint changes require matching C++ rebuild; ABI1 remains unchanged.
 This batch supplies four common channels. Custom buses, effects, streaming and
-separate unpaused UI/music remain future capabilities.
+separate custom bus graphs remain future capabilities.
 
 ## Live Play mix and status
 
@@ -215,7 +261,7 @@ Mono/stereo channel extrema remain separate; values above unit amplitude are
 displayed using a common scale. Stop/natural completion retain only the envelope;
 close, selection/revision/project change and Play/import locks release it.
 
-Preview pause uses the existing gameplay sound group. Seeking commits on timeline
+Preview pause suspends the existing Master sound group. Seeking commits on timeline
 release or waveform click and preserves pause. Private AudioPreviewAccess admits
 only the preview's single nonspatial pitch1/bus0 source. It detaches/uninitializes
 that sound node before seeking its buffer, then recreates the node to discard old
@@ -264,7 +310,7 @@ current AudioSource clip. It shares that source's immutable PCM lease and retain
 its own cursor; it does not restart the primary sound. Source looping applies to
 the primary only. Each transient follows the source's validated current transform,
 gain, pitch, attenuation, cone, Doppler and mix bus. Master/channel updates and the
-whole-game pause group apply to both kinds of voice.
+Master gain and the source pause policy apply to both kinds of voice.
 
 Source Stop retires all its effects and stops/resets the primary. Pause/Resume also
 operate on effects, including beside a stopped primary, preserving their positions.
@@ -298,8 +344,9 @@ fresh observation, including in nonperiodic probe mode.
 Source Pause stops its native node without seeking; Resume starts only an
 explicitly paused source. An unpaused/stopped/completed source's Resume is a no-op.
 Repeated Pause is idempotent. Restart and Stop clear source pause. Whole-game
-pause remains independent: source Resume cannot make a paused game audible, and
-game Resume does not resume a source explicitly paused by gameplay or Inspector.
+pause remains independent: ordinary sources stay silent until game Resume;
+opted-out sources can resume during game Pause. Game Resume does not resume a
+source explicitly paused by gameplay or Inspector.
 The paused-source flag is ephemeral voice state; recovery follows authored
 autoplay and does not restore that flag or a sample cursor.
 
@@ -325,7 +372,7 @@ Recovery reconstructs autoplay from recovered authored source components, from f
 
 `forge_runtime --project PATH --audio device` explicitly enables optional real output. Plain `--project` supplies the asset root only; protocol hello keeps the existing clock/input/gravity configuration authority, including recovery from the active play session. `--audio offline` selects no-device logic tests; omitting `--audio` remains headless. The experimental profile uses `--sdk-project PATH` with the same audio option. A consumer requiring Audio must declare dependency `forge.audio`; unavailable required services prevent consumer startup. Optional output failure emits a diagnostic and continues without Audio capability.
 
-Exact SDK supplies a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and operation: `FORGE_SDK_AUDIO_STOP`0, `FORGE_SDK_AUDIO_RESTART`1, `FORGE_SDK_AUDIO_PAUSE`2, `FORGE_SDK_AUDIO_RESUME`3, `FORGE_SDK_AUDIO_ONE_SHOT`4. The first two retain their previous semantics; unknown values reject. It is callable on the fixed owner thread; generation is captured at enqueue and revalidated before execution. Source-engine AudioService exposes matching `play`, `play_one_shot`, `stop_source`, `pause_source`, `resume_source` owner-thread commands. The changed installed header fingerprint requires rebuilding exact SDK consumers; callback table size and ABI number remain unchanged. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
+Exact SDK supplies a size/fingerprint-checked `audio_source` callback taking scene UUID, entity UUID and operation: `FORGE_SDK_AUDIO_STOP`0, `FORGE_SDK_AUDIO_RESTART`1, `FORGE_SDK_AUDIO_PAUSE`2, `FORGE_SDK_AUDIO_RESUME`3, `FORGE_SDK_AUDIO_ONE_SHOT`4. The first two retain their previous semantics; unknown values reject. Fixed callbacks retain queued owner-thread operations. Control callbacks can immediately command only active sources with `pause_with_game=false`; ordinary sources and suspended/unpublished output reject. Generation and selected clip are captured at enqueue and revalidated before execution. Source-engine AudioService exposes matching `play`, `play_one_shot`, `stop_source`, `pause_source`, `resume_source` owner-thread commands. The changed installed header fingerprint requires rebuilding exact SDK consumers; callback table size and ABI number remain unchanged. Gameplay can register/query/edit FORGE AudioSource values through shared Flecs. No miniaudio types or headers enter the SDK. AssetId is preserved by copying typed component references; out-of-line host identity/catalog helper implementations are not exported as a general SDK library.
 
 The C++ convenience wrapper retains `sdk::Client::audio(scene,entity,bool)` and
 adds `audio_operation(scene,entity,uint32_t)` for all four constants. Separate
@@ -356,7 +403,7 @@ generations, routing and voices. Seek and stopped Timeline preview request no
 sound. Existing effects retain their ordinary audio lifetime. Private animation
 recovery preserves cue intent without recovering or replaying audio cursors.
 
-Later work includes streaming music, voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
+Later work includes streaming music, voice stealing, custom buses, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
 ## AudioClip import and selected revisions

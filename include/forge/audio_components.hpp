@@ -21,6 +21,8 @@ struct AudioSource {
     std::uint32_t bus = 0;
     // Zero disables motion pitch; one uses ordinary relative velocity in meters/s.
     float doppler = 0;
+    // Keep music/UI playback advancing when only gameplay is paused.
+    bool pause_with_game = true;
     bool operator==(const AudioSource&) const = default;
 };
 struct AudioListener {

@@ -179,3 +179,13 @@ with a bounded wait shared across its animation dependencies.
 ## CPU observations
 
 [CPU profiling](cpu-profiling.md) exposes bounded, optional owner-thread scope records separately from clock status. Watch/control requests never supply simulation dt, change Pause/Step policy or edit authored Scene state. Collection begins off.
+
+## Audio pause policy
+
+Gameplay Pause stops sources with AudioSource.pause_with_game=true (the default).
+Opted-out music/UI continues on the existing audio device clock, including during
+Step, without advancing fixed ticks. Full output suspension remains separate for
+unpublished worlds, Stop, replacement and runtime faults; Audio clip preview Pause
+also suspends its entire preview. SDK control callbacks may command only active
+opted-out sources through the existing audio owner. The retained internal protocol
+driver supports source operations but has no SDK control-callback loop. See [Audio](audio.md).

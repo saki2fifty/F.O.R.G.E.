@@ -257,6 +257,12 @@ int main(int argc, char** argv) {
                             scene.redo() &&
                             std::abs(scene.entity(id).get<AudioSource>().outer_gain - .4f) < 1e-6,
                         "Cone outside volume lost Scene Undo/Redo");
+                click("pause_with_game");
+                require(!scene.entity(id).get<AudioSource>().pause_with_game,
+                        "Actual pause-policy checkbox did not commit");
+                require(scene.undo() && scene.entity(id).get<AudioSource>().pause_with_game &&
+                            scene.redo() && !scene.entity(id).get<AudioSource>().pause_with_game,
+                        "Pause-policy checkbox lost Scene Undo/Redo");
                 project.save();
                 click("bus");
                 key(ImGuiKey_DownArrow);
@@ -277,6 +283,8 @@ int main(int argc, char** argv) {
                 require(scene.entity(id).get<AudioSource>().attenuation == 1 &&
                             scene.entity(id).get<AudioSource>().rolloff == 2.5f,
                         "Audio settings did not survive save/reopen");
+                require(!scene.entity(id).get<AudioSource>().pause_with_game,
+                        "Audio pause policy did not survive Save/reopen");
                 cone = scene.entity(id).get<AudioSource>();
                 require(cone.doppler == 1.5f && cone.bus == 1 && cone.cone_enabled &&
                             cone.inner_angle == 40 && cone.outer_angle == 100 &&

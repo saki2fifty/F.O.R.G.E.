@@ -59,7 +59,12 @@ Json RuntimeWorld::tune_property(EntityRef target, const std::string& type,
         return std::static_pointer_cast<NavigationRuntime>(engine.services().navigation())
             ->tune(target, type, property, value);
     }
-    return scene.tune_runtime_property(target.entity.str(), type, property, value);
+    if (type == "forge.audio_source" && !engine.services().available(Capability::Audio))
+        throw std::runtime_error("Live audio tuning requires enabled audio");
+    auto applied = scene.tune_runtime_property(target.entity.str(), type, property, value);
+    if (type == "forge.audio_source")
+        std::static_pointer_cast<AudioRuntime>(engine.services().audio())->refresh_sources();
+    return applied;
 }
 bool RuntimeWorld::prepare_physics_assets() {
     if (engine.services().available(Capability::Resources))

@@ -76,6 +76,7 @@ class GameSession {
     void owner() const;
     void require_active() const;
     void tick(float dt);
+    void fault(std::string error);
     GamePreparationProgress poll_candidate();
     void discard_candidate();
     GameSessionConfig config_;

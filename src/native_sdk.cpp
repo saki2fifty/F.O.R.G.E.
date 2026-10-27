@@ -28,6 +28,11 @@
 namespace forge {
 namespace {
 using Json = nlohmann::json;
+static_assert(unsigned(AudioSourceOperation::Stop) == FORGE_SDK_AUDIO_STOP &&
+              unsigned(AudioSourceOperation::Restart) == FORGE_SDK_AUDIO_RESTART &&
+              unsigned(AudioSourceOperation::Pause) == FORGE_SDK_AUDIO_PAUSE &&
+              unsigned(AudioSourceOperation::Resume) == FORGE_SDK_AUDIO_RESUME &&
+              unsigned(AudioSourceOperation::OneShot) == FORGE_SDK_AUDIO_ONE_SHOT);
 static_assert(unsigned(PhysicsOverlap2D::Shape::Box) == FORGE_SDK_PHYSICS_2D_BOX &&
               unsigned(PhysicsOverlap2D::Shape::Circle) == FORGE_SDK_PHYSICS_2D_CIRCLE &&
               unsigned(PhysicsOverlap2D::Shape::Capsule) == FORGE_SDK_PHYSICS_2D_CAPSULE);
@@ -1184,8 +1189,8 @@ struct Bridge {
                 out->version = FORGE_SDK_CAPABILITY_VERSION;
                 out->flags = FORGE_SDK_OWNER_THREAD;
                 bool fixed = cap == FORGE_SDK_INPUT || cap == FORGE_SDK_PHYSICS ||
-                             cap == FORGE_SDK_AUDIO || cap == FORGE_SDK_NAVIGATION ||
-                             cap == FORGE_SDK_ANIMATION || cap == FORGE_SDK_TILE_MAP_EDITS;
+                             cap == FORGE_SDK_NAVIGATION || cap == FORGE_SDK_ANIMATION ||
+                             cap == FORGE_SDK_TILE_MAP_EDITS;
                 if (fixed)
                     out->flags |= FORGE_SDK_FIXED_ONLY;
                 if (cap == FORGE_SDK_CONTROL_INPUT)
@@ -1203,10 +1208,12 @@ struct Bridge {
                     available = b.tile_maps_callable();
                 if (cap == FORGE_SDK_GAME)
                     available = b.game_callable();
-                if (fixed && !b.runtime_active())
+                if ((fixed || cap == FORGE_SDK_AUDIO) && !b.runtime_active())
                     available = false;
                 out->available = available;
                 out->callable = available && (!fixed || b.context.input != nullptr);
+                if (cap == FORGE_SDK_AUDIO)
+                    out->callable = available && (b.context.input || b.context.controls);
                 if (cap == FORGE_SDK_CONTROL_INPUT)
                     out->callable = available && b.context.controls != nullptr;
                 if (cap == FORGE_SDK_UI)
@@ -1356,11 +1363,16 @@ struct Bridge {
                                uint32_t operation) -> int32_t {
             try {
                 auto& c = Bridge::get(p).context;
-                if (!c.input || operation > FORGE_SDK_AUDIO_ONE_SHOT)
+                if ((!c.input && !c.controls) || operation > FORGE_SDK_AUDIO_ONE_SHOT)
                     return 0;
                 const EntityRef ref{AssetId::parse(bounded(scene, 36)),
                                     EntityId::parse(bounded(entity, 36))};
                 auto audio = c.services.audio();
+                if (!c.input) {
+                    audio->control_unpaused_source(ref,
+                                                   static_cast<AudioSourceOperation>(operation));
+                    return 1;
+                }
                 switch (operation) {
                 case FORGE_SDK_AUDIO_STOP:
                     audio->stop_source(ref);

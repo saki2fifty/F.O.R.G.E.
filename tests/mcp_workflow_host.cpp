@@ -20,14 +20,17 @@
 // Native owners with the existing recording RmlUi renderer; no GPU is simulated.
 int main(int argc, char** argv) {
     try {
-        if (argc != 6 && argc != 7)
+        if (argc != 6 && argc != 7 && argc != 8)
             return 2;
         const auto root = std::filesystem::u8path(argv[1]);
         const auto runtime = std::filesystem::u8path(argv[2]);
         const auto kit = std::filesystem::u8path(argv[3]);
         const auto nav_worker = std::filesystem::u8path(argv[4]);
         const auto mode = std::string(argv[5]);
-        if (argc == 7)
+        const bool sdk_play = argc == 8 && std::string(argv[7]) == "--sdk";
+        if (argc == 8 && !sdk_play)
+            return 2;
+        if (argc >= 7)
             std::filesystem::copy(std::filesystem::u8path(argv[6]), root / "Game",
                                   std::filesystem::copy_options::recursive);
         else
@@ -101,9 +104,10 @@ int main(int argc, char** argv) {
             controls.start = [&] {
                 if (!blocked().empty() || settings.dirty())
                     throw std::runtime_error("Project work pending");
-                play.configure(
-                    files.document.settings().simulation_hz(), files.document.settings().input(),
-                    files.document.settings().physics().gravity, files.document.project());
+                play.configure(files.document.settings().simulation_hz(),
+                               files.document.settings().input(),
+                               files.document.settings().physics().gravity,
+                               files.document.project(), sdk_play, sdk_play);
                 play.set_headless_audio(true);
                 play.start(forge::path_utf8(runtime), scene.snapshot());
             };
@@ -172,6 +176,10 @@ int main(int argc, char** argv) {
             export_task.poll(imports, [&] { imports.rescan(); });
             navigation.poll(scene, files.document, play.active(), message);
             play.pump();
+            if (sdk_play && !play.sdk_candidate_envelope().is_null())
+                play.submit_sdk_candidate_ack(true, play.session(), play.sdk_candidate_ticket());
+            if (sdk_play)
+                input.pump(play, true);
             if (play.ready() && play.ui_snapshot().is_object() &&
                 (presenter || (play.ui_snapshot().contains("documents") &&
                                !play.ui_snapshot().at("documents").empty()))) {

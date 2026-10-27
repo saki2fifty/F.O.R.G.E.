@@ -77,6 +77,8 @@ class RuntimeSimulation {
     RuntimeSimulation& operator=(const RuntimeSimulation&) = delete;
     void tick(float dt);
     void audio_paused(bool value);
+    void activate_audio(bool game_paused);
+    void suspend_audio();
     void sync_audio();
     // Publish privately edited animation joints without changing other interpolation.
     void sync_animation_pose() const;

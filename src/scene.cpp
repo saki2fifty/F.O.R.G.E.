@@ -813,6 +813,24 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
         }
         throw std::runtime_error("Mesh Renderer builtin is unavailable");
     }
+    if (type_key == "forge.audio_source") {
+        if (!target.has<AudioSource>())
+            throw std::runtime_error("Live audio tuning requires an existing Audio Source");
+        for (const auto& codec : detail::builtins()) {
+            if (type_key != codec.name)
+                continue;
+            auto candidate = codec.read(target, true);
+            if (!candidate.contains(property_key))
+                throw std::runtime_error("Live audio property is unavailable");
+            candidate[property_key] = value;
+            detail::validate_components({{type_key, candidate}});
+            const auto typed = std::get<AudioSource>(codec.decode(candidate));
+            detail::validate_reflected_value(target, typed);
+            target.set<AudioSource>(typed);
+            return codec.read(target, true).at(property_key);
+        }
+        throw std::runtime_error("Audio Source builtin is unavailable");
+    }
     for (const auto& codec : context_.authored_codecs()) {
         if (codec.key() != type_key)
             continue;

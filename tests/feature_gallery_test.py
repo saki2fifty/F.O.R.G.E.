@@ -82,7 +82,7 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '78-sprite-image-regions.scene.json',
         '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json',
         '81-moving-tile-maps.scene.json', '82-tile-map-triggers.scene.json',
-        '83-audio-source-codecs.scene.json'} <= {p.name for p in scenes}
+        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json'} <= {p.name for p in scenes}
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]
@@ -233,6 +233,7 @@ try:
                 sound.setdefault('outer_gain', .25)
                 sound.setdefault('bus', 0)
                 sound.setdefault('doppler', 0.)
+                sound.setdefault('pause_with_game', True)
             body = row['components'].get('forge.physics_body')
             if body is not None:
                 body.setdefault('continuous_collision', False)
@@ -439,6 +440,13 @@ try:
             assert all(item['metadata']['forge.audio']['frames'] == 12000 and
                        item['metadata']['forge.audio']['channels'] == 2 for item in assets)
             assert all(not item['spatialized'] and item['loop'] for item in sources)
+        if path.name.startswith('84-'):
+            sources = [row['components']['forge.audio_source'] for row in loaded['entities']
+                       if 'forge.audio_source' in row['components']]
+            assert len(sources) == 3 and sum(item['play_on_start'] for item in sources) == 2
+            assert sum(item['pause_with_game'] for item in sources) == 1
+            assert all(item['clip'] == by_source['Assets/FalloffTone.wav']['id'] for item in sources)
+            assert not next(item for item in sources if not item['play_on_start'])['pause_with_game']
         if path.name.startswith('35-'):
             sounds = [row for row in loaded['entities'] if 'forge.audio_source' in row['components']]
             parents = [row for row in loaded['entities'] if 'forge.transform_animator' in row['components']]

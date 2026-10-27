@@ -62,16 +62,16 @@ class AudioSourceEditor {
         auto button = [&](const char* label, const char* key, AudioSourceOperation operation) {
             if (ui::button(label,
                            operation == AudioSourceOperation::Restart
-                               ? "Restart this runtime source from its beginning. Paused Play "
-                                 "stays silent."
+                               ? "Restart this runtime source from its beginning. Pause with game "
+                                 "controls whether gameplay pause silences it."
                            : operation == AudioSourceOperation::Stop
                                ? "Stop this source and all its overlapping effects."
                            : operation == AudioSourceOperation::OneShot
                                ? "Play the selected clip once alongside existing sound. The main "
-                                 "sound keeps its position. Paused Play stays silent."
+                                 "sound keeps its position. Pause with game controls whether "
+                                 "gameplay pause silences it."
                                : "Pause or resume this source and its effects without restarting. "
-                                 "Game pause "
-                                 "remains silent.")) {
+                                 "Playback follows this source's Pause with game setting.")) {
                 if (submit(operation))
                     error_.clear();
                 else

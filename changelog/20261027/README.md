@@ -1,5 +1,15 @@
 # 2026-10-27 — Runtime timing, input, profiling and audio
 
+## Independent audio pause
+
+Audio Sources now have a saved Pause with game policy, on by default. Opted-out
+music/UI voices and one-shots continue while fixed gameplay is paused; preparation,
+Stop, replacement, preview Pause and runtime faults suspend complete output.
+Existing Inspector/Prefab/history and Play/MCP owners expose the policy. Exact-SDK
+control callbacks can request only opted-out active sounds; matching modules must
+be rebuilt. Gallery84 and an original installed-SDK example demonstrate the workflow.
+Native Windows/physical listening/graphical export and new captures remain pending.
+
 ## Audio source codecs
 
 MP3 and FLAC now share WAV's supervised import, processing settings, selected PCM,

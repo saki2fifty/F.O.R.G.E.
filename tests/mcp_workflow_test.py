@@ -16,6 +16,7 @@ MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
 PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
+AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
 
 
 @contextmanager
@@ -23,8 +24,10 @@ def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
         root = Path(temporary)
         command = [HOST, str(root), RUNTIME, KIT, NAV, mode]
-        if MAP_PROFILE_ONLY:
+        if MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
+        if AUDIO_PAUSE_ONLY:
+            command.append('--sdk')
         process = subprocess.Popen(command,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    text=True, encoding='utf-8')
@@ -184,6 +187,44 @@ for legacy in (False, True):
                 assert 'forge_play_profile_refresh' not in visible
             print(('legacy' if legacy else 'current') + ': native ECS plan through actual MCP/Play; stale generation, Stop/Clear and authored isolation verified')
             continue
+        if AUDIO_PAUSE_ONLY:
+            actor = ok('forge_entity_create', arguments=dict(kind=0, name='Independent audio'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.audio_source'))
+            clip = next(a for a in json.loads((root/'Game/forge.assets.json').read_text())['assets']
+                        if a['source'] == 'Assets/FalloffTone.wav')['id']
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.audio_source',
+                values=dict(clip=clip, spatialized=False, loop=True, play_on_start=True)))
+            ok('forge_property_set', arguments=dict(entity=actor, component='forge.audio_source',
+                                                   field='pause_with_game', value=False))
+            assert ok('forge_history_undo')['changed']
+            authored = read('forge_scene_read')
+            assert next(e for e in authored['entities'] if e['id'] == actor)['components']['forge.audio_source']['pause_with_game']
+            ok('forge_document_save')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+            control('forge_play_pause')
+            control('forge_play_watch', entity=actor)
+            observed = until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('available'))
+            assert observed['source']['paused'] and observed['source']['pause_with_game'], observed
+            tick = read('forge_play_status')['timing']['tick']
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='pause_with_game', value=False)
+            observed = until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('pause_with_game') is False)
+            assert not observed['source']['paused'], observed
+            control('forge_play_audio_control', entity=actor, operation='one_shot')
+            until(lambda: read('forge_play_audio'), lambda row: row['value'].get('one_shots') == 1)
+            control('forge_play_audio_control', entity=actor, operation='stop')
+            until(lambda: read('forge_play_audio'), lambda row: row['value'].get('one_shots') == 0)
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='pause_with_game', value='false')
+            rejected = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            assert not rejected['tune_ack']['ok'], rejected
+            assert read('forge_play_audio')['source']['pause_with_game'] is False
+            assert read('forge_play_status')['timing']['tick'] == tick
+            assert read('forge_scene_read') == authored
+            control('forge_play_stop')
+            until(lambda: read('forge_play_status'), lambda row: not row['active'])
+            assert read('forge_scene_read') == authored
+            continue
+
         if TIME_ONLY:
             assert "unscaled_time" in advertised["forge_play_status"]["description"]
             ok('forge_entity_create', arguments=dict(kind=0, name='Unscaled clock cube'))

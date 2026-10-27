@@ -447,8 +447,21 @@ void RuntimeSimulation::capture_system_profile() {
     }
 }
 void RuntimeSimulation::audio_paused(bool value) {
+    if (audio_) {
+        audio_->game_paused(value);
+        if (!value)
+            audio_->paused(false);
+    }
+}
+void RuntimeSimulation::activate_audio(bool game_paused) {
+    if (audio_) {
+        audio_->game_paused(game_paused);
+        audio_->paused(false);
+    }
+}
+void RuntimeSimulation::suspend_audio() {
     if (audio_)
-        audio_->paused(value);
+        audio_->paused(true);
 }
 void RuntimeSimulation::sync_audio() {
     if (audio_)

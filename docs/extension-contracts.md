@@ -27,8 +27,8 @@ These classifications describe supported ownership, not a promise of permanent C
 | PhysicsBody / Box, Sphere, CapsuleCollider | A authored; B values | No Jolt ID/pointer. Absent body means no separate simulation body; no invented enabled flag. |
 | PhysicsService / PhysicsHit / PhysicsContact | C | Existing source physics owner; SDK copies observations and queries, and queues controls. No solver handles. |
 | Jolt world/body IDs/jobs/state recorder | D | World-owned implementation and private exact recovery. |
-| AudioSource / AudioListener | A authored; B values | Typed clip and playback parameters. Source presence/autoplay differ deliberately from listener enabled. |
-| AudioService / AudioRuntime | C; B command subset | Play/Restart, independent OneShot, Stop and source Pause/Resume are bounded owner-thread commands. miniaudio device/voice/PCM handles are D. |
+| AudioSource / AudioListener | A authored; B values | Typed clip, playback parameters and per-source pause_with_game (default true). Source presence/autoplay differ deliberately from listener enabled. |
+| AudioService / AudioRuntime | C; B command subset | Play/Restart, independent OneShot, Stop and source Pause/Resume are bounded owner-thread commands. Fixed calls queue; control calls require active output and a source with Pause with game disabled. miniaudio device/voice/PCM handles are D. |
 | Animator / skeleton and clip refs | A authored; B values | Fixed authoritative playback, derived pose. No artificial animation service: actual consumer writes Animator. Ozz objects remain D. |
 | AnimationSequence / TransformAnimator | A authored; B values | Scene-owned controller references/start offsets reuse current clips, AnimationRuntime clocks/candidates and guarded status/control/seek. Native layout/fingerprint changed; C ABI1 tables unchanged. Bound tracks cannot own independent control clocks. |
 | NavigationSurface / NavigationRegion2D / NavigationAgent | A authored; B values | Explicit3D geometry or XY rectangles; typed navmesh, destination/speed/enabled. |
@@ -48,6 +48,15 @@ Built-ins use `ServiceAccess`: `available(Capability)`, `require`, and typed `ph
 Exact clients use `sdk::Client::query(Capability)` or `query_capability`. Result version describes the recognized contract; `available` means a live allowed provider, and `callable` additionally checks fixed-tick context for simulation operations. Version mismatch returns the supported version with both booleans false. Unknown/composite IDs and invalid result layouts fail. Do not cache availability across startup, Stop or ticks. The old `host.capabilities` bitmap is a startup snapshot retained for existing rebuilt consumers, not the authoritative live query.
 
 Input is intrinsic to a runtime's fixed pipeline: query ID `FORGE_SDK_INPUT` is **not** a descriptor permission/provider bit. It reports availability after native startup and callability only during a fixed tick. Its read callback remains unavailable for a missing action. This preserves the existing ModuleContext input borrow instead of inventing a second input service/authority. Animation similarly uses authored Animator values and has no fabricated query service.
+
+Audio requires a live allowed runtime provider. Its command callback is callable
+in fixed or control scope and no longer advertises `FORGE_SDK_FIXED_ONLY`. Fixed
+calls retain queued semantics. Control calls recheck the source identity, clip,
+active output and current/admitted `pause_with_game == false` policy, then apply
+through the same audio owner without advancing simulation. Ordinary gameplay
+sources and unpublished/full-suspended worlds reject control-domain calls. The
+appended AudioSource value and changed bridge require an exact SDK/module rebuild;
+the existing C callback table layout and ABI version remain unchanged.
 
 Development Tile Map access uses intrinsic `FORGE_SDK_TILE_MAPS` and
 `FORGE_SDK_TILE_MAP_EDITS` query IDs. Both require the existing allowed Resources

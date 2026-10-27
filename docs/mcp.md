@@ -631,3 +631,12 @@ and `forge_asset_settings_*` tools. MP3/FLAC share the Audio clip settings schem
 processing, publication and runtime PCM owner with WAV. No codec-specific MCP tool
 or bypass is required. Source-copy grants, reviewed digests, project revisions,
 last-good publication and Scene Undo boundaries remain unchanged.
+
+Audio Source discovery includes the saved bool `pause_with_game` (defaulttrue),
+labelled Pause with game. Existing component/property operations own authored
+changes and Undo/Prefab persistence. SDK Play uses `forge_play_tune` for transient
+live changes; `forge_play_watch`, `forge_play_audio` and `forge_play_audio_control`
+retain source/world/sequence checks. Copied source observations expose effective
+paused state separately from the overall game pause. No new tool family or agent
+implementation is added. The focused MCP audio pause gate exercises both framing
+modes through SDK Play, including live edits, one-shots, Stop and authored isolation.
