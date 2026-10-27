@@ -479,3 +479,20 @@ copied events. Bullet does not provide exact projectile timing or bullet-to-bull
 CCD. The native fast-sensor path retains eight candidates per body per step.
 See the installed [2D contract](physics-2d.md) for admission, bounds and recovery
 scope. Arbitrary native gameplay state still has no automatic SDK Play recovery.
+
+## Timers during pause and slow motion
+
+Use the existing `game_query` callback with `FORGE_SDK_GAME` from a module's
+`controls` callback. Its copied `clock` object provides `unscaled_time` and
+`unscaled_delta` in seconds, plus unsigned `unscaled_sequence`. Pause and zero
+simulation speed do not stop these observations. Fixed systems still receive the
+usual fixed tick delta. Repeated queries/catch-up callbacks can share a sequence;
+consume an interval once or subtract elapsed observations to bridge skipped samples.
+
+Build installed `sdk/sample` target `time_scale_gameplay` for an original example
+of input-driven speed changes and a per-entity timer. The timer starts on its first
+control callback. Observations are raw elapsed monotonic time, including long
+stalls; choose any UI clamp in project code. Same-session Scene switches retain
+the host timeline, while new Play/process starts at zero. Timer state is ordinary
+project state and is not automatically saved or recovered. No new ABI callback or
+SDK layout is required for these copied status fields.

@@ -53,6 +53,8 @@ class GameSession {
     void pause(RuntimeClock::Time now);
     void resume(RuntimeClock::Time now);
     void set_time_scale(double value);
+    // Host observation is available during preparation and Pause; never ticks ECS.
+    void sample_time(RuntimeClock::Time now);
     void step();
     // Optional owner-thread transport service between fixed ticks. It must not
     // throw or access/mutate the session; use only already captured transport bytes.

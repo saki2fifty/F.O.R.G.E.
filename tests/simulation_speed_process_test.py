@@ -1,4 +1,4 @@
-"""Installed matching C++ module restores held simulation through control input."""
+"""Matching C++ module reads unscaled time and restores held simulation through controls."""
 import json
 import shutil
 import subprocess
@@ -34,7 +34,8 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="simulation-speed-")
                  digest=declaration["digest"])
     scene = dict(version=1, entities=[dict(id="probe", name="Rate probe", components={
         "project.rate_probe": dict(frames=0, ticks=0, last_dt=0, observed_rate=1,
-                                   **{"$forge": stamp})})])
+                                   unscaled_time=0, unscaled_delta=0, timer_seconds=0,
+                                   unscaled_sequence=0, timer_updates=0, **{"$forge": stamp})})])
     process = subprocess.Popen([runtime, "--sdk-project", root, "--sdk-play", "on",
                                "--user-data", root / "users"],
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -107,6 +108,14 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="simulation-speed-")
         assert observed["timing"]["tick"] == held["timing"]["tick"]
         assert probe(observed)["ticks"] == probe(held)["ticks"]
         assert probe(observed)["frames"] > probe(held)["frames"]
+        assert probe(observed)["timer_seconds"] > probe(held)["timer_seconds"]
+        assert probe(observed)["timer_updates"] > probe(held)["timer_updates"]
+        timer_elapsed = probe(observed)["timer_seconds"] - probe(held)["timer_seconds"]
+        observed_elapsed = probe(observed)["unscaled_time"] - probe(held)["unscaled_time"]
+        assert abs(timer_elapsed - observed_elapsed) < 1e-8, (timer_elapsed, observed_elapsed)
+        assert observed["timing"]["unscaled_time"] > held["timing"]["unscaled_time"]
+        assert 0 < probe(observed)["unscaled_delta"] < probe(observed)["unscaled_time"]
+        assert probe(observed)["unscaled_sequence"] <= observed["timing"]["unscaled_sequence"]
         slow = change("key.q", .25)
         continued = wait_for(lambda r: probe(r)["ticks"] > probe(slow)["ticks"] + 1)
         assert abs(probe(continued)["last_dt"] - .01) < 1e-8
@@ -116,6 +125,11 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="simulation-speed-")
         change("key.n", 1)
         paused = request("pause")
         change("key.h", 0)
+        time.sleep(.08)
+        paused_later = request("snapshot")
+        assert paused_later["timing"]["tick"] == paused["timing"]["tick"]
+        assert probe(paused_later)["timer_seconds"] > probe(paused)["timer_seconds"]
+        assert probe(paused_later)["timer_updates"] > probe(paused)["timer_updates"]
         stepped = request("step")
         assert stepped["timing"]["tick"] == paused["timing"]["tick"] + 1
         assert stepped["timing"]["time_scale"] == 0

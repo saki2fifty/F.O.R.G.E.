@@ -1,4 +1,4 @@
-// Original exact-SDK example: unscaled input changes the host's simulation rate.
+// Original exact-SDK example: control input and real-time timers survive simulation holds.
 #include <cstdio>
 #include <flecs.h>
 #include <forge/native_sdk_identity.h>
@@ -10,6 +10,8 @@ struct RateProbe {
     uint64_t frames = 0, ticks = 0;
     float last_dt = 0;
     double observed_rate = 1;
+    double unscaled_time = 0, unscaled_delta = 0, timer_seconds = 0;
+    uint64_t unscaled_sequence = 0, timer_updates = 0;
 };
 struct PendingRate {
     uint64_t token = 0;
@@ -25,11 +27,17 @@ int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1* h, char* error, uint32_t c
                               .member<uint64_t>("frames")
                               .member<uint64_t>("ticks")
                               .member<float>("last_dt")
-                              .member<double>("observed_rate");
+                              .member<double>("observed_rate")
+                              .member<double>("unscaled_time")
+                              .member<double>("unscaled_delta")
+                              .member<double>("timer_seconds")
+                              .member<uint64_t>("unscaled_sequence")
+                              .member<uint64_t>("timer_updates");
         world.component<PendingRate>();
-        return h->authoring_type(h->context, type, "project.rate_probe", 1,
-                                 R"({"frames":0,"ticks":0,"last_dt":0,"observed_rate":1})",
-                                 "Examples", error, capacity);
+        return h->authoring_type(
+            h->context, type, "project.rate_probe", 2,
+            R"({"frames":0,"ticks":0,"last_dt":0,"observed_rate":1,"unscaled_time":0,"unscaled_delta":0,"timer_seconds":0,"unscaled_sequence":0,"timer_updates":0})",
+            "Examples", error, capacity);
     } catch (const std::exception& e) {
         if (capacity)
             std::snprintf(error, capacity, "%s", e.what());
@@ -107,10 +115,23 @@ int32_t FORGE_SDK_CALL controls(const ForgeSdkWorldV1* h, char* error, uint32_t 
         if (h->game_query(h->context, status.data(), needed) != needed)
             throw std::runtime_error("Rate status changed");
         const auto query = nlohmann::json::parse(status.data());
-        const auto rate = query.at("clock").at("time_scale").get<double>();
+        const auto& clock = query.at("clock");
+        const auto rate = clock.at("time_scale").get<double>();
+        const auto seconds = clock.at("unscaled_time").get<double>();
+        const auto delta = clock.at("unscaled_delta").get<double>();
+        const auto sequence = clock.at("unscaled_sequence").get<uint64_t>();
         world.each([&](RateProbe& probe) {
+            // Several fixed ticks/queries can share one host observation. Use the
+            // sequence to consume it once and elapsed time to bridge skipped frames.
+            if (probe.frames && sequence != probe.unscaled_sequence) {
+                probe.timer_seconds += seconds - probe.unscaled_time;
+                ++probe.timer_updates;
+            }
             ++probe.frames;
             probe.observed_rate = rate;
+            probe.unscaled_time = seconds;
+            probe.unscaled_delta = delta;
+            probe.unscaled_sequence = sequence;
         });
         return 1;
     } catch (const std::exception& e) {

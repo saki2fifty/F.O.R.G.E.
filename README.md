@@ -126,7 +126,7 @@ separate.
 See the [capability checklist and validation limits](docs/mcp.md).
 
 - Flecs scene state, stable authored IDs, independent local translation/rotation/scale, derived world transforms, structured prefabs, reflected properties, atomic scene replacement and saves, undo/redo, and unknown-component preservation.
-- Runtime-owned fixed clock, Pause/Step/Resume, derived hierarchical pose interpolation and a separate Play process with protocol 2. Project C++ gameplay registers Flecs components and systems through the exact matching SDK.
+- Runtime-owned fixed clock, unscaled C++ timers during Pause/zero speed, Pause/Step/Resume, derived hierarchical pose interpolation and a separate Play process with protocol 2. Project C++ gameplay registers Flecs components and systems through the exact matching SDK.
 - Built-in C++ source editing, Component/System creation, incremental CMake builds and isolated candidate validation. Code iteration uses Stop → Save → Build → Play; changed source is never silently run or exported from an older module.
 - Restart-bound plugin package validation/staging library. Native editor-plugin loading is not implemented.
 - Windows editor source with SDL3, Dear ImGui docking, persistent workspace/tooltips, Hierarchy/Inspector/Content/Scene panels, CPU performance diagnostics, and shared Diligent Scene/Game rendering with imported models, PBR materials, cameras, lights, skins and morphs. Windows compilation is validated in GitHub Actions; the initial editor and subsequent UI controls have been exercised on a Windows desktop.
@@ -185,4 +185,4 @@ See [native iteration](docs/native-modules.md), [scene format](docs/scene-format
 - **Restart**: replace the play world with a fresh copy, including your latest authored edits.
 - **Stop**: return the viewport to authoring. Inspector edits and Save always affect the authored scene.
 
-Use **Build → Gameplay setup → Create C++ gameplay project** for a new project. Find and create Components and Systems in **Content → Code**, edit them in **C++ Sources**, then choose **Build Gameplay** and Play. Build on Save is optional. See [C++ gameplay](manual/editor/native-gameplay.md) for the Windows developer launcher and tool requirements.
+Use **Build → C++ setup → Set up C++ code** for a new project. Find and create Components and Systems in **Content → Code**, edit them in **C++ Sources**, then choose **Build Project Code** and Play. Build on Save is optional. See [C++ gameplay](manual/editor/native-gameplay.md) for the Windows developer launcher and tool requirements.

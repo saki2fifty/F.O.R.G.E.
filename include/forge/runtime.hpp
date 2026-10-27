@@ -23,6 +23,9 @@ class RuntimeClock {
     explicit RuntimeClock(RuntimeConfig config = {});
     void resume(Time now);
     void pause(Time now);
+    // Real-time observation only. Equal timestamps keep the last interval/sequence;
+    // neither Pause nor simulation scaling changes this transient timeline.
+    void sample_time(Time now);
     void advance(Time now, const Tick& tick);
     void step(const Tick& tick);
     // Frame-boundary policy, not a change to the physics/fixed simulation delta.
@@ -42,6 +45,10 @@ class RuntimeClock {
   private:
     RuntimeConfig config_;
     Time previous_{};
+    Time unscaled_origin_{}, unscaled_previous_{};
+    bool time_sampled_ = false;
+    double unscaled_delta_ = 0;
+    std::uint64_t unscaled_sequence_ = 0;
     bool paused_ = true;
     double accumulator_ = 0, clamped_seconds_ = 0;
     double time_scale_ = 1;

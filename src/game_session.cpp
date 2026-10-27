@@ -256,6 +256,11 @@ void GameSession::set_time_scale(double value) {
     Mutation guard(changing_);
     clock_.set_time_scale(value);
 }
+void GameSession::sample_time(RuntimeClock::Time now) {
+    owner();
+    Mutation guard(changing_);
+    clock_.sample_time(now);
+}
 void GameSession::step() {
     require_active();
     Mutation guard(changing_);

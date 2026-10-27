@@ -11,7 +11,7 @@ Play becomes available after the initial source scan and queued asset imports fi
 ## Play, Pause, Step, Resume, and Stop
 
 - **Play** starts a fresh play session from a copy of your current authored scene. Opening a project normally opens its startup scene; a subsequent user **Open Scene** that you make editable is also playable from its current authored state.
-- **Pause** freezes gameplay. You can still navigate the editor camera and read diagnostics.
+- **Pause** freezes fixed gameplay. C++ control callbacks and unscaled menu timers can continue. You can still navigate the editor camera and read diagnostics.
 - **Step** advances exactly one simulation tick, then stays paused. The default is 60 ticks per second, so one step advances 1/60 second of gameplay.
 - **Resume** continues from the paused state. Time spent paused is not played back afterward.
 - **Restart** starts again from your authored scene.
@@ -62,6 +62,8 @@ speed and **Applying...** while a change is pending.
 Pause remains a separate control. While paused, **Step** still advances one tick
 at any chosen speed. Physics keeps its regular step size, and existing sound
 plays at its normal speed. Speed is temporary: a new Play starts at 1x.
+C++ menu timers can use [unscaled time](native-gameplay.md) to keep running during
+Pause or Hold motion without changing physics timing.
 
 Open Gallery **Scenes/58-simulation-speed.scene.json** to compare a bouncing object,
 transform animation and particles. Capture game input and try its speed buttons,

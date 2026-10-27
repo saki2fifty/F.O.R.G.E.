@@ -340,6 +340,12 @@ inspection. `tune` submits one existing reflected property; inspect `tune_pendin
 schema. `input_submit` accepts up to64 validated events from `controls`, using the
 existing input queue and physical release policy; reset releases controls.
 `time_scale` uses the existing finite [0,4] clock policy.
+`forge_play_status.timing` also includes `unscaled_time`, `unscaled_delta`
+(seconds) and unsigned `unscaled_sequence`, copied from the existing clock.
+Elapsed observations continue during Pause and zero rate without advancing fixed
+ticks or authored revision. Status is read-only; it does not force a new sample.
+A fresh Play/process has a new origin. Repeated samples may share a sequence;
+these are transient monotonic observations, not calendar timestamps or durable saves.
 
 Navigation runtime entity rows include `navigation_debug.diagnostic` for the
 current failed sample. It is bounded display text from the navigation owner,

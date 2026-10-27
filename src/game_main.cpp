@@ -386,6 +386,7 @@ int main(int argc, char** argv) {
                 } else if (now > deadline)
                     throw std::runtime_error("Scene preparation timed out before activation");
             } else if (active) {
+                game_controls.sample_time(now);
                 if (command_generation != presentation.generation()) {
                     commands.reset(presentation.session(), presentation.generation());
                     command_generation = presentation.generation();

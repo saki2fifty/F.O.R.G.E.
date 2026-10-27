@@ -82,7 +82,9 @@ struct PlayAutomation {
         methods.push_back(automation_method(
             "play.status",
             "Read the owning isolated runtime's launch, session, world, clock and "
-            "live-tuning acknowledgement. No authored data changes during Play.",
+            "live-tuning acknowledgement. Clock timing includes unscaled_time and "
+            "unscaled_delta in seconds plus unscaled_sequence; these observations continue "
+            "during Pause and zero speed. Reads do not advance time or authored data.",
             "play.read", automation_object(), false, [&files, &play](const Json&) {
                 files.document.check_ownership();
                 return state(play);

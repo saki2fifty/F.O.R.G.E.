@@ -62,8 +62,10 @@ void run(const std::filesystem::path& root) {
     };
     unsigned control_frames = 0;
     bool restore_rate = false;
+    Json control_clock;
     module.controls = [&](ModuleContext& c) {
         ++control_frames;
+        control_clock = c.services.game()->query().at("clock");
         if (restore_rate) {
             c.services.game()->request(c.id, {{"operation", "time_scale"}, {"scale", 1.}});
             restore_rate = false;
@@ -75,6 +77,7 @@ void run(const std::filesystem::path& root) {
         c.world.entity("game.saved").set<int>(data.at("counter").get<int>());
     };
     config.modules.push_back(module);
+    auto now = RuntimeClock::Time{};
     GameSession game(config);
     game.activate(game.prepare(load_game_scene(content, {asset})), RuntimeClock::Time{}, false);
     GameStorage storage(root / "users", "org.forge.host-test");
@@ -96,7 +99,7 @@ void run(const std::filesystem::path& root) {
     auto request = [&](Json command) {
         auto service = game.active().engine.services().game();
         const auto token = service->request("game.test", command);
-        host.pump(RuntimeClock::Time{});
+        host.pump(now);
         const auto result = service->inspect("game.test", token);
         service->release("game.test", token);
         return result;
@@ -132,19 +135,38 @@ void run(const std::filesystem::path& root) {
     request({{"operation", "time_scale"}, {"scale", 0.}});
     game.resume(RuntimeClock::Time{});
     const auto held_tick = game.status().at("clock").at("tick");
-    game.advance(RuntimeClock::Time{} + std::chrono::milliseconds(100));
+    now += std::chrono::milliseconds(100);
+    game.advance(now);
     check(game.status().at("clock").at("tick") == held_tick,
           "Zero-rate session advanced virtual simulation");
     restore_rate = true;
+    auto time_service = game.active().engine.services().game();
+    const auto queued_rate =
+        time_service->request("game.test", {{"operation", "time_scale"}, {"scale", 1.}});
+    host.sample_time(now);
+    check(time_service->inspect("game.test", queued_rate).state == "queued",
+          "Time-only refresh executed a queued operation");
+    const auto copied = game.active().engine.services().game()->query();
+    check(copied.at("clock").at("unscaled_time") == .1 && copied.contains("settings") &&
+              copied.contains("input_device") && copied.contains("cursor_captured") &&
+              copied.contains("rebind"),
+          "Time refresh lost current clock or host-owned status metadata");
+    check(game.status().at("clock").at("time_scale") == 0,
+          "Time-only refresh drained queued game operations");
     game.control_frame();
-    host.pump(RuntimeClock::Time{} + std::chrono::milliseconds(100));
+    check(control_clock == copied.at("clock"), "Control callback read stale clock data");
+    check(game.active().engine.services().game()->query() == copied,
+          "Repeated read advanced real time or changed copied status");
+    host.pump(now);
+    time_service->release("game.test", queued_rate);
     check(control_frames == 1 && game.status().at("clock").at("time_scale") == 1,
           "Unscaled controls could not restore a zero-rate session");
-    game.advance(RuntimeClock::Time{} + std::chrono::milliseconds(120));
+    now += std::chrono::milliseconds(20);
+    game.advance(now);
     check(game.status().at("clock").at("tick").get<std::uint64_t>() >
               held_tick.get<std::uint64_t>(),
           "Session did not continue after control-frame rate restore");
-    game.pause(RuntimeClock::Time{} + std::chrono::milliseconds(120));
+    game.pause(now);
     check(request(
               {{"operation", "set_settings"}, {"values", {{"input", {{"mouse_sensitivity", 2}}}}}})
                   .state == "succeeded",
@@ -202,7 +224,7 @@ void run(const std::filesystem::path& root) {
               game.active().simulation.input_status().at("rebind_listening") == true,
           "Could not begin player rebind or publish listener state");
     game.input({{"key.j", 1}});
-    host.pump(RuntimeClock::Time{});
+    host.pump(now);
     check(game.active().simulation.input_status().at("rebind_listening") == false,
           "Captured binding still advertises an active listener");
     check(request({{"operation", "rebind_commit"}}).state == "succeeded", "Captured rebind failed");
@@ -294,8 +316,8 @@ void run(const std::filesystem::path& root) {
         std::string bytes(std::istreambuf_iterator<char>(file), {});
         check(bytes == save_one_before, "Failed load rewrote the save file bytes");
     }
-    host.pump(RuntimeClock::Time{});
-    host.pump(RuntimeClock::Time{});
+    host.pump(now);
+    host.pump(now);
     check(&game.active() == active_world_ptr &&
               game.active().engine.world().world().lookup("game.prepared").get<int>() ==
                   prepared_marker_before &&
@@ -309,20 +331,20 @@ void run(const std::filesystem::path& root) {
     check(&game.active() == active_world_ptr &&
               game.status().at("prepared_ticket").get<std::uint64_t>() == 0,
           "Non-std cursor exception replaced the world or retained the candidate");
-    host.pump(RuntimeClock::Time{});
+    host.pump(now);
     // Successful path after the adapter is restored.
     cursor_mode = 0;
     auto success_service = game.active().engine.services().game();
     success_service->request("game.test",
                              {{"operation", "prepare"}, {"asset", asset}, {"activate", true}});
-    host.pump(RuntimeClock::Time{});
+    host.pump(now);
     check(&game.active() != active_world_ptr && game.active().scene.asset_id() == asset &&
               game.status().at("prepared_ticket").get<std::uint64_t>() == 0,
           "Normal prepare did not publish a new world");
     auto success_service_2 = game.active().engine.services().game();
     success_service_2->request("game.test",
                                {{"operation", "load"}, {"slot", "one"}, {"activate", true}});
-    host.pump(RuntimeClock::Time{});
+    host.pump(now);
     check(game.active().engine.world().world().lookup("game.saved").get<int>() == 43 &&
               game.status().at("prepared_ticket").get<std::uint64_t>() == 0,
           "Normal load did not restore saved state");
@@ -362,13 +384,16 @@ void run(const std::filesystem::path& root) {
         std::static_pointer_cast<AudioRuntime>(game.active().engine.services().audio())->status();
     auto old = game.active().engine.services().game();
     game.set_time_scale(.25);
+    const auto before_activation = game.status().at("clock").at("unscaled_time");
     old->request("game.test", {{"operation", "load"}, {"slot", "one"}, {"run", false}});
-    host.pump(RuntimeClock::Time{});
+    host.pump(now);
     check(game.active().scene.asset_id() == asset &&
               game.active().engine.world().world().lookup("game.saved").get<int>() == 43,
           "Save did not restore into prepared candidate");
     check(game.status().at("clock").at("time_scale") == .25,
           "Scene activation replaced the session rate policy");
+    check(game.status().at("clock").at("unscaled_time") == before_activation,
+          "Scene activation reset the session real-time observation");
     const auto restored_mix =
         std::static_pointer_cast<AudioRuntime>(game.active().engine.services().audio())->status();
     check(restored_mix.at("master_volume") == inherited_mix.at("master_volume") &&

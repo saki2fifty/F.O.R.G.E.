@@ -92,6 +92,29 @@ If FORGE reports an unexpected compiler shutdown, retry **Build Project Code**;
 it uses fresh temporary build storage when the previous work cannot be safely
 reused. Your saved C++ source and last good module remain available.
 
+## Keep a C++ timer running during pause
+
+Use your module's `controls` callback for menu timers or UI effects that should
+continue while gameplay is paused. Fixed systems and Flecs simulation timers
+follow gameplay speed and stop during Pause.
+
+1. Declare the `forge.game` dependency and the SDK's `FORGE_SDK_GAME` capability for your module.
+2. In `controls`, call `game_query` using its normal sizing call followed by a copied JSON buffer.
+3. Read `clock.unscaled_time` for elapsed seconds, `clock.unscaled_delta` for the latest observed interval, and `clock.unscaled_sequence` to identify that interval.
+4. Remember the last sequence. Only consume a new interval once; use differences between elapsed values if your timer skips observations.
+5. Save and build your C++ source, then Play. Check the timer during **Pause**, **Hold motion (0x)** and a slower speed. Its time continues while fixed gameplay stays paused or slowed.
+
+The matching SDK includes `sdk/sample/time_scale_probe.cpp`. Its
+`time_scale_gameplay` target demonstrates this timer and control-input speed
+changes; it is a developer example with its own fixture, not a component to attach
+unchanged to your Cube.
+
+These values are monotonic seconds, not dates. The first host observation is zero,
+and repeated queries can return the same sequence. Long stalls appear in full;
+cap an interval in your project if a UI effect needs it. Switching Scenes within
+the session retains the host timeline. A new Play/process starts a new timeline.
+Save timer progress explicitly in your game's save data if it must persist.
+
 ## Export
 
 Save the scene, build current gameplay, then choose **Run → Export Game...**.

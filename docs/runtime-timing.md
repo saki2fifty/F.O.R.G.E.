@@ -62,6 +62,33 @@ reject before policy changes. The editor displays accepted speed and a pending
 state, with six presets in its toolbar and overflow menu. Runtime UI uses the
 host-reserved `TimeScale` action with one numeric string.
 
+## Unscaled observations
+
+RuntimeClock also owns transient `unscaled_time`, `unscaled_delta` and
+`unscaled_sequence` observations, in seconds/seconds/unsigned sample index.
+The first host sample establishes zero; each strictly later monotonic timestamp
+publishes its raw interval and elapsed time. Repeated identical timestamps keep
+that interval and sequence, so multiple pumps and catch-up ticks at one boundary
+do not count time twice. Backwards samples reject before observation mutation.
+Status reads never sample time. This is monotonic elapsed time, not a calendar date.
+
+These observations continue while paused, at zero rate and during same-session
+Scene preparation. They include elapsed time discarded by the simulation clamp;
+applications decide whether a long timer/UI interval should be capped. Pause,
+Resume, Step and `restore_tick` do not fabricate elapsed time or reset this origin.
+A new clock/process starts a new origin; Scene activation retains it. It is not
+saved Scene/game state and is not restored across a process restart or crash.
+
+GameHostControls samples before draining requests and publishes through its usual
+copied status, preserving settings, cursor, device and rebinding metadata. The
+standalone host also refreshes before UI/control callbacks without draining queued
+commands early. SDK Play uses its existing host pumps. Ordinary protocol2 runtime
+samples in `advance`, including while paused. A callback sees the latest published
+observation, not a fresh clock read; fixed callbacks in a catch-up batch can share
+one sequence. `game_query.clock` and Play `timing` carry these same values. Use the
+sequence to consume an interval once, or elapsed-time differences to bridge skipped
+samples. Fixed systems, physics and Flecs timers continue using positive fixed dt.
+
 ## Derived presentation
 
 `PresentationPoses` stores previous/current effective local translation, quaternion rotation and scale, keyed by generation-bearing Flecs handles. `WorldContext::transform_nodes()` supplies the same effective spatial graph used by Phase 3, including generated prefab interiors. This is a transient read snapshot, not another authoritative ECS hierarchy.

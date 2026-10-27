@@ -13,6 +13,7 @@ from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
+TIME_ONLY = sys.argv[7:] == ['--time-only']
 
 
 @contextmanager
@@ -102,6 +103,37 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if TIME_ONLY:
+            assert "unscaled_time" in advertised["forge_play_status"]["description"]
+            ok('forge_entity_create', arguments=dict(kind=0, name='Unscaled clock cube'))
+            ok('forge_document_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+            later = until(lambda: read('forge_play_status'), lambda row: row['control_ready'] and
+                          row['timing']['unscaled_time'] > paused['timing']['unscaled_time'] + .02)
+            assert later['timing']['tick'] == paused['timing']['tick']
+            assert later['timing']['unscaled_sequence'] > paused['timing']['unscaled_sequence']
+            assert later['timing']['unscaled_delta'] > 0
+            control('forge_play_time_scale', value=0)
+            until(lambda: read('forge_play_status'), lambda row: row['control_ready'] and row['timing']['time_scale'] == 0)
+            control('forge_play_resume')
+            held = until(lambda: read('forge_play_status'), lambda row: not row['paused'] and row['control_ready'])
+            later = until(lambda: read('forge_play_status'), lambda row: row['control_ready'] and
+                          row['timing']['unscaled_time'] > held['timing']['unscaled_time'] + .02)
+            assert later['timing']['tick'] == held['timing']['tick']
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+            control('forge_play_step')
+            stepped = until(lambda: read('forge_play_status'), lambda row: row['control_ready'] and
+                            row['timing']['tick'] == paused['timing']['tick'] + 1)
+            assert stepped['timing']['time_scale'] == 0 and stepped['paused']
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            print(('legacy' if legacy else 'current') + ': paused/zero-rate unscaled clock, Step and authored immutability passed')
+            continue
         if MAP_PROFILE_ONLY:
             catalog = json.loads((root/'Game/forge.assets.json').read_text())
             tile_map = next(row['id'] for row in catalog['assets']

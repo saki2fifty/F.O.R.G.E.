@@ -31,6 +31,25 @@ Limits are 1 MiB per request/result, 128 retained requests per endpoint/module S
 bridge, and 256 pending requests per host. These are admission bounds, not throughput
 or multiplayer guarantees.
 
+## Unscaled timers
+
+The existing copied `game_query` object's `clock` includes `unscaled_time`
+(seconds since the host's first observation), `unscaled_delta` (seconds in its
+latest distinct interval) and unsigned `unscaled_sequence`. These observations
+continue during Pause and a zero simulation rate. Querying twice does not advance
+time; multiple callbacks can see one sequence. Consume a sequence once, or use
+differences between elapsed observations to bridge missed samples. The first
+observation has zero interval. Long stalls are not simulation-clamped in this view.
+
+Use a module's `controls` callback for menus/timers that must run while paused;
+fixed systems still run only on simulation ticks and receive fixed dt. The
+`time_scale_probe.cpp` installed sample demonstrates a per-entity timer with no
+process-global clock. Same-session Scene activation retains the host timeline;
+new Play/process starts a new origin. No save/recovery of arbitrary native timer
+state is implied. This adds JSON observations through existing Game capability,
+not new C callbacks, capability bits or a binary layout change. Hosts without the
+Game service do not provide this query. See [runtime timing](runtime-timing.md).
+
 ## Polled host dispatch (`GameControlQueue::poll`)
 
 `GameControlQueue` exposes both the synchronous `drain(Execute)` and a polling

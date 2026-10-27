@@ -6,6 +6,7 @@
 #include <cmath>
 #include <forge/render_components.hpp>
 #include <forge/runtime.hpp>
+#include <limits>
 #include <stdexcept>
 namespace forge {
 void RuntimeConfig::validate() const {
@@ -26,10 +27,27 @@ void RuntimeClock::pause(Time now) {
     accumulator_ = 0;
     paused_ = true;
 }
+void RuntimeClock::sample_time(Time now) {
+    if (!time_sampled_) {
+        unscaled_origin_ = unscaled_previous_ = now;
+        time_sampled_ = true;
+        return;
+    }
+    if (now < unscaled_previous_)
+        throw std::runtime_error("Runtime observation clock must be monotonic");
+    if (now == unscaled_previous_)
+        return;
+    if (unscaled_sequence_ == std::numeric_limits<std::uint64_t>::max())
+        throw std::runtime_error("Runtime observation sequence exhausted");
+    unscaled_delta_ = std::chrono::duration<double>(now - unscaled_previous_).count();
+    unscaled_previous_ = now;
+    ++unscaled_sequence_;
+}
 void RuntimeClock::advance(Time now, const Tick& simulate) {
-    last_ticks_ = 0;
     if (now < previous_)
         throw std::runtime_error("Runtime clock must be monotonic");
+    sample_time(now);
+    last_ticks_ = 0;
     double elapsed = std::chrono::duration<double>(now - previous_).count();
     previous_ = now;
     if (paused_)
@@ -62,6 +80,12 @@ Json RuntimeClock::status() const {
             {"simulation_hz", config_.simulation_hz},
             {"fixed_dt", fixed_dt()},
             {"time_scale", time_scale_},
+            {"unscaled_time",
+             time_sampled_
+                 ? std::chrono::duration<double>(unscaled_previous_ - unscaled_origin_).count()
+                 : 0.0},
+            {"unscaled_delta", unscaled_delta_},
+            {"unscaled_sequence", unscaled_sequence_},
             {"tick", tick_},
             {"ticks_this_iteration", last_ticks_},
             {"accumulator", accumulator_},

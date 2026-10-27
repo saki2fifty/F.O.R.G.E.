@@ -55,6 +55,7 @@ int main(int argc, char** argv) {
             wait([&] { return play.paused() && play.control_ready(); });
             const auto saved = play.snapshot();
             const auto tick = play.timing().at("tick");
+            const auto paused_time = play.timing().at("unscaled_time").get<double>();
             for (double rate : {0., .25, .5, 1., 2., 4.}) {
                 check(play.set_time_scale(rate) && play.time_scale_pending(), "Rate not queued");
                 check(!play.set_time_scale(rate), "Pending request admitted duplicate");
@@ -64,18 +65,24 @@ int main(int argc, char** argv) {
                 check(play.snapshot() == saved && play.timing().at("tick") == tick,
                       "Paused rate changed scene or tick");
             }
+            check(play.timing().at("unscaled_time").get<double>() > paused_time,
+                  "Paused process did not publish increasing unscaled time");
             check(!play.set_time_scale(-1) && !play.set_time_scale(4.1),
                   "Editor accepted invalid rate");
             check(play.set_time_scale(0), "Hold rejected");
             wait([&] { return !play.time_scale_pending() && play.timing().at("time_scale") == 0; });
             play.resume();
             wait([&] { return !play.paused() && play.control_ready(); });
+            const auto held_time = play.timing().at("unscaled_time").get<double>();
             const auto until = SDL_GetTicks() + 100;
             while (SDL_GetTicks() < until) {
                 play.pump();
                 SDL_Delay(1);
             }
             check(play.timing().at("tick") == tick, "Editor held motion advanced");
+            check(play.timing().at("unscaled_time").get<double>() > held_time &&
+                      play.timing().at("unscaled_delta").get<double>() > 0,
+                  "Zero-rate process stopped unscaled observation");
             wait([&] { return play.control_ready(); });
             check(play.set_time_scale(1), "Editor could not restore hold");
             wait([&] {

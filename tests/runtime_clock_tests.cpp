@@ -224,6 +224,66 @@ void simulation_rates() {
     expect_near(bounded.status().at("clamped_seconds"), .25);
     expect_near(bounded.alpha(), 0);
 }
+void unscaled_time() {
+    RuntimeClock clock({100, .25, 8});
+    auto observation = [&] { return clock.status(); };
+    auto verify = [&](double seconds, double delta, std::uint64_t sequence) {
+        const auto status = observation();
+        expect_near(status.at("unscaled_time"), seconds);
+        expect_near(status.at("unscaled_delta"), delta);
+        check(status.at("unscaled_sequence") == sequence, "Wrong real-time sample sequence");
+    };
+    verify(0, 0, 0);
+    clock.sample_time(time_ms(1000)); // Origin is an observation, never epoch time.
+    clock.resume(time_ms(1000));
+    unsigned calls = 0;
+    auto tick = [&](float dt) {
+        check(dt == .01f, "Unscaled observation changed fixed delta");
+        ++calls;
+    };
+    clock.sample_time(time_ms(1020));
+    clock.advance(time_ms(1020), tick);
+    verify(.02, .02, 1);
+    check(calls == 2, "Observation advanced or suppressed simulation");
+    const auto copy = observation();
+    clock.sample_time(time_ms(1020));
+    check(observation() == copy, "Repeated timestamp erased interval or counted twice");
+    rejects([&] { clock.sample_time(time_ms(1019)); });
+    rejects([&] { clock.advance(time_ms(1019), tick); });
+    check(observation() == copy, "Backwards timestamp partially changed clock");
+    clock.pause(time_ms(1020));
+    clock.advance(time_ms(2020), tick);
+    verify(1.02, 1, 2);
+    check(calls == 2, "Paused real-time observation ticked gameplay");
+    const auto paused = observation();
+    clock.step(tick);
+    verify(1.02, 1, 2);
+    check(calls == 3 && observation().at("tick") == paused.at("tick").get<unsigned>() + 1,
+          "Step did not retain separate real and fixed timelines");
+    clock.set_time_scale(0);
+    clock.resume(time_ms(2020));
+    clock.advance(time_ms(3020), tick);
+    verify(2.02, 1, 3);
+    check(calls == 3, "Zero rate advanced gameplay");
+    clock.set_time_scale(.25);
+    clock.advance(time_ms(3060), tick);
+    verify(2.06, .04, 4);
+    check(calls == 4, "Slow motion changed real interval or fixed count");
+    clock.set_time_scale(4);
+    clock.advance(time_ms(5060), tick);
+    verify(4.06, 2, 5); // Raw observation includes time rejected by the sim clamp.
+    check(calls == 12 && observation().at("dropped_ticks") == 92,
+          "Real time bypassed bounded catch-up/debt policy");
+    clock.restore_tick(7, time_ms(5060));
+    verify(4.06, 2, 5);
+    clock.sample_time(time_ms(6060));
+    verify(5.06, 1, 6);
+    check(clock.tick() == 7 && clock.paused(), "Recovery reset real-time owner or ran ECS");
+    RuntimeClock fresh;
+    fresh.sample_time(time_ms(6060));
+    check(fresh.status().at("unscaled_time") == 0 && fresh.status().at("unscaled_sequence") == 0,
+          "Fresh clock retained another owner's observation");
+}
 void partial_pose_publish() {
     PresentationPoses history;
     PresentationPoses::Nodes nodes{{1, {}}, {2, {}}};
@@ -345,6 +405,7 @@ int main(int argc, char** argv) {
     try {
         clocks();
         simulation_rates();
+        unscaled_time();
         signed_scale_interpolation();
         poses();
         partial_pose_publish();

@@ -374,7 +374,12 @@ void GameHostControls::publish() {
     }
     queue_->status(std::move(state));
 }
+void GameHostControls::sample_time(RuntimeClock::Time now) {
+    game_.sample_time(now);
+    publish();
+}
 void GameHostControls::pump(RuntimeClock::Time now) {
+    game_.sample_time(now);
     queue_->poll([&](std::uint64_t token, const Json& command, const GameSaveSchema* schema,
                      const std::string& module) -> std::optional<Json> {
         try {

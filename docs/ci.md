@@ -1423,3 +1423,16 @@ execution still require image review; they do not establish physical GPU/audio
 or a third-party AI application's UI acceptance. The fixture has a15-minute whole
 bound; individual tools/jobs retain existing deadlines. The package job includes
 that added bounded headroom without weakening other acceptance checks.
+
+## Unscaled time gate
+
+`runtime_clock_and_interpolation` uses injected monotonic timestamps to distinguish
+raw observations from fixed dt, Pause, zero/slow/fast rate, catch-up debt and Step.
+`game_host_controls` checks copied clock freshness without losing settings/input/
+rebinding metadata or executing queued operations early. `native_sdk_simulation_speed`
+executes the public C++ timer during zero rate and Pause through SDK Play;
+`native_sdk_unscaled_time_installed` repeats that consumer after an installed-only
+build and SDK relocation. `simulation_speed_transport` covers both ordinary and
+SDK Play clocks. `mcp_unscaled_time_stdio` checks the same Play status through both
+actual MCP protocols, stable fixed ticks and authored immutability. These portable
+checks are not native Windows/full editor/physical GPU acceptance.

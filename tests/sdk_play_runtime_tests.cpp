@@ -766,9 +766,9 @@ void revoked_or_released_token_pruned_from_map() {
     auto host = build_activated(f, session);
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     f.capture.service->release("game.test", token);
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     for (const auto& entry : host->live_effects())
         check(entry.value("token", std::uint64_t{}) != token,
               "Released token still appears in live_effects");
@@ -792,7 +792,7 @@ void negative_cursor_ack_marks_unknown_keeps_physical() {
     check(epoch_response.value("ok", false), "epoch1 was rejected");
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     // Copy the recorded offer token / sequence / epoch rather than
     // guessing them.
     Json ack_negative;
@@ -810,7 +810,7 @@ void negative_cursor_ack_marks_unknown_keeps_physical() {
                           {"platform_acks", Json::array({ack_negative})}};
     auto negative_response = host->handle(negative_request);
     check(negative_response.value("ok", false), "Negative cursor ack snapshot did not return ok");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     auto response =
         host->handle({{"protocol", 2}, {"session", session}, {"id", 6u}, {"command", "snapshot"}});
     check(response.value("ok", false), "Snapshot did not return ok");
@@ -834,7 +834,7 @@ void contradictory_ack_rejected_idempotent_accepted() {
     check(epoch_response.value("ok", false), "epoch was rejected");
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     // Pull the recorded offer's token/sequence/epoch from the runtime.
     Json positive_ack;
     for (const auto& entry : host->live_effects())
@@ -851,7 +851,7 @@ void contradictory_ack_rejected_idempotent_accepted() {
     auto positive_response = host->handle(positive_msg);
     check(positive_response.value("ok", false), "positive ack was rejected");
     // Drive the host so the callback consumes the accepted record.
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     // A stale ack for the already-consumed token must now reject.
     Json stale_msg{{"protocol", 2},
                    {"session", session},
@@ -872,7 +872,7 @@ void contradictory_ack_rejected_idempotent_accepted() {
     check(epoch2.value("ok", false), "epoch2 was rejected");
     const auto captured_again =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json contradictory_ack;
     for (const auto& entry : host->live_effects())
         if (entry.value("token", std::uint64_t{}) == captured_again)
@@ -890,7 +890,7 @@ void contradictory_ack_rejected_idempotent_accepted() {
     // A still-pending effect's negative ack is a normal rejection — the
     // snapshot returns ok=true and the runtime marks the offer Failed.
     check(contradicting.value("ok", false), "Negative ack for pending effect was rejected");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     check(f.capture.service->inspect("game.test", captured_again).state == "failed",
           "negative ack did not settle the receipt as failed");
 }
@@ -901,7 +901,7 @@ void editor_epoch_change_invalidates_older_offers() {
     auto host = build_activated(f, session);
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json epoch1{
         {"protocol", 2},
         {"session", session},
@@ -927,14 +927,14 @@ void platform_pending_query_reflects_live_and_released() {
     auto host = build_activated(f, session);
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     bool seen = false;
     for (const auto& entry : host->live_effects())
         if (entry.value("token", std::uint64_t{}) == token)
             seen = true;
     check(seen, "Captured token did not appear in live_effects");
     f.capture.service->release("game.test", token);
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     for (const auto& entry : host->live_effects())
         check(entry.value("token", std::uint64_t{}) != token,
               "Released token still appears in live_effects");
@@ -959,7 +959,7 @@ void platform_acks_malformed_batch_retains_valid_first() {
     check(epoch_response.value("ok", false), "epoch was rejected");
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json valid_ack;
     for (const auto& entry : host->live_effects())
         if (entry.value("token", std::uint64_t{}) == token)
@@ -979,7 +979,7 @@ void platform_acks_malformed_batch_retains_valid_first() {
                          {"platform_acks", Json::array({valid_ack, malformed_ack})}};
     auto malformed_response = host->handle(malformed_batch);
     check(!malformed_response.value("ok", false), "malformed platform_acks batch was accepted");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     // The valid ack did not commit; the offer is still live and pending.
     bool still_live = false;
     for (const auto& entry : host->live_effects())
@@ -997,7 +997,7 @@ void platform_acks_malformed_batch_retains_valid_first() {
     auto retry_response = host->handle(retry_msg);
     check(retry_response.value("ok", false),
           "retry of valid ack after malformed batch was rejected");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     check(f.capture.service->inspect("game.test", token).state == "succeeded",
           "retry of valid ack did not settle the receipt");
 }
@@ -1012,17 +1012,17 @@ void cancellation_releases_root_obligation() {
     auto host = build_activated(f, session);
     const auto cancelled =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     check(host->live_effects().size() == 1, "cancellation fixture offer missing");
     f.capture.service->release("game.test", cancelled);
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     check(host->live_effects().empty(), "released queue token remains actionable");
     Json snapshot =
         host->handle({{"protocol", 2}, {"session", session}, {"id", 4u}, {"command", "snapshot"}});
     check(snapshot.value("release_required", false), "cancelled capture release obligation hidden");
     const auto replacement =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     check(host->live_effects().empty(),
           "Fresh capture was offered before outstanding physical release was confirmed");
     Json epoch_msg{
@@ -1035,7 +1035,7 @@ void cancellation_releases_root_obligation() {
     Json confirmed =
         host->handle({{"protocol", 2}, {"session", session}, {"id", 6u}, {"command", "snapshot"}});
     check(!confirmed.value("release_required", true), "confirmed release did not clear obligation");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     const auto offers = host->live_effects();
     check(offers.size() == 1 && offers.at(0).at("token") == replacement &&
               offers.at(0).at("epoch") == 2,
@@ -1101,7 +1101,7 @@ void activation_publishes_exact_candidate_ticket() {
     check(first_generation != 0, "activation.generation must reflect the active candidate");
     // Repeated pumps and snapshots must not move the generation.
     for (int i = 0; i < 4; ++i)
-        host->pump(RuntimeClock::Time{});
+        host->pump(RuntimeClock::Clock::now());
     auto second =
         host->handle({{"protocol", 2}, {"session", session}, {"id", 5u}, {"command", "snapshot"}});
     check(second.value("ok", false), "follow-up snapshot failed");
@@ -1119,7 +1119,7 @@ void activation_publishes_exact_candidate_ticket() {
                                  {"command", "replace"},
                                  {"scene", next_scene}});
     check(replace.value("ok", false), "gameplay replace failed");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     auto candidate = host->pending_candidate();
     check(candidate.has_value(), "gameplay replace: pending candidate missing");
     const auto new_ticket = candidate->at("ticket").get<std::uint64_t>();
@@ -1131,7 +1131,7 @@ void activation_publishes_exact_candidate_ticket() {
          {"candidate_ack",
           {{"session", session}, {"ticket", new_ticket}, {"accepted", true}, {"diagnostic", ""}}}});
     check(ack.value("ok", false), "gameplay candidate_ack failed");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     auto third =
         host->handle({{"protocol", 2}, {"session", session}, {"id", 8u}, {"command", "snapshot"}});
     check(third.value("ok", false), "post-gameplay snapshot failed");
@@ -1305,7 +1305,7 @@ void world_replacement_prunes_retired_token() {
     auto host = build_activated(f, session);
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     bool seen = false;
     for (const auto& entry : host->live_effects())
         if (entry.value("token", std::uint64_t{}) == token)
@@ -1532,7 +1532,7 @@ void exact_duplicate_positive_ack_is_idempotent() {
     check(epoch.value("ok", false), "epoch was rejected");
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json positive_ack;
     for (const auto& entry : host->live_effects())
         if (entry.value("token", std::uint64_t{}) == token)
@@ -1547,7 +1547,7 @@ void exact_duplicate_positive_ack_is_idempotent() {
                       {"platform_acks", Json::array({positive_ack})}};
     auto first = host->handle(positive_msg);
     check(first.value("ok", false), "first positive ack was rejected");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     // The token was consumed by the host's pump; a replay of the SAME
     // positive ack (same token, sequence, epoch, accepted=true,
     // diagnostic="" -- a still-known live_effects entry would be the
@@ -1558,7 +1558,7 @@ void exact_duplicate_positive_ack_is_idempotent() {
     // batched replay below.
     const auto token2 =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json offer2;
     for (const auto& entry : host->live_effects())
         if (entry.value("token", std::uint64_t{}) == token2)
@@ -1595,7 +1595,7 @@ void contradictory_positive_duplicate_ack_rejects() {
     check(epoch.value("ok", false), "epoch was rejected");
     const auto token =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json positive_ack;
     for (const auto& entry : host->live_effects())
         if (entry.value("token", std::uint64_t{}) == token)
@@ -1610,7 +1610,7 @@ void contradictory_positive_duplicate_ack_rejects() {
                {"platform_acks", Json::array({positive_ack})}};
     auto first_response = host->handle(first);
     check(first_response.value("ok", false), "first ack was rejected");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     // The token was consumed; queue no longer owns it. We need a still-
     // pending offer to exercise the contradictory duplicate path on a
     // terminal-state record. Set up a second cursor offer whose host
@@ -1626,7 +1626,7 @@ void contradictory_positive_duplicate_ack_rejects() {
     check(epoch2.value("ok", false), "epoch2 was rejected");
     const auto token2 =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json offer2;
     for (const auto& entry : host->live_effects())
         if (entry.value("token", std::uint64_t{}) == token2)
@@ -1662,7 +1662,7 @@ void contradictory_positive_duplicate_ack_rejects() {
     // for token2 has not returned yet, so the entry is still in the
     // effects map. A follow-up successful snapshot must still answer
     // ok=true.
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     auto follow =
         host->handle({{"protocol", 2}, {"session", session}, {"id", 9u}, {"command", "snapshot"}});
     check(follow.value("ok", false), "follow-up snapshot after contradictory batch was rejected");
@@ -1686,7 +1686,7 @@ void contradictory_batch_with_one_valid_ack_rejects_whole() {
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
     const auto token_b =
         f.capture.service->request("game.test", Json{{"operation", "cursor"}, {"capture", true}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json offer_a, offer_b;
     for (const auto& entry : host->live_effects()) {
         if (entry.value("token", std::uint64_t{}) == token_a)
@@ -1999,7 +1999,7 @@ void pump_latches_quit_after_host_quit_requested() {
     // acked before the host proceeds to set quit_=true. Drive the
     // host pump, then ack the polled release as the editor would.
     const auto token = f.capture.service->request("game.test", Json{{"operation", "quit"}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json release_ack;
     for (const auto& entry : host->live_effects()) {
         if (entry.value("kind", std::string{}) != "cursor")
@@ -2019,7 +2019,7 @@ void pump_latches_quit_after_host_quit_requested() {
                                  {"command", "snapshot"},
                                  {"platform_acks", Json::array({release_ack})}});
     check(ack_msg.value("ok", false), "release ack was rejected");
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     check(f.capture.service->inspect("game.test", token).state == "succeeded",
           "gameplay quit was not consumed");
     // Snapshot must now advertise quit_requested=true.
@@ -2061,7 +2061,7 @@ void latch_quit_then_exercise_mutations() {
     check(resume.value("ok", false), "resume was rejected");
     // Drive a gameplay Quit via the captured Game service.
     const auto token = f.capture.service->request("game.test", Json{{"operation", "quit"}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     Json release_ack;
     for (const auto& entry : host->live_effects()) {
         if (entry.value("kind", std::string{}) != "cursor")
@@ -2080,7 +2080,7 @@ void latch_quit_then_exercise_mutations() {
                   {"id", 6u},
                   {"command", "snapshot"},
                   {"platform_acks", Json::array({release_ack})}});
-    host->pump(RuntimeClock::Time{});
+    host->pump(RuntimeClock::Clock::now());
     check(f.capture.service->inspect("game.test", token).state == "succeeded",
           "gameplay quit was not consumed");
     // Snapshot baseline AFTER latch.

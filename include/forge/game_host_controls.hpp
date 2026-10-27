@@ -37,6 +37,8 @@ class GameHostControls {
                      std::filesystem::path content, Json defaults, InputMap project_input,
                      Json user, GamePlatformControls = {});
     void pump(RuntimeClock::Time now);
+    // Refresh copied time/status before callbacks without draining game requests.
+    void sample_time(RuntimeClock::Time now);
     void release_cursor();
     void diagnostic(std::string text) {
         error_ = std::move(text).substr(0, 1024);

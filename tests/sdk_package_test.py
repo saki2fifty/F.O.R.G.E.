@@ -5,18 +5,29 @@ build=Path(sys.argv[1]).resolve();cmake=sys.argv[2];ninja=sys.argv[3]
 cache=dict(line.split('=',1) for line in (build/'CMakeCache.txt').read_text().splitlines() if '=' in line and not line.startswith(('//','#')))
 compiler=next(value for key,value in cache.items() if key.startswith('CMAKE_CXX_COMPILER:'))
 compiler_arg='-DCMAKE_CXX_COMPILER='+compiler
-if sys.argv[4:] == ['--navigation-only']:
+def validate_guides(stage):
+    for document in (stage/'sdk/docs').rglob('*.md'):
+        for target in re.findall(r'\[[^\]]+\]\(([^)]+)\)', document.read_text(encoding='utf-8')):
+            path=target.split('#',1)[0]
+            if path and '://' not in path:
+                resolved=(document.parent/path).resolve()
+                assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
+
+if sys.argv[4:] in (['--navigation-only'], ['--time-only']):
+    time_only = sys.argv[4:] == ['--time-only']
+    target = 'time_scale_gameplay' if time_only else 'planar_navigation_gameplay'
     # Reuse the install/sample owner for a focused public-boundary check.
-    with tempfile.TemporaryDirectory(prefix='navigation-sdk-', dir=build) as temporary:
+    with tempfile.TemporaryDirectory(prefix='public-client-sdk-', dir=build) as temporary:
         base=Path(temporary);stage=base/'sdk';client=base/'client';moved=base/'relocated SDK'
         subprocess.run([cmake,'--install',str(build),'--prefix',str(stage),'--component','NativeSdk'],check=True)
+        validate_guides(stage)
         subprocess.run([cmake,'-S',str(stage/'sdk/sample'),'-B',str(client),'-G','Ninja',
                         compiler_arg,'-DCMAKE_BUILD_TYPE=Release','-DCMAKE_MAKE_PROGRAM='+ninja,
                         '-DFORGE_NATIVE_SDK='+str(stage)],check=True)
-        subprocess.run([cmake,'--build',str(client),'--target','planar_navigation_gameplay',
+        subprocess.run([cmake,'--build',str(client),'--target',target,
                         '--parallel','2'],check=True)
         windows=os.name=='nt';exe='.exe' if windows else '';ext='.dll' if windows else '.so'
-        module=client/('planar_navigation_gameplay'+ext)
+        module=client/(target+ext)
         if not windows:
             imports=subprocess.check_output(['readelf','-d',str(module)],text=True)
             exports=subprocess.check_output(['nm','-D','--defined-only',str(module)],text=True)
@@ -25,6 +36,12 @@ if sys.argv[4:] == ['--navigation-only']:
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if time_only:
+            subprocess.run([sys.executable,str(Path(__file__).with_name('simulation_speed_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),str(module)],
+                           env=env,cwd=moved,check=True,timeout=90)
+            print('Installed public time client and relocated SDK Play passed')
+            sys.exit(0)
         subprocess.run([sys.executable,str(Path(__file__).with_name('navigation_process_test.py')),
                         str(moved/'bin'/('forge_runtime'+exe)),str(build/('forge_navigation_tests'+exe)),
                         str(build/('forge_nav_build'+exe)),str(module),'--planar'],
@@ -51,12 +68,7 @@ assert (stage/'sdk/docs/extension-guide.md').exists()
 for relative in ('docs/physics-2d.md', 'docs/decisions/024-2d-physics.md'):
     document=stage/'sdk'/relative
     assert document.is_file(), f'Missing installed 2D guide: {relative}'
-for document in (stage/'sdk/docs').rglob('*.md'):
-    for target in re.findall(r'\[[^\]]+\]\(([^)]+)\)', document.read_text(encoding='utf-8')):
-        path=target.split('#',1)[0]
-        if path and '://' not in path:
-            resolved=(document.parent/path).resolve()
-            assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
+validate_guides(stage)
 assert (stage/'sdk/include/forge/engine_assets.hpp').exists()
 assert (stage/'sdk/sample/PaintedCollision.hpp').is_file()
 assert (stage/'sdk/sample/tile_physics_probe.cpp').is_file()
