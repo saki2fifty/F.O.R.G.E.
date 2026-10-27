@@ -57,6 +57,9 @@ separate from the format/unit/nesting checks.
 duration-only counts, owner/lane semantics, origin and page metadata. Capture
 date/time/UTC offset uses the existing editor event-time formatter at the read/copy
 boundary. It is not a correlation between monotonic event times and UTC.
+Native capture also exports `native_systems_dropped`, the cumulative count since
+Clear of dispatches skipped beyond the bounded nesting depth. The page cursor
+includes that counter as well as epoch/sequence so metadata changes invalidate it.
 Editor and isolated Play clocks are never merged. UI filtering changes only the
 view; copying emits all retained measured records. The table virtualizes rows and
 uses the existing window/table scrolling at small sizes or high UI scaling.
@@ -93,6 +96,44 @@ The Navigation controls record NavigationStatus in the editor category when thei
 advisory check runs; they consume native source inputs and the existing asset snapshot.
 Opted-in navigation agents record NavAvoidance in the navigation category for
 velocity sampling and bounded surface movement. NavAgentUpdate remains inclusive.
+
+## Native dispatch intervals
+
+In Play runtime > CPU scopes, enable **Trace ECS systems** as well as collection.
+The default-off option emits category `ecs.system` through the existing scope ring,
+Timeline, trace copy and paged Play MCP. A scope brackets an actual native dispatch
+inside `RuntimeSimulation::tick`'s fixed pipeline, after native timer gating. It
+includes query/setup/defer work, not a separate record for every entity callback.
+Explicit nested native runs inside this boundary are included. Calls outside the
+boundary and callbacks on foreign threads are not captured. No native worker pool
+or scheduler is enabled. Logical overlap lanes still represent one owner thread.
+
+Each tick uses a scoped thread-local bridge. Completed nested scopes are admitted
+through the same weak, owner-thread, clock/epoch service. Unmatched scopes cancel
+on scope exit. Up to64 dispatches can nest; excess pushes/pops stay balanced and
+increment `native_systems_dropped`, reset by Clear. The shared512-record history
+can evict older frame/host records quickly when many systems run. Native paths are
+copied with at most128 display bytes, UTF-8-safe shortening and invalid-byte output
+replacement; they are display labels, not persistent entity identifiers.
+
+The native library privately enables pinned Flecs `FLECS_PERF_TRACE`. FORGE installs
+its OS callbacks before worlds/threads, retaining the existing OS configuration.
+An already configured external callback/API remains authoritative; unsupported
+hosts report `native_systems_available=false`, reject enable and retain ordinary
+host profiling. The isolated Script worker skips this initialization so its
+existing confined file callback can be installed. Script evaluation fails closed
+if the native OS table does not accept that callback. The macro is not propagated
+to SDK consumers; native structs, public C tables, ABI1 and SDK fingerprint inputs
+are unchanged.
+
+Capture adds clock, copied-label and ring-record overhead. A local Linux GCC12
+Release test on a pinned QEMU/KVM shared-runner CPU used64 actual fixed systems,
+100warm-up ticks and2000 measured ticks per round. Alternating before/after binaries
+with verified native libraries gave median disabled cost27.82 to30.04us/tick
+(+2.22us,7.99%). Host-scope collection varied37.63 to35.76us/tick; this is not evidence
+of a speedup. Opt-in native capture cost322.52us/tick,286.76us above the after
+host-scope case. These are instrumented synthetic CPU workloads, not physical
+hardware, Windows, game FPS or cross-engine performance claims.
 
 ## Native runtime systems
 
@@ -136,8 +177,10 @@ stats remain their own authority; FORGE does not invent history or totals.
 ## Service and lifecycle
 
 ServiceAccess provides profile_status(), profiling_enabled(), clear_profiles(),
-profiling(bool), ProfileScope, explicit record_profile() and record_profile_span(). Access remains typed,
-weak and owner-thread bound. Status reports compiled/enabled/capacity/sequence/epoch/samples.
+profiling(bool), profiling_systems(bool), native availability/preference queries,
+ProfileScope, explicit record_profile() and record_profile_span(). Access remains typed,
+weak and owner-thread bound. Status reports compiled/enabled/capacity/sequence/epoch/samples
+and native_systems/native_systems_available/native_systems_dropped.
 Invalid explicit records are rejected; invalid clocks, scope names or allocation
 failures cannot escape automatic scope construction/destruction or editor frame
 instrumentation. Disabled automatic scopes read no clock. Disabled editor sections
@@ -153,11 +196,11 @@ object includes available, world_generation and the native ECS observation along
 service status. An SDK host without a live world reports available=false.
 
 The profiling command requires generation equal to the current positive live world
-generation and a boolean enabled. Optional clear must be boolean. All fields are
+generation and a boolean enabled. Optional clear/native_systems must be boolean. All fields are
 validated before changing collection; existing session/ID checks still apply. It
 does not advance simulation, write authored Scene values or change Pause/Step policy.
 Rejected controls are nonfatal editor feedback; pending controls are disabled.
-Active world replacement preserves the process collection preference but starts a
+Active world replacement preserves collection and native-capture preferences but starts a
 fresh world-owned ring. Preparation candidates do not inherit active collection,
 and stale generation controls cannot affect a replacement world. Records remain
 bounded inside the existing response-size and transport policy.
@@ -170,8 +213,8 @@ pipe and SDK-host tests verify optional responses, rejected controls, paused ste
 and replacement isolation. These CPU checks do not prove Windows/GPU performance,
 visual review or physical desktop acceptance. No hardware counters, allocation profiler,
 sampled flame graph, worker-thread tracing or exported in-game editor is implemented here.
-Host scope starts/copy and paged Play trace reads are implemented; per-system
-invocation tracing remains distinct from native ECS lifetime observations.
+Host and opt-in native dispatch starts/copy and paged Play trace reads are implemented;
+native dispatch intervals remain distinct from native ECS lifetime observations.
 
 The profiling service is internal to the host and is outside the installed SDK
 header/value boundary. This batch changes no installed SDK values, fingerprint

@@ -58,7 +58,18 @@ The history holds at most 512 records. Nested scopes overlap; adding their durat
 
 The timeline shows completed host scopes with measured starts. Duration-only records, including C++ SDK profile samples and the exclusive **UpdateAndEditorUI** total, stay in the summary. If the timeline is empty, collect an editor frame or a Play fixed tick and check its measured interval count. **Copy trace JSON** is disabled until a measured interval exists.
 
-This view measures one owner thread. Trace files may use logical overlap lanes to lay out crossing intervals; these are not additional measured worker threads. GPU durations and ECS system lifetime totals remain in their own views. The timeline does not trace every ECS system invocation or show sampled call stacks.
+This view measures one owner thread. Trace files may use logical overlap lanes to lay out crossing intervals; these are not additional measured worker threads. GPU durations and ECS system lifetime totals remain in their own views. Sampled call stacks are unavailable.
+
+### Trace individual ECS dispatches
+
+1. Start Play and open **Window → Profiler → Play runtime → CPU scopes**.
+2. Enable **Trace ECS systems**, then **Start collection**. If collection is already running, enabling the option takes effect after its acknowledgement. Unsupported hosts show an explanation.
+3. Run the game or Step while paused, then stop collection. Enable **Timeline** and filter for **ecs.system** to find individual native dispatches. **Copy trace JSON** includes them with the other measured intervals.
+4. Disable **Trace ECS systems** when you finish. It starts off in a new process. **Clear samples** discards retained records and resets skipped-dispatch counts.
+
+A dispatch includes the native system's query, setup and deferred work. A timer-gated system contributes a dispatch only when it runs. These are not separate measurements of every entity callback. Only systems running inside the fixed pipeline boundary on its owner thread are traced; the view does not measure worker utilization.
+
+Collection and system tracing both add overhead. The shared history holds at most 512 records, so a busy tick can replace older samples quickly. Nesting beyond 64 dispatches shows a skipped count. Stop collection promptly to retain the action you need. The options are temporary diagnostics and do not change saved Scene data or exported game content.
 
 ## Inspect ECS system order
 

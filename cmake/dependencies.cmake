@@ -14,6 +14,7 @@ FetchContent_Declare(json GIT_REPOSITORY https://github.com/nlohmann/json.git GI
 FetchContent_MakeAvailable(flecs json)
 # Stable Script math is part of the supported language, not a local substitute.
 target_compile_definitions(${FORGE_FLECS_TARGET} PUBLIC FLECS_SCRIPT_MATH)
+target_compile_definitions(${FORGE_FLECS_TARGET} PRIVATE FLECS_PERF_TRACE)
 if(UNIX)
  target_link_libraries(${FORGE_FLECS_TARGET} m)
 endif()

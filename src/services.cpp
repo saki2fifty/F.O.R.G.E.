@@ -1,3 +1,4 @@
+#include "flecs_system_trace.hpp"
 #include "utf8_boundary.hpp"
 #include <algorithm>
 #include <cmath>
@@ -11,11 +12,12 @@ using Json = nlohmann::json;
 namespace detail {
 struct ServiceState {
     std::thread::id owner = std::this_thread::get_id();
-    bool alive = true, profiling = false;
+    bool alive = true, profiling = false, profiling_systems = false;
     EngineServices::Now now;
     std::deque<Json> diagnostics, profiles;
     std::uint64_t diagnostic_sequence = 0;
     std::uint64_t profile_generation = 0, profile_sequence = 0, profile_epoch = 0;
+    std::uint64_t system_profile_drops = 0;
     void append_profile(const std::string& category, const std::string& name, double seconds,
                         std::uint64_t tick, bool gpu = false, std::optional<double> start = {}) {
         Json sample{{"category", category},         {"name", name},
@@ -248,6 +250,9 @@ Json ServiceAccess::profile_status() const {
 #endif
     return {{"compiled", compiled},
             {"enabled", compiled && state->profiling},
+            {"native_systems", compiled && state->profiling_systems},
+            {"native_systems_available", profiling_systems_available()},
+            {"native_systems_dropped", state->system_profile_drops},
             {"capacity", profile_record_capacity},
             {"sequence", state->profile_sequence},
             {"epoch", state->profile_epoch},
@@ -261,10 +266,51 @@ bool ServiceAccess::profiling_enabled() const {
     return state_.lock()->profiling;
 #endif
 }
+bool ServiceAccess::profiling_systems_enabled() const {
+    require(Capability::Profiling);
+#ifdef FORGE_DISABLE_PROFILING
+    return false;
+#else
+    return state_.lock()->profiling_systems;
+#endif
+}
+bool ServiceAccess::profiling_systems_available() const {
+    require(Capability::Profiling);
+#ifdef FORGE_DISABLE_PROFILING
+    return false;
+#else
+    return detail::native_system_tracing_available();
+#endif
+}
+void ServiceAccess::profiling_systems(bool enabled) const {
+    require(Capability::Profiling);
+#ifndef FORGE_DISABLE_PROFILING
+    if (enabled && !detail::native_system_tracing_available())
+        throw std::runtime_error("Native system tracing is unavailable in this host configuration");
+    state_.lock()->profiling_systems = enabled;
+#else
+    (void)enabled;
+#endif
+}
+void ServiceAccess::record_system_profile_drops(std::uint64_t epoch, std::uint64_t count) const {
+    require(Capability::Profiling);
+#ifndef FORGE_DISABLE_PROFILING
+    const auto state = state_.lock();
+    if (state->profile_epoch == epoch)
+        state->system_profile_drops =
+            count > std::numeric_limits<std::uint64_t>::max() - state->system_profile_drops
+                ? std::numeric_limits<std::uint64_t>::max()
+                : state->system_profile_drops + count;
+#else
+    (void)epoch;
+    (void)count;
+#endif
+}
 void ServiceAccess::clear_profiles() const {
     require(Capability::Profiling);
     const auto state = state_.lock();
     state->profiles.clear();
+    state->system_profile_drops = 0;
     ++state->profile_generation;
     ++state->profile_epoch;
 }

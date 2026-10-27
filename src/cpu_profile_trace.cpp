@@ -85,7 +85,7 @@ Json cpu_scope_trace(const Json& status, std::string_view owner, std::string_vie
         throw std::runtime_error("CPU trace requires a bounded owner and capture timestamp");
     const auto timeline = cpu_scope_timeline(status.at("samples"));
     Json source = Json::object();
-    for (const auto* field : {"sequence", "epoch", "world_generation"})
+    for (const auto* field : {"sequence", "epoch", "world_generation", "native_systems_dropped"})
         if (status.contains(field)) {
             if (!status.at(field).is_number_integer() || status.at(field) < 0)
                 throw std::runtime_error("CPU trace source metadata is invalid");

@@ -357,14 +357,19 @@ class PlaySession {
         return (!live_command_.is_null() && live_command_.value("command", "") == "profiling") ||
                (waiting_ && sent_command_ == "profiling");
     }
-    bool submit_cpu_profile(bool enabled, bool clear) {
+    bool submit_cpu_profile(bool enabled, bool clear, std::optional<bool> native_systems = {}) {
         const auto generation = sdk_game_ ? sdk_activation_generation_ : runtime_world_generation_;
         if (!control_ready() || !live_command_.is_null() || !generation)
+            return false;
+        if (native_systems.value_or(false) &&
+            !cpu_profile_.value("native_systems_available", false))
             return false;
         live_command_ = {{"command", "profiling"},
                          {"generation", generation},
                          {"enabled", enabled},
                          {"clear", clear}};
+        if (native_systems)
+            live_command_["native_systems"] = *native_systems;
         cpu_profile_error_.clear();
         return true;
     }

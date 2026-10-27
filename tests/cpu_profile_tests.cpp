@@ -1,5 +1,6 @@
 #include "cpu_profile_control.hpp"
 #include "cpu_profile_trace.hpp"
+#include "flecs_system_trace.hpp"
 #include "runtime_entity_creation.hpp"
 #include <forge/runtime.hpp>
 #include <iostream>
@@ -22,6 +23,7 @@ template <class F> void reject(F&& operation) {
     check(failed, "Invalid profiling operation accepted");
 }
 #include "cpu_scope_trace_tests.hpp"
+#include "native_system_trace_tests.hpp"
 void service_tests() {
     double now = 10;
     unsigned reads = 0;
@@ -449,9 +451,12 @@ void native_system_profiles() {
 }
 } // namespace
 int main() {
+    (void)detail::initialize_native_system_tracing();
     try {
         service_tests();
         scope_trace_tests();
+        native_bridge_tests();
+        native_dispatch_tests();
         gpu_service_tests();
         runtime_workload();
         runtime_publication_workload();

@@ -172,6 +172,8 @@ Json evaluate_flecs_script_worker(const Json& request) {
     auto api = ecs_os_get_api();
     api.fopen_ = confined_open;
     ecs_os_set_api(&api);
+    if (ecs_os_get_api().fopen_ != confined_open)
+        return script_error("Script worker could not install its confined filesystem");
     EngineContext preview(WorldRole::Preview);
     auto& world = preview.world().world();
     ECS_IMPORT(world, FlecsScriptMath);

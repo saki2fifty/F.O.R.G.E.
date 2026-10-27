@@ -1,5 +1,17 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Native ECS dispatch tracing
+
+Play CPU scopes add a default-off **Trace ECS systems** option. Actual owner-thread
+fixed-pipeline dispatch intervals feed the existing bounded Timeline/trace copy and
+paged MCP through the same controls, permissions and lifecycle. Native timer skips
+produce no interval; explicit nested runs are included. Depth64 losses are reported
+and unmatched scopes cancel. Native ECS lifetime totals remain a separate view.
+The startup bridge respects external OS policies and isolated Script file confinement.
+Native instrumentation is private to pinned Flecs; SDK values/C tables/ABI1 remain
+unchanged. Measured synthetic overhead is documented in CPU profiling. Windows,
+full Main, physical review, external clients and authentic new captures are pending.
+
 ## Audio Source echo
 
 Audio Sources add optional interval/feedback echo through the existing native voice

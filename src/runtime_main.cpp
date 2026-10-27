@@ -3,6 +3,7 @@
 #include "audio_source_access.hpp"
 #include "authored_inspection.hpp"
 #include "cpu_profile_control.hpp"
+#include "flecs_system_trace.hpp"
 #include "json_document.hpp"
 #include "runtime_io.hpp"
 #include "runtime_property_tune.hpp"
@@ -75,6 +76,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::clog << "FORGE runtime | Build: " << forge::build_id << '\n';
+    (void)forge::detail::initialize_native_system_tracing();
 #ifdef _WIN32
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
 #endif
@@ -258,6 +260,7 @@ int main(int argc, char** argv) {
         ui_commands.reset(session, ui_generation);
         bool initialized = false, quit = false, tick_failed = false;
         bool profiling_enabled = false;
+        bool profiling_systems = false;
         std::string activation = "none";
         std::uint64_t activation_generation = 0, activation_tick = 0;
         auto quit_deadline = forge::RuntimeClock::Time::max();
@@ -391,6 +394,7 @@ int main(int argc, char** argv) {
                     if (command == "profiling") {
                         profiling_enabled = forge::control_cpu_profile(
                             request, runtime->engine.services(), ui_generation);
+                        profiling_systems = runtime->engine.services().profiling_systems_enabled();
                     } else if (command == "replace") {
                         if (!clock.paused())
                             throw std::runtime_error("Pause before replacing runtime content");
@@ -472,6 +476,7 @@ int main(int argc, char** argv) {
                             runtime->simulation.suspend_audio();
                         runtime.swap(candidate);
                         runtime->engine.services().profiling(profiling_enabled);
+                        runtime->engine.services().profiling_systems(profiling_systems);
                         clock.restore_tick(recovered_tick, forge::RuntimeClock::Clock::now());
                         runtime->simulation.activate_audio(clock.paused());
                         ui_commands.reset(session, ++ui_generation);

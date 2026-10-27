@@ -59,10 +59,12 @@ template <class T> struct ServiceSlot {
 };
 } // namespace detail
 inline constexpr std::size_t profile_record_capacity = 512;
+inline constexpr std::size_t profile_system_depth_capacity = 64;
 class ProfileScope {
   public:
     ProfileScope() = default;
     ~ProfileScope();
+    void cancel() noexcept { state_.reset(); }
     ProfileScope(ProfileScope&&) noexcept;
     ProfileScope& operator=(ProfileScope&&) = delete;
     ProfileScope(const ProfileScope&) = delete;
@@ -106,6 +108,10 @@ class ServiceAccess {
     void record_gpu_profile(std::uint64_t epoch, const std::string& category,
                             const std::string& name, double seconds, std::uint64_t frame) const;
     bool profiling_enabled() const;
+    bool profiling_systems_enabled() const;
+    bool profiling_systems_available() const;
+    void profiling_systems(bool enabled) const;
+    void record_system_profile_drops(std::uint64_t epoch, std::uint64_t count) const;
     void clear_profiles() const;
     ProfileScope profile(const char* category, const char* name, std::uint64_t tick = 0) const;
     void profiling(bool enabled) const;

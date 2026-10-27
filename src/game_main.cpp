@@ -1,5 +1,6 @@
 #include "RmlUi_Platform_SDL.h"
 #include "asset_bytes.hpp"
+#include "flecs_system_trace.hpp"
 #include "game_device.hpp"
 #include "game_launch.hpp"
 #include "game_presentation.hpp"
@@ -71,6 +72,7 @@ void display(SDL_Window* window, const Json& settings) {
 int main(int argc, char** argv) {
     using namespace forge;
     using namespace Diligent;
+    (void)forge::detail::initialize_native_system_tracing();
     if (argc == 2 && std::string_view(argv[1]) == "--version") {
         std::cout << "FORGE game | Build: " << build_id << '\n';
         return 0;

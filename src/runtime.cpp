@@ -1,8 +1,10 @@
 #include "animation_material_patch.hpp"
+#include "flecs_system_trace.hpp"
 #include "json_output_text.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_tile_map.hpp"
+#include "utf8_boundary.hpp"
 #include <algorithm>
 #include <cmath>
 #include <forge/render_components.hpp>
@@ -344,6 +346,7 @@ void RuntimeSimulation::tick(float dt) {
     detail::publish_runtime_tile_edits(context_);
     context_.modules().begin_tick(input_.snapshot());
     try {
+        detail::NativeSystemTraceCapture native_traces(context_.services(), input_tick_);
         context_.world().progress(dt);
     } catch (...) {
         context_.modules().end_tick();
@@ -407,10 +410,8 @@ void RuntimeSimulation::capture_system_profile() {
         const auto name = [&world](ecs_entity_t id) {
             std::string text = id ? world.entity(id).path().c_str() : "";
             if (text.size() > 160) {
-                std::size_t end = 157;
-                while ((static_cast<unsigned char>(text[end]) & 0xc0) == 0x80)
-                    --end;
-                text = text.substr(0, end) + "...";
+                text.resize(detail::utf8_range_end(text, 0, 157));
+                text += "...";
             }
             return detail::json_output_text(text);
         };

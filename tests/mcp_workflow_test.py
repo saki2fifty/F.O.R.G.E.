@@ -223,19 +223,23 @@ for legacy in (False, True):
             continue
         if SCOPE_TRACE_ONLY:
             assert 'forge_play_profile_trace' in names
+            assert advertised['forge_play_profile_control']['inputSchema']['properties']['native_systems']['type'] == 'boolean'
             assert advertised['forge_play_profile_trace']['annotations']['readOnlyHint']
             cold = client.tool('forge_play_profile_trace', target=discovery()['result']['target'])
             assert not cold['ok'], cold
             authored = read('forge_scene_read')
             ok('forge_play_start')
             control('forge_play_pause')
-            control('forge_play_profile_control', enabled=True, clear=True)
+            control('forge_play_profile_refresh')
+            until(lambda: read('forge_play_profile')['value'], lambda p: p.get('native_systems_available'))
+            control('forge_play_profile_control', enabled=True, clear=True, native_systems=True)
             for _ in range(24):
                 control('forge_play_step')
             control('forge_play_profile_refresh')
             def profile():
                 return read('forge_play_profile')['value']
             until(profile, lambda p: sum('start_seconds' in row for row in p.get('samples',[])) > 128)
+            assert profile()['native_systems']
             exported = read('forge_play_profile_trace')
             trace = exported['trace']
             page = read('forge_play_profile_trace', limit=1, profile_state=exported['profile_state'])
@@ -257,6 +261,8 @@ for legacy in (False, True):
                               profile_state='0'*64,limit=1)
             assert not bad['ok'], bad
             events = [event for event in trace['traceEvents'] if event['ph'] == 'X']
+            assert any(event['cat'] == 'ecs.system' for event in events)
+            assert trace['otherData']['source']['native_systems_dropped'] == '0'
             assert events and min(event['ts'] for event in events) == 0
             assert all(event['ts'] >= 0 and event['dur'] >= 0 for event in events)
             assert trace['otherData']['owner_threads'] == 1

@@ -3,6 +3,7 @@
 #include "content.hpp"
 #include "dependency_automation.hpp"
 #include "export_automation.hpp"
+#include "flecs_system_trace.hpp"
 #include "game_input.hpp"
 #include "mcp_test_marker.hpp"
 #include "navigation_automation.hpp"
@@ -19,6 +20,7 @@
 
 // Native owners with the existing recording RmlUi renderer; no GPU is simulated.
 int main(int argc, char** argv) {
+    (void)forge::detail::initialize_native_system_tracing();
     try {
         if (argc != 6 && argc != 7 && argc != 8)
             return 2;

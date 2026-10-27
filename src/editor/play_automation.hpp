@@ -173,13 +173,15 @@ struct PlayAutomation {
                 if (profile.value("world_generation", std::uint64_t{}) !=
                     live.at("generation").get<std::uint64_t>())
                     throw AuthoringError("not_ready", "Refresh the current world's profile first");
-                const auto signature = Json{
-                    {"launch", play.launch_id()},
-                    {"session", play.session()},
-                    {"generation", profile.at("world_generation")},
-                    {"sequence", profile.at("sequence")},
-                    {"epoch",
-                     profile.at("epoch")}}.dump();
+                const auto signature =
+                    Json{{"launch", play.launch_id()},
+                         {"session", play.session()},
+                         {"generation", profile.at("world_generation")},
+                         {"sequence", profile.at("sequence")},
+                         {"epoch", profile.at("epoch")},
+                         {"native_systems_dropped",
+                          profile.value("native_systems_dropped", std::uint64_t{})}}
+                        .dump();
                 const auto cursor = asset_detail::content_digest(
                     std::as_bytes(std::span(signature.data(), signature.size())));
                 if (request.contains("profile_state") && request.at("profile_state") != cursor)
@@ -443,18 +445,30 @@ struct PlayAutomation {
             },
             true));
         auto profile_properties = properties(), profile_required = required();
-        profile_properties.update(
-            {{"enabled", {{"type", "boolean"}}}, {"clear", {{"type", "boolean"}}}});
+        profile_properties.update({{"enabled", {{"type", "boolean"}}},
+                                   {"clear", {{"type", "boolean"}}},
+                                   {"native_systems", {{"type", "boolean"}}}});
         profile_required.push_back("enabled");
         profile_required.push_back("clear");
         methods.push_back(automation_method(
             "play.profile.control",
             "Control the existing runtime CPU collection. Read a fresh "
-            "snapshot with play.profile.refresh after it is acknowledged.",
+            "snapshot with play.profile.refresh after it is acknowledged. Optional "
+            "native_systems captures actual owner-thread native ECS dispatch scopes; "
+            "it is not measured worker utilization or native lifetime totals.",
             "play.execute", automation_object(profile_properties, profile_required), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);
-                if (!play.submit_cpu_profile(request.at("enabled"), request.at("clear")))
+                const auto native_systems =
+                    request.contains("native_systems")
+                        ? std::optional<bool>(request.at("native_systems").get<bool>())
+                        : std::nullopt;
+                if (native_systems.value_or(false) &&
+                    !play.cpu_profile().value("native_systems_available", false))
+                    throw AuthoringError("not_supported", "Refresh the profile and use a Play "
+                                                          "host with native system tracing");
+                if (!play.submit_cpu_profile(request.at("enabled"), request.at("clear"),
+                                             native_systems))
                     throw AuthoringError("play_busy",
                                          "CPU profiling control is pending or unavailable");
                 return Json{{"queued", true}};

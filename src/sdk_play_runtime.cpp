@@ -129,6 +129,7 @@ struct SdkPlayRuntime::State {
     std::uint64_t active_generation = 0;
     std::uint64_t profile_world_generation = 0;
     bool profiling_enabled = false;
+    bool profiling_systems = false;
     std::uint64_t initial_ticket = 0;
     std::uint64_t last_loading_ticket = 0;
     std::uint64_t effect_sequence = 0;
@@ -990,6 +991,7 @@ void SdkPlayRuntime::pump(RuntimeClock::Time now, const std::function<void()>& b
         return;
     if (s.profile_world_generation != s.active_generation) {
         s.game->active().engine.services().profiling(s.profiling_enabled);
+        s.game->active().engine.services().profiling_systems(s.profiling_systems);
         s.profile_world_generation = s.active_generation;
     }
     try {
@@ -1341,6 +1343,7 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
         if (command == "profiling") {
             s.profiling_enabled = control_cpu_profile(request, s.game->active().engine.services(),
                                                       s.active_generation);
+            s.profiling_systems = s.game->active().engine.services().profiling_systems_enabled();
             return s.snapshot_response(id);
         }
         if (command == "time_scale") {

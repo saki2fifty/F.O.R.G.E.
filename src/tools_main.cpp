@@ -1,6 +1,7 @@
 #include "asset_tools_cli.hpp"
 #include "command_worker.hpp"
 #include "ecs_tools_cli.hpp"
+#include "flecs_system_trace.hpp"
 #include "json_document.hpp"
 #include "mcp.hpp"
 #include <forge/authoring.hpp>
@@ -31,6 +32,10 @@ int main(int argc, char** argv) {
 #endif
     ecs_os_set_api_defaults();
     ecs_os_api.log_out_ = stderr; // Keep native diagnostics outside the JSON protocol.
+    // Script's isolated worker must install its confined fopen before freezing
+    // the native OS API. It performs no profiled runtime system dispatch.
+    if (!(argc == 2 && std::string_view(argv[1]) == "--script-worker"))
+        (void)forge::detail::initialize_native_system_tracing();
     if (argc == 2 && std::string(argv[1]) == "--mcp-stdio")
         return forge::mcp_stdio();
     if (argc >= 2 && std::string(argv[1]) == "--assets")

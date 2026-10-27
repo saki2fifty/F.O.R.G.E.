@@ -12,6 +12,20 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Native dispatch tracing reuses the CPU/compile-out/UI/ordinary/SDK/transport and
+both MCP profile tests below. Core checks include actual nested native dispatches,
+timer skips,64-depth overflow, invalid/long UTF-8 labels, cancellation, Clear epochs,
+foreign-thread exclusion and zero disabled clock reads. `cpu_profile_native_api`
+retains external native OS callbacks; `cpu_profile_script_boundary` verifies
+fail-closed file confinement after a conflicting OS installation, while
+`cpu_profile_script_worker` verifies a fresh worker's successful confined evaluation.
+The existing Script/known-include tests cover production process isolation.
+The native trace macro is PRIVATE to Flecs; SDK definitions/tables remain unchanged.
+Strict sanitizer evidence must include the actual native tracing compile
+configuration. A normal native library or an older nontracing sanitizer build
+cannot prove that path. Actual native Windows Main/startup and external-client
+interaction remain separate from these portable checks.
+
 Source echo reuses `audio` for independent nonzero PCM recurrence, combined filters,
 disabled/zero-feedback bypass and exact echo-buffer bounds. An original impulse
 checks post-EOS one-shot retention, repeat gain, source/game/full pause, independent

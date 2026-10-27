@@ -1,3 +1,4 @@
+#include "flecs_system_trace.hpp"
 // Tests for the SDK Play host assembly.
 //
 // These tests build a real project + catalog + GameSession and exercise the
@@ -304,7 +305,11 @@ void live_cpu_profile_controls() {
          {Json{{"enabled", true}},
           Json{{"enabled", true}, {"generation", generation.get<std::uint64_t>() + 1}},
           Json{{"enabled", 1}, {"generation", generation}},
-          Json{{"enabled", true}, {"generation", generation}, {"clear", 1}}}) {
+          Json{{"enabled", true}, {"generation", generation}, {"clear", 1}},
+          Json{{"enabled", true},
+               {"generation", generation},
+               {"clear", true},
+               {"native_systems", 1}}}) {
         check(!request("profiling", invalid).value("ok", false), "SDK invalid control accepted");
         const auto after = request("snapshot", {{"profile_watch", true}});
         check(after.at("scene") == before.at("scene") &&
@@ -315,11 +320,15 @@ void live_cpu_profile_controls() {
     check(!request("resume", {{"profile_watch", 1}}).value("ok", false) &&
               host->status().at("state") == "paused",
           "Malformed watch advanced clock policy");
-    auto enabled =
-        request("profiling", {{"generation", generation}, {"enabled", true}, {"clear", true}});
+    auto enabled = request(
+        "profiling",
+        {{"generation", generation}, {"enabled", true}, {"clear", true}, {"native_systems", true}});
     check(enabled.value("ok", false) && enabled.at("scene") == before.at("scene") &&
               enabled.at("timing").at("tick") == before.at("timing").at("tick"),
           "Collection changed paused scene/clock");
+    check(enabled.at("cpu_profile").at("native_systems_available") == true &&
+              enabled.at("cpu_profile").at("native_systems") == true,
+          "SDK host lost native dispatch collection policy");
     auto stepped = request("step", {{"profile_watch", true}});
     check(stepped.value("ok", false) && stepped.at("timing").at("tick") == 1 &&
               stepped.at("timing").at("paused") == true,
@@ -331,6 +340,10 @@ void live_cpu_profile_controls() {
             sample.contains("start_seconds"))
             found_tick = true;
     check(found_tick, "SDK actual fixed tick was not observed");
+    bool found_native = false;
+    for (const auto& sample : stepped.at("cpu_profile").at("samples"))
+        found_native |= sample.at("category") == "ecs.system" && sample.contains("start_seconds");
+    check(found_native, "SDK host did not forward actual native dispatch spans");
     check(stepped.at("cpu_profile").at("ecs").at("available") &&
               stepped.at("cpu_profile").at("ecs").at("tick") == 1,
           "SDK fixed pipeline was not observed");
@@ -369,6 +382,8 @@ void live_cpu_profile_controls() {
     const auto replaced = request("snapshot", {{"profile_watch", true}});
     check(replaced.at("cpu_profile").at("world_generation") != generation,
           "Replacement retained old profiling generation");
+    check(replaced.at("cpu_profile").at("native_systems") == true,
+          "SDK replacement lost native dispatch preference");
     for (const auto& sample : replaced.at("cpu_profile").at("samples"))
         check(sample.at("name") != "FixedSimulationTick",
               "Old world's tick samples leaked into replacement");
@@ -2498,6 +2513,7 @@ int run_process_mode(const std::filesystem::path& user_base_override,
 } // namespace forge::test
 
 int main(int argc, char** argv) {
+    (void)forge::detail::initialize_native_system_tracing();
     // --mode=process [user_base]
     if (argc >= 2 && std::strcmp(argv[1], "--mode=process") == 0) {
         std::filesystem::path user_base;

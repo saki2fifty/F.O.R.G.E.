@@ -78,10 +78,9 @@ void interactions(float scale, ImVec2 display) {
     Telemetry telemetry;
     telemetry.frames.fps = 120;
     telemetry.frames.milliseconds = 1000. / 120;
-    Json game{{"compiled", true},
-              {"enabled", false},
-              {"available", true},
-              {"world_generation", 9},
+    Json game{{"compiled", true},        {"enabled", false},
+              {"native_systems", false}, {"native_systems_available", true},
+              {"available", true},       {"world_generation", 9},
               {"samples", Json::array()}};
     bool open = true, ready = true, pending = false, watch = false;
     std::string error;
@@ -89,6 +88,7 @@ void interactions(float scale, ImVec2 display) {
              {"pending", 0},     {"query_capacity", 64}, {"samples", Json::array()}};
     unsigned gpu_sends = 0;
     unsigned sends = 0;
+    unsigned native_sends = 0;
     bool requested_enabled = false, requested_clear = false;
     ui::Workspace prefs;
     bool show_menu = false;
@@ -123,6 +123,11 @@ void interactions(float scale, ImVec2 display) {
                 gpu["enabled"] = enabled;
                 if (clear)
                     services.access().clear_profiles();
+                return true;
+            },
+            [&](bool native) {
+                ++native_sends;
+                game["native_systems"] = native;
                 return true;
             });
         ImGui::Render();
@@ -216,6 +221,10 @@ void interactions(float scale, ImVec2 display) {
     check(watch, "Game tab did not request runtime observations");
     click("profiler:game:collection");
     check(sends == 1 && requested_enabled && !requested_clear, "Game start sent incorrect control");
+    click("profiler:game:native-systems");
+    check(native_sends == 1 && game.at("native_systems") == true && game.at("enabled") == true &&
+              !services.access().profiling_systems_enabled(),
+          "Native trace control bypassed its runtime callback or changed Editor collection");
     game["samples"] = Json::array({{{"category", "runtime"},
                                     {"name", "Physics"},
                                     {"seconds", .001},
@@ -231,7 +240,8 @@ void interactions(float scale, ImVec2 display) {
     pending = true;
     frame();
     check(!test::ui_targets.at("profiler:game:collection").enabled &&
-              !test::ui_targets.at("profiler:game:clear").enabled,
+              !test::ui_targets.at("profiler:game:clear").enabled &&
+              !test::ui_targets.at("profiler:game:native-systems").enabled,
           "Pending runtime controls enabled");
     pending = false;
     click("profiler:game:clear");

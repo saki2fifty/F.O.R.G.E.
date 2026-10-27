@@ -16,12 +16,17 @@ inline bool control_cpu_profile(const nlohmann::json& request, ServiceAccess ser
         request.at("generation").get<std::uint64_t>() != generation)
         throw std::runtime_error("Profiling requires the current active world generation");
     if (!request.contains("enabled") || !request.at("enabled").is_boolean() ||
-        (request.contains("clear") && !request.at("clear").is_boolean()))
-        throw std::runtime_error("Profiling enabled/clear controls must be boolean");
+        (request.contains("clear") && !request.at("clear").is_boolean()) ||
+        (request.contains("native_systems") && !request.at("native_systems").is_boolean()))
+        throw std::runtime_error("Profiling enabled/clear/native_systems controls must be boolean");
     const bool enabled = request.at("enabled").get<bool>();
     services.require(Capability::Profiling);
+    if (request.value("native_systems", false) && !services.profiling_systems_available())
+        throw std::runtime_error("Native system tracing is unavailable in this host configuration");
     if (request.value("clear", false))
         services.clear_profiles();
+    if (request.contains("native_systems"))
+        services.profiling_systems(request.at("native_systems").get<bool>());
     services.profiling(enabled);
     return enabled;
 }

@@ -1,3 +1,4 @@
+#include "../flecs_system_trace.hpp"
 #include "../json_document.hpp"
 #include "../tile_asset_reimport_routes.hpp"
 #include "batch_authoring.hpp"
@@ -204,6 +205,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     std::clog << "FORGE editor | Build: " << forge::build_id << '\n';
+    (void)forge::detail::initialize_native_system_tracing();
 #ifdef FORGE_UI_FIXTURE
     // Configure the test-only crash filter as early as possible. argv[1]
     // is always the fixture output directory (validated by EditorFixture
@@ -5183,6 +5185,10 @@ int main(int argc, char** argv) {
                         scene_engine.services().clear_profiles();
                     presentation.gpu_profiling(enabled);
                     return true;
+                },
+                [&](bool native_systems) {
+                    return play.submit_cpu_profile(play.cpu_profile().value("enabled", false),
+                                                   false, native_systems);
                 }));
             if (profiler_was_open != workspace.cpu_profiler)
                 perform(save_preferences);

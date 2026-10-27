@@ -397,6 +397,20 @@ Logical overlap lanes describe one owner thread, not measured worker concurrency
 The machine-wide Editor trace remains in its UI because it can span projects.
 See [CPU profiling](cpu-profiling.md) for semantics and current boundaries.
 
+To capture actual native system dispatches, refresh the current profile first and
+check `native_systems_available`. The existing `play.profile.control` operation
+accepts optional boolean `native_systems` alongside required `enabled`/`clear`.
+Use `forge_play_profile_control` with the current revision/launch/session/world
+and execution grant. Enable collection and native capture, await acknowledgement,
+advance a fixed tick, refresh and read `forge_play_profile_trace`. A cold or
+unsupported enable reports `not_supported`; no alternate authoring path is used.
+Category `ecs.system` carries completed owner-thread fixed-pipeline dispatches,
+including nested native runs and excluding timer skips. The same512-record ring
+and64-depth limit apply; `native_systems_dropped` is copied into trace metadata and
+the cursor digest. Clear resets it. Replacement retains the capture preference
+with fresh world-owned history. This does not expose worker utilization, every
+arbitrary C++ call or an Editor-wide project-independent trace.
+
 `forge_play_tuning_capture` freezes an eligible live-value review. Read/select its
 fields, Stop, then Apply through RuntimeTuningReview. Apply creates one Scene Undo
 step and Save remains separate. Changes to the reviewed scene/schema invalidate

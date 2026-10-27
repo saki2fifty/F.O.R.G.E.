@@ -49,7 +49,8 @@ class CpuProfiler {
               const nlohmann::json& game, bool game_ready, bool pending, const std::string& error,
               const std::function<bool(bool, bool)>& submit,
               const nlohmann::json& gpu = nlohmann::json::object(),
-              const std::function<bool(bool, bool)>& submit_gpu = {}) {
+              const std::function<bool(bool, bool)>& submit_gpu = {},
+              const std::function<bool(bool)>& submit_systems = {}) {
         if (!open)
             return false;
         bool watch = false;
@@ -88,7 +89,8 @@ class CpuProfiler {
                             "the separate runtime worker. Game GPU time is not collected.");
                     else if (ImGui::BeginTabBar("Runtime CPU views")) {
                         if (ImGui::BeginTabItem("CPU scopes")) {
-                            draw_records("game", game, true, pending, error, submit);
+                            draw_records("game", game, true, pending, error, submit, false, false,
+                                         submit_systems);
                             ImGui::EndTabItem();
                         }
                         if (ImGui::BeginTabItem("ECS systems")) {
@@ -139,7 +141,8 @@ class CpuProfiler {
     std::map<std::string, bool> timeline_views_;
     void draw_records(const char* owner, const nlohmann::json& status, bool ready, bool pending,
                       const std::string& error, const std::function<bool(bool, bool)>& submit,
-                      bool gpu = false, bool systems = false) {
+                      bool gpu = false, bool systems = false,
+                      const std::function<bool(bool)>& submit_systems = {}) {
         ImGui::PushID(owner);
         auto& local_error = local_errors_[owner];
         if (!status.value("compiled", false)) {
@@ -198,6 +201,30 @@ class CpuProfiler {
         ImGui::InputTextWithHint("##Scope filter", "Filter category or scope...", filter_,
                                  sizeof(filter_));
         FORGE_UI_PROBE(std::string("profiler:") + owner + ":filter");
+        if (!gpu && std::string_view(owner) == "game") {
+            const bool supported = status.value("native_systems_available", false);
+            bool native = status.value("native_systems", false);
+            ImGui::BeginDisabled(pending || !ready || !submit_systems || !supported);
+            if (ImGui::Checkbox("Trace ECS systems", &native)) {
+                try {
+                    local_error =
+                        submit_systems(native) ? "" : "Collection control is busy; try again.";
+                } catch (const std::exception& exception) {
+                    local_error = exception.what();
+                }
+            }
+            FORGE_UI_PROBE("profiler:game:native-systems");
+            ImGui::EndDisabled();
+            help("With collection on, retain actual inclusive native ECS dispatch intervals "
+                 "from this owner thread, up to depth64. This adds overhead and shares "
+                 "the512-record history. "
+                 "It does not measure worker utilization or native lifetime totals.");
+            if (!supported)
+                ImGui::TextWrapped("Native system tracing is unavailable in this Play host.");
+            if (const auto dropped = status.value("native_systems_dropped", std::uint64_t{}))
+                ImGui::TextWrapped("Skipped dispatches beyond depth64: %llu",
+                                   static_cast<unsigned long long>(dropped));
+        }
         if (!gpu) {
             bool& timeline = timeline_views_[owner];
             ImGui::Checkbox("Timeline", &timeline);
