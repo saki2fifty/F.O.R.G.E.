@@ -327,7 +327,8 @@ void live_cpu_profile_controls() {
 #ifndef FORGE_DISABLE_PROFILING
     bool found_tick = false;
     for (const auto& sample : stepped.at("cpu_profile").at("samples"))
-        if (sample.at("name") == "FixedSimulationTick" && sample.at("tick") == 1)
+        if (sample.at("name") == "FixedSimulationTick" && sample.at("tick") == 1 &&
+            sample.contains("start_seconds"))
             found_tick = true;
     check(found_tick, "SDK actual fixed tick was not observed");
     check(stepped.at("cpu_profile").at("ecs").at("available") &&

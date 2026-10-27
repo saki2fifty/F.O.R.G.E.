@@ -164,8 +164,48 @@ void interactions(float scale, ImVec2 display) {
     click("profiler:editor:collection");
     check(services.access().profiling_enabled(), "Editor collection click failed");
     services.access().record_profile("editor", "TestScope", .002, 1);
+    services.access().record_profile_span("editor", "Measured interval", 10, .004, 2);
     frame();
     check(test::ui_targets.contains("profiler:editor:row:TestScope"), "CPU scope row missing");
+    std::string clipboard;
+    auto& platform = ImGui::GetPlatformIO();
+    platform.Platform_ClipboardUserData = &clipboard;
+    platform.Platform_SetClipboardTextFn = [](ImGuiContext*, const char* text) {
+        *static_cast<std::string*>(ImGui::GetPlatformIO().Platform_ClipboardUserData) = text;
+    };
+    click("profiler:editor:timeline");
+    frame();
+    click("profiler:editor:trace-copy");
+    const auto copied = Json::parse(clipboard);
+    check(copied.at("otherData").at("measured_spans") == 1 &&
+              copied.at("otherData").at("duration_only_records") == 1 &&
+              copied.at("otherData").at("captured_at").get<std::string>().size() >= 20,
+          "Native trace copy lost measured-only semantics or capture date/time");
+    auto scroll = [&](float direction) {
+        const auto* window = ImGui::FindWindowByName("Profiler###CpuProfiler");
+        check(window != nullptr, "Profiler window missing");
+        // Hover the window padding, outside the nested table, as a user would.
+        io.AddMousePosEvent(window->InnerRect.Min.x + 1,
+                            (window->InnerRect.Min.y + window->InnerRect.Max.y) / 2);
+        frame();
+        io.AddMouseWheelEvent(0, direction);
+        for (int i = 0; i < 3; ++i)
+            frame();
+    };
+    const auto measured_visible = [&] {
+        const auto found = test::ui_targets.find("profiler:editor:span:Measured interval");
+        return found != test::ui_targets.end() &&
+               found->second.minimum.y >= found->second.clip_minimum.y &&
+               found->second.maximum.y <= found->second.clip_maximum.y;
+    };
+    for (int i = 0; i < 4 && !measured_visible(); ++i)
+        scroll(-10);
+    check(measured_visible() && !test::ui_targets.contains("profiler:editor:span:TestScope"),
+          "Timeline invented a duration-only interval or its measured row cannot be reached");
+    scroll(20);
+    click("profiler:editor:timeline");
+    platform.Platform_SetClipboardTextFn = nullptr;
+    platform.Platform_ClipboardUserData = nullptr;
     click("profiler:editor:clear");
     check(services.access().profiles().empty() && services.access().profiling_enabled(),
           "Clear stopped collection or retained records");
@@ -295,7 +335,11 @@ void interactions(float scale, ImVec2 display) {
     performance.begin();
     const auto submit2 = ui::Performance::Clock::now();
     const auto present2 = ui::Performance::Clock::now();
+    performance.scene_submission(performance.start, submit2);
     performance.finish(submit2, present2, services.access());
+    const auto frame_timeline = cpu_scope_timeline(services.access().profiles());
+    check(frame_timeline.spans.size() == 3 && frame_timeline.duration_only == 1,
+          "Frame producer fabricated exclusive Update/UI or lost Scene/UI/Present intervals");
     check(services.access().profiles().size() == 4,
           "Existing frame sections not recorded exactly once");
     test::observe_ui = false;

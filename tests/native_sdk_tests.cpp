@@ -213,6 +213,8 @@ int main(int argc, char** argv) {
                   "UI action registration accepted outside startup");
             check(client.profile("SDK sample", .001), "SDK profiling sample rejected");
 #ifndef FORGE_DISABLE_PROFILING
+            check(!engine.services().profiles().back().contains("start_seconds"),
+                  "Duration-only public SDK callback invented a measured start");
             check(engine.services().profiles().back()["category"] == "project.sdk_probe",
                   "SDK profiling sample missing module context");
 #endif

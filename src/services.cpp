@@ -17,14 +17,16 @@ struct ServiceState {
     std::uint64_t diagnostic_sequence = 0;
     std::uint64_t profile_generation = 0, profile_sequence = 0, profile_epoch = 0;
     void append_profile(const std::string& category, const std::string& name, double seconds,
-                        std::uint64_t tick, bool gpu = false) {
+                        std::uint64_t tick, bool gpu = false, std::optional<double> start = {}) {
         Json sample{{"category", category},         {"name", name},
                     {"seconds", seconds},           {"count", 1},
                     {gpu ? "frame" : "tick", tick}, {"sequence", profile_sequence + 1}};
         if (gpu)
             sample["clock"] = "gpu";
+        else if (start)
+            sample["start_seconds"] = *start;
         profiles.push_back(std::move(sample));
-        if (profiles.size() > 512)
+        if (profiles.size() > profile_record_capacity)
             profiles.pop_front();
         ++profile_sequence;
     }
@@ -246,8 +248,9 @@ Json ServiceAccess::profile_status() const {
 #endif
     return {{"compiled", compiled},
             {"enabled", compiled && state->profiling},
-            {"capacity", 512},
+            {"capacity", profile_record_capacity},
             {"sequence", state->profile_sequence},
+            {"epoch", state->profile_epoch},
             {"samples", profiles()}};
 }
 bool ServiceAccess::profiling_enabled() const {
@@ -284,6 +287,20 @@ void ServiceAccess::record_profile(const std::string& category, const std::strin
     if (!state->profiling)
         return;
     state->append_profile(category, name, seconds, tick);
+#endif
+}
+void ServiceAccess::record_profile_span(const std::string& category, const std::string& name,
+                                        double start_seconds, double seconds,
+                                        std::uint64_t tick) const {
+    require(Capability::Profiling);
+    if (category.empty() || category.size() > 128 || name.empty() || name.size() > 128 ||
+        !std::isfinite(start_seconds) || !std::isfinite(seconds) || seconds < 0 || seconds > 3600 ||
+        !std::isfinite(start_seconds + seconds))
+        throw std::runtime_error("Invalid CPU profile interval");
+#ifndef FORGE_DISABLE_PROFILING
+    const auto state = state_.lock();
+    if (state->profiling)
+        state->append_profile(category, name, seconds, tick, false, start_seconds);
 #endif
 }
 ProfileScope ServiceAccess::profile(const char* category, const char* name,
@@ -333,7 +350,7 @@ ProfileScope::~ProfileScope() {
         const double duration = state->now() - start_;
         if (!std::isfinite(duration) || duration < 0 || duration > 3600)
             return;
-        state->append_profile(category_, name_, duration, tick_);
+        state->append_profile(category_, name_, duration, tick_, false, start_);
     } catch (...) { /* Instrumentation must not alter engine control flow. */
     }
 }

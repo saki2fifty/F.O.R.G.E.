@@ -1,5 +1,6 @@
 #pragma once
 #include <chrono>
+#include <cstddef>
 #include <forge/animation_service.hpp>
 #include <forge/audio_service.hpp>
 #include <forge/game_control_service.hpp>
@@ -57,6 +58,7 @@ template <class T> struct ServiceSlot {
     std::weak_ptr<T> service;
 };
 } // namespace detail
+inline constexpr std::size_t profile_record_capacity = 512;
 class ProfileScope {
   public:
     ProfileScope() = default;
@@ -109,6 +111,10 @@ class ServiceAccess {
     void profiling(bool enabled) const;
     void record_profile(const std::string& category, const std::string& name, double seconds,
                         std::uint64_t tick = 0) const;
+    // Observed CPU interval on this owner's profiling clock. The caller supplies
+    // its real start and elapsed duration; duration-only records remain untimed.
+    void record_profile_span(const std::string& category, const std::string& name,
+                             double start_seconds, double seconds, std::uint64_t tick = 0) const;
 
   private:
     friend class EngineServices;

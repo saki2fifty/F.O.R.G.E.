@@ -1,4 +1,6 @@
 #pragma once
+#include "../cpu_profile_trace.hpp"
+#include "event_time.hpp"
 #include "telemetry.hpp"
 #include "widgets.hpp"
 #include <forge/services.hpp>
@@ -13,22 +15,14 @@ struct CpuProfileRow {
 };
 inline std::vector<CpuProfileRow> summarize_cpu_profiles(const nlohmann::json& samples,
                                                          bool gpu = false) {
-    if (!samples.is_array() || samples.size() > 512)
+    if (!samples.is_array() || samples.size() > profile_record_capacity)
         throw std::runtime_error("CPU profile snapshot exceeds its record bound");
     std::map<std::pair<std::string, std::string>, CpuProfileRow> groups;
     for (const auto& sample : samples) {
-        const char* position = gpu ? "frame" : "tick";
-        if (!sample.is_object() || sample.value("clock", "cpu") != (gpu ? "gpu" : "cpu") ||
-            !sample.at("category").is_string() || !sample.at("name").is_string() ||
-            !sample.at("seconds").is_number() || !sample.at(position).is_number_integer() ||
-            sample.at(position) < (gpu ? 1 : 0) || sample.at("count") != 1)
-            throw std::runtime_error("Invalid CPU profile snapshot record");
-        const auto category = sample.at("category").get<std::string>();
-        const auto name = sample.at("name").get<std::string>();
-        const auto seconds = sample.at("seconds").get<double>();
-        if (category.empty() || category.size() > 128 || name.empty() || name.size() > 128 ||
-            !std::isfinite(seconds) || seconds < 0 || seconds > 3600)
-            throw std::runtime_error("Invalid CPU profile snapshot value");
+        const auto value = profile_record_value(sample, gpu);
+        const auto& category = value.category;
+        const auto& name = value.name;
+        const auto seconds = value.seconds;
         auto& row = groups[{category, name}];
         row.category = category;
         row.name = name;
@@ -36,7 +30,7 @@ inline std::vector<CpuProfileRow> summarize_cpu_profiles(const nlohmann::json& s
         row.total += seconds;
         row.maximum = std::max(row.maximum, seconds);
         row.latest = seconds;
-        row.tick = sample.at(position).get<std::uint64_t>();
+        row.tick = value.position;
     }
     std::vector<CpuProfileRow> result;
     for (auto& [key, row] : groups)
@@ -142,6 +136,7 @@ class CpuProfiler {
   private:
     char filter_[128]{};
     std::map<std::string, std::string> local_errors_;
+    std::map<std::string, bool> timeline_views_;
     void draw_records(const char* owner, const nlohmann::json& status, bool ready, bool pending,
                       const std::string& error, const std::function<bool(bool, bool)>& submit,
                       bool gpu = false, bool systems = false) {
@@ -203,6 +198,22 @@ class CpuProfiler {
         ImGui::InputTextWithHint("##Scope filter", "Filter category or scope...", filter_,
                                  sizeof(filter_));
         FORGE_UI_PROBE(std::string("profiler:") + owner + ":filter");
+        if (!gpu) {
+            bool& timeline = timeline_views_[owner];
+            ImGui::Checkbox("Timeline", &timeline);
+            FORGE_UI_PROBE(std::string("profiler:") + owner + ":timeline");
+            help("Measured CPU intervals only. Duration-only SDK/explicit records remain in "
+                 "the summary. Layout rows do not measure worker concurrency.");
+            if (timeline) {
+                try {
+                    draw_timeline(owner, status);
+                } catch (const std::exception& exception) {
+                    ImGui::TextWrapped("Profile data rejected: %s", exception.what());
+                }
+                ImGui::PopID();
+                return;
+            }
+        }
         try {
             const auto rows = summarize_cpu_profiles(status.at("samples"), gpu);
             ImGui::Text("Recent records: %zu / 512 | Scope groups: %zu",
@@ -249,6 +260,100 @@ class CpuProfiler {
             ImGui::TextWrapped("Profile data rejected: %s", exception.what());
         }
         ImGui::PopID();
+    }
+    void draw_timeline(const char* owner, const nlohmann::json& status) {
+        const auto timeline = cpu_scope_timeline(status.at("samples"));
+        ImGui::TextWrapped("Owner thread | Measured intervals: %zu | Duration-only records: %zu",
+                           timeline.spans.size(), timeline.duration_only);
+        ImGui::Text("Retained window: %.3f ms", timeline.seconds * 1000);
+        ImGui::BeginDisabled(timeline.spans.empty());
+        if (ImGui::Button("Copy trace JSON")) {
+            try {
+                const auto trace = cpu_scope_trace_text(
+                    status,
+                    std::string_view(owner) == "editor" ? "FORGE Editor" : "FORGE Play runtime",
+                    event_time_local());
+                ImGui::SetClipboardText(trace.c_str());
+                local_errors_[owner].clear();
+            } catch (const std::exception& exception) {
+                local_errors_[owner] = exception.what();
+            }
+        }
+        FORGE_UI_PROBE(std::string("profiler:") + owner + ":trace-copy");
+        ImGui::EndDisabled();
+        help("Copies all retained measured CPU spans as Trace Event JSON, including capture "
+             "date/time and UTC offset. Filter changes this view only. Logical overlap "
+             "lanes are not additional measured threads. Editor/runtime clocks are separate.");
+        if (timeline.spans.empty()) {
+            ImGui::TextWrapped("Collect completed host scopes or render frames to see intervals. "
+                               "A duration without its measured start cannot be placed here.");
+            return;
+        }
+        std::vector<const CpuScopeSpan*> visible;
+        for (const auto& span : timeline.spans)
+            if (!*filter_ || span.category.find(filter_) != std::string::npos ||
+                span.name.find(filter_) != std::string::npos)
+                visible.push_back(&span);
+        if (!ImGui::BeginTable(
+                "Measured CPU intervals", 4,
+                ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_ScrollY |
+                    ImGuiTableFlags_ScrollX,
+                {0, std::max(80.f * interface_scale, ImGui::GetContentRegionAvail().y)}))
+            return;
+        ImGui::TableSetupColumn("Scope", ImGuiTableColumnFlags_WidthFixed, 220 * interface_scale);
+        ImGui::TableSetupColumn("Start ms", ImGuiTableColumnFlags_WidthFixed,
+                                100 * interface_scale);
+        ImGui::TableSetupColumn("Duration ms", ImGuiTableColumnFlags_WidthFixed,
+                                110 * interface_scale);
+        ImGui::TableSetupColumn("Interval", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupScrollFreeze(0, 1);
+        ImGui::TableHeadersRow();
+        ImGuiListClipper clipper;
+        clipper.Begin(int(visible.size()));
+        const auto window_seconds = std::max(timeline.seconds, .000001);
+        while (clipper.Step())
+            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+                const auto& span = *visible[std::size_t(i)];
+                ImGui::PushID(i);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TextUnformatted((span.category + " / " + span.name).c_str());
+                FORGE_UI_PROBE(std::string("profiler:") + owner + ":span:" + span.name);
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f", span.start * 1000);
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f", span.seconds * 1000);
+                ImGui::TableNextColumn();
+                const auto origin = ImGui::GetCursorScreenPos();
+                const float width = std::max(1.f, ImGui::GetContentRegionAvail().x);
+                const float height = 18 * interface_scale;
+                ImGui::InvisibleButton("##Measured interval", {width, height});
+                const auto minimum =
+                    origin.x +
+                    std::min(width - 1.f,
+                             width * float(std::clamp(span.start / window_seconds, 0., 1.)));
+                const auto maximum = std::min(
+                    origin.x + width,
+                    std::max(minimum + 1,
+                             origin.x + width * float(std::clamp((span.start + span.seconds) /
+                                                                     window_seconds,
+                                                                 0., 1.))));
+                ImGui::GetWindowDrawList()->AddRectFilled(
+                    {minimum, origin.y + 2}, {maximum, origin.y + height - 2},
+                    ImGui::GetColorU32(ImGuiCol_PlotHistogram));
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::TextUnformatted(span.name.c_str());
+                    ImGui::Text("Start %.6f ms | Duration %.6f ms", span.start * 1000,
+                                span.seconds * 1000);
+                    ImGui::Text("Tick %llu | Sequence %llu",
+                                static_cast<unsigned long long>(span.tick),
+                                static_cast<unsigned long long>(span.sequence));
+                    ImGui::EndTooltip();
+                }
+                ImGui::PopID();
+            }
+        ImGui::EndTable();
     }
     void draw_systems(const nlohmann::json& status) {
         try {

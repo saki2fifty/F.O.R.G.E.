@@ -1,3 +1,4 @@
+#include "cpu_profile_trace.hpp"
 #include "editor/play.hpp"
 #include <SDL3/SDL.h>
 #include <forge/game_settings.hpp>
@@ -129,6 +130,9 @@ int main(int argc, char** argv) {
                 return !play.cpu_profile_pending() && play.cpu_profile().at("enabled") == false;
             });
             const auto retained = play.cpu_profile().at("samples");
+            const auto timeline = cpu_scope_timeline(retained);
+            check(!timeline.spans.empty() && play.cpu_profile().contains("epoch"),
+                  "Production Play transport lost measured starts or collection epoch");
             const auto retained_plan = play.cpu_profile().at("ecs");
             for (int i = 0; i < 30; ++i) {
                 play.pump();

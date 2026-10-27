@@ -21,6 +21,57 @@ completion order; it is a recent sample window, not all time since collection be
 Editor frame sections use tick0. This is inclusive CPU wall time: nested scopes
 overlap, elapsed waits can be included, and summing rows is not total frame cost.
 
+### Measured intervals and trace export
+
+Completed host `ProfileScope` records also retain their real `start_seconds` from
+the same owner clock already used to measure duration. Host-only
+`record_profile_span(category, name, start_seconds, seconds, tick)` admits a producer's
+observed interval without reading another clock. `record_profile` and the installed
+SDK duration callback have no measured start and remain duration-only. The SDK
+`ProfileScope` helper passes only its duration through that callback; no versioned
+C function table or installed SDK fingerprint input changes.
+
+Performance retains actual Scene submission boundaries and records Scene,
+UI submission and Present intervals using its existing clock reads. Exclusive
+UpdateAndEditorUI subtracts Scene work and is fragmented, so it remains untimed.
+A frame without an observed Scene call retains a duration-only Scene record.
+The four summary records and Performance averages retain their existing meaning.
+
+`cpu_profile_trace` is a private bounded mapper shared by the native CPU Timeline
+view, Copy trace JSON and Play automation/MCP. It validates at most512 copied
+records, sorts measured spans by start/descending duration/sequence, and normalizes
+starts to the earliest retained measured interval. It does not fabricate starts for
+SDK, explicit duration-only, GPU or native ECS lifetime records. Invalid starts,
+duplicate/nonpositive sequences and unrepresentable windows are rejected.
+
+Export uses documented Trace Event complete `X` events and `M` process/track metadata,
+with `ts` and `dur` in microseconds and `displayTimeUnit=ms`. Complete events must nest
+within a track, so crossing intervals are assigned explicitly labelled logical
+overlap lanes. All lanes represent one owner thread; pid/tid values are layout
+identifiers, not OS IDs or measured worker concurrency. See the official
+[Perfetto external-format guide](https://perfetto.dev/docs/getting-started/other-formats).
+No viewer implementation or parser is integrated; external viewer acceptance is
+separate from the format/unit/nesting checks.
+
+`otherData` records source generation/epoch/sequence, retained measured and
+duration-only counts, owner/lane semantics, origin and page metadata. Capture
+date/time/UTC offset uses the existing editor event-time formatter at the read/copy
+boundary. It is not a correlation between monotonic event times and UTC.
+Editor and isolated Play clocks are never merged. UI filtering changes only the
+view; copying emits all retained measured records. The table virtualizes rows and
+uses the existing window/table scrolling at small sizes or high UI scaling.
+
+`play.profile.trace` / `forge_play_profile_trace` is read-only under `play.read`.
+Collect and use the existing profile refresh first. Pages default to and allow at
+most128 measured spans, with offset0..512. Every page keeps the full snapshot's
+origin, lane layout and total count. The returned `profile_state` is derived through
+the existing content digest from launch/session/world/epoch/sequence; providing it
+on later pages rejects a changed snapshot. Pause/Stop collection to retain stable
+pages. Cold or mismatched-world reads report not_ready. Clear invalidates old
+cursors even for empty histories. No new collector, cursor database or authoring
+history is created. The machine-wide Editor collector can span projects and is
+intentionally UI-only; project-scoped MCP exposes the isolated Play owner.
+
 Existing Performance frame sections feed the same recording owner without adding
 frame clocks: UpdateAndEditorUI, SceneSubmission, UISubmission and PresentCall.
 The existing Performance comparison/redraw controls and half-second averages remain
@@ -85,8 +136,8 @@ stats remain their own authority; FORGE does not invent history or totals.
 ## Service and lifecycle
 
 ServiceAccess provides profile_status(), profiling_enabled(), clear_profiles(),
-profiling(bool), ProfileScope and explicit record_profile(). Access remains typed,
-weak and owner-thread bound. Status reports compiled/enabled/capacity/sequence/samples.
+profiling(bool), ProfileScope, explicit record_profile() and record_profile_span(). Access remains typed,
+weak and owner-thread bound. Status reports compiled/enabled/capacity/sequence/epoch/samples.
 Invalid explicit records are rejected; invalid clocks, scope names or allocation
 failures cannot escape automatic scope construction/destruction or editor frame
 instrumentation. Disabled automatic scopes read no clock. Disabled editor sections
@@ -118,7 +169,9 @@ fixed runtime workloads. UI tests drive actual ImGui input at100/150/200%; produ
 pipe and SDK-host tests verify optional responses, rejected controls, paused stepping
 and replacement isolation. These CPU checks do not prove Windows/GPU performance,
 visual review or physical desktop acceptance. No hardware counters, allocation profiler,
-flame graph, remote tracing or exported in-game editor is implemented here.
+sampled flame graph, worker-thread tracing or exported in-game editor is implemented here.
+Host scope starts/copy and paged Play trace reads are implemented; per-system
+invocation tracing remains distinct from native ECS lifetime observations.
 
 The profiling service is internal to the host and is outside the installed SDK
 header/value boundary. This batch changes no installed SDK values, fingerprint

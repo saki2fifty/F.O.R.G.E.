@@ -1,5 +1,16 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Measured CPU scope timelines
+
+The existing bounded Profiler retains host scope starts, offers a measured Timeline
+and copies Trace Event JSON with capture date/time. The same mapper serves paged,
+read-only Play automation/MCP traces with snapshot cursors. Duration-only SDK
+records stay untimed; logical overlap lanes do not imply additional measured
+threads. Existing frame clocks, four frame summary values and ECS lifetime views
+retain their meaning. No public C table, SDK fingerprint or dependency pin changes.
+Windows/full Main, external-viewer, new screenshot and physical acceptance remain
+separate pending gates.
+
 ## Ordered Sprite frames
 
 SpriteRenderer supports an optional ordered list of512 unequal image rectangles,

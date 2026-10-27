@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <forge/services.hpp>
+#include <optional>
 namespace forge::ui {
 // CPU wall-clock sections, deliberately not presented as GPU execution timings.
 struct Performance {
@@ -12,12 +13,18 @@ struct Performance {
     unsigned samples = 0;
     double elapsed = 0, scene_ms = 0;
     Clock::time_point start;
+    std::optional<std::pair<Clock::time_point, Clock::time_point>> scene_interval;
     static double milliseconds(Clock::time_point a, Clock::time_point b) {
         return std::chrono::duration<double, std::milli>(b - a).count();
     }
     void begin() {
         start = Clock::now();
         scene_ms = 0;
+        scene_interval.reset();
+    }
+    void scene_submission(Clock::time_point first, Clock::time_point last) {
+        scene_ms = milliseconds(first, last);
+        scene_interval = std::pair{first, last};
     }
     void finish(Clock::time_point submit, Clock::time_point present, ServiceAccess profiling = {}) {
         const auto end = Clock::now();
@@ -28,8 +35,21 @@ struct Performance {
             const char* scopes[] = {"UpdateAndEditorUI", "SceneSubmission", "UISubmission",
                                     "PresentCall"};
             try {
-                for (unsigned i = 0; i < 4; ++i)
-                    profiling.record_profile("editor", scopes[i], current[i] / 1000);
+                // Exclusive Update/UI is fragmented around Scene work, so its
+                // duration has no single start. Preserve it as an untimed sample.
+                profiling.record_profile("editor", scopes[0], current[0] / 1000);
+                const auto interval = [&](unsigned index, Clock::time_point first) {
+                    profiling.record_profile_span(
+                        "editor", scopes[index],
+                        std::chrono::duration<double>(first.time_since_epoch()).count(),
+                        current[index] / 1000);
+                };
+                if (scene_interval)
+                    interval(1, scene_interval->first);
+                else
+                    profiling.record_profile("editor", scopes[1], current[1] / 1000);
+                interval(2, submit);
+                interval(3, present);
             } catch (...) {
                 // Timing collection must not change editor control flow.
             }

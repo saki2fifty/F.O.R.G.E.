@@ -1,4 +1,5 @@
 #include "cpu_profile_control.hpp"
+#include "cpu_profile_trace.hpp"
 #include "runtime_entity_creation.hpp"
 #include <forge/runtime.hpp>
 #include <iostream>
@@ -20,6 +21,7 @@ template <class F> void reject(F&& operation) {
     }
     check(failed, "Invalid profiling operation accepted");
 }
+#include "cpu_scope_trace_tests.hpp"
 void service_tests() {
     double now = 10;
     unsigned reads = 0;
@@ -400,7 +402,8 @@ void native_system_profiles() {
     first.disable();
     executed.clear();
     runtime.tick(1.f / 60);
-    for (const auto& row : runtime.system_profile().at("entries"))
+    const auto rebuilt = runtime.system_profile();
+    for (const auto& row : rebuilt.at("entries"))
         check(row.value("id", ecs_entity_t{}) != first.id(),
               "Disabled system survived native rebuild");
     check(executed == std::vector<ecs_entity_t>{second}, "Disabled system still ran");
@@ -448,6 +451,7 @@ void native_system_profiles() {
 int main() {
     try {
         service_tests();
+        scope_trace_tests();
         gpu_service_tests();
         runtime_workload();
         runtime_publication_workload();

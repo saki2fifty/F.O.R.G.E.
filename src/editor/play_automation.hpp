@@ -1,9 +1,11 @@
 #pragma once
 #include "../asset_bytes.hpp"
+#include "../cpu_profile_trace.hpp"
 #include "animation_playback.hpp"
 #include "audio_source.hpp"
 #include "automation_permissions.hpp"
 #include "automation_schema.hpp"
+#include "event_time.hpp"
 #include "files.hpp"
 #include "play.hpp"
 #include "runtime_tuning_review.hpp"
@@ -150,6 +152,51 @@ struct PlayAutomation {
                     }
                     return result;
                 }));
+        methods.push_back(automation_method(
+            "play.profile.trace",
+            "Read up to128 measured CPU scopes per page from the cached Play profile as "
+            "Trace Event JSON. Refresh after collection. Reuse the returned profile_state "
+            "for subsequent pages; changed snapshots reject it. Duration-only SDK/GPU/native "
+            "lifetime records are not given invented timestamps. Logical overlap lanes are "
+            "one owner thread, not measured workers. Editor-wide traces remain in its UI.",
+            "play.read",
+            automation_object({{"offset", automation_integer(0, 512)},
+                               {"limit", automation_integer(1, 128)},
+                               {"profile_state", automation_text(64, 64)}}),
+            false, [&files, &play](const Json& request) {
+                files.document.check_ownership();
+                const auto& profile = play.cpu_profile();
+                if (!profile.contains("samples"))
+                    throw AuthoringError("not_ready",
+                                         "Collect and refresh the current Play profile first");
+                const auto live = state(play);
+                if (profile.value("world_generation", std::uint64_t{}) !=
+                    live.at("generation").get<std::uint64_t>())
+                    throw AuthoringError("not_ready", "Refresh the current world's profile first");
+                const auto signature = Json{
+                    {"launch", play.launch_id()},
+                    {"session", play.session()},
+                    {"generation", profile.at("world_generation")},
+                    {"sequence", profile.at("sequence")},
+                    {"epoch",
+                     profile.at("epoch")}}.dump();
+                const auto cursor = asset_detail::content_digest(
+                    std::as_bytes(std::span(signature.data(), signature.size())));
+                if (request.contains("profile_state") && request.at("profile_state") != cursor)
+                    throw AuthoringError("stale_profile",
+                                         "Refresh the profile before reading another page");
+                const auto offset = request.value("offset", std::size_t{});
+                const auto limit = request.value("limit", std::size_t(128));
+                if (offset > profile_record_capacity || !limit || limit > 128)
+                    throw AuthoringError("invalid_range",
+                                         "Trace pages require offset0..512 and limit1..128");
+                return Json{{"launch", play.launch_id()},
+                            {"session", play.session()},
+                            {"generation", profile.at("world_generation")},
+                            {"profile_state", cursor},
+                            {"trace", cpu_scope_trace(profile, "FORGE Play runtime",
+                                                      ui::event_time_local(), offset, limit)}};
+            }));
         methods.push_back(automation_method(
             "play.log", "Read the existing timestamped runtime log, bounded to its native log cap.",
             "play.read", automation_object(), false, [&files, &play](const Json&) {

@@ -382,6 +382,21 @@ owners. `profile_refresh` requests one snapshot without taking over the Profiler
 window's watch. Its value includes `ecs`, the last requested/collected native fixed-pipeline plan, merge markers and cumulative native system CPU totals. Start collection and advance a fixed tick after requesting observations; Pause reads never run gameplay. Stop retains the plan, Clear invalidates its copy without resetting native lifetime counters, and replacement begins empty. The same bounded data feeds the Profiler's ECS systems view; native IDs are world-local diagnostic handles. UI commands go through the actual presenter's declared command
 list, ID queue and acknowledgements, never DOM/script injection.
 
+`forge_play_profile_trace` reads the cached isolated Play CPU profile as Trace Event
+JSON under `play.read`; it does not execute gameplay or require an execution grant.
+Start collection and request `profile_refresh` through the existing controls first.
+Use `limit`1..128 (default128) and `offset`0..512; `trace.otherData.measured_spans`
+gives the full measured count and `exported_spans` the page count. Keep the returned
+`profile_state` on subsequent pages; refresh, Clear, world replacement or other
+snapshot changes can reject it with `stale_profile`. Pause/Stop collection for
+stable paging. All pages retain the full source origin and lane layout.
+Completed host scopes have measured starts; duration-only SDK samples, GPU records
+and ECS lifetime totals are not placed on invented intervals. `ts`/`dur` use
+microseconds, while capture date/time/UTC offset describes the read boundary.
+Logical overlap lanes describe one owner thread, not measured worker concurrency.
+The machine-wide Editor trace remains in its UI because it can span projects.
+See [CPU profiling](cpu-profiling.md) for semantics and current boundaries.
+
 `forge_play_tuning_capture` freezes an eligible live-value review. Read/select its
 fields, Stop, then Apply through RuntimeTuningReview. Apply creates one Scene Undo
 step and Save remains separate. Changes to the reviewed scene/schema invalidate

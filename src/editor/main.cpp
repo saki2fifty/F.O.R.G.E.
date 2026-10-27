@@ -6165,8 +6165,8 @@ int main(int argc, char** argv) {
                                                   performance.continuous,
                                                   {scene_tools.grid, scene_tools.grid_step,
                                                    scene_tools.grid_plane});
-                        performance.scene_ms = forge::ui::Performance::milliseconds(
-                            scene_submit, forge::ui::Performance::Clock::now());
+                        performance.scene_submission(scene_submit,
+                                                     forge::ui::Performance::Clock::now());
 #ifdef FORGE_UI_FIXTURE
                         if (fixture.view_images && fixture.stage >= 296 && fixture.stage <= 304 &&
                             game_view == ((fixture.stage - 296) % 3 == 2)) {

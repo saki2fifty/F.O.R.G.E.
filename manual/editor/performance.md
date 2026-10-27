@@ -46,6 +46,20 @@ samples, so capture a creation spike soon after it happens. These are CPU times;
 the rows overlap and should not be added together to calculate FPS. Stop collection
 to keep the current samples, or Clear to begin another comparison.
 
+## Inspect a CPU timeline
+
+1. Open **Window → Profiler** and choose **Editor** or **Play runtime → CPU scopes**. Start Play first when inspecting its runtime.
+2. Click **Start collection**, perform the action you want to measure, then click **Stop collection** to retain the recent records.
+3. Enable **Timeline**. Read **Start ms**, **Duration ms** and the interval bars to compare completed measured scopes. Hover a bar for its name, tick and record sequence. Use the filter to find a scope; scroll the panel or table when needed.
+4. Click **Copy trace JSON** to copy all retained measured intervals for that owner. Paste into a text file and save it with a `.json` extension for a viewer that supports Trace Event JSON. Copying includes the capture date, time and UTC offset. Filtering changes the display, not the copied trace.
+5. Disable **Timeline** to return to the grouped summary. **Clear samples** starts a fresh observation window and discards unfinished samples. Clearing Editor samples also clears its GPU records.
+
+The history holds at most 512 records. Nested scopes overlap; adding their durations does not give a frame time. Start times are relative to the earliest retained measured interval. The capture date identifies when the trace was copied, not an absolute timestamp for every interval. Editor and Play use separate clocks and should be inspected separately.
+
+The timeline shows completed host scopes with measured starts. Duration-only records, including C++ SDK profile samples and the exclusive **UpdateAndEditorUI** total, stay in the summary. If the timeline is empty, collect an editor frame or a Play fixed tick and check its measured interval count. **Copy trace JSON** is disabled until a measured interval exists.
+
+This view measures one owner thread. Trace files may use logical overlap lanes to lay out crossing intervals; these are not additional measured worker threads. GPU durations and ECS system lifetime totals remain in their own views. The timeline does not trace every ECS system invocation or show sampled call stacks.
+
 ## Inspect ECS system order
 
 1. Start Play and open **Window → Profiler → Play runtime → ECS systems**.

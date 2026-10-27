@@ -12,6 +12,7 @@ from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
+SCOPE_TRACE_ONLY = sys.argv[7:] == ['--scope-trace-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
@@ -219,6 +220,73 @@ for legacy in (False, True):
             assert read('forge_scene_read') == authored
             assert json.loads((root / 'Game/forge.project.json').read_text())['input'] == mapping
             print(('legacy' if legacy else 'current') + ': analog settings admission/save and actual Play/input/MCP observations passed')
+            continue
+        if SCOPE_TRACE_ONLY:
+            assert 'forge_play_profile_trace' in names
+            assert advertised['forge_play_profile_trace']['annotations']['readOnlyHint']
+            cold = client.tool('forge_play_profile_trace', target=discovery()['result']['target'])
+            assert not cold['ok'], cold
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            control('forge_play_pause')
+            control('forge_play_profile_control', enabled=True, clear=True)
+            for _ in range(24):
+                control('forge_play_step')
+            control('forge_play_profile_refresh')
+            def profile():
+                return read('forge_play_profile')['value']
+            until(profile, lambda p: sum('start_seconds' in row for row in p.get('samples',[])) > 128)
+            exported = read('forge_play_profile_trace')
+            trace = exported['trace']
+            page = read('forge_play_profile_trace', limit=1, profile_state=exported['profile_state'])
+            assert page['trace']['otherData']['exported_spans'] == 1
+            assert page['trace']['otherData']['measured_spans'] == trace['otherData']['measured_spans']
+            all_sequences = []
+            total = trace['otherData']['measured_spans']
+            assert trace['otherData']['exported_spans'] == 128
+            for offset in range(0, total, 128):
+                part = read('forge_play_profile_trace', offset=offset,
+                            profile_state=exported['profile_state'])['trace']
+                assert part['otherData']['origin_seconds'] == trace['otherData']['origin_seconds']
+                all_sequences += [e['args']['sequence'] for e in part['traceEvents'] if e['ph'] == 'X']
+            assert len(all_sequences) == len(set(all_sequences)) == total
+            for fields in (dict(limit=0), dict(limit=129), dict(offset=513)):
+                invalid = client.tool('forge_play_profile_trace', target=discovery()['result']['target'], **fields)
+                assert not invalid['ok'], invalid
+            bad = client.tool('forge_play_profile_trace', target=discovery()['result']['target'],
+                              profile_state='0'*64,limit=1)
+            assert not bad['ok'], bad
+            events = [event for event in trace['traceEvents'] if event['ph'] == 'X']
+            assert events and min(event['ts'] for event in events) == 0
+            assert all(event['ts'] >= 0 and event['dur'] >= 0 for event in events)
+            assert trace['otherData']['owner_threads'] == 1
+            assert trace['otherData']['source']['world_generation'] == str(exported['generation'])
+            assert len(trace['otherData']['captured_at']) >= 20
+            # Complete-event tracks may nest, but a crossing needs an explicitly
+            # logical layout lane rather than inventing another measured thread.
+            for left in events:
+                for right in events:
+                    if left is right or left['tid'] != right['tid']:
+                        continue
+                    a,b = left['ts'], left['ts']+left['dur']
+                    c,d = right['ts'], right['ts']+right['dur']
+                    assert b <= c or d <= a or a <= c <= d <= b or c <= a <= b <= d
+            control('forge_play_profile_control', enabled=False, clear=False)
+            retained = read('forge_play_profile_trace')['trace']
+            assert retained['otherData']['measured_spans'] > 0
+            control('forge_play_profile_control', enabled=False, clear=True)
+            until(profile, lambda p: p.get('samples') == [])
+            empty = read('forge_play_profile_trace')['trace']
+            assert empty['otherData']['measured_spans'] == 0
+            stale = client.tool('forge_play_profile_trace', target=discovery()['result']['target'],
+                                profile_state=exported['profile_state'],limit=1)
+            assert not stale['ok'], stale
+            assert not any(event['ph'] == 'X' for event in empty['traceEvents'])
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            stopped = client.tool('forge_play_profile_trace', target=discovery()['result']['target'])
+            assert not stopped['ok'], stopped
+            print(('legacy' if legacy else 'current') + ': measured scope trace/read-only metadata/units/lanes/Stop/Clear/MCP passed')
             continue
         if PROFILE_ONLY:
             assert "native ECS" in advertised['forge_play_profile_refresh']['description']

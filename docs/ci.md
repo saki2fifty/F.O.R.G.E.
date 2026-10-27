@@ -36,6 +36,17 @@ and repeated after installed SDK relocation by `native_sdk_unscaled_time_install
 Native Windows/MSVC,
 external-client interaction and authentic new table captures remain separate gates.
 
+CPU interval coverage reuses those owners/tests and adds
+`mcp_cpu_scope_trace_stdio`. The core/compile-out checks cover measured starts,
+duration-only exclusion, clock-read counts, bounded eviction, nested/crossing layout,
+unit conversion, malformed data and paged stable origins. Native ImGui input tests
+exercise Timeline, clipboard JSON and scrolling at100/150/200%, including a small
+window. Real ordinary/SDK Play transport retains starts and collection epochs;
+the public SDK duration callback remains untimed. Both MCP framing modes traverse
+multiple128-span pages, reject invalid ranges/stale cursors and preserve authored
+Scene state through Stop/Clear. These checks do not establish external trace-viewer
+acceptance, full native Windows Main integration or physical performance.
+
 
 The combined Windows package also prepares **Examples/Movement2D** with its exact
 installed SDK. The existing asset importer publishes its five original FORGE
