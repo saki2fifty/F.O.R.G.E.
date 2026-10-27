@@ -263,6 +263,9 @@ struct SdkPlayRuntime::State {
             throw std::runtime_error("sdk-play: Mutation must occur on the owner thread");
     }
     void configure_platform() {
+        platform.rumble_poll = [this](std::uint64_t token, const GamepadRumble& value) {
+            return poll_effect(token, "rumble", Json(value));
+        };
         platform.cursor_poll = [this](std::uint64_t token, bool desired) {
             return poll_effect(token, "cursor", Json(desired));
         };

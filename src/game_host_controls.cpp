@@ -206,6 +206,17 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
             platform_.cursor(capture);
         cursor_ = capture;
         game_.input({{{}, 0, true}});
+    } else if (operation == "rumble") {
+        const auto value = command.get<GamepadRumble>();
+        if (platform_.rumble_poll) {
+            if (!platform_.rumble_poll(token, value))
+                return std::nullopt;
+        } else if (platform_.rumble) {
+            platform_.rumble(value);
+        } else {
+            throw std::runtime_error("This runtime host has no gamepad rumble adapter");
+        }
+        return Json(value);
     } else if (operation == "ui_navigation") {
         const auto direction = command.at("direction").get<std::string>();
         if (direction != "next" && direction != "previous" && direction != "accept")
@@ -349,6 +360,7 @@ void GameHostControls::publish() {
     state["settings"] = settings_;
     state["input_device"] = platform_.input_device ? platform_.input_device() : "KeyboardMouse";
     state["cursor_captured"] = cursor_;
+    state["gamepad_rumble_host"] = bool(platform_.rumble || platform_.rumble_poll);
     state["error"] = error_.empty() ? state.at("error") : Json(error_);
     state["rebind"] = {{"listening", false}};
     if (state.at("state") == "running" || state.at("state") == "paused") {

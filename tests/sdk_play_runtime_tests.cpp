@@ -201,6 +201,81 @@ std::unique_ptr<SdkPlayRuntime> build_activated(Fixture& f, std::string& session
     return host;
 }
 
+void rumble_platform_effects() {
+    Fixture f;
+    std::string session;
+    auto host = build_activated(f, session);
+    std::uint64_t id = 3;
+    auto wire = [&](Json value) {
+        value["protocol"] = 2;
+        value["session"] = session;
+        value["id"] = ++id;
+        value["command"] = "snapshot";
+        return host->handle(value);
+    };
+    check(wire({{"editor_epoch",
+                 {{"epoch", 1u}, {"captured", false}, {"input_device", "EditorHost"}}}})
+              .value("ok", false),
+          "Feedback fixture epoch rejected");
+    auto service = f.capture.service;
+    const Json pulse{{"operation", "rumble"}, {"low", .5}, {"high", .75}, {"duration_ms", 100}};
+    auto token = service->request("game.test", pulse);
+    host->pump(RuntimeClock::Clock::now());
+    const auto first = host->live_effects();
+    check(first.size() == 1 && first.at(0).at("kind") == "rumble" &&
+              first.at(0).at("value").at("duration_ms") == 100 &&
+              service->query().at("gamepad_rumble_host") == true,
+          "Feedback operation did not produce canonical scoped platform offer");
+    host->pump(RuntimeClock::Clock::now());
+    check(host->live_effects() == first, "Repeated poll replaced feedback offer identity");
+    Json ack{{"session", session}, {"token", token},   {"sequence", first.at(0).at("sequence")},
+             {"epoch", 1u},        {"accepted", true}, {"diagnostic", ""}};
+    auto stale = ack;
+    stale["epoch"] = 2u;
+    check(!wire({{"platform_acks", Json::array({stale})}}).value("ok", true),
+          "Stale epoch accepted feedback");
+    auto malformed = ack;
+    malformed["token"] = 0u;
+    check(!wire({{"platform_acks", Json::array({ack, malformed})}}).value("ok", true),
+          "Malformed feedback batch accepted");
+    host->pump(RuntimeClock::Clock::now());
+    check(service->inspect("game.test", token).state == "queued",
+          "Malformed batch partially acknowledged feedback");
+    check(wire({{"platform_acks", Json::array({ack})}}).value("ok", false),
+          "Feedback ack rejected");
+    host->pump(RuntimeClock::Clock::now());
+    check(service->inspect("game.test", token).state == "succeeded",
+          "Physical ack did not complete feedback");
+    service->release("game.test", token);
+    check(!wire({{"platform_acks", Json::array({ack})}}).value("ok", true),
+          "Retired feedback ack replayed");
+    token = service->request("game.test", pulse);
+    host->pump(RuntimeClock::Clock::now());
+    ack["token"] = token;
+    ack["sequence"] = host->live_effects().at(0).at("sequence");
+    ack["accepted"] = false;
+    ack["diagnostic"] = "Controller unavailable";
+    check(wire({{"platform_acks", Json::array({ack})}}).value("ok", false),
+          "Negative feedback ack rejected");
+    host->pump(RuntimeClock::Clock::now());
+    check(service->inspect("game.test", token).state == "failed" &&
+              service->inspect("game.test", token).error == "Controller unavailable",
+          "Device failure lost its diagnostic");
+    service->release("game.test", token);
+    auto invalid = pulse;
+    invalid["low"] = true;
+    token = service->request("game.test", invalid);
+    host->pump(RuntimeClock::Clock::now());
+    check(service->inspect("game.test", token).state == "failed" && host->live_effects().empty(),
+          "Malformed feedback became a physical offer");
+    service->release("game.test", token);
+    token = service->request("game.test", pulse);
+    host->pump(RuntimeClock::Clock::now());
+    service->release("game.test", token);
+    host->pump(RuntimeClock::Clock::now());
+    check(host->live_effects().empty(), "Released pending feedback survived its scope");
+}
+
 void live_cpu_profile_controls() {
     Fixture f;
     std::string session;
@@ -2276,6 +2351,7 @@ int run() {
         platform_acks_rejects_unknown_token();
         platform_settings_rejects_display_changes_via_game_request();
         platform_settings_applies_audio_and_input();
+        rumble_platform_effects();
         live_cpu_profile_controls();
         live_audio_mix_controls();
         game_control_queue_pending_query_consults_active_endpoint();

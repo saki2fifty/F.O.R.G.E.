@@ -610,3 +610,15 @@ and exit 0. Its paused Game
 PNG was inspected; full and preview images are identical 867×456 PNGs. This
 establishes automated Windows/D3D12 WARP and offline-audio execution. Physical
 hardware/audio and a particular AI application's connection remain user testing.
+
+## Author gamepad feedback
+
+Use the existing C++ source/declarations/build tools to author a module that submits
+Game service `rumble` requests, then Play and exercise its control actions through
+`forge_play_input_submit`. The installed public gamepad feedback sample documents
+the action IDs, bounded request and receipt handling. These are ordinary C++ game
+behaviors; no separate agent haptic implementation or arbitrary raw platform API
+is added. Actual controller output is executed by the focused editor/standalone
+platform owner. A headless MCP test host without that physical adapter cannot
+claim vibration acceptance. Use Play logs and the module's copied feedback counters
+to distinguish completion from rejected/unavailable device feedback.

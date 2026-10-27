@@ -189,7 +189,7 @@ an `ok` / `error` pair. It is not the module SDK `game_request` /
 envelope and the editor reads the resulting JSON.
 
 Readiness/UI-effect transport follows the existing adapter model:
-`SdkPlayRuntime::configure_platform()` wires `cursor_poll` and
+`SdkPlayRuntime::configure_platform()` wires `cursor_poll`, `rumble_poll` and
 `navigation_poll` to the editor's `SdkPlatformEffects` adapter in
 `src/editor/sdk_platform_effects.hpp`. The editor dispatches exactly
 one physical setter per effect, and `RuntimeUiInput` in
@@ -290,6 +290,7 @@ target with their own host.
 | `settings` | none | Copied resolved settings |
 | `set_settings` | `values` grouped by display/audio/input | Validate, apply and persist user overrides; rollback on failure |
 | `input_contexts` | `active` array | Replace active context set and neutralize old input |
+| `rumble` | numeric `low`/`high`0..1, integer `duration_ms`0..5000 | Request bounded feedback; nonzero strength needs positive duration. Zero strengths stop; receipt reports actual host/device result |
 | `cursor` | `capture` | Request host capture/release; capture requires an adapter and focus |
 | `ui_navigation` | `direction`: next/previous/accept | Native RmlUi focus traversal/activation where supplied |
 | `rebind_begin` | `action`, `index` | Listen for a candidate for one binding slot |
@@ -368,3 +369,21 @@ five times the editor worker’s 2 ms idle poll interval; it is not a new respon
 deadline. OS scheduling may overshoot it. A single slow tick remains indivisible.
 The 5 s request deadline, 16 MiB wire bound, single in-flight response and existing
 thread/domain ownership remain unchanged. No commands are dispatched between ticks.
+
+## Gamepad vibration
+
+`game_query.gamepad_rumble_host` reports whether this composition supplies a
+synchronous or polled feedback route; it is not device discovery. Use existing
+`game_request` operation `rumble` and inspect/release its normal scoped receipt.
+Missing hardware, unsupported vibration, focus/routing rejection and native errors
+produce failed receipts rather than fake success. Do not fault the game solely
+because optional feedback failed.
+
+The SDK Play host adds `rumble` to the same token/sequence/epoch offers as cursor
+and navigation. Its value is `{low,high,duration_ms}`; existing stale-session,
+epoch, batch-atomic ack, cancellation and retired-token rules apply. The editor
+uses the real SdlGamepads owner, with no renderer dependence for device dispatch.
+Native duration uses real milliseconds, including while Pause/zero speed holds
+ticks. Lifecycle transitions stop previously applied feedback; a later focused
+control callback may request a new pulse while paused. See [input](input.md) for
+routing, bounds, stop-failure limitations and unsupported haptic features.

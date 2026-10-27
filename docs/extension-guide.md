@@ -496,3 +496,22 @@ stalls; choose any UI clamp in project code. Same-session Scene switches retain
 the host timeline, while new Play/process starts at zero. Timer state is ordinary
 project state and is not automatically saved or recovered. No new ABI callback or
 SDK layout is required for these copied status fields.
+
+## Gamepad feedback
+
+Declare `forge.game` and `FORGE_SDK_GAME` and submit the existing `game_request`
+JSON operation `rumble`, with numeric `low`/`high` strengths0..1 and integer
+`duration_ms` up to5000. Use zero strengths to stop; nonzero strength requires a
+positive duration. Poll/release the module-owned receipt; an unsupported device
+is a normal failed result that should not stop your game. `game_query` reports
+`gamepad_rumble_host` for route availability, not physical device capability.
+
+The installed `gamepad_feedback_gameplay` sample target reads two control-domain
+actions (`12345678-1234-4234-8234-123456789b01` pulse and
+`12345678-1234-4234-8234-123456789b02` stop), submits bounded feedback and records
+completion/failure counters. Its fixture binds R/gamepad South and T/gamepad East.
+It is a development example with a matching input map, not a drop-in Cube behavior.
+Editor playback requires a focused visible Game panel with routed input; the
+standalone host requires its game window's focus. Stop and focus/device/session
+changes stop owned feedback. No trigger motors, effect mixing or persistent
+haptic data are supplied. No new SDK C callback/layout is needed.

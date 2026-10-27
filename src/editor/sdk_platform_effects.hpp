@@ -2,7 +2,7 @@
 #include "bounded_diagnostic.hpp"
 #include "game_input.hpp"
 #include "play.hpp"
-#include "runtime_ui_host.hpp"
+#include <functional>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <unordered_map>
@@ -18,7 +18,7 @@ namespace forge {
 //   effect entry: {token, sequence, epoch, kind, value}
 //   no `session` field on a per-entry basis — the enclosing snapshot
 //   is correlated via PlaySession::session()
-//   `kind` ∈ {"cursor", "navigation"}
+//   `kind` ∈ {"cursor", "navigation", "rumble"}
 //   cursor: value is JSON bool (true = capture, false = release)
 //   navigation: value is JSON string (one of the documented
 //               navigate directions)
@@ -38,8 +38,9 @@ namespace forge {
 //     same effect MUST NOT bump the epoch.
 class SdkPlatformEffects {
   public:
-    SdkPlatformEffects(PlaySession& play, GameInput& game, RuntimeUiHost& ui)
-        : play_(play), game_(game), ui_(ui) {}
+    SdkPlatformEffects(PlaySession& play, GameInput& game,
+                       std::function<void(const std::string&, std::string&)> navigate)
+        : play_(play), game_(game), navigate_(std::move(navigate)) {}
     // The current input device enumeration: KeyboardMouse / Gamepad
     // / EditorHost. Empty when no physical device is currently
     // active. Cached on first pump() call after a state change.
@@ -71,10 +72,22 @@ class SdkPlatformEffects {
         observed_change_ = false;
         device_.clear();
         if (!play_.sdk_play()) {
+            game_.stop_rumble();
             cache_.clear();
             return false;
         }
         const auto& wire_session = play_.session();
+        const auto generation = play_.world_generation();
+        const auto epoch = play_.current_effective_epoch();
+        const bool paused = play_.paused();
+        if (cached_session_ != wire_session || feedback_generation_ != generation ||
+            feedback_epoch_ != epoch || (!feedback_paused_ && paused) || !game_panel_visible ||
+            !game_focused_) {
+            game_.stop_rumble();
+        }
+        feedback_generation_ = generation;
+        feedback_epoch_ = epoch;
+        feedback_paused_ = paused;
         if (cached_session_ != wire_session) {
             cache_.clear();
             cached_session_ = wire_session;
@@ -215,6 +228,7 @@ class SdkPlatformEffects {
     void clear_stop_request() { stop_requested_ = false; }
     // Hard reset. Called on Stop / project switch / restart.
     void clear() {
+        game_.stop_rumble();
         cache_.clear();
         cached_session_.clear();
         device_.clear();
@@ -358,6 +372,21 @@ class SdkPlatformEffects {
             device_ = "KeyboardMouse";
             return;
         }
+        if (kind == "rumble") {
+            try {
+                const auto value = raw_value.get<GamepadRumble>();
+                if ((value.low != 0 || value.high != 0) &&
+                    (!game_panel_visible || !game_focused_ || !play_.ready()))
+                    throw std::runtime_error(
+                        "Gamepad rumble requires a visible focused Game panel");
+                game_.rumble(value);
+                out.accepted = true;
+            } catch (const std::exception& e) {
+                out.accepted = false;
+                out.diagnostic = std::string("play.platform_effects.rumble: ") + e.what();
+            }
+            return;
+        }
         if (kind == "navigation") {
             if (!raw_value.is_string()) {
                 out.accepted = false;
@@ -371,7 +400,10 @@ class SdkPlatformEffects {
                 return;
             }
             std::string failure;
-            ui_.checked_navigate(direction, failure);
+            if (navigate_)
+                navigate_(direction, failure);
+            else
+                failure = "Runtime UI navigation is unavailable";
             out.accepted = failure.empty();
             out.diagnostic = failure;
             device_ = "KeyboardMouse";
@@ -382,7 +414,9 @@ class SdkPlatformEffects {
     }
     PlaySession& play_;
     GameInput& game_;
-    RuntimeUiHost& ui_;
+    std::function<void(const std::string&, std::string&)> navigate_;
+    std::uint64_t feedback_generation_ = 0, feedback_epoch_ = 0;
+    bool feedback_paused_ = false;
     std::string cached_session_;
     std::string device_;
     bool observed_change_ = false;

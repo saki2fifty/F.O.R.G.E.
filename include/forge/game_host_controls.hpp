@@ -28,6 +28,9 @@ struct GamePlatformControls {
     // NOT require a synchronous cursor callback because they do not own
     // capture/release; only cursor_poll does.
     std::function<bool(std::uint64_t token, const std::string& direction)> navigation_poll;
+    // Polled feedback uses the same receipt/idempotency contract as navigation.
+    std::function<void(const GamepadRumble&)> rumble;
+    std::function<bool(std::uint64_t, const GamepadRumble&)> rumble_poll;
 };
 // Reusable host executor. Game/menu policy lives in modules; this owner delegates
 // copied requests to existing session, storage, input and narrow platform adapters.

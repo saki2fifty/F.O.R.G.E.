@@ -6,7 +6,12 @@ if(NOT FORGE_BUILD_EDITOR AND NOT FORGE_BUILD_GAME)
  # Process-controller tests need SDL processes/IO/time, not a Linux desktop stack.
  set(SDL_VIDEO OFF)
  set(SDL_AUDIO OFF)
- set(SDL_JOYSTICK OFF)
+ if(FORGE_BUILD_MCP_EDITOR_TESTS)
+  # Device-owner tests use real SDL virtual controllers without a video backend.
+  set(SDL_JOYSTICK ON)
+ else()
+  set(SDL_JOYSTICK OFF)
+ endif()
  set(SDL_HAPTIC OFF)
  set(SDL_UNIX_CONSOLE_BUILD ON)
 endif()

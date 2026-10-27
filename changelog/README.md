@@ -1,6 +1,6 @@
 # Changelog
 
-- [2026-10-27](20261027/README.md) — Unscaled C++ timers and copied Play/MCP timing through the existing clock. Local source; Windows verification and delivery pending.
+- [2026-10-27](20261027/README.md) — Unscaled C++ timers, copied Play/MCP timing and scoped gamepad feedback. Local source; Windows verification and delivery pending.
 
 - [2026-10-26](20261026/README.md) — One-way 2D platforms, Inspector/MCP properties, solid-face guides, Gallery79 and Character2D example. Local source; Windows verification and delivery pending.
 

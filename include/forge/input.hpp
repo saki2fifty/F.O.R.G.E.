@@ -68,6 +68,14 @@ struct InputEvent {
     double value = 0;
     bool reset = false;
 };
+// Transient gamepad output. Durations are bounded real milliseconds, not ticks.
+struct GamepadRumble {
+    double low = 0, high = 0;
+    std::uint32_t duration_ms = 0;
+    void validate() const;
+};
+void to_json(nlohmann::json&, const GamepadRumble&);
+void from_json(const nlohmann::json&, GamepadRumble&);
 void to_json(nlohmann::json& j, const InputEvent& event);
 void from_json(const nlohmann::json& j, InputEvent& event);
 struct ActionState {

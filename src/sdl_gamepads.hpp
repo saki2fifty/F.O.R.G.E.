@@ -7,6 +7,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <stdexcept>
 
 namespace forge {
 // Platform device ownership only. Actions, contexts and bindings remain in
@@ -14,6 +15,7 @@ namespace forge {
 class SdlGamepads {
   public:
     SdlGamepads() = default;
+    ~SdlGamepads() { stop_rumble(); }
     SdlGamepads(const SdlGamepads&) = delete;
     SdlGamepads& operator=(const SdlGamepads&) = delete;
     void discover() {
@@ -30,6 +32,41 @@ class SdlGamepads {
     SDL_JoystickID active() const { return active_; }
     std::size_t count() const { return pads_.size(); }
     const char* activity() const { return gamepad_activity_ ? "Gamepad" : "KeyboardMouse"; }
+    void rumble(const GamepadRumble& value) {
+        value.validate();
+        if (value.low == 0 && value.high == 0) {
+            if (!stop_rumble())
+                throw std::runtime_error(SDL_GetError());
+            return;
+        }
+        const auto pad = pads_.find(active_);
+        if (pad == pads_.end() || !SDL_GamepadConnected(pad->second.get()))
+            throw std::runtime_error("No active connected gamepad for rumble");
+        if (!SDL_GetBooleanProperty(SDL_GetGamepadProperties(pad->second.get()),
+                                    SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false))
+            throw std::runtime_error("The active gamepad does not support rumble");
+        if (rumbling_ && rumbling_ != active_ && !stop_rumble())
+            throw std::runtime_error(SDL_GetError());
+        if (!SDL_RumbleGamepad(pad->second.get(), Uint16(std::lround(value.low * 65535)),
+                               Uint16(std::lround(value.high * 65535)), value.duration_ms))
+            throw std::runtime_error(std::string("Gamepad rumble failed: ") + SDL_GetError());
+        rumbling_ = active_;
+        stop_failed_ = false;
+    }
+    bool stop_rumble() noexcept {
+        if (const auto pad = pads_.find(rumbling_);
+            pad != pads_.end() && SDL_GamepadConnected(pad->second.get()) &&
+            !SDL_RumbleGamepad(pad->second.get(), 0, 0, 0)) {
+            if (!stop_failed_)
+                SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Gamepad rumble stop failed: %s",
+                            SDL_GetError());
+            stop_failed_ = true;
+            return false;
+        }
+        rumbling_ = 0;
+        stop_failed_ = false;
+        return true;
+    }
     // Main thread. Lifecycle is processed even when gameplay capture is released.
     // Another pad takes over only after deliberate input and a 250ms switch guard.
     std::vector<InputEvent> event(const SDL_Event& event, bool accept, Uint64 now) {
@@ -46,6 +83,8 @@ class SdlGamepads {
         }
         if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
             const bool selected = active_ == event.gdevice.which;
+            if (rumbling_ == event.gdevice.which)
+                stop_rumble();
             pads_.erase(event.gdevice.which);
             std::clog << "Gamepad disconnected: " << event.gdevice.which << '\n';
             if (selected) {
@@ -92,6 +131,7 @@ class SdlGamepads {
         if (id != active_) {
             if (!meaningful || now < switched_ || now - switched_ < 250)
                 return {};
+            stop_rumble();
             active_ = id;
             switched_ = now;
             std::clog << "Active gamepad changed: " << id << '\n';
@@ -122,6 +162,8 @@ class SdlGamepads {
     }
     std::map<SDL_JoystickID, std::unique_ptr<SDL_Gamepad, Close>> pads_;
     SDL_JoystickID active_ = 0;
+    SDL_JoystickID rumbling_ = 0;
+    bool stop_failed_ = false;
     Uint64 switched_ = 0;
     bool gamepad_activity_ = false, activity_seen_ = false;
     Uint64 activity_time_ = 0;

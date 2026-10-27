@@ -44,7 +44,7 @@ For a two-dimensional movement action, use four bindings:
 
 Continuous axes are clamped; two-dimensional continuous input is normalized if its length exceeds one. Relative mouse deltas are not normalized. Mouse delta units are SDL motion units, and wheel values are scroll units; they are not automatically multiplied by frame time.
 
-Gamepad controls use **pad.** names. FORGE starts with the first connected gamepad. A deliberate button press or strong stick movement on another connected pad selects it; a short guard prevents rapid switching. Sticks range from -1 to 1; triggers from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Digital actions can also use a directional analog threshold or a wheel pulse. Rumble, sensors and multiple-player device assignment remain deferred.
+Gamepad controls use **pad.** names. FORGE starts with the first connected gamepad. A deliberate button press or strong stick movement on another connected pad selects it; a short guard prevents rapid switching. Sticks range from -1 to 1; triggers from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Digital actions can also use a directional analog threshold or a wheel pulse. C++ can request bounded controller vibration. Sensors and multiple-player device assignment remain unavailable.
 
 ## Who owns the controls?
 
@@ -102,3 +102,32 @@ For stick bindings, **Radial deadzone** uses the stick's circular magnitude.
 Digital actions can use **Press threshold** and **Negative direction** on analog
 controls. Mouse movement cannot be a digital binding. Save validates the complete
 candidate; invalid or duplicate bindings leave the previous project settings intact.
+
+## Add controller vibration in C++
+
+Connect a gamepad that supports vibration. Your C++ module needs the `forge.game`
+dependency and `FORGE_SDK_GAME` capability. Use a control callback for feedback
+that should also work in a pause menu.
+
+1. Submit a `game_request` object like the example below. Strengths range from0 to1; duration is an integer number of real milliseconds, up to5000.
+2. Keep its returned token, poll `game_inspect`, and release the receipt with `game_release` when it finishes. Missing or unsupported controllers produce a failed receipt; continue the game without vibration.
+3. Build your C++ source and Play. Keep the Game panel visible and focused, and use **Capture gameplay input** so your game receives controls.
+4. Trigger your action. A new pulse replaces the previous pulse. Send zero for both strengths to stop it explicitly.
+5. Check focus loss and Stop: existing vibration should end. Export with current built code to use the same requests in the standalone game; the player needs a supported controller, not the SDK or compiler.
+
+```json
+{"operation":"rumble","low":0.5,"high":0.75,"duration_ms":300}
+```
+
+The matching SDK's `sdk/sample/gamepad_feedback_probe.cpp` and
+`gamepad_feedback_gameplay` target demonstrate two control actions: R/gamepad South
+for a pulse and T/gamepad East for Stop. The sample requires its matching input map
+and opted-in debug component; it is a developer fixture, not a component to attach
+unchanged to your Cube.
+
+Feedback uses real time, so slow motion does not lengthen a pulse. Pause stops the
+preceding pulse; a focused, routed pause menu can request another. Device changes,
+Play restart and Scene changes stop old feedback. Expiry needs ongoing SDL event updates and a working driver. If a driver refuses
+Stop, FORGE logs the failure; the5000ms request limit cannot guarantee that faulty
+hardware stops. Trigger vibration,
+layered effects and multiple-player controller assignment are unavailable.

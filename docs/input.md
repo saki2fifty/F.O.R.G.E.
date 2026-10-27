@@ -20,7 +20,7 @@ Pause does not latch input. Step consumes the pending snapshot once; Resume cons
 
 Hello may carry simulation_hz and input_map; explicit runtime CLI frequency takes precedence. Existing protocol2 callers omitting them retain60Hz/empty-map behavior. Snapshot/Pause/Resume/Step requests may carry at most4096 ordered input_events. Existing session/request IDs reject stale envelopes. PlaySession retains a bounded queue; overflow replaces it with a neutral reset and diagnostic. Scene snapshots/persistence never contain transient input. Restart/recovery starts neutral; live module replacement clears input after successful load.
 
-Capture is explicit in the Game panel during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. The adapter owns one SDL gamepad connection; device removal releases state and closes its handle. Multiple players/devices, rumble, sensors and an elaborate Input Map UI are deferred; relative-mouse capture is supported through `GameInput::capture_checked(relative_mode=true)` so the cursor is hidden and motion continues without hitting the Game image edge.
+Capture is explicit in the Game panel during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. The adapter owns connected SDL gamepad handles and routes one active controller; device removal releases state and closes its handle. Multiple-player device assignment and sensors remain deferred; relative-mouse capture is supported through `GameInput::capture_checked(relative_mode=true)` so the cursor is hidden and motion continues without hitting the Game image edge.
 
 The SDK Play path owns Escape explicitly. SDK Escape ships the neutral edge and the observed epoch through `GameInput::submit_external_release_observation(play, keep_routing=true)` BEFORE the gameplay down/up pair, so the runtime's release-guard sees the actual physical state and `RuntimeUiInput` still receives native menu keys. Legacy Escape only releases routing. Whether the game opens Pause or its in-game menu on Escape is project policy.
 
@@ -122,3 +122,33 @@ axis to an action. Both axes participate in context routing/conflict discovery;
 a higher context can suppress either sample. Changes to the perpendicular axis
 also update digital threshold edges. This keeps a one-axis radial binding radial,
 instead of silently reverting to an axis-wise deadzone.
+
+## Gamepad feedback
+
+The existing Game service accepts a scoped `rumble` operation with numeric `low`
+and `high` strengths0..1 and integral `duration_ms`0..5000. Nonzero strength
+requires positive duration. Zero strengths stop feedback. The shared neutral value
+validator is reused by host dispatch and editor wire admission. This is transient
+real-time device output, unaffected by simulation speed, not stored action data.
+
+SdlGamepads owns native feedback on its active connected handle. Pinned SDL's
+`SDL_RumbleGamepad` replaces its previous pulse and supplies the duration stop;
+FORGE quantizes normalized strengths to unsigned16-bit levels. Missing/unsupported
+controllers and native driver failures reject honestly. A host adapter's presence
+(`game_query.gamepad_rumble_host`) does not assert hardware capability.
+
+SDK Play uses the existing correlated platform offer/ack lifecycle with additive
+kind `rumble` and canonical `{low,high,duration_ms}` value. The editor applies a
+fresh tuple once through GameInput, requires a visible focused Game panel with
+logical input routing, and acknowledges the actual native result. Zero-strength
+Stop is permitted after routing/focus loss. Requests can run from control callbacks
+while simulation is paused; Pause transitions stop preceding feedback.
+
+Focus/routing loss, Stop, session/world/epoch changes, active-controller changes,
+device removal and teardown request a native Stop. A failed native Stop is logged. Expiry also requires ongoing SDL event updates
+and a working driver; the5000ms limit bounds requests, not a guarantee that failing
+hardware stops. Releasing a completed receipt does not roll back a pulse.
+Trigger motors, force feedback, mixing/layered haptics and multiple-player device
+assignment are not exposed. No new C ABI callback, SDK layout or dependency pin.
+The public `sdk/sample/gamepad_feedback_probe.cpp` demonstrates scoped requests,
+receipt polling/release and nonfatal device failures.

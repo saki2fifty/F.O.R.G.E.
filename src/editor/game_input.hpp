@@ -97,6 +97,7 @@ class GameInput {
     // the physical cursor is freed. Headless (no cursor) clears routing
     // when keep_routing=false; retains it otherwise.
     void release(PlaySession& play, bool keep_routing) {
+        stop_rumble();
         if (cursor_) {
             try {
                 cursor_->checked_release();
@@ -121,6 +122,7 @@ class GameInput {
     // down/up pair). The keep_routing flag controls only whether the
     // logical captured flag is retained for menu routing.
     bool release_checked(PlaySession& play, bool keep_routing = false) {
+        stop_rumble();
         if (!cursor_) {
             // No physical target: the release "succeeds" because
             // there is no window mode to clear, so logical routing
@@ -393,6 +395,12 @@ class GameInput {
             return std::string{pad};
         return "KeyboardMouse";
     }
+    void rumble(const GamepadRumble& value) {
+        if ((value.low != 0 || value.high != 0) && !captured_)
+            throw std::runtime_error("Gamepad rumble requires routed gameplay input");
+        pads_.rumble(value);
+    }
+    void stop_rumble() noexcept { pads_.stop_rumble(); }
     void controls(PlaySession& play) {
         ImGui::BeginDisabled(captured_);
         ImGui::Checkbox("Relative mouse", &relative_mode_);

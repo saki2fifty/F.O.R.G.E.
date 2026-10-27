@@ -217,13 +217,21 @@ int main(int argc, char** argv) {
         SdlGameCursor cursor(window.get());
         SdlGamepads gamepads;
         gamepads.discover();
+        bool focused = true;
         GamePlatformControls platform;
+        platform.rumble = [&](const GamepadRumble& value) {
+            if (!focused && (value.low != 0 || value.high != 0))
+                throw std::runtime_error("Gamepad rumble requires game window focus");
+            gamepads.rumble(value);
+        };
         platform.navigation = [&](const std::string& direction) {
             presentation.ui().navigate(direction);
         };
         platform.input_device = [&] { return std::string(gamepads.activity()); };
         platform.settings = [&](const Json& value) { display(window.get(), value.at("display")); };
         platform.cursor = [&](bool capture) {
+            if (!capture)
+                gamepads.stop_rumble();
             presentation.ui().release_input();
             if (capture) {
                 // Capture is the truthful path: let any SDL diagnostic
@@ -252,7 +260,7 @@ int main(int argc, char** argv) {
             game_controls.diagnostic(settings_error);
         const auto deadline = RuntimeClock::Clock::now() + std::chrono::seconds(60);
         ui_protocol::CommandGate commands;
-        bool running = true, active = false, focused = true, startup_complete = false;
+        bool running = true, active = false, startup_complete = false;
         std::uint64_t command_generation = 0;
         std::string loading_stage, last_ui_error;
         std::uint64_t log_generation = 0, diagnostic_cursor = 0;
@@ -388,6 +396,7 @@ int main(int argc, char** argv) {
             } else if (active) {
                 game_controls.sample_time(now);
                 if (command_generation != presentation.generation()) {
+                    gamepads.stop_rumble();
                     commands.reset(presentation.session(), presentation.generation());
                     command_generation = presentation.generation();
                 }
@@ -398,9 +407,10 @@ int main(int argc, char** argv) {
                         service->command(
                             game.active().scene, request,
                             [&](const std::string& action) {
-                                if (action == "Pause")
+                                if (action == "Pause") {
+                                    gamepads.stop_rumble();
                                     game.pause(now);
-                                else if (action == "Resume")
+                                } else if (action == "Resume")
                                     game.resume(now);
                                 else if (action == "Step")
                                     game.step();

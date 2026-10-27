@@ -2,7 +2,29 @@
 #include <cmath>
 #include <forge/input.hpp>
 #include <set>
+#include <stdexcept>
 namespace forge {
+void GamepadRumble::validate() const {
+    if (!std::isfinite(low) || !std::isfinite(high) || low < 0 || low > 1 || high < 0 || high > 1 ||
+        duration_ms > 5000 || (duration_ms == 0 && (low != 0 || high != 0)))
+        throw std::runtime_error("Gamepad rumble requires finite strengths in [0,1] and 1..5000 "
+                                 "ms; zero strengths stop");
+}
+void to_json(nlohmann::json& json, const GamepadRumble& value) {
+    value.validate();
+    json = {{"low", value.low}, {"high", value.high}, {"duration_ms", value.duration_ms}};
+}
+void from_json(const nlohmann::json& json, GamepadRumble& value) {
+    if (!json.is_object() || !json.at("low").is_number() || !json.at("high").is_number() ||
+        !json.at("duration_ms").is_number_integer() || json.at("duration_ms") < 0 ||
+        json.at("duration_ms") > 5000)
+        throw std::runtime_error(
+            "Gamepad rumble requires numeric low/high and integer duration_ms in [0,5000]");
+    GamepadRumble candidate{json.at("low").get<double>(), json.at("high").get<double>(),
+                            json.at("duration_ms").get<std::uint32_t>()};
+    candidate.validate();
+    value = candidate;
+}
 using Json = nlohmann::json;
 namespace {
 std::string radial_partner(const InputBinding& binding) {

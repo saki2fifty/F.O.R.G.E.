@@ -65,7 +65,7 @@ struct GameControlQueue::Endpoint final : GameControlService,
             "unload",       "quit",          "save",          "load",           "slots",
             "erase",        "settings",      "set_settings",  "input_contexts", "cursor",
             "rebind_begin", "rebind_cancel", "rebind_commit", "rebind_reset",   "ui_navigation",
-            "time_scale"};
+            "time_scale",   "rumble"};
         if (!operations.contains(command.at("operation").get<std::string>()))
             throw std::runtime_error("Unknown game operation");
         if (requests.size() >= 128 || owner->outstanding() >= 256)

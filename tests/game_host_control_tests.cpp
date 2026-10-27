@@ -83,7 +83,16 @@ void run(const std::filesystem::path& root) {
     GameStorage storage(root / "users", "org.forge.host-test");
     unsigned applications = 0;
     int cursor_mode = 0;
+    unsigned rumble_calls = 0;
+    bool rumble_failure = false;
+    GamepadRumble last_rumble;
     GamePlatformControls platform;
+    platform.rumble = [&](const GamepadRumble& value) {
+        if (rumble_failure)
+            throw std::runtime_error("Device feedback refused");
+        ++rumble_calls;
+        last_rumble = value;
+    };
     platform.settings = [&](const Json& value) {
         ++applications;
         if (value.at("display").at("width") == 777)
@@ -104,6 +113,33 @@ void run(const std::filesystem::path& root) {
         service->release("game.test", token);
         return result;
     };
+    check(game.active().engine.services().game()->query().at("gamepad_rumble_host") == true,
+          "Host feedback route missing from copied discovery");
+    const Json pulse{{"operation", "rumble"}, {"low", .5}, {"high", .75}, {"duration_ms", 250}};
+    const auto submitted = request(pulse);
+    check(submitted.state == "succeeded" && rumble_calls == 1 && last_rumble.low == .5 &&
+              submitted.value.at("duration_ms") == 250,
+          "Feedback request did not reach platform owner");
+    for (const auto& invalid : {Json(true), Json(-1), Json(".5"), Json(2)}) {
+        auto command = pulse;
+        command["low"] = invalid;
+        check(request(command).state == "failed" && rumble_calls == 1,
+              "Invalid feedback reached the platform");
+    }
+    rumble_failure = true;
+    check(request(pulse).state == "failed" && rumble_calls == 1,
+          "Failed physical feedback reported success");
+    rumble_failure = false;
+    {
+        GameHostControls absent(game, queue, storage, content, defaults, input, Json::object());
+        auto service = game.active().engine.services().game();
+        const auto token = service->request("game.test", pulse);
+        absent.pump(now);
+        check(service->inspect("game.test", token).state == "failed" &&
+                  service->query().at("gamepad_rumble_host") == false,
+              "Missing host adapter silently accepted feedback");
+        service->release("game.test", token);
+    }
     check(request({{"operation", "resume"}}).state == "succeeded" &&
               game.status().at("state") == "running",
           "Queued resume did not reach session");

@@ -63,7 +63,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## Game behavior
 
 - [Project Code (C++ components, systems and unscaled timers)](editor/native-gameplay.md)
-- [Gameplay input](editor/input.md)
+- [Gameplay input and controller vibration](editor/input.md)
 - [Physics](editor/physics.md)
 - [3D and 2D navigation and destination editing](editor/navigation.md)
 - [Audio](editor/audio.md)

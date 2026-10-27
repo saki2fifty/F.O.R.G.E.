@@ -775,7 +775,10 @@ int main(int argc, char** argv) {
         // and turns each into exactly one physical action via the
         // existing owners (GameInput, RuntimeUiHost). Borrows
         // references; no new owner, no new queue.
-        forge::SdkPlatformEffects sdk_effects(play, game_input, runtime_ui);
+        forge::SdkPlatformEffects sdk_effects(
+            play, game_input, [&](const std::string& direction, std::string& error) {
+                runtime_ui.checked_navigate(direction, error);
+            });
         // Single-shot initial editor_epoch observation per session. Keyed by
         // the actual current play.session() string so a new session
         // (process restart, gameplay Quit, transport failure recovery)

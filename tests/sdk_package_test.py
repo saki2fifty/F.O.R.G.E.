@@ -13,9 +13,11 @@ def validate_guides(stage):
                 resolved=(document.parent/path).resolve()
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
-if sys.argv[4:] in (['--navigation-only'], ['--time-only']):
+if sys.argv[4:] in (['--navigation-only'], ['--time-only'], ['--feedback-only']):
     time_only = sys.argv[4:] == ['--time-only']
-    target = 'time_scale_gameplay' if time_only else 'planar_navigation_gameplay'
+    feedback_only = sys.argv[4:] == ['--feedback-only']
+    target = ('gamepad_feedback_gameplay' if feedback_only else
+              'time_scale_gameplay' if time_only else 'planar_navigation_gameplay')
     # Reuse the install/sample owner for a focused public-boundary check.
     with tempfile.TemporaryDirectory(prefix='public-client-sdk-', dir=build) as temporary:
         base=Path(temporary);stage=base/'sdk';client=base/'client';moved=base/'relocated SDK'
@@ -36,6 +38,13 @@ if sys.argv[4:] in (['--navigation-only'], ['--time-only']):
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if feedback_only:
+            subprocess.run([sys.executable,str(Path(__file__).with_name('gamepad_feedback_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),str(module),
+                            str(build/('forge_gamepad_feedback_tests'+exe))],
+                           env=env,cwd=moved,check=True,timeout=90)
+            print('Installed public gamepad feedback client and relocated runtime passed')
+            sys.exit(0)
         if time_only:
             subprocess.run([sys.executable,str(Path(__file__).with_name('simulation_speed_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)),str(module)],

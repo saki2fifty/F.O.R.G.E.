@@ -1436,3 +1436,23 @@ build and SDK relocation. `simulation_speed_transport` covers both ordinary and
 SDK Play clocks. `mcp_unscaled_time_stdio` checks the same Play status through both
 actual MCP protocols, stable fixed ticks and authored immutability. These portable
 checks are not native Windows/full editor/physical GPU acceptance.
+
+## Gamepad feedback gate
+
+`gamepad_feedback` executes the public C++ request/receipt example through the
+real PlaySession → SDK platform offer → SdkPlatformEffects → GameInput → SDL
+virtual-controller callback path. It checks native strength conversion, replacement,
+Stop, missing/unsupported devices, native failures, device switching/removal,
+duration expiry, teardown, focus/routing rejection and duplicate-offer suppression.
+`native_sdk_gamepad_feedback_installed` builds its client using only installed
+headers, then relocates the SDK and repeats that consumer. Existing host/SDK suites
+check malformed values, absent routes and correlated/batch-atomic acknowledgements.
+
+These editor adapter fixtures register only with the game platform and either
+full editor or MCP editor-owner tests. The GPU-independent MCP profile enables
+SDL joystick support for real virtual devices; ordinary minimal headless profiles
+retain their smaller process-only SDL selection. This changes test configuration,
+not a dependency revision. No video backend or fake rumble implementation is used.
+A passing virtual-controller callback is not physical motor/driver/Windows/GPU
+acceptance. Full native Main/game composition and source-free graphical exports
+remain separate platform gates.
