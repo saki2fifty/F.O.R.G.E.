@@ -13,13 +13,14 @@ def validate_guides(stage):
                 resolved=(document.parent/path).resolve()
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
-if sys.argv[4:] in (['--navigation-only'], ['--time-only'], ['--feedback-only'], ['--input-only'], ['--audio-pause-only'], ['--audio-filters-only']):
+if sys.argv[4:] in (['--navigation-only'], ['--time-only'], ['--feedback-only'], ['--input-only'], ['--audio-pause-only'], ['--audio-filters-only'], ['--tile-one-way-only']):
+    tile_one_way_only = sys.argv[4:] == ['--tile-one-way-only']
     audio_filters_only = sys.argv[4:] == ['--audio-filters-only']
     audio_pause_only = sys.argv[4:] == ['--audio-pause-only']
     time_only = sys.argv[4:] == ['--time-only']
     feedback_only = sys.argv[4:] == ['--feedback-only']
     input_only = sys.argv[4:] == ['--input-only']
-    target = ('audio_gameplay' if audio_filters_only else 'unpaused_audio_gameplay' if audio_pause_only else 'gameplay' if input_only else 'gamepad_feedback_gameplay' if feedback_only else
+    target = ('tile_physics_gameplay' if tile_one_way_only else 'audio_gameplay' if audio_filters_only else 'unpaused_audio_gameplay' if audio_pause_only else 'gameplay' if input_only else 'gamepad_feedback_gameplay' if feedback_only else
               'time_scale_gameplay' if time_only else 'planar_navigation_gameplay')
     # Reuse the install/sample owner for a focused public-boundary check.
     with tempfile.TemporaryDirectory(prefix='public-client-sdk-', dir=build) as temporary:
@@ -41,6 +42,13 @@ if sys.argv[4:] in (['--navigation-only'], ['--time-only'], ['--feedback-only'],
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if tile_one_way_only:
+            subprocess.run([sys.executable,str(Path(__file__).with_name('sdk_tile_physics_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)),str(module),
+                            str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'), '--one-way'],
+                           env=env,cwd=moved,check=True,timeout=90)
+            print('Installed public one-way Map edits/queries, both hosts and recovery passed')
+            sys.exit(0)
         if audio_filters_only:
             subprocess.run([sys.executable,str(Path(__file__).with_name('audio_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)),str(module)],

@@ -1,7 +1,7 @@
 #pragma once
 #include <forge/sdk_client.hpp>
 
-// Gallery77: call once from a fixed-step C++ system. This queues removal of
+// Gallery77/86: call once from a fixed-step C++ system. This queues removal of
 // the three left-platform cells in the selected solid layer. The next admitted
 // fixed step publishes both cells and collision together; a nonzero token alone
 // does not mean success. Inspect Client::tile_edit, then release_tile_edit.

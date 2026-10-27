@@ -1,4 +1,24 @@
-# 2026-10-27 — Runtime timing, input, profiling and audio
+# 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
+
+## Painted one-way platforms
+
+Static nonsensor Tile Maps can use the existing One-way collision setting. Each
+painted rectangle supplies its own solid face through shared native and character
+response, with selected-collision arrows, source/history/MCP integration and
+Gallery86. Existing public painted-cell/physics helpers and recovery are reused.
+Moving/sensor one-way and per-tile polygons remain unsupported; Windows and
+physical/graphical export acceptance remain pending.
+
+Long-fall contacts retain native continuity through a bounded fixed-boundary
+contact read. The exact pinned native snapshot source receives three checked
+empty-array guards in a generated build-tree copy; strict sanitizers remain
+enabled, and upstream pin, notices, API and checkpoint format are preserved.
+Matching SDK modules require rebuilding.
+
+Gallery83–86 catalog records match their saved Scene schema. The recent audio
+examples use the built-in RGB Tint fields; relocated cooked-content checks cover
+all three new audio scenes and the one-way Map, including actual offline playback
+and saved pause/filter values.
 
 ## Source audio filters
 

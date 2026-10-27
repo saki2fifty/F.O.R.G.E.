@@ -137,8 +137,7 @@
         "forge.tint": {
           "r": 0.2,
           "g": 0.65,
-          "b": 1.0,
-          "a": 1.0
+          "b": 1.0
         },
         "forge.audio_source": {
           "clip": "7595392f-5150-4e3c-b7d5-1c5556bf4872",
@@ -159,7 +158,7 @@
         }
       },
       "id": "53ea8505-dd26-4052-aed5-75efcf405a77",
-      "name": "WAV original — starts automatically",
+      "name": "WAV original \u2014 starts automatically",
       "spatial": {
         "mode": "world"
       }
@@ -182,8 +181,7 @@
         "forge.tint": {
           "r": 0.25,
           "g": 0.9,
-          "b": 0.4,
-          "a": 1.0
+          "b": 0.4
         },
         "forge.audio_source": {
           "clip": "1c18cf55-2ea2-440e-84b9-c3ace1c2cb77",
@@ -204,7 +202,7 @@
         }
       },
       "id": "b14c2ab5-aaa1-4ebe-a70f-9dc7f11c6ef2",
-      "name": "FLAC lossless — enable to compare",
+      "name": "FLAC lossless \u2014 enable to compare",
       "spatial": {
         "mode": "world"
       }
@@ -227,8 +225,7 @@
         "forge.tint": {
           "r": 1.0,
           "g": 0.65,
-          "b": 0.15,
-          "a": 1.0
+          "b": 0.15
         },
         "forge.audio_source": {
           "clip": "15e09146-b361-4bfd-98a2-a0583420edd5",
@@ -249,7 +246,7 @@
         }
       },
       "id": "f6f762ae-0b67-4b2b-8cd7-3e9fa4a1b780",
-      "name": "MP3 lossy — enable to compare",
+      "name": "MP3 lossy \u2014 enable to compare",
       "spatial": {
         "mode": "world"
       }

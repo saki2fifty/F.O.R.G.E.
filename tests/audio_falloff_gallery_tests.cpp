@@ -1,3 +1,4 @@
+#include "audio_authoring.hpp"
 #include "audio_selection.hpp"
 #include "audio_source_access.hpp"
 #include "runtime_package.hpp"
@@ -56,7 +57,7 @@ double frequency(AudioRuntime& audio) {
 } // namespace
 int main(int argc, char** argv) {
     try {
-        require(argc == 3, "Need Gallery and scratch roots");
+        require(argc == 4, "Need Gallery, scratch and import worker paths");
         const auto scratch = std::filesystem::absolute(argv[2]) / AssetId::generate().str();
         const auto project = scratch / "project", output = scratch / "export";
         std::filesystem::create_directories(scratch);
@@ -67,12 +68,49 @@ int main(int argc, char** argv) {
         const auto processing_source =
             read(project / "Scenes/34-audio-import-processing.scene.json");
         const auto motion_source = read(project / "Scenes/35-moving-audio.scene.json");
+        const std::array recent_sources{read(project / "Scenes/83-audio-source-codecs.scene.json"),
+                                        read(project / "Scenes/84-independent-audio.scene.json"),
+                                        read(project / "Scenes/85-audio-filters.scene.json")};
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                cone_source.at("asset_id").get<AssetId>(),
                                mix_source.at("asset_id").get<AssetId>(),
                                processing_source.at("asset_id").get<AssetId>(),
-                               motion_source.at("asset_id").get<AssetId>()};
+                               motion_source.at("asset_id").get<AssetId>(),
+                               recent_sources[0].at("asset_id").get<AssetId>(),
+                               recent_sources[1].at("asset_id").get<AssetId>(),
+                               recent_sources[2].at("asset_id").get<AssetId>()};
         const auto clip = AssetId::parse("327101c1-e496-4293-b830-4c25b978607a");
+        // Export consumes target-specific cooked data. Use the same supervised
+        // importer/publication owner to prepare this test's requested target.
+        {
+            auto lease = std::make_shared<ProjectLease>(project);
+            AssetImportService imports(lease, audio_import_registry(argv[3]),
+                                       {"windows", "d3d12", "desktop"}, 1);
+            std::set<AssetId> clips;
+            for (const auto& source : recent_sources)
+                for (const auto& row : source.at("entities"))
+                    if (row.at("components").contains("forge.audio_source"))
+                        clips.insert(row.at("components")
+                                         .at("forge.audio_source")
+                                         .at("clip")
+                                         .get<AssetId>());
+            const auto catalog = AssetCatalog::open_project(project);
+            for (const auto id : clips) {
+                auto draft = imports.prepare(catalog.records().at(id).source);
+                imports.submit(
+                    std::move(draft),
+                    [](auto& candidate, const auto& plan, const auto&) {
+                        prepare_audio_publication(candidate, plan);
+                    },
+                    [](const auto&, const auto&) {});
+                require(imports.wait_idle(std::chrono::seconds(15)), "Gallery import timed out");
+                const auto outcomes = imports.poll();
+                if (outcomes.size() != 1 || !outcomes.front().published)
+                    throw std::runtime_error("Gallery target import failed: " +
+                                             (outcomes.empty() ? std::string("no result")
+                                                               : outcomes.front().diagnostic));
+            }
+        }
         EngineContext author;
         Scene author_scene(author.world());
         {
@@ -329,6 +367,56 @@ int main(int argc, char** argv) {
                     "Animation loop failed to reset dependent emitter motion");
             require(audio->status().at("voices") == 2 && audio->status().at("clips") == 1,
                     "Moving scene replaced the existing voices or shared decoded clip");
+        }
+        for (const auto& original : recent_sources) {
+            const auto id = original.at("asset_id").get<AssetId>();
+            const auto shipped_recent = read(relocated / catalog.records().at(id).source);
+            require(shipped_recent == original, "Recent audio export changed authored values");
+            EngineContext engine(WorldRole::Runtime, false,
+                                 {audio_module({relocated, AudioOutput::Offline, true})});
+            Scene scene(engine.world());
+            RuntimeSimulation simulation(engine.world(), scene);
+            scene.restore_snapshot(shipped_recent);
+            simulation.reset_presentation();
+            simulation.sync_audio();
+            simulation.audio_paused(false);
+            auto audio = std::static_pointer_cast<AudioRuntime>(engine.services().audio());
+            require(audio->wait_for_sources(std::chrono::seconds(5)),
+                    "Recent source-free audio preparation failed");
+            std::vector<EntityRef> sources;
+            for (const auto& row : shipped_recent.at("entities")) {
+                const auto entity = scene.entity(row.at("id"));
+                if (!entity.has<AudioSource>())
+                    continue;
+                const auto ref = scene.reference(row.at("id").get<std::string>());
+                sources.push_back(ref);
+                audio->stop_source(ref);
+            }
+            require(sources.size() == 3, "Recent audio Gallery lost its three sources");
+            simulation.tick(1.f / 60);
+            for (const auto ref : sources) {
+                const auto entity = scene.entity(ref.entity.str());
+                audio->play(ref);
+                simulation.tick(1.f / 60);
+                require(power(*audio) > 1e-10, "Recent cooked codec/filter source is silent");
+                audio->game_paused(true);
+                const auto paused_power = power(*audio);
+                if (entity.get<AudioSource>().pause_with_game ? paused_power != 0
+                                                              : paused_power <= 1e-10)
+                    std::cerr << "Cooked pause: " << id.str() << '/' << ref.entity.str()
+                              << " policy=" << entity.get<AudioSource>().pause_with_game
+                              << " power=" << paused_power << '\n';
+                require(entity.get<AudioSource>().pause_with_game ? paused_power == 0
+                                                                  : paused_power > 1e-10,
+                        "Cooked source lost its saved game-pause policy");
+                audio->game_paused(false);
+                require(power(*audio) > 1e-10, "Cooked source failed to resume");
+                audio->paused(true);
+                require(power(*audio) == 0, "Full suspension retained cooked Gallery audio");
+                audio->paused(false);
+                audio->stop_source(ref);
+                simulation.tick(1.f / 60);
+            }
         }
         std::filesystem::remove_all(scratch);
         std::cout << "Original Gallery31 cooked audio/identity and three falloff modes play "

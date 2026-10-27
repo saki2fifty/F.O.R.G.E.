@@ -45,7 +45,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## 2D scenes
 
 - [World sprites and image sheets](editor/sprites.md)
-- [Tile Sets and Tile Maps, moving collision and trigger regions](editor/tile-maps.md)
+- [Tile Sets and Tile Maps, moving and one-way collision, trigger regions](editor/tile-maps.md)
 - [2D physics and character movement](editor/physics-2d.md), including slopes, ceilings and stair stepping
 
 ## Animation

@@ -36,6 +36,30 @@ remains separate. No vendor implementation, patch or dependency upgrade is used.
 Recheck this boundary deliberately if the pin changes; applying this correction
 after an upstream coordinate fix would transform the point twice.
 
+## Box2D3.2.0 empty snapshot arrays
+
+Exact178495ba35695aefe9c321e569d2277f06db3b90, verified2026-10-27. Native-only
+empty/static-box snapshots reproduce UBSan nonnull-argument failures at
+src/snapshot.c713,763,796. Deserialization resizes chain-shape, sensor and island
+arrays to zero, obtaining null storage, then calls memset with that null pointer
+and zero size. C still requires a valid pointer. This finding is independent of
+FORGE, one-way collision and Tile Maps; original strict diagnostics are retained.
+
+The selected integration compiles a generated build-tree copy with positive-count
+guards around those three clears. The original checkout remains immutable. The
+helper cmake/box2d_snapshot_guards.cmake verifies the canonical LF input SHA256
+79ddfef9fd1466c2d5eba999ad284b6e432f66912fd9dd5512288fe2d0967ed1 and fails
+configuration if the source changes. Generated forge-box2d/source.json records
+upstream commit/input, guard and compiled-source hashes. The helper participates
+in exact SDK identity. Upstream copyright/MIT attribution remain intact.
+
+The serializer, counts, nonempty initialization, public API, native layouts and
+private checkpoint format are unchanged. Strict ASan/UBSan/leak checks remain
+enabled; warnings are not suppressed or accepted. Native empty/static/sensor/
+dynamic reconstruction and the full selected Box2D sources are exercised alongside
+FORGE recovery tests. Revisit and remove the repair deliberately when selecting a
+future upstream revision that fixes the calls. No dependency version is changed.
+
 ## KTX Software4.4.2 selection
 
 Exact4d6fc70eaf62ad0558e63e8d97eb9766118327a6, verified2026-09-20:

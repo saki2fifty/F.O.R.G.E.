@@ -3,6 +3,19 @@
 #include <sstream>
 
 namespace forge::test {
+inline physics_detail::Body2DConfiguration one_way_floor(PhysicsBody2D body, bool painted,
+                                                         float sign = 1) {
+    using namespace physics_detail;
+    if (!painted)
+        return inline_configuration_2d(body, 0, {10, .2f}, {1, sign, 1});
+    Body2DConfiguration config;
+    config.body = body;
+    config.shape = 3;
+    // Offset and separated roofs expose the old body-origin/inline-height assumption.
+    config.parts = std::make_shared<const std::vector<BoxPart2D>>(std::vector<BoxPart2D>{
+        {{0, 7 * sign}, {10, .2f}}, {{20, 12 * sign}, {2, .2f}}, {{-20, -4 * sign}, {2, .2f}}});
+    return config;
+}
 inline void test_one_way_profile() {
     using namespace physics_detail;
     auto rejected = [](auto operation) {
@@ -48,7 +61,7 @@ inline void one_way_velocity(MoverNativeFixture& test, EntityRef ref, Double2 va
         test.native.apply(test.id(ref), command, snaps);
     }
 }
-inline void test_one_way_rigid() {
+inline void test_one_way_rigid(bool painted = false) {
     using namespace physics_detail;
     unsigned observations = 0;
     for (const double origin : {0., -999900., 999900.})
@@ -68,8 +81,9 @@ inline void test_one_way_rigid() {
                         PhysicsBody2D platform;
                         platform.one_way = true;
                         const auto ground =
-                            test.add(inline_configuration_2d(platform, 0, {10, .2f}, {1, sign, 1}),
-                                     origin, origin, rotation);
+                            test.add(one_way_floor(platform, painted, sign),
+                                     origin - (painted ? 7 * normal[0] : 0),
+                                     origin - (painted ? 7 * normal[1] : 0), rotation);
                         test.desired.at(test.id(ground)).pose.scale.y = sign;
                         PhysicsBody2D body;
                         body.motion = 2;
@@ -120,15 +134,85 @@ inline void test_one_way_rigid() {
                         if (!passed) {
                             std::ostringstream message;
                             message << "One-way integrated rigid case failed: origin=" << origin
-                                    << " degrees=" << degrees << " sign=" << sign
-                                    << " shape=" << shape << " scenario=" << scenario
-                                    << " distance=" << distance << " speed=" << speed_after
-                                    << " maximum=" << maximum;
+                                    << " painted=" << painted << " degrees=" << degrees
+                                    << " sign=" << sign << " shape=" << shape
+                                    << " scenario=" << scenario << " distance=" << distance
+                                    << " speed=" << speed_after << " maximum=" << maximum;
                             throw std::runtime_error(message.str());
                         }
                         ++observations;
                     }
     check_mover(observations == 324, "One-way matrix did not execute every rigid case");
+}
+inline void test_one_way_contact_stability() {
+    using namespace physics_detail;
+    for (bool painted : {false, true}) {
+        auto settings = MoverGeometryFixture::settings();
+        settings.gravity = {0, -9.81, 0};
+        MoverNativeFixture test{settings};
+        PhysicsBody2D platform;
+        platform.one_way = true;
+        Body2DConfiguration floor;
+        if (painted) {
+            floor.body = platform;
+            floor.shape = 3;
+            floor.parts = std::make_shared<const std::vector<BoxPart2D>>(
+                std::vector<BoxPart2D>{{{0, -3.5f}, {10, 1}}, {{20, 4}, {2, 1}}});
+        } else
+            floor = inline_configuration_2d(platform, 0, {10, 1}, {1, 1, 1});
+        test.add(floor, 0, painted ? 0 : -3.5);
+        PhysicsBody2D body;
+        body.motion = 2;
+        body.lock_rotation = true;
+        body.restitution = 0;
+        const auto actor =
+            test.add(inline_configuration_2d(body, 0, {.9f, .9f}, {1, 1, 1}), -3.5, 4);
+        test.synchronize();
+        std::unique_ptr<MoverNativeFixture> recovered;
+        for (unsigned step = 0; step < 240; ++step) {
+            test.advance();
+            if (step == 72) {
+                const auto image = test.image();
+                recovered = std::make_unique<MoverNativeFixture>(settings);
+                recovered->desired = test.desired;
+                recovered->tick = test.tick;
+                recovered->native.restore(image.metadata, image.bytes, recovered->desired,
+                                          recovered->tick);
+            } else if (recovered) {
+                recovered->advance();
+                const auto a = test.native.state(test.id(actor), actor);
+                const auto b = recovered->native.state(recovered->id(actor), actor);
+                check_mover(a->position == b->position && a->linear_velocity == b->linear_velocity,
+                            "Recovered soft one-way contact lost native continuation evidence");
+            }
+        }
+        const auto state = test.native.state(test.id(actor), actor);
+        if (!state || std::abs(state->position[1] + 2.55) > .025)
+            throw std::runtime_error(
+                "Long fall lost one-way contact: painted=" + std::to_string(painted) +
+                ", y=" + std::to_string(state ? state->position[1] : 0));
+        one_way_velocity(test, actor, {0, 4});
+        double maximum = -2.55;
+        for (unsigned step = 0; step < 90; ++step) {
+            test.advance();
+            maximum = std::max(maximum, test.native.state(test.id(actor), actor)->position[1]);
+        }
+        check_mover(maximum > -2 && std::abs(test.native.state(test.id(actor), actor)->position[1] +
+                                             2.55) < .025,
+                    "Qualified one-way contact prevented a rigid jump or subsequent landing");
+        one_way_velocity(test, actor, {0, -.01}); // Wake before the discontinuity.
+        BodyCommand teleport{};
+        teleport.ref = actor;
+        teleport.planar = true;
+        teleport.kind = BodyCommandKind::Teleport;
+        teleport.p = {-3.5, -2.7, 0};
+        std::vector<std::uint64_t> snaps;
+        test.native.apply(test.id(actor), teleport, snaps);
+        for (unsigned step = 0; step < 120; ++step)
+            test.advance();
+        check_mover(test.native.state(test.id(actor), actor)->position[1] < -4,
+                    "Discontinuous deep placement inherited an old one-way contact");
+    }
 }
 inline void test_one_way_point_motion() {
     using namespace physics_detail;
@@ -172,14 +256,14 @@ inline void test_one_way_point_motion() {
                 }
             }
 }
-inline void test_one_way_character() {
+inline void test_one_way_character(bool painted = false) {
     using namespace physics_detail;
     for (const double origin : {0., -999900., 999900.}) {
         MoverNativeFixture test;
         PhysicsBody2D platform;
         platform.one_way = true;
-        const auto ground = test.add(inline_configuration_2d(platform, 0, {10, .2f}, {1, 1, 1}),
-                                     origin, origin + 2);
+        const auto ground =
+            test.add(one_way_floor(platform, painted), origin, origin + 2 - (painted ? 7 : 0));
         const auto actor = test.actor(origin, origin, .7f);
         test.synchronize();
         const auto id = test.id(actor);
@@ -226,7 +310,7 @@ inline void test_one_way_character() {
                     "One-way character departure retained stale support");
     }
 }
-inline void test_one_way_recovery() {
+inline void test_one_way_recovery(bool painted = false) {
     using namespace physics_detail;
     for (unsigned phase : {0u, 1u, 30u, 55u, 75u}) {
         auto settings = MoverGeometryFixture::settings();
@@ -234,7 +318,7 @@ inline void test_one_way_recovery() {
         MoverNativeFixture original{settings};
         PhysicsBody2D platform;
         platform.one_way = true;
-        original.add(inline_configuration_2d(platform, 0, {10, .2f}, {1, 1, 1}), 0, 0);
+        original.add(one_way_floor(platform, painted), 0, painted ? -7 : 0);
         PhysicsBody2D body;
         body.motion = 2;
         const auto actor =

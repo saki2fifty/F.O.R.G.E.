@@ -75,7 +75,6 @@ validation. The development validation hook suppresses `on_set`/`OnSet`
 processing on failure; it does not restore the previous value and must never
 be described as transactional rollback.
 
-
 ## Narrow known-defect acceptance
 
 The approved Flecs4.1.6 managed-file-include cleanup exception is documented in
@@ -90,3 +89,13 @@ another path/revision is authorized. A future stable fix must remove the excepti
 Other exact-source findings and their selected FORGE boundaries are recorded in
 [dependency known issues](dependency-known-issues.md). A boundary change that
 avoids an affected API is distinct from fixing or suppressing its upstream defect.
+
+### Selected Box2D snapshot repair — 2026-10-27
+
+The exact3.2.0 build includes three positive-count guards in a signature-checked
+build-tree copy of snapshot.c. The pinned checkout and all other upstream files
+remain unchanged. This selected repair corrects zero-length/null clears; it grants
+no sanitizer exception or permission for automatic patches elsewhere. All strict
+sanitizers remain enabled and all findings must pass. Record/prove changed source
+hashes, native empty/nonempty reconstruction, exact recovery and matching SDK
+identity when maintaining it. See [the source finding](dependency-known-issues.md).

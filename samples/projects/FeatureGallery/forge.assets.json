@@ -1136,7 +1136,7 @@
       "id": "15100000-1510-4151-8151-151000000000",
       "type": "scene",
       "source": "Scenes/84-independent-audio.scene.json",
-      "schema_version": 1,
+      "schema_version": 3,
       "dependencies": [],
       "metadata": {}
     },
@@ -3648,7 +3648,7 @@
       "dependency_edges": [],
       "id": "54c3337f-87fa-4f06-a3a4-221bfcce4530",
       "metadata": {},
-      "schema_version": 1,
+      "schema_version": 3,
       "source": "Scenes/83-audio-source-codecs.scene.json",
       "source_dependencies": [],
       "type": "scene"
@@ -10326,7 +10326,15 @@
       "id": "15200000-1520-4152-8152-152000000000",
       "type": "scene",
       "source": "Scenes/85-audio-filters.scene.json",
-      "schema_version": 1,
+      "schema_version": 3,
+      "dependencies": [],
+      "metadata": {}
+    },
+    {
+      "id": "15300000-1530-4153-8153-153000000000",
+      "type": "scene",
+      "source": "Scenes/86-one-way-tile-maps.scene.json",
+      "schema_version": 5,
       "dependencies": [],
       "metadata": {}
     }

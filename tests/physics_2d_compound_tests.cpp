@@ -206,6 +206,13 @@ void capacity_and_invalid_geometry() {
     reject([&] { test.native.validate(bad); });
     bad = test.desired;
     bad.at(1).config.body.one_way = true;
+    test.native.validate(bad); // Static nonsensor painted rectangles share one-way response.
+    for (unsigned motion : {1u, 2u}) {
+        bad.at(1).config.body.motion = motion;
+        reject([&] { test.native.validate(bad); });
+    }
+    bad.at(1).config.body.motion = 0;
+    bad.at(1).config.body.sensor = true;
     reject([&] { test.native.validate(bad); });
     bad = test.desired;
     bad.at(1).config.parts.reset();
@@ -371,12 +378,16 @@ int main() {
         forge::test::test_mover_motion_limits();
         std::cout << "Checked mover motion/feasibility/shared-budget PASS\n";
         forge::test::test_one_way_profile();
+        forge::test::test_one_way_contact_stability();
         forge::test::test_one_way_rigid();
         forge::test::test_one_way_point_motion();
         forge::test::test_one_way_character();
         forge::test::test_one_way_recovery();
         forge::test::test_one_way_character_recovery();
         forge::test::test_one_way_toggle();
+        forge::test::test_one_way_rigid(true);
+        forge::test::test_one_way_character(true);
+        forge::test::test_one_way_recovery(true);
         std::cout << "One-way rigid/CCD/character/geometric-query/fresh-recovery PASS\n";
         forge::test::test_mover_native_motion();
         forge::test::test_mover_placement_budget();

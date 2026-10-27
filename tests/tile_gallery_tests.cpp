@@ -96,7 +96,8 @@ int main(int argc, char** argv) {
         const auto painted_map = find(catalog, "Assets/Tiles/PaintedPlatforms.tilemap.json");
         const auto moving_scene = find(catalog, "Scenes/81-moving-tile-maps.scene.json");
         const auto trigger_scene = find(catalog, "Scenes/82-tile-map-triggers.scene.json");
-        const std::array profile_roots{moving_scene, trigger_scene};
+        const auto one_way_scene = find(catalog, "Scenes/86-one-way-tile-maps.scene.json");
+        const std::array profile_roots{moving_scene, trigger_scene, one_way_scene};
         const auto profile_package = scratch / "moving trigger cooked content";
         const auto definitions = TileSetSource::parse(asset_detail::read_bytes(
             root / "Assets/Tiles/Directions.tileset.json", tile_set_source_byte_limit));
@@ -146,6 +147,7 @@ int main(int argc, char** argv) {
         }
         test_moving_trigger_gallery(root, moving_scene, true);
         test_moving_trigger_gallery(root, trigger_scene, false);
+        test_painted_collision_gallery(root, one_way_scene, painted_map, true);
         const auto package = scratch / "cooked tile content";
         package_runtime_content(root, package, roots, {"windows", "d3d12"});
         std::filesystem::remove_all(root);
@@ -176,10 +178,12 @@ int main(int argc, char** argv) {
         std::filesystem::rename(profile_package, profile_moved);
         const auto profile_catalog = open_runtime_content(profile_moved, {"windows", "d3d12"});
         check(profile_catalog.records().contains(moving_scene) &&
-                  profile_catalog.records().contains(trigger_scene),
+                  profile_catalog.records().contains(trigger_scene) &&
+                  profile_catalog.records().contains(one_way_scene),
               "Moving/trigger runtime package lost its scene roots");
         test_moving_trigger_gallery(profile_moved, moving_scene, true);
         test_moving_trigger_gallery(profile_moved, trigger_scene, false);
+        test_painted_collision_gallery(profile_moved, one_way_scene, painted_map, true);
         std::filesystem::remove_all(scratch);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';

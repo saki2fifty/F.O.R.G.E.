@@ -61,6 +61,7 @@ FetchContent_Declare(box2d GIT_REPOSITORY https://github.com/erincatto/box2d.git
 FetchContent_MakeAvailable(box2d)
 set(BUILD_SHARED_LIBS "${_forge_shared_before_box2d}")
 set_target_properties(box2d PROPERTIES POSITION_INDEPENDENT_CODE ON)
+include("${CMAKE_CURRENT_LIST_DIR}/box2d_snapshot_guards.cmake")
 
 # miniaudio implementation is private to audio/runtime and the isolated audio cooker.
 # No miniaudio headers or ownership types are installed in the SDK.

@@ -56,9 +56,30 @@ For your own Map actor:
 4. Turn on the Scene collision outline to inspect the selected published layer. Save the Scene, then test with ordinary Dynamic2D bodies.
 
 Maps use rectangular painted cells with Static or Kinematic bodies. Dynamic
-Maps, per-tile slopes and one-way painted collision are unavailable. An empty
-selected layer has no native shape. Excessively large or complex collision reports a problem and
+Maps and per-tile slopes are unavailable. Static nonsensor Maps can use the
+one-way option below. An empty selected layer has no native shape. Excessively large or complex collision reports a problem and
 keeps the previous working runtime cells and collision.
+
+## Make painted platforms one-way
+
+1. Select the Map entity. Under **Physics Body 2D**, choose **Static** and turn **Sensor** off.
+2. Enable **One-way collision**. Keep **One-way margin** at 0.02 m initially.
+3. Enable **Selected collision** in Scene. Each rectangle's arrow points toward its solid face.
+4. Save and Play. Objects can pass from the opposite side and land on that face. Stop restores the saved starting scene; export uses the saved policy.
+
+The policy applies to every occupied rectangle in the selected collision layer.
+Each rectangle has its own face, including raised platforms. Negative Y scale
+reverses the face; Z rotation rotates it. Flipping a tile's image does not change
+its collision face. Kinematic, sensor and Dynamic one-way Maps are unavailable.
+Ordinary ray/overlap/sweep queries still see complete rectangles, and checked
+character placement still rejects embedded positions.
+
+Open **86-one-way-tile-maps** in the Feature Gallery. The cyan circle rises
+through a painted platform toward an ordinary ceiling; the other bodies fall
+onto painted roofs. Stop, disable **One-way collision** on the Map and Play again
+to compare its underside response. Restore the option and save. Existing Project
+Code can use the same painted-cell editing and physics query APIs; no new API or
+special tile entity is needed.
 
 ## Moving Maps and trigger regions
 

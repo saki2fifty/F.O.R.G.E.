@@ -47,7 +47,7 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     auto renderer = defaults("forge.tile_map_renderer");
     renderer["map"] = source.asset();
     scene.reset({{"version", 5},
-                 {"asset_id", AssetId::generate()},
+                 {"asset_id", scene.asset_id()},
                  {"entities",
                   Json::array({{{"id", actor},
                                 {"name", "Floor"},
@@ -210,6 +210,41 @@ void exercise(const std::filesystem::path& scratch, float scale) {
                   "Actual Map guide lost sensor/solid status, geometry or source purity");
         }
     }
+    authoring_command(scene, "property.set_many",
+                      {{"entity", actor},
+                       {"component", "forge.physics_body_2d"},
+                       {"values", {{"motion", 0}, {"sensor", false}}}});
+    inspector.fixture_focus_component = "forge.physics_body_2d";
+    frame();
+    frame();
+    inspector.fixture_focus_component.clear();
+    const auto before_one_way = scene.document();
+    click("component-field:forge.physics_body_2d:one_way");
+    check(scene.entity(actor).get<PhysicsBody2D>().one_way && scene.undo() &&
+              scene.document() == before_one_way && scene.redo() &&
+              scene.entity(actor).get<PhysicsBody2D>().one_way,
+          "Painted one-way checkbox lost authored value or Undo/Redo");
+    const auto document = scene.effective_document();
+    for (const auto& row : document.at("entities")) {
+        if (row.at("id") != actor)
+            continue;
+        for (float sign : {1.f, -1.f}) {
+            const auto geometry = prepare_physics_debug(row.at("components"), {1, sign, 0}, {},
+                                                        false, 7, view.cells.get());
+            check(geometry.lines.size() == 7 && !geometry.truncated &&
+                      std::abs(geometry.lines[4][0][1] - sign) < 1e-6 &&
+                      (geometry.lines[4][1][1] - geometry.lines[4][0][1]) * sign > .19f,
+                  "Painted solid-face guide lost signed scale or rectangle roof");
+            const auto bounded = prepare_physics_debug(row.at("components"), {1, sign, 0}, {},
+                                                       false, 6, view.cells.get());
+            check(bounded.lines.size() == 6 && bounded.truncated,
+                  "Painted solid-face guide exceeded or hid its line limit");
+        }
+    }
+    project.save();
+    project.open_project(root);
+    check(scene.entity(actor).get<PhysicsBody2D>().one_way,
+          "Painted one-way checkbox did not survive Save/reopen");
     inspector.fixture_focus_component = "forge.tile_map_collider_2d";
     prefab.edit_source(project, prefab_asset);
     prefab_mode = true;

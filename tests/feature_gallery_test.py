@@ -10,6 +10,11 @@ project_root = Path(sys.argv[2])
 project = json.loads((project_root / 'forge.project.json').read_text(encoding="utf-8"))
 assets = json.loads((project_root / 'forge.assets.json').read_text(encoding="utf-8"))['assets']
 by_source = {row['source']: row for row in assets}
+for row in assets:
+    if row['type'] == 'scene':
+        saved = json.loads((project_root / row['source']).read_text(encoding='utf-8'))
+        assert 3 <= saved['version'] <= 5 and 3 <= row['schema_version'] <= 5, \
+            f"Gallery scene is not admitted by runtime packaging: {row['source']}"
 for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Physics2D/Solid.material.json', 'material.values'),
                        ('Assets/Physics2D/Platform.animation.json', 'animation.clip'),
@@ -82,7 +87,7 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '78-sprite-image-regions.scene.json',
         '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json',
         '81-moving-tile-maps.scene.json', '82-tile-map-triggers.scene.json',
-        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json'} <= {p.name for p in scenes}
+        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json'} <= {p.name for p in scenes}
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]
@@ -459,6 +464,13 @@ try:
             assert sum(item['high_pass_enabled'] for item in sources) == 1
             assert next(item for item in sources if item['low_pass_enabled'])['low_pass_hz'] == 100
             assert next(item for item in sources if item['high_pass_enabled'])['high_pass_hz'] == 1000
+        if path.name.startswith('86-'):
+            platforms = [row['components']['forge.physics_body_2d'] for row in loaded['entities']
+                         if 'forge.tile_map_collider_2d' in row['components']]
+            assert len(platforms) == 1 and platforms[0]['one_way']
+            assert platforms[0]['motion'] == 0 and not platforms[0]['sensor']
+            rising = next(row for row in loaded['entities'] if row['name'].startswith('Cyan'))
+            assert rising['components']['forge.physics_body_2d']['gravity_factor'] == -1
         if path.name.startswith('35-'):
             sounds = [row for row in loaded['entities'] if 'forge.audio_source' in row['components']]
             parents = [row for row in loaded['entities'] if 'forge.transform_animator' in row['components']]

@@ -137,8 +137,7 @@
         "forge.tint": {
           "r": 0.2,
           "g": 0.65,
-          "b": 1.0,
-          "a": 1.0
+          "b": 1.0
         },
         "forge.audio_source": {
           "clip": "327101c1-e496-4293-b830-4c25b978607a",
@@ -160,7 +159,7 @@
         }
       },
       "id": "15100000-1510-4151-8151-151000000003",
-      "name": "Gameplay — pauses with game",
+      "name": "Gameplay \u2014 pauses with game",
       "spatial": {
         "mode": "world"
       }
@@ -183,8 +182,7 @@
         "forge.tint": {
           "r": 0.25,
           "g": 0.9,
-          "b": 0.4,
-          "a": 1.0
+          "b": 0.4
         },
         "forge.audio_source": {
           "clip": "327101c1-e496-4293-b830-4c25b978607a",
@@ -206,7 +204,7 @@
         }
       },
       "id": "15100000-1510-4151-8151-151000000001",
-      "name": "Music — keeps playing during pause",
+      "name": "Music \u2014 keeps playing during pause",
       "spatial": {
         "mode": "world"
       }
@@ -229,8 +227,7 @@
         "forge.tint": {
           "r": 1.0,
           "g": 0.65,
-          "b": 0.15,
-          "a": 1.0
+          "b": 0.15
         },
         "forge.audio_source": {
           "clip": "327101c1-e496-4293-b830-4c25b978607a",
@@ -252,7 +249,7 @@
         }
       },
       "id": "15100000-1510-4151-8151-151000000002",
-      "name": "UI sound — One-shot during pause",
+      "name": "UI sound \u2014 One-shot during pause",
       "spatial": {
         "mode": "world"
       }

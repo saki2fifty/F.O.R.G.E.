@@ -176,7 +176,12 @@ publish at the next fixed boundary and recheck the target/adopted generation.
 1 success, 0 unavailable/not ready, -1 invalid and -2 stale generation; an empty
 cell is a successful zero tile. Batches are atomic and limited to4096 entries.
 See the [development map contract](tilemap-foundation.md) for limits and readiness.
-Map rendering/painting and the complete editor/export workflow remain unfinished.
+Map painting/rendering, Static/Kinematic collision and sensor regions use the same
+instances and publication owners. Static nonsensor Map bodies also support the
+existing PhysicsBody2D.one_way policy on each painted rectangle; public geometric
+queries still see full shapes. See the [Map contract](tilemap-foundation.md)
+for publication, examples and current limits, and the editor's Tile Maps manual
+for the authoring workflow.
 
 This changes the exact SDK table/fingerprint; rebuild against the matching SDK.
 The installed `tile_map_probe.cpp` demonstrates copied reads and fixed submissions

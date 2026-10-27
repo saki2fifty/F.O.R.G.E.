@@ -5,7 +5,8 @@
 #include <forge/runtime_world.hpp>
 
 inline void test_painted_collision_gallery(const std::filesystem::path& root,
-                                           forge::AssetId scene_id, forge::AssetId map_id) {
+                                           forge::AssetId scene_id, forge::AssetId map_id,
+                                           bool one_way = false) {
     using namespace forge;
     using namespace forge::detail;
     const auto require = [](bool ok, const char* message) {
@@ -30,7 +31,8 @@ inline void test_painted_collision_gallery(const std::filesystem::path& root,
         if (entity.has<TileMapCollider2D>()) {
             floor = ref;
             require(entity.get<TileMapCollider2D>().layer == 1 &&
-                        entity.get<TileMapRenderer>().map.id == map_id,
+                        entity.get<TileMapRenderer>().map.id == map_id &&
+                        entity.get<PhysicsBody2D>().one_way == one_way,
                     "Gallery floor lost its selected Map/layer");
         }
         const auto name = row.at("name").get<std::string>();
@@ -38,15 +40,15 @@ inline void test_painted_collision_gallery(const std::filesystem::path& root,
             amber = ref;
             actors.emplace_back(ref, 1.45);
         } else if (name.starts_with("Cyan"))
-            actors.emplace_back(ref, 2.4375);
+            actors.emplace_back(ref, one_way ? 4.8625 : 2.4375);
         else if (name.starts_with("Rose"))
             actors.emplace_back(ref, -2.55);
         else if (name.starts_with("Green"))
             actors.emplace_back(ref, -2.5625);
     }
     require(bool(floor.entity) && bool(amber.entity) && actors.size() == 4 &&
-                world.physics()->status().at("bodies_2d") == 5 &&
-                world.physics()->status().at("shapes_2d") == 8,
+                world.physics()->status().at("bodies_2d") == (one_way ? 6 : 5) &&
+                world.physics()->status().at("shapes_2d") == (one_way ? 9 : 8),
             "Gallery did not use one painted compound floor and four dynamic actors");
     const auto cells = runtime_tile_map_snapshot(world.engine.world(), floor);
     require(cells->cells.occupied() == 23 && cells->cells.layers().size() == 2,

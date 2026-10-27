@@ -22,6 +22,22 @@ constexpr std::size_t query_work_limit = 16384, event_limit = 16384;
 constexpr float mover_slop = .005f, mover_tolerance = .00001f;
 constexpr std::size_t mover_plane_limit = 64;
 constexpr unsigned mover_iteration_limit = 8;
+void one_way_arrow(PhysicsDebugGeometry& result, float x, float face, float width, float sign,
+                   std::size_t limit) {
+    using Point = std::array<float, 3>;
+    const float length = std::clamp(.2f * width, .2f, 1.f);
+    const Point start{x, face, 0}, tip{x, face + sign * length, 0};
+    for (const auto& line : std::array<std::array<Point, 2>, 3>{
+             {{start, tip},
+              {tip, Point{x - .25f * length, tip[1] - sign * .3f * length, 0}},
+              {tip, Point{x + .25f * length, tip[1] - sign * .3f * length, 0}}}}) {
+        if (result.lines.size() == limit) {
+            result.truncated = true;
+            return;
+        }
+        result.lines.push_back(line);
+    }
+}
 // Private native query traffic bypasses body collision masks while retaining
 // the existing 32 named project layers. No extra authored layer is introduced.
 constexpr std::uint64_t query_category = std::uint64_t{1} << 63;
@@ -131,8 +147,10 @@ std::size_t shape_count(const Body2DConfiguration& config) {
 void validate_one_way(const PhysicsBody2D& body, unsigned shape) {
     if (!std::isfinite(body.one_way_margin) || body.one_way_margin < 0 || body.one_way_margin > 1)
         throw std::runtime_error("2D one-way margin must be finite metres in [0,1]");
-    if (body.enabled && body.one_way && (body.motion != 0 || body.sensor || shape != 0))
-        throw std::runtime_error("One-way collision requires a Static nonsensor Box Collider 2D");
+    if (body.enabled && body.one_way &&
+        (body.motion != 0 || body.sensor || (shape != 0 && shape != 3)))
+        throw std::runtime_error(
+            "One-way collision requires a Static nonsensor Box or Tile Map Collider 2D");
 }
 void validate_tile_map_body(const PhysicsBody2D& body) {
     validate_one_way(body, 3);
@@ -477,7 +495,7 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
             throw std::runtime_error("Published Tile Map is not prepared for collision preview");
         const auto config = tile_map_configuration_2d(body, *tile_map, collider.layer, scale);
         PhysicsDebugGeometry result;
-        result.truncated = config.parts->size() > limit / 4;
+        result.truncated = config.parts->size() > limit / (body.one_way ? 7 : 4);
         for (const auto& part : *config.parts) {
             const auto polygon = compound_box(part);
             for (int i = 0; i < polygon.count; ++i) {
@@ -485,6 +503,12 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
                     return result;
                 const auto a = polygon.vertices[i], b = polygon.vertices[(i + 1) % polygon.count];
                 result.lines.push_back({{{a.x, a.y, 0}, {b.x, b.y, 0}}});
+            }
+            if (body.one_way) {
+                const float sign = std::signbit(scale.y) ? -1.f : 1.f;
+                one_way_arrow(result, part.center[0],
+                              part.center[1] + sign * .5f * part.dimensions[1], part.dimensions[0],
+                              sign, limit);
             }
         }
         return result;
@@ -540,19 +564,7 @@ PhysicsDebugGeometry prepare_debug_2d(const Json& components, LocalScale scale, 
         result.lines.push_back({outline[i], outline[(i + 1) % outline.size()]});
     if (!controller && kind == 0 && body.one_way) {
         const float sign = std::signbit(scale.y) ? -1.f : 1.f;
-        const float face = sign * .5f * d[1];
-        const float length = std::clamp(.2f * d[0], .2f, 1.f);
-        const Point start{0, face, 0}, tip{0, face + sign * length, 0};
-        for (const auto& line : std::array<std::array<Point, 2>, 3>{
-                 {{start, tip},
-                  {tip, Point{-.25f * length, tip[1] - sign * .3f * length, 0}},
-                  {tip, Point{.25f * length, tip[1] - sign * .3f * length, 0}}}}) {
-            if (result.lines.size() == limit) {
-                result.truncated = true;
-                break;
-            }
-            result.lines.push_back(line);
-        }
+        one_way_arrow(result, 0, sign * .5f * d[1], d[0], sign, limit);
     }
     return result;
 }
@@ -751,6 +763,14 @@ struct Native2D::Impl {
     };
     std::size_t response_work = 0;
     bool response_failed = false;
+    using ShapePair = std::pair<std::uint64_t, std::uint64_t>;
+    // A fixed-boundary copy of native touching contacts, not a contact lifecycle store.
+    std::vector<ShapePair> response_contacts;
+    std::vector<b2ContactData> response_contact_read;
+    static ShapePair shape_pair(b2ShapeId a, b2ShapeId b) noexcept {
+        const auto first = b2StoreShapeId(a), second = b2StoreShapeId(b);
+        return first < second ? ShapePair{first, second} : ShapePair{second, first};
+    }
     static SideSample sample(const Body& body) noexcept {
         return {b2Body_GetPosition(body.id), b2Body_GetRotation(body.id)};
     }
@@ -758,7 +778,19 @@ struct Native2D::Impl {
         return b2RotateVector(b2Body_GetRotation(platform.id),
                               {0, std::signbit(platform.admitted.pose.scale.y) ? -1.f : 1.f});
     }
-    static double side_gap(const Body& platform, const b2ShapeProxy& actor,
+    static double one_way_surface(const Body& platform, b2ShapeId shape) noexcept {
+        if (platform.admitted.config.shape != 3)
+            return .5 * platform.admitted.config.dimensions[1];
+        // The existing native shape is authoritative for its rectangle's offset.
+        // Read at most one bounded polygon, never scan the Map's other parts.
+        const auto polygon = b2Shape_GetPolygon(shape);
+        const double sign = std::signbit(platform.admitted.pose.scale.y) ? -1 : 1;
+        double roof = -std::numeric_limits<double>::infinity();
+        for (int i = 0; i < polygon.count; ++i)
+            roof = std::max(roof, sign * polygon.vertices[i].y);
+        return roof + polygon.radius;
+    }
+    static double side_gap(const Body& platform, double surface, const b2ShapeProxy& actor,
                            SideSample pose) noexcept {
         const auto origin = b2Body_GetPosition(platform.id);
         const auto normal = one_way_normal(platform);
@@ -768,29 +800,33 @@ struct Native2D::Impl {
             minimum = std::min(minimum, double(normal.x) * point.x + double(normal.y) * point.y);
         }
         return normal.x * (pose.position.x - origin.x) + normal.y * (pose.position.y - origin.y) +
-               minimum - actor.radius - .5 * platform.admitted.config.dimensions[1];
+               minimum - actor.radius - surface;
     }
-    static bool solid_side(const Body& platform, const Body& actor, const b2ShapeProxy& proxy,
-                           SideSample current, bool native_step) noexcept {
-        double gap = side_gap(platform, proxy, current);
+    static bool solid_side(const Body& platform, double surface, const Body& actor,
+                           const b2ShapeProxy& proxy, SideSample current,
+                           bool native_step) noexcept {
+        double gap = side_gap(platform, surface, proxy, current);
         // A newly created/moved platform has no preceding side evidence. A
         // snapshot/read never advances these fixed-boundary samples.
         const auto& previous = native_step ? actor.preceding_start : actor.last_start;
         const auto& platform_previous =
             native_step ? platform.preceding_start : platform.last_start;
         if (previous && platform_previous)
-            gap = std::max(gap, side_gap(platform, proxy, *previous));
+            gap = std::max(gap, side_gap(platform, surface, proxy, *previous));
         return gap >= -std::max(mover_slop, platform.admitted.config.body.one_way_margin);
     }
-    bool admit_response(const Body& platform, const Body& actor, b2Pos point,
-                        b2Vec2 outward) noexcept {
+    bool admit_response(const Body& platform, b2ShapeId shape, const Body& actor,
+                        b2ShapeId actor_shape, b2Pos point, b2Vec2 outward) noexcept {
         const auto normal = one_way_normal(platform);
         // Front-facing contacts within60degrees belong to the solid face;
         // side and underside normals never turn into invisible walls.
         if (b2Dot(normal, outward) < .5f)
             return false;
+        const bool continued = std::binary_search(
+            response_contacts.begin(), response_contacts.end(), shape_pair(shape, actor_shape));
         if (!actor.last_start ||
-            !solid_side(platform, actor, actor.response_proxy, *actor.last_start, true))
+            (!continued && !solid_side(platform, one_way_surface(platform, shape), actor,
+                                       actor.response_proxy, *actor.last_start, true)))
             return false;
         const auto a = b2Body_GetWorldPointVelocity(actor.id, point);
         const auto b = b2Body_GetWorldPointVelocity(platform.id, point);
@@ -800,7 +836,9 @@ struct Native2D::Impl {
             response_failed = true;
             return false;
         }
-        return speed <= mover_tolerance;
+        // Native unilateral response handles separation/bounce of an already
+        // admitted contact. New contacts still need approaching-side evidence.
+        return continued || speed <= mover_tolerance;
     }
     bool admit_pair(b2ShapeId a, b2ShapeId b, b2Pos point, b2Vec2 normal) noexcept {
         if (!charge_query_work(response_work) || !std::isfinite(point.x) ||
@@ -813,10 +851,11 @@ struct Native2D::Impl {
             response_failed = true;
             return false;
         }
-        if (first->admitted.config.body.one_way && !admit_response(*first, *second, point, normal))
+        if (first->admitted.config.body.one_way &&
+            !admit_response(*first, a, *second, b, point, normal))
             return false;
         if (second->admitted.config.body.one_way &&
-            !admit_response(*second, *first, point, {-normal.x, -normal.y}))
+            !admit_response(*second, b, *first, a, point, {-normal.x, -normal.y}))
             return false;
         return true;
     }
@@ -852,7 +891,7 @@ struct Native2D::Impl {
         SideSample pose;
         const Body* ignored_support = nullptr;
     };
-    static bool physical_response(const Body& platform, const PhysicalMover* mover,
+    static bool physical_response(const Body& platform, b2ShapeId shape, const PhysicalMover* mover,
                                   const b2Vec2* outward = nullptr) noexcept {
         if (mover && mover->ignored_support == &platform)
             return false;
@@ -863,7 +902,8 @@ struct Native2D::Impl {
             return false;
         const auto intent = mover->actor->mover_intent;
         return normal.x * intent[0] + normal.y * intent[1] <= mover_tolerance &&
-               solid_side(platform, *mover->actor, mover->actor->response_proxy, mover->pose, true);
+               solid_side(platform, one_way_surface(platform, shape), *mover->actor,
+                          mover->actor->response_proxy, mover->pose, true);
     }
     std::map<std::uint64_t, Body> bodies;
     bool one_way_present = false;
@@ -885,6 +925,53 @@ struct Native2D::Impl {
         std::sort(mover_order.begin(), mover_order.end(), [&](auto a, auto b) {
             return bodies.at(a).admitted.ref < bodies.at(b).admitted.ref;
         });
+    }
+    void capture_response_contacts() {
+        response_contacts.clear();
+        if (!one_way_present)
+            return;
+        for (const auto& [id, body] : bodies) {
+            if (!body.admitted.config.body.one_way || !body.preceding_start)
+                continue;
+            const int capacity = b2Body_GetContactCapacity(body.id);
+            if (capacity < 0 || std::size_t(capacity) > pair_limit)
+                throw std::runtime_error("2D one-way native contact capacity is invalid");
+            for (int i = 0; i < capacity; ++i)
+                if (!charge_query_work(response_work))
+                    throw std::runtime_error(
+                        "2D one-way contact read exceeded fixed work capacity");
+            if (!capacity)
+                continue;
+            response_contact_read.resize(std::size_t(capacity));
+            // Contact getters require an unlocked world. Read only at this
+            // owner boundary, never inside either native collision callback.
+            const int count =
+                b2Body_GetContactData(body.id, response_contact_read.data(), capacity);
+            if (count < 0 || count > capacity)
+                throw std::runtime_error("2D one-way native contact result is invalid");
+            for (int i = 0; i < count; ++i) {
+                const auto& contact = response_contact_read[std::size_t(i)];
+                const auto *first = owned(contact.shapeIdA), *second = owned(contact.shapeIdB);
+                if (!first || !second || (first != &body && second != &body) ||
+                    contact.manifold.pointCount < 1 || contact.manifold.pointCount > 2 ||
+                    !std::isfinite(contact.manifold.normal.x) ||
+                    !std::isfinite(contact.manifold.normal.y))
+                    throw std::runtime_error("2D one-way prior contact binding/result is invalid");
+                const auto* actor = first == &body ? second : first;
+                if (!actor->preceding_start)
+                    continue; // A discontinuous placement cannot inherit old contact evidence.
+                const auto normal = contact.manifold.normal;
+                const b2Vec2 outward = first == &body ? normal : b2Vec2{-normal.x, -normal.y};
+                if (b2Dot(one_way_normal(body), outward) < .5f)
+                    continue;
+                if (response_contacts.size() == pair_limit)
+                    throw std::runtime_error("2D one-way contact witness capacity exceeded");
+                response_contacts.push_back(shape_pair(contact.shapeIdA, contact.shapeIdB));
+            }
+        }
+        std::sort(response_contacts.begin(), response_contacts.end());
+        response_contacts.erase(std::unique(response_contacts.begin(), response_contacts.end()),
+                                response_contacts.end());
     }
     Body& mover(std::uint64_t id, EntityRef ref) {
         const auto found = bodies.find(id);
@@ -1259,7 +1346,7 @@ struct Native2D::Impl {
             (query.ignore && body->admitted.ref == *query.ignore) ||
             query_excludes(query.filter, body->admitted.ref) ||
             (query.ignore_initial_overlap && fraction == 0) ||
-            !physical_response(*body, query.response, &normal))
+            !physical_response(*body, shape, query.response, &normal))
             return -1;
         if (query.all) {
             const PhysicsHit2D hit{
@@ -1382,7 +1469,7 @@ struct Native2D::Impl {
             (query.ignore && body->admitted.ref == *query.ignore) ||
             query_excludes(query.filter, body->admitted.ref))
             return true;
-        if (!physical_response(*body, query.response))
+        if (!physical_response(*body, shape, query.response))
             return true;
         const auto position = b2Body_GetPosition(body->id);
         const auto rotation = b2Body_GetRotation(body->id);
@@ -1424,7 +1511,7 @@ struct Native2D::Impl {
         const auto normal = b2Shape_GetType(shape) == b2_circleShape
                                 ? b2Vec2{-manifold.normal.x, -manifold.normal.y}
                                 : b2RotateVector(rotation, manifold.normal);
-        if (!physical_response(*body, query.response, &normal))
+        if (!physical_response(*body, shape, query.response, &normal))
             return true;
         for (int i = 0; i < manifold.pointCount; ++i) {
             const auto& point = manifold.points[i];
@@ -1485,7 +1572,7 @@ struct Native2D::Impl {
             query.failed = true;
             return false;
         }
-        if (!physical_response(*body, query.response, &normal))
+        if (!physical_response(*body, shape, query.response, &normal))
             return true;
         const float converted = float(offset);
         const bool departing =
@@ -3007,6 +3094,7 @@ void Native2D::step(float dt, std::uint64_t tick) {
             body.last_start = Impl::sample(body);
         }
     try {
+        self.capture_response_contacts();
         self.refresh_mover_supports(mover_work, true);
     } catch (...) {
         self.fault = true;

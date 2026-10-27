@@ -10,6 +10,8 @@ import time
 from runtime_client import Runtime
 
 runtime, module, gallery = (Path(value).resolve() for value in sys.argv[1:4])
+one_way = sys.argv[4:] == ['--one-way']
+initial_bodies, initial_shapes, edited_shapes = (6, 9, 8) if one_way else (5, 8, 7)
 fingerprint = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=True))['fingerprint']
 
 
@@ -49,7 +51,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as directory:
         sdk='experimental-1', fingerprint=fingerprint, library=module.name,
         dependencies=['forge.physics', 'forge.resources'])]
     settings_path.write_text(json.dumps(settings), encoding='utf-8')
-    scene_path = project / 'Scenes/77-painted-2d-collision.scene.json'
+    scene_path = project / ('Scenes/86-one-way-tile-maps.scene.json' if one_way else 'Scenes/77-painted-2d-collision.scene.json')
     source = scene_path.read_bytes()
     map_path = project / 'Assets/Tiles/PaintedPlatforms.tilemap.json'
     map_source = map_path.read_bytes()
@@ -61,15 +63,15 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as directory:
         a, b = Runtime(runtime, arguments), None
         try:
             initial = replace_scene(a, scene, sdk_play)
-            assert initial['physics']['bodies_2d'] == 5
-            assert initial['physics']['shapes_2d'] == 8
+            assert initial['physics']['bodies_2d'] == initial_bodies
+            assert initial['physics']['shapes_2d'] == initial_shapes
             applied = False
             for tick in range(1, 151):
                 left = a.request('step')
                 applied |= any(row['text'] == 'Painted SDK edit applied'
                                for row in left['diagnostics'])
                 if tick >= 2:
-                    assert left['physics']['shapes_2d'] == 7, left['physics']
+                    assert left['physics']['shapes_2d'] == edited_shapes, left['physics']
                 if b:
                     assert motion(b.request('step')) == motion(left)
                 if not sdk_play and tick == 10:
@@ -82,7 +84,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as directory:
                     restored = b.request('replace', scene=left['scene'], recovery=checkpoint,
                         recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
                     assert restored['timing']['paused'] and restored['timing']['tick'] == tick
-                    assert restored['physics']['shapes_2d'] == 7
+                    assert restored['physics']['shapes_2d'] == edited_shapes
                     assert motion(restored) == motion(left)
                     assert restored['recovery']['tile_maps'] == checkpoint['tile_maps']
                 if sdk_play:
@@ -90,6 +92,12 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as directory:
             assert applied, 'The matching loaded C++ module never completed its cell edit'
             amber = next(row for row in left['scene']['entities'] if row['name'].startswith('Amber'))
             assert abs(amber['components']['forge.local_translation']['y'] + 2.55) < .025, amber
+            if one_way:
+                cyan = next(row for row in left['scene']['entities'] if row['name'].startswith('Cyan'))
+                assert cyan['components']['forge.local_translation']['y'] > 3.5, cyan
+                platform = next(row for row in left['scene']['entities']
+                                if 'forge.tile_map_collider_2d' in row['components'])
+                assert platform['components']['forge.physics_body_2d']['one_way'] is True
             if b:
                 # Destroy/restart the worker, then rebuild edited Map values before native shapes.
                 checkpoint = left['recovery']
@@ -100,7 +108,7 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as directory:
                 assert motion(restarted) == motion(left)
                 assert motion(b.request('step')) == motion(a.request('step'))
             clean = replace_scene(a, scene, sdk_play)
-            assert clean['timing']['tick'] == 0 and clean['physics']['shapes_2d'] == 8
+            assert clean['timing']['tick'] == 0 and clean['physics']['shapes_2d'] == initial_shapes
             assert scene_path.read_bytes() == source and map_path.read_bytes() == map_source
         finally:
             a.close()

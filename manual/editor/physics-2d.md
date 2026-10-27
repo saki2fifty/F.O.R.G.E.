@@ -61,9 +61,9 @@ In **Examples/Character2D**, walk slightly left under the green platform and jum
 The character passes through its underside and lands on top. Its C++ code still
 chooses jump speed and gravity; the controller handles the platform response.
 
-This setting supports Static nonsensor Box platforms. Moving one-way platforms and painted
-Tile Map one-way collision are unavailable. Geometric ray, overlap and sweep
-queries still see the whole Box. Checked character placement rejects embedded
+This setting supports Static nonsensor Box platforms and painted Tile Maps.
+Moving one-way platforms are unavailable. Geometric ray, overlap and sweep
+queries still see the whole shape. Checked character placement rejects embedded
 positions even when the character could pass through during ordinary movement.
 
 ## Settings and C++
@@ -139,7 +139,8 @@ published layer; unsaved painting is not yet the active collision.
 Each occupied cell contributes its rectangle, including transparent image pixels.
 Choose Kinematic for a moving Map or enable Sensor for trigger regions. See
 [Tile Maps](tile-maps.md) for the moving-course and trigger examples. Dynamic
-Maps, per-tile slopes and one-way collision on painted Maps are unavailable.
+Maps and per-tile slopes are unavailable. Static nonsensor Maps can use
+**One-way collision**, as described in [Tile Maps](tile-maps.md).
 
 ## Character movement
 

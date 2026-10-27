@@ -312,7 +312,23 @@ for legacy in (False, True):
             assert running['components']['forge.physics_body_2d']['motion'] == 1
             control('forge_play_stop')
             assert read('forge_scene_read') == authored
-            print(('legacy' if legacy else 'current') + ': native Map placement, Kinematic/sensor batch, validation/history/revision, Save and actual Play passed')
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.physics_body_2d',
+                                                        values=dict(motion=0, sensor=False, one_way=True)))
+            one_way = read('forge_scene_read')
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == authored
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == one_way
+            ok('forge_document_save')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda row: row['ready'] and row['control_ready'])
+            control('forge_play_pause')
+            control('forge_play_step')
+            running = next(e for e in read('forge_play_snapshot')['entities'] if e['id'] == actor)
+            assert running['components']['forge.physics_body_2d']['one_way'] is True
+            assert running['components']['forge.physics_body_2d']['motion'] == 0
+            assert running['components']['forge.physics_body_2d']['sensor'] is False
+            control('forge_play_stop')
+            assert read('forge_scene_read') == one_way
+            print(('legacy' if legacy else 'current') + ': native Map placement, Kinematic/sensor and static one-way, history/revision, Save and Play passed')
             continue
         overlay_source = read('forge_scene_read')
         overlay_settings = (root/'Game/forge.project.json').read_bytes()

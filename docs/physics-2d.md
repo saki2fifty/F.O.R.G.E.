@@ -144,7 +144,7 @@ reuse immutable geometry inside the existing native-body record.
 There are at most4096 total native2D shapes across Map rectangles and inline bodies,
 within existing body, joint, pair and event limits. Empty Map actors do not consume
 native body/shape slots. This profile excludes Dynamic Maps, slopes, per-tile
-polygons and one-way Map collision. A Map is not itself a character controller or
+polygons and Kinematic/sensor one-way Map collision. A Map is not itself a character controller or
 a navigation mesh.
 
 ### Moving Maps and triggers
@@ -166,13 +166,30 @@ old Ends keep their old epoch and current availability. Empty/refill and source
 replacement still pass through the existing Map preflight and last-good ownership.
 Fresh recovery restores Map edits before native physics and does not replay events.
 
+### Static one-way Maps
+
+Static nonsensor Map bodies can enable the existing PhysicsBody2D.one_way flag.
+The selected layer's rectangles each use their own roof plane, including offset
+and stacked runs. The same native pre-solve/pre-continuous and explicit character
+physical-response context reads one bounded readonly polygon per hit; inline boxes
+retain their existing path. No scan of other rectangles, second plane cache or
+changed native binding/checkpoint layout is needed. Geometric/excluded queries
+still observe complete rectangles. Source edits/empty/refill retain shared Map
+preflight and native retirement. Kinematic/sensor/Dynamic one-way Maps reject.
+
+Original Gallery86 reuses PaintedPlatforms: falling actors land on painted roofs,
+and the reversed-gravity cyan circle passes the right platform to an ordinary
+ceiling. Existing public PaintedCollision helpers exercise cell edits/queries with
+the same policy, both hosts and recovery. SDK fingerprints follow matching public
+contract headers; no public field or callback layout is added.
+
 ## One-way platforms
 
 `PhysicsBody2D.one_way` defaults to false. Enable it only on a Static nonsensor
-body with one Box Collider 2D. The solid face is transformed local +Y; signed Y
+body with one Box Collider 2D or Tile Map Collider 2D. Each rectangle's solid face is transformed local +Y; signed Y
 scale reverses it, and supported Z rotation rotates it. `one_way_margin` is a
 finite world-space tolerance in0..1m, default0.02m, with effective minimum0.005m
-native slop. Inactive values remain authored. Moving and painted Map one-way
+native slop. Inactive values remain authored. Moving one-way
 platforms are outside this profile.
 
 Native rigid response uses both exact-pin pre-solve and pre-continuous callbacks.
@@ -180,12 +197,19 @@ The existing body record supplies current/preceding fixed-start side evidence;
 front-facing contacts and relative angular-aware contact-point velocity decide
 response. Upward passage, later descent, shallow overlap and deep starts below
 are distinct cases. Source moves, replacement and placement invalidate continuity.
+Native soft-contact correction may temporarily exceed the initial entry margin.
+A bounded touching-contact snapshot, copied through the public native API before
+the world locks, retains already admitted front contacts. Normal-side/history
+checks still govern new contacts; native unilateral response handles separation
+and bounce of continuing ones. Source/placement discontinuities invalidate the
+witness. It is rebuilt from native contacts, including after exact recovery, and
+adds no persistent pair state. Contact reads share the same fixed work budget.
 Callback work shares the existing16384 fixed query/controller budget; overflow
 faults before partial-step adoption. Default-off worlds avoid side sampling.
 
 Character Controller 2D applies the same side admission through its existing
 physical planes, casts, penetration recovery, support and floor-follow paths.
-Public rays/overlaps/sweeps remain geometric and still observe the complete Box;
+Public rays/overlaps/sweeps remain geometric and still observe complete shapes;
 checked character placement also retains conservative geometric clearance.
 No command implicitly becomes a filtered physical query from its ignored entity.
 

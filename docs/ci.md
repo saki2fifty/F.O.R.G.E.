@@ -1064,20 +1064,27 @@ unchanged; the new matching test module uses existing callbacks.
 
 ### Moving and trigger Tile Map collision
 
-`tile_assets` uses a real published cross-chunk Map through all four supported
-Static/Kinematic and solid/sensor configurations. It checks native targets,
+`tile_assets` uses a real published cross-chunk Map through all four ordinary
+Static/Kinematic and solid/sensor configurations plus signed Static one-way cases. It checks native targets,
 preserved cells/epochs/depth, rotated ray/overlap/sweep geometry, sensor inclusion,
 canonical exclusions, Begin/End/nonresponse, empty/refill retirement and fresh
 Map-before-physics recovery with continued steps. Unsupported geometry, global
 shape budgets and source replacement still run through the existing Map preflight.
-`physics_2d_debug` covers matching positive previews and rejects Dynamic/one-way Maps.
+`physics_2d_debug` covers matching positive previews. Static nonsensor one-way
+Maps use per-rectangle solid-face arrows; Dynamic and moving/sensor one-way Maps
+remain rejected. `physics_2d_compound` includes inline/painted response, long-fall
+contact continuity and exact recovery; `native_sdk_one_way_tile_maps` and its
+installed variant cover Gallery86/public cell edits through both Play hosts.
+`box2d_snapshot` exercises native empty/static/sensor/dynamic reconstruction;
+`box2d_snapshot_guards` verifies exact-source rejection, LF/CRLF equivalence and
+unchanged input/generation timestamps for the selected build repair.
 `physics_2d_compound` admits4095 Map sensor rectangles plus one visitor at the
 4096-shape ceiling, preserves all4095 native Begin records, rejects a4097th shape
 and avoids replaying retained overlaps. A valid4096-shape Kinematic sensor case
 with two sensor visitors exceeds the existing4096 pair-work cap and must fault;
 no partial native step, event adoption or recovery capture is accepted.
 
-`tile_gallery` executes original scenes81/82 before and after normal dependency
+`tile_gallery` executes original scenes81/82/86 before and after normal dependency
 packaging, source removal and relocation. It observes the painted course following
 its ordinary animation, trigger visitors reaching a solid receiver and native
 transitions without writing saved scenes. This is headless source-free content

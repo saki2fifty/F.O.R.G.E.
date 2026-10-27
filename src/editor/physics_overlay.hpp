@@ -237,7 +237,8 @@ class PhysicsOverlay {
                                            : "Tile Map collision - published layer outline");
                 if (show_tile_map && good_ == key_ && geometry_.lines.empty())
                     note += " | selected layer is empty";
-                if (show_planar && !show_tile_map && components.contains("forge.box_collider_2d") &&
+                if (show_planar &&
+                    (show_tile_map || components.contains("forge.box_collider_2d")) &&
                     components["forge.physics_body_2d"].value("one_way", false))
                     note += " | one-way: arrow points toward solid face";
                 if (show_tile_map && runtime.is_object() &&

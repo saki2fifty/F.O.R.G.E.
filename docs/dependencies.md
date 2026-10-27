@@ -137,7 +137,6 @@ Runtime UI pins are verified together in Build260918-000053: Windows/Linux core3
 
 Phase6G changes no dependency pins. SDK packaging now installs only the enumerated FORGE value boundary, a pure identity helper library and the matching shared Flecs runtime. No Jolt/miniaudio/Ozz/Detour/RmlUi/Diligent types enter that boundary. [SDK contracts](extension-contracts.md).
 
-
 Flecs configuration and capability review verified2026-09-19: default stable addons
 plus `FLECS_SCRIPT_MATH`; explicit per-type member entities, global
 `FLECS_CREATE_MEMBER_ENTITIES` off. Static and single-shared SDK profiles carry
@@ -393,7 +392,6 @@ can return negative radius, so FORGE rejects those new CCD candidates before
 mutating realization instead of changing authored scale or patching Jolt.
 Existing discrete admission remains intact. No pin, options or license change.
 
-
 ### Local navigation avoidance verification — 2026-10-13
 
 The official latest stable release remains Recast1.6.0. Selected commit remains
@@ -417,7 +415,6 @@ configuration builds these software codecs without Diligent graphics backends.
 UI normalization, alpha, last-good reload and raw/cooked export ownership are
 specified in [Runtime UI](runtime-ui.md#bitmap-normalization).
 
-
 ## 2D backend selection — 2026-10-21 (integration in progress)
 
 Box2D 3.2.0 is the official stable release published 2026-10-19, selected at immutable
@@ -427,6 +424,10 @@ Private product dependency, body, matching SDK, authoring, Scene guide and Galle
 integration are present. Windows/native image/export milestone validation remains
 in progress. See [ADR024](decisions/024-2d-physics.md) and the
 [target contract](physics-2d.md). Build195 does not include this work.
+The selected build also compiles a signature-checked build-tree snapshot copy
+with three positive-count guards for empty-array clears. The original pin/checkout
+and MIT notice stay unchanged; generated provenance records input/guard/output
+hashes and matching SDK identity. See [the exact finding and repair](dependency-known-issues.md).
 
 | Selection | Contract |
 | --- | --- |

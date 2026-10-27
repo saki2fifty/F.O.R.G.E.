@@ -1968,9 +1968,10 @@ Json registration_options(const Builtin& type, const std::string& field) {
                 "continuous collision remains enabled. Inactive choices are preserved.";
         if (field == "one_way") {
             value["display_name"] = "One-way collision";
-            value["description"] =
-                "Static nonsensor Box Collider 2D: land on its transformed local +Y face and "
-                "pass from the opposite side. Geometric queries still see the whole shape.";
+            value["description"] = "Static nonsensor Box or Tile Map Collider 2D: land on each "
+                                   "rectangle's transformed "
+                                   "local +Y face and pass from the opposite side. Geometric "
+                                   "queries see whole shapes.";
         }
         if (field == "one_way_margin") {
             value["display_name"] = "One-way margin";

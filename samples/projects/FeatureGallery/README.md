@@ -1,5 +1,15 @@
 # FORGE Feature Gallery
 
+## Painted one-way platforms
+
+Open **Scenes/86-one-way-tile-maps.scene.json**. The cyan circle rises through the
+right painted platform to an ordinary ceiling; other bodies land on painted roofs.
+Select the Map and turn on Selected collision to inspect each solid-face arrow.
+Stop, disable One-way collision and replay to compare the underside response.
+The existing CodeExamples/PaintedCollision.hpp helpers work with this profile too.
+Only Static nonsensor Maps support this policy; moving/sensor one-way remains
+unavailable. Save before export.
+
 ## Audio filters
 
 Open **Scenes/85-audio-filters.scene.json**. Only Dry tone starts automatically.
@@ -42,7 +52,8 @@ Fast-moving sensors can miss crossings. Stop restores the authored state.
 
 Both scenes export with their normal dependency closure. Kinematic/sensor Maps use
 one native body per Map instance, shared layers/masks and ordinary physics queries.
-Dynamic Maps and one-way painted collision remain unsupported. The user manual's
+Dynamic Maps and moving/sensor one-way collision remain unsupported. Static
+nonsensor one-way Maps are demonstrated in scene86. The user manual's
 Tile Maps guide covers authoring, runtime edits, saving, limits and examples.
 
 ## Top-down XY navigation

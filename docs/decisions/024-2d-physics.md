@@ -112,7 +112,8 @@ Sensor flag selecting trigger rectangles. This supersedes only the original
 Static nonsensor restriction above. Every rectangle shares its existing native
 body, motion, filter, sensor flag, epoch and command/recovery lifetime. Dynamic
 Maps remain excluded; no compound Dynamic mass/inertia policy is introduced.
-One-way remains restricted to the existing single Static nonsensor Box profile.
+One-way admits Static nonsensor boxes and painted rectangles as specified below;
+Kinematic/sensor one-way combinations remain excluded.
 
 Reuse the checked geometry admission in native realization, Map candidate
 preflight and editor preview. Kinematic targets/rotation use the existing body
@@ -186,9 +187,9 @@ old default behavior. Technical/manual contracts define numerical limits.
 
 Use an optional default-off response setting on existing PhysicsBody2D. The
 selected profile is a Static nonsensor single Box, solid on its transformed local
-+Y face. Signed Y scale reverses that face; margins are world metres. No moving or
-painted one-way platform profile, new contact owner, pair database or native world
-is introduced. Ordinary ray/overlap/sweep queries remain geometric; checked feet
++Y face. Signed Y scale reverses that face; margins are world metres. No moving one-way platform profile, new contact owner, pair database or native
+world is introduced. The Static painted extension below supersedes the original
+single-box restriction. Ordinary ray/overlap/sweep queries remain geometric; checked feet
 placement remains conservative. Native CharacterController2D physical response
 uses explicit context through its existing plane/cast/penetration/support path.
 
@@ -232,6 +233,39 @@ process hosts. Its complete Linux/Windows matrix, native editor/source acceptanc
 and same-runner benchmark, reviewed images and shared source-free/fresh-runner
 exports pass. Physical acceptance and numbered delivery remain separate. See the
 [2D integration contract](../physics-2d.md).
+
+## Static painted one-way extension
+
+Reuse PhysicsBody2D.one_way and its world-space margin on a Static nonsensor
+TileMapCollider2D. The existing selected layer/rectangle projection and native
+body/shape ownership remain authoritative. Each rectangle is solid on its own
+transformed local+Y face; signed Y scale reverses the face and Z rotation rotates
+it. Image orientation flags remain visual. Other motion/sensor combinations and
+per-tile polygons are not admitted by this extension.
+
+The previous inline half-height plane cannot describe offset or stacked Map
+rectangles. Both native response hooks and character physical-response queries
+now derive that shape's roof from a bounded readonly public native polygon copy.
+Existing inline response keeps its half-height fast path. No rectangle scans,
+plane cache, changed shape userdata, second contact owner or per-cell entity is
+introduced. Current normal/relative-velocity/side-start evidence, geometric queries,
+conservative placement, retirement/empty/refill and exact recovery checks remain.
+Shared selected-collision arrow projection also covers Map rectangle roofs.
+
+Long falls can legitimately leave a native soft contact deeper than the entry
+margin while correction converges. New contact admission still uses side/velocity
+evidence. At the unlocked fixed boundary, copy the native touching front-contact
+pairs with continuous body history; callbacks use that immutable, bounded witness
+to retain native unilateral response until separation. Rebuild it from native
+contacts each tick and after recovery. No independent contact lifecycle database
+or checkpoint field is introduced, and discontinuities cannot inherit old evidence.
+Native pre-solve impulses are not used as a continuity witness.
+
+This deliberately extends only the earlier one-way profile. It changes no authored
+field/identity, native body/shape budget, checkpoint format, C callback table or
+solver pin. The public value-header contract wording changes its exact SDK hash,
+so matching modules are rebuilt. A local portable gate is separate from native
+Windows/full editor, physical pixels/input and graphical export acceptance.
 
 ## Checked 2D stance extension
 
