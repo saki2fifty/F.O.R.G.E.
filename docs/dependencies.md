@@ -465,3 +465,21 @@ library, encoder or dependency revision is distributed. FORGE owns source admiss
 processing, publication and PCM lifetime. Existing cooked PCM and WAV identities
 remain readable; recipe fingerprints change with these build options. Exact source
 and executable mono/stereo checks are described in [Audio](audio.md).
+
+### Bundled Vorbis evaluation — disabled
+
+The pinned miniaudio0.11.25 archive contains `extras/stb_vorbis.c`1.22, but FORGE
+keeps it disabled. Its SHA256 is
+`4c7cb2ff1f7011e9d67950446b7eb9ca044f2e464d76bfbb0b84dd2e23e65636`.
+A mono/stereo integration experiment passed valid decoding and the shared import/
+preview checks, then failed unsuppressed LeakSanitizer coverage on malformed setup
+packets. A standalone native-only reproduction leaked128bytes through
+`setup_temp_malloc`/`start_decoder`; the broader codec corpus reported1520bytes
+across four allocations. The passing initial corpus did not cover this failure.
+
+No Vorbis implementation, recipe, supported-format claim or generated Gallery
+publication was admitted. WAV, FLAC and MP3 remain the supported source formats;
+existing cooked PCM, settings, identities and SDK contracts are unchanged. Future
+Vorbis work requires deliberate exact-source cleanup/configuration/compatibility
+review and fresh native error-path proof. Isolated-worker process cleanup does
+not establish a leak-free decoder. No suppression or dependency upgrade was used.
