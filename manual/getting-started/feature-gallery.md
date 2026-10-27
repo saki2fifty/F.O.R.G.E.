@@ -172,6 +172,12 @@ Change mono, peak normalization and silence trimming under Import settings,
 then reimport. The source remains unchanged; Play and export use the processed
 clip. See [Process a clip during import](../editor/audio.md).
 
+Scene **83 — Audio source codecs** compares the same original stereo recording
+as WAV, FLAC and MP3. Only WAV starts automatically. Enable one speaker at a time
+with **Play On Start**, or open a clip from **Assets/AudioCodecs** to preview it.
+All formats share import processing and exported PCM playback. See
+[Audio sources and importing](../editor/audio.md).
+
 Scene **35 — Moving audio** animates two emitters past a camera/listener: one
 has Doppler enabled and the comparison has it disabled. Select either during Play
 and use **Live sound → Play / Restart** or **Stop sound** to compare. Loop jumps

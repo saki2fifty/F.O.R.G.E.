@@ -21,7 +21,7 @@ Native ECS game editor under development. Windows/D3D12 is the first editor targ
 | Physics | Jolt Physics and Box2D | Jolt supplies 3D bodies, queries, constraints and character movement; private Box2D supplies XY bodies, colliders, joints, sensors, queries, painted Tile Map collision and native 2D character movement. |
 | Skeletal animation | Ozz Animation | Animation sampling, blending and glTF animation conversion. |
 | Navigation | Recast and Detour | Static navigation mesh generation, path queries and local steering. |
-| Audio | miniaudio | WAV decoding, playback, spatial sound and mixing. |
+| Audio | miniaudio | WAV/FLAC/MP3 decoding, playback, spatial sound and mixing. |
 | Serialization | nlohmann/json | Authored JSON documents and process messages. |
 | Mesh processing | meshoptimizer and Draco | Geometry processing and glTF compression decoding. |
 | Texture processing | KTX Software/Basis, libpng, libwebp and stb | Texture import, image decoding and cooked texture processing. |
@@ -134,7 +134,7 @@ See the [capability checklist and validation limits](docs/mcp.md).
 - Structured prefab assets with stable member identities, candidate publication and independent property overrides/Revert.
 - [Skeletal animation](manual/editor/animation.md): validated glTF conversion, Animator playback, fixed-clock recovery and debug bones.
 - [World sprites and image sheets](manual/editor/sprites.md): ordinary image Materials, sheet frames, size/pivot/flip/tint controls, geometric picking and step-valued Timeline animation. Original Gallery scenes71/72 demonstrate still images and animated signals.
-- Exact-version shared-Flecs C++ gameplay SDK, [Jolt physics](manual/editor/physics.md), and [WAV audio sources/listeners](manual/editor/audio.md).
+- Exact-version shared-Flecs C++ gameplay SDK, [Jolt physics](manual/editor/physics.md), and [Audio sources/listeners and WAV/FLAC/MP3 import](manual/editor/audio.md).
 
 - Model/texture/material/shader importing, cooked resources and dependency-aware, relocatable game export with a standalone SDL/Diligent/RmlUi executable.
 - [Navigation](manual/editor/navigation.md), [runtime UI](manual/editor/runtime-ui.md), and the [asset workflow](manual/editor/content-browser.md).

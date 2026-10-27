@@ -48,3 +48,26 @@ record = run('query')['assets'][0]
 assert record['metadata']['forge.audio']['sample_rate'] == 24000
 assert record['metadata']['forge.audio']['channels'] == 2
 print('Audio import CLI: identity, metadata, cache hit, failure retention and reimport passed')
+
+fixtures = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Assets/AudioCodecs'
+for extension in ('flac', 'mp3'):
+    path = root / 'Assets' / ('Stereo.' + extension)
+    original = (fixtures / path.name).read_bytes()
+    path.write_bytes(original)
+    first = run('import', 'Assets/' + path.name)
+    again = run('import', 'Assets/' + path.name)
+    assert first['asset'] == again['asset'] and again['cache_hit']
+    record = next(item for item in run('query')['assets'] if item['id'] == first['asset'])
+    assert record['metadata']['forge.import']['importer'] == 'forge.audio.' + extension
+    assert record['metadata']['forge.audio']['source_format'] == extension
+    assert record['metadata']['forge.audio']['frames'] == 12000
+    assert record['metadata']['forge.audio']['channels'] == 2
+    baseline = (root / 'forge.assets.json').read_bytes()
+    sidecar = path.with_name(path.name + '.forge-import.json')
+    settings = sidecar.read_bytes()
+    path.write_bytes(b'corrupt compressed audio source')
+    run('import', 'Assets/' + path.name, ok=False)
+    assert (root / 'forge.assets.json').read_bytes() == baseline and sidecar.read_bytes() == settings
+    path.write_bytes(original)
+    assert run('import', 'Assets/' + path.name)['asset'] == first['asset']
+print('MP3/FLAC public import/cache/identity and failed-reimport retention passed')

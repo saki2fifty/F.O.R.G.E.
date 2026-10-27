@@ -105,7 +105,7 @@ Other asset types belong on their compatible [Inspector fields](inspector.md). A
 6. Choose **Copy sources**. Each selection gets its own `Source-1`, `Source-2`, and so on inside the new folder.
 7. Check each result, then choose **Close**. Successfully imported assets appear in Content; copied-only or failed sources remain available through **Open import / source**.
 
-This workflow accepts supported glTF models, texture sources and mono/stereo WAV audio. It copies glTF buffers and images beneath the selected model's own folder while retaining their relative paths. A model that refers outside that folder must first be organized into a self-contained source folder, or copied into the project manually for the existing model import workflow. Network references and symbolic links are rejected.
+This workflow accepts supported glTF models, texture sources and mono/stereo WAV, FLAC or MP3 audio. It copies glTF buffers and images beneath the selected model's own folder while retaining their relative paths. A model that refers outside that folder must first be organized into a self-contained source folder, or copied into the project manually for the existing model import workflow. Network references and symbolic links are rejected.
 
 Existing destinations are never replaced. If source bytes change after review, prepare again. FORGE does not copy project catalogs, import sidecars or authored Scene/Prefab/Material/Shader identities through this workflow; use their own creation or duplication actions.
 
@@ -126,7 +126,7 @@ Open **Create / Register**:
 - **New material...** creates a reusable source in the central [Material editor](materials.md).
 - **Import shader...** opens [Shader import](shaders.md) for an existing project program.
 - **New scene** creates an untitled scene through the save guard.
-- **Import audio...** opens the central [Audio clip](audio.md) import document. Enter the project-relative WAV path, choose **Review settings**, then **Import / Reimport**. Select an imported clip to inspect its duration, channels, sample rate and format.
+- **Import audio...** opens the central [Audio clip](audio.md) import document. Enter the project-relative WAV, FLAC or MP3 path, choose **Review settings**, then **Import / Reimport**. Select an imported clip to inspect its duration, channels, sample rate and format.
 - **Prefabs** contains Create from selection, Instantiate, Edit source and Duplicate asset.
 - The animation, navigation and Runtime UI sections expose their existing conversion, build and registration tools.
 
@@ -225,7 +225,7 @@ cancellation; an already completed disk commit remains completed. Changed refere
 or source bytes invalidate the review and require preparing it again.
 
 Current source adapters cover Scene, Prefab, Material, Shader program, glTF model/
-animation source, Texture, WAV, Collision, terrain, particles, Tile Set/Map and
+animation source, Texture, AudioClip, Collision, terrain, particles, Tile Set/Map and
 transform/state/blend-space/mask animation sources. An open supported source
 document follows its moved path; Duplicate keeps the original document open.
 Delete closes the affected source or import document and retains the reviewed backup.

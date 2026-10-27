@@ -3,7 +3,8 @@
 #include <forge/derived_cache.hpp>
 namespace forge::asset_detail {
 // All callers validate both the PCM and metadata, including cache hits.
-nlohmann::json audio_clip_metadata(const AudioClipData&, std::string source_digest);
+nlohmann::json audio_clip_metadata(const AudioClipData&, std::string source_digest,
+                                   std::string source_format = "wav");
 nlohmann::json validate_audio_bundle(std::span<const ArtifactFile>);
 AudioClipData audio_bundle_clip(std::span<const ArtifactFile>);
 } // namespace forge::asset_detail

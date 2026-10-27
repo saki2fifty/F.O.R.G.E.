@@ -9,14 +9,14 @@ void require(bool ok, const char* why) {
     if (!ok)
         throw std::runtime_error(why);
 }
-AssetImporterDescriptor descriptor() {
+AssetImporterDescriptor descriptor(const AudioSourceProfile& profile) {
     AssetImporterDescriptor d;
-    d.id = "forge.audio.wav";
+    d.id = profile.importer;
     d.revision = audio_recipe_revision();
-    d.label = "WAV AudioClip";
-    d.description =
-        "Validate WAV with miniaudio and publish immutable mono/stereo PCM and metadata.";
-    d.extensions = {".wav"};
+    d.label = std::string(profile.label) + " AudioClip";
+    d.description = "Validate " + std::string(profile.label) +
+                    " with miniaudio and publish immutable mono/stereo PCM and metadata.";
+    d.extensions = {std::string(profile.extension)};
     d.source_kinds = {"audio"};
     d.output_types = {"audio_clip"};
     d.output_format = "forge.audio-clip";
@@ -29,20 +29,23 @@ AssetImporterDescriptor descriptor() {
 }
 class AudioImporter final : public AssetImporter {
     std::filesystem::path worker_;
+    AudioSourceProfile profile_;
 
   public:
-    explicit AudioImporter(std::filesystem::path worker)
-        : AssetImporter(asset_detail::descriptor(), audio_settings()), worker_(std::move(worker)) {}
+    AudioImporter(std::filesystem::path worker, const AudioSourceProfile& profile)
+        : AssetImporter(asset_detail::descriptor(profile), audio_settings(profile.importer)),
+          worker_(std::move(worker)), profile_(profile) {}
     ImportProbeResult probe(const ImportProbe& input) const override {
-        // WAV also permits RF64/Wave64. Let the bounded official decoder perform
-        // full admission rather than inventing another RIFF parser here.
+        // The selected bounded decoder owns full admission, including WAV's
+        // RF64/Wave64 variants. The extension never proves content validity.
         auto extension = input.source.extension().string();
         for (auto& c : extension)
             if (c >= 'A' && c <= 'Z')
                 c = char(c - 'A' + 'a');
-        return extension == ".wav" ? ImportProbeResult{ImportProbeMatch::Possible, "audio",
-                                                       "WAV requires miniaudio admission"}
-                                   : ImportProbeResult{};
+        return extension == profile_.extension
+                   ? ImportProbeResult{ImportProbeMatch::Possible, "audio",
+                                       "Audio requires miniaudio admission"}
+                   : ImportProbeResult{};
     }
     AssetImportPlan discover(const AssetImportRequest& request,
                              std::stop_token stop) const override {
@@ -50,8 +53,9 @@ class AudioImporter final : public AssetImporter {
         const auto locator = ProjectPaths::normalize(request.source);
         const auto bytes =
             read_bytes(ProjectPaths(request.project).resolve(locator), max_audio_source_bytes);
-        require(probe({locator, {}}).match != ImportProbeMatch::No, "Select a WAV source");
-        require(bytes.size() >= 12, "WAV source is truncated");
+        require(probe({locator, {}}).match != ImportProbeMatch::No,
+                "Select a source matching this audio importer");
+        require(bytes.size() >= 12, "Audio source is truncated");
         AssetImportPlan plan;
         const auto& d = AssetImporter::descriptor();
         auto& input = plan.input;
@@ -77,32 +81,38 @@ class AudioImporter final : public AssetImporter {
         auto bytes = read_bytes(ProjectPaths(request.project).resolve(request.source),
                                 max_audio_source_bytes);
         require(content_digest(bytes) == plan.input.source_digest,
-                "WAV changed during snapshot capture");
+                "Audio changed during snapshot capture");
         if (progress)
             progress(.15, "Validating audio in isolated worker");
-        Json payload{{"recipe", "forge.audio.wav"},
+        Json payload{{"recipe", profile_.importer},
                      {"revision", audio_recipe_revision()},
                      {"source_digest", plan.input.source_digest},
                      {"settings", request.settings}};
-        auto files = run_import_process(worker_, request.project,
-                                        {std::move(payload), {{"source.wav", std::move(bytes)}}},
-                                        audio_worker_limits(), stop);
+        auto files = run_import_process(
+            worker_, request.project,
+            {std::move(payload), {{"source" + std::string(profile_.extension), std::move(bytes)}}},
+            audio_worker_limits(), stop);
         const auto metadata = validate_audio_bundle(files);
         require(metadata.at("source_digest") == plan.input.source_digest,
                 "Audio worker returned another source revision");
+        require(metadata.at("source_format") == profile_.extension.substr(1),
+                "Audio worker returned another source format");
         if (progress)
             progress(1., "AudioClip validated");
         return files;
     }
     void validate(const CachedArtifact& candidate) const override {
-        (void)validate_audio_bundle(candidate.files);
+        const auto metadata = validate_audio_bundle(candidate.files);
+        require(metadata.at("source_format") == profile_.extension.substr(1),
+                "Audio artifact belongs to another source format");
     }
 };
 } // namespace
-ImportSettingsSchema audio_settings() {
+ImportSettingsSchema audio_settings(std::string_view importer) {
+    require(audio_source_profile(importer) != nullptr, "Unsupported audio importer");
     std::vector<ImportSettingRule> rules{
         {"force_mono", "Force mono",
-         "Average stereo channels into one channel during import. The source WAV is unchanged.",
+         "Average stereo channels into one channel during import. The source audio is unchanged.",
          ImportSettingType::Boolean, false},
         {"normalize_peak", "Normalize peak",
          "Scale the imported peak to 1 before trimming. This is peak, not loudness, normalization.",
@@ -118,7 +128,7 @@ ImportSettingsSchema audio_settings() {
     threshold.minimum = -96;
     threshold.maximum = -6;
     rules.push_back(std::move(threshold));
-    return {"forge.audio.wav", 1, std::move(rules)};
+    return {std::string(importer), 1, std::move(rules)};
 }
 std::string audio_recipe_revision() {
     return asset_build_digest({{"source", FORGE_AUDIO_RECIPE_FINGERPRINT},
@@ -133,7 +143,12 @@ WorkerLimits audio_worker_limits() {
     result.cancellation_grace_ms = 500;
     return result;
 }
-std::shared_ptr<const AssetImporter> audio_importer(std::filesystem::path worker) {
-    return std::make_shared<AudioImporter>(std::move(worker));
+std::shared_ptr<const AssetImporter> audio_importer(std::filesystem::path worker,
+                                                    const AudioSourceProfile& profile) {
+    const auto* supported = audio_source_profile(profile.importer);
+    require(supported && supported->format == profile.format &&
+                supported->extension == profile.extension && supported->label == profile.label,
+            "Unsupported audio source profile");
+    return std::make_shared<AudioImporter>(std::move(worker), *supported);
 }
 } // namespace forge::asset_detail

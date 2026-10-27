@@ -1,0 +1,40 @@
+{
+  "build_inputs": {
+    "backend": "none",
+    "dependencies": [],
+    "importer": "forge.audio.mp3",
+    "importer_revision": "c91c23b7614161e0a3fb2d689aaac204aa4fe97c564336e49c7d06fa963c33d1",
+    "key_version": 1,
+    "output_format": "forge.audio-clip",
+    "output_version": 1,
+    "platform": "linux",
+    "profile": "cpu",
+    "settings": {
+      "force_mono": false,
+      "normalize_peak": false,
+      "trim_silence": false,
+      "trim_threshold_db": -60.0
+    },
+    "settings_version": 1,
+    "source": "2f28991a80e15d8f63432819acdd60e0e965357c8c695518a8bd97529b47f075",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.audio.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "15e09146-b361-4bfd-98a2-a0583420edd5",
+    "source": "Assets/AudioCodecs/Stereo.mp3",
+    "source_digest": "2f28991a80e15d8f63432819acdd60e0e965357c8c695518a8bd97529b47f075",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.audio.mp3",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

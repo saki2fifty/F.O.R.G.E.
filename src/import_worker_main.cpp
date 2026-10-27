@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
         });
         const auto recipe = forge::asset_detail::read_import_process_recipe(staging);
         const bool model = recipe == "forge.model.gltf";
-        const bool audio = recipe == "forge.audio.wav";
+        const bool audio = forge::asset_detail::audio_source_profile(recipe) != nullptr;
         const bool tile =
             recipe == forge::tile_set_importer_id || recipe == forge::tile_map_importer_id;
         if (!model && !audio && !tile && recipe != "forge.texture.image" &&

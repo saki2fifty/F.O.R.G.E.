@@ -22,7 +22,7 @@ Official SDKs were reviewed; none is C++, and no SDK/reference code is included.
 | FreeType | 2.14.3 / `0a0221a1347e2f1e07c395263540026e9a0aa7c7` | Pinned RmlUi font backend, FTL license option | [Official source](https://github.com/freetype/freetype/tree/0a0221a1347e2f1e07c395263540026e9a0aa7c7) |
 | Recast Navigation | v1.6.0 / `6dc1667f580357e8a2154c28b7867bea7e8ad3a7` | Static single-tile generation, private Detour queries and local velocity sampling | [Official source](https://github.com/recastnavigation/recastnavigation/tree/v1.6.0) |
 | Ozz Animation | v0.17.0 / `744eb9d99f606eda849acb0b1204f7a3dc20bca1` | Private skeletal sampling/local blending/local-to-model, validated runtime archives, official gltf2ozz conversion | [Official source](https://github.com/guillaumeblanc/ozz-animation/tree/744eb9d99f606eda849acb0b1204f7a3dc20bca1) |
-| miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
+| miniaudio | v0.11.25 / `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` | WAV/FLAC/MP3 decoding, engine/group mixing, spatialization, WASAPI/PulseAudio/ALSA, offline tests | [Official source](https://github.com/mackron/miniaudio/tree/9634bedb5b5a2ca38c1ee7108a9358a4e233f14d) |
 | Jolt Physics | v5.6.0 / `e77f175595e64cb44218cc9d9d56fc365ad0e36a` | CPU rigid bodies, primitive shapes, queries, distance/hinge/point/fixed constraints, body loads, state recording | [Official source](https://github.com/jrouwe/JoltPhysics/tree/v5.6.0) |
 | Box2D | v3.2.0 / `178495ba35695aefe9c321e569d2277f06db3b90` | Private XY bodies, joints, queries, sensors, painted collision, character movement and recovery | [Official source](https://github.com/erincatto/box2d/tree/178495ba35695aefe9c321e569d2277f06db3b90) |
 | Flecs | v4.1.6 / `fb55f3c25660425cfe1bc4cf5e6bff8b3f18a9b8` | ECS/Meta/Doc/Units/Ranges, ordered hierarchies/prefabs, queries/timers, Script Math, optional diagnostics | [Source/docs](https://github.com/SanderMertens/flecs/tree/v4.1.6/docs) |
@@ -453,3 +453,14 @@ the complete commit. Tests of the standalone research build are not installed
 SDK or Windows feature acceptance. Local CMake/backend/profile checks pass two fixtures; package notice checks pass
 three fixtures, including retention of the previous ZIP on missing notice.
 Actual installed SDK, Windows, body/recovery and game-export gates remain pending.
+
+### Audio source codec configuration — 2026-10-27
+
+The unchanged miniaudio0.11.25 pin also supplies its bundled FLAC and MP3 decoders.
+`MA_NO_FLAC` and `MA_NO_MP3` are no longer defined; encoding/generation remain
+disabled. These are attributed miniaudio implementations, not FORGE-written codecs.
+Each importer explicitly selects the matching native decoder; no new decoder
+library, encoder or dependency revision is distributed. FORGE owns source admission,
+processing, publication and PCM lifetime. Existing cooked PCM and WAV identities
+remain readable; recipe fingerprints change with these build options. Exact source
+and executable mono/stereo checks are described in [Audio](audio.md).

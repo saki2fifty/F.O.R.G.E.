@@ -13,7 +13,8 @@ asset_import_registry(const std::filesystem::path& worker,
     registry->add(asset_detail::texture_importer(worker, false));
     registry->add(asset_detail::texture_importer(worker, true));
     registry->add(asset_detail::model_importer(worker, animation_converter));
-    registry->add(asset_detail::audio_importer(worker));
+    for (const auto& profile : asset_detail::audio_source_profiles)
+        registry->add(asset_detail::audio_importer(worker, profile));
     registry->seal();
     return registry;
 }
@@ -27,7 +28,7 @@ void prepare_asset_publication(AssetPublicationCandidate& candidate, const Asset
         if (!decisions.empty())
             throw std::runtime_error("Texture has no subasset correspondence decisions");
         prepare_texture_publication(candidate, plan);
-    } else if (plan.input.importer == "forge.audio.wav") {
+    } else if (asset_detail::audio_source_profile(plan.input.importer)) {
         if (!decisions.empty())
             throw std::runtime_error("AudioClip has no subasset correspondence decisions");
         prepare_audio_publication(candidate, plan);

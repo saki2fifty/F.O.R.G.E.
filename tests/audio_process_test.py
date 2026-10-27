@@ -2,7 +2,8 @@
 import copy,json,math,shutil,struct,subprocess,sys,tempfile,time,wave
 from pathlib import Path
 runtime=Path(sys.argv[1]).resolve()
-module=Path(sys.argv[2]).resolve() if len(sys.argv)>2 else None
+module=Path(sys.argv[2]).resolve() if len(sys.argv)>2 and sys.argv[2]!='-' else None
+codec_gallery=Path(sys.argv[3]).resolve() if len(sys.argv)>3 else None
 scene_id='11111111-1111-4111-8111-111111111111'
 entity_id='22222222-2222-4222-8222-222222222222'
 clip_id='33333333-3333-4333-8333-333333333333'
@@ -128,6 +129,25 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
   except AssertionError:pass
   else:raise AssertionError('Invalid recovery accepted')
   assert worker.request('snapshot')['audio']['voices']==1
+  if codec_gallery:
+   # Use published PCM from the editable examples in both actual worker modes.
+   # No source recordings are copied to the isolated runtime project.
+   catalog=json.loads((codec_gallery/'forge.assets.json').read_text())
+   codecs=[record for record in catalog['assets'] if record.get('source') in
+           ('Assets/AudioCodecs/Stereo.flac','Assets/AudioCodecs/Stereo.mp3')]
+   assert len(codecs)==2
+   for record in codecs:
+    key=record['metadata']['forge.import']['key']
+    dest=root/'.forge/cache/derived'/key
+    shutil.copytree(codec_gallery/'.forge/cache/derived'/key,dest)
+    (root/'forge.assets.json').write_text(json.dumps(dict(version=1,assets=[record])))
+    candidate=copy.deepcopy(scene)
+    candidate['entities'][0]['components']['forge.audio_source']['clip']=record['id']
+    observed=worker.request('replace',scene=candidate,audio_source_watch=ref)
+    assert observed['audio']['voices']==1 and observed['audio_source']['available'],observed
+    assert observed['audio_source']['playing']
+    assert not (root/record['source']).exists()
+    assert worker.request('step')['timing']['tick']==1
  finally:worker.close()
  if not module:
   headless=Worker(root,audio=False)
@@ -139,4 +159,4 @@ with tempfile.TemporaryDirectory(dir=runtime.parent) as folder:
    else:raise AssertionError('Headless audio mix accepted')
    assert headless.request('step')['timing']['tick']==1
   finally:headless.close()
-print('Audio protocol/recovery/headless/exact-SDK policy passed; no hardware playback claim')
+print('Audio protocol/recovery/headless/exact-SDK and optional cooked codec policy passed; no hardware playback claim')

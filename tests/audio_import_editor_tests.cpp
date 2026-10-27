@@ -43,51 +43,53 @@ template <class Frame> void click(Frame frame, const std::string& key) {
     frame();
 }
 void schema_controls() {
-    for (float scale : {.65f, 1.f, 1.5f, 2.f}) {
-        initialize(scale);
-        const auto schema = asset_detail::audio_settings();
-        ImportSettingsDocument draft{"forge.audio.wav"};
-        std::string error;
-        auto frame = [&] {
-            test::ui_targets.clear();
-            ImGui::NewFrame();
-            ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
-            ImGui::SetNextWindowSize({1400, 1200}, ImGuiCond_Always);
-            ImGui::Begin("WAV import settings");
-            ui::import_settings_fields(schema, draft, error);
-            ImGui::End();
-            ImGui::Render();
-        };
-        frame();
-        frame();
-        for (const auto* option : {"force_mono", "normalize_peak", "trim_silence"}) {
-            click(frame, std::string("import-setting:forge.audio.wav:") + option);
-            require(error.empty() && draft.overrides.at(option) == true,
-                    "Generated audio checkbox did not edit its settings draft");
+    for (const auto& profile : asset_detail::audio_source_profiles)
+        for (float scale : {.65f, 1.f, 1.5f, 2.f}) {
+            initialize(scale);
+            const auto schema = asset_detail::audio_settings(profile.importer);
+            ImportSettingsDocument draft{std::string(profile.importer)};
+            std::string error;
+            auto frame = [&] {
+                test::ui_targets.clear();
+                ImGui::NewFrame();
+                ImGui::SetNextWindowPos({0, 0}, ImGuiCond_Always);
+                ImGui::SetNextWindowSize({1400, 1200}, ImGuiCond_Always);
+                ImGui::Begin("Audio import settings");
+                ui::import_settings_fields(schema, draft, error);
+                ImGui::End();
+                ImGui::Render();
+            };
+            frame();
+            frame();
+            for (const auto* option : {"force_mono", "normalize_peak", "trim_silence"}) {
+                click(frame, ("import-setting:" + std::string(profile.importer) + ":") + option);
+                require(error.empty() && draft.overrides.at(option) == true,
+                        "Generated audio checkbox did not edit its settings draft");
+            }
+            auto& io = ImGui::GetIO();
+            auto number = [&](const char* text) {
+                click(frame,
+                      "import-setting:" + std::string(profile.importer) + ":trim_threshold_db");
+                io.AddKeyEvent(ImGuiMod_Ctrl, true);
+                io.AddKeyEvent(ImGuiKey_A, true);
+                frame();
+                io.AddKeyEvent(ImGuiKey_A, false);
+                io.AddKeyEvent(ImGuiMod_Ctrl, false);
+                io.AddInputCharactersUTF8(text);
+                frame();
+                io.AddKeyEvent(ImGuiKey_Enter, true);
+                frame();
+                io.AddKeyEvent(ImGuiKey_Enter, false);
+                frame();
+            };
+            number("-40");
+            require(error.empty() && schema.effective(draft).at("trim_threshold_db") == -40.,
+                    "Generated threshold input did not edit its settings draft");
+            number("nan");
+            require(!error.empty() && schema.effective(draft).at("trim_threshold_db") == -40.,
+                    "Nonfinite threshold escaped schema admission");
+            ImGui::DestroyContext();
         }
-        auto& io = ImGui::GetIO();
-        auto number = [&](const char* text) {
-            click(frame, "import-setting:forge.audio.wav:trim_threshold_db");
-            io.AddKeyEvent(ImGuiMod_Ctrl, true);
-            io.AddKeyEvent(ImGuiKey_A, true);
-            frame();
-            io.AddKeyEvent(ImGuiKey_A, false);
-            io.AddKeyEvent(ImGuiMod_Ctrl, false);
-            io.AddInputCharactersUTF8(text);
-            frame();
-            io.AddKeyEvent(ImGuiKey_Enter, true);
-            frame();
-            io.AddKeyEvent(ImGuiKey_Enter, false);
-            frame();
-        };
-        number("-40");
-        require(error.empty() && schema.effective(draft).at("trim_threshold_db") == -40.,
-                "Generated threshold input did not edit its settings draft");
-        number("nan");
-        require(!error.empty() && schema.effective(draft).at("trim_threshold_db") == -40.,
-                "Nonfinite threshold escaped schema admission");
-        ImGui::DestroyContext();
-    }
 }
 void workflow(const std::filesystem::path& worker, const std::filesystem::path& gallery,
               const std::filesystem::path& scratch) {

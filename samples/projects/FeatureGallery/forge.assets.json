@@ -1135,6 +1135,46 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "15e09146-b361-4bfd-98a2-a0583420edd5",
+      "metadata": {
+        "forge.audio": {
+          "channels": 2,
+          "duration": 0.5,
+          "encoding": "pcm-f32-le",
+          "format": "forge.audio-clip",
+          "frames": 12000,
+          "sample_rate": 24000,
+          "source_digest": "2f28991a80e15d8f63432819acdd60e0e965357c8c695518a8bd97529b47f075",
+          "source_format": "mp3",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "b653d4a709e34fedd0c06285a8e6e387901d6c2051b09b40849d4d458915a28e",
+          "backend": "none",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.audio.mp3",
+          "importer_revision": "c91c23b7614161e0a3fb2d689aaac204aa4fe97c564336e49c7d06fa963c33d1",
+          "key": "baa63c3861bc1677814215d7f15cc145a7e341ac280f2d1697d51a2b19d5dcd5",
+          "output_format": "forge.audio-clip",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "33ffe5cf6a8d0a38f94f92704fe2e1761bf86cf8d9c3f68a6d3d8bbf8e17fb87",
+          "settings_version": 1,
+          "sidecar_digest": "da8a6141f9f32a9c52a092516b41d531bdba082f2f0c4b42fa4ecc48bbe9638c",
+          "source_digest": "2f28991a80e15d8f63432819acdd60e0e965357c8c695518a8bd97529b47f075",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AudioCodecs/Stereo.mp3",
+      "source_dependencies": [],
+      "type": "audio_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "16566c91-7ea8-442b-9738-9181a84ddfd7",
       "metadata": {
         "forge.import": {
@@ -1309,6 +1349,46 @@
       "source": "Assets/Sprites/SignalFrames.animation.json",
       "source_dependencies": [],
       "type": "transform_animation"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "1c18cf55-2ea2-440e-84b9-c3ace1c2cb77",
+      "metadata": {
+        "forge.audio": {
+          "channels": 2,
+          "duration": 0.5,
+          "encoding": "pcm-f32-le",
+          "format": "forge.audio-clip",
+          "frames": 12000,
+          "sample_rate": 24000,
+          "source_digest": "329aee5e320b9c5c5dc0097f8d49dad06756c305f6feb727a57137c7cafd149f",
+          "source_format": "flac",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "2871ec4493df1eea87e27bce4ca9b0c56f33112dbe5b8e3f3a69f0a5a1ba0591",
+          "backend": "none",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.audio.flac",
+          "importer_revision": "c91c23b7614161e0a3fb2d689aaac204aa4fe97c564336e49c7d06fa963c33d1",
+          "key": "ca4ec1d2157c204527a103e1fde1017efebde981896ee18c4f2e7fb8bdea4124",
+          "output_format": "forge.audio-clip",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "33ffe5cf6a8d0a38f94f92704fe2e1761bf86cf8d9c3f68a6d3d8bbf8e17fb87",
+          "settings_version": 1,
+          "sidecar_digest": "0a46b0aa447f23c5fb1f1f951cc993381f943bca3689c2817e9dd836816010cd",
+          "source_digest": "329aee5e320b9c5c5dc0097f8d49dad06756c305f6feb727a57137c7cafd149f",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AudioCodecs/Stereo.flac",
+      "source_dependencies": [],
+      "type": "audio_clip"
     },
     {
       "dependencies": [
@@ -3558,6 +3638,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "54c3337f-87fa-4f06-a3a4-221bfcce4530",
+      "metadata": {},
+      "schema_version": 1,
+      "source": "Scenes/83-audio-source-codecs.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "5515a646-7b78-4ff4-adfe-2796db4384c3",
       "metadata": {
         "forge.import": {
@@ -4927,6 +5017,46 @@
       "source": "Scenes/69-scene-color-adjustments.scene.json",
       "source_dependencies": [],
       "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "7595392f-5150-4e3c-b7d5-1c5556bf4872",
+      "metadata": {
+        "forge.audio": {
+          "channels": 2,
+          "duration": 0.5,
+          "encoding": "pcm-f32-le",
+          "format": "forge.audio-clip",
+          "frames": 12000,
+          "sample_rate": 24000,
+          "source_digest": "bf782bbe2cd33faf121a45f34dea0758ee222f77cc2900e23551c8ed5cf177cb",
+          "source_format": "wav",
+          "version": 1
+        },
+        "forge.import": {
+          "artifact_digest": "5b9ab86c69d52b3b26a25c1710fd5faed5d998c3e6295150d1525b12c05e868f",
+          "backend": "none",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 2,
+          "importer": "forge.audio.wav",
+          "importer_revision": "c91c23b7614161e0a3fb2d689aaac204aa4fe97c564336e49c7d06fa963c33d1",
+          "key": "bfdd1284917ac986e3f2ad04f4a8419db382dfce7e19bf312ed2a4406b1c41e6",
+          "output_format": "forge.audio-clip",
+          "output_version": 1,
+          "platform": "linux",
+          "profile": "cpu",
+          "settings_digest": "33ffe5cf6a8d0a38f94f92704fe2e1761bf86cf8d9c3f68a6d3d8bbf8e17fb87",
+          "settings_version": 1,
+          "sidecar_digest": "bfd7ac479d6dd98a182225b3fdeb4288dbf993eeb880366782ae670a88aa3073",
+          "source_digest": "bf782bbe2cd33faf121a45f34dea0758ee222f77cc2900e23551c8ed5cf177cb",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/AudioCodecs/StereoReference.wav",
+      "source_dependencies": [],
+      "type": "audio_clip"
     },
     {
       "dependencies": [],

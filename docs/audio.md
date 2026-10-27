@@ -4,7 +4,7 @@
 
 ## Build and ownership
 
-Windows output explicitly selects WASAPI; Linux selects PulseAudio/ALSA with upstream dynamic backend loading. Null backend is enabled only for explicit internal tests, never an automatic physical-device fallback. WAV decoding, engine mixing/spatialization and threading remain enabled; MP3, FLAC, encoding and waveform generation are disabled. No external codec framework is linked. The default engine resource manager remains private. AudioRuntime owns the existing typed ResourcePool<AudioClipAsset>; voices retain immutable PCM leases and supply miniaudio buffer references. No loaded handle enters saved components or the gameplay ABI.
+Windows output explicitly selects WASAPI; Linux selects PulseAudio/ALSA with upstream dynamic backend loading. Null backend is enabled only for explicit internal tests, never an automatic physical-device fallback. WAV, FLAC and MP3 decoding, engine mixing/spatialization and threading are enabled; encoding and waveform generation remain disabled. No external codec framework is linked. The default engine resource manager remains private. AudioRuntime owns the existing typed ResourcePool<AudioClipAsset>; voices retain immutable PCM leases and supply miniaudio buffer references. No loaded handle enters saved components or the gameplay ABI.
 
 Each active Runtime WorldContext owns one AudioRuntime through EngineModule state. It owns stable-address context, engine, gameplay group, source voices and decoded clip data. Each voice maps a generation-bearing Flecs entity plus EntityRef to one miniaudio sound/buffer reference. Schema-only Authoring/Validation/default headless composition opens no device. `forge_audio` uses the private miniaudio engine and shared WAV decoder. The isolated asset worker links that decoder; authoring validates cooked PCM without opening a device. Core and authoring do not require an audio backend.
 
@@ -16,7 +16,7 @@ AudioSource holds `AssetRef<AudioClipAsset>`, autoplay/loop/spatialized flags, l
 
 AssetCatalog owns metadata in version1 `forge.assets.json`; ProjectPaths resolves contained project-relative locators. Registration is UI-independent and idempotent for a locator. UI calls require project writer ownership; a detected external index edit prevents publication. Metadata persistence is separate from scene Undo; no cross-document atomicity claim. The shared Phase7 importer/publication and source-watcher workflow below also supports AudioClip. Existing registered-only records remain readable without automatic migration.
 
-Sources are decoded once into bounded immutable PCM. Limits:256 voices including primary, pending and transient sources,16 one-shots per source,1024 queued commands,16MiB source,64MiB decoded clip,256MiB managed resident PCM,2 workers,256 pending requests and4096 selected asset slots. Worker decoding uses bounded temporary memory in addition to resident PCM. Mono/stereo WAV only; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame. Configuration corrections can recover a source; a failed immutable clip request requires restarting Play to retry file admission. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
+Sources are decoded once into bounded immutable PCM. Limits:256 voices including primary, pending and transient sources,16 one-shots per source,1024 queued commands,16MiB source,64MiB decoded clip,256MiB managed resident PCM,2 workers,256 pending requests and4096 selected asset slots. Worker decoding uses bounded temporary memory in addition to resident PCM. Mono/stereo WAV, FLAC and MP3 sources; executable sample checks cover PCM16 at24/48kHz, including resampling. Native invalid configuration and resource failures disable the affected voice with entity/clip/source/module/tick diagnostics. Failed unchanged configurations, including native NaNs, do not retry every frame. Configuration corrections can recover a source; a failed immutable clip request requires restarting Play to retry file admission. Cache lives until runtime teardown. New imports select immutable cooked revisions; an active runtime keeps its cached/playing revision until teardown. Restart Play adopts a newer selection. Reimport does not hot-swap a live waveform.
 
 ### Loading boundaries
 
@@ -194,7 +194,7 @@ with one nonspatial AudioSource, using the normal audio provider and selected
 cooked revision admission. Authoring worlds still expose no audio service.
 Selected identity/type/schema/source/metadata must match the current catalog;
 the existing loader independently admits artifact digest/PCM. The preview provider reads published cooked bytes independently of the original
-WAV; opening its document retains the existing import-editor contract. No private codec or runtime
+recording; opening its document retains the existing import-editor contract. No private codec or runtime
 backend is duplicated, no new asset ownership or gameplay clock is introduced.
 
 Explicit audition performs the existing bounded clip load (source16MiB/PCM64MiB).
@@ -359,21 +359,38 @@ recovery preserves cue intent without recovering or replaying audio cursors.
 Later work includes streaming music, voice stealing, custom buses and unpaused UI/music separation, cue graphs/effects, multiple listeners, sample-accurate recovery continuity and device selection.
 
 
-## Phase7 AudioClip import and selected revisions
+## AudioClip import and selected revisions
 
-Verified2026-09-21 against the unchanged exact miniaudio pin. `forge.audio.wav`
-uses the common importer registry, supervised `forge_asset_build` process,
-revision key/DDC, `AssetPublisher`, source/settings sidecar, source watcher,
-Content import document and public `forge_tools --assets import` operation.
-No second audio engine, device, simulation clock or catalog is introduced.
+The pinned miniaudio0.11.25 (`9634bedb5b5a2ca38c1ee7108a9358a4e233f14d`)
+provides WAV, FLAC and MP3 decoding. Explicit recipes `forge.audio.wav`,
+`forge.audio.flac` and `forge.audio.mp3` use one shared importer/settings/processing
+implementation, the supervised `forge_asset_build` worker, source/settings sidecar,
+watcher, revision key/DDC, AssetPublisher, Content document and public asset tools.
+Each selects `ma_encoding_format_wav`, `_flac` or `_mp3`; a mismatched extension
+never authorizes fallback format detection. Published source-format metadata and the Audio clip details identify the actual
+recording; importer, publication, cache and runtime reject cross-format metadata.
+Old WAV recipe IDs/settings, legacy
+registered-only WAV, asset identities and cooked PCM format1 remain supported.
+MP3/FLAC require importing; the legacy registration method still accepts WAV only.
 
-The worker uses `ma_decoder_config_init(ma_format_f32, 0, 0)`, explicitly selects
-`ma_encoding_format_wav`, then calls the pinned memory-init, frame-length,
-read-frames and uninit APIs. It checks whole-frame reads, mono/stereo format,
-finite samples,16MiB source and64MiB decoded limits. The pinned WAV decoder's
-384000Hz upper bound is retained; format recognition is not a claim that every
-WAV encoding has an acceptance fixture. Fixtures cover PCM16 at24/48/96kHz.
-The worker limit is512MiB/30seconds with bounded input/output and cancellation.
+The worker uses `ma_decoder_config_init(ma_format_f32, 0, 0)`, memory init,
+frame-length/read and uninit. It admits finite complete mono/stereo data within
+16MiB source/64MiB decoded and the existing384000Hz ceiling, in a512MiB/30second
+worker. Encoding/generation remain disabled; the existing miniaudio build now
+includes its bundled FLAC/MP3 decoders. No native codec type enters the SDK.
+FLAC matches independent original PCM exactly in the tested profile; MP3 is lossy.
+Encoder delay/padding metadata affects MP3 length; absent metadata can leave
+padding. Decoder admission is not universal bitstream validation: a shorter stream
+with no declared missing frames can be valid shortened audio. Ogg/Vorbis,
+streaming, arbitrary multichannel audio and source encoding remain unsupported.
+
+Original mono48kHz and stereo24kHz fixtures cover native decoding, cross-format
+rejection, processed shared recipes, actual supervised workers, stable publication,
+preview/waveform/seek, failed reimport retention and source-free playback. The
+shared import/export and MCP owners retain normal scope/revision/history rules.
+Development-only fixture encoding tools are not shipped or engine dependencies.
+Native Windows/MSVC, physical listening, external-client use and new authentic
+codec/gallery captures remain separate queued acceptance.
 
 The version1 settings schema adds optional `force_mono`, `normalize_peak` and
 `trim_silence` booleans, all false by default, and finite `trim_threshold_db`

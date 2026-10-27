@@ -66,7 +66,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Gameplay input, analog response and controller vibration](editor/input.md)
 - [Physics](editor/physics.md)
 - [3D and 2D navigation and destination editing](editor/navigation.md)
-- [Audio](editor/audio.md)
+- [Audio: WAV, FLAC and MP3 import, preview and playback](editor/audio.md)
 - [Runtime UI](editor/runtime-ui.md)
 - [Flecs Script](editor/flecs-script.md)
 

@@ -81,21 +81,23 @@ std::vector<ArtifactFile> execute_audio_recipe(const ImportProcessRequest& reque
     const auto& p = request.payload;
     if (stop.stop_requested())
         throw std::runtime_error("Audio import cancelled");
-    if (p.at("recipe") != "forge.audio.wav" ||
-        p.at("revision").get<std::string>() != audio_recipe_revision() ||
-        request.inputs.size() != 1 || request.inputs.front().name != "source.wav")
+    const auto* profile = audio_source_profile(p.at("recipe").get<std::string>());
+    if (!profile || p.at("revision").get<std::string>() != audio_recipe_revision() ||
+        request.inputs.size() != 1 ||
+        request.inputs.front().name != "source" + std::string(profile->extension))
         throw std::runtime_error("Invalid audio worker recipe/revision/input");
     const auto settings =
-        audio_settings().effective(p.at("settings").get<ImportSettingsDocument>());
+        audio_settings(profile->importer).effective(p.at("settings").get<ImportSettingsDocument>());
     const auto& source = request.inputs.front().bytes;
     const auto digest = content_digest(source);
     if (digest != p.at("source_digest").get<std::string>())
         throw std::runtime_error("Audio source snapshot digest changed");
-    auto decoded = decode_audio_wav(source);
+    auto decoded = decode_audio_source(source, profile->format);
     if (stop.stop_requested())
         throw std::runtime_error("Audio import cancelled after decode");
     process(decoded, settings, stop);
-    const auto text = audio_clip_metadata(decoded, digest).dump();
+    const auto text =
+        audio_clip_metadata(decoded, digest, std::string(profile->extension.substr(1))).dump();
     const auto span = std::as_bytes(std::span(text));
     return {{"audio.fpcm", encode_audio_clip(decoded)}, {"audio.json", {span.begin(), span.end()}}};
 }

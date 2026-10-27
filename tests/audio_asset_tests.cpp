@@ -4,6 +4,8 @@
 #include "audio_authoring.hpp"
 #include "audio_bundle.hpp"
 #include "audio_importer.hpp"
+#include "audio_loading_test.hpp"
+#include "audio_preview.hpp"
 #include "audio_selection.hpp"
 #include "runtime_package.hpp"
 #include <array>
@@ -212,6 +214,7 @@ void processing_tests(const std::filesystem::path& root, bool direct,
     invalid.overrides["trim_threshold_db"] = std::numeric_limits<double>::quiet_NaN();
     rejects([&] { (void)schema.effective(invalid); });
 }
+#include "audio_codec_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -223,6 +226,7 @@ int main(int argc, char** argv) {
             std::filesystem::remove_all(root);
         std::filesystem::create_directories(root / "Assets");
         processing_tests(root, direct, std::filesystem::absolute(argv[2]));
+        codec_tests(root / "codecs", direct, std::filesystem::absolute(argv[2]));
         auto bytes = wav();
         write(root / "Assets/tone.wav", bytes);
         // Explicitly upgrade an existing registered record without changing ID.

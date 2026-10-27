@@ -13,8 +13,10 @@ struct AudioClipData {
     std::uint32_t channels = 0, rate = 0;
     double duration() const { return rate ? double(frames) / rate : 0; }
 };
+enum class AudioSourceFormat { Wav, Flac, Mp3 };
 // Native miniaudio decode, shared by the isolated cooker and legacy runtime
 // source path. No device, engine, voices, ECS or editor objects are created.
+AudioClipData decode_audio_source(std::span<const std::byte>, AudioSourceFormat);
 AudioClipData decode_audio_wav(std::span<const std::byte>);
 // Private cooked PCM transport: exact header/length/finite-sample admission.
 // It does not contain a native miniaudio object or platform-endian struct dump.

@@ -1,6 +1,7 @@
 #include "audio_selection.hpp"
 #include "asset_bytes.hpp"
 #include "audio_bundle.hpp"
+#include "audio_importer.hpp"
 #include <forge/audio_components.hpp>
 #include <forge/project_paths.hpp>
 namespace forge::asset_detail {
@@ -9,7 +10,11 @@ AudioClipData load_audio_clip(const std::filesystem::path& project, const AssetR
         throw std::runtime_error("Missing or incompatible AudioClip asset");
     if (const auto selected = record.metadata.find("forge.import");
         selected != record.metadata.end()) {
-        if (!selected->is_object() || selected->at("importer") != "forge.audio.wav")
+        const auto* profile =
+            selected->is_object()
+                ? audio_source_profile(selected->at("importer").get<std::string>())
+                : nullptr;
+        if (!profile)
             throw std::runtime_error("AudioClip has an incompatible published importer");
         auto artifact =
             DerivedDataCache(project, {max_audio_pcm_bytes + 65536, max_audio_pcm_bytes + 65536, 2})
@@ -21,7 +26,8 @@ AudioClipData load_audio_clip(const std::filesystem::path& project, const AssetR
             throw std::runtime_error("AudioClip catalog/artifact revision mismatch");
         const auto metadata = validate_audio_bundle(artifact.files);
         if (metadata != record.metadata.at("forge.audio") ||
-            metadata.at("source_digest") != selected->at("source_digest"))
+            metadata.at("source_digest") != selected->at("source_digest") ||
+            metadata.at("source_format") != profile->extension.substr(1))
             throw std::runtime_error(
                 "Selected AudioClip metadata does not match its cooked revision");
         return audio_bundle_clip(artifact.files);

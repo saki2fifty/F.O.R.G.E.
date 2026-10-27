@@ -1,4 +1,14 @@
-# 2026-10-27 — Runtime timing and gamepad feedback
+# 2026-10-27 — Runtime timing, input, profiling and audio
+
+## Audio source codecs
+
+MP3 and FLAC now share WAV's supervised import, processing settings, selected PCM,
+preview/waveform, source watcher, runtime/export and existing MCP asset workflows.
+Distinct new recipes preserve WAV settings, identity and old cooked revisions.
+The existing pinned miniaudio decoders are enabled; no new codec/encoder dependency
+or public SDK ABI is introduced. Original mono/stereo recordings and Gallery83
+compare the same WAV, FLAC and MP3 audio. Native Windows and physical listening,
+external-client and new authentic screenshot acceptance remain pending.
 
 Local source; Windows verification and numbered delivery remain pending.
 

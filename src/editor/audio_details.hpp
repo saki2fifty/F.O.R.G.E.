@@ -5,7 +5,8 @@ namespace forge {
 inline void draw_audio_details(const AssetRecord& record) {
     const auto found = record.metadata.find("forge.audio");
     if (found == record.metadata.end()) {
-        ImGui::TextWrapped("Import this WAV to validate it and record its duration and format.");
+        ImGui::TextWrapped(
+            "Import this audio source to validate it and record its duration and format.");
         ui::help("Legacy registration preserves the clip identity. Importing it publishes "
                  "validated audio data without changing scene references.");
         return;
@@ -18,10 +19,18 @@ inline void draw_audio_details(const AssetRecord& record) {
         ui::help("One channel is mono; two channels are stereo. This importer preserves the source "
                  "channel count.");
         ImGui::Text("Sample rate: %u Hz", value.at("sample_rate").get<unsigned>());
-        ui::help("Samples per second in each channel; the importer preserves the WAV rate.");
-        ImGui::TextUnformatted("WAV source / 32-bit floating-point PCM");
-        ui::help("The isolated importer decodes the WAV with miniaudio and publishes immutable "
-                 "PCM. Restart Play to use a newer clip revision.");
+        ui::help("Samples per second in each channel; the importer preserves the source rate.");
+        const auto format = value.at("source_format").get<std::string>();
+        const char* label = format == "wav"    ? "WAV"
+                            : format == "flac" ? "FLAC"
+                            : format == "mp3"  ? "MP3"
+                                               : nullptr;
+        if (!label)
+            throw std::runtime_error("Unsupported AudioClip source format");
+        ImGui::Text("%s source / 32-bit floating-point PCM", label);
+        ui::help(
+            "The isolated importer decodes the recording with miniaudio and publishes immutable "
+            "PCM. Restart Play to use a newer clip revision.");
     } catch (const std::exception&) {
         ImGui::TextWrapped("Audio metadata is unavailable or invalid. Reimport the source.");
         ui::help("The runtime independently checks the selected cooked bytes; invalid metadata "

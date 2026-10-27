@@ -1,6 +1,7 @@
 """Real owning editor controllers and installed native import workers through MCP."""
 from contextlib import contextmanager
 import json
+import shutil
 from pathlib import Path
 import struct
 import subprocess
@@ -191,6 +192,30 @@ for legacy in (False, True):
         assert (root / 'Game' / complete['receipt']['retained_files']).is_dir()
         assert mutate('forge_asset_files_close', job=job)['ok']
         assert config['token'] not in json.dumps(CAPTURE)
+
+        # The same reviewed source owner admits original compressed audio.
+        fixtures = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Assets/AudioCodecs'
+        for extension in ('flac', 'mp3'):
+            source_name = 'Stereo.' + extension
+            shutil.copy2(fixtures / source_name, root / 'Sources' / source_name)
+            prepared = mutate('forge_asset_import_prepare', sources=[source_name], root='import',
+                              destination='Assets/Codec-' + extension)
+            assert prepared['ok'], prepared
+            batch = prepared['result']['batch']
+            review = wait_for(lambda: read('forge_asset_import_review'),
+                              lambda value: value['state'] in ('review', 'failed'))
+            assert review['state'] == 'review', review
+            failed(mutate('forge_asset_import_commit', batch=batch, review='0' * 64), 'stale_review')
+            assert mutate('forge_asset_import_commit', batch=batch, review=review['review'])['ok']
+            imported = wait_for(jobs, lambda value: value['source_import']['state'] in ('done', 'failed'), 60)
+            assert imported['source_import']['published'] == 1, imported
+            assert mutate('forge_asset_import_close', batch=batch)['ok']
+            records = read('forge_asset_search', include_engine=False, type='audio_clip')['assets']
+            codec = next(item for item in records if item['source'].endswith(source_name))
+            metadata = read('forge_asset_read', asset=codec['asset'])['metadata']
+            assert metadata['forge.import']['importer'] == 'forge.audio.' + extension
+            assert metadata['forge.audio']['source_format'] == extension
+            assert metadata['forge.audio']['channels'] == 2 and metadata['forge.audio']['frames'] == 12000
 
         # Original FORGE triangle fixture: real glTF dependency copy, model cooking
         # and the same asynchronous model-placement service as viewport drops.

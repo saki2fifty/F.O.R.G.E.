@@ -202,6 +202,26 @@ for legacy in (False, True):
         assert imported['effective']['force_mono']
         assert import_edit('forge_asset_settings_close')['ok']
 
+        # MP3/FLAC share the existing typed settings owner, revision checks and worker.
+        fixtures = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Assets/AudioCodecs'
+        for extension in ('flac', 'mp3'):
+            source_name = 'Stereo.' + extension
+            (root / 'Game/Assets' / source_name).write_bytes((fixtures / source_name).read_bytes())
+            assert mutate('forge_asset_settings_open', editor='audio_import', path='Assets/' + source_name)['ok']
+            initial = read('forge_asset_settings_status', editor='audio_import')
+            assert initial['effective']['force_mono'] is False
+            assert import_edit('forge_asset_settings_edit', changes=[dict(key='force_mono', value=True)])['ok']
+            assert import_edit('forge_asset_settings_publish')['ok']
+            end = time.monotonic() + 35
+            while True:
+                imported = read('forge_asset_settings_status', editor='audio_import')
+                if not imported['job']: break
+                assert time.monotonic() < end, imported
+                time.sleep(.02)
+            assert not imported['dirty'] and not imported['diagnostic'], imported
+            assert imported['effective']['force_mono']
+            assert import_edit('forge_asset_settings_close')['ok']
+
         # Prefab publication and durable Apply reuse the source editor/library/SceneDocument.
         created = mutate('forge_entity_create', arguments=dict(kind=0, name='Prefab original'))
         assert created['ok'], created

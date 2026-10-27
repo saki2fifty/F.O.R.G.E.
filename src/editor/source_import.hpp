@@ -1,6 +1,7 @@
 #pragma once
 #include "../asset_bytes.hpp"
 #include "../asset_storage.hpp"
+#include "../audio_importer.hpp"
 #include "../model_importer.hpp"
 #include "../source_copy.hpp"
 #include "content_imports.hpp"
@@ -128,7 +129,7 @@ class SourceImport {
         // graphs. Their document/file workflows, not raw source copying, own duplication.
         std::erase_if(profiles_, [](const auto& profile) {
             return profile.importer != "forge.model.gltf" &&
-                   profile.importer != "forge.audio.wav" &&
+                   !asset_detail::audio_source_profile(profile.importer) &&
                    profile.importer != "forge.texture.image" &&
                    profile.importer != "forge.texture.container";
         });

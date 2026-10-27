@@ -38,7 +38,31 @@ To try it, open the packaged Feature Gallery and double-click
 **Assets/FalloffTone.wav** in Content. The original tone used by its audio scenes
 is ready to preview. If sound output cannot open, the tab explains the error.
 
-An **Audio Source** plays a registered WAV clip during Play. An **Audio Listener** is the position and orientation from which spatial sounds are heard. Both are ordinary scene components and work with prefab inheritance and Undo/Redo.
+An **Audio Source** plays an imported audio clip during Play. An **Audio Listener** is the position and orientation from which spatial sounds are heard. Both are ordinary scene components and work with prefab inheritance and Undo/Redo.
+
+## Supported audio sources
+
+Import **WAV**, **FLAC** or **MP3** files with one or two channels. The source
+extension must match its format. FLAC preserves the original samples; MP3 is
+lossy and may sound different from the original recording. MP3 timing uses the
+encoder delay/padding information when present; files without that information
+can contain leading or trailing padding.
+
+Use **Content → Import files...** to copy external recordings into your project
+and review them before import. For a file already inside the project, choose
+**Content → Create / Register → Import audio...**, enter its project-relative
+path, then choose **Review settings** and **Import / Reimport**.
+
+All three formats use the same preview, waveform, import settings and Audio
+Source controls. Exported games use cooked PCM rather than decoding the source
+recording. Compressed sources therefore still count toward the decoded-memory
+limit; this is not streaming music support. Ogg/Vorbis and multichannel recordings
+are not supported.
+
+To compare formats, open **83 — Audio source codecs** in the Feature Gallery.
+The three speakers use the same original stereo tone as WAV, FLAC and MP3. Only
+WAV starts automatically. Stop, disable its **Play On Start**, enable it on one
+other speaker, then Play again. You can also preview each clip from Content.
 
 ## Process a clip during import
 
@@ -54,7 +78,7 @@ then normalizes, then trims. The preview shows the resulting channels and durati
 Editing settings stops the old preview. **Reload saved settings** discards the
 draft; **Reset to defaults** creates a draft with processing turned off.
 
-Your original WAV remains unchanged. Games use the processed clip already built
+Your original audio source remains unchanged. Games use the processed clip already built
 during import, including in exported games. Stop and restart Play after reimport
 to hear the new revision in a running scene. Scene Undo does not undo an import.
 
@@ -64,8 +88,8 @@ uses mono, normalization and trimming. Preview either clip to compare.
 
 ## Hear your first sound
 
-1. Copy the included `Examples/Audio/test-tone.wav` into your project's `Assets` folder. You can also use your own small mono or stereo WAV.
-2. Open **Content → Create / Register → Import audio...**, enter the project-relative `Assets/test-tone.wav` source, choose **Review settings**, then **Import / Reimport** in the central **Audio clip** document. Alternatively, **Content → Import files...** copies external WAVs into a new project folder and imports them after your review.
+1. Copy the included `Examples/Audio/test-tone.wav` into your project's `Assets` folder. You can also use your own small mono or stereo WAV, FLAC or MP3.
+2. Open **Content → Create / Register → Import audio...**, enter the project-relative `Assets/test-tone.wav` source, choose **Review settings**, then **Import / Reimport** in the central **Audio clip** document. Alternatively, **Content → Import files...** copies external WAV, FLAC or MP3 files into a new project folder and imports them after your review.
 3. Create a cube and select it. Use **+ Add Component → Audio / Audio Source** in Inspector.
 4. Select it in **Clip**. Enable **Play On Start** and **Loop**.
 5. Create another entity at the origin, select it, use **+ Add Component → Audio / Audio Listener**. Leave **Enabled** checked.
@@ -179,24 +203,24 @@ game tick. Rebuild project code when the installed SDK fingerprint changes.
 
 ## Registered clips
 
-Import runs in a separate worker. It validates the WAV, prepares immutable audio
+Import runs in a separate worker. It validates the audio source, prepares immutable audio
 data, and records **Duration**, **Channels**, **Sample rate** and format. Select
 the AudioClip in Content to see these details in Inspector, or double-click it to
 open **Audio clip**. Its **Clip details** update even when Content is closed or folded. Import settings can combine channels, normalize peaks and trim quiet edges. Drop it onto an Audio Source's **Clip** field to assign it;
 an incompatible asset type is rejected.
 
-Keep `forge.assets.json`, the WAV and its `.forge-import.json` sidecar in source
-control. Import does not modify the WAV and is separate from scene Undo. Reimport
+Keep `forge.assets.json`, the source recording and its `.forge-import.json` sidecar in source
+control. Import does not modify the source recording and is separate from scene Undo. Reimport
 preserves its AssetId and scene references. Existing clips created by the older
 Register WAV command still work; opening and importing one adds validated data
 without replacing its identity.
 
-The source watcher can reimport changed WAVs after a clip has been imported. Use
+The source watcher can reimport changed audio sources after a clip has been imported. Use
 Content's **Reimport** action to retry a failed source. A bad or stale candidate
 keeps the previously selected audio and metadata. **Restart Play** to hear a newly
 published revision; an active voice keeps its current decoded clip. There is no
 automatic replacement of a playing waveform. Runtime loading of imported clips
-uses the selected cooked data and does not require the source WAV.
+uses the selected cooked data and does not require the source recording.
 
 Supported Content file operations preserve or deliberately duplicate identity;
 automatic relocation of files moved outside FORGE is not implemented. Move the
@@ -207,10 +231,10 @@ data is diagnosed; reimport from the source to rebuild it.
 
 After crash/reload recovery, FORGE rebuilds audio from the recovered component configuration. **Play On Start** voices restart from the beginning; other voices remain stopped. A paused recovery remains silent until Resume. Sample positions, manual playback commands and music continuity are not restored or saved in scenes.
 
-Use mono or stereo WAV files. Start with 16-bit PCM at 24, 48 or 96 kHz;
+Use mono or stereo WAV, FLAC or MP3 files. For WAV, start with 16-bit PCM at 24, 48 or 96 kHz;
 unsupported or invalid encodings report an import error.
 
-Audio supports up to 256 voices, mono/stereo WAV files up to 16 MiB, up to
+Audio supports up to 256 voices, mono/stereo source files up to 16 MiB, up to
 64 MiB decoded per clip and 256 MiB of decoded clip data per runtime. Repeated
 sources share loaded clip data. Imported clips load in the background; a source
 can remain silent while its first load finishes. Import older registered-only
@@ -220,7 +244,7 @@ Missing clips, invalid files and unavailable devices appear in the existing Play
 log in **Console**. Optional device failure allows the game to continue silently.
 Restart Play after fixing files/device selection if the operating system does not
 recover playback. Use the Audio clip document to audition a sound and the mixer
-controls to balance buses. Device selection, automatic voice stealing, MP3/FLAC,
+controls to balance buses. Device selection, automatic voice stealing,
 streaming music and replacement of an already playing waveform are unavailable.
 Check the mix through the speakers or headphones your players will use.
 
@@ -234,7 +258,7 @@ Stop, disable **Play On Start** on blue, enable it on one other cube, and Play.
 Move the camera nearer/farther while stopped, or change the selected source's live
 strength during Play. Save authored settings while stopped before exporting.
 An exported game includes the compiled engine and cooked sound; it needs the
-original WAV only when you return to authoring/reimport in the editor.
+original recording only when you return to authoring/reimport in the editor.
 
 ## Aim a directional sound
 

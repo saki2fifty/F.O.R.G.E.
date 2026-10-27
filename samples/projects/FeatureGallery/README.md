@@ -1,5 +1,15 @@
 # FORGE Feature Gallery
 
+## Audio source codec comparison
+
+Open **Scenes/83-audio-source-codecs.scene.json**. Three speakers play the same
+original stereo recording as WAV, FLAC and MP3. Only WAV starts automatically.
+Stop, disable its Play On Start, enable one other speaker and Play again. Open
+Assets/AudioCodecs clips in Content to audition, seek, inspect their waveforms or
+apply the same import settings. Save before exporting; exported games use cooked
+PCM and do not need the original recordings. FLAC is lossless; MP3 is lossy.
+The folder also contains original mono recordings for import practice.
+
 ## Moving Maps and trigger regions
 
 Open **Scenes/81-moving-tile-maps.scene.json** and Play. The painted course moves

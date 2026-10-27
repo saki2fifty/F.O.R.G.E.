@@ -538,7 +538,7 @@ separate from portable Linux process/socket and ImGui harness execution.
 real owner fixtures on Linux without enabling the Windows/D3D12 editor. It reuses
 the pinned ImGui dependency only in test targets; exported games still do not
 link it. The shared Windows editor acceptance selection includes all `mcp_`
-checks. `mcp_asset_stdio` uses actual workers and editor owners for raw glTF/audio
+checks. `mcp_asset_stdio` uses actual workers and editor owners for raw glTF/WAV/FLAC/MP3
 imports, source revision conflicts, model/mesh placement and history, reviewed
 file operations, recovery, permissions and replay. Native Windows/GPU validation
 remains a separate gate.
@@ -549,7 +549,7 @@ copy-on-write tile painting, saved-state dirtiness, native publication, typed
 import setting atomicity, source disk conflicts, prefab source publication and
 recoverable two-file Apply Undo/Redo through both MCP protocol envelopes. It
 publishes Material, Collision, Editable Mesh, Particle Effect, Terrain, Tile Set,
-transform-animation and WAV candidates through their real owners. Rig-dependent
+transform-animation and WAV/FLAC/MP3 candidates through their real owners. Rig-dependent
 animation sources are exercised for draft validation/history; graph shader
 compilation is not claimed by this fixture. It drives ImGui frames without a GPU
 window; graph shader compilation and native
@@ -625,3 +625,9 @@ is added. Actual controller output is executed by the focused editor/standalone
 platform owner. A headless MCP test host without that physical adapter cannot
 claim vibration acceptance. Use Play logs and the module's copied feedback counters
 to distinguish completion from rejected/unavailable device feedback.
+
+Audio codecs use the existing `forge_asset_import_prepare`/review/commit/reimport
+and `forge_asset_settings_*` tools. MP3/FLAC share the Audio clip settings schema,
+processing, publication and runtime PCM owner with WAV. No codec-specific MCP tool
+or bypass is required. Source-copy grants, reviewed digests, project revisions,
+last-good publication and Scene Undo boundaries remain unchanged.
