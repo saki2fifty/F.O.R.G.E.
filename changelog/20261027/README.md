@@ -1,5 +1,13 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Pose capture ownership and history
+
+Fixed-tick presentation adopts its newly owning node map and aligns sorted history
+in one ordered pass. The existing const-reference API retains caller-owned source
+semantics; interpolation, parent/generation snaps and protocol/SDK values remain
+unchanged. Measured method-only reductions are documented with their scope and
+shared-VM limits. No new pose store, cache, game-authoring API or dependency.
+
 ## Repeatable runtime CPU reports
 
 Developer source tooling runs deterministic flat/hierarchical transform workloads

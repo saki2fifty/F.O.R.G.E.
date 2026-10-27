@@ -93,6 +93,18 @@ samples. Fixed systems, physics and Flecs timers continue using positive fixed d
 
 `PresentationPoses` stores previous/current effective local translation, quaternion rotation and scale, keyed by generation-bearing Flecs handles. `WorldContext::transform_nodes()` supplies the same effective spatial graph used by Phase 3, including generated prefab interiors. This is a transient read snapshot, not another authoritative ECS hierarchy.
 
+The fixed-tick producer transfers that newly owning map through host-only
+`capture_owned(Nodes)`. Current history adopts it; previous history retains the
+prior value snapshot. The existing `capture(const Nodes&)` signature remains a
+copying wrapper, preserving caller-owned input. One ordered pass aligns the two
+maps, retires removed keys, inserts fresh samples and snaps changed-parent matches.
+Generation-bearing keys, local interpolation, discontinuities and reset behavior
+are unchanged. There are no borrowed node pointers, new cache or SDK table entries.
+See [performance evidence](editor-performance.md) for the measured operation and
+its narrower scope than full pose gathering or fixed-tick cost. Automation/MCP use
+the same unchanged derived presentation/profiling observations; no new authoring
+operation or binding is introduced.
+
 While running, alpha = accumulator / fixed_dt. Translation and scale use linear interpolation; normalized rotation uses shortest-path quaternion slerp (normalized linear limit for nearly equal rotations). The shared transform evaluator composes interpolated local poses through the hierarchy exactly once. It supports FollowStructure, World and membership-qualified Explicit bindings; unresolved parents stay unresolved. Affine WorldTransform matrices are never interpolated.
 
 Snapshot `effective_scene.world_affine` carries this derived render output. The other reflected fields describe the current completed simulation state; this is not an independently editable pose document. Interpolation never writes LocalTranslation/LocalRotation/LocalScale or simulation WorldTransform. Authoring gizmos remain immediate.

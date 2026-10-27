@@ -12,6 +12,17 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Pose-history ownership uses `runtime_clock_and_interpolation` for both legacy
+copying and owned-value admission: local interpolation, parent/resolution snaps,
+sparse insertion/removal, generation recycling, empty captures and unchanged caller
+data. `cpu_profile_process` and `runtime_cpu_benchmark` cover actual isolated ticks
+and source/world correctness. Relevant SDK Play, root-motion, material-animation,
+hierarchical-transform, physics/recovery and runtime protocol checks cover consumers.
+Native capture-only before/after evidence requires matching driver/source/binary/
+native/configuration and quiet paired runs; it is separate from full-tick costs.
+Strict sanitizer proof covers changed Runtime/Clock FORGE units; unchanged native
+libraries remain normal. Public SDK/ABI/format/automation operations are unchanged.
+
 `runtime_cpu_benchmark` runs five source-tool checks: independent fixture parent
 sums/canonical IDs, statistics, rejected world/source changes, report/baseline
 admission, and actual small runtime reports with comparison/immutable-output

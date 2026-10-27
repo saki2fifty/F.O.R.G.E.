@@ -99,14 +99,22 @@ void clocks() {
     for (double hz : {0., -1., 241., std::numeric_limits<double>::infinity()})
         rejects([&] { RuntimeClock invalid({hz}); });
 }
-void poses() {
+void poses(bool owned) {
     PresentationPoses history;
+    const auto capture = [&](const PresentationPoses::Nodes& source) {
+        const auto original = source;
+        if (owned)
+            history.capture_owned(PresentationPoses::Nodes(source));
+        else
+            history.capture(source);
+        check(source == original, "Capture changed caller-owned pose data");
+    };
     PresentationPoses::Nodes nodes{{1, {}}};
     history.reset(nodes);
     nodes[1].local.translation.x = 10;
     nodes[1].local.scale = {3, 3, 3};
     nodes[1].local.rotation = rotation_about_axis({0, 1, 0}, 90);
-    history.capture(nodes);
+    capture(nodes);
     const auto half = history.evaluate(.5).at(1).affine;
     expect_near(half.m[3], 5);
     expect_near(half.m[0], std::sqrt(2.), 3e-7);
@@ -118,7 +126,7 @@ void poses() {
     history.reset(nodes);
     auto q = nodes[1].local.rotation;
     nodes[1].local.rotation = {-q.x, -q.y, -q.z, -q.w};
-    history.capture(nodes);
+    capture(nodes);
     expect_near(history.evaluate(.5).at(1).affine.m[2], 3, 3e-7);
     history.snap(1);
     expect_near(history.evaluate(0).at(1).affine.m[3], 10);
@@ -127,29 +135,29 @@ void poses() {
     nodes[1].local.translation.x = 10;
     nodes[2].local.translation.x = 4;
     nodes[3].local.translation.x = 6;
-    history.capture(nodes);
+    capture(nodes);
     auto values = history.evaluate(.5);
     expect_near(values.at(2).affine.m[3], 7); // parent 5 + child 2, each applied once.
     expect_near(values.at(3).affine.m[3], 3); // World bound.
     nodes[4] = {{{12, 0, 0}, {}, {}}};
-    history.capture(nodes);
+    capture(nodes);
     expect_near(history.evaluate(0).at(4).affine.m[3], 12); // spawn.
     nodes[2].parent = 3;
     nodes[2].local.translation.x = 100;
-    history.capture(nodes);
+    capture(nodes);
     expect_near(history.evaluate(0).at(2).affine.m[3], 106); // reparent reset.
     nodes[2].local.translation.x = 500;
-    history.capture(nodes);
+    capture(nodes);
     history.snap(2);
     expect_near(history.evaluate(0).at(2).affine.m[3], 506); // teleport.
     nodes[2].parent_resolved = false;
-    history.capture(nodes);
+    capture(nodes);
     check(!history.evaluate(.5).at(2).resolved, "missing explicit target");
     // Interpolate the local rotation before hierarchy composition, not child world matrices.
     nodes = {{1, {}}, {2, {{{2, 0, 0}, {}, {}}, 1, true}}};
     history.reset(nodes);
     nodes[1].local.rotation = rotation_about_axis({0, 1, 0}, 90);
-    history.capture(nodes);
+    capture(nodes);
     expect_near(history.evaluate(.5).at(2).affine.m[3], std::sqrt(2.), 2e-7);
     expect_near(history.evaluate(.5).at(2).affine.m[11], -std::sqrt(2.), 2e-7);
     nodes.clear();
@@ -158,10 +166,37 @@ void poses() {
     history.reset(nodes);
     for (auto& [id, node] : nodes)
         node.local.translation.x = 3;
-    history.capture(nodes);
+    capture(nodes);
     expect_near(history.evaluate(.5).at(512).affine.m[3], 1024);
     rejects([&] { history.evaluate(-.1); });
     rejects([&] { history.evaluate(1.1); });
+    // Sparse keys exercise head/middle/tail retirement and hinted insertion.
+    nodes = {{1, {{{1, 0, 0}, {}, {}}}},
+             {3, {{{3, 0, 0}, {}, {}}}},
+             {5, {{{5, 0, 0}, {}, {}}}},
+             {7, {{{7, 0, 0}, {}, {}}}}};
+    history.reset(nodes);
+    nodes = {{2, {{{20, 0, 0}, {}, {}}}},
+             {3, {{{30, 0, 0}, {}, {}}}},
+             {6, {{{60, 0, 0}, {}, {}}}},
+             {9, {{{90, 0, 0}, {}, {}}}}};
+    capture(nodes);
+    values = history.evaluate(.5);
+    check(values.size() == 4 && !values.contains(1) && !values.contains(5) && !values.contains(7),
+          "Retired pose keys survived capture");
+    expect_near(values.at(3).affine.m[3], 16.5);
+    for (const auto id : {2u, 6u, 9u})
+        expect_near(values.at(id).affine.m[3], id * 10.);
+    const auto fresh_generation = (std::uint64_t{1} << 32) | 3;
+    nodes.erase(3);
+    nodes[fresh_generation] = {{{123, 0, 0}, {}, {}}};
+    capture(nodes);
+    values = history.evaluate(0);
+    check(values.size() == 4 && !values.contains(3), "Recycled generation reused old history");
+    expect_near(values.at(fresh_generation).affine.m[3], 123);
+    nodes.clear();
+    capture(nodes);
+    check(history.evaluate(.5).empty(), "Empty capture retained old samples");
 }
 void simulation_rates() {
     for (const auto [rate, expected] : std::array<std::pair<double, unsigned>, 6>{
@@ -407,7 +442,8 @@ int main(int argc, char** argv) {
         simulation_rates();
         unscaled_time();
         signed_scale_interpolation();
-        poses();
+        poses(false);
+        poses(true);
         partial_pose_publish();
         live();
         test_runtime_entities();

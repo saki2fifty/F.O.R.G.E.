@@ -5,6 +5,39 @@ about physical-GPU FPS or every scene. See [CI](ci.md) for reproducible tooling.
 
 ## Repeatable transform CPU reports — 2026-10-27
 
+### Owned pose capture and ordered history synchronization
+
+The fixed-tick producer already returns a new owning map. Adopting it removes a
+copy that was immediately discarded, while the legacy const-reference API retains
+its copying behavior. Matching two sorted maps in one ordered pass removes two
+sets of repeated tree lookups for retained/removed keys. Previous/current ownership,
+reparent/new-generation snaps and interpolation outputs remain unchanged.
+
+A frozen executable linked the original capture implementation; the final candidate
+uses the same driver/compiler/native configuration and actual owned capture method.
+Three process pairs alternate before/after, after/before, before/after on allowed
+CPU0, with no concurrent build/timing. Each process/size verifies280 captures;
+seven rounds retain32 timed captures after8warmup calls. The table is the median
+of21 batch means per version/size, on the same shared-QEMU GCC12 Release runner.
+
+| Nodes | Original method | Owned/ordered method | Change |
+| --- | ---: | ---: | ---: |
+|64 |4.655us |1.730us |62.8% less |
+|512 |64.863us |14.368us |77.8% less |
+|4096 |732.251us |134.249us |81.7% less |
+
+This times the actual PresentationPoses method with two timer reads. Fresh producer
+map setup, pose evaluation/correctness and legacy producer destruction are outside
+timing. It is not a measurement of the complete PresentationPoseCapture scope,
+which also gathers nodes, or a fixed-tick/gameFPS/physical-hardware speedup claim.
+The earlier full runtime table below remains attributable to its original binary;
+do not substitute these method timings for those columns. Raw paired samples,
+frozen/current binary/source hashes and final validation are under
+`AgentFiles/build/phase162-owned-pose-capture`. An intermediate copy-only candidate
+and its evidence are retained separately; final source includes ordered history.
+
+### Full runtime workload baseline
+
 `tools/benchmark_runtime.py` records checked, repeatable scope reports through the
 existing ordinary runtime client/collector. See [CPU profiling](cpu-profiling.md)
 for invocation, sampling and comparison admission. Engine/collector source and

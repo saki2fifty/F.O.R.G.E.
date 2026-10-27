@@ -121,16 +121,24 @@ LocalRotation slerp(LocalRotation a, LocalRotation b, double t) {
 }
 } // namespace
 void PresentationPoses::reset(const Nodes& nodes) { previous_ = current_ = nodes; }
-void PresentationPoses::capture(const Nodes& nodes) {
+void PresentationPoses::capture(const Nodes& nodes) { capture_owned(nodes); }
+void PresentationPoses::capture_owned(Nodes nodes) {
     previous_ = std::move(current_);
-    current_ = nodes;
+    current_ = std::move(nodes);
+    auto before = previous_.begin();
     for (const auto& [id, node] : current_) {
-        const auto old = previous_.find(id);
-        if (old == previous_.end() || old->second.parent != node.parent ||
-            old->second.parent_resolved != node.parent_resolved)
-            previous_[id] = node;
+        while (before != previous_.end() && before->first < id)
+            before = previous_.erase(before);
+        if (before == previous_.end() || id < before->first)
+            previous_.emplace_hint(before, id, node);
+        else {
+            if (before->second.parent != node.parent ||
+                before->second.parent_resolved != node.parent_resolved)
+                before->second = node;
+            ++before;
+        }
     }
-    std::erase_if(previous_, [&](const auto& entry) { return !current_.contains(entry.first); });
+    previous_.erase(before, previous_.end());
 }
 void PresentationPoses::snap(std::uint64_t entity) {
     if (current_.contains(entity))
@@ -365,7 +373,7 @@ void RuntimeSimulation::tick(float dt) {
     {
         auto profile =
             context_.services().profile("runtime", "PresentationPoseCapture", input_tick_);
-        poses_.capture(context_.transform_nodes());
+        poses_.capture_owned(context_.transform_nodes());
     }
     auto discontinuities =
         animation_ ? animation_->take_discontinuities() : std::vector<std::uint64_t>{};

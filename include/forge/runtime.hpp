@@ -61,6 +61,7 @@ class PresentationPoses {
     using Nodes = std::map<std::uint64_t, TransformNode>;
     void reset(const Nodes& nodes);
     void capture(const Nodes& nodes);
+    void capture_owned(Nodes nodes);
     void snap(std::uint64_t entity);
     void snap(std::uint64_t entity, const TransformNode& current);
     std::map<std::uint64_t, EvaluatedTransform> evaluate(double alpha) const;
