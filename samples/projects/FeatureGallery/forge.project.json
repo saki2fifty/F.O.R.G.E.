@@ -8,7 +8,48 @@
   },
   "input": {
     "version": 1,
-    "actions": []
+    "actions": [
+      {
+        "id": "15500000-1550-4155-8155-000000000010",
+        "name": "Touch0 down",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.0.down"
+          }
+        ]
+      },
+      {
+        "id": "15500000-1550-4155-8155-000000000011",
+        "name": "Touch0 x",
+        "kind": "axis1",
+        "bindings": [
+          {
+            "control": "touch.0.x"
+          }
+        ]
+      },
+      {
+        "id": "15500000-1550-4155-8155-000000000012",
+        "name": "Touch0 y",
+        "kind": "axis1",
+        "bindings": [
+          {
+            "control": "touch.0.y"
+          }
+        ]
+      },
+      {
+        "id": "15500000-1550-4155-8155-000000000013",
+        "name": "Touch0 pressure",
+        "kind": "axis1",
+        "bindings": [
+          {
+            "control": "touch.0.pressure"
+          }
+        ]
+      }
+    ]
   },
   "modules": [],
   "game": {

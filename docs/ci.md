@@ -1511,3 +1511,11 @@ The actual software-Vulkan Sprite probe checks768 grid/bank fill/filter/alpha/fl
 cases, mixed instancing and complete retained-resource behavior. Pass the Gallery
 argument to include87's landscape/portrait animation images. Native Windows/full
 Main/physical hardware and new Inspector captures remain separate acceptance gates.
+
+### Touch input checks
+
+`touch_input` injects the pinned native SDL queue and exercises bounded contact slots, viewport/window changes, invalid/canceled/overflow/foreign/emulated contacts, tick edges, rebind and actual GameInput/Play. `runtime_ui_input` drives actual Rml UI pointer ownership, synthetic touch ordering and neutral reset. MCP owner fixtures enable SDL's hidden dummy window backend without Linux desktop dependencies. Both fixtures are also available in native Editor builds.
+
+`settings_lifecycle_touch` selects native touch controls and verifies unipolar presentation/Save/reopen at100/150/200%; the analog case retains existing conditioning coverage.
+
+`touch_input_process` runs original Gallery88's public C++ marker in both real Play hosts, verifying independent coordinates/pressure and neutral restart. `native_sdk_touch_input_installed` builds the same module from relocated installed headers/sample/runtime. `mcp_touch_input_stdio` covers discovery/ranges, settings save, invalid/stale submissions and Play values in both framing modes. The Sprite Gallery content fixture includes88 in a relocated cooked closure after source removal. These are local desktop checks, not physical touch/Main/Windows graphical export acceptance.

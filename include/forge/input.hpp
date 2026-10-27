@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <forge/identity.hpp>
 #include <map>
 #include <optional>
@@ -8,10 +9,12 @@ namespace forge {
 struct ActionIdTag;
 using ActionId = PersistentId<ActionIdTag>;
 enum class ActionKind { Digital, Axis1, Axis2 };
+inline constexpr std::size_t touch_contact_limit = 8;
 struct InputControl {
     std::string id;
     bool relative = false;
     bool digital = false;
+    bool unipolar = false; // Continuous values in [0,1], e.g. triggers/touch.
 };
 const std::vector<InputControl>& input_controls();
 const InputControl& input_control(const std::string& id);
@@ -81,6 +84,7 @@ struct GamepadRumble {
 };
 void to_json(nlohmann::json&, const GamepadRumble&);
 void from_json(const nlohmann::json&, GamepadRumble&);
+void validate_input_event(const InputEvent& event);
 void to_json(nlohmann::json& j, const InputEvent& event);
 void from_json(const nlohmann::json& j, InputEvent& event);
 struct ActionState {

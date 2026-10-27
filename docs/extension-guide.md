@@ -563,3 +563,9 @@ their permission/pause policy, and one-shots inherit these source values. No
 native filter node or coefficient crosses the SDK. Rebuild for the matching value
 fingerprint; changing live filter values resets DSP history without restarting
 the clip. See [the audio contract](extension-contracts.md).
+
+## Touch action example
+
+The installed sample target `touch_input_gameplay` builds `touch_input_probe.cpp`, `TouchCursor.cpp` and `TouchInput.hpp` using only the installed SDK. Module `project.touch_input` implementation1 depends on `forge.input` and `forge.transforms`. The four ActionIds in `TouchInput.hpp` match Gallery88's saved digital contact-down and separate Axis1 X/Y/pressure bindings. Call `sdk::Client::action` only during the fixed callback; copy values for the current tick. Positions and pressure are0..1; absent/released contacts are neutral. No raw SDL IDs or pointers cross the SDK.
+
+`TouchCursor.cpp` registers a system that checks the ordinary scoped entity reference, moves Gallery88's marker within its authored16x10 canvas, resizes it by pressure and hides it after release. It changes only the runtime copy. Contact slots0..7 stay stable while held; new contacts reuse free slots. Bind the required `touch.N.*` controls in project input settings. Separate Axis1 actions preserve independent screen coordinates; Axis2 normalization is intended for directional vectors. Physical touch requires a desktop touch driver. Gesture/sensor/mobile hosting and multi-player assignment remain outside this input profile.

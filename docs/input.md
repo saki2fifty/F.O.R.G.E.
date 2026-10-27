@@ -1,6 +1,6 @@
 # Fixed-tick gameplay input
 
-`input.hpp/input.cpp` have no SDL dependency. Project input schema1 contains UUIDv4 ActionIds, display names, kind digital/axis1/axis2 and up to16 bindings per action (64 actions maximum). Binding IDs are FORGE control strings, not SDL enums. Supported keyboard keys, mouse buttons/delta/wheel and standard gamepad buttons/axes are enumerated by input_controls(). Unknown action/document fields survive settings round trips.
+`input.hpp/input.cpp` have no SDL dependency. Project input schema1 contains UUIDv4 ActionIds, display names, kind digital/axis1/axis2 and up to16 bindings per action (64 actions maximum). Binding IDs are FORGE control strings, not SDL enums. Supported keyboard keys, mouse buttons/delta/wheel, bounded touch contacts and standard gamepad buttons/axes are enumerated by input_controls(). Unknown action/document fields survive settings round trips.
 
 ```text
 SDL events → editor capture policy → ordered neutral InputEvents
@@ -182,3 +182,15 @@ The editor presents Outer deadzone and Response exponent on continuous analog
 bindings. MCP edits these fields through existing project.settings.edit/save and
 observes actual values through play.input/input_submit; there are no parallel
 agent-only input transformations. See[the input guide](../manual/editor/input.md).
+
+## Window touch contacts
+
+`input_controls` owns eight transient `touch.N.down/x/y/pressure` semantic groups. Down is digital; positions/pressure are unipolar0..1. `InputControl.unipolar` also models the existing trigger range. `validate_input_event` is the shared runtime/automation value admission owner, preserving atomic batch validation. The native Settings picker hides meaningless negative directions for unipolar controls; MCP discovery reports numeric ranges. InputMap schemas1/2, ActionIds, SDK C tables and fixed/control latch ownership are unchanged. Generic Axis2 normalizes continuous length: independent screen coordinates use two Axis1 actions. Rebind listens to touch-down, not coordinate/pressure motion.
+
+`SdlTouches` is one bounded main-thread platform adapter shared by GameInput and game_main. It keys eight stable slots by transient(device,finger), assigns only fresh in-bounds DOWN, ignores overflow/unknown motion/synthetic mouse or pen touches, validates finite normalized samples, clamps tracked image-relative movement and clears all values on UP/CANCELED. Slots never compact; reuse requires a new DOWN. Window/viewport changes or ownership loss release contacts. No SDL ID is saved or exposed to project data. The borrowed SDL window outlives its adapter.
+
+Editor touch follows current Game capture and image rectangle. GameInput observes PlaySession's local neutral-queue serial, so a UI/automation/overflow reset invalidates platform contacts before subsequent motion. This is a derived queue observation, not another authoritative input state. Focus/capture/Stop also reset contacts. SDL queues touch-generated mouse events before raw finger events. RuntimeUiInput's existing UI-button ownership blocks raw contacts during a claimed pointer gesture; unclaimed contacts reach GameInput, which suppresses synthetic mouse gameplay duplicates. Editor interaction outside capture retains SDL mouse emulation.
+
+The standalone host admits focused, unclaimed raw touch against the full window, with no relative mouse requirement. Existing Rml pointer callbacks claim a touch gesture before its raw finger DOWN; UI claims clear gameplay contacts and neutralize input. While UI owns its pointer gesture, other fingers cannot join gameplay. Focus/cursor/session changes clear contacts. Mouse-generated touch and touch-generated gameplay mouse values are filtered. Gestures/sensors/pen data, multiple-player device assignment and mobile hosting are not implemented.
+
+Original Gallery88 and `TouchInput.hpp/TouchCursor.cpp` use four saved ActionIds, native fixed queries and ordinary Sprite/Transform values. The installed sample builds the same example source rather than copying behavior. Source-free content retains the canvas/image identity; physical/native Windows acceptance is separate.

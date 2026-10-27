@@ -432,9 +432,10 @@ class ProjectSettingsEditor {
                     for (std::size_t b = 0; b < bindings.size(); ++b) {
                         auto& binding = bindings[b];
                         ImGui::PushID(static_cast<int>(b));
-                        if (ImGui::BeginCombo(
-                                "Control",
-                                binding.at("control").get_ref<const std::string&>().c_str())) {
+                        const bool controls_open = ImGui::BeginCombo(
+                            "Control", binding.at("control").get_ref<const std::string&>().c_str());
+                        FORGE_UI_PROBE("settings:input:control");
+                        if (controls_open) {
                             for (const auto& c : input_controls())
                                 if (a.at("kind") != "digital" ||
                                     !c.id.starts_with("mouse.delta_")) {
@@ -448,8 +449,8 @@ class ProjectSettingsEditor {
                                         binding.erase("threshold");
                                         binding.erase("direction");
                                     }
-                                    ui::help("Physical control on keyboard, mouse or the "
-                                             "active gamepad. Escape/F6/F7 are reserved for "
+                                    ui::help("Keyboard, mouse, active gamepad or captured "
+                                             "touch contact. Escape/F6/F7 are reserved for "
                                              "editor capture and clock controls.");
                                 }
                             ImGui::EndCombo();
@@ -509,10 +510,11 @@ class ProjectSettingsEditor {
                                 binding["threshold"] = threshold;
                             ui::help("Analog input becomes held at this threshold, greater than "
                                      "zero and at most one.");
-                            if (!physical.id.ends_with("_trigger")) {
+                            if (!physical.unipolar) {
                                 bool negative = binding.value("direction", 1) < 0;
                                 if (ImGui::Checkbox("Negative direction", &negative))
                                     binding["direction"] = negative ? -1 : 1;
+                                FORGE_UI_PROBE("settings:input:negative-direction");
                                 ui::help("Use the negative axis or wheel direction to press this "
                                          "action.");
                             }

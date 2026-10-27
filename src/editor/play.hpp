@@ -264,15 +264,21 @@ class PlaySession {
         simulation_hz_ = hz;
         input_map_ = map.source();
     }
+    // Local queue observation: platform contacts cannot survive a neutral reset
+    // queued by UI/automation/overflow before their next native motion event.
+    std::uint64_t input_reset_serial() const { return input_reset_serial_; }
     void input_event(InputEvent event) {
         if (!ready())
             return;
         if (input_events_.size() >= 4096) {
             input_events_.clear();
             input_events_.push_back({{}, 0, true});
+            ++input_reset_serial_;
             notice_ = "Input queue overflow: controls released. ";
             return;
         }
+        if (event.reset)
+            ++input_reset_serial_;
         input_events_.push_back(std::move(event));
     }
     // Transient user-data override. Tests and acceptance harnesses
@@ -1680,6 +1686,7 @@ class PlaySession {
     Json ui_snapshot_, ui_ack_, ui_command_;
     bool model_assets_changed_ = false;
     std::vector<InputEvent> input_events_;
+    std::uint64_t input_reset_serial_ = 0;
     SDL_Process* process_ = nullptr;
     Stage stage_ = Stage::Hello;
     std::string executable_, notice_, session_, control_;

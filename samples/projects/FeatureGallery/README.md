@@ -1022,3 +1022,7 @@ ordinary Scene Undo and Save. Runtime movement itself is not kept.
 Navigation progress shows concrete failed details. Expand World coordinates for
 sampled position/projected goal; a newly retargeted Pending agent does not keep an
 old failure reason. Find named ancestor conflicts through Hierarchy name/ID search.
+
+### 88 — Touch input
+
+`Scenes/88-touch-input.scene.json` authors a fixed16x10 camera canvas and original image marker. Project input includes digital Touch0 down and independent Axis1 X/Y/pressure actions. Capture Game input and inspect Console Gameplay input values. Optional `CodeExamples/TouchCursor.cpp` with `TouchInput.hpp` reads the saved ActionIds through the exact SDK, moves only the scoped scene/entity and sizes its Sprite with pressure. Register `forge_register_system_TouchCursor`; installed sample `touch_input_gameplay` supplies its complete wrapper. Stop restores source. The Scene is usable without C++ for input monitoring; marker behavior requires the built module. See the manual Touch input guide for slot/capture/UI/export limits.

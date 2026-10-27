@@ -98,3 +98,9 @@ Local source; Windows verification and numbered delivery remain pending.
   mapping. Invalid effective ranges reject before settings publication.
 - Rebinding clears incompatible processing. Windows/physical controller response
   review and an authentic updated settings capture remain queued.
+
+### Touch contacts
+
+- Eight stable touch slots with independent normalized X/Y/pressure, cancellation and focus/size/reset neutralization through the existing SDL/action owners.
+- UI-owned touch gestures stay in UI; emulated mouse/touch gameplay duplicates are filtered. Semantic ranges and validation agree across Settings, runtime and automation/MCP.
+- Original Gallery88, optional exact-SDK Sprite cursor example, installed client and focused SDL/UI/Play/MCP/source-free checks. Physical/native Windows touch acceptance remains queued.

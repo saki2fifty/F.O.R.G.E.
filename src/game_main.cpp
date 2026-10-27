@@ -7,7 +7,9 @@
 #include "sdl_game_cursor.hpp"
 #include "sdl_gamepads.hpp"
 #include "sdl_input.hpp"
+#include "sdl_touches.hpp"
 #include "standalone_manifest.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <forge/build.hpp>
 #include <forge/game_content.hpp>
@@ -215,9 +217,10 @@ int main(int argc, char** argv) {
         const auto startup = project.document().at("startup_scene").at("asset").get<AssetId>();
         auto ticket = game.prepare(load_game_scene(root, {startup}));
         SdlGameCursor cursor(window.get());
+        SdlTouches touches(window.get());
         SdlGamepads gamepads;
         gamepads.discover();
-        bool focused = true;
+        bool focused = true, touch_ui_owned = false;
         GamePlatformControls platform;
         platform.rumble = [&](const GamepadRumble& value) {
             if (!focused && (value.low != 0 || value.high != 0))
@@ -230,6 +233,8 @@ int main(int argc, char** argv) {
         platform.input_device = [&] { return std::string(gamepads.activity()); };
         platform.settings = [&](const Json& value) { display(window.get(), value.at("display")); };
         platform.cursor = [&](bool capture) {
+            touches.reset();
+            touch_ui_owned = false;
             if (!capture)
                 gamepads.stop_rumble();
             presentation.ui().release_input();
@@ -272,6 +277,9 @@ int main(int argc, char** argv) {
             if (fixture.frame_statistics)
                 fixture.frame_statistics_workflow.poll(window.get());
 #endif
+            const auto touch_release = touches.synchronize(active && focused && !touch_ui_owned);
+            if (active && !touch_release.empty())
+                game.input(touch_release);
             SDL_Event event;
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_EVENT_QUIT ||
@@ -286,17 +294,27 @@ int main(int argc, char** argv) {
                 } else if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED)
                     focused = true;
                 const auto pad_events = gamepads.event(event, active && focused, SDL_GetTicks());
-                if (active && !pad_events.empty())
+                if (active && !pad_events.empty()) {
+                    if (std::any_of(pad_events.begin(), pad_events.end(),
+                                    [](const InputEvent& value) { return value.reset; }))
+                        touches.reset();
                     game.input(pad_events);
-                if (!active || !focused)
+                }
+                const auto touch_events =
+                    touches.event(event, active && focused && !touch_ui_owned);
+                if (active && !touch_events.empty())
+                    game.input(touch_events);
+                if (!active || !focused || touches.owns(event) ||
+                    (cursor.captured() && sdl_touch_mouse_event(event)))
                     continue;
                 const int modifiers = RmlSDL::GetKeyModifierState();
                 const bool listening = game.active().simulation.input().rebinding();
                 if (event.type == SDL_EVENT_KEY_DOWN || event.type == SDL_EVENT_KEY_UP) {
                     if (!listening && !cursor.captured() &&
-                        ui.key(RmlSDL::ConvertKey(event.key.key), event.key.down, modifiers))
+                        ui.key(RmlSDL::ConvertKey(event.key.key), event.key.down, modifiers)) {
+                        touches.reset();
                         game.input({{{}, 0, true}});
-                    else if (!event.key.repeat) {
+                    } else if (!event.key.repeat) {
                         const auto key = sdl_key_control(event.key.scancode);
                         if (!key.empty())
                             game.input({{key, event.key.down ? 1.0 : 0.0}});
@@ -312,16 +330,26 @@ int main(int argc, char** argv) {
                     if (listening || cursor.captured() ||
                         !ui.mouse_move(int(event.motion.x * pw / std::max(lw, 1)),
                                        int(event.motion.y * ph / std::max(lh, 1)), modifiers)) {
-                        game.input({{"mouse.delta_x", event.motion.xrel},
-                                    {"mouse.delta_y", event.motion.yrel}});
+                        if (!sdl_touch_mouse_event(event))
+                            game.input({{"mouse.delta_x", event.motion.xrel},
+                                        {"mouse.delta_y", event.motion.yrel}});
                     }
                 } else if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ||
                            event.type == SDL_EVENT_MOUSE_BUTTON_UP) {
-                    if (!listening && !cursor.captured() &&
+                    const bool consumed =
+                        !listening && !cursor.captured() &&
                         ui.mouse_button(RmlSDL::ConvertMouseButton(event.button.button),
-                                        event.button.down, modifiers))
+                                        event.button.down, modifiers);
+                    if (sdl_touch_mouse_event(event)) {
+                        if (event.button.down && consumed)
+                            touch_ui_owned = true;
+                        else if (!event.button.down)
+                            touch_ui_owned = false;
+                    }
+                    if (consumed) {
+                        touches.reset();
                         game.input({{{}, 0, true}});
-                    else {
+                    } else if (!sdl_touch_mouse_event(event)) {
                         const char* control =
                             event.button.button == SDL_BUTTON_LEFT     ? "mouse.left"
                             : event.button.button == SDL_BUTTON_RIGHT  ? "mouse.right"

@@ -2,6 +2,7 @@
 #include <RmlUi/Core.h>
 #include <fstream>
 #include <iostream>
+#include <memory>
 using namespace forge;
 void check(bool v, const char* why) {
     if (!v)
@@ -25,7 +26,19 @@ struct Renderer : Rml::RenderInterface {
 int main(int argc, char** argv) {
     try {
         check(argc == 4, "Need runtime, font and temporary directory");
-        check(SDL_Init(0), SDL_GetError());
+#ifndef _WIN32
+        SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy");
+#endif
+        const bool initialized = SDL_Init(SDL_INIT_VIDEO);
+        check(initialized, SDL_GetError());
+        struct Quit {
+            ~Quit() { SDL_Quit(); }
+        } quit;
+        std::unique_ptr<SDL_Window, decltype(&SDL_DestroyWindow)> native_window(
+            SDL_CreateWindow("FORGE UI touch regression", 640, 480, SDL_WINDOW_HIDDEN),
+            SDL_DestroyWindow);
+        auto* window = native_window.get();
+        check(window, SDL_GetError());
         auto root = std::filesystem::path(argv[3]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         std::ofstream(root / "hud.rml")
@@ -55,14 +68,16 @@ int main(int argc, char** argv) {
         PlaySession play;
         auto action = ActionId::generate();
         play.configure(
-            60, InputMap(
-                    {{"version", 1},
-                     {"actions",
-                      Json::array({{{"id", action},
-                                    {"name", "UI leak"},
-                                    {"kind", "digital"},
-                                    {"bindings", Json::array({{{"control", "key.w"}},
-                                                              {{"control", "mouse.left"}}})}}})}}));
+            60,
+            InputMap(
+                {{"version", 1},
+                 {"actions",
+                  Json::array({{{"id", action},
+                                {"name", "UI leak"},
+                                {"kind", "digital"},
+                                {"bindings", Json::array({{{"control", "key.w"}},
+                                                          {{"control", "mouse.left"}},
+                                                          {{"control", "touch.0.down"}}})}}})}}));
         play.start(argv[1], {{"version", 1}, {"entities", Json::array()}}, true);
         auto wait = [&](auto done) {
             auto end = SDL_GetTicks() + 5000;
@@ -73,7 +88,7 @@ int main(int argc, char** argv) {
             check(play.active() && done(), play.status().c_str());
         };
         wait([&] { return play.control_ready(); });
-        GameInput game;
+        GameInput game(window);
         game.pump(play, true);
         game.capture(play);
         RuntimeUiInput input;
@@ -153,7 +168,37 @@ int main(int argc, char** argv) {
         e.key.scancode = SDL_SCANCODE_ESCAPE;
         route(e);
         check(!game.captured() && !presenter.wants_text(), "Escape releases both input owners");
+        game.capture(play);
+        auto touch = [&](SDL_EventType type, float x, float y) {
+            SDL_Event value{};
+            value.type = type;
+            value.tfinger.windowID = SDL_GetWindowID(window);
+            value.tfinger.touchID = 15;
+            value.tfinger.fingerID = 7;
+            value.tfinger.x = x;
+            value.tfinger.y = y;
+            value.tfinger.pressure = .5f;
+            route(value);
+        };
+        e = {};
+        e.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+        e.button.which = SDL_TOUCH_MOUSEID;
+        e.button.button = SDL_BUTTON_LEFT;
+        e.button.down = true;
+        e.button.x = pos.x + 5;
+        e.button.y = pos.y + 5;
+        route(e);
+        touch(SDL_EVENT_FINGER_DOWN, e.button.x / 640, e.button.y / 480);
+        check(!tick()["held"].get<bool>(), "UI-owned touch leaked into gameplay");
+        e.type = SDL_EVENT_MOUSE_BUTTON_UP;
+        e.button.down = false;
+        route(e);
+        touch(SDL_EVENT_FINGER_UP, .5f, .5f);
+        touch(SDL_EVENT_FINGER_DOWN, .8f, .8f);
+        check(tick()["held"].get<bool>(), "Unclaimed captured touch did not reach gameplay");
         input.reset(play);
+        touch(SDL_EVENT_FINGER_MOTION, .7f, .7f);
+        check(!tick()["held"].get<bool>(), "UI neutral reset revived a held touch");
         play.stop();
         // Exercise the editor process bridge itself, including a queued old UI command
         // superseded by native activation (generation change).
@@ -189,7 +234,7 @@ int main(int argc, char** argv) {
         wait([&] { return play.control_ready(); });
         play.stop();
         std::filesystem::remove_all(root);
-        SDL_Quit();
+
         std::cout << "Runtime UI input ownership checks passed\n";
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';

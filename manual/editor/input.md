@@ -15,7 +15,7 @@ Open Input contexts in Project Settings to add and configure a context.
 5. In the Game panel, click **Capture gameplay input**.
 6. Press and hold Space. The action shows **held**, and **presses** increases once.
 7. Release Space. It shows **up**, and **releases** increases once.
-8. Press **Esc** to release the physical relative mouse capture. The SDK play path ships the Escape down/up to your gameplay module BEFORE the neutral edge, then retains logical menu routing so runtime menu keys keep working; the legacy path only releases.
+8. Press **Esc** to release the physical relative mouse capture. The SDK play path ships a neutral edge before the Escape down/up to your gameplay module, then retains logical menu routing so runtime menu keys keep working; the legacy path only releases.
 
 Action names are labels. Renaming an action preserves its ID. Removing it and adding a new action creates a new ID, even if the labels match.
 
@@ -25,7 +25,7 @@ While gameplay input is captured:
 
 - **F6** pauses or resumes.
 - **F7** advances one tick while paused.
-- **Esc** releases the physical relative mouse capture. The SDK play path ships the Escape down/up to gameplay BEFORE the neutral edge so the runtime's release-guard sees the actual physical state, then retains logical menu routing so runtime menu keys keep working; the legacy path only releases the capture. Whether the game opens Pause or its in-game menu on Escape is project policy; FORGE does not decide for you.
+- **Esc** releases the physical relative mouse capture. The SDK play path ships a neutral edge before the Escape down/up to gameplay so the runtime's release-guard sees the actual physical state, then retains logical menu routing so runtime menu keys keep working; the legacy path only releases the capture. Whether the game opens Pause or its in-game menu on Escape is project policy; FORGE does not decide for you.
 
 Pause, hold Space, then press F7 twice. The first tick consumes the press; the second still shows held without adding another press. Release Space and Step again to consume its release. While paused, the monitor continues showing the last completed tick until you Step or Resume.
 
@@ -45,6 +45,10 @@ For a two-dimensional movement action, use four bindings:
 Continuous axes are clamped; two-dimensional continuous input is normalized if its length exceeds one. Relative mouse deltas are not normalized. Mouse delta units are SDL motion units, and wheel values are scroll units; they are not automatically multiplied by frame time.
 
 Gamepad controls use **pad.** names. FORGE starts with the first connected gamepad. A deliberate button press or strong stick movement on another connected pad selects it; a short guard prevents rapid switching. Sticks range from -1 to 1; triggers from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Digital actions can also use a directional analog threshold or a wheel pulse. C++ can request bounded controller vibration. Sensors and multiple-player device assignment remain unavailable.
+
+## Touch contacts
+
+Bind **touch.0.down/x/y/pressure** through **touch.7.down/x/y/pressure** for up to eight captured contacts. Each held finger keeps its slot; release clears its values. Use separate axis1 actions for screen X/Y coordinates. See [Touch input](touch-input.md) for capture, UI ownership, limits and the original Gallery88 C++ example.
 
 ## Who owns the controls?
 

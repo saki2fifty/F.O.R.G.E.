@@ -2,12 +2,14 @@
 #include "../sdl_game_cursor.hpp"
 #include "../sdl_gamepads.hpp"
 #include "../sdl_input.hpp"
+#include "../sdl_touches.hpp"
 #include "play.hpp"
 #include "widgets.hpp"
 #include <array>
 #include <source_location>
 namespace forge {
-// One active gamepad, keyboard and mouse. SDL is confined to this platform adapter.
+// One active gamepad, keyboard/mouse and bounded captured touch contacts. SDL is confined to this
+// platform adapter.
 //
 // SdlGameCursor owns the observed SDL_GetWindowRelativeMouseMode
 // flag. captured() / relative() reflect that observed flag (or
@@ -15,7 +17,7 @@ namespace forge {
 // path used by tests).
 class GameInput {
   public:
-    explicit GameInput(SDL_Window* window = nullptr) {
+    explicit GameInput(SDL_Window* window = nullptr) : touches_(window) {
         if (window)
             cursor_ = std::make_unique<SdlGameCursor>(window);
     }
@@ -56,8 +58,10 @@ class GameInput {
             // No physical target; treat as a successful non-relative
             // capture so menu routing can settle. The local routing
             // flag flips to match the request.
-            if (!captured_ || relative_capture_)
+            if (!captured_ || relative_capture_) {
+                touches_.reset();
                 play.input_event({{}, 0, true});
+            }
             captured_ = true;
             relative_capture_ = false;
             capture_error_.clear();
@@ -84,8 +88,10 @@ class GameInput {
                                                          "physical relative mode is on");
             return false;
         }
-        if (!captured_ || relative_capture_ != relative_mode)
+        if (!captured_ || relative_capture_ != relative_mode) {
+            touches_.reset();
             play.input_event({{}, 0, true});
+        }
         captured_ = true;
         relative_capture_ = relative_mode;
         capture_error_.clear();
@@ -97,6 +103,7 @@ class GameInput {
     // the physical cursor is freed. Headless (no cursor) clears routing
     // when keep_routing=false; retains it otherwise.
     void release(PlaySession& play, bool keep_routing) {
+        touches_.reset();
         stop_rumble();
         if (cursor_) {
             try {
@@ -122,6 +129,7 @@ class GameInput {
     // down/up pair). The keep_routing flag controls only whether the
     // logical captured flag is retained for menu routing.
     bool release_checked(PlaySession& play, bool keep_routing = false) {
+        touches_.reset();
         stop_rumble();
         if (!cursor_) {
             // No physical target: the release "succeeds" because
@@ -195,6 +203,9 @@ class GameInput {
                 release(play);
         }
         session_ = play.session();
+        observe_touch_reset(play);
+        for (const auto& value : touches_.synchronize(captured_ && play.ready(), touch_viewport()))
+            play.input_event(value);
         if (devices_dirty_) {
             devices_dirty_ = false;
             pads_.discover();
@@ -230,6 +241,11 @@ class GameInput {
             return false;
         }
         if (!pad_events.empty() && e.type != SDL_EVENT_GAMEPAD_REMOVED)
+            return true;
+        observe_touch_reset(play);
+        for (const auto& value : touches_.event(e, captured_ && play.ready(), touch_viewport()))
+            play.input_event(value);
+        if (touches_.owns(e) || (captured_ && sdl_touch_mouse_event(e)))
             return true;
         if (captured_ && !relative() && e.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
             outside(e.button.x, e.button.y)) {
@@ -436,6 +452,19 @@ class GameInput {
     }
 
   private:
+    std::optional<SdlTouches::Viewport> touch_viewport() const {
+        if (!bounded_)
+            return {};
+        return SdlTouches::Viewport{origin_.x, origin_.y, size_.x, size_.y};
+    }
+    void observe_touch_reset(const PlaySession& play) {
+        if (touch_reset_serial_ != play.input_reset_serial()) {
+            touches_.reset();
+            touch_reset_serial_ = play.input_reset_serial();
+        }
+    }
+    SdlTouches touches_;
+    std::uint64_t touch_reset_serial_ = 0;
     ImVec2 origin_{}, size_{};
     bool bounded_ = false;
     SdlGamepads pads_;

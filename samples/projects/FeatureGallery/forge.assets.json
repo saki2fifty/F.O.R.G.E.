@@ -10345,6 +10345,14 @@
       "schema_version": 5,
       "dependencies": [],
       "metadata": {}
+    },
+    {
+      "id": "15500000-1550-4155-8155-155000000000",
+      "type": "scene",
+      "source": "Scenes/88-touch-input.scene.json",
+      "schema_version": 5,
+      "dependencies": [],
+      "metadata": {}
     }
   ],
   "version": 2

@@ -200,3 +200,7 @@ has Doppler enabled and the comparison has it disabled. Select either during Pla
 and use **Live sound → Play / Restart** or **Stop sound** to compare. Loop jumps
 reset motion without a pitch spike. Export uses the saved animation and cooked
 tone without development sources. See [Audio controls](../editor/audio.md).
+
+## Touch contacts
+
+Open **Scenes/88-touch-input.scene.json** to test the project's Touch0 input actions. Capture Game input and read the values in Console's Gameplay input section. The optional **CodeExamples/TouchCursor.cpp** system moves and resizes its Sprite from those actions; the Scene alone shows the authored marker. Follow [Touch input](../editor/touch-input.md) to build the matching module, test contacts and export.

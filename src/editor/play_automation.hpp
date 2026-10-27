@@ -174,7 +174,11 @@ struct PlayAutomation {
                 for (const auto& control : input_controls())
                     controls.push_back({{"id", control.id},
                                         {"relative", control.relative},
-                                        {"digital", control.digital}});
+                                        {"digital", control.digital},
+                                        {"minimum", control.digital || control.unipolar ? 0
+                                                    : control.relative                  ? -1000000
+                                                                                        : -1},
+                                        {"maximum", control.relative ? 1000000 : 1}});
                 return Json{{"controls", std::move(controls)}};
             }));
         if (!permissions.execute)
@@ -264,15 +268,11 @@ struct PlayAutomation {
                 if (!play.ready())
                     throw AuthoringError("not_ready", "Wait for live Play before supplying input");
                 const auto events = request.at("events").get<std::vector<InputEvent>>();
-                for (const auto& event : events) {
-                    if (event.reset)
-                        continue;
-                    const auto& control = input_control(event.control);
-                    if (!std::isfinite(event.value) ||
-                        std::abs(event.value) > (control.relative ? 1000000 : 1) ||
-                        (control.digital && event.value != 0 && event.value != 1) ||
-                        (event.control.ends_with("_trigger") && event.value < 0))
-                        throw AuthoringError("invalid_input", "Invalid semantic input value");
+                try {
+                    for (const auto& event : events)
+                        validate_input_event(event);
+                } catch (const std::exception& error) {
+                    throw AuthoringError("invalid_input", error.what());
                 }
                 // The shared physical release may queue one neutral event.
                 if (play.input_events_.size() + events.size() + 1 > 4096)

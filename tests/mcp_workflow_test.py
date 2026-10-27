@@ -16,6 +16,7 @@ MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
 PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
+TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
 
@@ -109,6 +110,49 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if TOUCH_ONLY:
+            controls = read('forge_play_controls')['controls']
+            touches = {row['id']: row for row in controls if row['id'].startswith('touch.')}
+            assert len(touches) == 32 and touches['touch.7.pressure']['minimum'] == 0
+            assert touches['touch.0.down']['digital'] and touches['touch.0.x']['maximum'] == 1
+            actions = [dict(id=f'15500000-1550-4155-8155-00000000001{i}', name='Touch '+field,
+                            kind='digital' if field == 'down' else 'axis1',
+                            bindings=[dict(control='touch.0.'+field)])
+                       for i, field in enumerate(('down', 'x', 'y', 'pressure'))]
+            mapping = dict(version=1, actions=actions)
+            edit_settings('forge_project_settings_edit', patch=[dict(op='replace', path='/input', value=mapping)])
+            baseline = read('forge_project_settings_read')
+            bad = mutate('forge_project_settings_edit', state=baseline['state'],
+                         patch=[dict(op='replace', path='/input/actions/0/bindings/0/control', value='touch.8.down')])
+            assert not bad['ok'] and read('forge_project_settings_read')['state'] == baseline['state']
+            edit_settings('forge_project_settings_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            state = until(lambda: read('forge_play_status'), lambda r: r['control_ready'])
+            stale = dict(launch=state['launch'], session=state['session'], generation=state['generation']+1)
+            rejected = mutate('forge_play_input_submit', events=[dict(control='touch.0.down', value=1)], **stale)
+            assert not rejected['ok']
+            for bad in (-.1, 1.1):
+                rejected = mutate('forge_play_input_submit', launch=state['launch'], session=state['session'],
+                                  generation=state['generation'], events=[dict(control='touch.0.down', value=1),
+                                  dict(control='touch.0.x', value=bad)])
+                assert not rejected['ok'], rejected
+            control('forge_play_input_submit', events=[dict(control='touch.0.'+f, value=v)
+                    for f, v in (('down', 1), ('x', .75), ('y', .25), ('pressure', .5))])
+            def touch_values():
+                rows = read('forge_play_input')['value'].get('actions', [])
+                return {row['id']: row for row in rows}
+            until(touch_values, lambda r: r.get(actions[0]['id'], {}).get('held') and
+                  r.get(actions[1]['id'], {}).get('x') == .75 and
+                  r.get(actions[2]['id'], {}).get('x') == .25)
+            control('forge_play_input_submit', events=[dict(reset=True)])
+            until(touch_values, lambda r: r.get(actions[0]['id'], {}).get('held') is False and
+                  r.get(actions[1]['id'], {}).get('x') == 0)
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            assert json.loads((root/'Game/forge.project.json').read_text())['input'] == mapping
+            print(('legacy' if legacy else 'current') + ': touch discovery/settings/save/value/stale/input/Stop passed')
+            continue
         if ANALOG_ONLY:
             action = '12345678-1234-4234-8234-123456789abc'
             bindings = [dict(control='pad.left_x', x=1, y=0, radial=True, deadzone=.2,

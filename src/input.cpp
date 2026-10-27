@@ -87,7 +87,14 @@ const std::vector<InputControl>& input_controls() {
             result.push_back({std::string("pad.") + button, false, true});
         for (const auto* axis :
              {"left_x", "left_y", "right_x", "right_y", "left_trigger", "right_trigger"})
-            result.push_back({std::string("pad.") + axis, false, false});
+            result.push_back({std::string("pad.") + axis, false, false,
+                              std::string_view(axis).ends_with("_trigger")});
+        for (std::size_t contact = 0; contact < touch_contact_limit; ++contact) {
+            const auto prefix = "touch." + std::to_string(contact) + ".";
+            result.push_back({prefix + "down", false, true});
+            for (const auto* axis : {"x", "y", "pressure"})
+                result.push_back({prefix + axis, false, false, true});
+        }
         return result;
     }();
     return controls;
@@ -189,7 +196,7 @@ InputMap::InputMap(Json source) : source_(std::move(source)) {
                 (control.digital && (binding.direction != 1 || binding.threshold != .5)) ||
                 (action.kind != ActionKind::Digital &&
                  (binding.direction != 1 || binding.threshold != .5)) ||
-                (binding.control.ends_with("_trigger") && binding.direction != 1) ||
+                (control.unipolar && binding.direction != 1) ||
                 ((control.relative || control.digital) &&
                  (binding.deadzone != 0 || binding.outer_deadzone != 0 ||
                   binding.response_exponent != 1)))
@@ -234,6 +241,15 @@ std::vector<InputBindingConflict> InputMap::binding_conflicts(ActionId id,
                 result.push_back(
                     {action.id, action.context, control, action.context == target->context});
     return result;
+}
+void validate_input_event(const InputEvent& event) {
+    if (event.reset)
+        return;
+    const auto& control = input_control(event.control);
+    if (!std::isfinite(event.value) || std::abs(event.value) > (control.relative ? 1000000 : 1) ||
+        (control.digital && event.value != 0 && event.value != 1) ||
+        (control.unipolar && event.value < 0))
+        throw std::runtime_error("Invalid input control value");
 }
 void to_json(Json& j, const InputEvent& e) {
     j = e.reset ? Json{{"reset", true}} : Json{{"control", e.control}, {"value", e.value}};
@@ -440,14 +456,8 @@ void RuntimeInput::event(const InputEvent& e) {
 void RuntimeInput::submit(const std::vector<InputEvent>& events) {
     if (events.size() > 4096)
         throw std::runtime_error("Input batch exceeds 4096 events");
-    for (const auto& e : events)
-        if (!e.reset) {
-            const auto& c = input_control(e.control);
-            if (!std::isfinite(e.value) || std::abs(e.value) > (c.relative ? 1000000 : 1) ||
-                (c.digital && e.value != 0 && e.value != 1) ||
-                (e.control.ends_with("_trigger") && e.value < 0))
-                throw std::runtime_error("Invalid input control value");
-        }
+    for (const auto& event : events)
+        validate_input_event(event);
     if (listening_) {
         for (const auto& e : events) {
             if (e.reset || (e.control == "key.escape" && e.value != 0)) {
@@ -460,7 +470,8 @@ void RuntimeInput::submit(const std::vector<InputEvent>& events) {
                 continue;
             }
             // Incidental pointer motion never steals a button/key rebind.
-            if (e.control == "mouse.delta_x" || e.control == "mouse.delta_y")
+            if (e.control == "mouse.delta_x" || e.control == "mouse.delta_y" ||
+                (e.control.starts_with("touch.") && !input_control(e.control).digital))
                 continue;
             if (std::abs(e.value) >= .5) {
                 rebind_result_ = e;

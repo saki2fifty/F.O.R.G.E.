@@ -22,7 +22,7 @@ Save your current scene, then click **Use saved current scene as startup** and *
 
 ## Configure controls
 
-The **Input actions** section defines project actions and their bindings. See [Gameplay input](input.md) for an exact walkthrough.
+The **Input actions** section defines project actions and their bindings. See [Gameplay input](input.md) for an exact walkthrough and [Touch input](touch-input.md) for contact controls.
 
 ## Save and discard
 

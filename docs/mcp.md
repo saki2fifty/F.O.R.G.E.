@@ -667,3 +667,7 @@ applied value while failure carries error. The list uses the existing64KiB
 collection envelope and does not advance a fixed tick. Stop restores authored
 values. Actual image fit/last-good rendering and clip-frame constraints still
 apply; successful authoring does not prove an unavailable image is usable.
+
+### Touch controls
+
+`forge_play_controls` discovers `touch.0.down/x/y/pressure` through `touch.7.down/x/y/pressure` and each control's numeric minimum/maximum. Use existing project-settings edit/save operations to bind ActionIds, then generation-checked `forge_play_input_submit` and `forge_play_input` to test/observe RuntimeInput. Coordinates/pressure are0..1, down is0/1, reset clears values; invalid batches reject before queue mutation. Agent-injected semantic values do not simulate an operating-system finger/device or certify physical capture. No separate touch tools or input database.

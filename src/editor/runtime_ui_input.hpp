@@ -72,6 +72,11 @@ class RuntimeUiInput {
             return game.event(e, play);
         }
         captured_ = true;
+        // SDL queues a touch-generated mouse press before its raw finger event.
+        // A UI-owned press keeps that gesture out of game actions; secondary
+        // fingers cannot join gameplay while the UI owns the pointer button.
+        if (sdl_finger_event(e) && ui_buttons_.contains(SDL_BUTTON_LEFT))
+            return true;
         if ((e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_KEY_UP) &&
             (e.key.scancode == SDL_SCANCODE_ESCAPE || e.key.scancode == SDL_SCANCODE_F6 ||
              e.key.scancode == SDL_SCANCODE_F7)) {
