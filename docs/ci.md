@@ -12,6 +12,20 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Source echo reuses `audio` for independent nonzero PCM recurrence, combined filters,
+disabled/zero-feedback bypass and exact echo-buffer bounds. An original impulse
+checks post-EOS one-shot retention, repeat gain, source/game/full pause, independent
+game-pause policy, Stop/restart and finite tail retirement. Native start rewinds an
+EOS sound; Resume tests must prove tail-only output without replaying that clip.
+`audio_editor` drives saved echo fields, Undo/Redo/reopen and tail-only Pause/Resume
+at100/150/200%. `audio_process`/`native_sdk_audio` and
+`native_sdk_audio_filters_installed` cover ordinary/SDK/relocated installed values;
+`mcp_audio_pause_stdio` uses the same schema/control/observation owners and both
+framings, including live bad-value preservation. `audio_falloff_gallery` includes
+Gallery90 in derived export roots and plays its relocated cooked content after
+removing WAV/project sources. `feature_gallery` checks additive defaults and saved
+source settings. Physical listening/MSVC/full editor and new captures stay separate.
+
 Analog conditioning uses `analog_input` for independent math/routing/settings and
 an original public C++ callback. `native_sdk_analog_input_installed` rebuilds that
 consumer from installed headers, checks shared Flecs and repeats after SDK

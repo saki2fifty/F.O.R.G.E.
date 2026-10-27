@@ -344,7 +344,8 @@ for legacy in (False, True):
             ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.audio_source',
                 values=dict(clip=clip, spatialized=False, loop=True, play_on_start=True,
                             low_pass_enabled=True, low_pass_hz=800.,
-                            high_pass_enabled=True, high_pass_hz=100.)))
+                            high_pass_enabled=True, high_pass_hz=100.,
+                            echo_enabled=True, echo_seconds=.25, echo_feedback=.35)))
             ok('forge_property_set', arguments=dict(entity=actor, component='forge.audio_source',
                                                    field='pause_with_game', value=False))
             assert ok('forge_history_undo')['changed']
@@ -362,6 +363,11 @@ for legacy in (False, True):
             observed = until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('pause_with_game') is False)
             assert not observed['source']['paused'], observed
             assert observed['source']['low_pass_enabled'] and observed['source']['high_pass_enabled'], observed
+            assert observed['source']['echo_enabled'] and observed['source']['echo_seconds'] == .25, observed
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='echo_seconds', value=.5)
+            until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('echo_seconds') == .5)
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='echo_feedback', value=.625)
+            until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('echo_feedback') == .625)
             control('forge_play_tune', entity=actor, component='forge.audio_source', property='low_pass_hz', value=200.)
             until(lambda: read('forge_play_audio'), lambda row: (row.get('source') or {}).get('low_pass_hz') == 200.)
             control('forge_play_tune', entity=actor, component='forge.audio_source', property='high_pass_enabled', value=False)
@@ -378,6 +384,10 @@ for legacy in (False, True):
             rejected = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
             assert not rejected['tune_ack']['ok'], rejected
             assert read('forge_play_audio')['source']['low_pass_hz'] == 200.
+            control('forge_play_tune', entity=actor, component='forge.audio_source', property='echo_feedback', value=.76)
+            rejected = until(lambda: read('forge_play_status'), lambda row: not row['tune_pending'] and row['tune_ack'] is not None)
+            assert not rejected['tune_ack']['ok'], rejected
+            assert read('forge_play_audio')['source']['echo_feedback'] == .625
             assert read('forge_play_status')['timing']['tick'] == tick
             assert read('forge_scene_read') == authored
             control('forge_play_stop')

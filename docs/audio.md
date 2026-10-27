@@ -182,8 +182,9 @@ exact modules against the changed value fingerprint.
 Each existing stable Voice optionally owns up to two native miniaudio nodes:
 second-order Butterworth HPF then LPF, at the engine's output channels/sample rate.
 Processing follows that voice's pitch/spatial/gain stage. Primary and one-shot
-voices keep independent DSP histories and share source settings. Both disabled
-keeps the old sound-to-group connection without filter nodes or extra allocation;
+voices keep independent DSP histories and share source settings. With echo also
+bypassed, both filters disabled keeps the old sound-to-group connection without
+effect nodes or extra allocation;
 disabled cutoff values do not alter the output samples.
 
 The owner builds detached replacement nodes before reconnecting sound output,
@@ -202,6 +203,59 @@ and cutoffs. Full/game/source pause, mute, one-shot limits and retirement retain
 the current audio owners. This is per-source filtering, not a general DSP graph,
 shared effect buses, send/return routing, acoustic occlusion or reverb. Gallery85
 compares the same original recording with dry/low-pass/high-pass sources.
+
+## Source echo and effect tails
+
+AudioSource adds `echo_enabled=false`, `echo_seconds=.25f` and `echo_feedback=.35f`.
+Reflection admits finite interval .01f..1 seconds and feedback0...75, including
+inactive fields. Old Scene/Prefab values normalize additive defaults through the
+same codec; source history/Revert, live/Keep values and C++ use these exact fields.
+The installed value header changes the exact SDK fingerprint; rebuild modules.
+C callback tables/ABI1, dependency pins, asset identities and clip PCM are unchanged.
+
+The existing private Voice chain is SourceEffects, with optional HPF→LPF→echo on
+the engine's output channels/rate. The unchanged pinned native `ma_delay_node`
+provides immediate dry signal and feedback repeats. FORGE explicitly disables
+native delayStart: its constructor otherwise changes mode at zero feedback.
+Feedback0 or disabled echo creates no delay node/buffer. Interval rounds to output
+frames. Feedback can raise peaks; there is no separate wet/dry mixer or limiter.
+Changing effective settings creates a detached replacement chain, preserving clip
+cursor but clearing effect history. Dormant parameters do not rebuild a chain.
+No attached DSP config is mutated and no callback constructs nodes or accesses ECS.
+
+Each voice retains its own buffer. At the fixed48kHz stereo f32 engine output,
+the maximum1second buffer uses384000bytes:93.75MiB for256 stable voices, plus one
+detached replacement during a change. `echo_buffer_bytes` in existing global/source
+observations counts these allocated buffers; it excludes filter/node overhead,
+decoded assets and temporary detached replacements. Source observations include
+its one-shots. It is derived from current voice ownership, not another memory ledger.
+
+Short clips retain their echo after EOS. Owner servicing samples atomic native
+node-local processed-frame time at observed EOS and retires at the first feedback
+repeat whose feedback decay is below1e-4 (-80dB) of the retained signal at EOS,
+bounded33seconds at maximum settings from that observation.
+Polling latency can delay noticing EOS; this is not a sample-accurate voice expiry.
+One-shot tails occupy the existing16-per-source/256-total caps until retirement.
+A finished primary chain stops processing when its tail expires, retaining its
+bounded buffer for the existing voice lifetime. Component/clip/source retirement
+uses the established native detach/wait boundary.
+
+Source Pause freezes the chain as well as the sound, including post-EOS tails.
+Resume restores its state without rewinding a completed clip: native sound start
+rewinds EOS, so tail-only Resume must start only the effect. Source Stop silences
+the chain and discards its audible history; the next Restart creates fresh history.
+Full suspension and game-pause groups freeze their connected chains; routing-only
+changes preserve history. Source `echo_tail` identifies its primary tail and
+`echo_tails` counts all retained tails, including paused one-shots. Live sound can
+show Echo tail and enables Pause/Resume for it even when no clip is still playing.
+Counts indicate retained output state, not physical device audibility.
+
+Existing property/Play automation and MCP bindings expose the same fields and
+copied observations, with normal ownership/permission/revision/generation/history
+rules. No extra effect tools/manager or agent-only playback implementation exists.
+Gallery90 compares the same original processed recording with dry/quarter-/half-
+second echoes and ordinary export dependencies. There is no general DSP graph,
+shared effect bus, sends, reverb, acoustic simulation or smoothed automation.
 
 ## Common mix channels
 

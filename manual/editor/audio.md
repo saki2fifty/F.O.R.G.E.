@@ -211,6 +211,20 @@ filtered speaker to compare the same recording. Saved filter settings also apply
 in an exported game. These are source filters; custom effect buses, reverb,
 send/return routing and automatic acoustic occlusion are unavailable.
 
+## Add an echo
+
+1. Select a sound entity and expand **Inspector → Audio Source**.
+2. Enable **Echo**. Set **Echo interval (s)** to the time between repeats, from 0.01 to 1 second. Start with 0.25 seconds.
+3. Set **Echo feedback** to how much sound each repeat retains, from 0 to 0.75. Try 0.35 for a short fading echo. Zero bypasses the echo.
+4. Play the sound and compare with Echo off. Reduce the source's Gain if overlapping repeats become too loud.
+5. Stop Play, edit the authored values and save the scene to keep them in the project and exported game. Prefab overrides and Revert work normally.
+
+Echo keeps the original sound and adds fading repeats after pitch, spatial processing and any source filters. Each one-shot has its own echo. A short clip can finish while its echo continues; the voice is released after the tail fades. The longest interval and highest feedback retain a tail for about 33 seconds after the clip's end is observed. Paused tails keep their place in the voice limit. Echo is disabled by default and does not change the imported recording.
+
+Source Pause freezes the sound and its echo, including an echo that continues after the clip ends. Resume continues it. Stop discards the echo, and Play / Restart begins with fresh echo history. **Pause with game** also applies to echoes; full output suspension always pauses them.
+
+Live changes to Echo, its interval or feedback update current voices without restarting their clips. Changing an active effect clears its history and can produce a short transition or click. Echo feedback is not a separate wet/dry mixer, reverb or shared effect bus.
+
 ## Start or stop a source during Play
 
 Select an entity with an Audio Source while Play is active. The tinted **Live

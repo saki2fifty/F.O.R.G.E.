@@ -13,6 +13,7 @@
 #include <forge/project_paths.hpp>
 #include <fstream>
 #include <miniaudio.h>
+#include <optional>
 #include <set>
 #include <thread>
 namespace forge {
@@ -49,14 +50,16 @@ bool same_failed_config(const AudioSource& a, const AudioSource& b) {
         a.spatialized != b.spatialized || a.attenuation != b.attenuation ||
         a.cone_enabled != b.cone_enabled || a.bus != b.bus ||
         a.pause_with_game != b.pause_with_game || a.low_pass_enabled != b.low_pass_enabled ||
-        a.high_pass_enabled != b.high_pass_enabled)
+        a.high_pass_enabled != b.high_pass_enabled || a.echo_enabled != b.echo_enabled)
         return false;
-    const std::array left{a.gain,    a.pitch,       a.minimum_distance, a.maximum_distance,
-                          a.rolloff, a.inner_angle, a.outer_angle,      a.outer_gain,
-                          a.doppler, a.low_pass_hz, a.high_pass_hz};
-    const std::array right{b.gain,    b.pitch,       b.minimum_distance, b.maximum_distance,
-                           b.rolloff, b.inner_angle, b.outer_angle,      b.outer_gain,
-                           b.doppler, b.low_pass_hz, b.high_pass_hz};
+    const std::array left{a.gain,         a.pitch,       a.minimum_distance, a.maximum_distance,
+                          a.rolloff,      a.inner_angle, a.outer_angle,      a.outer_gain,
+                          a.doppler,      a.low_pass_hz, a.high_pass_hz,     a.echo_seconds,
+                          a.echo_feedback};
+    const std::array right{b.gain,         b.pitch,       b.minimum_distance, b.maximum_distance,
+                           b.rolloff,      b.inner_angle, b.outer_angle,      b.outer_gain,
+                           b.doppler,      b.low_pass_hz, b.high_pass_hz,     b.echo_seconds,
+                           b.echo_feedback};
     for (unsigned i = 0; i < left.size(); ++i)
         if (!(left[i] == right[i] || (std::isnan(left[i]) && std::isnan(right[i]))))
             return false;
@@ -106,11 +109,19 @@ struct AudioRuntime::Impl {
     ResourcePool<AudioClipAsset> clips{{2, max_voices, 4096, max_cache}};
     std::map<AssetId, ResourceTicket> requests;
     std::map<std::uint64_t, AssetId> pending_sources;
-    struct Filters {
+    struct SourceEffects {
         ma_lpf_node low{};
         ma_hpf_node high{};
+        ma_delay_node echo{};
         bool low_ready = false, high_ready = false;
+        bool echo_ready = false;
         float low_hz = 0, high_hz = 0;
+        float echo_seconds = 0, echo_feedback = 0;
+        std::uint64_t tail_frames = 0;
+        std::uint64_t echo_buffer_bytes = 0;
+        static bool has_echo(const AudioSource& source) {
+            return source.echo_enabled && source.echo_feedback > 0;
+        }
         // Build detached nodes; never reinitialize DSP state on the device thread.
         void initialize(ma_engine& engine, const AudioSource& source) {
             auto* graph = ma_engine_get_node_graph(&engine);
@@ -130,20 +141,50 @@ struct AudioRuntime::Impl {
             }
             if (high_ready && low_ready)
                 checked(ma_node_attach_output_bus(&high, 0, &low, 0), "Audio filter chain");
+            if (has_echo(source)) {
+                const auto frames =
+                    static_cast<ma_uint32>(std::llround(source.echo_seconds * rate));
+                auto config =
+                    ma_delay_node_config_init(channels, rate, frames, source.echo_feedback);
+                // Native's zero-decay default selects a delayed start. FORGE's
+                // echo always keeps immediate dry signal plus feedback repeats.
+                config.delay.delayStart = MA_FALSE;
+                checked(ma_delay_node_init(graph, &config, nullptr, &echo), "Source echo");
+                echo_ready = true;
+                echo_seconds = source.echo_seconds;
+                echo_feedback = source.echo_feedback;
+                echo_buffer_bytes = std::uint64_t(frames) * channels * sizeof(float);
+                tail_frames = frames * static_cast<std::uint64_t>(std::ceil(
+                                           std::log(.0001) / std::log(double(echo_feedback))));
+                if (low_ready || high_ready)
+                    checked(ma_node_attach_output_bus(low_ready ? static_cast<ma_node*>(&low)
+                                                                : static_cast<ma_node*>(&high),
+                                                      0, &echo, 0),
+                            "Audio echo input");
+            }
         }
         bool matches(const AudioSource& source) const {
             return low_ready == source.low_pass_enabled && high_ready == source.high_pass_enabled &&
                    (!low_ready || low_hz == source.low_pass_hz) &&
-                   (!high_ready || high_hz == source.high_pass_hz);
+                   (!high_ready || high_hz == source.high_pass_hz) &&
+                   echo_ready == has_echo(source) &&
+                   (!echo_ready ||
+                    (echo_seconds == source.echo_seconds && echo_feedback == source.echo_feedback));
         }
         ma_node* input() {
-            return high_ready ? static_cast<ma_node*>(&high) : static_cast<ma_node*>(&low);
+            return high_ready  ? static_cast<ma_node*>(&high)
+                   : low_ready ? static_cast<ma_node*>(&low)
+                               : static_cast<ma_node*>(&echo);
         }
         ma_node* output() {
-            return low_ready ? static_cast<ma_node*>(&low) : static_cast<ma_node*>(&high);
+            return echo_ready  ? static_cast<ma_node*>(&echo)
+                   : low_ready ? static_cast<ma_node*>(&low)
+                               : static_cast<ma_node*>(&high);
         }
-        ~Filters() {
+        ~SourceEffects() {
             // Native node uninit detaches and waits for in-flight processing.
+            if (echo_ready)
+                ma_delay_node_uninit(&echo, nullptr);
             if (high_ready)
                 ma_hpf_node_uninit(&high, nullptr);
             if (low_ready)
@@ -161,7 +202,16 @@ struct AudioRuntime::Impl {
         bool follows_game_pause = true;
         float source_volume = 1;
         AudioMotion motion;
-        std::unique_ptr<Filters> filters;
+        std::unique_ptr<SourceEffects> effects;
+        std::optional<std::uint64_t> echo_tail_start;
+        bool echo_drained = false;
+        std::uint64_t echo_buffer_bytes() const { return effects ? effects->echo_buffer_bytes : 0; }
+        void effects_running(bool running) {
+            if (effects)
+                checked(ma_node_set_state(effects->output(),
+                                          running ? ma_node_state_started : ma_node_state_stopped),
+                        "Audio effect pause/resume");
+        }
         ~Voice() {
             if (ready)
                 ma_sound_uninit(&sound);
@@ -171,6 +221,12 @@ struct AudioRuntime::Impl {
     };
     struct SourceVoice : Voice {
         std::vector<std::unique_ptr<Voice>> one_shots;
+        std::uint64_t echo_buffer_bytes() const {
+            auto bytes = Voice::echo_buffer_bytes();
+            for (const auto& shot : one_shots)
+                bytes += shot->echo_buffer_bytes();
+            return bytes;
+        }
     };
     std::map<std::uint64_t, std::unique_ptr<SourceVoice>> voices;
     std::map<std::uint64_t, std::string> failures;
@@ -379,21 +435,40 @@ struct AudioRuntime::Impl {
             checked(should_play ? ma_sound_group_start(&group) : ma_sound_group_stop(&group),
                     "Audio output pause/resume");
     }
-    void reap_shots() {
+    bool voice_finished(Voice& voice) {
+        if (voice.start_pending || voice.source_paused || !ma_sound_at_end(&voice.sound))
+            return false;
+        if (!voice.effects || !voice.effects->echo_ready || voice.echo_drained)
+            return true;
+        const auto time = ma_node_get_time(&voice.effects->echo);
+        if (!voice.echo_tail_start)
+            voice.echo_tail_start = time;
+        if (time - *voice.echo_tail_start < voice.effects->tail_frames)
+            return false;
+        voice.effects_running(false);
+        voice.echo_drained = true;
+        return true;
+    }
+    static bool echo_tail(const Voice& voice) {
+        return voice.effects && voice.effects->echo_ready && !voice.echo_drained &&
+               ma_sound_at_end(&voice.sound);
+    }
+    void reap_finished() {
         for (auto& [id, source] : voices) {
-            if (source->one_shots.empty())
+            if (source->one_shots.empty() && (!source->effects || !source->effects->echo_ready))
                 continue;
             const auto resolved = world.resolve(source->ref);
             if (resolved.state != WorldContext::ResolveState::Available || resolved.entity != id ||
                 !world.world().entity(id).has<AudioSource>() ||
                 world.world().entity(id).get<AudioSource>().clip != source->authored.clip) {
                 source->one_shots.clear();
+                source->effects_running(false);
+                source->echo_drained = true;
                 continue;
             }
-            std::erase_if(source->one_shots, [](const auto& shot) {
-                return !shot->start_pending && !shot->source_paused &&
-                       ma_sound_at_end(&shot->sound);
-            });
+            (void)voice_finished(*source);
+            std::erase_if(source->one_shots,
+                          [&](const auto& shot) { return voice_finished(*shot); });
         }
     }
     void initialize_voice(Voice& voice) {
@@ -410,30 +485,43 @@ struct AudioRuntime::Impl {
         // Source sample rate is supplied before attaching the buffer to the engine.
         ma_sound_set_pitch(&voice.sound, voice.authored.pitch);
     }
-    void configure_voice(Voice& v, flecs::entity e, float fixed_delta, bool loading_only,
-                         bool one_shot = false) {
+    void configure_effects(Voice& v, bool reset = false) {
         const auto& config_value = v.authored;
         auto* parent = config_value.pause_with_game ? &pausable_group : &group;
-        const bool filtered = config_value.low_pass_enabled || config_value.high_pass_enabled;
-        if (v.filters ? !v.filters->matches(config_value) : filtered) {
-            std::unique_ptr<Filters> next;
+        const bool filtered = config_value.low_pass_enabled || config_value.high_pass_enabled ||
+                              SourceEffects::has_echo(config_value);
+        if (reset || (v.effects ? !v.effects->matches(config_value) : filtered)) {
+            std::unique_ptr<SourceEffects> next;
             if (filtered) {
-                next = std::make_unique<Filters>();
+                next = std::make_unique<SourceEffects>();
                 next->initialize(engine, config_value);
+                checked(ma_node_set_state(next->output(), !v.source_paused &&
+                                                                  ma_sound_is_playing(&v.sound) &&
+                                                                  !ma_sound_at_end(&v.sound)
+                                                              ? ma_node_state_started
+                                                              : ma_node_state_stopped),
+                        "Audio effect initial state");
                 checked(ma_node_attach_output_bus(next->output(), 0, parent, 0),
-                        "Audio filter output");
+                        "Audio effect output");
             }
             checked(ma_node_attach_output_bus(
                         &v.sound, 0, next ? next->input() : static_cast<ma_node*>(parent), 0),
-                    "Audio filter input");
-            v.filters = std::move(next);
+                    "Audio effect input");
+            v.effects = std::move(next);
+            v.echo_tail_start.reset();
+            v.echo_drained = ma_sound_at_end(&v.sound);
         } else if (v.follows_game_pause != config_value.pause_with_game) {
-            checked(ma_node_attach_output_bus(v.filters ? v.filters->output()
+            checked(ma_node_attach_output_bus(v.effects ? v.effects->output()
                                                         : static_cast<ma_node*>(&v.sound),
                                               0, parent, 0),
                     "Audio pause routing");
         }
         v.follows_game_pause = config_value.pause_with_game;
+    }
+    void configure_voice(Voice& v, flecs::entity e, float fixed_delta, bool loading_only,
+                         bool one_shot = false) {
+        const auto& config_value = v.authored;
+        configure_effects(v);
         ma_sound_set_looping(&v.sound, (one_shot ? false : config_value.loop));
         ma_sound_set_pitch(&v.sound, config_value.pitch);
         ma_sound_set_spatialization_enabled(&v.sound, config_value.spatialized);
@@ -521,7 +609,7 @@ struct AudioRuntime::Impl {
     void sync(std::uint64_t next_tick, float fixed_delta,
               std::span<const std::uint64_t> discontinuities, bool loading_only = false) {
         check();
-        reap_shots();
+        reap_finished();
         clips.pump();
         pending_sources.clear();
         std::set<std::uint64_t> created_voices;
@@ -685,7 +773,7 @@ struct AudioRuntime::Impl {
         update_output_pause();
     }
     void flush_commands(const std::set<std::uint64_t>& created = {}) {
-        reap_shots();
+        reap_finished();
         auto pending = std::move(commands);
         commands.clear();
         std::map<std::uint64_t, std::pair<bool, bool>> initial;
@@ -717,13 +805,19 @@ struct AudioRuntime::Impl {
                 }
                 continue;
             }
-            if (c.operation == AudioSourceOperation::Stop)
+            if (c.operation == AudioSourceOperation::Stop) {
                 voice.one_shots.clear();
+                voice.effects_running(false);
+                voice.echo_drained = true;
+                voice.echo_tail_start.reset();
+            }
             for (auto& shot : voice.one_shots) {
                 if (c.operation == AudioSourceOperation::Pause &&
                     (shot->start_pending ||
-                     (ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound)))) {
+                     (ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound)) ||
+                     echo_tail(*shot))) {
                     checked(ma_sound_stop(&shot->sound), "Pause one-shot");
+                    shot->effects_running(false);
                     shot->start_pending = false;
                     shot->source_paused = true;
                 } else if (c.operation == AudioSourceOperation::Resume && shot->source_paused) {
@@ -764,7 +858,10 @@ struct AudioRuntime::Impl {
             switch (c.operation) {
             case AudioSourceOperation::Restart:
                 checked(ma_sound_seek_to_pcm_frame(&sound, 0), "Restart source");
+                configure_effects(voice, true);
                 checked(ma_sound_start(&sound), "Play source");
+                voice.effects_running(true);
+                voice.echo_drained = false;
                 voice.source_paused = false;
                 break;
             case AudioSourceOperation::Stop:
@@ -773,8 +870,9 @@ struct AudioRuntime::Impl {
                 voice.source_paused = false;
                 break;
             case AudioSourceOperation::Pause:
-                if (ma_sound_is_playing(&sound) && !ma_sound_at_end(&sound)) {
+                if ((ma_sound_is_playing(&sound) && !ma_sound_at_end(&sound)) || echo_tail(voice)) {
                     checked(ma_sound_stop(&sound), "Pause source");
+                    voice.effects_running(false);
                     voice.source_paused = true;
                 }
                 break;
@@ -784,6 +882,7 @@ struct AudioRuntime::Impl {
                 if (voice.source_paused) {
                     if (!ma_sound_at_end(&sound))
                         checked(ma_sound_start(&sound), "Resume source");
+                    voice.effects_running(true);
                     voice.source_paused = false;
                 }
                 break;
@@ -792,13 +891,20 @@ struct AudioRuntime::Impl {
         for (const auto& [id, intent] : initial) {
             auto& voice = *voices.at(id);
             voice.source_paused = intent.second;
-            if (intent.first)
+            if (intent.first) {
                 checked(ma_sound_start(&voice.sound), "Start prepared source");
+                voice.effects_running(true);
+                voice.echo_drained = false;
+            }
         }
         for (auto& [id, source] : voices)
             for (auto& shot : source->one_shots)
                 if (shot->start_pending) {
-                    checked(ma_sound_start(&shot->sound), "Play one-shot");
+                    // Native start restarts an EOS clip. Resume only its retained
+                    // effect when the clip has already finished.
+                    if (!ma_sound_at_end(&shot->sound))
+                        checked(ma_sound_start(&shot->sound), "Play one-shot");
+                    shot->effects_running(true);
                     shot->start_pending = false;
                 }
     }
@@ -868,15 +974,23 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
                 {"high_pass_enabled", entity.get<AudioSource>().high_pass_enabled},
                 {"low_pass_hz", entity.get<AudioSource>().low_pass_hz},
                 {"high_pass_hz", entity.get<AudioSource>().high_pass_hz},
+                {"echo_enabled", entity.get<AudioSource>().echo_enabled},
+                {"echo_seconds", entity.get<AudioSource>().echo_seconds},
+                {"echo_feedback", entity.get<AudioSource>().echo_feedback},
+                {"echo_tail", false},
+                {"echo_tails", 0},
+                {"echo_buffer_bytes", 0},
                 {"duration", 0}};
     if (found == runtime.impl_->voices.end() || !found->second->ready ||
         found->second->ref != ref || !entity.has<AudioSource>() ||
         entity.get<AudioSource>().clip != found->second->authored.clip)
         throw std::runtime_error("AudioSource has no admitted voice in the current world");
     unsigned playing_shots = 0, paused_shots = 0;
+    unsigned echo_tails = AudioRuntime::Impl::echo_tail(*found->second) ? 1 : 0;
     for (const auto& shot : found->second->one_shots) {
         playing_shots += ma_sound_is_playing(&shot->sound) && !ma_sound_at_end(&shot->sound);
         paused_shots += shot->source_paused;
+        echo_tails += AudioRuntime::Impl::echo_tail(*shot);
     }
     return {{"source", ref},
             {"one_shots", found->second->one_shots.size()},
@@ -893,6 +1007,12 @@ Json AudioSourceAccess::status(AudioRuntime& runtime, EntityRef ref) {
             {"high_pass_enabled", found->second->authored.high_pass_enabled},
             {"low_pass_hz", found->second->authored.low_pass_hz},
             {"high_pass_hz", found->second->authored.high_pass_hz},
+            {"echo_enabled", found->second->authored.echo_enabled},
+            {"echo_seconds", found->second->authored.echo_seconds},
+            {"echo_feedback", found->second->authored.echo_feedback},
+            {"echo_tail", AudioRuntime::Impl::echo_tail(*found->second)},
+            {"echo_tails", echo_tails},
+            {"echo_buffer_bytes", found->second->echo_buffer_bytes()},
             {"loop", found->second->authored.loop},
             {"duration", found->second->clip->duration()}};
 }
@@ -922,9 +1042,11 @@ void AudioRuntime::mix_volumes(float master, const std::array<float, 3>& channel
 Json AudioRuntime::status() const {
     impl_->check();
     unsigned playing = 0;
+    std::uint64_t echo_bytes = 0;
     for (const auto& [id, voice] : impl_->voices) {
         (void)id;
         playing += ma_sound_is_playing(&voice->sound);
+        echo_bytes += voice->echo_buffer_bytes();
     }
     const auto resources = impl_->clips.statistics();
     return {{"mixed_frames", impl_->mixed_frames.load(std::memory_order_relaxed)},
@@ -940,6 +1062,7 @@ Json AudioRuntime::status() const {
             {"one_shots", impl_->shot_count()},
             {"clips", resources.selected},
             {"decoded_bytes", resources.memory.cpu_asset},
+            {"echo_buffer_bytes", echo_bytes},
             {"pending_sources", impl_->pending_sources.size()},
             {"pending_clips", resources.pending},
             {"failed_sources", impl_->failures.size()},
@@ -970,7 +1093,7 @@ bool AudioRuntime::wait_for_sources(std::chrono::milliseconds timeout) {
 }
 void AudioRuntime::poll_loading() {
     impl_->check();
-    impl_->reap_shots();
+    impl_->reap_finished();
     if (!impl_->pending_sources.empty() || impl_->clips.statistics().pending)
         impl_->sync(impl_->tick, 0, {}, true);
 }
@@ -984,7 +1107,7 @@ void AudioRuntime::read_offline(std::span<float> out) {
         throw std::runtime_error("PCM reads require explicit offline stereo output");
     checked(ma_engine_read_pcm_frames(&impl_->engine, out.data(), out.size() / 2, nullptr),
             "Offline audio read");
-    impl_->reap_shots();
+    impl_->reap_finished();
 }
 const asset_detail::AudioClipData& AudioPreviewAccess::clip(AudioRuntime& runtime, EntityRef ref) {
     runtime.impl_->check();

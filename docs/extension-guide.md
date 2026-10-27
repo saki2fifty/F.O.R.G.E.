@@ -564,6 +564,14 @@ native filter node or coefficient crosses the SDK. Rebuild for the matching valu
 fingerprint; changing live filter values resets DSP history without restarting
 the clip. See [the audio contract](extension-contracts.md).
 
+The same sample sets AudioSource.echo_enabled, echo_seconds and echo_feedback.
+Echo defaults off, interval .25seconds and feedback .35; finite admitted bounds
+are .01..1seconds and0...75. Zero feedback bypasses echo. Each primary/one-shot
+owns its effect history. Stop/Restart clears it, Pause freezes it and Resume can
+continue a post-clip tail without replaying the finished clip. Native delay nodes
+remain private; existing typed component and audio control APIs are unchanged.
+Rebuild exact modules for the appended AudioSource value fingerprint.
+
 ## Touch action example
 
 The installed sample target `touch_input_gameplay` builds `touch_input_probe.cpp`, `TouchCursor.cpp` and `TouchInput.hpp` using only the installed SDK. Module `project.touch_input` implementation1 depends on `forge.input` and `forge.transforms`. The four ActionIds in `TouchInput.hpp` match Gallery88's saved digital contact-down and separate Axis1 X/Y/pressure bindings. Call `sdk::Client::action` only during the fixed callback; copy values for the current tick. Positions and pressure are0..1; absent/released contacts are neutral. No raw SDL IDs or pointers cross the SDK.

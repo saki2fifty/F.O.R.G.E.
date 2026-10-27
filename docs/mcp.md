@@ -666,6 +666,14 @@ time. Finite 20–20000 Hz validation and bad-value preservation belong to the s
 Scene/runtime owners. No separate agent filter graph, tool family or mutation path
 is added; saved settings reach source/one-shot playback and export.
 
+Echo uses those same property operations with echo_enabled, echo_seconds and
+echo_feedback. Intervals admit .01..1seconds and feedback0...75; invalid native
+tuning preserves the last admitted value. Existing audio observations include
+admitted settings, retained echo_tails and echo_buffer_bytes, with no extra trace
+or effect owner. Source controls freeze/resume post-EOS tails without restarting
+their clips; Stop clears them. These reads/controls retain the same permissions,
+watched identity, revision, generation and unchanged authored-Scene rules.
+
 ## Ordered Sprite frame regions
 
 Native discovery for forge.sprite_renderer includes frame_regions as a vector of

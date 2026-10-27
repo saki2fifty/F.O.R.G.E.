@@ -70,15 +70,15 @@ int main(int argc, char** argv) {
         const auto motion_source = read(project / "Scenes/35-moving-audio.scene.json");
         const std::array recent_sources{read(project / "Scenes/83-audio-source-codecs.scene.json"),
                                         read(project / "Scenes/84-independent-audio.scene.json"),
-                                        read(project / "Scenes/85-audio-filters.scene.json")};
-        const std::array roots{source.at("asset_id").get<AssetId>(),
-                               cone_source.at("asset_id").get<AssetId>(),
-                               mix_source.at("asset_id").get<AssetId>(),
-                               processing_source.at("asset_id").get<AssetId>(),
-                               motion_source.at("asset_id").get<AssetId>(),
-                               recent_sources[0].at("asset_id").get<AssetId>(),
-                               recent_sources[1].at("asset_id").get<AssetId>(),
-                               recent_sources[2].at("asset_id").get<AssetId>()};
+                                        read(project / "Scenes/85-audio-filters.scene.json"),
+                                        read(project / "Scenes/90-audio-echo.scene.json")};
+        std::vector<AssetId> roots{source.at("asset_id").get<AssetId>(),
+                                   cone_source.at("asset_id").get<AssetId>(),
+                                   mix_source.at("asset_id").get<AssetId>(),
+                                   processing_source.at("asset_id").get<AssetId>(),
+                                   motion_source.at("asset_id").get<AssetId>()};
+        for (const auto& recent : recent_sources)
+            roots.push_back(recent.at("asset_id").get<AssetId>());
         const auto clip = AssetId::parse("327101c1-e496-4293-b830-4c25b978607a");
         // Export consumes target-specific cooked data. Use the same supervised
         // importer/publication owner to prepare this test's requested target.

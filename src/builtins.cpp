@@ -173,7 +173,10 @@ template <class T> Json encode(const T& p) {
                 {"low_pass_enabled", p.low_pass_enabled},
                 {"high_pass_enabled", p.high_pass_enabled},
                 {"low_pass_hz", p.low_pass_hz},
-                {"high_pass_hz", p.high_pass_hz}};
+                {"high_pass_hz", p.high_pass_hz},
+                {"echo_enabled", p.echo_enabled},
+                {"echo_seconds", p.echo_seconds},
+                {"echo_feedback", p.echo_feedback}};
     else if constexpr (std::is_same_v<T, AudioListener>)
         return {{"enabled", p.enabled}};
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -507,6 +510,9 @@ template <class T> Value decode(const Json& p) {
         v.high_pass_enabled = p.value("high_pass_enabled", false);
         v.low_pass_hz = p.value("low_pass_hz", 20000.f);
         v.high_pass_hz = p.value("high_pass_hz", 20.f);
+        v.echo_enabled = p.value("echo_enabled", false);
+        v.echo_seconds = p.value("echo_seconds", .25f);
+        v.echo_feedback = p.value("echo_feedback", .35f);
         if (v.maximum_distance < v.minimum_distance)
             throw std::runtime_error("Audio maximum distance must be at least minimum distance");
         if (v.outer_angle < v.inner_angle)
@@ -1074,7 +1080,10 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<bool>("low_pass_enabled")
             .template member<bool>("high_pass_enabled")
             .template member<float>("low_pass_hz")
-            .template member<float>("high_pass_hz");
+            .template member<float>("high_pass_hz")
+            .template member<bool>("echo_enabled")
+            .template member<float>("echo_seconds")
+            .template member<float>("echo_feedback");
     } else if constexpr (std::is_same_v<T, AudioListener>)
         c.template member<bool>("enabled");
     else if constexpr (std::is_same_v<T, CharacterController2D>)
@@ -2023,6 +2032,12 @@ Json registration_options(const Builtin& type, const std::string& field) {
                                 "that should continue while the game is paused"},
             {"low_pass_enabled", "Soften high frequencies on this source and its one-shots"},
             {"high_pass_enabled", "Reduce low frequencies on this source and its one-shots"},
+            {"echo_enabled", "Repeat this source and its one-shots with a fading echo. Source "
+                             "Stop/Restart clears the echo; Pause freezes it"},
+            {"echo_seconds", "Time between echoes in output seconds. Changing an active effect "
+                             "clears its history without restarting the clip"},
+            {"echo_feedback", "Fraction retained for each repeat; zero bypasses echo. Echo can "
+                              "increase peaks. Reduce source gain if needed"},
             {"low_pass_hz", "Low-pass cutoff in Hz; frequencies above it are reduced. Changing "
                             "an active filter resets filter state without restarting the clip"},
             {"high_pass_hz", "High-pass cutoff in Hz; frequencies below it are reduced. Changing "
@@ -2059,6 +2074,19 @@ Json registration_options(const Builtin& type, const std::string& field) {
         }
         if (field == "pause_with_game")
             value["display_name"] = "Pause with game";
+        if (field == "echo_enabled")
+            value["display_name"] = "Echo";
+        if (field == "echo_seconds") {
+            value["display_name"] = "Echo interval (s)";
+            value["minimum"] = .01f;
+            value["maximum"] = 1;
+            value["unit"] = "seconds";
+        }
+        if (field == "echo_feedback") {
+            value["display_name"] = "Echo feedback";
+            value["minimum"] = 0;
+            value["maximum"] = .75;
+        }
         if (field == "low_pass_enabled" || field == "high_pass_enabled")
             value["display_name"] =
                 field == "low_pass_enabled" ? "Low-pass filter" : "High-pass filter";
@@ -2900,7 +2928,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
         for (const auto* field :
              {"attenuation", "rolloff", "cone_enabled", "inner_angle", "outer_angle", "outer_gain",
               "bus", "doppler", "pause_with_game", "low_pass_enabled", "high_pass_enabled",
-              "low_pass_hz", "high_pass_hz"})
+              "low_pass_hz", "high_pass_hz", "echo_enabled", "echo_seconds", "echo_feedback"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.physics_body")

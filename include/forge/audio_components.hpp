@@ -25,6 +25,8 @@ struct AudioSource {
     bool pause_with_game = true;
     bool low_pass_enabled = false, high_pass_enabled = false;
     float low_pass_hz = 20000, high_pass_hz = 20;
+    bool echo_enabled = false;
+    float echo_seconds = .25f, echo_feedback = .35f;
     bool operator==(const AudioSource&) const = default;
 };
 struct AudioListener {

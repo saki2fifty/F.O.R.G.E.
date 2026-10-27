@@ -275,6 +275,17 @@ int main(int argc, char** argv) {
                 require(scene.undo() && scene.entity(id).get<AudioSource>().high_pass_hz == 20 &&
                             scene.redo() && scene.entity(id).get<AudioSource>().high_pass_hz == 100,
                         "Filter cutoff lost Scene Undo/Redo");
+                click("echo_enabled");
+                numeric("echo_seconds", "0.5");
+                numeric("echo_feedback", "0.625");
+                require(scene.entity(id).get<AudioSource>().echo_enabled &&
+                            scene.entity(id).get<AudioSource>().echo_seconds == .5f &&
+                            scene.entity(id).get<AudioSource>().echo_feedback == .625f,
+                        "Actual echo controls did not author the source");
+                require(scene.undo() && scene.entity(id).get<AudioSource>().echo_feedback == .35f &&
+                            scene.redo() &&
+                            scene.entity(id).get<AudioSource>().echo_feedback == .625f,
+                        "Echo feedback lost Scene Undo/Redo");
                 project.save();
                 click("bus");
                 key(ImGuiKey_DownArrow);
@@ -302,6 +313,10 @@ int main(int argc, char** argv) {
                             scene.entity(id).get<AudioSource>().low_pass_hz == 4000 &&
                             scene.entity(id).get<AudioSource>().high_pass_hz == 100,
                         "Audio filters did not survive Save/reopen");
+                require(scene.entity(id).get<AudioSource>().echo_enabled &&
+                            scene.entity(id).get<AudioSource>().echo_seconds == .5f &&
+                            scene.entity(id).get<AudioSource>().echo_feedback == .625f,
+                        "Audio echo did not survive Save/reopen");
                 cone = scene.entity(id).get<AudioSource>();
                 require(cone.doppler == 1.5f && cone.bus == 1 && cone.cone_enabled &&
                             cone.inner_angle == 40 && cone.outer_angle == 100 &&
@@ -390,6 +405,16 @@ int main(int argc, char** argv) {
                         "Paused effect beside stopped primary did not enable Resume");
                 sound_status["one_shots"] = 0;
                 sound_status["paused_one_shots"] = 0;
+                sound_status["echo_tails"] = 1;
+                click("pause");
+                require(live_requests == 9 && live_operation == AudioSourceOperation::Pause,
+                        "Post-EOS echo did not enable the actual Pause button");
+                sound_status["source_paused"] = true;
+                click("pause");
+                require(live_requests == 10 && live_operation == AudioSourceOperation::Resume,
+                        "Paused post-EOS echo did not enable the actual Resume button");
+                sound_status["echo_tails"] = 0;
+                sound_status["source_paused"] = false;
                 live = false;
                 mixing = true;
                 settings.open();

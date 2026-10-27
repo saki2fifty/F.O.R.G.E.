@@ -19,6 +19,15 @@ The existing CodeExamples/PaintedCollision.hpp helpers work with this profile to
 Only Static nonsensor Maps support this policy; moving/sensor one-way remains
 unavailable. Save before export.
 
+## Audio echo
+
+Open **Scenes/90-audio-echo.scene.json**. Compare the dry recording with quarter-
+second and half-second echoes using Live sound → Play / Restart on one source at
+a time. Only Dry recording starts automatically; each clip plays once, followed
+by its fading echo. All sources use the same original processed recording and
+Effects channel. Pause/Resume preserves the tail, Stop clears it, and the ordinary
+Audio Source properties save/export without a C++ module.
+
 ## Audio filters
 
 Open **Scenes/85-audio-filters.scene.json**. Only Dry tone starts automatically.

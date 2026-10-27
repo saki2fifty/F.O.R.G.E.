@@ -208,3 +208,7 @@ Open **Scenes/88-touch-input.scene.json** to test the project's Touch0 input act
 ## Touch gestures
 
 Open **Scenes/89-touch-gestures.scene.json** for a canvas Sprite and the project's gesture actions. The optional **CodeExamples/TouchGestures.cpp** system pans, zooms and rotates that Sprite from two-finger input. Build/register its matching module and capture Game input; the Scene alone supports Console input monitoring. Follow [Touch input](../editor/touch-input.md) for units, behavior and export steps.
+
+## Audio echo
+
+Open **Scenes/90-audio-echo.scene.json** for a dry recording and two echo settings. Only the dry source starts automatically, and each clip plays once. Use **Live sound → Play / Restart** on one source at a time to compare the original recording with quarter-second or half-second repeats. Source Pause freezes a remaining echo; Resume continues it, while Stop clears it. Save authored settings before exporting. See [Audio](../editor/audio.md) for the controls and limits.

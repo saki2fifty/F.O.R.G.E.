@@ -106,6 +106,7 @@ struct Fixture {
 #include "audio_attenuation_tests.hpp"
 #include "audio_cone_tests.hpp"
 #include "audio_doppler_tests.hpp"
+#include "audio_echo_tests.hpp"
 #include "audio_filter_tests.hpp"
 #include "audio_mix_tests.hpp"
 #include "audio_one_shot_tests.hpp"
@@ -130,6 +131,7 @@ int main(int argc, char** argv) {
         audio_source_pause_tests(root);
         audio_pause_policy_tests(root, record.id);
         audio_filter_tests(root, record.id);
+        audio_echo_tests(root, record.id);
         {
             Fixture full(root), quiet(root, .5f), muted(root, 0);
             full.load(source(record.id));

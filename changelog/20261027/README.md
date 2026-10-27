@@ -1,5 +1,16 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Audio Source echo
+
+Audio Sources add optional interval/feedback echo through the existing native voice
+chain. Short clips retain bounded tails; source/game/full pause freezes appropriate
+output, and Resume continues a tail without replaying a finished clip. Stop/Restart
+clears old echo history. Inspector/history/live tuning/public C++/MCP share the
+same saved fields and copied tail/buffer observations. Gallery90 compares the same
+original processed recording with two echo settings. Matching SDK modules require
+rebuilding; C tables/ABI1/pins remain unchanged. Windows/physical listening/full
+Main/external client/new captures remain pending.
+
 ## Measured CPU scope timelines
 
 The existing bounded Profiler retains host scope starts, offers a measured Timeline
