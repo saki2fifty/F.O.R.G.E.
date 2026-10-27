@@ -92,8 +92,19 @@ class CpuProfiler {
                         ImGui::TextWrapped(
                             "Start Play and wait for an active world to inspect "
                             "the separate runtime worker. Game GPU time is not collected.");
-                    else
-                        draw_records("game", game, true, pending, error, submit);
+                    else if (ImGui::BeginTabBar("Runtime CPU views")) {
+                        if (ImGui::BeginTabItem("CPU scopes")) {
+                            draw_records("game", game, true, pending, error, submit);
+                            ImGui::EndTabItem();
+                        }
+                        if (ImGui::BeginTabItem("ECS systems")) {
+                            FORGE_UI_PROBE("profiler:game:systems-tab");
+                            draw_records("game", game, true, pending, error, submit, false, true);
+                            ImGui::EndTabItem();
+                        } else
+                            FORGE_UI_PROBE("profiler:game:systems-tab");
+                        ImGui::EndTabBar();
+                    }
                     ImGui::EndTabItem();
                 } else
                     FORGE_UI_PROBE("profiler:game-tab");
@@ -133,7 +144,7 @@ class CpuProfiler {
     std::map<std::string, std::string> local_errors_;
     void draw_records(const char* owner, const nlohmann::json& status, bool ready, bool pending,
                       const std::string& error, const std::function<bool(bool, bool)>& submit,
-                      bool gpu = false) {
+                      bool gpu = false, bool systems = false) {
         ImGui::PushID(owner);
         auto& local_error = local_errors_[owner];
         if (!status.value("compiled", false)) {
@@ -148,8 +159,10 @@ class CpuProfiler {
         const bool enabled = status.value("enabled", false);
         ImGui::TextUnformatted(enabled ? "COLLECTING" : "STOPPED - samples retained");
         ImGui::TextWrapped(
-            gpu ? "GPU pass durations; separate rows must not be summed into a frame time."
-                : "CPU wall time only. Nested scopes overlap.");
+            gpu       ? "GPU pass durations; separate rows must not be summed into a frame time."
+            : systems ? "Native system lifetime CPU totals. Clear removes this view, not "
+                        "Flecs counters. These are not per-tick or frame times."
+                      : "CPU wall time only. Nested scopes overlap.");
         ImGui::BeginDisabled(pending);
         ImGui::BeginDisabled(!ready || !submit);
         if (ImGui::Button(enabled ? "Stop collection" : "Start collection")) {
@@ -181,6 +194,11 @@ class CpuProfiler {
             ImGui::TextUnformatted("Waiting for runtime acknowledgement...");
         if (!error.empty() || !local_error.empty())
             ImGui::TextWrapped("%s", error.empty() ? local_error.c_str() : error.c_str());
+        if (systems) {
+            draw_systems(status.value("ecs", nlohmann::json::object()));
+            ImGui::PopID();
+            return;
+        }
         ImGui::SetNextItemWidth(-1);
         ImGui::InputTextWithHint("##Scope filter", "Filter category or scope...", filter_,
                                  sizeof(filter_));
@@ -231,6 +249,91 @@ class CpuProfiler {
             ImGui::TextWrapped("Profile data rejected: %s", exception.what());
         }
         ImGui::PopID();
+    }
+    void draw_systems(const nlohmann::json& status) {
+        try {
+            if (!status.value("available", false)) {
+                ImGui::TextWrapped(
+                    "%s", status.value("reason", "Waiting for native system data.").c_str());
+                return;
+            }
+            const auto& entries = status.at("entries");
+            if (!entries.is_array() || entries.size() > 256 ||
+                status.at("timing") != "native_system_lifetime" ||
+                !status.at("tick").is_number_unsigned() || status.at("tick") == 0)
+                throw std::runtime_error("Invalid native system snapshot");
+            // Validate before starting a table so malformed transport data cannot
+            // leave an unfinished ImGui table on an exception.
+            for (const auto& row : entries) {
+                if (row.at("kind") == "merge")
+                    continue;
+                if (row.at("kind") != "system" || !row.at("id").is_number_unsigned() ||
+                    row.at("id") == 0 || !row.at("name").is_string() ||
+                    !row.at("phase").is_string() ||
+                    row.at("name").get_ref<const std::string&>().size() > 480 ||
+                    row.at("phase").get_ref<const std::string&>().size() > 480 ||
+                    !row.at("immediate").is_boolean() || !row.at("multi_threaded").is_boolean() ||
+                    (!row.at("cpu_seconds").is_null() &&
+                     (!row.at("cpu_seconds").is_number() ||
+                      !std::isfinite(row.at("cpu_seconds").get<double>()) ||
+                      row.at("cpu_seconds") < 0)))
+                    throw std::runtime_error("Invalid native system row");
+            }
+            ImGui::Text("Native plan at tick %llu | %zu / %u entries",
+                        static_cast<unsigned long long>(status.at("tick").get<std::uint64_t>()),
+                        entries.size(), status.at("total_entries").get<unsigned>());
+            ImGui::TextWrapped("Systems without matches are absent. Merge rows are native "
+                               "synchronization points. This plan is not an execution trace.");
+            if (status.at("truncated").get<bool>())
+                ImGui::TextWrapped("Showing the first 256 entries; the native plan is larger.");
+            ImGui::SetNextItemWidth(-1);
+            ImGui::InputTextWithHint("##System filter", "Filter system or phase...", filter_,
+                                     sizeof(filter_));
+            FORGE_UI_PROBE("profiler:game:system-filter");
+            if (ImGui::BeginTable(
+                    "Native systems", 5,
+                    ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV |
+                        ImGuiTableFlags_ScrollX | ImGuiTableFlags_ScrollY,
+                    {0, std::max(80.f * interface_scale, ImGui::GetContentRegionAvail().y)})) {
+                for (const char* column : {"Order", "System", "Phase", "CPU lifetime ms", "Mode"})
+                    ImGui::TableSetupColumn(column, ImGuiTableColumnFlags_WidthFixed,
+                                            (std::string_view(column) == "System" ? 250.f : 145.f) *
+                                                interface_scale);
+                ImGui::TableSetupScrollFreeze(0, 1);
+                ImGui::TableHeadersRow();
+                for (std::size_t i = 0; i < entries.size(); ++i) {
+                    const auto& row = entries[i];
+                    const bool merge = row.at("kind") == "merge";
+                    const auto name = merge ? "Merge" : row.at("name").get<std::string>();
+                    const auto phase = merge ? "" : row.at("phase").get<std::string>();
+                    if (*filter_ && !merge && name.find(filter_) == std::string::npos &&
+                        phase.find(filter_) == std::string::npos)
+                        continue;
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::Text("%zu", i + 1);
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(name.c_str());
+                    FORGE_UI_PROBE(std::string("profiler:game:system:") + name);
+                    ImGui::TableNextColumn();
+                    ImGui::TextUnformatted(phase.c_str());
+                    ImGui::TableNextColumn();
+                    if (!merge && !row.at("cpu_seconds").is_null())
+                        ImGui::Text("%.3f", row.at("cpu_seconds").get<double>() * 1000);
+                    else
+                        ImGui::TextUnformatted("--");
+                    ImGui::TableNextColumn();
+                    if (!merge)
+                        ImGui::TextUnformatted(row.at("multi_threaded").get<bool>()
+                                                   ? "Multi-threaded"
+                                               : row.at("immediate").get<bool>() ? "Immediate"
+                                                                                 : "Deferred");
+                }
+                ImGui::EndTable();
+            }
+        } catch (const std::exception& error) {
+            ImGui::TextWrapped("System data rejected: %s", error.what());
+        }
     }
 };
 } // namespace forge::ui

@@ -92,6 +92,10 @@ class RuntimeSimulation {
         input_.release_all();
     }
     Json presentation(double alpha) const;
+    // Last collected native fixed-pipeline plan; requests a fresh observation on
+    // the next collected fixed tick. Never progresses gameplay. Native system
+    // CPU counters retain lifetime semantics across collection/Clear.
+    Json system_profile() const;
 
   private:
     WorldContext& context_;
@@ -100,6 +104,10 @@ class RuntimeSimulation {
     RuntimeInput input_;
     InputMonitor input_monitor_;
     std::uint64_t input_tick_ = 0;
+    Json system_profile_ = Json::object();
+    std::uint64_t system_profile_epoch_ = 0;
+    mutable bool system_profile_requested_ = false;
+    void capture_system_profile();
     flecs::entity previous_pipeline_;
     flecs::entity input_phase_, input_system_;
     flecs::entity pipeline_, transforms_, gameplay_phase_, transform_phase_;

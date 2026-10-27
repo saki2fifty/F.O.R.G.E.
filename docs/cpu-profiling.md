@@ -43,6 +43,45 @@ advisory check runs; they consume native source inputs and the existing asset sn
 Opted-in navigation agents record NavAvoidance in the navigation category for
 velocity sampling and bounded surface movement. NavAgentUpdate remains inclusive.
 
+## Native runtime systems
+
+The Play runtime tab contains CPU scopes and ECS systems. RuntimeSimulation owns
+one bounded copied native plan. An optional profile observation requests a sample
+at the next successfully progressed fixed tick while the same Profiling capability
+is enabled. Without observations, collection does not repeatedly enumerate or
+serialize the plan. Inspection never progresses the authoring world or runs a tick.
+Stop retains the last copy. Clear's existing service epoch invalidates it; a new
+world begins empty. Observation failures report unavailable instead of faulting
+gameplay. A partial native pipeline is never sampled after a failed progress.
+
+The `cpu_profile.ecs` object includes available, tick, timing
+`native_system_lifetime`, capacity256, total_entries, truncated and entries. A row
+is either kind=merge or kind=system with generation-bearing native id, bounded
+display name/phase, cpu_seconds (nullable), immediate and multi_threaded. IDs are
+world-local diagnostic handles, not persistent EntityIds. Ordered entries and zero
+merge markers come directly from pinned `ecs_pipeline_stats_get`; vectors are
+finalized immediately. No pipeline history reduction or parallel scheduler exists.
+The captured native plan is not an execution trace; conditional systems can skip
+individual invocations and native topology can rebuild during progress.
+
+CPU values copy `ecs_system_t::time_spent`. These are native lifetime CPU wall-time totals,
+including measurements outside the collection window and any explicit native
+runs of the same system. Clear never writes native counters. Flecs Stats already
+enables native timing at WorldContext startup; this view adds no independent
+measurement clock. A missing/nonfinite native timing is null. CPU scopes retain
+their existing recent-window semantics. Neither view is total frame/GPU cost.
+Native waits can contribute to these durations. Mode describes configuration,
+not measured concurrency or worker utilization.
+
+Only the first256 plan entries are copied; truncation is explicit. Each displayed
+path has at most160 source bytes, shortened at a UTF-8 boundary with `...`; invalid
+native display bytes use the existing JSON output replacement policy. Canonical
+native names remain unchanged. Snapshot IDs are scoped by the existing outer
+world_generation/session/launch. No scene/schema/ABI/SDK fingerprint change.
+The pinned native stats count/rebuild fields are not used: the implementation at
+fb55f3c populates its ordered vectors, not those struct summary fields. Native
+stats remain their own authority; FORGE does not invent history or totals.
+
 ## Service and lifecycle
 
 ServiceAccess provides profile_status(), profiling_enabled(), clear_profiles(),
@@ -59,8 +98,8 @@ the UI explains that collection is unavailable and exposes no controls.
 An optional boolean profile_watch on a correlated request asks for cpu_profile in
 the reply; it never starts collection. Unwatched ordinary replies omit those records.
 Malformed watch values are rejected before clock/input controls run. The cpu_profile
-object includes available and world_generation alongside service status. An SDK host
-without a live world reports available=false.
+object includes available, world_generation and the native ECS observation alongside
+service status. An SDK host without a live world reports available=false.
 
 The profiling command requires generation equal to the current positive live world
 generation and a boolean enabled. Optional clear must be boolean. All fields are

@@ -35,7 +35,7 @@ For perspective, 2500 FPS is 0.40 ms per frame, 2000 FPS is 0.50 ms and 900 FPS 
 
 ## Inspect Play CPU costs
 
-Open **Window → Profiler**, choose **Play runtime**, and start collection.
+Open **Window → Profiler**, choose **Play runtime → CPU scopes**, and start collection.
 Use **RuntimeEntityPublication** to see time spent creating queued objects and
 Prefab groups. **ResourceSynchronization** shows resource synchronization;
 **PresentationPoseCapture** shows the work that prepares smooth presentation poses.
@@ -45,6 +45,29 @@ Use the same scene and actions when comparing runs. The profiler keeps recent
 samples, so capture a creation spike soon after it happens. These are CPU times;
 the rows overlap and should not be added together to calculate FPS. Stop collection
 to keep the current samples, or Clear to begin another comparison.
+
+## Inspect ECS system order
+
+1. Start Play and open **Window → Profiler → Play runtime → ECS systems**.
+2. Click **Start collection**. Run the game, or use Step while paused, to populate the table.
+3. Read **Order**, **System** and **Phase** to inspect the native fixed-pipeline plan. **Merge** marks a Flecs synchronization point. Systems with no matching entities are absent.
+4. Use **Filter system or phase...** to find a system. Order numbers keep their original positions when filtering; merge rows remain visible.
+5. Stop collection to retain the view. **Clear samples** discards it; another collected fixed tick can populate it again.
+
+**CPU lifetime ms** is the native system's cumulative CPU wall time since that system
+was created, including native measurements before collection started. Clear does
+not reset those counters. These values are separate from the recent **CPU scopes**
+samples and do not measure one tick, a rendered frame or GPU time. **Mode** shows
+native Immediate, Deferred or Multi-threaded configuration, not actual processor
+utilization. A missing timing value appears as `--`.
+
+The displayed tick identifies when the native plan was captured. Watching the
+panel requests a new observation on the next collected fixed tick; inspecting a
+paused game does not advance it. The plan can change as systems gain or lose
+matches. It is not a log of every invocation or a thread timeline. Large plans
+show their first 256 entries with a truncation notice; long names end with `...`.
+Collection adds overhead. The authoring world's separate ECS inspection window
+does not execute gameplay to produce these observations.
 
 ## Find an error
 

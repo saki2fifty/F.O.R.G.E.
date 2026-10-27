@@ -1063,8 +1063,9 @@ Json SdkPlayRuntime::handle(const Json& request, RuntimeClock::Time now) {
     if (response.value("ok", false) &&
         (cpu_profile_watch(request) || request.value("command", "") == "profiling")) {
         try {
-            response["cpu_profile"] = observed_cpu_profile(state_->game->active().engine.services(),
-                                                           state_->active_generation);
+            response["cpu_profile"] =
+                observed_cpu_profile(state_->game->active().engine.services(),
+                                     state_->active_generation, state_->game->active().simulation);
         } catch (const std::exception&) {
             response["cpu_profile"] = {{"available", false},
                                        {"world_generation", state_->active_generation}};

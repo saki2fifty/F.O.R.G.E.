@@ -12,6 +12,21 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Native ECS profile checks reuse `cpu_profile`, `cpu_profile_service_compile_out`,
+`cpu_profile_process`,
+`sdk_play_runtime`, `cpu_profiler_transport` and `cpu_profiler_editor`.
+The compile-out fixture compiles the actual service with collection disabled and
+links the same simulation; it is not a second full compile-out engine build.
+The ImGui fixture also builds in the GPU-independent MCP editor-owner profile;
+it tests actual controls at100/150/200% without claiming native window acceptance.
+`mcp_ecs_profile_stdio` drives both actual MCP framing modes through Play, including
+stale revision/generation, execution grants, Stop/Clear and unchanged authored Scene.
+The public named C++ RateTick system is inspected by `native_sdk_simulation_speed`
+and repeated after installed SDK relocation by `native_sdk_unscaled_time_installed`.
+Native Windows/MSVC,
+external-client interaction and authentic new table captures remain separate gates.
+
+
 The combined Windows package also prepares **Examples/Movement2D** with its exact
 installed SDK. The existing asset importer publishes its five original FORGE
 Sprite/Map dependencies before Play. The compiled consumer checks both real Play

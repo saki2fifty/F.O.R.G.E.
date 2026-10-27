@@ -328,6 +328,122 @@ void runtime_publication_workload() {
     check(engine.services().profiles() == samples, "Stopped runtime collection changed samples");
     detail::release_runtime_entity(engine.world(), "project.profile", token);
 }
+void native_system_profiles() {
+    EngineContext engine(WorldRole::Runtime);
+    Scene scene(engine.world());
+    scene.reset({{"version", 1}, {"entities", Json::array()}});
+    RuntimeSimulation runtime(engine.world(), scene);
+    auto& world = scene.world();
+    std::vector<ecs_entity_t> executed;
+    const auto system = [&](const char* name, const char* phase) {
+        return world.system(name).kind(world.lookup(phase)).run([&](flecs::iter& it) {
+            executed.push_back(it.system().id());
+        });
+    };
+    auto first = system("ProbeFirst", "forge.runtime.Gameplay").add<FixedSimulation>();
+    auto second = system("ProbeSecond", "forge.runtime.PostAnimation").add<FixedSimulation>();
+    auto excluded = system("NotFixed", "forge.runtime.Gameplay");
+    struct Unmatched {
+        int value;
+    };
+    world.system<Unmatched>("UnmatchedSystem")
+        .kind(world.lookup("forge.runtime.Gameplay"))
+        .each([](Unmatched&) {})
+        .add<FixedSimulation>();
+    check(!runtime.system_profile().at("available").get<bool>() && executed.empty(),
+          "Inspection executed gameplay before a real tick");
+    runtime.tick(1.f / 60);
+    check(!runtime.system_profile().at("available").get<bool>(),
+          "Stopped collection captured a native plan");
+    engine.services().profiling(true);
+    executed.clear();
+    runtime.tick(1.f / 60);
+#ifndef FORGE_DISABLE_PROFILING
+    const auto profile = runtime.system_profile();
+    check(profile.at("available") && profile.at("tick") == 2 &&
+              profile.at("timing") == "native_system_lifetime" && profile.at("truncated") == false,
+          "Real fixed tick did not publish native plan");
+    std::vector<ecs_entity_t> observed;
+    unsigned merges = 0;
+    for (const auto& row : profile.at("entries")) {
+        if (row.at("kind") == "merge") {
+            ++merges;
+            continue;
+        }
+        const auto id = row.at("id").get<ecs_entity_t>();
+        check(id != excluded.id() && row.at("name") != "::UnmatchedSystem",
+              "Native plan included an unselected or inactive system");
+        if (id == first.id() || id == second.id()) {
+            observed.push_back(id);
+            check(row.at("cpu_seconds") == ecs_system_get(world, id)->time_spent &&
+                      !row.at("immediate").get<bool>() && !row.at("multi_threaded").get<bool>(),
+                  "Copied CPU total/mode disagrees with actual native system");
+        }
+    }
+    check(observed == executed && observed == std::vector<ecs_entity_t>{first, second} && merges,
+          "Native plan order disagrees with actual gameplay invocation order");
+    check(runtime.system_profile() == profile,
+          "Repeated inspection resampled or advanced gameplay");
+    runtime.tick(1.f / 60);
+    runtime.tick(1.f / 60);
+    const auto requested = runtime.system_profile();
+    check(requested.at("tick") == 3, "Unwatched collection repeatedly captured the native plan");
+    engine.services().profiling(false);
+    runtime.tick(1.f / 60);
+    check(runtime.system_profile() == requested, "Stop changed retained native plan");
+    const auto native_seconds = ecs_system_get(world, first)->time_spent;
+    engine.services().clear_profiles();
+    check(!runtime.system_profile().at("available").get<bool>() &&
+              ecs_system_get(world, first)->time_spent == native_seconds,
+          "Clear retained old plan or reset native lifetime counters");
+    engine.services().profiling(true);
+    first.disable();
+    executed.clear();
+    runtime.tick(1.f / 60);
+    for (const auto& row : runtime.system_profile().at("entries"))
+        check(row.value("id", ecs_entity_t{}) != first.id(),
+              "Disabled system survived native rebuild");
+    check(executed == std::vector<ecs_entity_t>{second}, "Disabled system still ran");
+    first.enable();
+    const auto long_name = std::string(156, 'x') + "\xe2\x98\x83" + std::string(100, 'x');
+    auto long_system = system(long_name.c_str(), "forge.runtime.Gameplay").add<FixedSimulation>();
+    for (int i = 0; i < 300; ++i)
+        system(("Bound" + std::to_string(i)).c_str(), "forge.runtime.Gameplay")
+            .add<FixedSimulation>();
+    runtime.tick(1.f / 60);
+    const auto bounded = runtime.system_profile();
+    check(bounded.at("truncated") && bounded.at("entries").size() == 256 &&
+              bounded.at("total_entries") > 300 && bounded.dump().size() < 1024 * 1024,
+          "Native plan exceeded copied observation bound or hid truncation");
+    bool found_long = false;
+    for (const auto& row : bounded.at("entries"))
+        if (row.value("id", ecs_entity_t{}) == long_system.id()) {
+            found_long = true;
+            check(row.at("name").get<std::string>().size() <= 160 &&
+                      row.at("name").get<std::string>().ends_with("..."),
+                  "Native display name exceeded bound");
+        }
+    check(found_long, "Long-name fixture was outside inspected native plan");
+    bool rejected = false;
+    std::thread other([&] {
+        try {
+            (void)runtime.system_profile();
+        } catch (const std::exception&) {
+            rejected = true;
+        }
+    });
+    other.join();
+    check(rejected, "Non-owner thread inspected native plan");
+    EngineContext replacement(WorldRole::Runtime);
+    Scene replacement_scene(replacement.world());
+    RuntimeSimulation replacement_runtime(replacement.world(), replacement_scene);
+    check(!replacement_runtime.system_profile().at("available").get<bool>(),
+          "Fresh world retained old native plan");
+#else
+    check(!runtime.system_profile().at("available").get<bool>(),
+          "Compile-out collection captured native plan");
+#endif
+}
 } // namespace
 int main() {
     try {
@@ -335,6 +451,7 @@ int main() {
         gpu_service_tests();
         runtime_workload();
         runtime_publication_workload();
+        native_system_profiles();
         std::cout << "CPU profiling tests passed\n";
         return 0;
     } catch (const std::exception& error) {

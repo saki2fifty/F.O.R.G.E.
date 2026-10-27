@@ -411,8 +411,10 @@ struct PlayAutomation {
             true));
         methods.push_back(automation_method(
             "play.profile.refresh",
-            "Request one native CPU profile snapshot without changing the "
-            "Profiler window's watch settings. Poll play.profile.",
+            "Request one CPU profile snapshot, including the last collected native ECS "
+            "plan and cumulative system CPU totals, without changing the Profiler window's "
+            "watch settings. Start collection and advance a fixed tick for ECS data. "
+            "Poll play.profile; Clear discards its plan, not Flecs lifetime counters.",
             "play.execute", automation_object(properties(), required()), true,
             [&files, &play, providers](const Json& request) {
                 current(play, files, providers, request);

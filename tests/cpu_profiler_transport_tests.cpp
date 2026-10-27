@@ -96,6 +96,11 @@ int main(int argc, char** argv) {
             wait([&] {
                 return play.control_ready() && play.cpu_profile().value("available", false);
             });
+            if (sdk) {
+                check(play.submit_editor_observation(false, "EditorHost"),
+                      "Initial uncaptured editor observation rejected");
+                wait([&] { return play.editor_epoch_confirmed() != 0 && play.control_ready(); });
+            }
             const auto scene = play.snapshot(), tick = play.timing().at("tick");
             check(!play.cpu_profile().at("enabled").get<bool>(),
                   "Default worker collection enabled");
@@ -108,22 +113,37 @@ int main(int argc, char** argv) {
             });
             check(play.snapshot() == scene && play.timing().at("tick") == tick && play.paused(),
                   "Adapter collection changed paused scene/clock");
+            check(!play.cpu_profile().at("ecs").at("available").get<bool>(),
+                  "Collection fabricated a native plan while paused");
+            wait([&] { return play.control_ready(); });
+            play.step();
+            wait([&] {
+                return play.control_ready() &&
+                       play.cpu_profile().value("ecs", Json::object()).value("available", false);
+            });
+            check(play.cpu_profile().at("ecs").at("tick") == play.timing().at("tick"),
+                  "Native plan lost fixed-tick correlation");
             wait([&] { return play.control_ready() && !play.cpu_profile().at("samples").empty(); });
             check(play.submit_cpu_profile(false, false), "Collection stop was rejected");
             wait([&] {
                 return !play.cpu_profile_pending() && play.cpu_profile().at("enabled") == false;
             });
             const auto retained = play.cpu_profile().at("samples");
+            const auto retained_plan = play.cpu_profile().at("ecs");
             for (int i = 0; i < 30; ++i) {
                 play.pump();
                 SDL_Delay(1);
             }
             check(play.cpu_profile().at("samples") == retained, "Stopped worker kept collecting");
+            check(play.cpu_profile().at("ecs") == retained_plan,
+                  "Stopped worker changed native plan");
             wait([&] { return play.control_ready(); });
             check(play.submit_cpu_profile(false, true), "Clear was rejected");
             wait([&] {
                 return !play.cpu_profile_pending() && play.cpu_profile().at("samples").empty();
             });
+            check(!play.cpu_profile().at("ecs").at("available").get<bool>(),
+                  "Transport Clear retained native plan");
             play.stop();
             check(play.cpu_profile().empty(), "Stopped session retained observations");
         }

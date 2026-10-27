@@ -647,7 +647,7 @@ int main(int argc, char** argv) {
                         response["diagnostics"] = runtime->engine.services().diagnostics();
                         if (forge::cpu_profile_watch(request) || command == "profiling")
                             response["cpu_profile"] = forge::observed_cpu_profile(
-                                runtime->engine.services(), ui_generation);
+                                runtime->engine.services(), ui_generation, runtime->simulation);
                     }
                 } catch (const std::exception& error) {
                     response["ok"] = false;

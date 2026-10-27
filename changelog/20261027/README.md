@@ -21,3 +21,12 @@ Local source; Windows verification and numbered delivery remain pending.
   stop feedback; unsupported controllers do not report success.
 - The original public SDK example uses control actions and normal receipt release.
   No new C ABI layout, persisted data or dependency upgrade is introduced.
+
+## Native ECS profiling
+
+- Play Profiler shows the actual fixed-pipeline order, native merge points and
+  cumulative system CPU totals, with current collection/Stop/Clear controls.
+- Optional Play/automation/MCP observations share the same bounded runtime copy.
+  Inspection never advances gameplay; native lifetime counters retain their meaning.
+- Linux checks cover native order/counters, lifecycle, both Play hosts and MCP,
+  and the real ImGui controls. Windows execution and authentic captures are queued.

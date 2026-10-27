@@ -330,6 +330,9 @@ void live_cpu_profile_controls() {
         if (sample.at("name") == "FixedSimulationTick" && sample.at("tick") == 1)
             found_tick = true;
     check(found_tick, "SDK actual fixed tick was not observed");
+    check(stepped.at("cpu_profile").at("ecs").at("available") &&
+              stepped.at("cpu_profile").at("ecs").at("tick") == 1,
+          "SDK fixed pipeline was not observed");
     for (const auto* name :
          {"RuntimeEntityPublication", "ResourceSynchronization", "PresentationPoseCapture"}) {
         bool found = false;
@@ -347,6 +350,8 @@ void live_cpu_profile_controls() {
     auto cleared =
         request("profiling", {{"generation", generation}, {"enabled", false}, {"clear", true}});
     check(cleared.at("cpu_profile").at("samples").empty(), "SDK Clear retained completed records");
+    check(!cleared.at("cpu_profile").at("ecs").at("available").get<bool>(),
+          "SDK Clear retained old native plan");
     request("profiling", {{"generation", generation}, {"enabled", true}});
     request("step");
     check(request("replace", {{"scene", before.at("scene")}}).value("ok", false),

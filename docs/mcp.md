@@ -374,7 +374,7 @@ relax structured protocol validation.
 `audio_control`/`animation_control` require the exact watched entity; a human
 selection change cannot redirect them. Mix and CPU controls use their native
 owners. `profile_refresh` requests one snapshot without taking over the Profiler
-window's watch. UI commands go through the actual presenter's declared command
+window's watch. Its value includes `ecs`, the last requested/collected native fixed-pipeline plan, merge markers and cumulative native system CPU totals. Start collection and advance a fixed tick after requesting observations; Pause reads never run gameplay. Stop retains the plan, Clear invalidates its copy without resetting native lifetime counters, and replacement begins empty. The same bounded data feeds the Profiler's ECS systems view; native IDs are world-local diagnostic handles. UI commands go through the actual presenter's declared command
 list, ID queue and acknowledgements, never DOM/script injection.
 
 `forge_play_tuning_capture` freezes an eligible live-value review. Read/select its

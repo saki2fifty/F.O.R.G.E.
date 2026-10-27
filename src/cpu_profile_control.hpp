@@ -1,5 +1,5 @@
 #pragma once
-#include <forge/services.hpp>
+#include <forge/runtime.hpp>
 namespace forge {
 // Optional observations and controls use the existing protocol's session checks.
 inline bool cpu_profile_watch(const nlohmann::json& request) {
@@ -25,10 +25,12 @@ inline bool control_cpu_profile(const nlohmann::json& request, ServiceAccess ser
     services.profiling(enabled);
     return enabled;
 }
-inline nlohmann::json observed_cpu_profile(ServiceAccess services, std::uint64_t generation) {
+inline nlohmann::json observed_cpu_profile(ServiceAccess services, std::uint64_t generation,
+                                           const RuntimeSimulation& simulation) {
     auto result = services.profile_status();
     result["available"] = true;
     result["world_generation"] = generation;
+    result["ecs"] = simulation.system_profile();
     return result;
 }
 } // namespace forge

@@ -1,4 +1,5 @@
 #include "animation_material_patch.hpp"
+#include "json_output_text.hpp"
 #include "particle_runtime.hpp"
 #include "runtime_entity_creation.hpp"
 #include "runtime_tile_map.hpp"
@@ -351,6 +352,9 @@ void RuntimeSimulation::tick(float dt) {
     context_.modules().end_tick();
     if (stage_error_)
         std::rethrow_exception(stage_error_);
+    if (system_profile_requested_ && context_.services().available(Capability::Profiling) &&
+        context_.services().profiling_enabled())
+        capture_system_profile();
     if (particles_) {
         auto profile = context_.services().profile("runtime", "Particles", input_tick_);
         particles_->tick(dt);
@@ -372,6 +376,74 @@ void RuntimeSimulation::tick(float dt) {
     if (audio_) {
         auto profile = context_.services().profile("runtime", "AudioSynchronization", input_tick_);
         audio_->synchronize(input_tick_, dt, discontinuities);
+    }
+}
+Json RuntimeSimulation::system_profile() const {
+    // This also checks service lifetime/capability/owner-thread admission.
+    const auto epoch = context_.services().profile_epoch();
+    system_profile_requested_ = true;
+    if (system_profile_.empty() || epoch != system_profile_epoch_)
+        return {{"available", false},
+                {"reason", "Start CPU collection and advance a fixed tick to inspect systems."}};
+    return system_profile_;
+}
+void RuntimeSimulation::capture_system_profile() {
+    system_profile_requested_ = false;
+    system_profile_epoch_ = context_.services().profile_epoch();
+    try {
+        struct PipelineStats {
+            ecs_pipeline_stats_t value{};
+            ~PipelineStats() { ecs_pipeline_stats_fini(&value); }
+        } stats;
+        auto& world = context_.world();
+        // Native plan is built by real progress. Never build/progress it just for
+        // inspection, or reduce its history (including empty authoring pipelines).
+        if (!ecs_pipeline_stats_get(world, pipeline_, &stats.value))
+            throw std::runtime_error("Native fixed-pipeline statistics are unavailable");
+        constexpr int limit = 256;
+        const auto count = ecs_vec_count(&stats.value.systems);
+        const auto* systems = ecs_vec_first_t(&stats.value.systems, ecs_entity_t);
+        Json rows = Json::array();
+        const auto name = [&world](ecs_entity_t id) {
+            std::string text = id ? world.entity(id).path().c_str() : "";
+            if (text.size() > 160) {
+                std::size_t end = 157;
+                while ((static_cast<unsigned char>(text[end]) & 0xc0) == 0x80)
+                    --end;
+                text = text.substr(0, end) + "...";
+            }
+            return detail::json_output_text(text);
+        };
+        for (int i = 0; i < std::min(count, limit); ++i) {
+            const auto id = systems[i];
+            if (!id) {
+                rows.push_back({{"kind", "merge"}});
+                continue;
+            }
+            const auto* system = ecs_system_get(world, id);
+            if (!system)
+                throw std::runtime_error("Native pipeline contains an unavailable system");
+            const double seconds = system->time_spent;
+            rows.push_back(
+                {{"kind", "system"},
+                 {"id", id},
+                 {"name", name(id)},
+                 {"phase", name(ecs_get_target(world, id, EcsDependsOn, 0))},
+                 {"cpu_seconds", ecs_os_has_time() && std::isfinite(seconds) && seconds >= 0
+                                     ? Json(seconds)
+                                     : Json(nullptr)},
+                 {"immediate", system->immediate},
+                 {"multi_threaded", system->multi_threaded}});
+        }
+        system_profile_ = {{"available", true},
+                           {"tick", input_tick_},
+                           {"timing", "native_system_lifetime"},
+                           {"capacity", limit},
+                           {"total_entries", count},
+                           {"truncated", count > limit},
+                           {"entries", std::move(rows)}};
+    } catch (const std::exception& error) {
+        system_profile_ = {{"available", false}, {"reason", error.what()}};
     }
 }
 void RuntimeSimulation::audio_paused(bool value) {

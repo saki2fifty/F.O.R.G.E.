@@ -99,9 +99,17 @@ with tempfile.TemporaryDirectory(dir=runtime.parent, prefix="simulation-speed-")
             request("time_scale", expected=False, generation=generation, scale=scale)
         assert request("snapshot")["timing"]["time_scale"] == .5
         request("time_scale", generation=generation, scale=1)
+        profiling = request("profiling", generation=generation, enabled=True, clear=True)
         request("play")
         running = wait_for(lambda r: probe(r)["ticks"] >= 3)
         assert abs(probe(running)["last_dt"] - .01) < 1e-8
+        profile = request("snapshot", profile_watch=True)["cpu_profile"]
+        if profiling["cpu_profile"]["compiled"]:
+            ecs = profile["ecs"]
+            tick_system = next(row for row in ecs["entries"] if row.get("name", "").endswith("project.RateTick"))
+            assert ecs["available"] and ecs["tick"] > 0
+            assert tick_system["cpu_seconds"] >= 0 and tick_system["phase"]
+        request("profiling", generation=generation, enabled=False)
         held = change("key.h", 0)
         time.sleep(.08)
         observed = request("snapshot")

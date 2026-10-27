@@ -1204,6 +1204,13 @@ if(BUILD_TESTING)
  target_include_directories(forge_cpu_profile_tests PRIVATE src)
  target_link_libraries(forge_cpu_profile_tests PRIVATE forge_simulation)
  add_test(NAME cpu_profile COMMAND forge_cpu_profile_tests)
+ # Exercise the service's compile-out gate against the same real simulation;
+ # its object supplies the service symbols instead of the normal static archive.
+ add_executable(forge_cpu_profile_compile_out_tests tests/cpu_profile_tests.cpp src/services.cpp)
+ target_include_directories(forge_cpu_profile_compile_out_tests PRIVATE src)
+ target_compile_definitions(forge_cpu_profile_compile_out_tests PRIVATE FORGE_DISABLE_PROFILING=1)
+ target_link_libraries(forge_cpu_profile_compile_out_tests PRIVATE forge_simulation)
+ add_test(NAME cpu_profile_service_compile_out COMMAND forge_cpu_profile_compile_out_tests)
  add_executable(forge_presentation_rate_tests tests/presentation_rate_tests.cpp)
  target_include_directories(forge_presentation_rate_tests PRIVATE src)
  add_test(NAME presentation_rate COMMAND forge_presentation_rate_tests)

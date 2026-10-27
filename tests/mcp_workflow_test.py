@@ -14,6 +14,7 @@ TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
+PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
 
 
 @contextmanager
@@ -103,6 +104,54 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if PROFILE_ONLY:
+            assert "native ECS" in advertised['forge_play_profile_refresh']['description']
+            ok('forge_entity_create', arguments=dict(kind=0, name='Native profile cube'))
+            ok('forge_document_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda row: row['paused'] and row['control_ready'])
+            scope = {k: paused[k] for k in ('launch', 'session', 'generation')}
+            failed(mutate('forge_play_profile_control', **dict(scope, generation=scope['generation'] + 1),
+                          enabled=True, clear=True), 'stale_play')
+            stale = arguments(**scope, enabled=True, clear=True)
+            stale['expected_revision'] += 1
+            failed(client.tool('forge_play_profile_control', **stale), 'stale_revision')
+            control('forge_play_profile_control', enabled=True, clear=True)
+            def observe():
+                control('forge_play_profile_refresh')
+                until(lambda: read('forge_play_status'), lambda row: row['control_ready'])
+                return read('forge_play_profile')['value']
+            fresh = observe()
+            assert fresh['enabled'] and not fresh['ecs']['available'], fresh
+            control('forge_play_step')
+            stepped = until(lambda: read('forge_play_status'), lambda row: row['control_ready'] and
+                            row['timing']['tick'] == paused['timing']['tick'] + 1)
+            profile = observe()
+            ecs = profile['ecs']
+            assert ecs['available'] and ecs['tick'] == stepped['timing']['tick'], profile
+            assert ecs['timing'] == 'native_system_lifetime' and not ecs['truncated']
+            assert any(row['kind'] == 'merge' for row in ecs['entries'])
+            assert any(row.get('name', '').endswith('FinalTransforms') for row in ecs['entries'])
+            assert len(ecs['entries']) <= 256 and profile['world_generation'] == stepped['generation']
+            control('forge_play_profile_control', enabled=False, clear=False)
+            control('forge_play_step')
+            until(lambda: read('forge_play_status'), lambda row: row['control_ready'] and
+                  row['timing']['tick'] == stepped['timing']['tick'] + 1)
+            assert observe()['ecs'] == ecs
+            control('forge_play_profile_control', enabled=False, clear=True)
+            assert not observe()['ecs']['available']
+            control('forge_play_stop')
+            assert not read('forge_play_profile')['value']
+            assert read('forge_scene_read') == authored
+            with editor('read') as (_, restricted), Client(restricted, legacy) as reader:
+                visible = {t['name'] for t in reader.request('tools/list')['result']['tools']}
+                assert 'forge_play_profile' in visible
+                assert 'forge_play_profile_control' not in visible
+                assert 'forge_play_profile_refresh' not in visible
+            print(('legacy' if legacy else 'current') + ': native ECS plan through actual MCP/Play; stale generation, Stop/Clear and authored isolation verified')
+            continue
         if TIME_ONLY:
             assert "unscaled_time" in advertised["forge_play_status"]["description"]
             ok('forge_entity_create', arguments=dict(kind=0, name='Unscaled clock cube'))

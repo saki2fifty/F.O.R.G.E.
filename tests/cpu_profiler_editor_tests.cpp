@@ -111,8 +111,10 @@ void interactions(float scale, ImVec2 display) {
                 requested_enabled = enabled;
                 requested_clear = clear;
                 game["enabled"] = enabled;
-                if (clear)
+                if (clear) {
                     game["samples"] = Json::array();
+                    game["ecs"] = {{"available", false}};
+                }
                 return true;
             },
             gpu,
@@ -195,6 +197,37 @@ void interactions(float scale, ImVec2 display) {
     click("profiler:game:clear");
     check(sends == 2 && requested_enabled && requested_clear && game.at("samples").empty(),
           "Game clear changed enabled policy");
+    const Json native{{"available", true},
+                      {"tick", std::uint64_t(12)},
+                      {"timing", "native_system_lifetime"},
+                      {"truncated", false},
+                      {"total_entries", 2},
+                      {"entries", Json::array({{{"kind", "system"},
+                                                {"id", std::uint64_t(101)},
+                                                {"name", "MissingGameplay"},
+                                                {"phase", "Gameplay"},
+                                                {"cpu_seconds", .25},
+                                                {"immediate", true},
+                                                {"multi_threaded", false}},
+                                               {{"kind", "merge"}}})}};
+    game["ecs"] = native;
+    click("profiler:game:systems-tab");
+    frame();
+    check(watch && test::ui_targets.contains("profiler:game:system:MissingGameplay") &&
+              test::ui_targets.contains("profiler:game:system:Merge"),
+          "Native system/merge table missing or watch not retained");
+    game["ecs"]["entries"][0]["cpu_seconds"] = "invalid";
+    frame();
+    check(!test::ui_targets.contains("profiler:game:system:MissingGameplay"),
+          "Malformed native timing was displayed");
+    game["ecs"] = native;
+    frame();
+    click("profiler:game:clear");
+    check(!game["ecs"]["available"].get<bool>() && requested_enabled && requested_clear,
+          "Native view Clear bypassed existing collection control");
+    game["ecs"]["available"] = "invalid";
+    frame();
+    game["ecs"] = {{"available", false}};
     error = "Stale runtime generation";
     frame();
     ready = false;
@@ -235,9 +268,10 @@ void interactions(float scale, ImVec2 display) {
     frame();
     check(!test::ui_targets.contains("profiler:gpu:collection"),
           "Compile-out GPU controls enabled");
+    const auto sends_before_close = sends;
     open = false;
     frame();
-    check(!watch && sends == 2, "Closing profiler changed runtime collection");
+    check(!watch && sends == sends_before_close, "Closing profiler changed runtime collection");
     check(!prefs.cpu_profiler, "Profiler appeared in default layout");
     show_menu = true;
     for (int i = 0; i < 4; ++i)

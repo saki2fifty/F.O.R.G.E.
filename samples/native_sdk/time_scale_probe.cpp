@@ -52,7 +52,7 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* h, char* error, uint32_t cap
     try {
         flecs::world world(h->world);
         world.set<PendingRate>({}); // One state per world; no process-global tokens.
-        world.system<RateProbe>()
+        world.system<RateProbe>("project.RateTick")
             .kind(h->fixed_phase)
             .each([](flecs::iter& it, size_t, RateProbe& probe) {
                 ++probe.ticks;
