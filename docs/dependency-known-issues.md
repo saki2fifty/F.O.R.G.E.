@@ -218,3 +218,31 @@ damping, speed limits and solver behavior still apply; admission is not a promis
 of unbounded velocity or exact analytical behavior at every configuration.
 No vendor patch or dependency upgrade. Independent low-speed mass/dt/inertia and
 actual cooked signed-offset COM fixtures exercise the selected revision.
+
+## Bundled Vorbis remains disabled — 2026-10-27
+
+Miniaudio0.11.25 at `9634bedb5b5a2ca38c1ee7108a9358a4e233f14d` contains
+stb_vorbis1.22, source SHA256
+`4c7cb2ff1f7011e9d67950446b7eb9ca044f2e464d76bfbb0b84dd2e23e65636`.
+FORGE does not enable this decoder. Default-allocation experimentation found
+native setup-temporary leaks on malformed setup packets. Its supported caller-
+workspace API cleaned the original failure but failed a wider native-only corpus:
+a malformed comment length reaches the terminator write at line3676 in
+`start_decoder`, producing an ASan write SEGV.
+
+The caller-workspace reproduction changes original FORGE Mono.ogg byte131 from0
+to255; its4784-byte SHA256 is
+`ef1cf7681a7d19e9faa6eec27c0547b3aaeac8a5e55b009a10884c6088d9fe8d`.
+The selected memory/float/pull configuration used MAX_CHANNELS2, NO_STDIO,
+NO_INTEGER_CONVERSION and NO_PUSHDATA_API with an owned workspace bounded to16MiB.
+Seven positive/reference/growth/exhaustion/original-leak checks passed, but the
+expanded corpus stopped at its334th case after333clean completions. Remaining
+cases were not executed; no passing admission or universal parsing claim follows.
+Full native bodies and the independent client were instrumented without suppressions.
+
+Retain the disabled boundary and existing WAV/FLAC/MP3 recipes/cooked PCM. No
+native patch, dependency upgrade, changed source/ABI or known-defect exception was
+admitted. Future Vorbis integration requires deliberate exact-source compatibility
+work and fresh malformed-input proof; isolated-worker cleanup does not establish a
+correct native decoder. Operational binaries, original fixtures, exact source/
+compiler/options, corpus and reproducer remain outside the product repository.

@@ -483,3 +483,9 @@ existing cooked PCM, settings, identities and SDK contracts are unchanged. Futur
 Vorbis work requires deliberate exact-source cleanup/configuration/compatibility
 review and fresh native error-path proof. Isolated-worker process cleanup does
 not establish a leak-free decoder. No suppression or dependency upgrade was used.
+
+The subsequent caller-owned-workspace configuration cleaned the original failure
+but produced a native ASan write crash on a different malformed comment packet.
+It also remains disabled. See [the known-issue record](dependency-known-issues.md)
+for the exact native configuration, failure and retained boundary. No native
+repair, upgrade or sanitizer exception was introduced.
