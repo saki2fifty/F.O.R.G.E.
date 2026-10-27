@@ -44,7 +44,23 @@ For a two-dimensional movement action, use four bindings:
 
 Continuous axes are clamped; two-dimensional continuous input is normalized if its length exceeds one. Relative mouse deltas are not normalized. Mouse delta units are SDL motion units, and wheel values are scroll units; they are not automatically multiplied by frame time.
 
-Gamepad controls use **pad.** names. FORGE starts with the first connected gamepad. A deliberate button press or strong stick movement on another connected pad selects it; a short guard prevents rapid switching. Sticks range from -1 to 1; triggers from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Digital actions can also use a directional analog threshold or a wheel pulse. C++ can request bounded controller vibration. Sensors and multiple-player device assignment remain unavailable.
+Gamepad sticks range from -1 to 1; triggers range from 0 to 1. Set **deadzone**, such as `0.2`, to ignore small stick movement; the remaining range is rescaled. Use **pad.1.** through **pad.4.** controls for independent players. The shorter **pad.** controls follow one active controller: a deliberate button press or strong stick movement on another controller selects it after a short guard. C++ can request bounded controller vibration. Sensors are unavailable.
+
+## Assign local controllers
+
+![Gamepad assignments showing four controllers mapped to Players 1 through 4](../images/gamepad-assignments.png)
+
+Choose a player slot beside each connected controller.
+
+1. Connect your controllers. In the **Game** panel, click **Gamepads...**.
+2. Choose **Player 1**, **Player 2**, **Player 3** or **Player 4** beside each controller. New connections fill the lowest free slot automatically. Choosing an occupied slot unassigns its previous controller.
+3. Choose **Unassigned** for a controller that should not supply a numbered player. It can still become the active controller for shorter **pad.** bindings.
+4. In **Project Settings**, bind each player's actions to its numbered controls, such as **pad.2.left_x** and **pad.2.left_y**. Use matching radial deadzones on both stick axes. Click **Save Settings**.
+5. Close the popup, start Play, click **Capture gameplay input**, and test each player's actions in Console. Opening editor popups releases gameplay input; capture again before testing.
+
+Disconnecting a controller releases its player's controls. Reassignment starts neutral and needs fresh input. The other numbered slots remain independent. Assignments last for the current host session; projects save action bindings, not connected-device identities. An exported game makes its own assignments as controllers connect. C++ menus can read and change those assignments through the Game service. Four numbered slots and up to sixteen connected controllers are supported; additional tracked controllers are unassigned.
+
+For a visible example, open **Scenes/92-multiple-gamepads.scene.json** in a writable Feature Gallery copy. It has four colored player markers and matching input actions. Build/register **CodeExamples/MultipleGamepads.cpp** with `forge_register_system_MultipleGamepads`, or build the matching SDK's `multiple_gamepads_gameplay` sample target. Move each marker with its player's left stick. Without that optional code, the markers stay still and Console can still show the actions. Save Settings and Scene, select it as startup, build current code, then export and test with your controllers.
 
 ## Touch contacts
 
@@ -125,8 +141,9 @@ For example, with inner deadzone `0.2`, outer deadzone `0.1` and exponent `2`, a
 one-axis input of `0.55` produces `0.25`. With matching radial settings on both
 stick axes, input `(0.33, 0.44)` produces `(0.15, 0.20)` and keeps its direction.
 
-When Game defaults are configured, **Stick inner deadzone** and **Trigger inner
-deadzone** replace the corresponding binding's inner value at runtime. Player
+In exported games and the C++ Play profile, configured Game defaults **Stick inner
+deadzone** and **Trigger inner deadzone** replace the binding's inner value. The
+ordinary simulation profile uses the authored binding directly. Player
 preferences can override those defaults.
 Their effective inner and outer values must still leave positive travel. A
 conflict is rejected while the previous settings remain active. Clear or reduce
@@ -148,6 +165,8 @@ that should also work in a pause menu.
 {"operation":"rumble","low":0.5,"high":0.75,"duration_ms":300}
 ```
 
+Add `"slot":2` to target Player 2. Omitting it targets the active controller used by shorter **pad.** bindings. Zero strengths with a numbered slot stop that controller; zero strengths without a slot stop all owned controller vibration.
+
 The matching SDK's `sdk/sample/gamepad_feedback_probe.cpp` and
 `gamepad_feedback_gameplay` target demonstrate two control actions: R/gamepad South
 for a pulse and T/gamepad East for Stop. The sample requires its matching input map
@@ -159,4 +178,4 @@ preceding pulse; a focused, routed pause menu can request another. Device change
 Play restart and Scene changes stop old feedback. Expiry needs ongoing SDL event updates and a working driver. If a driver refuses
 Stop, FORGE logs the failure; the5000ms request limit cannot guarantee that faulty
 hardware stops. Trigger vibration,
-layered effects and multiple-player controller assignment are unavailable.
+layered effects are unavailable.

@@ -1,5 +1,24 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Local controller assignments
+
+Four independent `pad.1.*` through `pad.4.*` action namespaces retain existing
+active `pad.*` bindings. The shared SDL owner assigns connections to transient
+slots, checks current revisions/tokens, neutralizes only affected controls and
+stops their feedback. Per-slot rumble and filtered rebinding use existing input,
+settings and scoped Game service owners. Native **Gamepads...**, C++ requests and
+MCP query/assignment delegate to the same implementation; no new player manager,
+saved hardware identity, dependency or SDK C callback/table/value layout.
+
+Original Gallery92 supplies four colored player markers and indexed actions;
+optional C++ moves them through the matching public SDK and exports through
+normal source/cooked content ownership. Manual instructions include an authentic
+native assignment-popup capture. Focused virtual-device, both-host movement,
+installed/relocated SDK, real C++/SDL feedback, three-scale UI/Settings, both MCP
+framings and strict changed FORGE-unit checks pass. Physical controllers, full
+Windows editor/standalone/MSVC and graphical export acceptance remain pending.
+This is local source, with no new numbered ZIP or remote promotion.
+
 ## Physics preflight reuse
 
 Physics synchronization shares one detached node snapshot within the call and

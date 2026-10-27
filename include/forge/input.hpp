@@ -1,15 +1,21 @@
 #pragma once
 #include <cstddef>
+#include <cstdint>
 #include <forge/identity.hpp>
 #include <map>
 #include <optional>
 #include <set>
+#include <string>
+#include <string_view>
 #include <vector>
 namespace forge {
 struct ActionIdTag;
 using ActionId = PersistentId<ActionIdTag>;
 enum class ActionKind { Digital, Axis1, Axis2 };
 inline constexpr std::size_t touch_contact_limit = 8;
+// Logical local-controller slots use 1..4; unindexed pad.* keeps active-pad input.
+inline constexpr std::size_t gamepad_slot_limit = 4;
+inline constexpr std::size_t gamepad_device_limit = 16;
 struct InputControl {
     std::string id;
     bool relative = false;
@@ -18,6 +24,11 @@ struct InputControl {
 };
 const std::vector<InputControl>& input_controls();
 const InputControl& input_control(const std::string& id);
+// Requires a registered control; the paired axis keeps its logical slot prefix.
+bool is_gamepad_stick_control(const std::string& id);
+// Known controls: null for other devices, 0 for active pad, 1..4 for logical slots.
+std::optional<std::uint32_t> gamepad_control_slot(const std::string& id);
+std::string gamepad_control_id(std::uint32_t slot, std::string_view leaf);
 struct InputBinding {
     std::string control;
     double x = 1, y = 0, deadzone = 0;
@@ -80,8 +91,35 @@ struct InputEvent {
 struct GamepadRumble {
     double low = 0, high = 0;
     std::uint32_t duration_ms = 0;
+    // Nonzero targets a logical slot. Zero retains active-pad output; a zero-
+    // strength untargeted request stops all owned feedback.
+    std::uint32_t slot = 0;
     void validate() const;
 };
+// Copied host observations/commands, not saved player/device identities. Tokens
+// name one open connection in its host; concrete SDL handles remain private.
+struct GamepadDeviceInfo {
+    std::string device, name;
+    std::uint32_t slot = 0; // Unassigned, or 1..gamepad_slot_limit.
+    bool connected = false, rumble = false;
+};
+struct GamepadTopology {
+    bool available = false;
+    std::uint64_t revision = 0;
+    std::string active;
+    std::vector<GamepadDeviceInfo> devices;
+    void validate() const;
+};
+struct GamepadAssignment {
+    std::uint64_t revision = 0;
+    std::string device;
+    std::uint32_t slot = 0; // Zero unassigns this device.
+    void validate() const;
+};
+void to_json(nlohmann::json&, const GamepadTopology&);
+void from_json(const nlohmann::json&, GamepadTopology&);
+void to_json(nlohmann::json&, const GamepadAssignment&);
+void from_json(const nlohmann::json&, GamepadAssignment&);
 void to_json(nlohmann::json&, const GamepadRumble&);
 void from_json(const nlohmann::json&, GamepadRumble&);
 void validate_input_event(const InputEvent& event);
@@ -113,7 +151,10 @@ class RuntimeInput {
     bool context_active(const std::string& name) const;
     // Listening consumes incoming controls until completion/cancellation. The
     // caller decides whether to commit a validated binding candidate.
-    void begin_rebind();
+    // Gamepad aliases are filtered to this logical slot; 0 keeps active-pad
+    // capture. Keyboard/mouse/touch remain eligible as before.
+    void begin_rebind(std::uint32_t gamepad_slot = 0);
+    std::uint32_t rebind_gamepad_slot() const { return rebind_gamepad_slot_; }
     void cancel_rebind();
     bool rebinding() const { return listening_; }
     std::optional<InputEvent> take_rebind();
@@ -133,6 +174,7 @@ class RuntimeInput {
     std::set<std::string> active_contexts_;
     std::map<ActionId, std::set<std::string>> routes_;
     bool listening_ = false;
+    std::uint32_t rebind_gamepad_slot_ = 0;
     std::set<std::string> rebind_held_;
     std::optional<InputEvent> rebind_result_;
 };

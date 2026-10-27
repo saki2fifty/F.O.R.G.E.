@@ -18,6 +18,9 @@ with tempfile.TemporaryDirectory(prefix='feedback-project-', dir=runtime.parent)
                     context='Feedback', bindings=[dict(control=key), dict(control=pad)])
                for i, (name, key, pad) in enumerate((('Pulse', 'key.r', 'pad.south'),
                                                     ('Stop', 'key.t', 'pad.east')))]
+    for index,(name,key) in enumerate((('Assign Player 2','key.y'),('Player 2 pulse','key.u')),start=3):
+        actions.append(dict(id=f'12345678-1234-4234-8234-123456789b0{index}', name=name,
+                            kind='digital',context='Feedback',bindings=[dict(control=key)]))
     project = dict(version=2, name='Gamepad feedback', startup_scene=None, simulation_hz=60,
                    game=game, input=dict(version=2, contexts=[dict(name='Feedback', active=True,
                     priority=10, consume=True, phase='control')], actions=actions), modules=[dict(

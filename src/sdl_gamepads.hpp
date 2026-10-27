@@ -5,6 +5,7 @@
 #include <cmath>
 #include <forge/input.hpp>
 #include <iostream>
+#include <limits>
 #include <map>
 #include <memory>
 #include <stdexcept>
@@ -14,61 +15,115 @@ namespace forge {
 // RuntimeInput. SDL instance IDs are transient and never enter project/settings data.
 class SdlGamepads {
   public:
-    SdlGamepads() = default;
+    SdlGamepads() : namespace_(detail::uuid_text(detail::uuid_v4())) {}
     ~SdlGamepads() { stop_rumble(); }
     SdlGamepads(const SdlGamepads&) = delete;
     SdlGamepads& operator=(const SdlGamepads&) = delete;
-    void discover() {
+    std::vector<InputEvent> discover() {
         int count = 0;
         auto* ids = SDL_GetGamepads(&count);
         if (!ids) {
             SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Gamepad discovery failed: %s", SDL_GetError());
-            return;
+            return {};
         }
         std::unique_ptr<SDL_JoystickID, decltype(&SDL_free)> owner(ids, SDL_free);
-        for (int i = 0; i < count; ++i)
-            open(ids[i]);
+        std::vector<InputEvent> events;
+        for (int i = 0; i < count; ++i) {
+            auto added = open(ids[i]);
+            events.insert(events.end(), added.begin(), added.end());
+        }
+        return events;
     }
     SDL_JoystickID active() const { return active_; }
     std::size_t count() const { return pads_.size(); }
     const char* activity() const { return gamepad_activity_ ? "Gamepad" : "KeyboardMouse"; }
+    GamepadTopology snapshot() const {
+        GamepadTopology result;
+        result.available = SDL_WasInit(SDL_INIT_GAMEPAD) != 0;
+        result.revision = revision_;
+        for (const auto& [id, pad] : pads_) {
+            result.devices.push_back(
+                {pad.token, pad.name, pad.slot, SDL_GamepadConnected(pad.handle.get()),
+                 SDL_GetBooleanProperty(SDL_GetGamepadProperties(pad.handle.get()),
+                                        SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false)});
+            if (id == active_)
+                result.active = pad.token;
+        }
+        result.validate();
+        return result;
+    }
+    // One owned topology edit. Prepare neutral values before native output or
+    // routing changes; failed Stop leaves assignments unchanged and retryable.
+    std::vector<InputEvent> assign(const GamepadAssignment& value) {
+        value.validate();
+        if (value.revision != revision_)
+            throw std::runtime_error("Gamepad devices changed; refresh and try again");
+        auto found = std::find_if(pads_.begin(), pads_.end(), [&](const auto& row) {
+            return row.second.token == value.device;
+        });
+        if (found == pads_.end() || !SDL_GamepadConnected(found->second.handle.get()))
+            throw std::runtime_error("The selected gamepad connection is no longer available");
+        auto& selected = found->second;
+        if (selected.slot == value.slot)
+            return {};
+        revision_room();
+        std::vector<InputEvent> events;
+        if (selected.slot)
+            append_neutral(events, selected.slot);
+        if (value.slot)
+            append_neutral(events, value.slot);
+        auto occupied =
+            value.slot
+                ? std::find_if(pads_.begin(), pads_.end(),
+                               [&](const auto& row) { return row.second.slot == value.slot; })
+                : pads_.end();
+        if (!stop_pad(selected) || (occupied != pads_.end() && !stop_pad(occupied->second)))
+            throw std::runtime_error("Gamepad feedback could not stop; assignment was retained");
+        if (occupied != pads_.end())
+            occupied->second.slot = 0;
+        selected.slot = value.slot;
+        ++revision_;
+        return events;
+    }
     void rumble(const GamepadRumble& value) {
         value.validate();
         if (value.low == 0 && value.high == 0) {
-            if (!stop_rumble())
-                throw std::runtime_error(SDL_GetError());
+            const bool ok = value.slot ? stop_slot(value.slot) : stop_rumble();
+            if (!ok)
+                throw std::runtime_error("Gamepad feedback could not stop");
             return;
         }
-        const auto pad = pads_.find(active_);
-        if (pad == pads_.end() || !SDL_GamepadConnected(pad->second.get()))
-            throw std::runtime_error("No active connected gamepad for rumble");
-        if (!SDL_GetBooleanProperty(SDL_GetGamepadProperties(pad->second.get()),
+        auto target =
+            value.slot
+                ? std::find_if(pads_.begin(), pads_.end(),
+                               [&](const auto& row) { return row.second.slot == value.slot; })
+                : pads_.find(active_);
+        if (target == pads_.end() || !SDL_GamepadConnected(target->second.handle.get()))
+            throw std::runtime_error(value.slot ? "No connected gamepad is assigned to this slot"
+                                                : "No active connected gamepad for rumble");
+        auto& pad = target->second;
+        if (!SDL_GetBooleanProperty(SDL_GetGamepadProperties(pad.handle.get()),
                                     SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false))
-            throw std::runtime_error("The active gamepad does not support rumble");
-        if (rumbling_ && rumbling_ != active_ && !stop_rumble())
-            throw std::runtime_error(SDL_GetError());
-        if (!SDL_RumbleGamepad(pad->second.get(), Uint16(std::lround(value.low * 65535)),
+            throw std::runtime_error("The selected gamepad does not support rumble");
+        if (!value.slot)
+            for (auto& [id, old] : pads_)
+                if (id != active_ && old.feedback && old.feedback_slot == 0 && !stop_pad(old))
+                    throw std::runtime_error("Previous active gamepad feedback could not stop");
+        if (!SDL_RumbleGamepad(pad.handle.get(), Uint16(std::lround(value.low * 65535)),
                                Uint16(std::lround(value.high * 65535)), value.duration_ms))
             throw std::runtime_error(std::string("Gamepad rumble failed: ") + SDL_GetError());
-        rumbling_ = active_;
-        stop_failed_ = false;
+        pad.feedback = true;
+        pad.feedback_slot = value.slot;
+        pad.stop_failed = false;
     }
     bool stop_rumble() noexcept {
-        if (const auto pad = pads_.find(rumbling_);
-            pad != pads_.end() && SDL_GamepadConnected(pad->second.get()) &&
-            !SDL_RumbleGamepad(pad->second.get(), 0, 0, 0)) {
-            if (!stop_failed_)
-                SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Gamepad rumble stop failed: %s",
-                            SDL_GetError());
-            stop_failed_ = true;
-            return false;
-        }
-        rumbling_ = 0;
-        stop_failed_ = false;
-        return true;
+        bool ok = true;
+        for (auto& [id, pad] : pads_)
+            ok = stop_pad(pad) && ok;
+        return ok;
     }
-    // Main thread. Lifecycle is processed even when gameplay capture is released.
-    // Another pad takes over only after deliberate input and a 250ms switch guard.
+    // Lifecycle always progresses. Indexed slots route independently; the
+    // legacy active alias alone retains the deliberate 250ms switch guard.
     std::vector<InputEvent> event(const SDL_Event& event, bool accept, Uint64 now) {
         if (accept &&
             ((event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) ||
@@ -77,15 +132,23 @@ class SdlGamepads {
               std::hypot(event.motion.xrel, event.motion.yrel) >= 2) ||
              (event.type == SDL_EVENT_MOUSE_WHEEL && (event.wheel.x != 0 || event.wheel.y != 0))))
             activity(false, now);
-        if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
-            open(event.gdevice.which);
-            return {};
-        }
+        if (event.type == SDL_EVENT_GAMEPAD_ADDED)
+            return open(event.gdevice.which);
         if (event.type == SDL_EVENT_GAMEPAD_REMOVED) {
+            auto found = pads_.find(event.gdevice.which);
+            if (found == pads_.end())
+                return {};
+            revision_room();
+            std::vector<InputEvent> events;
+            if (found->second.slot)
+                append_neutral(events, found->second.slot);
             const bool selected = active_ == event.gdevice.which;
-            if (rumbling_ == event.gdevice.which)
-                stop_rumble();
-            pads_.erase(event.gdevice.which);
+            if (selected)
+                append_neutral(events, 0);
+            stop_pad(found->second);
+            pads_.erase(found);
+            limit_warned_ = false;
+            ++revision_;
             std::clog << "Gamepad disconnected: " << event.gdevice.which << '\n';
             if (selected) {
                 active_ = pads_.empty() ? 0 : pads_.begin()->first;
@@ -94,52 +157,72 @@ class SdlGamepads {
                     gamepad_activity_ = false;
                     activity_time_ = now;
                 }
-                return {{{}, 0, true}};
             }
-            return {};
+            return events;
+        }
+        if (event.type == SDL_EVENT_GAMEPAD_REMAPPED) {
+            auto found = pads_.find(event.gdevice.which);
+            if (found == pads_.end())
+                return {};
+            revision_room();
+            std::vector<InputEvent> events;
+            if (found->second.slot)
+                append_neutral(events, found->second.slot);
+            if (active_ == event.gdevice.which)
+                append_neutral(events, 0);
+            found->second.name = name(found->second.handle.get());
+            stop_pad(found->second);
+            ++revision_;
+            return events;
         }
         if (!accept)
             return {};
         SDL_JoystickID id = 0;
-        InputEvent value;
+        const char* leaf = nullptr;
+        double sample = 0;
         bool meaningful = false;
         if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ||
             event.type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
             if (event.gbutton.button >= buttons_.size())
                 return {};
             id = event.gbutton.which;
-            value = {std::string("pad.") + buttons_[event.gbutton.button],
-                     event.gbutton.down ? 1.0 : 0.0};
+            leaf = buttons_[event.gbutton.button];
+            sample = event.gbutton.down ? 1.0 : 0.0;
             meaningful = event.gbutton.down;
         } else if (event.type == SDL_EVENT_GAMEPAD_AXIS_MOTION) {
             if (event.gaxis.axis >= axes_.size())
                 return {};
             id = event.gaxis.which;
-            double normalized =
+            leaf = axes_[event.gaxis.axis];
+            sample =
                 event.gaxis.value < 0 ? event.gaxis.value / 32768.0 : event.gaxis.value / 32767.0;
             if (event.gaxis.axis >= SDL_GAMEPAD_AXIS_LEFT_TRIGGER)
-                normalized = std::max(0.0, normalized);
-            value = {std::string("pad.") + axes_[event.gaxis.axis], normalized};
-            meaningful = std::abs(normalized) >= .5;
-        } else {
+                sample = std::max(0.0, sample);
+            meaningful = std::abs(sample) >= .5;
+        } else
             return {};
-        }
-        const auto pad = pads_.find(id);
-        if (pad == pads_.end() || !SDL_GamepadConnected(pad->second.get()))
+        const auto found = pads_.find(id);
+        if (found == pads_.end() || !SDL_GamepadConnected(found->second.handle.get()))
             return {};
         std::vector<InputEvent> result;
-        if (id != active_) {
-            if (!meaningful || now < switched_ || now - switched_ < 250)
-                return {};
-            stop_rumble();
-            active_ = id;
-            switched_ = now;
-            std::clog << "Active gamepad changed: " << id << '\n';
-            result.push_back({{}, 0, true});
+        const bool legacy =
+            id == active_ || (meaningful && now >= switched_ && now - switched_ >= 250);
+        if (legacy) {
+            if (id != active_) {
+                append_neutral(result, 0);
+                if (const auto old = pads_.find(active_);
+                    old != pads_.end() && old->second.feedback_slot == 0)
+                    stop_pad(old->second);
+                active_ = id;
+                switched_ = now;
+                std::clog << "Active gamepad changed: " << id << '\n';
+            }
+            result.push_back({gamepad_control_id(0, leaf), sample});
         }
-        if (std::abs(value.value) >= .25)
+        if (found->second.slot)
+            result.push_back({gamepad_control_id(found->second.slot, leaf), sample});
+        if (std::abs(sample) >= .25)
             activity(true, now);
-        result.push_back(std::move(value));
         return result;
     }
 
@@ -147,23 +230,102 @@ class SdlGamepads {
     struct Close {
         void operator()(SDL_Gamepad* pad) const { SDL_CloseGamepad(pad); }
     };
-    void open(SDL_JoystickID id) {
-        if (pads_.contains(id))
-            return;
-        std::unique_ptr<SDL_Gamepad, Close> pad(SDL_OpenGamepad(id));
-        if (!pad) {
-            SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Gamepad open failed: %s", SDL_GetError());
-            return;
+    struct Pad {
+        std::unique_ptr<SDL_Gamepad, Close> handle;
+        std::string token, name;
+        std::uint32_t slot = 0;
+        // Output may still need a physical Stop even after its requested expiry.
+        bool feedback = false, stop_failed = false;
+        std::uint32_t feedback_slot = 0;
+    };
+    static void append_neutral(std::vector<InputEvent>& events, std::uint32_t slot) {
+        for (const auto* leaf : buttons_)
+            events.push_back({gamepad_control_id(slot, leaf), 0});
+        for (const auto* leaf : axes_)
+            events.push_back({gamepad_control_id(slot, leaf), 0});
+    }
+    static std::string name(SDL_Gamepad* pad) {
+        char text[257]{};
+        if (const auto* raw = SDL_GetGamepadName(pad))
+            SDL_strlcpy(text, raw, sizeof(text));
+        std::string result(text);
+        for (char& c : result)
+            if (static_cast<unsigned char>(c) < 32 || static_cast<unsigned char>(c) == 127)
+                c = ' ';
+        try {
+            (void)nlohmann::json(result).dump();
+        } catch (const nlohmann::json::exception&) {
+            result.clear();
         }
+        return result.empty() ? "Gamepad" : result;
+    }
+    bool stop_pad(Pad& pad) noexcept {
+        if (pad.feedback && SDL_GamepadConnected(pad.handle.get()) &&
+            !SDL_RumbleGamepad(pad.handle.get(), 0, 0, 0)) {
+            if (!pad.stop_failed)
+                SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Gamepad rumble stop failed: %s",
+                            SDL_GetError());
+            pad.stop_failed = true;
+            return false;
+        }
+        pad.feedback = false;
+        pad.stop_failed = false;
+        return true;
+    }
+    bool stop_slot(std::uint32_t slot) noexcept {
+        for (auto& [id, pad] : pads_)
+            if (pad.slot == slot)
+                return stop_pad(pad);
+        return true;
+    }
+    void revision_room() const {
+        if (revision_ == std::numeric_limits<std::uint64_t>::max())
+            throw std::overflow_error("Gamepad topology revision exhausted");
+    }
+    std::vector<InputEvent> open(SDL_JoystickID id) {
+        if (pads_.contains(id))
+            return {};
+        if (pads_.size() >= gamepad_device_limit) {
+            if (!limit_warned_)
+                SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "FORGE tracks at most 16 connected gamepads");
+            limit_warned_ = true;
+            return {};
+        }
+        revision_room();
+        if (connections_ == std::numeric_limits<std::uint64_t>::max())
+            throw std::overflow_error("Gamepad connection token space exhausted");
+        Pad pad;
+        pad.handle.reset(SDL_OpenGamepad(id));
+        if (!pad.handle) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "Gamepad open failed: %s", SDL_GetError());
+            return {};
+        }
+        pad.name = name(pad.handle.get());
+        pad.token = namespace_ + ":" + std::to_string(id) + ":" + std::to_string(connections_ + 1);
+        for (std::uint32_t slot = 1; slot <= gamepad_slot_limit; ++slot)
+            if (std::none_of(pads_.begin(), pads_.end(),
+                             [&](const auto& row) { return row.second.slot == slot; })) {
+                pad.slot = slot;
+                break;
+            }
+        std::vector<InputEvent> events;
+        if (pad.slot)
+            append_neutral(events, pad.slot);
+        if (!active_)
+            append_neutral(events, 0);
         pads_.emplace(id, std::move(pad));
-        std::clog << "Gamepad connected: " << id << '\n';
+        ++connections_;
+        ++revision_;
         if (!active_)
             active_ = id;
+        std::clog << "Gamepad connected: " << id << '\n';
+        return events;
     }
-    std::map<SDL_JoystickID, std::unique_ptr<SDL_Gamepad, Close>> pads_;
+    std::map<SDL_JoystickID, Pad> pads_;
+    std::string namespace_;
+    std::uint64_t revision_ = 0, connections_ = 0;
     SDL_JoystickID active_ = 0;
-    SDL_JoystickID rumbling_ = 0;
-    bool stop_failed_ = false;
+    bool limit_warned_ = false;
     Uint64 switched_ = 0;
     bool gamepad_activity_ = false, activity_seen_ = false;
     Uint64 activity_time_ = 0;

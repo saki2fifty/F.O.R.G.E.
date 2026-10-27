@@ -267,6 +267,7 @@ class PlaySession {
     // Local queue observation: platform contacts cannot survive a neutral reset
     // queued by UI/automation/overflow before their next native motion event.
     std::uint64_t input_reset_serial() const { return input_reset_serial_; }
+    bool input_queue_room(std::size_t count) const { return count <= 4096 - input_events_.size(); }
     void input_event(InputEvent event) {
         if (!ready())
             return;
@@ -443,6 +444,17 @@ class PlaySession {
     // getter still reads
     // on) is injected robustness in the fixture, not normal pinned
     // API behaviour.
+    // Device metadata does not advance the cursor epoch or cancel unrelated
+    // platform effects. Send only changed copied observations, on snapshots.
+    void observe_gamepads(const GamepadTopology& value) {
+        if (!sdk_game_ || !active())
+            return;
+        Json observation = value;
+        if (observation != sdk_gamepads_) {
+            sdk_gamepads_ = std::move(observation);
+            sdk_pending_gamepads_ = true;
+        }
+    }
     bool submit_editor_observation(bool captured, const std::string& input_device) {
         const auto epoch = next_editor_epoch();
         if (epoch == 0)
@@ -1270,7 +1282,7 @@ class PlaySession {
                     //      the runtime warm.
                     const bool have_pending = sdk_pending_candidate_ack_ ||
                                               sdk_pending_platform_acks_ ||
-                                              sdk_pending_editor_epoch_;
+                                              sdk_pending_editor_epoch_ || sdk_pending_gamepads_;
                     if (have_pending) {
                         send({{"command", "snapshot"}});
                     } else if (sdk_pending_cancel_loading_ticket_ != 0) {
@@ -1465,6 +1477,8 @@ class PlaySession {
         sdk_platform_acks_ = nullptr;
         sdk_pending_editor_epoch_ = false;
         sdk_editor_epoch_ = nullptr;
+        sdk_pending_gamepads_ = false;
+        sdk_gamepads_ = nullptr;
         sdk_editor_epoch_seen_ = 0;
         sdk_editor_epoch_confirmed_ = sent_editor_epoch_ = 0;
         sdk_ack_terminal_ticket_ = 0;
@@ -1658,6 +1672,10 @@ class PlaySession {
                     sdk_editor_epoch_seen_ = epoch_value;
                 sdk_pending_editor_epoch_ = false;
                 sdk_editor_epoch_ = nullptr;
+            }
+            if (sdk_pending_gamepads_) {
+                request["gamepads"] = sdk_gamepads_;
+                sdk_pending_gamepads_ = false;
             }
         }
         request["protocol"] = 2;
@@ -1863,6 +1881,8 @@ class PlaySession {
     Json sdk_platform_acks_;
     bool sdk_pending_editor_epoch_ = false;
     Json sdk_editor_epoch_;
+    bool sdk_pending_gamepads_ = false;
+    Json sdk_gamepads_;
     // Tracker for the highest editor-epoch observation we have SHIPPED
     // (or attempted to ship) on the wire. Used by submit_sdk_editor_epoch
     // to enforce strict positive monotonicity locally before the wire

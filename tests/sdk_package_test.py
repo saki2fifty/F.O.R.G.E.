@@ -15,7 +15,7 @@ def validate_guides(stage):
 
 focused_targets = {
     '--navigation-only': 'planar_navigation_gameplay', '--time-only': 'time_scale_gameplay',
-    '--feedback-only': 'gamepad_feedback_gameplay', '--input-only': 'gameplay',
+    '--gamepads-only': 'multiple_gamepads_gameplay', '--feedback-only': 'gamepad_feedback_gameplay', '--input-only': 'gameplay',
     '--audio-pause-only': 'unpaused_audio_gameplay', '--audio-filters-only': 'audio_gameplay',
     '--tile-one-way-only': 'tile_physics_gameplay', '--gestures-only': 'touch_gestures_gameplay', '--touch-only': 'touch_input_gameplay', '--sprite-frames-only': 'sprite_image_gameplay',
 }
@@ -28,6 +28,7 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
     audio_pause_only = sys.argv[4] == '--audio-pause-only'
     time_only = sys.argv[4] == '--time-only'
     feedback_only = sys.argv[4] == '--feedback-only'
+    gamepads_only = sys.argv[4] == '--gamepads-only'
     input_only = sys.argv[4] == '--input-only'
     target = focused_targets[sys.argv[4]]
     # Reuse the install/sample owner for a focused public-boundary check.
@@ -50,6 +51,13 @@ if len(sys.argv) == 5 and sys.argv[4] in focused_targets:
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if gamepads_only:
+            subprocess.run([sys.executable, str(Path(__file__).with_name('multiple_gamepads_process_test.py')),
+                            str(moved/'bin'/('forge_runtime'+exe)), str(module),
+                            str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery')],
+                           env=env, cwd=moved, check=True, timeout=90)
+            print('Installed public multiple-gamepad client and relocated runtime passed')
+            sys.exit(0)
         if touch_only or gestures_only:
             subprocess.run([sys.executable, str(Path(__file__).with_name('touch_gesture_process_test.py' if gestures_only else 'touch_input_process_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)), str(module),

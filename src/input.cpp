@@ -1,18 +1,134 @@
 #include <algorithm>
 #include <cmath>
 #include <forge/input.hpp>
+#include <initializer_list>
 #include <set>
 #include <stdexcept>
 namespace forge {
+using Json = nlohmann::json;
+namespace {
+void gamepad_record(const Json& value, std::initializer_list<std::string_view> required,
+                    std::initializer_list<std::string_view> optional = {}) {
+    if (!value.is_object())
+        throw std::runtime_error("Gamepad data must be an object");
+    for (auto name : required)
+        if (!value.contains(std::string(name)))
+            throw std::runtime_error("Missing gamepad field: " + std::string(name));
+    for (auto field = value.begin(); field != value.end(); ++field)
+        if (std::find(required.begin(), required.end(), field.key()) == required.end() &&
+            std::find(optional.begin(), optional.end(), field.key()) == optional.end())
+            throw std::runtime_error("Unknown gamepad field: " + field.key());
+}
+bool gamepad_token(std::string_view value) {
+    return !value.empty() && value.size() <= 128 &&
+           std::all_of(value.begin(), value.end(), [](unsigned char c) {
+               return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+                      c == '-' || c == '_' || c == ':' || c == '.';
+           });
+}
+std::uint32_t gamepad_slot_value(const Json& value) {
+    if (!value.is_number_integer() || value < 0 || value > gamepad_slot_limit)
+        throw std::runtime_error("Gamepad slot must be an integer in 0..4");
+    return value.get<std::uint32_t>();
+}
+std::uint64_t gamepad_revision_value(const Json& value) {
+    if (!value.is_number_integer() || value < 0)
+        throw std::runtime_error("Gamepad revision must be an unsigned integer");
+    return value.get<std::uint64_t>();
+}
+} // namespace
+void GamepadAssignment::validate() const {
+    if (!revision || !gamepad_token(device) || slot > gamepad_slot_limit)
+        throw std::runtime_error(
+            "Gamepad assignment needs a current device/revision and slot 0..4");
+}
+void to_json(Json& json, const GamepadAssignment& value) {
+    value.validate();
+    json = {{"revision", value.revision}, {"device", value.device}, {"slot", value.slot}};
+}
+void from_json(const Json& json, GamepadAssignment& value) {
+    gamepad_record(json, {"revision", "device", "slot"}, {"operation"});
+    if (json.contains("operation") && json.at("operation") != "gamepad_assign")
+        throw std::runtime_error("Unsupported gamepad assignment operation");
+    if (!json.at("device").is_string() ||
+        json.at("device").get_ref<const std::string&>().size() > 128)
+        throw std::runtime_error("Gamepad device must be a bounded connection token");
+    GamepadAssignment candidate{gamepad_revision_value(json.at("revision")),
+                                json.at("device").get<std::string>(),
+                                gamepad_slot_value(json.at("slot"))};
+    candidate.validate();
+    value = std::move(candidate);
+}
+void GamepadTopology::validate() const {
+    if (devices.size() > gamepad_device_limit || (!devices.empty() && !revision) ||
+        (!available && (revision || !active.empty() || !devices.empty())))
+        throw std::runtime_error("Invalid gamepad host observation");
+    std::set<std::string> tokens;
+    std::set<std::uint32_t> slots;
+    for (const auto& device : devices) {
+        if (!gamepad_token(device.device) || !tokens.insert(device.device).second ||
+            device.slot > gamepad_slot_limit ||
+            (device.slot && !slots.insert(device.slot).second) || device.name.empty() ||
+            device.name.size() > 256 ||
+            std::any_of(device.name.begin(), device.name.end(),
+                        [](unsigned char c) { return c < 32 || c == 127; }))
+            throw std::runtime_error("Invalid gamepad device observation");
+        (void)Json(device.name).dump(); // Validate UTF-8 using the existing JSON library.
+    }
+    if (!active.empty() && !tokens.contains(active))
+        throw std::runtime_error("Active gamepad is absent from the host observation");
+}
+void to_json(Json& json, const GamepadTopology& value) {
+    value.validate();
+    Json devices = Json::array();
+    for (const auto& device : value.devices)
+        devices.push_back({{"device", device.device},
+                           {"name", device.name},
+                           {"slot", device.slot},
+                           {"connected", device.connected},
+                           {"rumble", device.rumble}});
+    json = {{"available", value.available},
+            {"revision", value.revision},
+            {"active", value.active},
+            {"devices", std::move(devices)}};
+}
+void from_json(const Json& json, GamepadTopology& value) {
+    gamepad_record(json, {"available", "revision", "active", "devices"});
+    if (!json.at("available").is_boolean() || !json.at("active").is_string() ||
+        json.at("active").get_ref<const std::string&>().size() > 128 ||
+        !json.at("devices").is_array() || json.at("devices").size() > gamepad_device_limit)
+        throw std::runtime_error("Invalid gamepad topology record");
+    GamepadTopology candidate;
+    candidate.available = json.at("available").get<bool>();
+    candidate.revision = gamepad_revision_value(json.at("revision"));
+    candidate.active = json.at("active").get<std::string>();
+    for (const auto& row : json.at("devices")) {
+        gamepad_record(row, {"device", "name", "slot", "connected", "rumble"});
+        if (!row.at("device").is_string() || !row.at("name").is_string() ||
+            row.at("device").get_ref<const std::string&>().size() > 128 ||
+            row.at("name").get_ref<const std::string&>().size() > 256 ||
+            !row.at("connected").is_boolean() || !row.at("rumble").is_boolean())
+            throw std::runtime_error("Invalid gamepad device record");
+        candidate.devices.push_back(
+            {row.at("device").get<std::string>(), row.at("name").get<std::string>(),
+             gamepad_slot_value(row.at("slot")), row.at("connected").get<bool>(),
+             row.at("rumble").get<bool>()});
+    }
+    candidate.validate();
+    value = std::move(candidate);
+}
 void GamepadRumble::validate() const {
     if (!std::isfinite(low) || !std::isfinite(high) || low < 0 || low > 1 || high < 0 || high > 1 ||
-        duration_ms > 5000 || (duration_ms == 0 && (low != 0 || high != 0)))
+        duration_ms > 5000 || (duration_ms == 0 && (low != 0 || high != 0)) ||
+        slot > gamepad_slot_limit)
         throw std::runtime_error("Gamepad rumble requires finite strengths in [0,1] and 1..5000 "
-                                 "ms; zero strengths stop");
+                                 "ms; slots are 1..4 or 0 for active; zero strengths stop");
 }
 void to_json(nlohmann::json& json, const GamepadRumble& value) {
     value.validate();
     json = {{"low", value.low}, {"high", value.high}, {"duration_ms", value.duration_ms}};
+    if (value.slot)
+        json["slot"] = value.slot;
 }
 void from_json(const nlohmann::json& json, GamepadRumble& value) {
     if (!json.is_object() || !json.at("low").is_number() || !json.at("high").is_number() ||
@@ -21,11 +137,11 @@ void from_json(const nlohmann::json& json, GamepadRumble& value) {
         throw std::runtime_error(
             "Gamepad rumble requires numeric low/high and integer duration_ms in [0,5000]");
     GamepadRumble candidate{json.at("low").get<double>(), json.at("high").get<double>(),
-                            json.at("duration_ms").get<std::uint32_t>()};
+                            json.at("duration_ms").get<std::uint32_t>(),
+                            json.contains("slot") ? gamepad_slot_value(json.at("slot")) : 0};
     candidate.validate();
     value = candidate;
 }
-using Json = nlohmann::json;
 namespace {
 std::string radial_partner(const InputBinding& binding) {
     auto partner = binding.control;
@@ -101,6 +217,17 @@ const std::vector<InputControl>& input_controls() {
         for (const auto* pulse : {"tap", "double_tap", "long_press", "swipe_left", "swipe_right",
                                   "swipe_up", "swipe_down"})
             result.push_back({std::string("touch.gesture.") + pulse, false, true});
+        // Derive indexed controls from the existing registry's gamepad entries.
+        // Append them so existing discovery order and IDs stay stable.
+        std::vector<InputControl> gamepad;
+        for (const auto& control : result)
+            if (control.id.starts_with("pad."))
+                gamepad.push_back(control);
+        for (std::size_t slot = 1; slot <= gamepad_slot_limit; ++slot)
+            for (auto control : gamepad) {
+                control.id = "pad." + std::to_string(slot) + "." + control.id.substr(4);
+                result.push_back(std::move(control));
+            }
         return result;
     }();
     return controls;
@@ -116,6 +243,26 @@ const InputControl& input_control(const std::string& id) {
     if (found != lookup.end())
         return *found->second;
     throw std::runtime_error("Unsupported input control: " + id);
+}
+std::string gamepad_control_id(std::uint32_t slot, std::string_view leaf) {
+    if (slot > gamepad_slot_limit)
+        throw std::runtime_error("Gamepad slot must be 1..4 or 0 for active controls");
+    const auto id = (slot ? "pad." + std::to_string(slot) + "." : "pad.") + std::string(leaf);
+    return input_control(id).id;
+}
+std::optional<std::uint32_t> gamepad_control_slot(const std::string& id) {
+    (void)input_control(id);
+    if (!id.starts_with("pad."))
+        return {};
+    const auto dot = id.find('.', 4);
+    return dot == std::string::npos ? 0 : std::uint32_t(id[4] - '0');
+}
+bool is_gamepad_stick_control(const std::string& id) {
+    const auto& control = input_control(id);
+    if (!id.starts_with("pad.") || control.digital || control.relative)
+        return false;
+    const auto axis = std::string_view(id).substr(id.rfind('.') + 1);
+    return axis == "left_x" || axis == "left_y" || axis == "right_x" || axis == "right_y";
 }
 InputMap::InputMap(Json source) : source_(std::move(source)) {
     if (!source_.is_object() || (source_.at("version") != 1 && source_.at("version") != 2) ||
@@ -207,9 +354,7 @@ InputMap::InputMap(Json source) : source_(std::move(source)) {
                  (binding.deadzone != 0 || binding.outer_deadzone != 0 ||
                   binding.response_exponent != 1)))
                 throw std::runtime_error("Invalid input binding scale/deadzone or digital control");
-            if (binding.radial && binding.control != "pad.left_x" &&
-                binding.control != "pad.left_y" && binding.control != "pad.right_x" &&
-                binding.control != "pad.right_y")
+            if (binding.radial && !is_gamepad_stick_control(binding.control))
                 throw std::runtime_error("Radial dead zone requires a gamepad stick axis");
             if (source_.at("version") == 2 &&
                 std::any_of(action.bindings.begin(), action.bindings.end(),
@@ -300,13 +445,16 @@ bool RuntimeInput::control_action(const InputAction& action) const {
             return context.control;
     return false;
 }
-void RuntimeInput::begin_rebind() {
+void RuntimeInput::begin_rebind(std::uint32_t gamepad_slot) {
+    if (gamepad_slot > gamepad_slot_limit)
+        throw std::runtime_error("Rebinding gamepad slot must be 0..4");
     rebind_held_.clear();
     for (const auto& [control, value] : controls_)
         if (!input_control(control).relative && std::abs(value) > .25)
             rebind_held_.insert(control);
     release_all();
     rebind_result_.reset();
+    rebind_gamepad_slot_ = gamepad_slot;
     listening_ = true;
 }
 void RuntimeInput::cancel_rebind() {
@@ -470,6 +618,9 @@ void RuntimeInput::submit(const std::vector<InputEvent>& events) {
                 cancel_rebind();
                 break;
             }
+            if (const auto slot = gamepad_control_slot(e.control);
+                slot && *slot != rebind_gamepad_slot_)
+                continue;
             if (rebind_held_.contains(e.control)) {
                 if (std::abs(e.value) <= .25)
                     rebind_held_.erase(e.control);

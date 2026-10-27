@@ -110,20 +110,26 @@ inline void test_game_input(const char* runtime) {
         event.gaxis.which = second;
         event.gaxis.axis = SDL_GAMEPAD_AXIS_LEFTX;
         event.gaxis.value = 100;
-        require(pads.event(event, true, 1000).empty(), "Inactive stick noise stole device");
+        const auto noise = pads.event(event, true, 1000);
+        require(noise.size() == 1 && noise[0].control == "pad.2.left_x" && pads.active() == first,
+                "Inactive stick noise stole the active alias or lost its logical slot");
         event.gaxis.value = -32768;
         const auto switched = pads.event(event, true, 1000);
-        require(pads.active() == second && switched.size() == 2 && switched[0].reset &&
-                    switched[1].value == -1,
+        require(pads.active() == second && switched.size() == 23 && !switched[0].reset &&
+                    switched[21].control == "pad.left_x" && switched[21].value == -1 &&
+                    switched[22].control == "pad.2.left_x",
                 "Deliberate device switch did not neutralize previous input");
         event.gaxis.which = first;
-        require(pads.event(event, true, 1100).empty(), "Device switch guard failed");
+        const auto guarded = pads.event(event, true, 1100);
+        require(guarded.size() == 1 && guarded[0].control == "pad.1.left_x" &&
+                    pads.active() == second,
+                "Device switch guard blocked player 1 or switched the legacy alias");
         event = {};
         event.type = SDL_EVENT_GAMEPAD_REMOVED;
         event.gdevice.which = second;
         require(SDL_DetachVirtualJoystick(second), SDL_GetError());
         const auto removed = pads.event(event, false, 1200);
-        require(removed.size() == 1 && removed[0].reset && pads.active() != second,
+        require(removed.size() == 42 && !removed[0].reset && pads.active() != second,
                 "Removal retained stale handle or held input");
         const auto reconnected = SDL_AttachVirtualJoystick(&desc);
         require(reconnected && reconnected != second, "Reconnect did not get new runtime ID");
@@ -134,7 +140,7 @@ inline void test_game_input(const char* runtime) {
         event.gbutton.which = reconnected;
         event.gbutton.button = SDL_GAMEPAD_BUTTON_SOUTH;
         event.gbutton.down = true;
-        require(pads.event(event, true, 1500).size() == 2 && pads.active() == reconnected,
+        require(pads.event(event, true, 1500).size() == 23 && pads.active() == reconnected,
                 "Reconnected gamepad could not take over");
         require(std::string(pads.activity()) == "Gamepad",
                 "Deliberate pad input did not select prompts");

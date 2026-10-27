@@ -142,6 +142,7 @@ struct SdkPlayRuntime::State {
     bool editor_cursor_known = false; // False until first positive observation.
     std::uint64_t editor_cursor_epoch = 0;
     std::string editor_input_device = "EditorHost";
+    GamepadTopology editor_gamepads;
     std::string last_initial_diagnostic;
     Json settings_error;
     // Pre-captured status / loading snapshots taken outside the
@@ -266,6 +267,10 @@ struct SdkPlayRuntime::State {
     void configure_platform() {
         platform.rumble_poll = [this](std::uint64_t token, const GamepadRumble& value) {
             return poll_effect(token, "rumble", Json(value));
+        };
+        platform.gamepads = [this] { return editor_gamepads; };
+        platform.gamepad_assign_poll = [this](std::uint64_t token, const GamepadAssignment& value) {
+            return poll_effect(token, "gamepad_assign", Json(value));
         };
         platform.cursor_poll = [this](std::uint64_t token, bool desired) {
             return poll_effect(token, "cursor", Json(desired));
@@ -1131,11 +1136,19 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
     // Side-effect fields ride ONLY on snapshot. Rejecting them on other
     // commands prevents stray acknowledgement payloads from mutating
     // platform/editor state during unknown-command handling.
-    if ((request.contains("editor_epoch") || request.contains("platform_acks") ||
-         request.contains("candidate_ack")) &&
+    if ((request.contains("gamepads") || request.contains("editor_epoch") ||
+         request.contains("platform_acks") || request.contains("candidate_ack")) &&
         command != "snapshot")
         return s.build_error(id, "Ack and epoch fields require a snapshot command");
     try {
+        // Validate copied device metadata before accepting input/effects from
+        // this request. No cursor epoch changes: device and cursor lifetimes
+        // are independent, while assignment carries its own topology revision.
+        std::optional<GamepadTopology> gamepads;
+        if (request.contains("gamepads"))
+            gamepads = request.at("gamepads").get<GamepadTopology>();
+        if (gamepads && gamepads->revision < s.editor_gamepads.revision)
+            throw std::runtime_error("Gamepad observation revision cannot move backwards");
         // Input events must accompany a snapshot or clock control command,
         // exactly as runtime_main enforces. Empty arrays are rejected.
         if (request.contains("input_events")) {
@@ -1172,6 +1185,8 @@ Json SdkPlayRuntime::handle_inner(const Json& request, RuntimeClock::Time now) {
         if (command == "ping" || command == "snapshot") {
             // Snapshot consumes ack/epoch side-effects inline.
             if (command == "snapshot") {
+                if (gamepads)
+                    s.editor_gamepads = std::move(*gamepads);
                 if (request.contains("editor_epoch")) {
                     try {
                         s.apply_editor_epoch(request.at("editor_epoch"));

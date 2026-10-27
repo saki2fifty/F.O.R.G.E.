@@ -19,6 +19,8 @@ struct PlayAutomationProviders {
     std::function<std::string()> control_unavailable;
     std::function<void(const std::string&)> select_entity;
     std::function<bool()> prepare_input;
+    std::function<GamepadTopology()> gamepads;
+    std::function<GamepadTopology(const GamepadAssignment&)> assign_gamepad;
     std::function<bool(const std::string&, const std::string&, const std::optional<std::string>&)>
         ui_command;
 };
@@ -235,8 +237,46 @@ struct PlayAutomation {
                                         {"maximum", control.relative ? 1000000 : 1}});
                 return Json{{"controls", std::move(controls)}};
             }));
+        methods.push_back(automation_method(
+            "play.gamepads",
+            "Read the actual host's transient controller connections, "
+            "logical slots 1..4 and topology revision. Opaque connection tokens are not saved "
+            "identities. An unavailable host is distinct from an empty device list.",
+            "play.read", automation_object(), false, [&files, providers](const Json&) {
+                files.document.check_ownership();
+                return Json(providers.gamepads ? providers.gamepads() : GamepadTopology{});
+            }));
         if (!permissions.execute)
             return methods;
+        methods.push_back(automation_method(
+            "play.gamepads.assign",
+            "Assign a current connection to slot 1..4, or 0 to "
+            "unassign. Use the revision and device token from play.gamepads. An occupied "
+            "slot is cleared first; only affected controls and feedback are released. "
+            "This transient host edit has no authored Undo or saved identity.",
+            "play.execute",
+            automation_object({{"revision", automation_integer(1)},
+                               {"device", automation_text(128, 1)},
+                               {"slot", automation_integer(0, gamepad_slot_limit)}},
+                              {"revision", "device", "slot"}),
+            true,
+            [&files, providers](const Json& request) {
+                files.document.check_ownership();
+                if (providers.control_unavailable) {
+                    const auto reason = providers.control_unavailable();
+                    if (!reason.empty())
+                        throw AuthoringError("play_busy", reason);
+                }
+                if (!providers.assign_gamepad)
+                    throw AuthoringError("unavailable",
+                                         "This host has no gamepad assignment adapter");
+                const auto value = Json{{"revision", request.at("revision")},
+                                        {"device", request.at("device")},
+                                        {"slot", request.at("slot")}}
+                                       .get<GamepadAssignment>();
+                return Json(providers.assign_gamepad(value));
+            },
+            true));
         methods.push_back(automation_method(
             "play.start",
             "Start through the editor's existing source/asset/settings readiness "
@@ -329,7 +369,7 @@ struct PlayAutomation {
                     throw AuthoringError("invalid_input", error.what());
                 }
                 // The shared physical release may queue one neutral event.
-                if (play.input_events_.size() + events.size() + 1 > 4096)
+                if (!play.input_queue_room(events.size() + 1))
                     throw AuthoringError("play_busy", "Wait for the pending input queue");
                 if (!providers.prepare_input || !providers.prepare_input())
                     throw AuthoringError("input_release_failed",

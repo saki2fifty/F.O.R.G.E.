@@ -290,10 +290,11 @@ target with their own host.
 | `settings` | none | Copied resolved settings |
 | `set_settings` | `values` grouped by display/audio/input | Validate, apply and persist user overrides; rollback on failure |
 | `input_contexts` | `active` array | Replace active context set and neutralize old input |
-| `rumble` | numeric `low`/`high`0..1, integer `duration_ms`0..5000 | Request bounded feedback; nonzero strength needs positive duration. Zero strengths stop; receipt reports actual host/device result |
+| `rumble` | numeric `low`/`high`0..1, integer `duration_ms`0..5000, optional `slot` 0..4 | Request bounded feedback; omitted/0 targets active,1..4 targets a logical player. Zero strengths with slot 0 stop all owned feedback; a numbered Stop affects one slot |
+| `gamepad_assign` | current `revision`, opaque `device`, integer `slot` 0..4 | Reassign a live connection;0 unassigns. The platform owner neutralizes affected slots and stops their feedback; stale connection/revision or native Stop failure rejects |
 | `cursor` | `capture` | Request host capture/release; capture requires an adapter and focus |
 | `ui_navigation` | `direction`: next/previous/accept | Native RmlUi focus traversal/activation where supplied |
-| `rebind_begin` | `action`, `index` | Listen for a candidate for one binding slot |
+| `rebind_begin` | `action`, `index`, optional `gamepad_slot`0..4 | Listen for a candidate; infer the gamepad namespace from the old binding unless supplied. Other players/aliases cannot capture it; keyboard/mouse/touch remain eligible |
 | `rebind_cancel` | none | Discard pending candidate |
 | `rebind_commit` | optional `clear`, `allow_conflicts` | Validate and persist the chosen slot; sharing must be deliberate |
 | `rebind_reset` | optional `action` | Restore project defaults and cancel the pending candidate |
@@ -380,10 +381,32 @@ produce failed receipts rather than fake success. Do not fault the game solely
 because optional feedback failed.
 
 The SDK Play host adds `rumble` to the same token/sequence/epoch offers as cursor
-and navigation. Its value is `{low,high,duration_ms}`; existing stale-session,
+and navigation. Its value is `{low,high,duration_ms,slot?}`; existing stale-session,
 epoch, batch-atomic ack, cancellation and retired-token rules apply. The editor
 uses the real SdlGamepads owner, with no renderer dependence for device dispatch.
 Native duration uses real milliseconds, including while Pause/zero speed holds
 ticks. Lifecycle transitions stop previously applied feedback; a later focused
 control callback may request a new pulse while paused. See [input](input.md) for
 routing, bounds, stop-failure limitations and unsupported haptic features.
+
+## Local gamepad assignments
+
+`game_query.gamepads` copies the actual host's bounded `{available,revision,active,devices}`
+observation. Device records contain opaque `device` connection token, display
+`name`, logical `slot` 0..4, `connected` and native `rumble` capability. Unavailable
+is distinct from no controllers. `gamepad_assignment_host` reports an assignment
+adapter, not hardware support. Query immediately before constructing an assignment
+request, inspect its scoped receipt and refresh/retry if topology changed.
+Do not persist connection tokens. Bindings persist logical `pad.1.*` through
+`pad.4.*` controls under the established InputMap/settings owners.
+
+GamePlatformControls supplies synchronous query/assignment callbacks for an SDL
+host, or a polled assignment callback for SDK Play. The editor's same GameInput
+method serves UI, MCP and SDK effects. Changed device observations travel separately
+from cursor epochs so an assignment's own acknowledgement is not cancelled by its
+new topology. The SDK `gamepad_assign` offer carries canonical `{revision,device,slot}`
+and uses the established session/token/sequence/epoch acknowledgement, release,
+cancellation and request-scope rules. Physical action happens once; dropping a
+completed receipt does not roll it back. Query reflects the latest observed
+topology and may follow the acknowledgement by a host publication interval.
+No C ABI callback/table/layout change or native dependency update is required.

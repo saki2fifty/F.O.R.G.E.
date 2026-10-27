@@ -104,6 +104,21 @@ static void input_context_tests() {
     check(input.rebinding() && !input.take_rebind(), "Invalid batch partially captured");
     input.submit({{"", 0, true}});
     check(!input.rebinding(), "Focus/reset did not cancel listening");
+    input.begin_rebind(2);
+    input.submit({{"pad.south", 1}, {"pad.1.south", 1}, {"pad.3.south", 1}, {"pad.4.south", 1}});
+    check(input.rebinding() && !input.take_rebind(), "Rebind captured another player's alias");
+    input.submit({{"pad.2.south", 1}});
+    check(!input.rebinding() && input.take_rebind()->control == "pad.2.south",
+          "Player 2 rebind did not capture its indexed control");
+    input.begin_rebind();
+    reject([&] { input.begin_rebind(5); });
+    check(input.rebinding() && input.rebind_gamepad_slot() == 0,
+          "Invalid player filter partially changed listening state");
+    input.submit({{"pad.2.east", 1}, {"pad.east", 1}});
+    check(input.take_rebind()->control == "pad.east", "Legacy rebind captured indexed alias");
+    input.begin_rebind(4);
+    input.submit({{"key.w", 1}});
+    check(input.take_rebind()->control == "key.w", "Player rebind lost keyboard support");
     source["contexts"][1]["phase"] = "control";
     source["contexts"][1]["consume"] = false;
     source["contexts"][1]["priority"] = 10;

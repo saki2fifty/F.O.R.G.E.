@@ -202,6 +202,62 @@ std::unique_ptr<SdkPlayRuntime> build_activated(Fixture& f, std::string& session
     return host;
 }
 
+void gamepad_assignment_effects() {
+    Fixture f;
+    std::string session;
+    auto host = build_activated(f, session);
+    std::uint64_t id = 3;
+    auto wire = [&](Json value) {
+        value["protocol"] = 2;
+        value["session"] = session;
+        value["id"] = ++id;
+        value["command"] = "snapshot";
+        return host->handle(value);
+    };
+    GamepadTopology devices{
+        true, 1, "host:connection", {{"host:connection", "Controller", 1, true, true}}};
+    check(wire({{"editor_epoch",
+                 {{"epoch", 1u}, {"captured", false}, {"input_device", "EditorHost"}}},
+                {"gamepads", devices}})
+              .value("ok", false),
+          "Device observation rejected");
+    host->pump(RuntimeClock::Clock::now());
+    const auto service = f.capture.service;
+    check(service->query().at("gamepads") == Json(devices) &&
+              service->query().at("gamepad_assignment_host") == true,
+          "Game query did not expose the copied host observation");
+    Json request = GamepadAssignment{1, "host:connection", 2};
+    request["operation"] = "gamepad_assign";
+    const auto token = service->request("game.test", request);
+    host->pump(RuntimeClock::Clock::now());
+    const auto offered = host->live_effects();
+    check(offered.size() == 1 && offered.at(0).at("kind") == "gamepad_assign" &&
+              offered.at(0).at("value").at("slot") == 2,
+          "Assignment did not use the scoped platform-effect queue");
+    auto invalid = Json(devices);
+    invalid["devices"][0]["slot"] = true;
+    check(!wire({{"gamepads", invalid}}).value("ok", true),
+          "Malformed device observation accepted");
+    host->pump(RuntimeClock::Clock::now());
+    check(service->query().at("gamepads") == Json(devices) && host->live_effects() == offered,
+          "Invalid metadata partially changed topology or cancelled a pending effect");
+    devices.revision = 2;
+    devices.devices[0].slot = 2;
+    Json ack{{"session", session}, {"token", token},   {"sequence", offered.at(0).at("sequence")},
+             {"epoch", 1u},        {"accepted", true}, {"diagnostic", ""}};
+    check(wire({{"gamepads", devices}, {"platform_acks", Json::array({ack})}}).value("ok", false),
+          "Device observation cancelled its assignment acknowledgement");
+    host->pump(RuntimeClock::Clock::now());
+    check(service->inspect("game.test", token).state == "succeeded" &&
+              service->query().at("gamepads") == Json(devices) && host->editor_epoch() == 1,
+          "Assignment receipt/topology/cursor epoch disagreed");
+    service->release("game.test", token);
+    devices.revision = 1;
+    check(!wire({{"gamepads", devices}}).value("ok", true),
+          "Stale device metadata rolled back revision");
+    check(!wire({{"platform_acks", Json::array({ack})}}).value("ok", true),
+          "Retired assignment ack replayed");
+}
 void rumble_platform_effects() {
     Fixture f;
     std::string session;
@@ -2373,6 +2429,7 @@ int run() {
         platform_settings_rejects_display_changes_via_game_request();
         platform_settings_applies_audio_and_input();
         rumble_platform_effects();
+        gamepad_assignment_effects();
         live_cpu_profile_controls();
         live_audio_mix_controls();
         game_control_queue_pending_query_consults_active_endpoint();

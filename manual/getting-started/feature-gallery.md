@@ -221,3 +221,7 @@ the Sprite on Tap, resets it on Double tap, resizes it on Long press and moves i
 on directional swipes. Register its matching module and capture Game input, or
 monitor actions in Console without code. See [Touch input](../editor/touch-input.md)
 for timing limits, C++ setup and export.
+
+## Four local controllers
+
+Open **Scenes/92-multiple-gamepads.scene.json** for four colored markers and separate **Player 1 move** through **Player 4 move** actions. In Game, use **Gamepads...** to check assignments. Capture gameplay input and watch each player's left stick in Console. Build/register **CodeExamples/MultipleGamepads.cpp**, or the matching SDK's `multiple_gamepads_gameplay` target, to move the markers. Save the Scene and Settings, choose it as startup, build current code and export. The exported game assigns connected controllers independently of the editor session. See [Gameplay input](../editor/input.md) for assignments, limits and vibration.

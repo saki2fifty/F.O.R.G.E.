@@ -87,7 +87,18 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '78-sprite-image-regions.scene.json',
         '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json',
         '81-moving-tile-maps.scene.json', '82-tile-map-triggers.scene.json',
-        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json', '90-audio-echo.scene.json', '91-single-touch-gestures.scene.json'} <= {p.name for p in scenes}
+        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json', '90-audio-echo.scene.json', '91-single-touch-gestures.scene.json', '92-multiple-gamepads.scene.json'} <= {p.name for p in scenes}
+player_scene = json.loads((project_root / 'Scenes/92-multiple-gamepads.scene.json').read_text())
+assert player_scene['asset_id'] == by_source['Scenes/92-multiple-gamepads.scene.json']['id']
+players = [row for row in player_scene['entities'] if row['name'].startswith('Player ')]
+assert len(players) == 4 and len({tuple(row['components']['forge.local_translation'].values()) for row in players}) == 4
+player_actions = [a for a in project['input']['actions'] if a['name'].startswith('Player ')]
+assert len(player_actions) == 4
+for slot,action in enumerate(player_actions,start=1):
+    assert action['kind'] == 'axis2'
+    assert {b['control'] for b in action['bindings']} == {f'pad.{slot}.left_x', f'pad.{slot}.left_y'}
+    assert all(b['radial'] and b['deadzone'] == .2 for b in action['bindings'])
+assert (project_root / 'CodeExamples/MultipleGamepads.cpp').is_file()
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]

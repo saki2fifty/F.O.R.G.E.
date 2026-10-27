@@ -1,3 +1,4 @@
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <forge/game_settings.hpp>
@@ -55,6 +56,63 @@ void math() {
     for (double bad : {0., .09, 8.01, std::numeric_limits<double>::infinity()})
         rejects([&] { (void)input_stick(.3, .4, .2, .1, bad); });
     rejects([] { (void)input_axis(1.1, 0); });
+}
+void gamepad_slot_mapping() {
+    const std::array<InputVector, 4> samples{{{.1, 1}, {.6, 0}, {-.75, .25}, {.25, -.75}}};
+    std::vector<ActionId> ids;
+    Json source{{"version", 1}, {"actions", Json::array()}};
+    for (std::size_t slot = 1; slot <= gamepad_slot_limit; ++slot) {
+        const auto prefix = "pad." + std::to_string(slot) + ".";
+        check(is_gamepad_stick_control(prefix + "left_x") &&
+                  is_gamepad_stick_control(prefix + "right_y") &&
+                  !is_gamepad_stick_control(prefix + "south") &&
+                  input_control(prefix + "left_trigger").unipolar,
+              "Indexed gamepad discovery lost control kind or stick pairing");
+        ids.push_back(ActionId::generate());
+        source["actions"].push_back({{"id", ids.back()},
+                                     {"name", "Player " + std::to_string(slot)},
+                                     {"kind", "axis1"},
+                                     {"bindings", Json::array({{{"control", prefix + "left_x"},
+                                                                {"radial", true},
+                                                                {"deadzone", .2}}})}});
+    }
+    const auto legacy = ActionId::generate(), keyboard = ActionId::generate();
+    source["actions"].push_back({{"id", legacy},
+                                 {"name", "Active pad"},
+                                 {"kind", "axis1"},
+                                 {"bindings", Json::array({{{"control", "pad.left_x"}}})}});
+    source["actions"].push_back({{"id", keyboard},
+                                 {"name", "Keyboard"},
+                                 {"kind", "digital"},
+                                 {"bindings", Json::array({{{"control", "key.space"}}})}});
+    RuntimeInput input;
+    input.configure(InputMap(source));
+    std::vector<InputEvent> events{{"pad.left_x", -.5}, {"key.space", 1}};
+    for (std::size_t slot = 1; slot <= gamepad_slot_limit; ++slot) {
+        const auto prefix = "pad." + std::to_string(slot) + ".";
+        events.push_back({prefix + "left_x", samples[slot - 1].x});
+        events.push_back({prefix + "left_y", samples[slot - 1].y});
+    }
+    input.submit(events);
+    auto snapshot = input.latch(1);
+    for (std::size_t i = 0; i < samples.size(); ++i) {
+        const auto x = samples[i].x, y = samples[i].y;
+        const auto length = std::sqrt(x * x + y * y);
+        near(snapshot.actions.at(ids[i]).x, x * (std::min(length, 1.) - .2) / (.8 * length));
+    }
+    input.submit({{"pad.1.left_x", 0}, {"pad.1.left_y", 0}});
+    const auto released = input.latch(2);
+    near(released.actions.at(ids[0]).x, 0);
+    for (std::size_t i = 1; i < ids.size(); ++i)
+        near(released.actions.at(ids[i]).x, snapshot.actions.at(ids[i]).x);
+    near(released.actions.at(legacy).x, -.5);
+    check(released.actions.at(keyboard).held,
+          "One logical pad's neutral controls released unrelated input");
+    rejects([] { (void)input_control("pad.0.south"); });
+    rejects([] { (void)input_control("pad.5.south"); });
+    auto invalid = source;
+    invalid["actions"][0]["bindings"][0]["control"] = "pad.1.south";
+    rejects([&] { (void)InputMap(invalid); });
 }
 void mapping() {
     const auto move = ActionId::generate(), press = ActionId::generate(),
@@ -173,6 +231,7 @@ int main(int argc, char** argv) {
     try {
         math();
         mapping();
+        gamepad_slot_mapping();
         if (argc >= 2) {
             // Prefix of the original public SDK fixture's runtime-only component.
             // It is not a persisted type or part of the FORGE SDK ABI.

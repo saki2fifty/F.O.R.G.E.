@@ -537,11 +537,50 @@ The installed `gamepad_feedback_gameplay` sample target reads two control-domain
 actions (`12345678-1234-4234-8234-123456789b01` pulse and
 `12345678-1234-4234-8234-123456789b02` stop), submits bounded feedback and records
 completion/failure counters. Its fixture binds R/gamepad South and T/gamepad East.
+Optional control actions ending `b03`/`b04` bind Y to assign the first queried
+connection to logical slot 2 and U to pulse that slot. They use the same request,
+receipt and nonfatal failure counters; they do not retain a native handle.
 It is a development example with a matching input map, not a drop-in Cube behavior.
 Editor playback requires a focused visible Game panel with routed input; the
 standalone host requires its game window's focus. Stop and focus/device/session
 changes stop owned feedback. No trigger motors, effect mixing or persistent
 haptic data are supplied. No new SDK C callback/layout is needed.
+
+## Local controller slots
+
+Bind independent actions to `pad.1.*` through `pad.4.*`; `pad.*` remains the
+active-controller alias. Sticks range -1..1 and triggers0..1. Pair both axes of
+one indexed stick for radial conditioning. Game/user input defaults can replace
+the binding's inner deadzone. `Client::action` copies current fixed-domain
+values; `Client::control` copies control-domain values in the control callback.
+Use numeric X/Y for movement, rather than digital held/edge flags on analog actions.
+
+Copied Game query includes `gamepads:{available,revision,active,devices}` and
+`gamepad_assignment_host`. Device entries contain `{device,name,slot,connected,rumble}`;
+device is an opaque connection token, not a saved identity. An unavailable native
+adapter differs from an available empty list. To reassign, submit
+`{"operation":"gamepad_assign","revision":7,"device":"copy-current-token","slot":2}`
+through the existing Game request API. Zero unassigns. Inspect/release its scoped
+receipt; replace the example revision/token with the current query values and
+refresh on stale revision/connection or failure. An occupied
+slot is displaced. The host stops only affected feedback and neutralizes old/new
+logical input. Global focus/capture resets still release all input. Assignments
+last for the host session; new connections fill the lowest free slot. Slots1..4
+and 16 tracked connections are bounded. No per-player UI-focus or sensors API.
+
+Rumble accepts optional `slot` 1..4; omitted/0 targets the active alias. Zero
+strengths with an indexed slot stop that device; an untargeted zero stops all
+owned feedback. Native support/focus/routing still determine success. SDK Play
+uses its existing correlated platform offer/ack lifecycle for assignment/output;
+no callback/table/layout change is required.
+
+Installed `multiple_gamepads_gameplay` builds `multiple_gamepads_probe.cpp` and
+the original `MultipleGamepads.cpp` as module `project.multiple_gamepads`.
+It needs `forge.input` and `forge.transforms`. Its four ActionIds and scoped
+marker references match Gallery92. Each marker moves at three world units per
+second times its conditioned action vector, bounded to X±7/Y±4. The module uses
+ordinary authored transforms in the runtime copy; it adds no authored schema.
+Build/install the matching module kit and use current code when exporting.
 
 ## Music and UI audio during gameplay Pause
 

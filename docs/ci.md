@@ -1565,6 +1565,33 @@ checks are not native Windows/full editor/physical GPU acceptance.
 
 ## Gamepad feedback gate
 
+`gamepad_feedback` also covers four independent logical slots and both input
+latch domains with real SDL virtual controllers: scoped disconnect/remap/assignment,
+stale revisions and other-host connection tokens, native Stop failures, independent
+feedback and the sixteen-device ownership cap. Its public C++ fixture queries and
+assigns a controller through the actual SDK effect/ack path, then pulses slot2;
+full Play input queues reject before physical routing changes. Installed/relocated
+`native_sdk_gamepad_feedback_installed` repeats that actual public client path.
+
+`multiple_gamepads_ui` drives the real GameInput popup by mouse and keyboard at
+1/1.5/2 scales, including transfer of an occupied slot and a layout regression.
+Its complete native software PNG is the manual's canonical assignment capture;
+provenance is in the screenshot record. `settings_lifecycle_players` selects an
+indexed stick and radial conditioning through the native Settings widgets.
+`multiple_gamepads_process` verifies original Gallery92's four conditioned actions
+and movement per fixed tick, scoped neutralization, whole-batch rejection and
+restart in both running hosts. SDK Game defaults and ordinary authored bindings
+are separate expected conditioning inputs. `native_sdk_multiple_gamepads_installed`
+builds the public sample from installed headers/sources and repeats after relocation.
+`sprite_gallery` includes92 in its actual prepared/relocated source-free closure,
+preserving all four marker identities and Sprite values.
+
+`mcp_multiple_gamepads_stdio` uses actual SDL virtual connections and both MCP
+framings for query/discovery, live assignment/scoped input release, stale and invalid
+requests, UI-busy rejection, document revisions, sequence replay and independent
+read/execution grants. These tests establish owner/protocol behavior, not physical
+controllers, full Windows Main/game_main/MSVC or graphical exported EXE acceptance.
+
 `gamepad_feedback` executes the public C++ request/receipt example through the
 real PlaySession → SDK platform offer → SdkPlatformEffects → GameInput → SDL
 virtual-controller callback path. It checks native strength conversion, replacement,

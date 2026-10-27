@@ -217,6 +217,17 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
             throw std::runtime_error("This runtime host has no gamepad rumble adapter");
         }
         return Json(value);
+    } else if (operation == "gamepad_assign") {
+        const auto value = command.get<GamepadAssignment>();
+        if (platform_.gamepad_assign_poll) {
+            if (!platform_.gamepad_assign_poll(token, value))
+                return std::nullopt;
+        } else if (platform_.gamepad_assign) {
+            platform_.gamepad_assign(value);
+        } else {
+            throw std::runtime_error("This runtime host has no gamepad assignment adapter");
+        }
+        return Json(value);
     } else if (operation == "ui_navigation") {
         const auto direction = command.at("direction").get<std::string>();
         if (direction != "next" && direction != "previous" && direction != "accept")
@@ -241,7 +252,16 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
                                          [&](const auto& value) { return value.id == id; });
         if (action == actions.end() || index > action->bindings.size() || index >= 16)
             throw std::runtime_error("Invalid action or binding slot");
-        input.begin_rebind();
+        std::uint32_t slot = index < action->bindings.size()
+                                 ? gamepad_control_slot(action->bindings[index].control).value_or(0)
+                                 : 0;
+        if (command.contains("gamepad_slot")) {
+            const auto& field = command.at("gamepad_slot");
+            if (!field.is_number_integer() || field < 0 || field > gamepad_slot_limit)
+                throw std::runtime_error("Rebinding gamepad slot must be an integer in 0..4");
+            slot = field.get<std::uint32_t>();
+        }
+        input.begin_rebind(slot);
         rebind_action_ = id;
         rebind_index_ = index;
         rebind_candidate_.reset();
@@ -363,12 +383,16 @@ void GameHostControls::publish() {
     state["input_device"] = platform_.input_device ? platform_.input_device() : "KeyboardMouse";
     state["cursor_captured"] = cursor_;
     state["gamepad_rumble_host"] = bool(platform_.rumble || platform_.rumble_poll);
+    state["gamepad_assignment_host"] =
+        bool(platform_.gamepad_assign || platform_.gamepad_assign_poll);
+    state["gamepads"] = platform_.gamepads ? platform_.gamepads() : GamepadTopology{};
     state["error"] = error_.empty() ? state.at("error") : Json(error_);
     state["rebind"] = {{"listening", false}};
     if (state.at("state") == "running" || state.at("state") == "paused") {
         state["scene"] = game_.active().scene.asset_id();
         auto& input = game_.active().simulation.input();
         state["rebind"]["listening"] = input.rebinding();
+        state["rebind"]["gamepad_slot"] = input.rebind_gamepad_slot();
         if (auto captured = input.take_rebind())
             rebind_candidate_ = std::move(captured);
         if (rebind_action_)

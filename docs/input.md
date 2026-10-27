@@ -1,6 +1,6 @@
 # Fixed-tick gameplay input
 
-`input.hpp/input.cpp` have no SDL dependency. Project input schema1 contains UUIDv4 ActionIds, display names, kind digital/axis1/axis2 and up to16 bindings per action (64 actions maximum). Binding IDs are FORGE control strings, not SDL enums. Supported keyboard keys, mouse buttons/delta/wheel, bounded touch contacts and standard gamepad buttons/axes are enumerated by input_controls(). Unknown action/document fields survive settings round trips.
+`input.hpp/input.cpp` have no SDL dependency. Project input schemas1/2 contain UUIDv4 ActionIds, display names, kind digital/axis1/axis2 and up to16 bindings per action (64 actions maximum); schema2 adds contexts. Binding IDs are FORGE control strings, not SDL enums. Supported keyboard keys, mouse buttons/delta/wheel, bounded touch contacts and standard gamepad buttons/axes are enumerated by input_controls(). Unknown action/document fields survive settings round trips.
 
 ```text
 SDL events → editor capture policy → ordered neutral InputEvents
@@ -20,7 +20,50 @@ Pause does not latch input. Step consumes the pending snapshot once; Resume cons
 
 Hello may carry simulation_hz and input_map; explicit runtime CLI frequency takes precedence. Existing protocol2 callers omitting them retain60Hz/empty-map behavior. Snapshot/Pause/Resume/Step requests may carry at most4096 ordered input_events. Existing session/request IDs reject stale envelopes. PlaySession retains a bounded queue; overflow replaces it with a neutral reset and diagnostic. Scene snapshots/persistence never contain transient input. Restart/recovery starts neutral; live module replacement clears input after successful load.
 
-Capture is explicit in the Game panel during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. The adapter owns connected SDL gamepad handles and routes one active controller; device removal releases state and closes its handle. Multiple-player device assignment and sensors remain deferred; relative-mouse capture is supported through `GameInput::capture_checked(relative_mode=true)` so the cursor is hidden and motion continues without hitting the Game image edge.
+Capture is explicit in the Game panel during Play. Keyboard/mouse events go exclusively to the captured game except Esc/F6/F7. Release before editor text input; text/popup/file-operation/focus gates release capture. Without capture all editor controls retain their existing routes. SdlGamepads owns up to16 connected SDL handles and four independent logical slots, plus the legacy active-controller alias. Disconnect neutralizes only the affected logical slot and active alias, then closes its handle. Sensors remain deferred; relative-mouse capture is supported through `GameInput::capture_checked(relative_mode=true)` so the cursor is hidden and motion continues without hitting the Game image edge.
+
+## Local controller slots
+
+`pad.1.*` through `pad.4.*` expose the same 15 buttons and six axes as legacy
+`pad.*`, with the same ranges. Sticks pair only within their logical slot for
+radial conditioning and context consumption. Slot controls are appended to the
+existing discovery registry, preserving earlier IDs/order. `pad.0.*` and
+`pad.5.*` are invalid. Input/settings schemas and persistence owners are unchanged.
+The legacy alias still selects deliberate input after its 250ms guard; this guard
+does not block another slot's input. Binding both namespaces deliberately reads
+the same physical device twice. UI navigation and the global device prompt retain
+their existing active-controller policy; no per-player UI-focus system is implied.
+Revision protects connection/assignment topology; the active alias may change
+without advancing it. Read the current observation when that alias matters.
+
+New connections fill the lowest free slot. Further tracked devices are unassigned
+but can supply the legacy alias. The platform owner issues opaque connection
+tokens and a monotonically increasing topology revision. Tokens are scoped to
+one open connection and host, never written to projects/user bindings. Disconnect,
+remap and assignment advance the revision. Reassignment can unassign a device
+with slot 0 or displace an occupied slot. It prepares zero samples for only the
+old/new logical namespaces and stops their owned feedback before changing routing.
+A failed native Stop leaves assignments/revision unchanged and retryable.
+Keyboard/touch, the legacy alias and other slots are preserved. Global focus,
+capture/modal/Stop resets remain global under their existing owners. Newly
+assigned devices need fresh input; held native controls are not replayed.
+
+Game panel **Gamepads...** uses GameInput's same assignment operation. Its popup
+obeys the ordinary UI capture-release policy. Automation/MCP query and assignment
+delegate to that owner too. They preflight space for at most 42 neutral input
+events so a physical edit cannot itself overflow Play's 4096-event queue and
+trigger the global emergency reset. This is transient host routing, with no
+authored Undo or saved player identity.
+
+The copied `GamepadTopology` record is `{available,revision,active,devices}`.
+Each device has `{device,name,slot,connected,rumble}`. `available:false` means the
+native adapter is unavailable, distinct from an available empty list. Names are
+bounded sanitized display text; they are not identity keys. `GamepadAssignment`
+requires `{revision,device,slot}` with current positive revision and slot 0..4.
+Records validate completely before replacing their destination. SDK Play sends
+changed topology on the existing correlated `snapshot` request's `gamepads` field;
+metadata cannot run on another command or roll its revision backwards. Device
+observations do not advance the cursor epoch or cancel unrelated pending effects.
 
 The SDK Play path owns Escape explicitly. SDK Escape ships the neutral edge and the observed epoch through `GameInput::submit_external_release_observation(play, keep_routing=true)` BEFORE the gameplay down/up pair, so the runtime's release-guard sees the actual physical state and `RuntimeUiInput` still receives native menu keys. Legacy Escape only releases routing. Whether the game opens Pause or its in-game menu on Escape is project policy.
 
@@ -66,11 +109,15 @@ route. UI-generated neutral input is delivered before a UI command that starts
 rebinding, so it cannot cancel the newly started listener. Escape, loss of focus
 and explicit reset still cancel the listener.
 
-`begin_rebind` listens through the existing RuntimeInput event path. It ignores
+`begin_rebind(gamepad_slot=0)` listens through the existing RuntimeInput event path. It ignores
 controls already held until released, stick noise below0.5 and incidental mouse
 motion. A key, button, wheel or significant analog sample completes capture;
 Escape or reset cancels. The captured sample retains direction. Captured batches
 never also enter gameplay. The caller still validates and commits the candidate.
+The slot filter accepts only its gamepad namespace, avoiding duplicate legacy/
+indexed aliases and other players. Keyboard/mouse/touch remain eligible. The Game
+service infers it from an existing binding, or accepts explicit `gamepad_slot`0..4
+on `rebind_begin`; copied `rebind.gamepad_slot` reports the selected filter.
 
 Stick-axis bindings may opt into `radial: true`. Pair both axes of the same stick
 in the action with the same deadzone. Magnitude inside the deadzone maps to zero;
@@ -127,29 +174,32 @@ instead of silently reverting to an axis-wise deadzone.
 
 The existing Game service accepts a scoped `rumble` operation with numeric `low`
 and `high` strengths0..1 and integral `duration_ms`0..5000. Nonzero strength
-requires positive duration. Zero strengths stop feedback. The shared neutral value
+requires positive duration. Optional `slot` 1..4 targets that logical controller;
+omitted/0 targets the legacy active controller. Zero strengths with slot 0 stop
+all owned feedback; a specific slot stops only its current device. The shared neutral value
 validator is reused by host dispatch and editor wire admission. This is transient
 real-time device output, unaffected by simulation speed, not stored action data.
 
-SdlGamepads owns native feedback on its active connected handle. Pinned SDL's
+SdlGamepads owns native feedback per connected handle. Pinned SDL's
 `SDL_RumbleGamepad` replaces its previous pulse and supplies the duration stop;
 FORGE quantizes normalized strengths to unsigned16-bit levels. Missing/unsupported
 controllers and native driver failures reject honestly. A host adapter's presence
 (`game_query.gamepad_rumble_host`) does not assert hardware capability.
 
 SDK Play uses the existing correlated platform offer/ack lifecycle with additive
-kind `rumble` and canonical `{low,high,duration_ms}` value. The editor applies a
+kind `rumble` and canonical `{low,high,duration_ms,slot?}` value. The editor applies a
 fresh tuple once through GameInput, requires a visible focused Game panel with
 logical input routing, and acknowledges the actual native result. Zero-strength
 Stop is permitted after routing/focus loss. Requests can run from control callbacks
 while simulation is paused; Pause transitions stop preceding feedback.
 
 Focus/routing loss, Stop, session/world/epoch changes, active-controller changes,
-device removal and teardown request a native Stop. A failed native Stop is logged. Expiry also requires ongoing SDL event updates
+device removal and teardown request a native Stop. Active-alias changes stop its
+previous legacy feedback, preserving independent indexed output. A failed native Stop is logged. Expiry also requires ongoing SDL event updates
 and a working driver; the5000ms limit bounds requests, not a guarantee that failing
 hardware stops. Releasing a completed receipt does not roll back a pulse.
-Trigger motors, force feedback, mixing/layered haptics and multiple-player device
-assignment are not exposed. No new C ABI callback, SDK layout or dependency pin.
+Trigger motors, force feedback and mixing/layered haptics are not exposed.
+No new C ABI callback, SDK layout or dependency pin.
 The public `sdk/sample/gamepad_feedback_probe.cpp` demonstrates scoped requests,
 receipt polling/release and nonfatal device failures.
 

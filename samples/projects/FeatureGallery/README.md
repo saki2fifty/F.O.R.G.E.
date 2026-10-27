@@ -1055,3 +1055,22 @@ the optional system and export normally. Stop/restart restores authored values.
 Thresholds are fixed:250ms/8px Tap,350ms/24px consecutive-release Double tap,500ms/8px
 Long press and750ms/64px Swipe in window coordinates. Physical Windows touch, full
 Main/game and graphical exported-EXE acceptance remain separately pending.
+
+### 92 — Four local gamepads
+
+`Scenes/92-multiple-gamepads.scene.json` shows four colored canvas markers.
+Project actions **Player 1 move** through **Player 4 move** use separate
+`pad.1.left_x/left_y` through `pad.4.left_x/left_y` with matching 0.2 radial
+deadzones. Game's **Gamepads...** assigns connected devices to these transient
+slots. Capture input to monitor actions; optional original
+`CodeExamples/MultipleGamepads.cpp` moves only each scoped marker at three world
+units/second, within the visible canvas. Register
+`forge_register_system_MultipleGamepads`, or build the installed
+`multiple_gamepads_gameplay` wrapper (`project.multiple_gamepads`). The module
+needs `forge.input` and `forge.transforms`; no custom authored component. Without
+the optional module, the markers remain authored. Save Scene/Settings, select 92
+as startup, build current source and export. Standalone creates its own
+assignments; connected device tokens are never saved. Four slots, 16 tracked
+connections, legacy active `pad.*` bindings remain supported. Sensors and separate
+per-player UI focus are unavailable. Physical Windows/controller verification is
+not implied by virtual-device tests.

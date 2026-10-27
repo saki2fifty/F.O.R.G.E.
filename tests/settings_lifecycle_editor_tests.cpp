@@ -86,9 +86,10 @@ int main(int argc, char** argv) {
             ImGui::Render();
         };
         const auto mode = std::string_view(argv[2]);
-        if (mode == "analog" || mode == "touch" || mode == "gesture" || mode == "single") {
+        if (mode == "analog" || mode == "touch" || mode == "gesture" || mode == "single" ||
+            mode == "players") {
             const bool touch = mode == "touch", gesture = mode == "gesture",
-                       single = mode == "single";
+                       single = mode == "single", players = mode == "players";
             io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
             const auto id = ActionId::generate();
             const Json input{
@@ -145,8 +146,9 @@ int main(int argc, char** argv) {
             };
             frame();
             click("settings:input:action:" + id.str());
-            if (touch || gesture || single) {
-                const std::string desired = touch    ? "touch.7.pressure"
+            if (touch || gesture || single || players) {
+                const std::string desired = players  ? "pad.4.left_x"
+                                            : touch  ? "touch.7.pressure"
                                             : single ? "touch.gesture.tap"
                                                      : "touch.gesture.rotation";
                 for (float scale : {1.f, 1.5f, 2.f}) {
@@ -176,6 +178,13 @@ int main(int argc, char** argv) {
                         read().at("draft").at("input").at("actions")[0].at("bindings")[0];
                     check(binding.at("control") == desired,
                           "Actual Settings combo did not select the final touch control");
+                    if (players) {
+                        if (!binding.value("radial", false))
+                            click("settings:input:radial");
+                        check(read().at("draft").at("input").at("actions")[0].at("bindings")[0].at(
+                                  "radial") == true,
+                              "Indexed stick did not expose/save radial conditioning");
+                    }
                     check(!test::ui_targets.contains("settings:input:negative-direction"),
                           "Touch pressure offers a meaningless negative direction");
                 }

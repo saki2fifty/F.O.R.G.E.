@@ -31,6 +31,11 @@ struct GamePlatformControls {
     // Polled feedback uses the same receipt/idempotency contract as navigation.
     std::function<void(const GamepadRumble&)> rumble;
     std::function<bool(std::uint64_t, const GamepadRumble&)> rumble_poll;
+    // Copied connection observations and revision-checked transient routing.
+    // The platform owner also neutralizes affected logical input controls.
+    std::function<GamepadTopology()> gamepads;
+    std::function<void(const GamepadAssignment&)> gamepad_assign;
+    std::function<bool(std::uint64_t, const GamepadAssignment&)> gamepad_assign_poll;
 };
 // Reusable host executor. Game/menu policy lives in modules; this owner delegates
 // copied requests to existing session, storage, input and narrow platform adapters.

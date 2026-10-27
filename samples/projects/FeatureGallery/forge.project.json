@@ -168,6 +168,90 @@
             "control": "touch.gesture.swipe_down"
           }
         ]
+      },
+      {
+        "id": "16700000-1670-4167-8167-000000000010",
+        "name": "Player 1 move",
+        "kind": "axis2",
+        "bindings": [
+          {
+            "control": "pad.1.left_x",
+            "x": 1,
+            "y": 0,
+            "radial": true,
+            "deadzone": 0.2
+          },
+          {
+            "control": "pad.1.left_y",
+            "x": 0,
+            "y": -1,
+            "radial": true,
+            "deadzone": 0.2
+          }
+        ]
+      },
+      {
+        "id": "16700000-1670-4167-8167-000000000011",
+        "name": "Player 2 move",
+        "kind": "axis2",
+        "bindings": [
+          {
+            "control": "pad.2.left_x",
+            "x": 1,
+            "y": 0,
+            "radial": true,
+            "deadzone": 0.2
+          },
+          {
+            "control": "pad.2.left_y",
+            "x": 0,
+            "y": -1,
+            "radial": true,
+            "deadzone": 0.2
+          }
+        ]
+      },
+      {
+        "id": "16700000-1670-4167-8167-000000000012",
+        "name": "Player 3 move",
+        "kind": "axis2",
+        "bindings": [
+          {
+            "control": "pad.3.left_x",
+            "x": 1,
+            "y": 0,
+            "radial": true,
+            "deadzone": 0.2
+          },
+          {
+            "control": "pad.3.left_y",
+            "x": 0,
+            "y": -1,
+            "radial": true,
+            "deadzone": 0.2
+          }
+        ]
+      },
+      {
+        "id": "16700000-1670-4167-8167-000000000013",
+        "name": "Player 4 move",
+        "kind": "axis2",
+        "bindings": [
+          {
+            "control": "pad.4.left_x",
+            "x": 1,
+            "y": 0,
+            "radial": true,
+            "deadzone": 0.2
+          },
+          {
+            "control": "pad.4.left_y",
+            "x": 0,
+            "y": -1,
+            "radial": true,
+            "deadzone": 0.2
+          }
+        ]
       }
     ]
   },

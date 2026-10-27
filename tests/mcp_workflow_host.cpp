@@ -29,6 +29,29 @@ int main(int argc, char** argv) {
         const auto kit = std::filesystem::u8path(argv[3]);
         const auto nav_worker = std::filesystem::u8path(argv[4]);
         const auto mode = std::string(argv[5]);
+        struct SdlCleanup {
+            bool initialized = false;
+            ~SdlCleanup() {
+                if (initialized)
+                    SDL_Quit();
+            }
+        } sdl;
+        if (mode == "gamepads") {
+            if (!SDL_Init(SDL_INIT_GAMEPAD))
+                throw std::runtime_error(SDL_GetError());
+            sdl.initialized = true;
+            SDL_VirtualJoystickDesc device;
+            SDL_INIT_INTERFACE(&device);
+            device.type = SDL_JOYSTICK_TYPE_GAMEPAD;
+            device.naxes = 6;
+            device.nbuttons = 15;
+            device.axis_mask = 63;
+            device.button_mask = 32767;
+            device.name = "FORGE MCP virtual gamepad";
+            for (unsigned player = 0; player < 5; ++player)
+                if (!SDL_AttachVirtualJoystick(&device))
+                    throw std::runtime_error(SDL_GetError());
+        }
         const bool sdk_play = argc == 8 && std::string(argv[7]) == "--sdk";
         if (argc == 8 && !sdk_play)
             return 2;
@@ -129,6 +152,10 @@ int main(int argc, char** argv) {
                     play.step();
             };
             controls.prepare_input = [&] { return input.release_checked(play); };
+            controls.gamepads = [&] { return input.gamepads(); };
+            controls.assign_gamepad = [&](const forge::GamepadAssignment& value) {
+                return input.assign_gamepad(play, value);
+            };
             controls.select_entity = [&](const std::string& entity) {
                 if (!scene.entity(entity).is_valid())
                     throw std::runtime_error("Choose a current scene entity");
@@ -155,8 +182,8 @@ int main(int argc, char** argv) {
         };
         forge::ui::AutomationPermissions permissions;
         permissions.assets = mode != "read";
-        permissions.execute = mode == "full" || mode == "execute";
-        permissions.export_game = mode == "full" || mode == "output";
+        permissions.execute = mode == "full" || mode == "execute" || mode == "gamepads";
+        permissions.export_game = mode == "full" || mode == "output" || mode == "gamepads";
         if (permissions.export_game)
             permissions.export_root = root / "Output";
         workspace.start(scene, files, mode != "read", mode != "read", permissions);
@@ -180,7 +207,7 @@ int main(int argc, char** argv) {
             play.pump();
             if (sdk_play && !play.sdk_candidate_envelope().is_null())
                 play.submit_sdk_candidate_ack(true, play.session(), play.sdk_candidate_ticket());
-            if (sdk_play)
+            if (sdk_play || mode == "gamepads")
                 input.pump(play, true);
             if (play.ready() && play.ui_snapshot().is_object() &&
                 (presenter || (play.ui_snapshot().contains("documents") &&

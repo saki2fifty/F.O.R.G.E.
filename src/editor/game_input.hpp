@@ -8,8 +8,8 @@
 #include <array>
 #include <source_location>
 namespace forge {
-// One active gamepad, keyboard/mouse and bounded captured touch contacts. SDL is confined to this
-// platform adapter.
+// Four logical gamepad slots, a legacy active alias, keyboard/mouse and bounded
+// captured touch contacts. SDL stays in this platform adapter.
 //
 // SdlGameCursor owns the observed SDL_GetWindowRelativeMouseMode
 // flag. captured() / relative() reflect that observed flag (or
@@ -208,8 +208,10 @@ class GameInput {
             play.input_event(value);
         if (devices_dirty_) {
             devices_dirty_ = false;
-            pads_.discover();
+            for (const auto& value : pads_.discover())
+                play.input_event(value);
         }
+        play.observe_gamepads(pads_.snapshot());
     }
     void finish_events(PlaySession& play, std::optional<Uint64> now = {}) {
         observe_touch_reset(play);
@@ -422,6 +424,18 @@ class GameInput {
         pads_.rumble(value);
     }
     void stop_rumble() noexcept { pads_.stop_rumble(); }
+    GamepadTopology gamepads() const { return pads_.snapshot(); }
+    GamepadTopology assign_gamepad(PlaySession& play, const GamepadAssignment& value) {
+        // Reassigning at most two 21-control namespaces must not overflow and
+        // trigger the queue's global emergency reset after a physical edit.
+        if (play.ready() && !play.input_queue_room(42))
+            throw std::runtime_error("Wait for the pending input queue before assigning gamepads");
+        for (const auto& event : pads_.assign(value))
+            play.input_event(event);
+        auto result = pads_.snapshot();
+        play.observe_gamepads(result);
+        return result;
+    }
     void controls(PlaySession& play) {
         ImGui::BeginDisabled(captured_);
         ImGui::Checkbox("Relative mouse", &relative_mode_);
@@ -430,9 +444,48 @@ class GameInput {
                  "Turn this off to use a pointer with runtime menus. Release capture before "
                  "changing modes.");
         ImGui::EndDisabled();
+        ui::next_text_button("Gamepads...");
+        if (ImGui::Button("Gamepads..."))
+            ImGui::OpenPopup("Gamepad assignments");
+        FORGE_UI_PROBE("button:Gamepads");
+        if (ImGui::BeginPopup("Gamepad assignments")) {
+            // Explicit wrap width avoids auto-size/TextWrapped feedback that
+            // otherwise produces a narrow, screen-height popup on first open.
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 28 * ImGui::GetFontSize());
+            ImGui::TextUnformatted("Local gamepads");
+            ImGui::TextWrapped("Assign controllers to Player 1..4 for indexed pad controls. "
+                               "Assignments last for this editor session.");
+            const auto devices = gamepads();
+            if (devices.devices.empty())
+                ImGui::TextUnformatted("No connected gamepads.");
+            for (const auto& device : devices.devices) {
+                ImGui::PushID(device.device.c_str());
+                ImGui::TextWrapped("%s", device.name.c_str());
+                int slot = int(device.slot);
+                ImGui::BeginDisabled(!device.connected);
+                ImGui::SetNextItemWidth(12 * ImGui::GetFontSize());
+                if (ImGui::Combo("Slot", &slot,
+                                 "Unassigned\0Player 1\0Player 2\0Player 3\0Player 4\0")) {
+                    try {
+                        assign_gamepad(play,
+                                       {devices.revision, device.device, std::uint32_t(slot)});
+                        assignment_error_.clear();
+                    } catch (const std::exception& error) {
+                        assignment_error_ = error.what();
+                    }
+                }
+                FORGE_UI_PROBE("gamepad:slot:" + device.device);
+                ImGui::EndDisabled();
+                ImGui::PopID();
+            }
+            if (!assignment_error_.empty())
+                ImGui::TextWrapped("%s", assignment_error_.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::EndPopup();
+        }
         ImGui::BeginDisabled(!play.ready());
         if (ui::button(captured_ ? "Release gameplay input (Esc)" : "Capture gameplay input",
-                       "Send keyboard, mouse and the active gamepad to project actions. "
+                       "Send keyboard, mouse and assigned gamepads to project actions. "
                        "Escape releases; F6 pauses/resumes and F7 steps. Editor navigation is "
                        "suspended during capture.")) {
             if (captured_)
@@ -475,6 +528,7 @@ class GameInput {
     SdlGamepads pads_;
     std::unique_ptr<SdlGameCursor> cursor_;
     std::string capture_error_;
+    std::string assignment_error_;
     bool captured_ = false, devices_dirty_ = true, relative_mode_ = false,
          relative_capture_ = false;
     std::string session_;

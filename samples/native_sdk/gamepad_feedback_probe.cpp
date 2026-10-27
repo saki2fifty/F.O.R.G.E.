@@ -75,15 +75,35 @@ int32_t FORGE_SDK_CALL controls(const ForgeSdkWorldV1* h, char* error, uint32_t 
             }
         }
         if (!state.token) {
-            ForgeSdkActionV1 pulse{}, stop{};
+            ForgeSdkActionV1 pulse{}, stop{}, assign{}, player_pulse{};
             client.control("12345678-1234-4234-8234-123456789b01", pulse);
             client.control("12345678-1234-4234-8234-123456789b02", stop);
-            if (pulse.pressed || stop.pressed) {
-                const auto command = Json{{"operation", "rumble"},
-                                          {"low", stop.pressed ? 0.0 : .5},
-                                          {"high", stop.pressed ? 0.0 : .75},
-                                          {"duration_ms", stop.pressed ? 0 : 1000}}
-                                         .dump();
+            // Optional actions for the matching multi-controller fixture/menu.
+            client.control("12345678-1234-4234-8234-123456789b03", assign);
+            client.control("12345678-1234-4234-8234-123456789b04", player_pulse);
+            if (pulse.pressed || stop.pressed || assign.pressed || player_pulse.pressed) {
+                Json request{{"operation", "rumble"},
+                             {"low", stop.pressed ? 0.0 : .5},
+                             {"high", stop.pressed ? 0.0 : .75},
+                             {"duration_ms", stop.pressed ? 0 : 1000}};
+                if (player_pulse.pressed)
+                    request["slot"] = 2;
+                if (assign.pressed) {
+                    const auto query = read_json([&](char* data, uint32_t size) {
+                        return h->game_query(h->context, data, size);
+                    });
+                    const auto& devices = query.at("gamepads");
+                    // An absent device still uses an ordinary failed receipt.
+                    const auto device =
+                        devices.at("devices").empty()
+                            ? "unavailable"
+                            : devices.at("devices").at(0).at("device").get<std::string>();
+                    request = {{"operation", "gamepad_assign"},
+                               {"device", device},
+                               {"revision", devices.at("revision")},
+                               {"slot", 2}};
+                }
+                const auto command = request.dump();
                 state.token = h->game_request(h->context, command.c_str());
                 if (!state.token)
                     throw std::runtime_error("Feedback request rejected");

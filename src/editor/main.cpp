@@ -2256,6 +2256,10 @@ int main(int argc, char** argv) {
                 game_input.release(play);
                 return true;
             };
+            play_providers.gamepads = [&] { return game_input.gamepads(); };
+            play_providers.assign_gamepad = [&](const forge::GamepadAssignment& value) {
+                return game_input.assign_gamepad(play, value);
+            };
             play_providers.ui_command = [&](const std::string& instance, const std::string& command,
                                             const std::optional<std::string>& value) {
                 if (!play.ready())

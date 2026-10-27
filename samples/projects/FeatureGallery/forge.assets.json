@@ -10377,6 +10377,14 @@
       "schema_version": 5,
       "dependencies": [],
       "metadata": {}
+    },
+    {
+      "id": "16700000-1670-4167-8167-167000000000",
+      "type": "scene",
+      "source": "Scenes/92-multiple-gamepads.scene.json",
+      "schema_version": 5,
+      "dependencies": [],
+      "metadata": {}
     }
   ],
   "version": 2

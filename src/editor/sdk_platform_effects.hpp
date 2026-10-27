@@ -18,7 +18,7 @@ namespace forge {
 //   effect entry: {token, sequence, epoch, kind, value}
 //   no `session` field on a per-entry basis — the enclosing snapshot
 //   is correlated via PlaySession::session()
-//   `kind` ∈ {"cursor", "navigation", "rumble"}
+//   `kind` ∈ {"cursor", "navigation", "rumble", "gamepad_assign"}
 //   cursor: value is JSON bool (true = capture, false = release)
 //   navigation: value is JSON string (one of the documented
 //               navigate directions)
@@ -370,6 +370,16 @@ class SdkPlatformEffects {
                 }
             }
             device_ = "KeyboardMouse";
+            return;
+        }
+        if (kind == "gamepad_assign") {
+            try {
+                game_.assign_gamepad(play_, raw_value.get<GamepadAssignment>());
+                out.accepted = true;
+            } catch (const std::exception& e) {
+                out.accepted = false;
+                out.diagnostic = std::string("play.platform_effects.gamepad_assign: ") + e.what();
+            }
             return;
         }
         if (kind == "rumble") {

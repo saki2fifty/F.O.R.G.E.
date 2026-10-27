@@ -63,7 +63,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 ## Game behavior
 
 - [Project Code (C++ components, systems and unscaled timers)](editor/native-gameplay.md)
-- [Gameplay input, analog response and controller vibration](editor/input.md)
+- [Gameplay input, local controller assignments, analog response and vibration](editor/input.md)
 - [Touch contacts, tap, hold, swipe, pan, pinch and rotation](editor/touch-input.md)
 - [Physics](editor/physics.md)
 - [3D and 2D navigation and destination editing](editor/navigation.md)

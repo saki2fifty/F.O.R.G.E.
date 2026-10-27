@@ -494,13 +494,12 @@ class ProjectSettingsEditor {
                                 "deadzones and before x/y scales or digital press thresholds. "
                                 "Radial bindings shape magnitude and preserve direction.");
                         }
-                        const bool stick =
-                            physical.id == "pad.left_x" || physical.id == "pad.left_y" ||
-                            physical.id == "pad.right_x" || physical.id == "pad.right_y";
+                        const bool stick = is_gamepad_stick_control(physical.id);
                         if (stick) {
                             bool radial = binding.value("radial", false);
                             if (ImGui::Checkbox("Radial deadzone", &radial))
                                 binding["radial"] = radial;
+                            FORGE_UI_PROBE("settings:input:radial");
                             ui::help("Remap the stick's circular deadzone before applying this "
                                      "axis contribution.");
                         }

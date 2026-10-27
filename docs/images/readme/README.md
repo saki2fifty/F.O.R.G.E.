@@ -1,5 +1,19 @@
 # README screenshots
 
+## Local gamepad assignments
+
+[Assignments](../../../manual/images/gamepad-assignments.png) is the complete
+600×450 native FORGE GameInput popup captured on 2026-10-27 by
+`tests/multiple_gamepads_ui_tests.cpp`, based on 229f1d1aa84c16d0e48500376cc7967e11f8f3d1
+with the local multiple-controller batch applied. The validation receipt records
+exact fixture/widget source hashes and the image. GCC12 Release, Linux, pinned
+Dear ImGui SDL3 software renderer; four actual SDL virtual controllers. The same
+real controls pass mouse opening, keyboard assignment and layout at 1/1.5/2 scales.
+This is an isolated editor-control fixture, not the full Windows Main or physical
+controller/GPU acceptance. Original/canonical PNG SHA256:
+`896fdd258d09e83583598b81c6e3c1bd13532432b31625d7701658c9440737a9`. Full original dimensions/pixels;
+no crop, resize, retouch, generated controls or duplicated image asset.
+
 ## Ordered Sprite frame regions
 
 [Frame regions](../../../manual/images/sprite-frame-regions.png) preserves the full

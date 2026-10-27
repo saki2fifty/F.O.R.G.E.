@@ -229,6 +229,13 @@ int main(int argc, char** argv) {
                 throw std::runtime_error("Gamepad rumble requires game window focus");
             gamepads.rumble(value);
         };
+        platform.gamepads = [&] { return gamepads.snapshot(); };
+        platform.gamepad_assign = [&](const GamepadAssignment& value) {
+            const auto events = gamepads.assign(value);
+            const auto state = game.status().value("state", std::string{});
+            if ((state == "running" || state == "paused") && !events.empty())
+                game.input(events);
+        };
         platform.navigation = [&](const std::string& direction) {
             presentation.ui().navigate(direction);
         };

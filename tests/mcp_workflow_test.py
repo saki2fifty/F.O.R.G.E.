@@ -21,6 +21,7 @@ GESTURES_ONLY = sys.argv[7:] == ['--gestures-only']
 TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
+GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
 
 
 @contextmanager
@@ -54,7 +55,7 @@ def until(fn, predicate, timeout=30):
 
 
 for legacy in (False, True):
-    with editor() as (root, config), Client(config, legacy) as client:
+    with editor('gamepads' if GAMEPADS_ONLY else 'full') as (root, config), Client(config, legacy) as client:
         def discovery():
             value = client.tool('forge_discover')
             assert value['ok'], value
@@ -112,6 +113,64 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if GAMEPADS_ONLY:
+            assert {'forge_play_gamepads', 'forge_play_gamepads_assign'} <= names
+            devices = until(lambda: read('forge_play_gamepads'), lambda d: d['available'] and len(d['devices']) == 5)
+            assert [d['slot'] for d in devices['devices']] == [1,2,3,4,0]
+            controls = {row['id']:row for row in read('forge_play_controls')['controls']}
+            assert all(controls[f'pad.{p}.south']['digital'] and
+                       controls[f'pad.{p}.left_trigger']['minimum'] == 0 for p in range(1,5))
+            assert 'pad.5.south' not in controls and 'pad.south' in controls
+            actions = [dict(id=f'16700000-1670-4167-8167-{i+10:012}',name=f'Player {i+1}',
+                       kind='digital',bindings=[dict(control=f'pad.{i+1}.south')]) for i in range(4)]
+            actions.append(dict(id='16700000-1670-4167-8167-000000000014', name='Keyboard',
+                                kind='digital', bindings=[dict(control='key.space')]))
+            mapping = dict(version=1, actions=actions)
+            edit_settings('forge_project_settings_edit', patch=[dict(op='replace',path='/input',value=mapping)])
+            edit_settings('forge_project_settings_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            control('forge_play_input_submit',events=[dict(control=a['bindings'][0]['control'],value=1) for a in actions])
+            def held():
+                rows={r['id']:r for r in read('forge_play_input')['value'].get('actions',[])}
+                return [rows.get(a['id'],{}).get('held') for a in actions]
+            until(held,lambda states: states == [True]*5)
+            edit = dict(revision=devices['revision'],device=devices['devices'][0]['device'],slot=2)
+            (root/'gesture').write_text('Native UI gesture')
+            failed(mutate('forge_play_gamepads_assign',**edit),'play_busy')
+            (root/'gesture').unlink()
+            stale = arguments(**edit)
+            stale['expected_revision'] += 1
+            assert not client.tool('forge_play_gamepads_assign',**stale)['ok']
+            assert read('forge_play_gamepads') == devices
+            assignment = arguments(**edit)
+            response = client.tool('forge_play_gamepads_assign',**assignment)
+            assert response['ok'],response
+            assigned = response['result']
+            replay = client.tool('forge_play_gamepads_assign',**assignment)
+            assert replay['ok'] and replay['result'] == assigned
+            assert [d['slot'] for d in assigned['devices']] == [2,0,3,4,0]
+            until(held,lambda states: states == [False,False,True,True,True])
+            assert not mutate('forge_play_gamepads_assign',**edit)['ok']
+            assert read('forge_play_gamepads') == assigned
+            for value in (-1,5,True,1.5):
+                assert not mutate('forge_play_gamepads_assign',revision=assigned['revision'],
+                                  device=assigned['devices'][2]['device'],slot=value)['ok']
+            assert not mutate('forge_play_gamepads_assign',revision=assigned['revision'],
+                              device='foreign-host:connection',slot=3)['ok']
+            assert read('forge_play_gamepads') == assigned
+            ok('forge_play_gamepads_assign',revision=assigned['revision'],device=assigned['devices'][3]['device'],slot=0)
+            until(held,lambda states: states == [False,False,True,False,True])
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            assert json.loads((root/'Game/forge.project.json').read_text())['input'] == mapping
+            for grant in ('read','execute'):
+                with editor(grant) as (_, limited_config), Client(limited_config, legacy) as limited:
+                    granted = {t['name'] for t in limited.request('tools/list')['result']['tools']}
+                    assert 'forge_play_gamepads' in granted
+                    assert ('forge_play_gamepads_assign' in granted) == (grant == 'execute')
+            print(('legacy' if legacy else 'current')+': real virtual-device assignment/scoped neutralization/stale and invalid requests passed')
+            continue
         if GESTURES_ONLY:
             assert 'log-scale' in advertised['forge_play_controls']['description']
             controls = {row['id']: row for row in read('forge_play_controls')['controls']}
