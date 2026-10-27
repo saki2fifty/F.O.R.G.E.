@@ -164,6 +164,12 @@ struct Builder {
                     ranges.warning.min != ranges.warning.max ||
                     ranges.error.min != ranges.error.max)
                     member.set<EcsMemberRanges>(ranges);
+                if (field.source->at("type") == "vector" &&
+                    field.source->at("maximum_count") != 4096) {
+                    world.component<ReflectedSequenceLimit>(reflected_sequence_limit_type);
+                    member.set<ReflectedSequenceLimit>(
+                        {field.source->at("maximum_count").get<std::size_t>()});
+                }
                 if (field.source->contains("element_key") ||
                     field.source->contains("element_keys")) {
                     require(!(field.source->contains("element_key") &&
@@ -212,8 +218,10 @@ struct Builder {
                 desc.count = int(count);
                 require(ecs_array_init(world, &desc) == type, "Native array reconstruction failed");
             } else {
-                require(source.at("maximum_count") == 4096,
-                        "Copied vector profile differs from native projection");
+                require(source.at("maximum_count").is_number_integer() &&
+                            source.at("maximum_count").get<std::uint64_t>() >= 1 &&
+                            source.at("maximum_count").get<std::uint64_t>() <= 4096,
+                        "Copied vector limit exceeds the native profile");
                 ecs_vector_desc_t desc{};
                 desc.entity = type;
                 desc.type = element;

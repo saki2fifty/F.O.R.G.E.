@@ -16,7 +16,8 @@ inline SpriteDrawValues sprite_draw_values(const SpriteRenderer& sprite,
             ? std::optional<SpritePixelRegion>{{sprite.region_x, sprite.region_y,
                                                 sprite.region_width, sprite.region_height}}
             : std::nullopt;
-    const auto region = sprite_grid_region(texture_width, texture_height, grid, sprite.frame, crop);
+    const auto region = sprite_frame_region(texture_width, texture_height, grid, sprite.frame, crop,
+                                            sprite.frame_regions);
     return {
         sprite_region_mapping(region, texture_width, texture_height, sprite.flip_x, sprite.flip_y),
         {sprite.tint_r, sprite.tint_g, sprite.tint_b, sprite.tint_a},

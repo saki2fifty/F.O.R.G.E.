@@ -1,7 +1,9 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <forge/sprite_frames.hpp>
 #include <optional>
+#include <span>
 #include <stdexcept>
 
 namespace forge {
@@ -52,6 +54,27 @@ inline SpritePixelRegion sprite_grid_region(std::uint32_t width, std::uint32_t h
     const auto y = std::uint64_t(area.y) + grid.margin_y +
                    (frame / grid.columns) * (std::uint64_t(cell_height) + grid.spacing_y);
     return {std::uint32_t(x), std::uint32_t(y), cell_width, cell_height};
+}
+inline std::uint64_t sprite_frame_count(const SpriteGridLayout& grid,
+                                        std::span<const SpriteFrameRegion> regions = {}) noexcept {
+    return regions.empty() ? std::uint64_t(grid.columns) * grid.rows : regions.size();
+}
+inline SpritePixelRegion sprite_frame_region(std::uint32_t width, std::uint32_t height,
+                                             const SpriteGridLayout& grid, std::uint64_t frame,
+                                             std::optional<SpritePixelRegion> crop = {},
+                                             std::span<const SpriteFrameRegion> regions = {}) {
+    if (regions.empty())
+        return sprite_grid_region(width, height, grid, frame, crop);
+    if (regions.size() > sprite_frame_region_limit || frame >= regions.size())
+        throw std::invalid_argument("Sprite frame regions exceed the count or frame range");
+    const auto area = sprite_grid_region(width, height, {}, 0, crop);
+    // Admit the complete bank, so animation cannot expose an unchecked rectangle.
+    for (const auto& region : regions)
+        if (!region.width || !region.height || region.x >= area.width || region.y >= area.height ||
+            region.width > area.width - region.x || region.height > area.height - region.y)
+            throw std::invalid_argument("Sprite frame region must fit its image crop");
+    const auto& selected = regions[std::size_t(frame)];
+    return {area.x + selected.x, area.y + selected.y, selected.width, selected.height};
 }
 struct SpriteRegionMapping {
     std::array<double, 2> origin{}, scale{}, sample_minimum{}, sample_maximum{};

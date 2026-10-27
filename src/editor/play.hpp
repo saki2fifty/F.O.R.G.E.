@@ -217,6 +217,8 @@ class PlaySession {
              !RuntimePropertyTune::navigation_type(type) &&
              !(RuntimePropertyTune::material_type(type) &&
                RuntimePropertyTune::material_property(property)) &&
+             !(RuntimePropertyTune::sprite_type(type) &&
+               RuntimePropertyTune::sprite_property(property)) &&
              !(RuntimePropertyTune::particle_type(type) &&
                RuntimePropertyTune::particle_property(property))) ||
             !ready() || !property_tune_command_.is_null() || generation == 0 ||

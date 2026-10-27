@@ -228,7 +228,8 @@ struct PlayAutomation {
         methods.push_back(automation_method(
             "play.tune",
             "Queue one reflected runtime property through the actual live-tuning "
-            "owner, including Navigation Agent flags, speed, stopping distance and destination "
+            "owner, including Sprite appearance/ordered frame regions and Navigation Agent "
+            "flags, speed, stopping distance and destination "
             "coordinates (not its NavMesh asset). Poll play.status.tune_ack for runtime "
             "validation. This never "
             "changes source, component schemas or authored values.",

@@ -50,6 +50,16 @@ def live_region(worker, state):
                   else state['activation']['generation'])
     target = dict(generation=generation, scene_asset=state['effective_scene']['asset_id'],
                   entity=actor, type='forge.sprite_renderer')
+    image = values(state)['forge.sprite_renderer']
+    assert len(image['frame_regions']) == 3 and image['frame'] == 2, image
+    live_frames = [dict(x=0, y=0, width=2, height=3) for _ in range(512)]
+    for property, value in (('frame', 0), ('frame_regions', live_frames)):
+        changed = worker.request('property_tune', **target, property=property, value=value)
+        assert changed['property_tune']['value'] == value, changed
+    bank = worker.request('snapshot')
+    assert values(bank)['forge.sprite_renderer']['frame_regions'] == live_frames
+    assert bank['timing']['tick'] == state['timing']['tick']
+    worker.request('property_tune', **target, property='frame_regions', value=[])
     for property, value in (('region_enabled', False), ('region_x', 1), ('region_y', 0),
                             ('region_width', 2), ('region_height', 3), ('region_enabled', True)):
         changed = worker.request('property_tune', **target, property=property, value=value)
@@ -62,7 +72,10 @@ def live_region(worker, state):
                     dict(property='region_enabled', value=1),
                     dict(property='region_x', value=.5),
                     dict(property='region_height', value=2, generation=target['generation']+1),
-                    dict(property='region_x', value=0, scene_asset=str(uuid.uuid4()))):
+                    dict(property='region_x', value=0, scene_asset=str(uuid.uuid4())),
+                    dict(property='frame_regions', value=[dict(x=-1, y=0, width=1, height=1)]),
+                    dict(property='frame_regions', value=[dict(x=0, y=0, width=0, height=1)]),
+                    dict(property='frame_regions', value=[dict(x=0, y=.5, width=1, height=1)])):
         try:
             worker.request('property_tune', **dict(target, **changes))
         except (AssertionError, RuntimeError):
@@ -120,6 +133,9 @@ try:
         assert image['image_mode'] == 2 and image['pixels_per_meter'] == 6 and image['flip_x'], image
         assert image['future_sprite_extension'] == dict(keep=17), image
         assert image['width'] == 2 and image['height'] == 2, image
+        assert image['frame'] == 2 and image['frame_regions'] == [
+            dict(x=0, y=0, width=2, height=2), dict(x=2, y=0, width=1, height=3),
+            dict(x=0, y=2, width=2, height=1)], image
         region(image, 0, 1)
     live_region(first, first.request('snapshot'))
     assert scene == original and hashlib.sha256(source.read_bytes()).hexdigest() == digest

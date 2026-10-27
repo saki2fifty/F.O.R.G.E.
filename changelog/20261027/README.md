@@ -1,5 +1,16 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Ordered Sprite frames
+
+SpriteRenderer supports an optional ordered list of512 unequal image rectangles,
+with crop-relative pixel coordinates and empty-list grid fallback. Native Inspector
+collection controls, visual picking, Timeline, Scene/Prefab/history/live values,
+matching C++ SDK and existing automation/MCP use the same data/admission owners.
+Native collection bounds survive copied metadata; integer collection drafts retain
+integer JSON. Ordinary Play accepts supported Sprite tuning through the existing
+guard. Gallery87 and a lossless actual software-Vulkan Game image explain the
+workflow. Native Windows/full editor/physical acceptance remain pending.
+
 ## Painted one-way platforms
 
 Static nonsensor Tile Maps can use the existing One-way collision setting. Each

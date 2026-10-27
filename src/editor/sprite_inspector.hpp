@@ -28,19 +28,24 @@ inline bool sprite_frame_field(const ui::SpriteFrameField& chooser, std::string_
 // with the existing component owner; this does not retain component values.
 inline nlohmann::json sprite_inspector_fields(const nlohmann::json& fields,
                                               const nlohmann::json& values) {
-    static constexpr std::array<std::string_view, 33> order{
-        "material",      "region_enabled", "region_x",   "region_y",      "region_width",
-        "region_height", "columns",        "rows",       "margin_x",      "margin_y",
-        "spacing_x",     "spacing_y",      "frame",      "image_mode",    "pixels_per_meter",
-        "border_left",   "border_right",   "border_top", "border_bottom", "width",
-        "height",        "pivot_x",        "pivot_y",    "flip_x",        "flip_y",
-        "tint_r",        "tint_g",         "tint_b",     "tint_a",        "order",
-        "enabled",       "visible",        "layers"};
+    static constexpr std::array<std::string_view, 34> order{
+        "material",     "region_enabled", "region_x",      "region_y",
+        "region_width", "region_height",  "frame_regions", "columns",
+        "rows",         "margin_x",       "margin_y",      "spacing_x",
+        "spacing_y",    "frame",          "image_mode",    "pixels_per_meter",
+        "border_left",  "border_right",   "border_top",    "border_bottom",
+        "width",        "height",         "pivot_x",       "pivot_y",
+        "flip_x",       "flip_y",         "tint_r",        "tint_g",
+        "tint_b",       "tint_a",         "order",         "enabled",
+        "visible",      "layers"};
     auto result = fields;
     const auto mode = values.value("image_mode", 0u);
+    const bool bank = values.contains("frame_regions") && !values.at("frame_regions").empty();
     for (auto it = result.begin(); it != result.end();) {
         const auto id = it->at("id").get<std::string>();
-        if ((id == "pixels_per_meter" && mode == 0) || (id.starts_with("border_") && mode != 1) ||
+        if ((bank && (id == "columns" || id == "rows" || id.starts_with("margin_") ||
+                      id.starts_with("spacing_"))) ||
+            (id == "pixels_per_meter" && mode == 0) || (id.starts_with("border_") && mode != 1) ||
             (id.starts_with("region_") && id != "region_enabled" &&
              !values.value("region_enabled", false)))
             it = result.erase(it);
@@ -56,9 +61,10 @@ inline nlohmann::json sprite_inspector_fields(const nlohmann::json& fields,
     });
     for (auto& field : result)
         if (field.at("id") == "frame")
-            field["maximum"] =
-                values.at("columns").get<std::uint64_t>() * values.at("rows").get<std::uint64_t>() -
-                1;
+            field["maximum"] = bank ? values.at("frame_regions").size() - 1
+                                    : values.at("columns").get<std::uint64_t>() *
+                                              values.at("rows").get<std::uint64_t>() -
+                                          1;
     return result;
 }
 inline const char* sprite_inspector_group(std::string_view field) {
@@ -68,8 +74,8 @@ inline const char* sprite_inspector_group(std::string_view field) {
         return "Image region";
     if (field == "image_mode" || field == "pixels_per_meter" || field.starts_with("border_"))
         return "Image fill";
-    if (field == "columns" || field == "rows" || field == "frame" || field.starts_with("margin_") ||
-        field.starts_with("spacing_"))
+    if (field == "frame_regions" || field == "columns" || field == "rows" || field == "frame" ||
+        field.starts_with("margin_") || field.starts_with("spacing_"))
         return "Sheet frames";
     if (field == "width" || field == "height" || field.starts_with("pivot_") ||
         field.starts_with("flip_"))

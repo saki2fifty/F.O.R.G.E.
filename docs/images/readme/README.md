@@ -1,5 +1,23 @@
 # README screenshots
 
+## Ordered Sprite frame regions
+
+[Frame regions](../../../manual/images/sprite-frame-regions.png) preserves the full
+640×360 actual Game render of original Gallery87. Captured2026-10-27 with
+`tests/sprite_vulkan_probe.cpp` and `tests/sprite_gallery_render_tests.hpp` from the
+local frame-bank work based onbbf949976dc4a260bb3187c20ea088882aeed8b9. The exact
+validation receipt records the final source hashes. Configuration: GCC12 Release,
+SDK OFF, Linux software Vulkan/llvmpipe LLVM15.0.7; the full8 landscape/portrait
+frames and the real Image/Material/FrameRenderer path passed. Three representative
+wide/tall images were visually inspected; other images have numerical checks.
+Original readback `gallery/gallery87-frame0-wide.ppm` SHA256:
+`c6d46fcaecda8f526e56d59dcf8526a0aed06e9edc5a1db69d3a452ccad5c0ce`. Canonical PNG SHA256:
+`2329caf8a6e249faaa7427bbf0d8247eff28352345a005cf6c66e57cc7dae83a`. Lossless container conversion
+preserves RGB bytes/dimensions; no crop, resize, retouch or generated content.
+This image explains the Game result, not native Inspector controls. Windows/Main,
+physical GPU/input and an authentic new Frame regions Inspector capture remain
+pending. No numbered package or physical acceptance is implied.
+
 ## C++ 2D movement
 
 [Movement](../../../manual/images/2d-movement-runtime.png) preserves the complete 1280×720 exported-game

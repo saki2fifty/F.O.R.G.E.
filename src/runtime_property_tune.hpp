@@ -33,7 +33,8 @@ struct RuntimePropertyTune {
                property == "border_left" || property == "border_right" ||
                property == "border_top" || property == "border_bottom" ||
                property == "region_enabled" || property == "region_x" || property == "region_y" ||
-               property == "region_width" || property == "region_height";
+               property == "region_width" || property == "region_height" ||
+               property == "frame_regions";
     }
     static bool material_property(std::string_view property) {
         return property == "material_parameters";
@@ -57,8 +58,10 @@ struct RuntimePropertyTune {
             {request.at("scene_asset").get<AssetId>(), request.at("entity").get<EntityId>()},
             request.at("type"),
             request.at("property")};
-        const std::size_t value_limit =
-            material_type(result.type) && material_property(result.property) ? 64 * 1024 : 8192;
+        const bool collection =
+            (material_type(result.type) && material_property(result.property)) ||
+            (sprite_type(result.type) && result.property == "frame_regions");
+        const std::size_t value_limit = collection ? 64 * 1024 : 8192;
         if (result.type.empty() || result.type.size() > 128 || result.property.empty() ||
             result.property.size() > 128 || request.at("value").dump().size() > value_limit)
             throw std::runtime_error("Live property target/value exceeds limits");

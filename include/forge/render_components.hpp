@@ -2,6 +2,7 @@
 #include <forge/asset_ref.hpp>
 #include <forge/material_parameter.hpp>
 #include <forge/model_asset.hpp>
+#include <forge/sprite_frames.hpp>
 #include <string>
 #include <vector>
 namespace forge {
@@ -67,6 +68,8 @@ struct SpriteRenderer {
     // Optional image crop before grid subdivision. Zero extent reaches the image edge.
     bool region_enabled = false;
     std::uint32_t region_x = 0, region_y = 0, region_width = 0, region_height = 0;
+    // Empty uses the uniform grid. Otherwise frame indexes this ordered region list.
+    std::vector<SpriteFrameRegion> frame_regions;
     bool operator==(const SpriteRenderer&) const = default;
 };
 // One sparse map asset in the ordinary hierarchy. Cell sizes/layers/definitions

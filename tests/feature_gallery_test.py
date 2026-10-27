@@ -87,7 +87,7 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '78-sprite-image-regions.scene.json',
         '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json',
         '81-moving-tile-maps.scene.json', '82-tile-map-triggers.scene.json',
-        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json'} <= {p.name for p in scenes}
+        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json'} <= {p.name for p in scenes}
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]
@@ -210,6 +210,7 @@ try:
                 for field in ('border_left', 'border_right', 'border_top', 'border_bottom'):
                     sprite.setdefault(field, 0)
                 sprite.setdefault('region_enabled', False)
+                sprite.setdefault('frame_regions', [])
                 for field in ('region_x', 'region_y', 'region_width', 'region_height'):
                     sprite.setdefault(field, 0)
             transform = row['components'].get('forge.transform_animator')
@@ -464,6 +465,13 @@ try:
             assert sum(item['high_pass_enabled'] for item in sources) == 1
             assert next(item for item in sources if item['low_pass_enabled'])['low_pass_hz'] == 100
             assert next(item for item in sources if item['high_pass_enabled'])['high_pass_hz'] == 1000
+        if path.name.startswith('87-'):
+            sprites = [row['components']['forge.sprite_renderer'] for row in loaded['entities']
+                       if 'forge.sprite_renderer' in row['components']]
+            assert len(sprites) == 6 and sum(bool(row['frame_regions']) for row in sprites) == 5
+            banks = [row for row in sprites if row['frame_regions']]
+            assert all(row['frame'] < len(row['frame_regions']) for row in banks)
+            assert any(len({(r['width'], r['height']) for r in row['frame_regions']}) == 4 for row in banks)
         if path.name.startswith('86-'):
             platforms = [row['components']['forge.physics_body_2d'] for row in loaded['entities']
                          if 'forge.tile_map_collider_2d' in row['components']]

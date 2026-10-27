@@ -28,7 +28,7 @@ traversal use the existing built-in component machinery.
 
 The component references an ordinary Material asset. That material owns its image
 texture, filtering, alpha mode and depth/culling settings. Atlas selection and
-appearance are numeric object values. There is no separate Sprite asset identity,
+appearance are plain object values. There is no separate Sprite asset identity,
 texture registry, world, renderer, animation clock or persisted GPU handle.
 
 ## Coordinates and values
@@ -78,6 +78,40 @@ runtime-property path, remain independent of the animated frame value and disapp
 on Stop. Gallery78 reuses the original signal clip, images and materials to show
 static, animated, to-edge, sliced and mirrored repeated selections. It introduces
 no atlas asset, source registry, renderer or animation clock.
+
+### Ordered frame regions
+
+SpriteRenderer.frame_regions is an optional ordered vector of up to512
+SpriteFrameRegion{x,y,width,height} values. An empty vector preserves the existing
+uniform grid. Positive whole-pixel extents and offsets0..16384 use the current
+crop's top-left; frame selects a zero-based list entry. Grid fields remain authored
+but inactive with a bank. No Sprite/atlas asset identity or image registry is added.
+The installed value header participates in the matching SDK fingerprint; ABI1 C
+tables stay unchanged.
+
+The existing codec/Meta/Scene/Prefab/history owners admit and preserve the list.
+A native member annotation narrows the reflected collection bound; copied schema
+reconstruction preserves it, so UI, C++ inspection and automation agree. The native
+Inspector reuses paginated collection Add/Remove/Move-up controls. Its integer
+draft seeds retain integer JSON, including exact64-bit bounds. Pixel fit is a
+texture-dependent whole-bank check through shared sprite_frame_region; Sliced
+borders must leave a positive center in every entry. Rendering keeps the complete
+admitted picture/geometry/resource candidate on invalid entries or replacement.
+Frame picking selects the first listed overlapping rectangle and ignores gaps.
+
+Timeline/fixed/presentation/recovery share the existing integer frame binding and
+clock; whole-clip admission uses bank count or old grid capacity. Runtime tuning
+uses the same field path in ordinary and SDK Play. The512-entry vector has the
+existing64KiB collection allowance. No new automation operation is needed; existing
+property batches/history/Play/MCP discovery expose the data. Source-free original
+Gallery87 demonstrates unequal frames, animation, crop, Sliced and Tiled fill.
+Automatic packing, trim/rotation metadata and atlas mip generation remain outside
+this rectangle workflow.
+
+Portable core/UI/installed-SDK/MCP/content checks and actual software-Vulkan pixels
+are separate from native Windows/full Main/physical acceptance. See the canonical
+[screenshot provenance](images/readme/README.md); new native Inspector capture is
+pending.
 
 ### Image fill modes
 
@@ -184,10 +218,10 @@ material in the Sprite Inspector.
 Inspector fields are grouped into image material, sheet frames, size/pivot,
 appearance and visibility. Scene property validation, Undo/Redo, prefab overrides
 and saved references retain their existing owners. The displayed frame bound
-follows the configured columns and rows; actual cell size still requires the
+follows the configured grid or ordered frame count; actual cell size still requires the
 selected texture. Temporary Play fields expose frame, width/height, pivot, flips,
-tint and order through the existing live-value panel. Development source also
-exposes fill mode, density and sliced borders through the same temporary owner.
+tint and order through the existing live-value panel. Fill mode, density, sliced borders, crop and frame regions use the same temporary
+owner in ordinary and SDK Play.
 Stop restores authored
 values; explicit Keep values review uses the existing mechanism. Material/grid
 resource changes are outside that live whitelist.
@@ -199,10 +233,11 @@ are useful on sprites whose frame is not currently driven by a track.
 `Choose frame...` accompanies the numeric frame field in Scene Inspector,
 temporary live fields and Prefab source drafts. Timeline offers the same chooser
 for a SpriteFrame binding with a valid Sprite preview target. It uses the selected
-Sprite's Material and uniform grid; Timeline confirmation only changes its pending
+Sprite's Material and grid or ordered regions; Timeline confirmation only changes its pending
 key field. Existing property commands, runtime submission, draft publication and
 clip history remain authoritative. Numeric inputs and their context/reset actions
-are preserved. The chooser adds no public SDK, serialized asset or runtime code.
+are preserved. The chooser uses the same component values and one pending integer frame; it adds
+no tool-specific asset or animation clock.
 
 The one transient preview resolves the published Material through
 `request_model_pbr_material` and its actual base-color Texture through the existing
@@ -212,8 +247,8 @@ retained last-good viewer pixels never authorize a failed replacement. Requests
 remain asynchronous and bounded. Main retires the private preview after UI
 submission on closure/project changes, using the existing GPU residency owner.
 
-Hit testing reuses `sprite_grid_region`: top-origin row-major U32 frames, no hits
-on margins/gaps, checked wide arithmetic. Visible grid edges have a fixed bound;
+Hit testing reuses checked top-origin frame-region math: row-major grids or
+ordered rectangles, no hits on margins/gaps, checked wide arithmetic. Visible grid edges have a fixed bound;
 large grids allocate no per-cell widget, texture, job or record. Preview outputs
 reuse the existing crop renderer and stay within2048 pixels per axis. Wheel zoom
 is anchored under the pointer; right-drag pans; keyboard navigation remains

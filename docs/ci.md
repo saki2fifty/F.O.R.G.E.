@@ -403,6 +403,7 @@ admits every gallery scene through the normal authoring API and checks durable
 identities and key components.
 
 The shared-runtime audit exports Gallery73's Sprite fill, Gallery78's image regions
+and Gallery87's ordered frame regions
 and Gallery74's Tile Map through the same saved-project export helper. It deletes
 each authored copy and copied kit before two relocated production launches with
 restricted PATH. The region game and Tile Map game travel to the separate runner
@@ -1488,3 +1489,25 @@ not a dependency revision. No video backend or fake rumble implementation is use
 A passing virtual-controller callback is not physical motor/driver/Windows/GPU
 acceptance. Full native Main/game composition and source-free graphical exports
 remain separate platform gates.
+
+### Ordered Sprite frame-region checks
+
+sprite_region covers full-bank crop fit, off-selection invalid rectangles, overflow
+and first-listed overlapping hit selection. sprite_scene covers512 entries, native
+Meta count limits/copied reconstruction, rejected authoring, Undo/Save and Prefab
+Revert; property Revert retains its ordinary empty override container. transform_animation
+checks bank counts in whole-clip preview/fixed/recovery admission. Shared portable
+sprite_editor and animation_properties_editor run the same sources used by the
+Windows editor fixtures. Native integer draft seeds preserve JSON integer types.
+
+native_sdk_sprite_frames_installed builds the public relocated client and tests
+both hosts,3-frame C++ writes and512 live entries. mcp_sprite_frames_stdio tests
+both actual framings through shared discovery/property/history/Play owners, with
+invalid/stale and source-isolation checks. sprite_gallery and feature_gallery
+include original87 and source-free content. The existing standalone image-export
+script also exercises87 when Windows acceptance runs; local execution is separate.
+
+The actual software-Vulkan Sprite probe checks768 grid/bank fill/filter/alpha/flip
+cases, mixed instancing and complete retained-resource behavior. Pass the Gallery
+argument to include87's landscape/portrait animation images. Native Windows/full
+Main/physical hardware and new Inspector captures remain separate acceptance gates.

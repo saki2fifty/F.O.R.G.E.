@@ -217,6 +217,43 @@ inline void exercise(float scale, ImVec2 display = {1920, 1200}) {
     key(ImGuiKey_Enter);
     check(!picker.open() && value == 2 && changes == before_region + 2,
           "To-edge crop lost keyboard frame selection");
+    context.crop = SpritePixelRegion{16, 4, 32, 8};
+    context.grid = {3, 5}; // Inactive grid need not subdivide the crop.
+    context.frame_regions = {{0, 0, 8, 4}, {16, 0, 12, 8}, {2, 5, 10, 3}};
+    value = 0;
+    const auto before_bank = changes;
+    click("sprite:choose-frame");
+    canvas = box("sprite:sheet-canvas");
+    press_at({canvas.minimum.x + (canvas.maximum.x - canvas.minimum.x) * .46875f,
+              (canvas.minimum.y + canvas.maximum.y) / 2});
+    check(picker.open() && value == 0 && changes == before_bank,
+          "Clicking a frame-bank gap published a selection");
+    press_at({canvas.minimum.x + (canvas.maximum.x - canvas.minimum.x) * .625f,
+              (canvas.minimum.y + canvas.maximum.y) / 2});
+    check(!picker.open() && value == 1 && changes == before_bank + 1,
+          "Variable-size bank selection lost crop-relative image coordinates");
+    click("sprite:choose-frame");
+    key(ImGuiKey_End);
+    key(ImGuiKey_Enter);
+    check(value == 2 && changes == before_bank + 2,
+          "Frame-bank End did not use the bank's own count");
+    click("sprite:choose-frame");
+    key(ImGuiKey_UpArrow);
+    key(ImGuiKey_Enter);
+    check(value == 1 && changes == before_bank + 3,
+          "Frame-bank arrow navigation used inactive grid columns");
+    click("sprite:choose-frame");
+    ++context.frame_regions[0].width;
+    frame();
+    check(!picker.open() && value == 1 && changes == before_bank + 3,
+          "Bank edits retained a selectable stale chooser");
+    context.frame_regions.resize(sprite_frame_region_limit, context.frame_regions.front());
+    click("sprite:choose-frame");
+    check(box("sprite:use-frame").enabled && ImGui::GetDrawData()->TotalVtxCount < 16000,
+          "The supported frame-bank ceiling exceeded bounded chooser drawing");
+    click("sprite:cancel-frame");
+    context.frame_regions.clear();
+    value = 2;
     context.crop.reset();
     image_width = image_height = 4096;
     context.grid = {4096, 4096};

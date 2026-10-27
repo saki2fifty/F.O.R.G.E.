@@ -13,6 +13,7 @@ from mcp_test_client import CAPTURE, Client, failed, test_symlink, finish_host
 TOOLS, HOST, RUNTIME, KIT, NAV = sys.argv[1:6]
 NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
+SPRITE_FRAMES_ONLY = sys.argv[7:] == ['--sprite-frames-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
 PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
@@ -24,7 +25,7 @@ def editor(mode='full'):
     with tempfile.TemporaryDirectory(prefix='forge-mcp-workflows-') as temporary:
         root = Path(temporary)
         command = [HOST, str(root), RUNTIME, KIT, NAV, mode]
-        if MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY:
+        if MAP_PROFILE_ONLY or AUDIO_PAUSE_ONLY or SPRITE_FRAMES_ONLY:
             command.append(str(Path(__file__).resolve().parents[1]/'samples/projects/FeatureGallery'))
         if AUDIO_PAUSE_ONLY:
             command.append('--sdk')
@@ -266,6 +267,54 @@ for legacy in (False, True):
             control('forge_play_stop')
             assert read('forge_scene_read') == authored
             print(('legacy' if legacy else 'current') + ': paused/zero-rate unscaled clock, Step and authored immutability passed')
+            continue
+        if SPRITE_FRAMES_ONLY:
+            component = next(c for c in discovery()['result']['schema']['components']
+                             if c['id'] == 'forge.sprite_renderer')
+            field = next(f for f in component['fields'] if f['id'] == 'frame_regions')
+            assert field['type'] == 'vector' and field['maximum_count'] == 512
+            assert field['default'] == [] and field['element']['type'] == 'struct'
+            catalog = json.loads((root/'Game/forge.assets.json').read_text())
+            material = next(row['id'] for row in catalog['assets']
+                            if row['source'] == 'Assets/Sprites/SignalSheet.material.json')
+            actor = ok('forge_entity_create', arguments=dict(name='MCP frame bank'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=actor, component='forge.sprite_renderer'))
+            before = read('forge_scene_read')
+            frames = [dict(x=1, y=1, width=13, height=14), dict(x=18, y=3, width=12, height=10),
+                      dict(x=33, y=2, width=14, height=12)]
+            ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.sprite_renderer',
+                                                        values=dict(material=material, frame_regions=frames, frame=2)))
+            authored = read('forge_scene_read')
+            assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before
+            assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == authored
+            bad = mutate('forge_property_set', arguments=dict(entity=actor, component='forge.sprite_renderer',
+                                                               field='frame_regions', value=[dict(x=-1,y=0,width=1,height=1)]))
+            assert not bad['ok'] and read('forge_scene_read') == authored
+            ok('forge_document_save')
+            ok('forge_play_start')
+            until(lambda: read('forge_play_status'), lambda r: r['ready'] and r['control_ready'])
+            control('forge_play_pause')
+            paused = until(lambda: read('forge_play_status'), lambda r: r['paused'] and r['control_ready'])
+            def runtime_sprite():
+                return next(e['components']['forge.sprite_renderer']
+                            for e in read('forge_play_snapshot')['entities'] if e['id'] == actor)
+            assert runtime_sprite()['frame_regions'] == frames and runtime_sprite()['frame'] == 2
+            live = [dict(row, x=row['x']+1) for row in frames]
+            control('forge_play_tune', entity=actor, component='forge.sprite_renderer', property='frame_regions', value=live)
+            ack = until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
+            assert 'error' not in ack['tune_ack'] and ack['timing']['tick'] == paused['timing']['tick'], ack
+            assert runtime_sprite()['frame_regions'] == live
+            control('forge_play_tune', entity=actor, component='forge.sprite_renderer', property='frame_regions',
+                    value=[dict(x=0,y=0,width=0,height=1)])
+            ack = until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
+            assert 'error' in ack['tune_ack'] and runtime_sprite()['frame_regions'] == live, ack
+            wrong = {k: paused[k] for k in ('launch', 'session', 'generation')}
+            wrong['generation'] += 1
+            failed(mutate('forge_play_tune', **wrong, entity=actor, component='forge.sprite_renderer',
+                          property='frame', value=0), 'stale_play')
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            print(('legacy' if legacy else 'current') + ': frame-bank native discovery, property/history/Save, Play/live rejection and authored isolation passed')
             continue
         if MAP_PROFILE_ONLY:
             catalog = json.loads((root/'Game/forge.assets.json').read_text())

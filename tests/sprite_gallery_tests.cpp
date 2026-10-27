@@ -90,7 +90,8 @@ int main(int argc, char** argv) {
         const auto frames = asset(catalog, "Scenes/72-sprite-frame-animation.scene.json");
         const auto panels = asset(catalog, "Scenes/73-sprite-image-fill.scene.json");
         const auto regions = asset(catalog, "Scenes/78-sprite-image-regions.scene.json");
-        const std::array roots{basics, frames, panels, regions};
+        const auto banks = asset(catalog, "Scenes/87-sprite-frame-regions.scene.json");
+        const std::array roots{basics, frames, panels, regions, banks};
         const auto badge = asset(catalog, "Assets/Sprites/Badge.png");
         const auto sheet = asset(catalog, "Assets/Sprites/SignalSheet.png");
         const auto badge_material = asset(catalog, "Assets/Sprites/Badge.material.json");
@@ -132,12 +133,13 @@ int main(int argc, char** argv) {
         }
         EngineContext authored;
         Scene scene(authored.world());
-        std::map<EntityId, SpriteRenderer> fill_values, region_values;
+        std::map<EntityId, SpriteRenderer> fill_values, region_values, bank_values;
         for (const auto id : roots) {
             scene.load(root / catalog.records().at(id).source);
             const auto rendered = extract_render_scene(scene.effective_document());
             check(rendered.diagnostics.empty() && rendered.meshes.empty() &&
-                      rendered.sprites.size() == (id == basics || id == regions ? 6u : 5u) &&
+                      rendered.sprites.size() ==
+                          (id == basics || id == regions || id == banks ? 6u : 5u) &&
                       rendered.cameras.size() == 1,
                   "Gallery Sprite Scene did not use typed extraction");
             if (id == panels)
@@ -146,6 +148,9 @@ int main(int argc, char** argv) {
             if (id == regions)
                 for (const auto& sprite : rendered.sprites)
                     region_values.emplace(sprite.entity, sprite.renderer);
+            if (id == banks)
+                for (const auto& sprite : rendered.sprites)
+                    bank_values.emplace(sprite.entity, sprite.renderer);
         }
         check(region_values.size() == 6 &&
                   std::count_if(region_values.begin(), region_values.end(),
@@ -153,6 +158,7 @@ int main(int argc, char** argv) {
               "Gallery image region experiment lost its whole-image comparison or five crops");
         playback(root, catalog, frames);
         playback(root, catalog, regions, 6);
+        playback(root, catalog, banks, 6);
         {
             ProjectLease lease(root);
             prepare_runtime_content_catalog(lease, roots, {}, scene.schema());
@@ -163,7 +169,7 @@ int main(int argc, char** argv) {
         const auto relocated = scratch / "relocated sprite content";
         std::filesystem::rename(package, relocated);
         const auto loaded = open_runtime_content(relocated, {"windows", "d3d12"});
-        check(loaded.records().size() == 11,
+        check(loaded.records().size() == 12,
               "Sprite content dependency closure is incomplete or oversized");
         for (const auto& file : std::filesystem::recursive_directory_iterator(relocated)) {
             if (!file.is_regular_file())
@@ -179,6 +185,7 @@ int main(int argc, char** argv) {
                 asset_detail::load_material_selection(relocated, loaded, {id}).data.values);
         playback(relocated, loaded, frames);
         playback(relocated, loaded, regions, 6);
+        playback(relocated, loaded, banks, 6);
         EngineContext runtime(WorldRole::Runtime);
         Scene restored(runtime.world());
         restored.restore_snapshot(load_game_scene(relocated, {panels}));
@@ -195,6 +202,15 @@ int main(int argc, char** argv) {
             packed_regions.emplace(sprite.entity, sprite.renderer);
         check(packed_regions == region_values,
               "Relocated source-free content lost image region values or identities");
+        restored.restore_snapshot(load_game_scene(relocated, {banks}));
+        std::map<EntityId, SpriteRenderer> packed_banks;
+        for (const auto& sprite : extract_render_scene(restored.effective_document()).sprites)
+            packed_banks.emplace(sprite.entity, sprite.renderer);
+        check(packed_banks == bank_values &&
+                  std::count_if(
+                      packed_banks.begin(), packed_banks.end(),
+                      [](const auto& row) { return !row.second.frame_regions.empty(); }) == 5,
+              "Relocated content lost ordered arbitrary frame regions");
         std::cout << "Gallery71/72/73/78 real texture/material/region/fill/animation consumers and "
                      "relocated "
                      "source-free content closure passed\n";

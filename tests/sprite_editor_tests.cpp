@@ -9,6 +9,7 @@
 #include <imgui_internal.h>
 #include <iostream>
 #include <thread>
+#include <tuple>
 using namespace forge;
 namespace {
 void check(bool value, const std::string& why) {
@@ -16,6 +17,16 @@ void check(bool value, const std::string& why) {
         throw std::runtime_error(why);
 }
 void exercise(const std::filesystem::path& scratch, float scale) {
+    for (const auto& [kind, minimum, expected] :
+         std::vector<std::tuple<std::string, Json, Json>>{{"uint32", 1., 1u},
+                                                          {"uint32", .25, 1u},
+                                                          {"uint64", UINT64_MAX, UINT64_MAX},
+                                                          {"int32", -3.5, -3},
+                                                          {"int64", INT64_MIN, INT64_MIN}}) {
+        const auto seed = property_draft_seed({{"type", kind}, {"minimum", minimum}});
+        check(seed.is_number_integer() && seed == expected,
+              "Integer collection draft lost whole-number JSON or its exact limit");
+    }
     const auto root = std::filesystem::absolute(scratch) / AssetId::generate().str();
     std::filesystem::create_directories(root / "Assets");
     EngineContext engine;
@@ -221,6 +232,41 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     };
     frame();
     const auto simple_image = scene.document();
+    click(field("frame_regions"));
+    click("button:Add item...");
+    click("button:Add");
+    check(scene.entity(selected).get<SpriteRenderer>().frame_regions ==
+                  std::vector<SpriteFrameRegion>{{0, 0, 1, 1}} &&
+              !test::ui_targets.contains(field("columns")),
+          "Reflected frame Add lost positive draft extents or exposed inactive grid controls");
+    authoring_command(
+        scene, "property.set",
+        {{"entity", selected},
+         {"component", "forge.sprite_renderer"},
+         {"field", "frame_regions"},
+         {"value", Json::array({{{"x", 1}, {"y", 0}, {"width", 2}, {"height", 1}}})}});
+    click("button:Add item...");
+    click("button:Add");
+    click("button:Move up");
+    check(scene.entity(selected).get<SpriteRenderer>().frame_regions ==
+              std::vector<SpriteFrameRegion>{{0, 0, 1, 1}, {1, 0, 2, 1}},
+          "Frame Move up did not reorder complete reflected entries");
+    type(field("frame"), "1");
+    check(scene.entity(selected).get<SpriteRenderer>().frame == 1 && scene.undo(),
+          "Inspector frame range used the inactive one-cell grid");
+    click("sprite:choose-frame");
+    key(ImGuiKey_End);
+    key(ImGuiKey_Enter);
+    check(scene.entity(selected).get<SpriteRenderer>().frame == 1 && scene.undo(),
+          "Inspector chooser lost its reflected JSON frame bank or one-step Undo");
+    click("button:Remove item");
+    check(scene.entity(selected).get<SpriteRenderer>().frame_regions.size() == 1 && scene.undo(),
+          "Frame Remove did not use ordinary Undo");
+    for (unsigned step = 0; step < 4; ++step)
+        check(scene.undo(), "Frame-bank UI edit lost its atomic Undo step");
+    frame();
+    check(scene.document() == simple_image && test::ui_targets.contains(field("columns")),
+          "Frame-bank Undo did not restore the exact empty bank and visible grid");
     check(!test::ui_targets.contains(field("pixels_per_meter")) &&
               !test::ui_targets.contains(field("border_left")),
           "Simple Sprite exposes inactive fill fields");

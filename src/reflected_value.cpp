@@ -211,6 +211,18 @@ struct Projection {
                     else
                         field["element_keys"] = members;
                 }
+                const auto limit_type = ecs_lookup_path_w_sep(
+                    world, 0, reflected_sequence_limit_type, "::", "::", false);
+                const auto* limit = limit_type && m.member
+                                        ? static_cast<const ReflectedSequenceLimit*>(
+                                              ecs_get_id(world, m.member, limit_type))
+                                        : nullptr;
+                if (limit) {
+                    if (field.at("type") != "vector" || !limit->maximum ||
+                        limit->maximum > field.at("maximum_count").get<std::size_t>())
+                        fail(m.name, "Collection limit must narrow a supported vector count");
+                    field["maximum_count"] = limit->maximum;
+                }
                 if (m.member)
                     presentation(world, m.member, field);
                 else {

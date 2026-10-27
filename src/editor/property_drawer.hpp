@@ -9,6 +9,7 @@
 #include <SDL3/SDL.h>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <forge/engine_assets.hpp>
 #include <forge/project.hpp>
 #include <forge/project_paths.hpp>
@@ -339,8 +340,29 @@ inline Json property_draft_seed(const Json& field) {
         return field.at("choices").front().at("value");
     if (type == "float32" || type == "float64")
         return field.value("minimum", Json(0.0));
-    return field.value("minimum",
-                       type.starts_with("uint") || type == "bitmask" ? Json(0u) : Json(0));
+    const auto minimum = field.value("minimum", Json(0));
+    if (type.starts_with("uint") || type == "bitmask") {
+        if (minimum.is_number_unsigned())
+            return minimum;
+        if (minimum.is_number_integer())
+            return Json(std::uint64_t(std::max<std::int64_t>(0, minimum.get<std::int64_t>())));
+        const auto lower = std::ceil(minimum.get<double>());
+        if (!std::isfinite(lower) || lower >= 0x1p64)
+            throw std::invalid_argument("Unsigned collection draft minimum is outside its range");
+        return Json(std::uint64_t(std::max(0., lower)));
+    }
+    if (minimum.is_number_unsigned()) {
+        const auto lower = minimum.get<std::uint64_t>();
+        if (lower > std::uint64_t(INT64_MAX))
+            throw std::invalid_argument("Signed collection draft minimum is outside its range");
+        return Json(std::int64_t(lower));
+    }
+    if (minimum.is_number_integer())
+        return minimum;
+    const auto lower = std::ceil(minimum.get<double>());
+    if (!std::isfinite(lower) || lower < -0x1p63 || lower >= 0x1p63)
+        throw std::invalid_argument("Signed collection draft minimum is outside its range");
+    return Json(std::int64_t(lower));
 }
 inline bool property_collection(const std::filesystem::path& root, const Json& field, Json& value,
                                 bool commit_on_enter) {

@@ -1,5 +1,14 @@
 # FORGE Feature Gallery
 
+## Unequal Sprite frames
+
+Open **Scenes/87-sprite-frame-regions.scene.json**. One Sprite shows the complete
+original arrow sheet; the others use ordered rectangles of different sizes. Play
+to cycle the animated bank. Inspect Frame regions and Choose frame, compare the
+Sliced panel and mirrored Tiled arrow, then Stop to edit the saved list. Coordinates
+are relative to Image region. Item1 is Frame0; clearing the list restores the grid.
+Save the Scene and choose it as startup before export.
+
 ## Painted one-way platforms
 
 Open **Scenes/86-one-way-tile-maps.scene.json**. The cyan circle rises through the

@@ -187,6 +187,28 @@ This changes the exact SDK table/fingerprint; rebuild against the matching SDK.
 The installed `tile_map_probe.cpp` demonstrates copied reads and fixed submissions
 without private headers. It is an integration probe, not an editor or save format.
 
+### Ordered Sprite frames
+
+In a fixed system that declares `.write<forge::SpriteRenderer>()`, copy the current
+value, change it and set it back through Flecs:
+
+```cpp
+auto image = actor.get<forge::SpriteRenderer>();
+image.region_enabled = false;
+image.frame_regions = {{1, 1, 13, 14}, {18, 3, 12, 10}};
+image.frame = 1;
+actor.set(image);
+```
+
+`forge/render_components.hpp` includes the installed `forge/sprite_frames.hpp`
+value header. Up to512 ordered rectangles use whole pixels relative to the current
+image crop, or the full image when the crop is off. Empty restores the existing
+grid; extents must be positive and every rectangle must fit the published image.
+Sliced borders must leave a positive center in every entry. World size/pivot and
+the image Material retain their owners. The normal integer frame Timeline binding
+can animate these indices. Reordering changes the meaning of indices; it does not
+remap animation keys. Rebuild modules against the matching SDK.
+
 For per-object surface values, include `forge/render_components.hpp`; its shared
 `MaterialParameter` DTO is installed in `forge/material_parameter.hpp`.
 `MeshRenderer.material_parameters` stores up to64 `{slot,key,parameter}` rows.

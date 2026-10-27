@@ -165,7 +165,7 @@ void TransformAnimationPlayback::synchronize() {
             if (clip->properties & AnimationPropertyState::sprite_mask) {
                 const auto values =
                     AnimationPropertyState::from(entity, AnimationPropertyState::sprite_mask);
-                const auto frames = std::uint64_t(values.sprite->columns) * values.sprite->rows;
+                const auto frames = detail::sprite_frame_count(*values.sprite);
                 if (changed || !state.clip ||
                     state.clip.identity().revision != clip.identity().revision ||
                     state.sprite_frames != frames)

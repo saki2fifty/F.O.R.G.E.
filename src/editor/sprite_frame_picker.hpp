@@ -76,6 +76,7 @@ class SpriteFramePicker {
             material_ = context.material;
             grid_ = grid_key(context.grid);
             crop_ = context.crop;
+            frame_regions_ = context.frame_regions;
             pending_ = value;
             view_ = {};
             image_revision_.reset();
@@ -108,11 +109,12 @@ class SpriteFramePicker {
             return false;
         bool chosen = false;
         if (owner_ != context.owner || material_ != context.material ||
-            grid_ != grid_key(context.grid) || crop_ != context.crop) {
+            grid_ != grid_key(context.grid) || crop_ != context.crop ||
+            frame_regions_ != context.frame_regions) {
 #ifdef FORGE_UI_FIXTURE
             close_reason_ = "owner, material, grid or region changed";
 #endif
-            message_ = "The Sprite, grid or image region changed. Open Choose frame again.";
+            message_ = "The Sprite, frames or image region changed. Open Choose frame again.";
             ImGui::CloseCurrentPopup();
         } else {
             chosen = contents(context, value);
@@ -126,9 +128,10 @@ class SpriteFramePicker {
         return {grid.columns,  grid.rows,      grid.margin_x,
                 grid.margin_y, grid.spacing_x, grid.spacing_y};
     }
-    void grid_lines(const SpriteSheetViewport& view, const SpriteGridLayout& grid,
-                    const SpritePixelRegion& cell, ImVec2 origin,
-                    std::optional<SpritePixelRegion> crop) {
+    void frame_lines(const SpriteSheetViewport& view, const SpriteGridLayout& grid,
+                     const SpritePixelRegion& cell, ImVec2 origin,
+                     std::optional<SpritePixelRegion> crop,
+                     std::span<const SpriteFrameRegion> regions) {
         auto* draw = ImGui::GetWindowDrawList();
         const double starts[] = {view.region[0] * view.texture_width,
                                  view.region[1] * view.texture_height};
@@ -136,7 +139,19 @@ class SpriteFramePicker {
                                view.region[3] * view.texture_height};
         const double scales[] = {view.width / (ends[0] - starts[0]),
                                  view.height / (ends[1] - starts[1])};
-        for (unsigned axis = 0; axis < 2; ++axis) {
+        if (!regions.empty()) {
+            const auto area =
+                sprite_grid_region(view.texture_width, view.texture_height, {}, 0, crop);
+            for (const auto& region : regions) {
+                const double x = double(area.x) + region.x, y = double(area.y) + region.y;
+                draw->AddRect({origin.x + float((x - starts[0]) * scales[0]),
+                               origin.y + float((y - starts[1]) * scales[1])},
+                              {origin.x + float((x + region.width - starts[0]) * scales[0]),
+                               origin.y + float((y + region.height - starts[1]) * scales[1])},
+                              IM_COL32(220, 225, 235, 115));
+            }
+        }
+        for (unsigned axis = 0; regions.empty() && axis < 2; ++axis) {
             const auto margin = axis ? cell.y : cell.x;
             const auto cells = axis ? grid.rows : grid.columns;
             const auto extent = axis ? cell.height : cell.width;
@@ -162,8 +177,8 @@ class SpriteFramePicker {
                                       IM_COL32(220, 225, 235, 115));
                 }
         }
-        const auto selected =
-            sprite_grid_region(view.texture_width, view.texture_height, grid, pending_, crop);
+        const auto selected = sprite_frame_region(view.texture_width, view.texture_height, grid,
+                                                  pending_, crop, regions);
         draw->AddRect(
             {origin.x + float((selected.x - starts[0]) * scales[0]),
              origin.y + float((selected.y - starts[1]) * scales[1])},
@@ -199,10 +214,10 @@ class SpriteFramePicker {
             }
             image_revision_ = source.revision;
             try {
-                first =
-                    sprite_grid_region(source.width, source.height, context.grid, 0, context.crop);
+                first = sprite_frame_region(source.width, source.height, context.grid, 0,
+                                            context.crop, context.frame_regions);
                 last = std::min<std::uint64_t>(
-                    UINT32_MAX, std::uint64_t(context.grid.columns) * context.grid.rows - 1);
+                    UINT32_MAX, sprite_frame_count(context.grid, context.frame_regions) - 1);
                 pending_ = std::uint32_t(std::min<std::uint64_t>(pending_, last));
             } catch (const std::exception& error) {
                 valid = false;
@@ -210,7 +225,14 @@ class SpriteFramePicker {
             }
         }
         if (source.width && source.height) {
-            if (valid)
+            if (valid && !context.frame_regions.empty()) {
+                const auto selected =
+                    sprite_frame_region(source.width, source.height, context.grid, pending_,
+                                        context.crop, context.frame_regions);
+                ImGui::TextDisabled("Image: %u x %u pixels | Frame %u: %u x %u pixels",
+                                    source.width, source.height, pending_, selected.width,
+                                    selected.height);
+            } else if (valid)
                 ImGui::TextDisabled("Image: %u x %u pixels | Cell: %u x %u pixels", source.width,
                                     source.height, first.width, first.height);
             else
@@ -254,11 +276,12 @@ class SpriteFramePicker {
                     --pending_;
                 if (ImGui::IsKeyPressed(ImGuiKey_RightArrow) && pending_ < last)
                     ++pending_;
-                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && pending_ >= context.grid.columns)
-                    pending_ -= context.grid.columns;
+                const auto stride = context.frame_regions.empty() ? context.grid.columns : 1;
+                if (ImGui::IsKeyPressed(ImGuiKey_UpArrow) && pending_ >= stride)
+                    pending_ -= stride;
                 if (ImGui::IsKeyPressed(ImGuiKey_DownArrow) &&
-                    std::uint64_t(pending_) + context.grid.columns <= last)
-                    pending_ += context.grid.columns;
+                    std::uint64_t(pending_) + stride <= last)
+                    pending_ += stride;
                 if (ImGui::IsKeyPressed(ImGuiKey_Home))
                     pending_ = 0;
                 if (ImGui::IsKeyPressed(ImGuiKey_End))
@@ -267,8 +290,9 @@ class SpriteFramePicker {
             }
             if (pending_ != old_pending) {
                 view = sprite_sheet_viewport(source.width, source.height, size.x, size.y, view_);
-                const auto cell = sprite_grid_region(source.width, source.height, context.grid,
-                                                     pending_, context.crop);
+                const auto cell =
+                    sprite_frame_region(source.width, source.height, context.grid, pending_,
+                                        context.crop, context.frame_regions);
                 const auto reveal = [](double center, double minimum, double maximum, double span) {
                     return maximum - minimum >= span
                                ? (minimum + maximum) / 2
@@ -320,15 +344,16 @@ class SpriteFramePicker {
                                              std::uint64_t(area.y) + area.height),
                                        true);
                 }
-                grid_lines(view, context.grid, first, minimum, context.crop);
+                frame_lines(view, context.grid, first, minimum, context.crop,
+                            context.frame_regions);
                 if (context.crop)
                     draw->PopClipRect();
                 draw->PopClipRect();
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
                     if (const auto pixel = view.pixel_at(x, y))
-                        if (const auto frame =
-                                sprite_sheet_frame_at(source.width, source.height, context.grid,
-                                                      (*pixel)[0], (*pixel)[1], context.crop)) {
+                        if (const auto frame = sprite_sheet_frame_at(
+                                source.width, source.height, context.grid, (*pixel)[0], (*pixel)[1],
+                                context.crop, context.frame_regions)) {
                             pending_ = *frame;
                             choose = true;
                         }
@@ -385,6 +410,7 @@ class SpriteFramePicker {
     AssetRef<MaterialAsset> material_;
     std::array<std::uint32_t, 6> grid_{};
     std::optional<SpritePixelRegion> crop_;
+    std::vector<SpriteFrameRegion> frame_regions_;
     SpriteSheetView view_;
     std::uint32_t pending_ = 0;
     std::optional<ResourceIdentity> image_revision_;

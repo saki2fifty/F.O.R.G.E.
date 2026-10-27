@@ -1,4 +1,4 @@
-# World sprites and image sheets
+# World sprites and image frames
 
 A Sprite places an image in the scene. It uses the ordinary camera, scene
 transforms and Material assets, so it can appear beside meshes and move with a
@@ -50,7 +50,8 @@ edge. Turn the crop off to show the whole image; its saved selection stays avail
 when you turn it on again. World size and pivot use their separate controls.
 
 **Choose frame...** shows the image and outlines the cells inside the selected
-region. Pixels outside it cannot select a frame. A one-column, one-row grid shows
+region. Pixels outside it cannot select a frame. With an empty Frame regions list,
+a one-column, one-row grid shows
 the region itself; larger grids divide that rectangle. Sliced and Tiled also use
 the selected region. An invalid rectangle leaves the last valid picture visible
 and reports the problem.
@@ -59,8 +60,39 @@ Open Gallery **78-sprite-image-regions** for whole-image, asymmetric, animated,
 to-edge, Sliced and mirrored Tiled examples. During Play, crop controls appear in
 **Live gameplay**. Those changes are temporary, including while frame animation runs.
 
-## Resize borders or repeat an image
+## Use unequal frame rectangles
 
+Use **Sheet frames → Frame regions** when frames have different sizes or positions.
+An empty list uses the ordinary uniform grid. A list supports up to512 rectangles;
+its order defines the frame numbers.
+
+1. Set **Frame** to0 before replacing or shortening a list.
+2. Expand **Frame regions**, choose **Add item...**, then expand **New item**.
+3. Enter X, Y, Width and Height in whole pixels. X/Y start at the selected image crop's top-left, or the full image's top-left when the crop is off. Width and height must be positive; zero does not mean “to edge” for a frame.
+4. Choose **Add**. Repeat for other rectangles. **Item 1** is Frame0, **Item 2** is Frame1, and so on. Use **Move up** to reorder an item and **Remove item** to delete it. Each committed edit uses normal Undo/Redo.
+5. Use **Frame** or **Choose frame...** to select an entry. The picker outlines the rectangles; gaps do not select anything. If rectangles overlap, a click chooses the first listed match. Left/right or up/down moves one list entry; Enter confirms and Escape cancels.
+
+Grid controls are hidden while a list is active; their saved values are retained.
+Remove all entries to use them again. Reordering changes which image a frame number
+selects, including existing animation keys. The engine does not resize the Sprite's
+world geometry to match each rectangle.
+
+Every rectangle must fit the current image crop. In Sliced mode, every entry must
+leave a positive center after its borders. An invalid or incompatible replacement
+image keeps the complete last usable picture and size while reporting a diagnostic.
+Correct the list or image to retry. This workflow defines rectangles; it does not
+automatically pack images, trim transparent pixels, rotate frames or create mipmaps.
+
+![Unequal Sprite frames, animated arrows and Sliced/Tiled examples](../images/sprite-frame-regions.png)
+
+Game rendering of87-sprite-frame-regions, captured with software Vulkan.
+
+Open **87-sprite-frame-regions** in the Feature Gallery for unequal static/animated
+frames, crop-relative and to-edge selection, Sliced borders and mirrored Tiled fill.
+During Play, **Live gameplay** can temporarily edit the list. Save authored values
+to retain them for export; Stop restores the authored scene.
+
+## Resize borders or repeat an image
 
 Choose an **Image mode** under **Image fill**:
 
@@ -75,8 +107,8 @@ their normal behavior. Stop restores the authored fill settings.
 
 ## Select frames from a sheet
 
-
-Use **Sheet frames** to set columns, rows, outer pixel margins and pixel spacing.
+Leave **Frame regions** empty, then use **Sheet frames** to set columns, rows,
+outer pixel margins and pixel spacing.
 The cells must divide the selected image into whole positive pixel rectangles.
 Frame zero is the top-left cell, then numbering continues across each row. A
 one-column, one-row grid shows the selected region, or the whole image when the
@@ -98,7 +130,7 @@ next sample; use an unanimated Sprite when trying manual changes.
 
 The chooser waits for the current published image. A failed or unsupported image
 cannot select a frame from an older preview. Correct the material or import and
-use **Retry image** when offered. Changing the Sprite, material, grid or loaded
+use **Retry image** when offered. Changing the Sprite, material, grid, frame list or loaded
 image revision closes the old chooser; open it again for the new selection.
 
 An incompatible grid or material shows a diagnostic and retains the last usable
@@ -116,12 +148,12 @@ the base image level; this is not an atlas mip-generation feature.
 4. Scrub or play Timeline preview, then save the animation and attach it to the Sprite using the usual animation workflow. Enable looping when needed.
 
 A frame holds until the next key. There are no fractional frames, curves or
-tangents for this property. Every keyed frame must fit the target Sprite's grid;
+tangents for this property. Every keyed frame must fit the target Sprite's grid or ordered frame list;
 an incompatible clip is rejected before it partially changes the Sprite.
 
 During Play, Inspector's **Live gameplay** section can temporarily change the
-frame, size, pivot, flips, tint and order. Material and sheet layout changes belong
-to Edit. Live changes follow the usual [Play mode](play-mode.md) keep/revert review.
+frame, frame regions, crop, size, pivot, flips, tint and order. Material and uniform
+grid column/row/margin/spacing changes belong to Edit. Live changes follow the usual [Play mode](play-mode.md) keep/revert review.
 
 ## Export
 

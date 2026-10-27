@@ -48,8 +48,15 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
             throw std::invalid_argument("Sprite tint must be finite linear RGBA in [0,1]");
     if (!value.columns || !value.rows || value.columns > 16384 || value.rows > 16384 ||
         value.margin_x > 16384 || value.margin_y > 16384 || value.spacing_x > 16384 ||
-        value.spacing_y > 16384 || value.frame >= std::uint64_t(value.columns) * value.rows)
+        value.spacing_y > 16384 || value.frame >= sprite_frame_count(value))
         throw std::invalid_argument("Sprite grid/frame is outside the supported integer range");
+    if (value.frame_regions.size() > sprite_frame_region_limit)
+        throw std::invalid_argument("Sprite supports at most512 frame regions");
+    for (const auto& region : value.frame_regions)
+        if (region.x > 16384 || region.y > 16384 || !region.width || region.width > 16384 ||
+            !region.height || region.height > 16384)
+            throw std::invalid_argument(
+                "Sprite frame regions need whole pixel offsets0..16384 and extents1..16384");
     for (const auto pixel :
          {value.region_x, value.region_y, value.region_width, value.region_height})
         if (pixel > 16384)
@@ -67,9 +74,19 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
          {value.border_left, value.border_right, value.border_top, value.border_bottom})
         if (border > 16384)
             throw std::invalid_argument("Sprite borders must be whole pixels in [0,16384]");
+    if (value.image_mode == std::uint32_t(SpriteImageMode::Sliced))
+        for (const auto& region : value.frame_regions)
+            if (std::uint64_t(value.border_left) + value.border_right >= region.width ||
+                std::uint64_t(value.border_top) + value.border_bottom >= region.height)
+                throw std::invalid_argument(
+                    "Every Sliced frame region must leave a positive source center");
 }
 Json render_value(const SpriteRenderer& p) {
     validate_sprite_renderer(p);
+    auto frames = Json::array();
+    for (const auto& region : p.frame_regions)
+        frames.push_back(
+            {{"x", region.x}, {"y", region.y}, {"width", region.width}, {"height", region.height}});
     return {{"material", p.material.id ? Json(p.material.id) : Json()},
             {"enabled", p.enabled},
             {"visible", p.visible},
@@ -102,7 +119,25 @@ Json render_value(const SpriteRenderer& p) {
             {"region_x", p.region_x},
             {"region_y", p.region_y},
             {"region_width", p.region_width},
-            {"region_height", p.region_height}};
+            {"region_height", p.region_height},
+            {"frame_regions", std::move(frames)}};
+}
+std::vector<SpriteFrameRegion> sprite_frame_regions_value(const Json& source) {
+    if (!source.is_array() || source.size() > sprite_frame_region_limit)
+        throw std::invalid_argument("Sprite frame regions must be an array of at most512 entries");
+    std::vector<SpriteFrameRegion> result;
+    result.reserve(source.size());
+    for (const auto& row : source) {
+        const auto pixel = [&](const char* field, std::uint32_t minimum) {
+            const auto& value = row.at(field);
+            if (!value.is_number_integer() || value.get<std::uint64_t>() < minimum ||
+                value.get<std::uint64_t>() > 16384)
+                throw std::invalid_argument("Sprite frame region pixels are outside their range");
+            return value.get<std::uint32_t>();
+        };
+        result.push_back({pixel("x", 0), pixel("y", 0), pixel("width", 1), pixel("height", 1)});
+    }
+    return result;
 }
 SpriteRenderer sprite_renderer_value(const Json& p) {
     SpriteRenderer value;
@@ -140,6 +175,8 @@ SpriteRenderer sprite_renderer_value(const Json& p) {
     value.region_y = p.value("region_y", value.region_y);
     value.region_width = p.value("region_width", value.region_width);
     value.region_height = p.value("region_height", value.region_height);
+    if (p.contains("frame_regions"))
+        value.frame_regions = sprite_frame_regions_value(p.at("frame_regions"));
     validate_sprite_renderer(value);
     return value;
 }

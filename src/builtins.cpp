@@ -808,6 +808,32 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
         }
     } else if constexpr (std::is_same_v<T, SpriteRenderer>) {
         register_asset_ref<MaterialAsset>(w, "forge.material_ref");
+        const auto frame_type = w.component<SpriteFrameRegion>("forge.sprite_frame_region");
+        ecs_struct_desc_t frame_fields{};
+        frame_fields.entity = frame_type.id();
+        frame_fields.create_member_entities = true;
+        unsigned frame_field = 0;
+        for (const auto& [name, offset] :
+             {std::pair{"x", offsetof(SpriteFrameRegion, x)},
+              std::pair{"y", offsetof(SpriteFrameRegion, y)},
+              std::pair{"width", offsetof(SpriteFrameRegion, width)},
+              std::pair{"height", offsetof(SpriteFrameRegion, height)}}) {
+            auto& member = frame_fields.members[frame_field++];
+            member.name = name;
+            member.type = w.id<std::uint32_t>();
+            member.offset = int32_t(offset);
+            member.use_offset = true;
+            member.range = {
+                std::string_view(name) == "x" || std::string_view(name) == "y" ? 0. : 1., 16384};
+            member.error_range = member.range;
+        }
+        if (!ecs_struct_init(w.c_ptr(), &frame_fields))
+            throw std::runtime_error("Sprite frame region Meta registration failed");
+        for (const auto* field : {"x", "y", "width", "height"})
+            frame_type.lookup(field).set_doc_brief("Whole pixels relative to the image crop's "
+                                                   "top-left; width/height must be positive");
+        w.component<std::vector<SpriteFrameRegion>>("forge.sprite_frame_regions")
+            .opaque(reflected_vector<SpriteFrameRegion>);
         c.template member<AssetRef<MaterialAsset>>("material")
             .template member<bool>("enabled")
             .template member<bool>("visible")
@@ -840,7 +866,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("region_x")
             .template member<std::uint32_t>("region_y")
             .template member<std::uint32_t>("region_width")
-            .template member<std::uint32_t>("region_height");
+            .template member<std::uint32_t>("region_height")
+            .template member<std::vector<SpriteFrameRegion>>("frame_regions");
         for (const auto& [field, offset] :
              {std::pair{"material", offsetof(SpriteRenderer, material)},
               std::pair{"enabled", offsetof(SpriteRenderer, enabled)},
@@ -874,7 +901,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"region_x", offsetof(SpriteRenderer, region_x)},
               std::pair{"region_y", offsetof(SpriteRenderer, region_y)},
               std::pair{"region_width", offsetof(SpriteRenderer, region_width)},
-              std::pair{"region_height", offsetof(SpriteRenderer, region_height)}}) {
+              std::pair{"region_height", offsetof(SpriteRenderer, region_height)},
+              std::pair{"frame_regions", offsetof(SpriteRenderer, frame_regions)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("SpriteRenderer native Meta disagrees with typed layout");
@@ -2259,7 +2287,13 @@ Json registration_options(const Builtin& type, const std::string& field) {
                                                       : "Show this document during Play";
     }
     if (name == "forge.sprite_renderer") {
-        if (field == "material") {
+        if (field == "frame_regions") {
+            value["display_name"] = "Frame regions";
+            value["description"] =
+                "Optional ordered list of up to512 image rectangles in pixels, relative to the "
+                "image crop. Frame0 selects the first item. An empty list uses the uniform grid. "
+                "Set Frame to0 before shrinking the list; use Move up to reorder frames.";
+        } else if (field == "material") {
             value["asset_type"] = MaterialAsset::type;
             value["nullable"] = true;
             value["description"] =
@@ -2312,8 +2346,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
         } else if (field == "frame") {
             value["minimum"] = 0;
             value["maximum"] = 16384 * 16384 - 1;
-            value["description"] =
-                "Integer frame from the top-left, across rows; must fit the grid";
+            value["description"] = "Zero-based index into Frame regions, or top-left row-major "
+                                   "cells for an empty list";
         } else if (field == "order") {
             value["description"] =
                 "Shared queue priority at equal camera depth; higher draws later";
@@ -2652,6 +2686,7 @@ Json builtin_schema() {
 Json register_builtins(flecs::world& world, unsigned family) {
     world.import<flecs::units>();
     world.component<ReflectedSequenceKey>(reflected_sequence_key_type);
+    world.component<ReflectedSequenceLimit>(reflected_sequence_limit_type);
     Json components = Json::array();
     for (const auto& type : builtins()) {
         const std::string name = type.name;
@@ -2677,6 +2712,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             c.lookup("materials").set<ReflectedSequenceKey>({"slot"});
             c.lookup("material_parameters").set<ReflectedSequenceKey>({"slot", {"key"}});
         }
+        if (name == "forge.sprite_renderer")
+            c.lookup("frame_regions").set<ReflectedSequenceLimit>({sprite_frame_region_limit});
         std::vector<ReflectedAdapter> references;
         if (name == "forge.physics_joint" || name == "forge.physics_joint_2d" ||
             name == "forge.transform_animator" || name == "forge.camera_shot" ||
@@ -2710,6 +2747,8 @@ Json register_builtins(flecs::world& world, unsigned family) {
             references.push_back({world.id<std::vector<MaterialSlotOverride>>(), "vector"});
             references.push_back({world.id<std::vector<MaterialParameterOverride>>(), "vector"});
         }
+        if (name == "forge.sprite_renderer")
+            references.push_back({world.id<std::vector<SpriteFrameRegion>>(), "vector"});
         auto fields = reflected_type_schema(world, c.id(), references).at("fields");
         for (auto& field : fields) {
             const auto member = field.at("id").get<std::string>();
@@ -2833,7 +2872,7 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
     if (std::string_view(type.name) == "forge.sprite_renderer")
         for (const auto* field : {"image_mode", "pixels_per_meter", "border_left", "border_right",
                                   "border_top", "border_bottom", "region_enabled", "region_x",
-                                  "region_y", "region_width", "region_height"})
+                                  "region_y", "region_width", "region_height", "frame_regions"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
     if (std::string_view(type.name) == "forge.transform_animator")

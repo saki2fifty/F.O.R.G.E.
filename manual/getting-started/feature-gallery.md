@@ -172,6 +172,10 @@ Change mono, peak normalization and silence trimming under Import settings,
 then reimport. The source remains unchanged; Play and export use the processed
 clip. See [Process a clip during import](../editor/audio.md).
 
+Scene **87-sprite-frame-regions** uses unequal rectangles from the original image
+sheet, including animated, cropped, Sliced and mirrored Tiled examples. Edit the
+Sprite's **Frame regions** list or use **Choose frame...**. See [Sprites](../editor/sprites.md).
+
 Scene **86-one-way-tile-maps** shows falling bodies and a reversed-gravity
 circle passing through painted rectangles. Select the Map's **One-way collision**
 option and inspect its solid-face arrows. See [Tile Maps](../editor/tile-maps.md).

@@ -135,102 +135,121 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                           TEX_FORMAT_RGBA8_UNORM, TEX_FORMAT_D32_FLOAT, true,
                           SHADER_COMPILER_DEFAULT, SHADER_OPTIMIZATION_LEVEL_DEFAULT, nullptr,
                           MeshDrawProfile::Sprite);
-            for (unsigned mode = 0; mode < 3; ++mode)
-                for (double width : {.02, .13, .33, 1.37})
-                    for (unsigned border_case = 0; border_case < (mode == 1 ? 2u : 1u);
-                         ++border_case)
-                        for (bool flip_x : {false, true})
-                            for (bool flip_y : {false, true}) {
-                                SpriteRenderer sprite;
-                                sprite.columns = sprite.rows = 2;
-                                sprite.margin_x = sprite.margin_y = sprite.spacing_x =
-                                    sprite.spacing_y = 2;
-                                sprite.frame = 3;
-                                sprite.image_mode = mode;
-                                sprite.width = width;
-                                sprite.height = width * .75;
-                                sprite.pixels_per_meter = 100;
-                                sprite.border_left = border_case ? 0 : 2;
-                                sprite.border_right = border_case ? 0 : 3;
-                                sprite.border_top = border_case ? 0 : 1;
-                                sprite.border_bottom = border_case ? 0 : 2;
-                                sprite.flip_x = flip_x;
-                                sprite.flip_y = flip_y;
-                                const auto values = sprite_draw_values(sprite, source);
-                                const auto world = sprite_world_transform(sprite, {});
-                                camera.orthographic_height = sprite.height;
-                                const auto view = camera_view(camera, camera_world, 128, 96);
-                                begin(true);
-                                draw.draw(context, world, view, {}, nullptr, nullptr, nullptr, {},
-                                          nullptr, {}, nullptr, {}, {}, {}, &values);
-                                const auto pixels = finish();
-                                for (unsigned y = 0; y < 96; ++y)
-                                    for (unsigned x = 0; x < 128; ++x) {
-                                        const auto px = source_pixel(
-                                            mode, (x + .5) / 128, sprite.width, 100, 13,
-                                            sprite.border_left, sprite.border_right, flip_x);
-                                        const auto py = source_pixel(
-                                            mode, (y + .5) / 96, sprite.height, 100, 9,
-                                            sprite.border_top, sprite.border_bottom, flip_y);
-                                        // Nearest at an exact texel boundary can round to either
-                                        // side in float interpolation. Exclude only those
-                                        // discontinuities.
-                                        if (!linear && (std::abs(px - std::round(px)) < 1e-5 ||
-                                                        std::abs(py - std::round(py)) < 1e-5)) {
-                                            ++excluded;
-                                            continue;
-                                        }
-                                        const auto sample = filtered(px, py, linear);
-                                        // UNORM8 linear filtering can round an intermediate alpha
-                                        // by one byte before the cutoff. Test color/opacity
-                                        // numerically in Blend; exclude that classification
-                                        // uncertainty only for Mask.
-                                        if (alpha == MaterialAlpha::Mask &&
-                                            std::abs(sample[3] - .5) <
-                                                (linear ? 1. / 255 + 1e-5 : 1e-5)) {
-                                            ++excluded;
-                                            continue;
-                                        }
-                                        const auto& actual = pixels[y * 128 + x];
-                                        for (unsigned lane = 0; lane < 4; ++lane) {
-                                            double expected = sample[lane];
-                                            if (alpha == MaterialAlpha::Mask && sample[3] < .5)
-                                                expected = background[lane];
-                                            else if (alpha == MaterialAlpha::Blend)
-                                                expected = (lane == 3 ? sample[3]
-                                                                      : sample[lane] * sample[3]) +
-                                                           background[lane] * (1 - sample[3]);
-                                            else if (lane == 3)
-                                                expected = 1;
-                                            if (std::abs(int(actual[lane]) -
-                                                         int(std::lround(expected * 255))) > 2)
-                                                throw std::runtime_error(
-                                                    "Image fill oracle differs: mode=" +
-                                                    std::to_string(mode) +
-                                                    " width=" + std::to_string(width) +
-                                                    " linear=" + std::to_string(linear) +
-                                                    " alpha=" + std::to_string(unsigned(alpha)) +
-                                                    " flip=" + std::to_string(flip_x) +
-                                                    std::to_string(flip_y) + " pixel=" +
-                                                    std::to_string(x) + "," + std::to_string(y) +
-                                                    " lane=" + std::to_string(lane) +
-                                                    " actual=" + std::to_string(actual[lane]) +
-                                                    " expected=" + std::to_string(expected * 255));
-                                            ++checked;
-                                        }
+            for (bool bank : {false, true})
+                for (unsigned mode = 0; mode < 3; ++mode)
+                    for (double width : {.02, .13, .33, 1.37})
+                        for (unsigned border_case = 0; border_case < (mode == 1 ? 2u : 1u);
+                             ++border_case)
+                            for (bool flip_x : {false, true})
+                                for (bool flip_y : {false, true}) {
+                                    SpriteRenderer sprite;
+                                    sprite.columns = sprite.rows = 2;
+                                    sprite.margin_x = sprite.margin_y = sprite.spacing_x =
+                                        sprite.spacing_y = 2;
+                                    sprite.frame = 3;
+                                    sprite.image_mode = mode;
+                                    sprite.width = width;
+                                    sprite.height = width * .75;
+                                    sprite.pixels_per_meter = 100;
+                                    sprite.border_left = border_case ? 0 : 2;
+                                    sprite.border_right = border_case ? 0 : 3;
+                                    sprite.border_top = border_case ? 0 : 1;
+                                    sprite.border_bottom = border_case ? 0 : 2;
+                                    sprite.flip_x = flip_x;
+                                    sprite.flip_y = flip_y;
+                                    if (bank) {
+                                        sprite.columns = sprite.rows = 1;
+                                        sprite.region_enabled = true;
+                                        sprite.region_x = sprite.region_y = 1;
+                                        sprite.region_width = 31;
+                                        sprite.region_height = 23;
+                                        sprite.frame_regions = {{0, 0, 6, 4},
+                                                                {2, 3, 7, 5},
+                                                                {4, 1, 8, 6},
+                                                                {16, 12, 13, 9}};
                                     }
-                                if (!linear && alpha == MaterialAlpha::Opaque && !flip_x &&
-                                    !flip_y && border_case == 0 &&
-                                    (width == 1.37 || (mode == 1 && width == .02))) {
-                                    std::ofstream file(images / (std::to_string(mode) + "-" +
-                                                                 std::to_string(width) + ".ppm"),
-                                                       std::ios::binary);
-                                    file << "P6\n128 96\n255\n";
-                                    for (const auto& pixel : pixels)
-                                        file.write(reinterpret_cast<const char*>(pixel.data()), 3);
+                                    const auto values = sprite_draw_values(sprite, source);
+                                    const auto world = sprite_world_transform(sprite, {});
+                                    camera.orthographic_height = sprite.height;
+                                    const auto view = camera_view(camera, camera_world, 128, 96);
+                                    begin(true);
+                                    draw.draw(context, world, view, {}, nullptr, nullptr, nullptr,
+                                              {}, nullptr, {}, nullptr, {}, {}, {}, &values);
+                                    const auto pixels = finish();
+                                    for (unsigned y = 0; y < 96; ++y)
+                                        for (unsigned x = 0; x < 128; ++x) {
+                                            const auto px = source_pixel(
+                                                mode, (x + .5) / 128, sprite.width, 100, 13,
+                                                sprite.border_left, sprite.border_right, flip_x);
+                                            const auto py = source_pixel(
+                                                mode, (y + .5) / 96, sprite.height, 100, 9,
+                                                sprite.border_top, sprite.border_bottom, flip_y);
+                                            // Nearest at an exact texel boundary can round to
+                                            // either side in float interpolation. Exclude only
+                                            // those discontinuities.
+                                            if (!linear && (std::abs(px - std::round(px)) < 1e-5 ||
+                                                            std::abs(py - std::round(py)) < 1e-5)) {
+                                                ++excluded;
+                                                continue;
+                                            }
+                                            const auto sample = filtered(px, py, linear);
+                                            // UNORM8 linear filtering can round an intermediate
+                                            // alpha by one byte before the cutoff. Test
+                                            // color/opacity numerically in Blend; exclude that
+                                            // classification uncertainty only for Mask.
+                                            if (alpha == MaterialAlpha::Mask &&
+                                                std::abs(sample[3] - .5) <
+                                                    (linear ? 1. / 255 + 1e-5 : 1e-5)) {
+                                                ++excluded;
+                                                continue;
+                                            }
+                                            const auto& actual = pixels[y * 128 + x];
+                                            for (unsigned lane = 0; lane < 4; ++lane) {
+                                                double expected = sample[lane];
+                                                if (alpha == MaterialAlpha::Mask && sample[3] < .5)
+                                                    expected = background[lane];
+                                                else if (alpha == MaterialAlpha::Blend)
+                                                    expected =
+                                                        (lane == 3 ? sample[3]
+                                                                   : sample[lane] * sample[3]) +
+                                                        background[lane] * (1 - sample[3]);
+                                                else if (lane == 3)
+                                                    expected = 1;
+                                                if (std::abs(int(actual[lane]) -
+                                                             int(std::lround(expected * 255))) > 2)
+                                                    throw std::runtime_error(
+                                                        "Image fill oracle differs: bank=" +
+                                                        std::to_string(bank) +
+                                                        " mode=" + std::to_string(mode) +
+                                                        " width=" + std::to_string(width) +
+                                                        " linear=" + std::to_string(linear) +
+                                                        " alpha=" +
+                                                        std::to_string(unsigned(alpha)) +
+                                                        " flip=" + std::to_string(flip_x) +
+                                                        std::to_string(flip_y) +
+                                                        " pixel=" + std::to_string(x) + "," +
+                                                        std::to_string(y) +
+                                                        " lane=" + std::to_string(lane) +
+                                                        " actual=" + std::to_string(actual[lane]) +
+                                                        " expected=" +
+                                                        std::to_string(expected * 255));
+                                                ++checked;
+                                            }
+                                        }
+                                    if (!bank && !linear && alpha == MaterialAlpha::Opaque &&
+                                        !flip_x && !flip_y && border_case == 0 &&
+                                        (width == 1.37 || (mode == 1 && width == .02))) {
+                                        std::ofstream file(images /
+                                                               (std::to_string(mode) + "-" +
+                                                                std::to_string(width) + ".ppm"),
+                                                           std::ios::binary);
+                                        file << "P6\n128 96\n255\n";
+                                        for (const auto& pixel : pixels)
+                                            file.write(reinterpret_cast<const char*>(pixel.data()),
+                                                       3);
+                                    }
+                                    ++cases;
                                 }
-                                ++cases;
-                            }
             // One shared material/bundle must preserve independent image modes in
             // a mixed instance batch; compare with the individually proved draws.
             std::array<SpriteDrawValues, 2> values;
@@ -249,6 +268,11 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                 sprite.border_bottom = 2;
                 sprite.image_mode = i + 1;
                 sprite.flip_y = i == 1;
+                if (i == 1) {
+                    sprite.columns = sprite.rows = 1;
+                    sprite.frame_regions = {
+                        {0, 0, 6, 4}, {2, 3, 7, 5}, {4, 1, 8, 6}, {17, 13, 13, 9}};
+                }
                 values[i] = sprite_draw_values(sprite, source);
                 AffineTransform placement;
                 placement.m[3] = i == 0 ? -.25 : .25;
@@ -282,7 +306,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             check(rejected && finish() == individual,
                   "Invalid image mapping partially drew its instance batch");
         }
-    check(cases == 384 && checked > 18000000 && excluded < 10000,
+    check(cases == 768 && checked > 36000000 && excluded < 20000,
           "Image fill native oracle coverage changed or skipped too many pixels");
     std::cout << cases << " native image fill cases, " << checked << " channels, " << excluded
               << " boundary pixels excluded PASS\n";

@@ -41,6 +41,10 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
             image.region_x = probe.ticks == 1 ? 1 : 0;
             image.region_y = probe.ticks == 1 ? 0 : 1;
             image.region_width = image.region_height = 3;
+            if (probe.ticks == 2) {
+                image.frame_regions = {{0, 0, 2, 2}, {2, 0, 1, 3}, {0, 2, 2, 1}};
+                image.frame = 2;
+            }
             actor.set(image);
         })
         .add(host->fixed_tag);

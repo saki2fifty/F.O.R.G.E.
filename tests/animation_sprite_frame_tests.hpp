@@ -119,4 +119,43 @@ void animation_sprite_frame_tests(const std::filesystem::path& scratch) {
     require(invalid_target.scene.entity(actor).get<SpriteRenderer>().frame == 0 &&
                 invalid_target.scene.entity(actor).get<Camera>().orthographic_height == 10,
             "Invalid future frame partially wrote another animated property");
+    auto bank_source = saved;
+    auto& bank_renderer = bank_source["entities"][0]["components"]["forge.sprite_renderer"];
+    bank_renderer["columns"] = bank_renderer["rows"] = 1;
+    bank_renderer["frame_regions"] =
+        Json::array({{{"x", 0}, {"y", 0}, {"width", 4}, {"height", 3}},
+                     {{"x", 8}, {"y", 1}, {"width", 7}, {"height", 8}},
+                     {{"x", 2}, {"y", 10}, {"width", 3}, {"height", 2}},
+                     {{"x", 4}, {"y", 2}, {"width", 6}, {"height", 4}}});
+    const auto bank_saved = bank_source;
+    require(apply_transform_animation_preview(
+                bank_source, {scene.asset_id(), EntityId::parse(actor)}, source.clip(), 1500000) &&
+                bank_source["entities"][0]["components"]["forge.sprite_renderer"]["frame"] == 3,
+            "Frame-bank preview used the inactive one-cell grid count");
+    auto invalid_bank = bank_saved;
+    invalid_bank["entities"][0]["components"]["forge.sprite_renderer"]["frame_regions"].erase(3);
+    const auto bank_before = invalid_bank;
+    rejects([&] {
+        apply_transform_animation_preview(invalid_bank, {scene.asset_id(), EntityId::parse(actor)},
+                                          source.clip(), 0);
+    });
+    require(invalid_bank == bank_before, "Invalid future bank frame partially changed preview");
+    Fixture bank_live(scratch);
+    bank_live.animation->catalog(catalog);
+    bank_live.load(bank_saved);
+    bank_live.ready();
+    bank_live.simulation.reset_presentation();
+    bank_live.simulation.tick(1.25f);
+    require(bank_live.scene.entity(actor).get<SpriteRenderer>().frame == 3 &&
+                bank_live.scene.entity(actor).get<SpriteRenderer>().frame_regions.size() == 4,
+            "Fixed bank animation lost its independent count or untouched rectangles");
+    const auto bank_checkpoint = bank_live.animation->checkpoint();
+    Fixture bank_recovered(scratch);
+    bank_recovered.animation->catalog(catalog);
+    bank_recovered.load(bank_saved);
+    bank_recovered.ready();
+    bank_recovered.animation->restore(bank_checkpoint);
+    require(bank_recovered.scene.entity(actor).get<SpriteRenderer>() ==
+                bank_live.scene.entity(actor).get<SpriteRenderer>(),
+            "Frame-bank recovery changed native ordered regions or sampled frame");
 }

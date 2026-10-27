@@ -185,12 +185,51 @@ void cropped_regions() {
               SpritePixelRegion{UINT32_MAX - 1, UINT32_MAX - 1, 1, 1},
           "Image-edge crop arithmetic overflowed");
 }
+void arbitrary_frames() {
+    const SpriteGridLayout grid{4, 2};
+    check(sprite_frame_count(grid) == 8 &&
+              sprite_frame_region(40, 24, grid, 5) == sprite_grid_region(40, 24, grid, 5),
+          "Empty frame regions changed the legacy grid");
+    std::vector<SpriteFrameRegion> regions{{0, 0, 4, 3}, {8, 1, 7, 8}, {2, 10, 3, 2}};
+    const SpritePixelRegion crop{5, 3, 20, 15};
+    check(
+        sprite_frame_count(grid, regions) == 3 &&
+            sprite_frame_region(40, 24, grid, 0, crop, regions) == SpritePixelRegion{5, 3, 4, 3} &&
+            sprite_frame_region(40, 24, grid, 1, crop, regions) == SpritePixelRegion{13, 4, 7, 8} &&
+            sprite_frame_region(40, 24, grid, 2, crop, regions) == SpritePixelRegion{7, 13, 3, 2},
+        "Arbitrary frames lost their order, size or crop-relative coordinates");
+    check(sprite_sheet_frame_at(40, 24, grid, 14, 5, crop, regions) == 1 &&
+              !sprite_sheet_frame_at(40, 24, grid, 10, 7, crop, regions) &&
+              !sprite_sheet_frame_at(40, 24, grid, 9, 3, crop, regions) &&
+              !sprite_sheet_frame_at(40, 24, grid, INFINITY, 0, crop, regions),
+          "Frame-bank picking selected a gap, border or nonfinite point");
+    const std::array overlapping{SpriteFrameRegion{0, 0, 4, 4}, SpriteFrameRegion{1, 1, 4, 4}};
+    check(sprite_sheet_frame_at(8, 8, {}, 2, 2, {}, overlapping) == 0,
+          "Overlapping frame-bank picking lost first-listed ordering");
+    rejects([&] { (void)sprite_frame_region(40, 24, grid, 3, crop, regions); });
+    for (const auto bad :
+         {SpriteFrameRegion{0, 0, 0, 2}, SpriteFrameRegion{20, 0, 1, 1},
+          SpriteFrameRegion{0, 15, 1, 1}, SpriteFrameRegion{19, 0, 2, 1},
+          SpriteFrameRegion{0, 14, 1, 2}, SpriteFrameRegion{UINT32_MAX, 0, UINT32_MAX, 1}}) {
+        const std::array bank{regions[0], bad};
+        rejects([&] { (void)sprite_frame_region(40, 24, {}, 0, crop, bank); });
+    }
+    regions.resize(sprite_frame_region_limit, {0, 0, 1, 1});
+    (void)sprite_frame_region(40, 24, {}, regions.size() - 1, crop, regions);
+    regions.emplace_back();
+    rejects([&] { (void)sprite_frame_region(40, 24, {}, 0, crop, regions); });
+    const std::array edge{SpriteFrameRegion{4, 0, 1, 1}};
+    check(sprite_frame_region(UINT32_MAX, 1, {}, 0, SpritePixelRegion{UINT32_MAX - 5, 0, 5, 1},
+                              edge) == SpritePixelRegion{UINT32_MAX - 1, 0, 1, 1},
+          "Frame coordinate addition wrapped at the image boundary");
+}
 } // namespace
 int main() {
     try {
         image_mapping();
         sheet_selection();
         cropped_regions();
+        arbitrary_frames();
         check(sprite_grid_region(16, 8, {4, 2}, 0) == SpritePixelRegion{0, 0, 4, 4},
               "First frame differs");
         check(sprite_grid_region(16, 8, {4, 2}, 5) == SpritePixelRegion{4, 4, 4, 4},

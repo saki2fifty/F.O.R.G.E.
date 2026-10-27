@@ -10337,6 +10337,14 @@
       "schema_version": 5,
       "dependencies": [],
       "metadata": {}
+    },
+    {
+      "id": "15400000-1540-4154-8154-154000000000",
+      "type": "scene",
+      "source": "Scenes/87-sprite-frame-regions.scene.json",
+      "schema_version": 5,
+      "dependencies": [],
+      "metadata": {}
     }
   ],
   "version": 2

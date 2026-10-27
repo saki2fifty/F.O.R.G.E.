@@ -15,6 +15,11 @@ struct ReflectedSequenceKey {
 // this is collection-local identity, not a new authored ID or asset reference.
 std::string reflected_sequence_identity(const nlohmann::json& field, const nlohmann::json& element);
 inline constexpr const char* reflected_sequence_key_type = "forge.meta.sequence_key";
+// A native member's semantic limit can narrow the common bounded vector envelope.
+struct ReflectedSequenceLimit {
+    std::size_t maximum;
+};
+inline constexpr const char* reflected_sequence_limit_type = "forge.meta.sequence_limit";
 // Explicit engine-owned reference/container adapters only. No arbitrary project opaque types.
 struct ReflectedAdapter {
     ecs_entity_t type;

@@ -13,6 +13,21 @@ SDK fingerprint and requires matching native-module rebuilds; native ABI1 is
 unchanged. This records the additive persistence boundary, not completion of the
 renderer/editor/animation/export family. See [world sprites](../sprites.md).
 
+## Ordered Sprite frame regions — 2026-10-27
+
+The arbitrary-frame extension keeps an optional ordered list on SpriteRenderer.
+An empty list retains existing grid semantics. Up to512 positive rectangular
+pixel frames are relative to the existing crop, with integer frame indices and
+unchanged image Material/Texture ownership. Frame order is local value semantics;
+no asset or frame UUID, atlas database, texture owner or animation clock is added.
+Existing reflected containers/Scene/Prefab/history remain authoritative. Native
+member metadata narrows the common collection envelope; copied schema reconstruction
+must preserve that limit, so Inspector and automation discovery agree with admission.
+Missing lists backfill empty. The public value header changes exact SDK identity;
+ABI1 C tables remain unchanged. Portable authoring/UI/SDK/MCP/content and software-Vulkan checks cover the
+integrations. Native Windows/physical acceptance and numbered delivery remain
+separate; the architecture does not introduce an atlas identity or clock.
+
 Date: 2026-09-19. Decision frozen for review in Build260919-000063; automated package
 validation is complete. Future implementation requires its own authorized scope.
 

@@ -28,8 +28,10 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     auto* device = presentation.device();
     for (const auto source :
          {"Scenes/71-world-sprites.scene.json", "Scenes/72-sprite-frame-animation.scene.json",
-          "Scenes/78-sprite-image-regions.scene.json"}) {
-        const bool regions = std::string_view(source).starts_with("Scenes/78");
+          "Scenes/78-sprite-image-regions.scene.json",
+          "Scenes/87-sprite-frame-regions.scene.json"}) {
+        const bool bank = std::string_view(source).starts_with("Scenes/87");
+        const bool regions = bank || std::string_view(source).starts_with("Scenes/78");
         const bool animated = regions || std::string_view(source).starts_with("Scenes/72");
         EngineContext engine(WorldRole::Runtime, false, {animation_module(root)});
         Scene scene(engine.world());
@@ -94,7 +96,8 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                               "Wide Gallery view lost the cyan image");
                     }
                 }
-                const auto name = std::string(regions    ? "gallery78-frame"
+                const auto name = std::string(bank       ? "gallery87-frame"
+                                              : regions  ? "gallery78-frame"
                                               : animated ? "gallery72-frame"
                                                          : "gallery71-frame") +
                                   std::to_string(frame) +

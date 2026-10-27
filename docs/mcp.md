@@ -650,3 +650,20 @@ and audio observations expose live admitted filter values without advancing fixe
 time. Finite 20–20000 Hz validation and bad-value preservation belong to the shared
 Scene/runtime owners. No separate agent filter graph, tool family or mutation path
 is added; saved settings reach source/one-shot playback and export.
+
+## Ordered Sprite frame regions
+
+Native discovery for forge.sprite_renderer includes frame_regions as a vector of
+up to512{x,y,width,height} pixel rectangles. Use forge_property_set_many to change
+frame_regions and frame atomically; an empty list restores the existing grid.
+Indices are zero-based and coordinates are relative to the optional image crop.
+Normal target/revision/permission/history rules apply. Sprite image Material and
+texture references retain the existing asset owners.
+
+During Play, forge_play_tune supports the list through the same runtime-property
+owner in ordinary and SDK Play. Set Frame to0 before shrinking a list below its
+current index. Poll tune_ack for validation; ordinary-host success carries the
+applied value while failure carries error. The list uses the existing64KiB
+collection envelope and does not advance a fixed tick. Stop restores authored
+values. Actual image fit/last-good rendering and clip-frame constraints still
+apply; successful authoring does not prove an unavailable image is usable.

@@ -21,6 +21,12 @@ def verify(tools, gallery, kit, evidence, retain=None):
     # Retain this newer consumer for the existing fresh-runner check. Both
     # scenes still perform two production startups after source/kit deletion.
     receipt['regions'] = verify_scene(tools, gallery, kit, Path(evidence) / 'regions', region_source, retain)
+    bank_source = 'Scenes/87-sprite-frame-regions.scene.json'
+    bank_scene = json.loads((Path(gallery) / bank_source).read_text(encoding='utf-8'))
+    banks = [row['components']['forge.sprite_renderer']['frame_regions']
+             for row in bank_scene['entities'] if 'forge.sprite_renderer' in row['components']]
+    assert len(banks) == 6 and sum(bool(bank) for bank in banks) == 5
+    receipt['frame_banks'] = verify_scene(tools, gallery, kit, Path(evidence) / 'frame-banks', bank_source)
     (Path(evidence) / 'sprite-image-export.json').write_text(
         json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     return receipt
@@ -33,4 +39,4 @@ if __name__ == '__main__':
     parser.add_argument('--retain', type=Path)
     args = parser.parse_args()
     verify(args.tools, args.gallery, args.kit, args.evidence, args.retain)
-    print('Shared Sprite fill/region exports and four source-free production startups passed')
+    print('Shared Sprite fill/region exports and six source-free production startups passed')

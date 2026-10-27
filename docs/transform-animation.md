@@ -372,8 +372,8 @@ retain their meanings. Source3/4/5 and cooked5 retain their existing representat
 new publication uses recipev8, while previously selected cooks remain readable.
 
 Frame values must be whole numbers from0 through268435455. Each target must already
-have a SpriteRenderer whose configured grid contains every keyed frame. Runtime
-admission checks the whole clip when the clip revision or grid capacity changes,
+have a SpriteRenderer whose grid or ordered frame list contains every keyed frame. Runtime
+admission checks the whole clip when the clip revision or selected frame count changes,
 before any animated component writes. The existing complete candidate also checks
 the currently sampled value. Texture-dependent pixel-grid admission still belongs
 to rendering and its selected material/texture resources.

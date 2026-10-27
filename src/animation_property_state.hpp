@@ -103,10 +103,10 @@ struct AnimationPropertyState {
     void validate_clip(const TransformAnimationClip& clip) const {
         if (!(clip.properties & sprite_mask))
             return;
-        const auto count = std::uint64_t(sprite.value().columns) * sprite.value().rows;
+        const auto count = detail::sprite_frame_count(sprite.value());
         for (const auto& key : clip.keys)
             if (key.properties[unsigned(AnimationProperty::SpriteFrame)] >= double(count))
-                throw std::runtime_error("Animated frame exceeds the target sprite grid");
+                throw std::runtime_error("Animated frame exceeds the target Sprite frame count");
     }
     double value(AnimationProperty property) const {
         switch (property) {

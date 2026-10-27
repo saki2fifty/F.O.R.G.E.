@@ -12,6 +12,11 @@ Camera camera_value(const Json&);
 Light light_value(const Json&);
 ParticleEmitter particle_emitter_value(const Json&);
 SpriteRenderer sprite_renderer_value(const Json&);
+std::vector<SpriteFrameRegion> sprite_frame_regions_value(const Json&);
+inline std::uint64_t sprite_frame_count(const SpriteRenderer& value) noexcept {
+    return value.frame_regions.empty() ? std::uint64_t(value.columns) * value.rows
+                                       : value.frame_regions.size();
+}
 TileMapRenderer tile_map_renderer_value(const Json&);
 void validate_sprite_renderer(const SpriteRenderer&);
 void validate_tile_map_renderer(const TileMapRenderer&);

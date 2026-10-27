@@ -10,7 +10,23 @@ namespace forge {
 // a hit proposes the existing U32 frame value, never a new atlas record.
 inline std::optional<std::uint32_t>
 sprite_sheet_frame_at(std::uint32_t width, std::uint32_t height, const SpriteGridLayout& grid,
-                      double x, double y, std::optional<SpritePixelRegion> crop = {}) {
+                      double x, double y, std::optional<SpritePixelRegion> crop = {},
+                      std::span<const SpriteFrameRegion> regions = {}) {
+    if (!regions.empty()) {
+        (void)sprite_frame_region(width, height, grid, 0, crop, regions);
+        const auto area = sprite_grid_region(width, height, {}, 0, crop);
+        if (!std::isfinite(x) || !std::isfinite(y))
+            return {};
+        x -= area.x;
+        y -= area.y;
+        for (std::size_t i = 0; i < regions.size(); ++i) {
+            const auto& region = regions[i];
+            if (x >= region.x && y >= region.y && x - region.x < region.width &&
+                y - region.y < region.height)
+                return std::uint32_t(i); // Overlapping rectangles choose the first listed frame.
+        }
+        return {};
+    }
     const auto first = sprite_grid_region(width, height, grid, 0, crop);
     if (!std::isfinite(x) || !std::isfinite(y) || x < first.x || y < first.y || x >= width ||
         y >= height)

@@ -269,6 +269,45 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     check(region_bounds && region_bounds->minimum == Double3{-1, -1, 2} &&
               region_bounds->maximum == Double3{1, 1, 2},
           "Image region changed the authored world size or pivot");
+    {
+        const auto legacy = region;
+        region.frame_regions = {{0, 0, 1, 1}, {0, 0, 2, 1}};
+        region.frame = 1;
+        settle(renderer);
+        check(renderer.diagnostics().empty() && render() == cropped,
+              "Frame bank did not select the same two crop-relative source texels");
+        region.frame_regions[0].width = 3; // Unselected entry cannot fit this2px crop.
+        region.width = 4;
+        settle(renderer);
+        const auto retained = renderer.bounds(scene, {first}, {});
+        check(!renderer.diagnostics().empty() && render() == cropped && retained &&
+                  retained->minimum == region_bounds->minimum &&
+                  retained->maximum == region_bounds->maximum,
+              "An invalid unselected frame damaged complete retained image/geometry");
+        region.frame_regions[0].width = 1;
+        region.frame = 0;
+        region.width = 2;
+        settle(renderer);
+        check(renderer.diagnostics().empty() && render() == black,
+              "Corrected bank did not retry or select its one-pixel black frame");
+        region.region_enabled = false;
+        region.frame_regions = {{0, 0, 1, 1}, {3, 3, 1, 1}};
+        settle(renderer);
+        check(render() == magenta, "Whole-image bank did not select its first source pixel");
+        surface.textures["baseColorTexture"] = engine_texture(EngineTexture::White);
+        host->preview_material(material, surface);
+        settle(renderer);
+        check(!renderer.diagnostics().empty() && render() == magenta,
+              "A replacement image admitted only the selected frame and discarded the valid bank");
+        surface.textures["baseColorTexture"] = engine_texture(EngineTexture::Checker);
+        host->preview_material(material, surface);
+        settle(renderer);
+        check(renderer.diagnostics().empty() && render() == magenta,
+              "Restored bank image failed to retry the complete candidate");
+        region = legacy;
+        settle(renderer);
+        check(render() == cropped, "Bank tests changed the retained legacy image-region path");
+    }
     region.region_x = 3; // Source extent is4px: this complete2px selection cannot fit.
     region.width = 4;    // Pose and image values must be admitted as one usable candidate.
     settle(renderer);

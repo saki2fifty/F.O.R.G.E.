@@ -1,4 +1,5 @@
 #pragma once
+#include "../render_values.hpp"
 #include "../sprite_region.hpp"
 #include <forge/render_components.hpp>
 #include <functional>
@@ -6,13 +7,14 @@
 #include <string_view>
 
 namespace forge::ui {
-// Borrowed field context, copied only when a chooser opens. Frame is deliberately
-// separate: Timeline owns pending keys, and live animation may update it freely.
+// Detached field context. Frame is deliberately separate: Timeline owns pending
+// keys, and live animation may update it freely.
 struct SpriteFrameContext {
     std::string_view owner;
     AssetRef<MaterialAsset> material;
     SpriteGridLayout grid;
     std::optional<SpritePixelRegion> crop;
+    std::vector<SpriteFrameRegion> frame_regions;
 };
 inline SpriteFrameContext sprite_frame_context(std::string_view owner,
                                                const SpriteRenderer& sprite) {
@@ -23,7 +25,8 @@ inline SpriteFrameContext sprite_frame_context(std::string_view owner,
             sprite.region_enabled
                 ? std::optional<SpritePixelRegion>{{sprite.region_x, sprite.region_y,
                                                     sprite.region_width, sprite.region_height}}
-                : std::nullopt};
+                : std::nullopt,
+            sprite.frame_regions};
 }
 inline SpriteFrameContext sprite_frame_context(std::string_view owner,
                                                const nlohmann::json& sprite) {
@@ -41,7 +44,10 @@ inline SpriteFrameContext sprite_frame_context(std::string_view owner,
         sprite.value("region_enabled", false)
             ? std::optional<SpritePixelRegion>{{integer("region_x"), integer("region_y"),
                                                 integer("region_width"), integer("region_height")}}
-            : std::nullopt};
+            : std::nullopt,
+        sprite.contains("frame_regions")
+            ? forge::detail::sprite_frame_regions_value(sprite.at("frame_regions"))
+            : std::vector<SpriteFrameRegion>{}};
 }
 using SpriteFrameField = std::function<bool(const SpriteFrameContext&, std::uint32_t&)>;
 } // namespace forge::ui
