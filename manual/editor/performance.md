@@ -94,6 +94,21 @@ show their first 256 entries with a truncation notice; long names end with `...`
 Collection adds overhead. The authoring world's separate ECS inspection window
 does not execute gameplay to produce these observations.
 
+## Compare a repeatable CPU workload
+
+With a source checkout, Python3 and a matching configured **forge_runtime** build,
+run `python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --output /path/to/evidence/run.json` from the checkout. Use `forge_runtime.exe` on Windows. Choose a new output path for every run.
+
+The report checks flat and hierarchical transform scenes and saves fixed-tick CPU
+samples. Add `--baseline /path/to/evidence/run.json` on a later run to compare
+matching workloads on the same controlled machine. `--counts`, `--warmup`,
+`--samples` and `--repeats` adjust the run; use identical values for comparisons.
+The default large workloads can take several minutes. Use `--counts 64 512` for
+a shorter comparison with the same transform checks.
+This source tool needs its matching CMake build cache and test client. It does not
+load your project, measure Game FPS/GPU work or change editor settings. Profiling
+overhead is included. Keep the report and matching build receipt together.
+
 ## Find an error
 
 Open Console and read the latest file/editor message, or runtime status. Compiler output is in Build. Native compilation also writes its current complete log to `.forge/sdk-build/build.log`. The launchers retain console output on an editor failure.

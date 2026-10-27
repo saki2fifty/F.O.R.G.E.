@@ -12,6 +12,16 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+`runtime_cpu_benchmark` runs five source-tool checks: independent fixture parent
+sums/canonical IDs, statistics, rejected world/source changes, report/baseline
+admission, and actual small runtime reports with comparison/immutable-output
+preservation. It is a correctness gate, with no noisy performance threshold.
+The tool consumes existing Profiling/protocol2 and changes no engine/SDK code;
+reuse attributable owner/native sanitizer evidence while those inputs remain
+unchanged. Representative default-size timing runs belong at a quiet milestone,
+with raw reports and source/build attribution. Broader renderer/asset/game workloads
+and physical/native Windows execution remain separate evidence.
+
 Single-touch classifications reuse `touch_input` for independent exact timestamp/
 coordinate boundaries, native queued early-UP handling, out-and-back movement,
 cancel/multicontact/device/clock/reset and both latch domains. Its real GameInput/

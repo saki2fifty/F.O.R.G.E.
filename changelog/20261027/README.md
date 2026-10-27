@@ -1,5 +1,14 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Repeatable runtime CPU reports
+
+Developer source tooling runs deterministic flat/hierarchical transform workloads
+through the existing bounded runtime client and profiler. It verifies every world
+matrix and unchanged source, retains raw measured scopes/build attribution, and
+compares compatible immutable reports. Native plan-observation ticks are excluded;
+profiling cost stays included. No collector, authoring operation, SDK or dependency
+change. This is CPU transform evidence, with broader/physical/Windows work pending.
+
 ## Single-finger touch gestures
 
 The existing touch adapter classifies Tap, Double tap, Long press and directional

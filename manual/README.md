@@ -90,7 +90,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Keyboard shortcuts](editor/shortcuts.md)
 - [Command palette](editor/commands.md)
 - [Problems and diagnostics](editor/diagnostics.md)
-- [Performance, CPU timelines, ECS dispatches and system order](editor/performance.md)
+- [Performance, workload reports, CPU timelines and ECS dispatches](editor/performance.md)
 - [Loaded resources and import cache](editor/resources.md)
 - [ECS inspection](editor/ecs-tools.md)
 

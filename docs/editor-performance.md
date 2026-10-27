@@ -3,6 +3,47 @@
 Measurements are source- and workload-specific, not a claim
 about physical-GPU FPS or every scene. See [CI](ci.md) for reproducible tooling.
 
+## Repeatable transform CPU reports — 2026-10-27
+
+`tools/benchmark_runtime.py` records checked, repeatable scope reports through the
+existing ordinary runtime client/collector. See [CPU profiling](cpu-profiling.md)
+for invocation, sampling and comparison admission. Engine/collector source and
+the measured executable are unchanged from local5453f78; the tool's receipt links
+its exact hashes to that build. Checkout hints in an arbitrary report are not
+independent binary-origin proof.
+
+One local GCC12 Release run used Linux/QEMU Virtual CPU2.5+,24logical processors,
+affinity0..23, no concurrent build/timing job. It measured32ticks after32warmup
+ticks in each of three fresh processes per workload. Each row combines96 samples;
+all18runs verified the exact source and every derived world affine matrix.
+Native lifetime-plan observation ticks were discarded before measured chunks.
+Collection overhead remains included.
+
+| Layout / entities | FixedSimulationTick median | PresentationPoseCapture median |
+| --- | ---: | ---: |
+| Flat64 |0.629ms |0.055ms |
+| Flat512 |5.672ms |0.528ms |
+| Flat4096 |33.659ms |4.257ms |
+| Four-way hierarchy64 |0.706ms |0.067ms |
+| Four-way hierarchy512 |5.114ms |0.631ms |
+| Four-way hierarchy4096 |51.119ms |6.589ms |
+
+These are static transform CPU workloads, not gameFPS, physical hardware or a
+comparison claiming improvement. Pose capture is included in FixedSimulationTick;
+do not add the columns together. Source setup, IPC, full recovery/Scene response
+serialization and correctness readback are outside those scopes. The full source
+tool run took about541seconds including that orchestration; default large jobs
+are deliberately separate from the small correctness CTest. Broader game, asset,
+animation, physics and rendering workloads remain unproved by this subset.
+
+The immutable raw report is
+`AgentFiles/build/phase161-runtime-workload-reports/default-workloads.json`;
+its matching validation receipt owns source/build/configuration/environment hashes.
+The five functional tool checks cover independent sums/statistics, malformed
+reports and actual comparison/output preservation. No native code/ABI/dependency
+change or new native sanitizer claim accompanies this Python consumer. Windows
+source-tool execution and controlled physical measurements remain queued.
+
 ## Scene history and Content discovery — 2026-10-25
 
 Compared baseline `91e6b57487b606637e2e9508621b1f8081c6b7cf` with the immutable

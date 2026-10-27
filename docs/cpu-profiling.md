@@ -205,6 +205,53 @@ fresh world-owned ring. Preparation candidates do not inherit active collection,
 and stale generation controls cannot affect a replacement world. Records remain
 bounded inside the existing response-size and transport policy.
 
+## Repeatable runtime CPU reports
+
+From a source checkout with Python3 and a configured single-configuration build:
+
+```sh
+python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --output /path/to/evidence/run.json
+python tools/benchmark_runtime.py --runtime /path/to/build/forge_runtime --baseline /path/to/evidence/run.json --output /path/to/evidence/next.json
+```
+
+On Windows use the matching `.exe`; native Windows execution remains separately
+queued. `--cache` selects the matching CMakeCache.txt if it is not beside the
+executable. The tool reuses the bounded source `tests/runtime_client.py`; this is
+developer source tooling, not a separately distributed editor or in-game profiler.
+The existing Windows startup/idle/shader benchmarks retain their own scope.
+
+The first workload revision uses flat and four-way hierarchical transform scenes
+at64/512/4096 entities,32warmup and32measured ticks, three fresh-process repeats.
+Override `--counts` (1..6 distinct counts in1..4096), `--warmup`/`--samples` (1..128)
+and `--repeats` (1..5). Stable synthetic canonical UUIDv4 fixture IDs never enter a
+user project. Construction/load/IPC/serialization/readback validation stay outside
+measured scopes. Only real FixedSimulationTick and PresentationPoseCapture records
+are used; profiling overhead remains included, native dispatch tracing is off.
+This does not measure gameFPS, renderer/assets/animation/physics throughput or
+physical hardware. It is a representative transform CPU subset.
+
+Reading cpu_profile schedules a native lifetime-plan capture on the next tick.
+The runner consumes that tick outside each at-most8-tick measured chunk, then
+steps without watch and reads afterward. Missing/duplicate/evicted scope records,
+wrong generation/epoch, nonfinite values or unexpected clock progress fail the
+run. Every final derived affine matrix/resolved flag is checked against independent
+integer parent sums; the authored snapshot must remain unchanged.
+
+Reports retain raw microseconds, arithmetic mean/median/nearest-rank p95/max, tick
+IDs, exact fixture hashes, UTC, binary/tool/client/compiler/cache hashes, SDK info,
+configuration and OS/CPU/affinity where available. Git checkout metadata is only a
+source hint; it does not verify the binary's source origin. Retain the matching
+build receipt for source attribution. No process-wide environment dump is captured.
+
+Each output path must be new. Baselines are bounded to4MiB and validated against
+their raw samples, summaries, fixtures, counts and policy before timing. Known
+workload/configuration/environment mismatches reject comparison; zero medians have
+no percentage. Matching metadata does not prove matching host load, power policy
+or physical hardware. Compare on the same controlled host and keep raw runs. The
+report is an evidence artifact, not another engine collector or authoring database.
+No game-creation API is added: automation/MCP already expose the consumed owner;
+existing revision, permissions and Play isolation remain authoritative.
+
 ## Validation boundary
 
 Core tests inject clocks for collection/lifetime/boundary cases and exercise actual
