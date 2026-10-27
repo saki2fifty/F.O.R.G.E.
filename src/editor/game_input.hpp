@@ -211,6 +211,11 @@ class GameInput {
             pads_.discover();
         }
     }
+    void finish_events(PlaySession& play, std::optional<Uint64> now = {}) {
+        observe_touch_reset(play);
+        for (const auto& value : now ? touches_.advance(*now) : touches_.advance())
+            play.input_event(value);
+    }
     // Returns true for input owned by gameplay. Window/lifecycle events still reach the UI.
     bool event(const SDL_Event& e, PlaySession& play) {
         const auto pad_events = pads_.event(e, captured_ && play.ready(), SDL_GetTicks());

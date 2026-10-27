@@ -3,6 +3,13 @@
 #include <array>
 #include <forge/sdk_client.hpp>
 namespace forge::examples {
+inline constexpr const char* single_touch_scene = "16000000-1600-4160-8160-160000000000";
+inline constexpr const char* single_touch_marker = "16000000-1600-4160-8160-000000000002";
+inline constexpr std::array<const char*, 7> single_touch_actions{
+    "16000000-1600-4160-8160-000000000010", "16000000-1600-4160-8160-000000000011",
+    "16000000-1600-4160-8160-000000000012", "16000000-1600-4160-8160-000000000013",
+    "16000000-1600-4160-8160-000000000014", "16000000-1600-4160-8160-000000000015",
+    "16000000-1600-4160-8160-000000000016"};
 inline constexpr const char* gesture_scene = "15600000-1560-4156-8156-156000000000";
 inline constexpr const char* gesture_marker = "15600000-1560-4156-8156-000000000002";
 inline constexpr std::array<const char*, 5> gesture_actions{

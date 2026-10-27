@@ -117,9 +117,11 @@ for legacy in (False, True):
             controls = {row['id']: row for row in read('forge_play_controls')['controls']}
             assert controls['touch.gesture.active']['digital']
             assert all(controls['touch.gesture.'+f]['relative'] for f in ('pan_x','pan_y','pinch','rotation'))
-            fields = ('active','pan_x','pan_y','pinch','rotation')
-            actions = [dict(id=f'15600000-1560-4156-8156-00000000001{i}', name='Gesture '+field,
-                            kind='digital' if field == 'active' else 'axis1',
+            pulses = ('tap','double_tap','long_press','swipe_left','swipe_right','swipe_up','swipe_down')
+            assert all(controls['touch.gesture.'+f]['digital'] and not controls['touch.gesture.'+f]['relative'] for f in pulses)
+            fields = ('active','pan_x','pan_y','pinch','rotation') + pulses
+            actions = [dict(id=f'16000000-1600-4160-8160-{i+100:012}', name='Gesture '+field,
+                            kind='axis1' if field in ('pan_x','pan_y','pinch','rotation') else 'digital',
                             bindings=[dict(control='touch.gesture.'+field)]) for i,field in enumerate(fields)]
             mapping = dict(version=1, actions=actions)
             edit_settings('forge_project_settings_edit', patch=[dict(op='replace', path='/input', value=mapping)])
@@ -132,13 +134,15 @@ for legacy in (False, True):
             control('forge_play_pause')
             until(lambda: read('forge_play_status'), lambda s: s['paused'] and s['control_ready'])
             control('forge_play_input_submit', events=[dict(control='touch.gesture.'+f,value=v)
-                for f,v in [('active',1),('pan_x',-.25),('pan_y',.125),('pinch',.5),('rotation',-.75),('active',0)]])
+                for f,v in [('active',1),('pan_x',-.25),('pan_y',.125),('pinch',.5),('rotation',-.75),('active',0)] + [(p,v) for p in pulses for v in (1,0)]])
             control('forge_play_step')
             def values():
                 return {r['id']:r for r in read('forge_play_input')['value'].get('actions',[])}
             observed = until(values, lambda r: r.get(actions[0]['id'],{}).get('presses',0) == 1)
             assert observed[actions[0]['id']]['releases'] == 1 and not observed[actions[0]['id']]['held']
-            for action,expected in zip(actions[1:],(-.25,.125,.5,-.75)):
+            for action in actions[5:]:
+                assert observed[action['id']]['presses'] == 1 and observed[action['id']]['releases'] == 1 and not observed[action['id']]['held']
+            for action,expected in zip(actions[1:5],(-.25,.125,.5,-.75)):
                 assert observed[action['id']]['x'] == expected, observed
             control('forge_play_step')
             until(values, lambda r: all(r.get(a['id'],{}).get('x') == 0 for a in actions))

@@ -713,4 +713,16 @@ apply; successful authoring does not prove an unavailable image is usable.
 
 `forge_play_controls` also advertises `touch.gesture.active` and relative `pan_x/pan_y/pinch/rotation`, with units in the native tool description. Bind separate Axis1 actions through the existing settings edit/save owner. Pan is normalized image-center motion, pinch is log-scale delta, and rotation is clockwise radians. A semantic contact injection does not synthesize an SDL finger; submit the intended gesture values directly.
 
+The same discovery includes digital `touch.gesture.tap`, `double_tap`, `long_press`
+and `swipe_left/right/up/down`. Bind Digital actions through project settings, then
+submit a 1/0 pair per recognition through `forge_play_input_submit`. Pause/Step makes
+the next fixed pressed/released edges observable through `forge_play_input` in
+ordinary Play. SDK Step uses its existing cursor-release/neutralization path;
+use Resume and running playback to consume SDK pulses. Repeated identical pulses
+before one latch coalesce under the existing digital edge semantics. Both
+physical and semantic pulses use the same input/action/latch validation; injecting
+raw semantic coordinates does not run the native timestamp classifier. Physical
+Tap/Double tap/Hold/Swipe thresholds and cancellation are described in
+[input](input.md). No classifier-specific tool or separate input state is added.
+
 For exact relative observation, pause Play with physical capture released, submit the semantic batch, Step once and read `forge_play_input`. Step again to verify zero relative deltas. Active down/up in one batch retains both digital edges without discarding its movement. Keep existing revision/launch/session/generation guards; relative values do not allow analog deadzones/response curves. No new tools or authoring database.

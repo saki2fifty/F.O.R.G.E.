@@ -1,5 +1,16 @@
 # 2026-10-27 — Runtime timing, input, profiling, audio and painted collision
 
+## Single-finger touch gestures
+
+The existing touch adapter classifies Tap, Double tap, Long press and directional
+Swipe into digital recognition pulses. Both hosts advance hold timing after queued
+events drain, retaining cancellation/UI/capture boundaries and existing two-finger
+deltas. Native controls, Settings, action latches, public C++ and MCP share the
+input owner. Original Gallery91 and the installed gesture sample demonstrate
+ordinary transform updates; SDK values/ABI/pins remain unchanged. Thresholds are
+bounded and fixed; physical touch, Windows/full Main/game, graphical export and
+authentic new captures remain pending.
+
 ## Native ECS dispatch tracing
 
 Play CPU scopes add a default-off **Trace ECS systems** option. Actual owner-thread

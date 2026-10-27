@@ -4,11 +4,13 @@
 #include <forge/native_sdk.h>
 #include <forge/native_sdk_identity.h>
 void forge_register_system_TouchGestures(const ForgeSdkWorldV1*);
+void forge_register_system_SingleTouch(const ForgeSdkWorldV1*);
 namespace {
 int32_t FORGE_SDK_CALL schemas(const ForgeSdkWorldV1*, char*, uint32_t) { return 1; }
 int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t capacity) {
     try {
         forge_register_system_TouchGestures(host);
+        forge_register_system_SingleTouch(host);
         return 1;
     } catch (const std::exception& value) {
         if (capacity)

@@ -180,6 +180,12 @@ void editor(SDL_Window* window, const char* runtime) {
          {"name", "Gesture pending release"},
          {"kind", "axis1"},
          {"bindings", Json::array({{{"control", "touch.gesture.pinch"}}})}});
+    for (const auto* field : {"tap", "long_press"})
+        source["actions"].push_back(
+            {{"id", ActionId::generate()},
+             {"name", field},
+             {"kind", "digital"},
+             {"bindings", Json::array({{{"control", std::string("touch.gesture.") + field}}})}});
     PlaySession play;
     play.configure(60, InputMap(source));
     play.start(runtime, {{"version", 1}, {"entities", Json::array()}}, true);
@@ -245,8 +251,33 @@ void editor(SDL_Window* window, const char* runtime) {
     input.capture(play);
     input.event(finger(window, SDL_EVENT_FINGER_MOTION, 1, 1), play);
     check(value(tick(), 0).at("held") == false, "Editor recapture revived old contact");
+    auto held = finger(window, SDL_EVENT_FINGER_DOWN, 1, 1);
+    held.tfinger.timestamp = 10000000000ULL;
+    input.event(held, play);
+    input.finish_events(play, 10500000000ULL);
+    values = tick();
+    check(value(values, 34).at("presses") == 1 && value(values, 34).at("releases") == 1 &&
+              value(values, 34).at("held") == false,
+          "Post-drain long press did not reach real Play exactly once");
+    input.finish_events(play, 11000000000ULL);
+    check(value(tick(), 34).at("pressed") == false, "Held contact repeated long press");
+    held.type = SDL_EVENT_FINGER_UP;
+    held.tfinger.timestamp = 11100000000ULL;
+    input.event(held, play);
+    held.type = SDL_EVENT_FINGER_DOWN;
+    held.tfinger.timestamp = 12000000000ULL;
+    input.event(held, play);
+    held.type = SDL_EVENT_FINGER_UP;
+    held.tfinger.timestamp = 12100000000ULL;
+    input.event(held, play);
+    input.finish_events(play, 13000000000ULL);
+    values = tick();
+    check(value(values, 33).at("presses") == 1 && value(values, 33).at("releases") == 1 &&
+              value(values, 34).at("pressed") == false,
+          "Queued early UP became a false long press in real Play");
     play.stop();
 }
+#include "single_touch_gesture_tests.hpp"
 #include "touch_gesture_tests.hpp"
 } // namespace
 int main(int argc, char** argv) {
@@ -254,6 +285,7 @@ int main(int argc, char** argv) {
         Platform platform;
         adapter(platform.window);
         gestures(platform.window);
+        single_gestures(platform.window);
         if (argc > 1)
             editor(platform.window, argv[1]);
         std::cout << "SDL queued touch slots/bounds/cancel/neutralization and actual captured Play "

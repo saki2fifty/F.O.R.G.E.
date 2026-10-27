@@ -372,6 +372,8 @@ int main(int argc, char** argv) {
             }
             if (!running)
                 break;
+            if (const auto gestures = touches.advance(); active && !gestures.empty())
+                game.input(gestures);
             int width = 0, height = 0;
             checked(SDL_GetWindowSizeInPixels(window.get(), &width, &height));
             if (width <= 0 || height <= 0 ||

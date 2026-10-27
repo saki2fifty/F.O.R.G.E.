@@ -1038,4 +1038,20 @@ old failure reason. Find named ancestor conflicts through Hierarchy name/ID sear
 
 ### 89 — Two-finger gestures
 
-`Scenes/89-touch-gestures.scene.json` is an original16x10 canvas/camera with five project gesture actions. Optional `CodeExamples/TouchGestures.cpp/.hpp` reads fixed relative pan/log-pinch/screen-clockwise rotation through the exact SDK and changes ordinary transforms on its scoped marker. Register `forge_register_system_TouchGestures`; the installed `touch_gestures_gameplay` target wraps it as `project.touch_gestures`. Apply each delta once, without dt or an Active-held gate: a quick gesture retains its deltas after ending. The example bounds scale0.25..4 and pan X±32/Y±20. Sources are unchanged; Stop/restart restore authored transforms. Physical input requires desktop driver support and Game capture in the editor; UI-owned gestures remain with UI. No single-finger classification/inertia/pen/sensor/mobile-host claim.
+`Scenes/89-touch-gestures.scene.json` is an original16x10 canvas/camera with five project gesture actions. Optional `CodeExamples/TouchGestures.cpp/.hpp` reads fixed relative pan/log-pinch/screen-clockwise rotation through the exact SDK and changes ordinary transforms on its scoped marker. Register `forge_register_system_TouchGestures`; the installed `touch_gestures_gameplay` target wraps it as `project.touch_gestures`. Apply each delta once, without dt or an Active-held gate: a quick gesture retains its deltas after ending. The example bounds scale0.25..4 and pan X±32/Y±20. Sources are unchanged; Stop/restart restore authored transforms. Physical input requires desktop driver support and Game capture in the editor; UI-owned gestures remain with UI. No inertia/pen/sensor/mobile-host claim. Single-finger classifications use the separate Gallery91.
+
+### 91 — Tap, hold and swipe
+
+`Scenes/91-single-touch-gestures.scene.json` supplies an original canvas/camera and
+seven saved digital actions. Register `forge_register_system_SingleTouch` from
+`CodeExamples/SingleTouch.cpp` with `TouchGestures.hpp`, or build the installed
+`touch_gestures_gameplay` module that includes both89 and91 systems. Tap turns the
+Sprite90degrees, Double tap resets transforms, Long press toggles scale1/.5 and
+swipes move one unit within X±6/Y±3. Each recognition is a pressed/released pulse;
+Double tap also emits Tap, so the example gives reset precedence. Console can
+monitor actions without code. Capture Game input for native touch; use one finger
+and lift before another gesture. Save Settings/Scene, select91 as startup, build
+the optional system and export normally. Stop/restart restores authored values.
+Thresholds are fixed:250ms/8px Tap,350ms/24px consecutive-release Double tap,500ms/8px
+Long press and750ms/64px Swipe in window coordinates. Physical Windows touch, full
+Main/game and graphical exported-EXE acceptance remain separately pending.

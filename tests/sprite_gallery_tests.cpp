@@ -93,7 +93,9 @@ int main(int argc, char** argv) {
         const auto banks = asset(catalog, "Scenes/87-sprite-frame-regions.scene.json");
         const auto touch = asset(catalog, "Scenes/88-touch-input.scene.json");
         const auto gestures = asset(catalog, "Scenes/89-touch-gestures.scene.json");
-        const std::array roots{basics, frames, panels, regions, banks, touch, gestures};
+        const auto single_touch = asset(catalog, "Scenes/91-single-touch-gestures.scene.json");
+        const std::array roots{basics, frames, panels,   regions,
+                               banks,  touch,  gestures, single_touch};
         const auto badge = asset(catalog, "Assets/Sprites/Badge.png");
         const auto sheet = asset(catalog, "Assets/Sprites/SignalSheet.png");
         const auto badge_material = asset(catalog, "Assets/Sprites/Badge.material.json");
@@ -136,20 +138,23 @@ int main(int argc, char** argv) {
         EngineContext authored;
         Scene scene(authored.world());
         std::map<EntityId, SpriteRenderer> fill_values, region_values, bank_values, touch_values,
-            gesture_values;
+            gesture_values, single_values;
         for (const auto id : roots) {
             scene.load(root / catalog.records().at(id).source);
             const auto rendered = extract_render_scene(scene.effective_document());
             check(rendered.diagnostics.empty() && rendered.meshes.empty() &&
-                      rendered.sprites.size() == (id == touch || id == gestures ? 1u
-                                                  : id == basics || id == regions || id == banks
-                                                      ? 6u
-                                                      : 5u) &&
+                      rendered.sprites.size() ==
+                          (id == touch || id == gestures || id == single_touch ? 1u
+                           : id == basics || id == regions || id == banks      ? 6u
+                                                                               : 5u) &&
                       rendered.cameras.size() == 1,
                   "Gallery Sprite Scene did not use typed extraction");
             if (id == gestures)
                 for (const auto& sprite : rendered.sprites)
                     gesture_values.emplace(sprite.entity, sprite.renderer);
+            if (id == single_touch)
+                for (const auto& sprite : rendered.sprites)
+                    single_values.emplace(sprite.entity, sprite.renderer);
             if (id == touch)
                 for (const auto& sprite : rendered.sprites)
                     touch_values.emplace(sprite.entity, sprite.renderer);
@@ -180,7 +185,7 @@ int main(int argc, char** argv) {
         const auto relocated = scratch / "relocated sprite content";
         std::filesystem::rename(package, relocated);
         const auto loaded = open_runtime_content(relocated, {"windows", "d3d12"});
-        check(loaded.records().size() == 14,
+        check(loaded.records().size() == 15,
               "Sprite content dependency closure is incomplete or oversized");
         for (const auto& file : std::filesystem::recursive_directory_iterator(relocated)) {
             if (!file.is_regular_file())
@@ -234,6 +239,12 @@ int main(int argc, char** argv) {
             packed_gestures.emplace(sprite.entity, sprite.renderer);
         check(gesture_values.size() == 1 && packed_gestures == gesture_values,
               "Relocated source-free content lost original gesture canvas or marker");
+        restored.restore_snapshot(load_game_scene(relocated, {single_touch}));
+        std::map<EntityId, SpriteRenderer> packed_single;
+        for (const auto& sprite : extract_render_scene(restored.effective_document()).sprites)
+            packed_single.emplace(sprite.entity, sprite.renderer);
+        check(single_values.size() == 1 && packed_single == single_values,
+              "Relocated source-free content lost the single-touch canvas or marker");
         std::cout << "Gallery71/72/73/78 real texture/material/region/fill/animation consumers and "
                      "relocated "
                      "source-free content closure passed\n";

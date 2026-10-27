@@ -12,6 +12,21 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Single-touch classifications reuse `touch_input` for independent exact timestamp/
+coordinate boundaries, native queued early-UP handling, out-and-back movement,
+cancel/multicontact/device/clock/reset and both latch domains. Its real GameInput/
+Play fixture also exercises post-drain long-press and quick Tap forwarding.
+`runtime_ui_input` retains UI/capture separation. Native Settings tests include
+`settings_lifecycle_single`, plus existing touch/relative gesture modes; selectors
+derive navigation from actual discovery rather than a hard-coded tail offset.
+`touch_gestures_process` and `native_sdk_touch_gestures_installed` exercise Gallery89
+and91 in both ordinary/SDK hosts, public pressed-edge transforms, invalid-batch
+preservation, restart and relocated installed SDKs. `sprite_gallery` packages and
+loads Gallery91 without project/image sources. `mcp_touch_gestures_stdio` discovers,
+binds/saves and consumes relative and classification controls through both envelopes.
+These remain portable tests; physical touch/latency, full Main/game and native
+Windows graphical executable acceptance require their separate queued gates.
+
 Native dispatch tracing reuses the CPU/compile-out/UI/ordinary/SDK/transport and
 both MCP profile tests below. Core checks include actual nested native dispatches,
 timer skips,64-depth overflow, invalid/long UTF-8 labels, cancellation, Clear epochs,
@@ -1563,4 +1578,4 @@ Main/physical hardware and new Inspector captures remain separate acceptance gat
 
 `touch_input` includes queued native SDL centroid/log-distance/angle-aspect and branch-crossing cases, third-contact/pair replacement/coincidence/reset, quick-gesture edges and independent fixed/control one-latch consumption. Actual keep-routing release covers pending gesture neutralization. Settings touch/gesture cases select native controls at3scales; runtime_ui_input retains Rml capture ownership.
 
-`touch_gestures_process` and `native_sdk_touch_gestures_installed` exercise original Gallery89's exact C++ canvas, one-time application, bounded pan/scale, both Play hosts, source isolation and neutral restart; the installed module uses one shared example source. `mcp_touch_gestures_stdio` covers discovery/units, native settings rejection/save and exact paused Step observations in both framings. Sprite Gallery cooks/includes89 and tests its relocated source-free identity/values. Existing raw88 consumers remain covered. Native Main/game_main/MSVC, actual touch hardware and graphical EXE acceptance are separate pending gates.
+`touch_gestures_process` and `native_sdk_touch_gestures_installed` exercise original Gallery89/91's exact C++ canvases, one-time application, bounded pan/scale, both Play hosts, source isolation and neutral restart; the installed module builds the shared example sources. `mcp_touch_gestures_stdio` covers discovery/units, native settings rejection/save and exact paused Step observations in both framings. Sprite Gallery cooks/includes89 and tests its relocated source-free identity/values. Existing raw88 consumers remain covered. Native Main/game_main/MSVC, actual touch hardware and graphical EXE acceptance are separate pending gates.

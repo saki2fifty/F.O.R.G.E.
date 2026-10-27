@@ -98,6 +98,9 @@ const std::vector<InputControl>& input_controls() {
         result.push_back({"touch.gesture.active", false, true});
         for (const auto* axis : {"pan_x", "pan_y", "pinch", "rotation"})
             result.push_back({std::string("touch.gesture.") + axis, true, false});
+        for (const auto* pulse : {"tap", "double_tap", "long_press", "swipe_left", "swipe_right",
+                                  "swipe_up", "swipe_down"})
+            result.push_back({std::string("touch.gesture.") + pulse, false, true});
         return result;
     }();
     return controls;

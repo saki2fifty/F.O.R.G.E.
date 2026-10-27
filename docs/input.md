@@ -191,7 +191,7 @@ agent-only input transformations. See[the input guide](../manual/editor/input.md
 
 Editor touch follows current Game capture and image rectangle. GameInput observes PlaySession's local neutral-queue serial, so a UI/automation/overflow reset invalidates platform contacts before subsequent motion. This is a derived queue observation, not another authoritative input state. Focus/capture/Stop also reset contacts. SDL queues touch-generated mouse events before raw finger events. RuntimeUiInput's existing UI-button ownership blocks raw contacts during a claimed pointer gesture; unclaimed contacts reach GameInput, which suppresses synthetic mouse gameplay duplicates. Editor interaction outside capture retains SDL mouse emulation.
 
-The standalone host admits focused, unclaimed raw touch against the full window, with no relative mouse requirement. Existing Rml pointer callbacks claim a touch gesture before its raw finger DOWN; UI claims clear gameplay contacts and neutralize input. While UI owns its pointer gesture, other fingers cannot join gameplay. Focus/cursor/session changes clear contacts. Mouse-generated touch and touch-generated gameplay mouse values are filtered. Single-finger gesture classifiers, sensors/pen data, multiple-player device assignment and mobile hosting are not implemented.
+The standalone host admits focused, unclaimed raw touch against the full window, with no relative mouse requirement. Existing Rml pointer callbacks claim a touch gesture before its raw finger DOWN; UI claims clear gameplay contacts and neutralize input. While UI owns its pointer gesture, other fingers cannot join gameplay. Focus/cursor/session changes clear contacts. Mouse-generated touch and touch-generated gameplay mouse values are filtered. Sensors/pen data, multiple-player device assignment and mobile hosting are not implemented.
 
 Original Gallery88 and `TouchInput.hpp/TouchCursor.cpp` use four saved ActionIds, native fixed queries and ordinary Sprite/Transform values. The installed sample builds the same example source rather than copying behavior. Source-free content retains the canvas/image identity; physical/native Windows acceptance is separate.
 
@@ -201,6 +201,50 @@ SdlTouches derives one stable pair from its existing bounded contacts. It retain
 
 `touch.gesture.pan_x/pan_y` are relative normalized centroid deltas, positive right/down. `pinch` is the difference of logarithmic pixel distances (sum deltas then exponentiate for scale); `rotation` is the shortest wrapped screen-clockwise angular difference in radians. Pixel-space vectors use the Game image's actual aspect. Subpixel/coincident pairs suspend scale/rotation and rebase after separation; finite guards avoid division/overflow. Relative controls reuse RuntimeInput validation/accumulation and independent fixed/control latches. The active digital state does not gate already emitted relative contributions: a gesture ending before a tick retains its movement, like mouse/wheel input. Explicit neutral input resets discard pending deltas under the existing owner; pair/layout rebasing alone does not rewrite previously admitted input.
 
-Control discovery describes units/ranges; Settings binds through its existing collection/combo, with no deadzone/response fields for relative controls. MCP submits the same generation-checked semantic events and can use Pause/Step while physical capture is released for exact one-latch observation. Synthetic semantic contacts do not invoke SDL recognition; agents may inject the desired semantic gesture controls directly. GameInput's keep-routing release now neutralizes pending input just like its checked peer while retaining future menu routing, so old deltas cannot survive capture release.
+Control discovery describes units/ranges; Settings binds through its existing collection/combo, with no deadzone/response fields for relative controls. MCP submits the same generation-checked semantic events. Ordinary Play can use Pause/Step while physical capture is released for exact one-latch observation. SDK Step uses its authoritative cursor-release path and neutralizes pending input; use running playback for SDK pulse consumption. Synthetic semantic contacts do not invoke SDL recognition; agents may inject the desired semantic gesture controls directly. GameInput's keep-routing release now neutralizes pending input just like its checked peer while retaining future menu routing, so old deltas cannot survive capture release.
 
-Original Gallery89 and its installed public C++ sample pan/scale/rotate ordinary authored transforms in the runtime copy, apply deltas once without dt, clamp example pan/scale and restore source at restart. There is no engine camera/zoom policy, inertia, single-finger swipe/long-press/double-tap classification or new persistence format. Native Windows/full Main/game_main and physical/graphical acceptance remain separately queued.
+Original Gallery89 and its installed public C++ sample pan/scale/rotate ordinary authored transforms in the runtime copy, apply deltas once without dt, clamp example pan/scale and restore source at restart. There is no engine camera/zoom policy, inertia or new persistence format. Native Windows/full Main/game_main and physical/graphical acceptance remain separately queued.
+
+## Single-contact classifications
+
+The same SdlTouches owner emits digital `touch.gesture.tap`, `double_tap`,
+`long_press` and `swipe_left/right/up/down`. Every recognition is an immediate1/0
+pulse. RuntimeInput retains its pressed/released edges once in each eligible fixed
+or control latch; repeated identical pulses before one latch coalesce into one
+edge pair, following existing digital semantics. This is not a held button or a separate action system. Settings,
+rebinding, C++ and MCP use existing control discovery and digital validation.
+
+A tap releases within250ms and never moves more than8 window-coordinate pixels
+from its start. Two consecutive taps on the same touch device additionally emit
+double_tap if their releases are within350ms and24pixels; both taps also emit Tap
+immediately. The second clears the pair, so a third starts another pair. Long press
+fires once at500ms while maximum excursion remains within8pixels; it suppresses
+release Tap/Swipe. A swipe releases within750ms with at least64pixels net movement;
+the dominant axis selects direction, ties horizontal, positiveY down. These fixed
+first-profile thresholds use Game/window coordinates, not framebuffer resolution
+or simulation-scaled time. Configurable thresholds, inertia and drag recognition
+are unavailable.
+
+Only one candidate and one previous tap are retained. A second admitted contact
+cancels single-contact classification until all contacts lift and a fresh down
+starts; existing two-contact deltas retain their semantics. Cancel, invalid candidate
+samples, backward observed timestamps, focus/capture/neutral/reset and viewport or
+window changes discard candidates and prior-tap history. Maximum excursion prevents
+an out-and-back movement from becoming a tap. Final valid UP coordinates participate
+in classification without changing the existing raw contact release values.
+
+Pinned SDL event timestamps and SDL_GetTicksNS share the nanosecond clock. Both
+hosts call the owner's hold advance after draining events, so an already queued
+early UP is processed before a delayed frame can emit a hold. Native clock reads
+are skipped without an eligible pending hold. GameInput observes the existing
+neutral serial again at that boundary. No new clock owner, thread, device registry
+or persistent format is introduced. Semantic MCP contacts do not run the SDL
+classifier; agents submit intended recognition1/0 pulses directly.
+
+Gallery91 and `CodeExamples/SingleTouch.cpp` use seven saved ActionIds, public SDK
+pressed edges and ordinary runtime transforms. Tap turns90degrees, Double tap
+restores transforms, Long press toggles scale1/.5 and swipes move one world unit
+within the canvas bounds. The installed `touch_gestures_gameplay` sample wraps both
+Gallery89 and91 systems, each scoped to its own Scene/entity. SDK values, C tables,
+ABI and dependency pins remain unchanged. Portable timing/queued-event tests do
+not establish physical touch latency, native Windows/Main or graphical export.

@@ -69,7 +69,41 @@ depends on the device and driver.
 - Unexpected contact number: a lower-numbered finger lifted and a new finger reused that free slot. Use contact-down/release transitions to track your own gesture.
 - Coordinates change near corners: use separate axis1 actions with zero deadzone and scale1.
 - Marker stays still: the Scene alone displays the authored marker. Build/register the optional C++ system, retain the Gallery ActionIds and capture Game input.
-- Native touch contacts are supported in the desktop host. Two-finger pan/pinch/rotation are available. Single-finger gesture classifiers, pen data, sensors, mobile application packaging and assignment of devices to multiple players are unavailable.
+- Native touch contacts, two-finger pan/pinch/rotation and single-finger classifications are supported in the desktop host. Pen data, sensors, mobile application packaging and assignment of devices to multiple players are unavailable.
+
+## Tap, hold and swipe actions
+
+1. Stop Play and open **Tools → Project Settings → Input actions**.
+2. Create a **digital** action and choose **touch.gesture.tap**, **touch.gesture.double_tap**, **touch.gesture.long_press**, or **touch.gesture.swipe_left/right/up/down** as its Control. Each direction is a separate control. Save Settings.
+3. Start Play, capture Game input and use one finger inside the image. A recognized gesture produces a pressed/released pulse for the next eligible tick or control frame; it does not stay held. Read the action's pressed edge in C++.
+4. Use a quick tap, two nearby taps, a stationary half-second hold, or a swipe. Lift before beginning another gesture. A second admitted finger cancels single-finger recognition until all fingers lift.
+
+Tap must end within250ms and stay within8 window-coordinate pixels of its start.
+Two taps additionally produce Double tap when their releases are within350ms and
+24pixels; each also produces Tap immediately. Bind the gesture your game needs,
+or give Double tap precedence if you use both. A hold produces Long press once
+after500ms while staying within8pixels. A swipe must finish within750ms and move
+at least64pixels; the larger horizontal or vertical movement selects its direction.
+Thresholds are fixed and use window coordinates, independently of Game render
+resolution. Capture/focus, layout or window changes cancel pending recognition.
+Repeated identical recognitions before one tick share one pressed/released pair.
+For games using Project Code, test gestures while Play is running: Step can
+neutralize pending input when releasing game capture.
+
+### Visual example
+
+Open **Scenes/91-single-touch-gestures.scene.json** in FeatureGallery. Its seven
+Single touch actions are already configured. Compile **CodeExamples/SingleTouch.cpp**
+with **TouchGestures.hpp** and register `forge_register_system_SingleTouch(host)`.
+The installed **touch_gestures_gameplay** sample includes this system and the
+two-finger example; each affects only its own Gallery marker.
+
+Tap turns the Sprite90degrees, Double tap restores it, Long press toggles its size,
+and directional swipes move it one world unit. The example bounds X to±6 and Y to±3.
+Scene-only Play still lets you inspect action values in Console. Save Settings and
+Scene, build/register the optional system, choose this startup Scene and export
+normally. Stop/restart restores authored values. The engine reports gestures;
+these movement and transform choices belong to the example code.
 
 ## Two-finger pan, pinch and rotation
 

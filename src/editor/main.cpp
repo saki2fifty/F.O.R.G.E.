@@ -2494,6 +2494,7 @@ int main(int argc, char** argv) {
                 if (event.type == SDL_EVENT_QUIT)
                     files.request({forge::EditorFiles::Command::Quit, {}, {}});
             }
+            game_input.finish_events(play);
             scene_asset_drop.poll(scene, files, editor.selection,
                                   play.active() || sdk_build->busy() || content_files.busy() ||
                                       authored_components.busy(),

@@ -87,7 +87,7 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '78-sprite-image-regions.scene.json',
         '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json',
         '81-moving-tile-maps.scene.json', '82-tile-map-triggers.scene.json',
-        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json', '90-audio-echo.scene.json'} <= {p.name for p in scenes}
+        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json', '90-audio-echo.scene.json', '91-single-touch-gestures.scene.json'} <= {p.name for p in scenes}
 tile_scene = json.loads((project_root / 'Scenes/74-tile-maps.scene.json').read_text(encoding='utf-8'))
 maps = [row['components']['forge.tile_map_renderer'] for row in tile_scene['entities']
         if 'forge.tile_map_renderer' in row['components']]
@@ -476,6 +476,11 @@ try:
             assert not any(item['loop'] for item in sources)
             assert {item['echo_seconds'] for item in sources if item['echo_enabled']} == {.25, .5}
             assert all(item['clip'] == by_source['Assets/ProcessingMono.wav']['id'] for item in sources)
+        if path.name.startswith('91-'):
+            assert len(loaded['entities']) == 2
+            assert [a['bindings'][0]['control'] for a in project['input']['actions']
+                    if a['name'].startswith('Single touch ')] == [
+                'touch.gesture.'+f for f in ('tap','double_tap','long_press','swipe_left','swipe_right','swipe_up','swipe_down')]
         if path.name.startswith('89-'):
             assert len(loaded['entities']) == 2
             assert [a['bindings'][0]['control'] for a in project['input']['actions']

@@ -217,7 +217,9 @@ struct PlayAutomation {
             }));
         methods.push_back(automation_method(
             "play.controls",
-            "List actual semantic controls and value kinds. Touch gesture pan_x/y are "
+            "List actual semantic controls and value kinds. Single-contact tap, double_tap, "
+            "long_press and swipe_left/right/up/down are digital recognition pulses; submit "
+            "a 1/0 pair to test them. Touch gesture pan_x/y are "
             "normalized image deltas, pinch is log-scale delta, rotation is clockwise "
             "radians. Relative values accumulate for one latch in their input domain.",
             "play.read", automation_object(), false, [&files](const Json&) {

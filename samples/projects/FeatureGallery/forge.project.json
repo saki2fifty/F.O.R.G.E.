@@ -98,6 +98,76 @@
             "control": "touch.gesture.rotation"
           }
         ]
+      },
+      {
+        "id": "16000000-1600-4160-8160-000000000010",
+        "name": "Single touch tap",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.gesture.tap"
+          }
+        ]
+      },
+      {
+        "id": "16000000-1600-4160-8160-000000000011",
+        "name": "Single touch double_tap",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.gesture.double_tap"
+          }
+        ]
+      },
+      {
+        "id": "16000000-1600-4160-8160-000000000012",
+        "name": "Single touch long_press",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.gesture.long_press"
+          }
+        ]
+      },
+      {
+        "id": "16000000-1600-4160-8160-000000000013",
+        "name": "Single touch swipe_left",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.gesture.swipe_left"
+          }
+        ]
+      },
+      {
+        "id": "16000000-1600-4160-8160-000000000014",
+        "name": "Single touch swipe_right",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.gesture.swipe_right"
+          }
+        ]
+      },
+      {
+        "id": "16000000-1600-4160-8160-000000000015",
+        "name": "Single touch swipe_up",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.gesture.swipe_up"
+          }
+        ]
+      },
+      {
+        "id": "16000000-1600-4160-8160-000000000016",
+        "name": "Single touch swipe_down",
+        "kind": "digital",
+        "bindings": [
+          {
+            "control": "touch.gesture.swipe_down"
+          }
+        ]
       }
     ]
   },

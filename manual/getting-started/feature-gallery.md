@@ -212,3 +212,12 @@ Open **Scenes/89-touch-gestures.scene.json** for a canvas Sprite and the project
 ## Audio echo
 
 Open **Scenes/90-audio-echo.scene.json** for a dry recording and two echo settings. Only the dry source starts automatically, and each clip plays once. Use **Live sound → Play / Restart** on one source at a time to compare the original recording with quarter-second or half-second repeats. Source Pause freezes a remaining echo; Resume continues it, while Stop clears it. Save authored settings before exporting. See [Audio](../editor/audio.md) for the controls and limits.
+
+## Tap, hold and swipe
+
+Open **Scenes/91-single-touch-gestures.scene.json**. The seven Single touch actions
+are saved in the project. The optional **CodeExamples/SingleTouch.cpp** system turns
+the Sprite on Tap, resets it on Double tap, resizes it on Long press and moves it
+on directional swipes. Register its matching module and capture Game input, or
+monitor actions in Console without code. See [Touch input](../editor/touch-input.md)
+for timing limits, C++ setup and export.
