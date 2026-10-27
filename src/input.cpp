@@ -35,16 +35,36 @@ std::string radial_partner(const InputBinding& binding) {
 bool binding_reads(const InputBinding& binding, const std::string& control) {
     return binding.control == control || (binding.radial && radial_partner(binding) == control);
 }
+void validate_response(double deadzone, double outer, double exponent) {
+    if (!std::isfinite(deadzone) || deadzone < 0 || deadzone >= 1 || !std::isfinite(outer) ||
+        outer < 0 || outer >= 1 - deadzone || !std::isfinite(exponent) || exponent < .1 ||
+        exponent > 8)
+        throw std::runtime_error("Input requires nonnegative inner/outer deadzones with positive "
+                                 "remaining travel and response exponent 0.1..8");
+}
+double response_magnitude(double magnitude, double deadzone, double outer, double exponent) {
+    const auto mapped = std::clamp((magnitude - deadzone) / (1 - deadzone - outer), 0.0, 1.0);
+    return exponent == 1 ? mapped : std::pow(mapped, exponent);
+}
 } // namespace
 
-InputVector input_stick(double x, double y, double deadzone) {
-    if (!std::isfinite(x) || !std::isfinite(y) || std::abs(x) > 1 || std::abs(y) > 1 ||
-        !std::isfinite(deadzone) || deadzone < 0 || deadzone >= 1)
-        throw std::runtime_error("Invalid stick sample or dead zone");
+double input_axis(double value, double deadzone, double outer, double exponent) {
+    validate_response(deadzone, outer, exponent);
+    if (!std::isfinite(value) || std::abs(value) > 1)
+        throw std::runtime_error("Invalid analog axis sample");
+    return std::copysign(response_magnitude(std::abs(value), deadzone, outer, exponent), value);
+}
+InputVector input_stick(double x, double y, double deadzone, double outer, double exponent) {
+    validate_response(deadzone, outer, exponent);
+    if (!std::isfinite(x) || !std::isfinite(y) || std::abs(x) > 1 || std::abs(y) > 1)
+        throw std::runtime_error("Invalid stick sample");
     const auto length = std::hypot(x, y);
     if (length <= deadzone || length == 0)
         return {};
-    const auto scale = (std::min(length, 1.0) - deadzone) / ((1 - deadzone) * length);
+    const auto scale =
+        outer == 0 && exponent == 1
+            ? (std::min(length, 1.0) - deadzone) / ((1 - deadzone) * length)
+            : response_magnitude(std::min(length, 1.0), deadzone, outer, exponent) / length;
     return {x * scale, y * scale};
 }
 const std::vector<InputControl>& input_controls() {
@@ -147,6 +167,12 @@ InputMap::InputMap(Json source) : source_(std::move(source)) {
                                  b.value("y", 0.0), b.value("deadzone", 0.0),
                                  b.value("radial", false)};
             const auto& control = input_control(binding.control);
+            for (const auto* field : {"outer_deadzone", "response_exponent"})
+                if (b.contains(field) && !b.at(field).is_number())
+                    throw std::runtime_error("Input binding response values must be numeric");
+            binding.outer_deadzone = b.value("outer_deadzone", 0.0);
+            binding.response_exponent = b.value("response_exponent", 1.0);
+            validate_response(binding.deadzone, binding.outer_deadzone, binding.response_exponent);
             binding.threshold = b.value("threshold", .5);
             const auto direction = b.value("direction", Json(1));
             if (!direction.is_number_integer() || (direction != 1 && direction != -1))
@@ -154,7 +180,6 @@ InputMap::InputMap(Json source) : source_(std::move(source)) {
             binding.direction = direction.get<int>();
             if (!std::isfinite(binding.x) || !std::isfinite(binding.y) ||
                 std::abs(binding.x) > 100 || std::abs(binding.y) > 100 ||
-                !std::isfinite(binding.deadzone) || binding.deadzone < 0 || binding.deadzone >= 1 ||
                 (action.kind != ActionKind::Axis2 && binding.y != 0) ||
                 (action.kind == ActionKind::Digital &&
                  (binding.x != 1 || binding.y != 0 ||
@@ -165,7 +190,9 @@ InputMap::InputMap(Json source) : source_(std::move(source)) {
                 (action.kind != ActionKind::Digital &&
                  (binding.direction != 1 || binding.threshold != .5)) ||
                 (binding.control.ends_with("_trigger") && binding.direction != 1) ||
-                ((control.relative || control.digital) && binding.deadzone != 0))
+                ((control.relative || control.digital) &&
+                 (binding.deadzone != 0 || binding.outer_deadzone != 0 ||
+                  binding.response_exponent != 1)))
                 throw std::runtime_error("Invalid input binding scale/deadzone or digital control");
             if (binding.radial && binding.control != "pad.left_x" &&
                 binding.control != "pad.left_y" && binding.control != "pad.right_x" &&
@@ -350,12 +377,11 @@ ActionState RuntimeInput::evaluate(const InputAction& action, bool relative) con
                            ? position->second
                            : 0.0;
             };
-            const auto stick = input_stick(sample(prefix + "x"), sample(prefix + "y"), b.deadzone);
+            const auto stick = input_stick(sample(prefix + "x"), sample(prefix + "y"), b.deadzone,
+                                           b.outer_deadzone, b.response_exponent);
             value = b.control.back() == 'x' ? stick.x : stick.y;
         } else if (!c.relative && !c.digital)
-            value = std::abs(value) <= b.deadzone
-                        ? 0
-                        : std::copysign((std::abs(value) - b.deadzone) / (1 - b.deadzone), value);
+            value = input_axis(value, b.deadzone, b.outer_deadzone, b.response_exponent);
         if (action.kind == ActionKind::Digital)
             state.held |= c.digital ? value != 0 : value * b.direction >= b.threshold;
         else {

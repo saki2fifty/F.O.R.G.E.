@@ -255,6 +255,21 @@ void run(const std::filesystem::path& root) {
                       .state == "failed" &&
               host.settings().at("display").at("width") == 1280 && applications == 2,
           "Failed setting was committed or platform was not restored");
+    check(request({{"operation", "set_settings"},
+                   {"values",
+                    {{"input",
+                      {{"bindings",
+                        {{action.str(), Json::array({{{"control", "pad.left_trigger"},
+                                                      {"outer_deadzone", .1},
+                                                      {"response_exponent", 2}}})}}}}}}}})
+                  .state == "succeeded",
+          "Conditioned player binding was rejected");
+    const auto conditioned_settings = host.settings();
+    check(request(
+              {{"operation", "set_settings"}, {"values", {{"input", {{"trigger_deadzone", .95}}}}}})
+                      .state == "failed" &&
+              host.settings() == conditioned_settings,
+          "Conflicting player deadzones changed last-good settings");
     check(request({{"operation", "rebind_begin"}, {"action", action}, {"index", 0}}).state ==
                   "succeeded" &&
               game.active().simulation.input_status().at("rebind_listening") == true,

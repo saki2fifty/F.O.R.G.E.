@@ -32,7 +32,7 @@ void ProjectSettings::validate(const Json& data) {
     const double hz = data.value("simulation_hz", 60.0);
     if (!std::isfinite(hz) || hz < 1 || hz > 240)
         throw std::runtime_error("Project simulation frequency must be 1..240 Hz");
-    (void)InputMap(data.at("input"));
+    const InputMap input(data.at("input"));
     if (!data.at("startup_scene").is_null()) {
         const auto& startup = data.at("startup_scene");
         (void)startup.at("asset").get<AssetId>();
@@ -49,8 +49,9 @@ void ProjectSettings::validate(const Json& data) {
             config.layers = p.at("layers").get<std::array<std::string, 32>>();
         config.validate();
     }
-    if (data.contains("game"))
-        validate_game_settings(data.at("game"));
+    if (data.contains("game")) {
+        (void)resolve_game_settings(data.at("game"), Json::object(), input);
+    }
     validate_project_modules(data);
 }
 ProjectSettings::ProjectSettings(std::filesystem::path root, Json configuration)

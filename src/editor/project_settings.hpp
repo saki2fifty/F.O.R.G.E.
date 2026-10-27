@@ -186,6 +186,17 @@ class ProjectSettingsEditor {
                 if (ImGui::InputDouble("Mouse sensitivity", &sensitivity, .1, 1, "%.2f"))
                     game["input"]["mouse_sensitivity"] = sensitivity;
                 ui::help("Initial mouse input multiplier, 0.01 to 100.");
+                for (const auto& [key, label] :
+                     {std::pair{"stick_deadzone", "Stick inner deadzone"},
+                      std::pair{"trigger_deadzone", "Trigger inner deadzone"}}) {
+                    double deadzone = game["input"].value(
+                        key, std::string_view(key) == "stick_deadzone" ? .15 : .05);
+                    if (ImGui::InputDouble(label, &deadzone, 0, 0, "%.3f"))
+                        game["input"][key] = deadzone;
+                    ui::help("Initial game-wide inner deadzone for matching analog bindings. "
+                             "Player preferences can override it. Must be nonnegative and leave "
+                             "positive travel with each binding's outer deadzone.");
+                }
                 ImGui::Text("Save schema: %d", game.at("save_schema").get<int>());
                 ui::help("Save schema changes need a matching gameplay migration; not a cosmetic "
                          "version number.");
@@ -369,8 +380,10 @@ class ProjectSettingsEditor {
             for (std::size_t i = 0; i < actions.size(); ++i) {
                 auto& a = actions[i];
                 ImGui::PushID(a.at("id").get_ref<const std::string&>().c_str());
-                if (ImGui::TreeNode("Action", "%s",
-                                    a.at("name").get_ref<const std::string&>().c_str())) {
+                const bool expanded = ImGui::TreeNode(
+                    "Action", "%s", a.at("name").get_ref<const std::string&>().c_str());
+                FORGE_UI_PROBE("settings:input:action:" + a.at("id").get<std::string>());
+                if (expanded) {
                     ui::help("Action configuration. Expanding does not change bindings.");
                     char name[129]{};
                     SDL_strlcpy(name, a.at("name").get<std::string>().c_str(), sizeof(name));
@@ -429,6 +442,8 @@ class ProjectSettingsEditor {
                                                           binding.at("control") == c.id)) {
                                         binding["control"] = c.id;
                                         binding["deadzone"] = 0;
+                                        binding.erase("outer_deadzone");
+                                        binding.erase("response_exponent");
                                         binding.erase("radial");
                                         binding.erase("threshold");
                                         binding.erase("direction");
@@ -458,6 +473,26 @@ class ProjectSettingsEditor {
                         }
                         const auto& physical =
                             input_control(binding.at("control").get<std::string>());
+                        if (!physical.digital && !physical.relative) {
+                            double outer = binding.value("outer_deadzone", 0.0);
+                            if (ImGui::InputDouble("Outer deadzone", &outer, 0, 0, "%.3f"))
+                                binding["outer_deadzone"] = outer;
+                            FORGE_UI_PROBE("settings:input:outer-deadzone");
+                            ui::help(
+                                "Reach full output before the stick/trigger limit. For example, "
+                                "0.1 reaches full at 90% travel. Inner plus outer must stay below "
+                                "one. Game defaults/player preferences can replace the inner "
+                                "value.");
+                            double exponent = binding.value("response_exponent", 1.0);
+                            if (ImGui::InputDouble("Response exponent", &exponent, 0, 0, "%.3f"))
+                                binding["response_exponent"] = exponent;
+                            FORGE_UI_PROBE("settings:input:response-exponent");
+                            ui::help(
+                                "1 is linear. Higher values give finer control near the center; "
+                                "values below 1 respond faster. Range 0.1 to 8. Applies after "
+                                "deadzones and before x/y scales or digital press thresholds. "
+                                "Radial bindings shape magnitude and preserve direction.");
+                        }
                         const bool stick =
                             physical.id == "pad.left_x" || physical.id == "pad.left_y" ||
                             physical.id == "pad.right_x" || physical.id == "pad.right_y";

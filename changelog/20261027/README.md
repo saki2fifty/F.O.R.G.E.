@@ -30,3 +30,12 @@ Local source; Windows verification and numbered delivery remain pending.
   Inspection never advances gameplay; native lifetime counters retain their meaning.
 - Linux checks cover native order/counters, lifecycle, both Play hosts and MCP,
   and the real ImGui controls. Windows execution and authentic captures are queued.
+
+## Analog input response
+
+- Continuous analog bindings support an outer deadzone and power response exponent
+  through Project Settings, saved input maps and normal gameplay/MCP observations.
+- Radial sticks preserve direction; buttons and relative mouse retain their current
+  mapping. Invalid effective ranges reject before settings publication.
+- Rebinding clears incompatible processing. Windows/physical controller response
+  review and an authentic updated settings capture remain queued.

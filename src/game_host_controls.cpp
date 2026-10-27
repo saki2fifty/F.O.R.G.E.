@@ -285,6 +285,8 @@ std::optional<Json> GameHostControls::execute(std::uint64_t token, const Json& c
             binding["control"] = rebind_candidate_->control;
             binding.erase("radial");
             binding.erase("deadzone");
+            binding.erase("outer_deadzone");
+            binding.erase("response_exponent");
             binding.erase("threshold");
             binding.erase("direction");
             const auto& control = input_control(rebind_candidate_->control);

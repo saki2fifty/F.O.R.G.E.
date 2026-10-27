@@ -15,6 +15,7 @@ NAVIGATION_ONLY = sys.argv[7:] == ['--navigation-only']
 MAP_PROFILE_ONLY = sys.argv[7:] == ['--map-profile-only']
 TIME_ONLY = sys.argv[7:] == ['--time-only']
 PROFILE_ONLY = sys.argv[7:] == ['--profile-only']
+ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 
 
 @contextmanager
@@ -104,6 +105,37 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if ANALOG_ONLY:
+            action = '12345678-1234-4234-8234-123456789abc'
+            bindings = [dict(control='pad.left_x', x=1, y=0, radial=True, deadzone=.2,
+                             outer_deadzone=.1, response_exponent=2),
+                        dict(control='pad.left_y', x=0, y=1, radial=True, deadzone=.2,
+                             outer_deadzone=.1, response_exponent=2)]
+            mapping = dict(version=1, actions=[dict(id=action, name='Analog aim', kind='axis2', bindings=bindings)])
+            changed = edit_settings('forge_project_settings_edit', patch=[dict(op='replace', path='/input', value=mapping)])
+            baseline = read('forge_project_settings_read')
+            assert baseline['dirty'] and baseline['draft']['input'] == mapping, changed
+            rejected = mutate('forge_project_settings_edit', state=baseline['state'],
+                              patch=[dict(op='replace', path='/input/actions/0/bindings/0/outer_deadzone', value=.9)])
+            assert not rejected['ok'] and read('forge_project_settings_read')['state'] == baseline['state']
+            edit_settings('forge_project_settings_save')
+            stored = json.loads((root / 'Game/forge.project.json').read_text())
+            assert stored['input'] == mapping
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            control('forge_play_input_submit', events=[dict(control='pad.left_x', value=.33),
+                                                       dict(control='pad.left_y', value=.44)])
+            def analog():
+                state = read('forge_play_input')['value']
+                return next((row for row in state.get('actions', []) if row['id'] == action), {})
+            until(analog, lambda row: abs(row.get('x', 0) - .15) < 1e-10 and abs(row.get('y', 0) - .2) < 1e-10)
+            control('forge_play_input_submit', events=[dict(reset=True)])
+            until(analog, lambda row: row.get('x') == row.get('y') == 0)
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            assert json.loads((root / 'Game/forge.project.json').read_text())['input'] == mapping
+            print(('legacy' if legacy else 'current') + ': analog settings admission/save and actual Play/input/MCP observations passed')
+            continue
         if PROFILE_ONLY:
             assert "native ECS" in advertised['forge_play_profile_refresh']['description']
             ok('forge_entity_create', arguments=dict(kind=0, name='Native profile cube'))

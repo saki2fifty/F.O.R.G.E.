@@ -24,7 +24,11 @@
           },
           {
             "control": "pad.left_x",
-            "x": 1
+            "x": 1,
+            "deadzone": 0.15,
+            "radial": true,
+            "outer_deadzone": 0.1,
+            "response_exponent": 2
           },
           {
             "control": "key.left",

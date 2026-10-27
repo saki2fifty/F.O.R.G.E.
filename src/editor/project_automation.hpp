@@ -230,10 +230,12 @@ struct ProjectAutomation {
                 properties["discard"] = {{"type", "boolean"}};
             methods.push_back(automation_method(
                 std::string("project.settings.") + action,
-                std::string(action) + " the existing project settings draft at the exact observed "
-                                      "digest. Edit supports name, simulation frequency, startup "
-                                      "scene, input, physics and game configuration. Save uses "
-                                      "ordinary baseline checks; settings have no Scene Undo.",
+                std::string(action) +
+                    " the existing project settings draft at the exact observed "
+                    "digest. Edit supports name, simulation frequency, startup "
+                    "scene, input (including analog outer_deadzone and "
+                    "response_exponent bindings), physics and game configuration. Save uses "
+                    "ordinary baseline checks; settings have no Scene Undo.",
                 "document.write", automation_object(std::move(properties), std::move(required)),
                 true, [&editor, &document, action](const Json& request) {
                     settings_check(editor, document, request);

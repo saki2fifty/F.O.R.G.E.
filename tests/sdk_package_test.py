@@ -13,10 +13,11 @@ def validate_guides(stage):
                 resolved=(document.parent/path).resolve()
                 assert resolved.is_relative_to(stage/'sdk') and resolved.is_file(), f'Broken installed guide link: {target}'
 
-if sys.argv[4:] in (['--navigation-only'], ['--time-only'], ['--feedback-only']):
+if sys.argv[4:] in (['--navigation-only'], ['--time-only'], ['--feedback-only'], ['--input-only']):
     time_only = sys.argv[4:] == ['--time-only']
     feedback_only = sys.argv[4:] == ['--feedback-only']
-    target = ('gamepad_feedback_gameplay' if feedback_only else
+    input_only = sys.argv[4:] == ['--input-only']
+    target = ('gameplay' if input_only else 'gamepad_feedback_gameplay' if feedback_only else
               'time_scale_gameplay' if time_only else 'planar_navigation_gameplay')
     # Reuse the install/sample owner for a focused public-boundary check.
     with tempfile.TemporaryDirectory(prefix='public-client-sdk-', dir=build) as temporary:
@@ -38,6 +39,11 @@ if sys.argv[4:] in (['--navigation-only'], ['--time-only'], ['--feedback-only'])
         stage.rename(moved)
         env=os.environ.copy()
         if not windows:env['LD_LIBRARY_PATH']=str(moved/'bin')+':'+env.get('LD_LIBRARY_PATH','')
+        if input_only:
+            subprocess.run([str(build/('forge_analog_input_tests'+exe)), str(module)],
+                           env=env,cwd=moved,check=True,timeout=90)
+            print('Installed public analog client and SDK relocation passed')
+            sys.exit(0)
         if feedback_only:
             subprocess.run([sys.executable,str(Path(__file__).with_name('gamepad_feedback_test.py')),
                             str(moved/'bin'/('forge_runtime'+exe)),str(module),

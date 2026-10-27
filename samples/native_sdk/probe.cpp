@@ -34,6 +34,7 @@ struct AuthoredHealth {
 struct Probe {
     uint64_t ticks = 0, presses = 0;
     double dt = 0;
+    double input_x = 0, input_y = 0;
     ~Probe() { trace("component_destructor"); }
 };
 struct Marker {
@@ -201,8 +202,11 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char* error, uint32_t 
                 ForgeSdkActionV1 action{};
                 action.size = sizeof(action);
                 if (host->read_action(host->context, "12345678-1234-4234-8234-123456789abc",
-                                      &action))
+                                      &action)) {
                     p.presses += action.pressed;
+                    p.input_x = action.x;
+                    p.input_y = action.y;
+                }
                 host->diagnostic(host->context, 1, "SDK fixed tick");
             })
             .add(host->fixed_tag);

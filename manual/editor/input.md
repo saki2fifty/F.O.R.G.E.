@@ -103,6 +103,31 @@ Digital actions can use **Press threshold** and **Negative direction** on analog
 controls. Mouse movement cannot be a digital binding. Save validates the complete
 candidate; invalid or duplicate bindings leave the previous project settings intact.
 
+## Tune analog stick and trigger response
+
+1. Open **Project Settings**, expand an action, and choose a gamepad stick axis or trigger for its binding.
+2. Set **deadzone** to ignore movement near the center. For a stick, enable **Radial deadzone** to preserve its direction while conditioning its circular magnitude.
+3. Set **Outer deadzone** to reach full output before the physical limit. For example, `0.1` reaches full output at 90% travel. Inner and outer deadzones must leave positive travel between them.
+4. Set **Response exponent**: `1` is linear, `2` gives finer control near the center, and values below `1` respond faster. The supported range is `0.1` to `8`.
+5. Save Settings, then Play. Open Console and expand **Gameplay input** to inspect the action's X/Y values as you move the stick or trigger. Export uses the saved settings and the same action mapping.
+
+Conditioning happens before x/y contribution scales and before a digital action's
+**Press threshold**. Negative axis values keep their sign. Keyboard/buttons and
+relative mouse input use their existing behavior and do not expose these controls.
+Choosing another physical control or committing a player rebind resets the previous
+conditioning so analog settings cannot carry over onto a keyboard button.
+
+For example, with inner deadzone `0.2`, outer deadzone `0.1` and exponent `2`, a
+one-axis input of `0.55` produces `0.25`. With matching radial settings on both
+stick axes, input `(0.33, 0.44)` produces `(0.15, 0.20)` and keeps its direction.
+
+When Game defaults are configured, **Stick inner deadzone** and **Trigger inner
+deadzone** replace the corresponding binding's inner value at runtime. Player
+preferences can override those defaults.
+Their effective inner and outer values must still leave positive travel. A
+conflict is rejected while the previous settings remain active. Clear or reduce
+the outer deadzone when a larger inner deadzone is needed.
+
 ## Add controller vibration in C++
 
 Connect a gamepad that supports vibration. Your C++ module needs the `forge.game`

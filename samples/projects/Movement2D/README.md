@@ -3,11 +3,17 @@
 Copy **Examples/Movement2D** to a writable project location and open its project
 in FORGE. Packaged copies include a matching compiled C++ module and prepared
 assets. From a source checkout, build Project Code and publish the assets first.
-This example requires the 2D swept-query integration; Windows Build201 predates it.
+Use the matching editor and SDK packaged with this example.
 
 Press Play, open Game, and choose **Capture gameplay input**. Use **A/D** or the
 **left/right arrows** to move, and **Space** to jump. A gamepad's left stick and
 south button use the same project actions. Escape releases the editor's input.
+The left stick uses an inner deadzone of `0.15`, outer deadzone of `0.1` and
+response exponent `2` for finer movement near the center. Tune these in Project
+Settings under **Move horizontally**. **Game defaults → Stick inner deadzone** and
+player preferences can replace the initial inner value. Keyboard bindings still
+use full directional input.
+
 The amber player starts over the left painted platform. Jump onto the small blue
 box stepping stone, then the higher painted platform on the right. The translucent
 strip is a sensor: it never supports the player. Blue walls keep the player inside

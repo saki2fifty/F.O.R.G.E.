@@ -152,3 +152,33 @@ Trigger motors, force feedback, mixing/layered haptics and multiple-player devic
 assignment are not exposed. No new C ABI callback, SDK layout or dependency pin.
 The public `sdk/sample/gamepad_feedback_probe.cpp` demonstrates scoped requests,
 receipt polling/release and nonfatal device failures.
+
+## Analog conditioning
+
+Optional per-binding `outer_deadzone` defaults0 and `response_exponent` defaults1
+in input maps1/2. Append-only InputBinding fields preserve existing aggregate
+positions. InputMap admits finite numeric values: inner/outer nonnegative with
+positive remaining travel, exponent0.1..8. Nondefault conditioning on buttons,
+keyboard or relative controls rejects; it is not silently ignored. Input schema,
+ActionIds and the installed C++ ABI/fingerprint remain unchanged.
+
+For absolute axis magnitude a, inner d and outer o, map
+`u = clamp((a-d)/(1-d-o), 0, 1)`, then apply `u^exponent`, preserving the sign.
+Radial sticks use circular length (capped at1 for saturation), retain X/Y direction,
+and respect both routed samples. Digital press thresholds follow conditioning;
+contribution scales and combined action clamps retain their existing order.
+The default exponent avoids pow; the previous radial default formula is retained.
+
+ProjectSettings validation composes Game defaults through the existing
+resolve_game_settings owner. Its default/player inner-deadzone overrides cannot
+silently produce an impossible range with the binding's outer value. Invalid
+candidates reject before project or player settings publication; last-good input
+and preferences remain. Rebinding/control changes clear the previous response
+fields with the existing deadzone/radial reset policy. Unknown extensions remain
+preserved by normal source round trips. Fixed and control latches use the same
+RuntimeInput evaluator; no new clock, input manager or event reconstruction.
+
+The editor presents Outer deadzone and Response exponent on continuous analog
+bindings. MCP edits these fields through existing project.settings.edit/save and
+observes actual values through play.input/input_submit; there are no parallel
+agent-only input transformations. See[the input guide](../manual/editor/input.md).

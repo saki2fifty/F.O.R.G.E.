@@ -12,6 +12,16 @@ Reserve the build identifier with the release coordinator before dispatch; the e
 
 ## Test profiles
 
+Analog conditioning uses `analog_input` for independent math/routing/settings and
+an original public C++ callback. `native_sdk_analog_input_installed` rebuilds that
+consumer from installed headers, checks shared Flecs and repeats after SDK
+relocation. `analog_input_process` tests both actual Play hosts; the existing
+host/settings/service checks cover defaults, last-good publication and rebind.
+`settings_lifecycle_analog` drives real ImGui numeric controls at100/150/200%.
+`mcp_analog_input_stdio` edits/saves/rejects settings and observes actual Play input
+through both MCP framing modes. Native Windows/controller feel/capture stay queued.
+
+
 Native ECS profile checks reuse `cpu_profile`, `cpu_profile_service_compile_out`,
 `cpu_profile_process`,
 `sdk_play_runtime`, `cpu_profiler_transport` and `cpu_profiler_editor`.

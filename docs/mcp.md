@@ -238,7 +238,10 @@ separate workspace grant, project switches retain ordinary revocation.
 
 `forge_project_settings_read/edit/save/close` borrow the actual settings editor.
 Edits require the observed draft digest and validate name, simulation frequency,
-startup scene, input, physics and game settings together. Native/build fields are
+startup scene, input, physics and game settings together. Analog input bindings
+accept `outer_deadzone` and `response_exponent`; their effective range is validated
+with Game/player inner-deadzone settings. Save and `forge_play_input` observations
+use the same native input owner as the editor. Native/build fields are
 preserved for their owner. Save checks the ordinary disk baseline; settings are
 not Scene Undo. Dirty close requires explicit discard. `forge_project_settings_game_defaults`
 opens the actual settings draft and retains its generated application identity

@@ -86,7 +86,84 @@ int main(int argc, char** argv) {
             ImGui::Render();
         };
         const auto mode = std::string_view(argv[2]);
-        if (mode == "defaults") {
+        if (mode == "analog") {
+            const auto id = ActionId::generate();
+            const Json input{
+                {"version", 1},
+                {"actions", Json::array({{{"id", id},
+                                          {"name", "Analog aim"},
+                                          {"kind", "axis1"},
+                                          {"bindings", Json::array({{{"control", "pad.left_x"},
+                                                                     {"deadzone", .2}}})}}})}};
+            invoke(methods, "project.settings.edit",
+                   {{"state", read().at("state")},
+                    {"patch",
+                     Json::array({{{"op", "replace"}, {"path", "/input"}, {"value", input}}})}});
+            const auto click = [&](const std::string& key) {
+                for (int retry = 0; retry < 4; ++retry) {
+                    frame();
+                    const auto box = test::ui_targets.at(key);
+                    const auto x = (box.minimum.x + box.maximum.x) * .5f;
+                    const auto y = (box.minimum.y + box.maximum.y) * .5f;
+                    if (y < box.clip_minimum.y || y > box.clip_maximum.y) {
+                        auto* window =
+                            ImGui::FindWindowByName("Project Settings###Project Settings");
+                        check(window != nullptr, "Analog settings window missing");
+                        ImGui::SetScrollY(window,
+                                          window->Scroll.y + y -
+                                              (box.clip_minimum.y + box.clip_maximum.y) * .5f);
+                        continue;
+                    }
+                    check(box.enabled && x >= box.clip_minimum.x && x <= box.clip_maximum.x,
+                          "Analog setting control clipped or disabled");
+                    io.AddMousePosEvent(x, y);
+                    frame();
+                    io.AddMouseButtonEvent(0, true);
+                    frame();
+                    io.AddMouseButtonEvent(0, false);
+                    frame();
+                    return;
+                }
+                throw std::runtime_error("Analog setting could not be scrolled into view");
+            };
+            const auto edit = [&](const std::string& key, const char* text) {
+                click(key);
+                io.AddKeyEvent(ImGuiMod_Ctrl, true);
+                io.AddKeyEvent(ImGuiKey_A, true);
+                frame();
+                io.AddKeyEvent(ImGuiKey_A, false);
+                io.AddKeyEvent(ImGuiMod_Ctrl, false);
+                io.AddInputCharactersUTF8(text);
+                frame();
+                io.AddKeyEvent(ImGuiKey_Enter, true);
+                frame();
+                io.AddKeyEvent(ImGuiKey_Enter, false);
+                frame();
+            };
+            frame();
+            click("settings:input:action:" + id.str());
+            for (float scale : {1.f, 1.5f, 2.f}) {
+                ui::style(scale);
+                frame();
+                edit("settings:input:outer-deadzone", "0.1");
+                edit("settings:input:response-exponent", "2");
+                const auto binding =
+                    read().at("draft").at("input").at("actions")[0].at("bindings")[0];
+                check(binding.at("outer_deadzone") == .1 && binding.at("response_exponent") == 2,
+                      "Actual UI input did not edit analog response fields");
+            }
+            edit("settings:input:outer-deadzone", "0.9");
+            check(!settings.save(files.document, status) && settings.dirty(),
+                  "Conflicting deadzones were saved");
+            check(ProjectSettings(first).document() == saved,
+                  "Failed response save changed project");
+            edit("settings:input:outer-deadzone", "0.1");
+            check(settings.save(files.document, status),
+                  "Valid analog settings could not be saved");
+            const auto persisted = ProjectSettings(first).input().source();
+            check(persisted.at("actions")[0].at("bindings")[0].at("response_exponent") == 2,
+                  "Analog response did not survive reopen");
+        } else if (mode == "defaults") {
             frame(); // Native workspace draws closed owners too.
             const auto created =
                 invoke(methods, "project.settings.game_defaults", {{"state", read().at("state")}});

@@ -21,12 +21,17 @@ struct InputBinding {
     bool radial = false;
     double threshold = .5;
     int direction = 1;
+    double outer_deadzone = 0, response_exponent = 1;
 };
 struct InputVector {
     double x = 0, y = 0;
 };
-// Radial dead zone with continuous remapping to the unit disk.
-InputVector input_stick(double x, double y, double deadzone);
+// Inner/outer deadzones followed by a sign-preserving power response. Radial
+// conditioning acts on magnitude, retaining the stick direction.
+double input_axis(double value, double deadzone, double outer_deadzone = 0,
+                  double response_exponent = 1);
+InputVector input_stick(double x, double y, double deadzone, double outer_deadzone = 0,
+                        double response_exponent = 1);
 struct InputAction {
     ActionId id;
     std::string name;
