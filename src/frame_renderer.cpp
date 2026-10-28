@@ -142,6 +142,7 @@ ITextureView* FrameRenderer::render(IDeviceContext* context, const RenderScene& 
                                     const SceneAutoExposure* automatic, double seconds) {
     if (thread_ != std::this_thread::get_id() || !context)
         throw std::runtime_error("Frame rendering requires its presentation thread and context");
+    validate_scene_distance_fog(scene.settings.distance_fog);
     if (automatic)
         validate_scene_auto_exposure(*automatic);
     const bool adaptive = automatic && automatic->enabled;

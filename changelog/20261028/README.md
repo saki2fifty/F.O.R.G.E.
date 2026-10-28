@@ -1,4 +1,15 @@
-# 2026-10-28 — Sprite atlas metadata and automatic exposure
+# 2026-10-28 — Rendering and Scene controls
+
+## Scene distance fog
+
+Default-off radial geometry fog shares Scene validation/history, Scene lighting
+controls, MCP and existing Mesh-based rendering. One shader helper applies linear
+HDR fog before alpha blend/display while preserving mask and diagnostic behavior.
+A 32-byte private buffer retains Object/instance layouts. Current cooked wrappers
+record engine version 2 independently of optimized reflection; legacy version 1 remains
+usable without fog and requires Shader/Material rebuild for fog. Gallery98 reuses
+existing resources and preserves prior catalog records/IDs. Windows and physical
+acceptance remain separate.
 
 ## Packed Sprite fills
 

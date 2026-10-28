@@ -1,4 +1,6 @@
 #include "Graphics/GraphicsEngineVulkan/interface/EngineFactoryVk.h"
+#include "distance_fog_render_tests.hpp"
+#include "distance_fog_surface_render_tests.hpp"
 #include "sprite_atlas_precision_tests.hpp"
 #include "sprite_bundle_render_tests.hpp"
 #include "sprite_frame_metadata_render_tests.hpp"
@@ -23,6 +25,8 @@ int main(int argc, char** argv) {
         const auto read = [&](ITexture* texture) {
             return forge::test_sprite_draw::read_pixels(device, context, texture);
         };
+        forge::test_distance_fog::exercise(presentation, context, read);
+        forge::test_fog_surface::exercise(presentation, context, read);
         forge::test_sprite_draw::exercise(presentation, context, read, argv[1]);
         forge::test_sprite_image::exercise(presentation, context, read,
                                            std::filesystem::path(argv[1]) / "image-fill");

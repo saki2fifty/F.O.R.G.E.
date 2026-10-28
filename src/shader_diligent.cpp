@@ -265,6 +265,7 @@ compile_diligent_shader(Diligent::IRenderDevice* device, const ShaderProgramSour
     result.data.row_major = program.row_major;
     result.data.compiler_debug = diligent_shader_compiler_debug();
     result.data.surface = program.surface;
+    result.data.surface_wrapper_version = program.surface ? 2 : 1;
     for (const auto& entry : program.stages) {
         const std::vector roles = program.surface ? std::vector{ShaderEntryRole::SurfaceColor,
                                                                 ShaderEntryRole::SurfaceDepth}

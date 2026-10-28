@@ -1,4 +1,5 @@
 #include "mesh_draw_shader.hpp"
+#include "distance_fog_shader.hpp"
 #include "sprite_material_profile.hpp"
 #include <algorithm>
 #include <limits>
@@ -267,6 +268,7 @@ float ForgeSpriteSlice(float u,float4 axis) {
     return center>0?axis.x+(u-axis.z)*(1-axis.x-axis.y)/center:axis.x;
 }
 )";
+    ps += distance_fog_shader;
     ps += R"(
 float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     float3 dpdx=ddx(input.World),dpdy=ddy(input.World);
@@ -351,7 +353,8 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     if (!sprite_profile)
         ps += "if(input.LegacyTint.w!=0)base.rgb*=input.LegacyTint.rgb;\n";
     if (sprite_profile)
-        ps += "return all(isfinite(base))?base:float4(1,0,1,1);}\n";
+        ps += "return "
+              "all(isfinite(base))?ForgeApplyDistanceFog(base,input.World):float4(1,0,1,1);}\n";
     else if (profile.workflow == PbrWorkflow::Unlit)
         ps += R"(
     if(input.LegacyTint.w!=0) {
@@ -359,7 +362,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         if(!any(n!=0)) n=ForgeUnit(cross(dpdx,dpdy));
         base.rgb*=0.3+0.7*saturate(dot(n,normalize(float3(-0.4,0.8,-0.5))));
     }
-    return all(isfinite(base))?base:float4(1,0,1,1);}
+    return all(isfinite(base))?ForgeApplyDistanceFog(base,input.World):float4(1,0,1,1);}
 )";
     else {
         ps += R"(
@@ -560,7 +563,7 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
         }
         ps += R"(
     if(!valid||!all(isfinite(color)))return float4(1,0,1,1);
-    return float4(color,base.a);
+    return ForgeApplyDistanceFog(float4(color,base.a),input.World);
 })";
     }
 

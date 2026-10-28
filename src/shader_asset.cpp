@@ -360,6 +360,9 @@ void validate_shader_reflection(const Json& reflection) {
     require(reflection.dump().size() <= metadata_limit, "Shader reflection exceeds metadata limit");
 }
 void validate_shader(const ShaderData& data) {
+    require(data.surface_wrapper_version >= 1 && data.surface_wrapper_version <= 2 &&
+                (data.surface || data.surface_wrapper_version == 1),
+            "Unsupported Shader surface wrapper version");
     require(valid_content_digest(data.build_key) && valid_content_digest(data.compiler_digest),
             "Shader artifact provenance is invalid");
     require(data.stages.size() <= 6, "Shader artifact stage count exceeds profile");
@@ -401,7 +404,10 @@ void validate_shader(const ShaderData& data) {
 }
 std::string ShaderData::layout_digest() const {
     validate_shader(*this);
-    return asset_build_digest(layout(*this));
+    auto value = layout(*this);
+    if (surface_wrapper_version != 1)
+        value["surface_wrapper_version"] = surface_wrapper_version;
+    return asset_build_digest(value);
 }
 std::size_t ShaderData::resident_bytes() const {
     std::size_t size = sizeof(*this) + build_key.capacity() + compiler_digest.capacity() +
@@ -438,6 +444,8 @@ std::vector<std::byte> encode_shader(const ShaderData& data) {
                   {"stages", stages}};
     if (data.surface)
         metadata["surface"] = surface_definition_document(*data.surface);
+    if (data.surface_wrapper_version != 1)
+        metadata["surface_wrapper_version"] = data.surface_wrapper_version;
     return asset_detail::encode_envelope(metadata, payload, magic, metadata_limit,
                                          data.surface ? 2 : 1);
 }
@@ -452,6 +460,8 @@ ShaderData decode_shader(std::span<const std::byte> bytes) {
     data.compiler_digest = m.at("compiler_digest");
     data.row_major = m.at("row_major");
     data.compiler_debug = m.at("compiler_debug");
+    if (m.contains("surface_wrapper_version"))
+        data.surface_wrapper_version = count(m.at("surface_wrapper_version"), 2);
     require((envelope.version == 2) == m.contains("surface"),
             "Shader feature/envelope version mismatch");
     if (m.contains("surface"))

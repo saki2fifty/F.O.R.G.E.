@@ -119,6 +119,7 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                                         [role](const auto& entry) { return entry.role == role; });
         require(stage != native.data.stages.end(), "custom surface entry role is missing");
         surface_layout = surface_binding_layout(*surface->program.surface, stage->reflection);
+        fog_supported_ = surface->program.surface_wrapper_version >= 2;
     } else
         pixel = compile(SHADER_TYPE_PIXEL, program.pixel);
     const bool lit = !shadow_pass_ && (surface ? surface->program.surface->physically_based
@@ -310,6 +311,12 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             bind(SHADER_TYPE_VERTEX, "ForgeMorphWeights", morph_weights_);
         }
         bind(SHADER_TYPE_PIXEL, "ForgeObject", object_, false);
+        if (!shadow_pass_ &&
+            bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeDistanceFog")) {
+            if (!fog_)
+                fog_ = buffer(device, "FORGE distance fog", 2 * sizeof(Row));
+            bind(SHADER_TYPE_PIXEL, "ForgeDistanceFog", fog_);
+        }
         if (auto* variable =
                 bindings_[parity]->GetVariableByName(SHADER_TYPE_PIXEL, "ForgeLights")) {
             variable->Set(lights_);
@@ -500,7 +507,13 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     const TransmissionLighting* transmission, std::span<const float> morph_weights,
                     const SkinPose* skin, std::span<const Instance> instances,
                     std::span<const MaterialParameterOverride> object_parameters,
-                    std::string_view material_slot, const SpriteDrawValues* sprite) {
+                    std::string_view material_slot, const SpriteDrawValues* sprite,
+                    const SceneDistanceFog* fog) {
+    if (fog)
+        validate_scene_distance_fog(*fog);
+    require(shadow_pass_ || !fog || !fog->enabled || fog_supported_,
+            "Distance fog needs a current surface wrapper; reimport its Shader and rebuild the "
+            "Material");
     const auto world = skin_ ? AffineTransform{} : object_world;
     require(instances.empty() || (instances_ && instances.size() <= instance_limit),
             "instance batch exceeds its supported static draw profile");
@@ -598,6 +611,13 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
         std::copy(values.begin(), values.end(), static_cast<Row*>(mapped));
     } else
         require(!skin, "skin pose supplied to an unskinned mesh");
+    if (fog_) {
+        const auto value = fog ? *fog : SceneDistanceFog{};
+        MapHelper<Row> mapped(context, fog_, MAP_WRITE, MAP_FLAG_DISCARD);
+        require(static_cast<Row*>(mapped) != nullptr, "distance fog upload allocation failed");
+        mapped[0] = {value.color[0], value.color[1], value.color[2], value.enabled ? 1.f : 0.f};
+        mapped[1] = {value.start, value.end, 0, 0};
+    }
     std::array<Row, 15> object{};
     if (legacy_tint) {
         for (unsigned i = 0; i < 3; ++i) {

@@ -87,7 +87,7 @@ inline void test_material_source() {
     auto bad = base;
     bad.document["base"] = bad.asset();
     rejects([&] { bad.validate(); });
-    for (const auto value : {Json(3), Json(1.0), Json("1")}) {
+    for (const auto& value : {Json(3), Json(1.0), Json("1")}) {
         bad = base;
         bad.document["version"] = value;
         rejects([&] { parse(bad.document); });
@@ -102,7 +102,7 @@ inline void test_material_source() {
     bad.document["overrides"]["parameters"]["roughnessFactor"]["value"] = {-1};
     check(parse(bad.document).document == bad.document); // Unfinished model value, valid shape.
     rejects([&] { resolve_material_source(bad); });
-    for (const auto malformed : {Json("wrong"), Json::array({"wrong"}), Json::array({1, 2})}) {
+    for (const auto& malformed : {Json("wrong"), Json::array({"wrong"}), Json::array({1, 2})}) {
         bad = base;
         bad.document["overrides"]["parameters"]["roughnessFactor"]["value"] = malformed;
         rejects([&] { parse(bad.document); });

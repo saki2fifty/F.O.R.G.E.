@@ -135,6 +135,28 @@ for legacy in (False, True):
             assert not result['ok'] and discover()['revision'] == before['revision'], result
         assert mutate('forge_scene_rendering_set',
                       arguments=dict(auto_exposure=dict(speed_up=3)))['ok']
+        # Fog is the same scene command, with schema, permission, revision,
+        # replay, history and persistence shared by both MCP protocol versions.
+        fog_schema = exposure_command['input_schema']['properties']['distance_fog']
+        assert exposure_tool['inputSchema']['properties']['arguments']['properties']['distance_fog'] == fog_schema
+        assert set(fog_schema['properties']) == {'enabled', 'color', 'start', 'end'}
+        assert fog_schema['properties']['color']['items']['maximum'] == 65504
+        assert fog_schema['properties']['end']['minimum'] == .001
+        fog_arguments = arguments(arguments=dict(distance_fog=dict(
+            enabled=True, color=[.1, .2, 2], start=5, end=50)))
+        before_fog = discover()
+        changed = client.tool('forge_scene_rendering_set', **fog_arguments)
+        assert changed['ok'] and changed['revision'] != before_fog['revision'], changed
+        assert client.tool('forge_scene_rendering_set', **fog_arguments) == changed
+        assert mutate('forge_history_undo')['result']['changed']
+        assert mutate('forge_history_redo')['result']['changed']
+        for bad in (dict(start=51), dict(end=5), dict(end=1000001),
+                    dict(color=[1, 2]), dict(enabled=1), dict(color=[0, 0, -1])):
+            before = discover()
+            result = mutate('forge_scene_rendering_set', arguments=dict(distance_fog=bad))
+            assert not result['ok'] and discover()['revision'] == before['revision'], result
+        assert mutate('forge_scene_rendering_set',
+                      arguments=dict(distance_fog=dict(end=60)))['ok']
         # Existing project writer ownership remains exclusive across processes.
         lease = subprocess.run([sys.argv[1].replace('forge_tools', 'forge_live_tests'),
                                 '--lease', str(project)], input='', capture_output=True,
@@ -206,6 +228,8 @@ for legacy in (False, True):
         assert saved_doc['rendering']['auto_exposure'] == dict(
             enabled=True, min_ev=-4, max_ev=6, low_percentile=.1,
             high_percentile=.9, target_gray=.2, speed_up=3, speed_down=4)
+        assert saved_doc['rendering']['distance_fog'] == dict(
+            enabled=True, color=[.1, .2, 2], start=5, end=60)
         assert saved_doc['entities'][0]['name'] == 'Saved agent cube'
         body = saved_doc['entities'][0]['components']['forge.physics_body_2d']
         assert body['one_way'] and abs(body['one_way_margin'] - .05) < 1e-6, body

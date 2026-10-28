@@ -40,7 +40,7 @@ class MeshDrawBundle {
                    const MeshInstancePose* pose = nullptr,
                    std::span<const MeshDraw::Instance> instances = {},
                    std::span<const MaterialParameterOverride> parameters = {},
-                   const SpriteDrawValues* sprite = nullptr);
+                   const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }

@@ -929,6 +929,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
     host_->check_thread();
     if (scene.scene != scene_)
         throw std::runtime_error("Mesh draw scene differs from prepared scene");
+    validate_scene_distance_fog(scene.settings.distance_fog);
     struct Object {
         const RenderMesh* mesh;
         MeshDrawBundle* bundle;
@@ -1215,7 +1216,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
                           : std::span<const MeshDraw::Instance>{},
                 slot_parameters(object.parameters, object.bundle->slot(object.lod, item.key.part)),
-                object.sprite);
+                object.sprite, &scene.settings.distance_fog);
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1237,7 +1238,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         &shadows_->lighting(), single.shadow_slots, nullptr, single.pose, {},
                         slot_parameters(single.parameters,
                                         single.bundle->slot(single.lod, failed_item.key.part)),
-                        single.sprite);
+                        single.sprite, &scene.settings.distance_fog);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {

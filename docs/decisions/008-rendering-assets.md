@@ -82,3 +82,14 @@ Typed graph/source history uses AssetSourceDocument and DocumentWorkspace; compi
 projection is UI independent and has no runtime VM. Publication, resource admission,
 export and shader ownership remain with their existing subsystems. Old stage
 programs and final-color surfaces remain supported. See [graph contract](../material-graphs.md).
+
+## Engine surface wrapper capability
+
+Scene distance fog uses the existing generated Shader wrapper and Mesh draw owners.
+The Shader artifact records `surface_wrapper_version:2` separately from reflection:
+a compiler can remove an unused fog binding from a current diagnostic-only function.
+Binding presence therefore cannot identify wrapper capability. Implicit legacy 1
+preserves prior layout/bytes; current version 2 participates in the existing layout digest.
+Reimport/rebuild uses existing asset IDs, dependency publication and embedded
+last-good Material snapshots. There is no separate renderer capability registry,
+new authored HLSL interface, entity identity or material ownership system.

@@ -39,7 +39,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 - [Materials](editor/materials.md)
 - [Material Graph](editor/material-graphs.md)
 - [Shader import](editor/shaders.md)
-- [Scene lighting, automatic exposure and color](editor/lighting.md)
+- [Scene lighting, distance fog, automatic exposure and color](editor/lighting.md)
 - [Mesh particle effects](editor/particles.md)
 
 ## 2D scenes

@@ -1,5 +1,28 @@
 # README screenshots
 
+## Distance fog
+
+[Controls](../../../manual/images/distance-fog-controls.png) is the complete
+900×360 actual Scene lighting control render from `tests/hdr_bloom_editor_tests.cpp`
+with `--fog`, captured 2026-10-28 from local distance-fog work based on4038249.
+The fixture calls the production control function with real ImGui/SDL software
+rendering and Lato; separate real input tests exercise the full Scene lighting
+owner, scaling, scrolling, history, rejection/recovery, timestamped Problems and
+Play locks. This is not a full Windows editor screenshot or hardware acceptance.
+
+[Game image](../../../manual/images/distance-fog.png) is the complete 640×360
+Gallery98 Game output. Its original Scene loads through Engine/Scene/
+RuntimeSimulation, FrameRenderer and MeshResourceHost with the existing shared
+Material. Pinned Diligent Vulkan/DXC on llvmpipe LLVM15 software rendering supplies
+actual pixels. The source P6 is losslessly encoded to PNG with identical RGB;
+there are no pixel edits. The separately reviewed 360×640 output retains the
+fixed16:9 camera's complete view with black letterboxing. All five complete
+fog/exposure images are compared with a relocated source-free runtime package.
+The same native gate checks custom-wrapper alpha/diagnostic pixels, graph source
+compilation and independent numeric radial fog. It does not load D3D12 Shader
+cooks on Vulkan or establish physical performance. Each image has one canonical
+manual asset; local validation records exact hashes, source and review evidence.
+
 ## Packed Sprite fills
 
 [Packed fills](../../../manual/images/packed-sprite-fills.png) is the complete

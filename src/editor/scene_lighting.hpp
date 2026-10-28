@@ -4,6 +4,46 @@
 #include <forge/scene_render_settings.hpp>
 #include <numbers>
 namespace forge::ui {
+inline void scene_distance_fog_controls(const SceneDistanceFog& settings, bool locked,
+                                        const std::function<void(const Json&)>& commit) {
+    IdScope scope("distance_fog");
+    const bool open = ImGui::CollapsingHeader("Distance fog");
+    FORGE_UI_PROBE("fog:section");
+    if (!open)
+        return;
+    help("Fade geometry toward a color as its distance from the camera grows.");
+    DisabledScope disabled(locked);
+    bool enabled = settings.enabled;
+    if (ImGui::Checkbox("Enable distance fog", &enabled))
+        commit({{"distance_fog", {{"enabled", enabled}}}});
+    FORGE_UI_PROBE("fog:enabled");
+    auto color = settings.color;
+    property_label_row("Fog color (linear HDR)", "Linear RGB; channels from 0 to 65504.");
+    if (ImGui::InputFloat3("##color", color.data(), "%.3f", ImGuiInputTextFlags_EnterReturnsTrue))
+        commit({{"distance_fog", {{"color", color}}}});
+    FORGE_UI_PROBE("fog:color");
+    auto field = [&](const char* label, const char* key, float value, const char* tip) {
+        IdScope id(key);
+        property_label_row(label, tip);
+        if (ImGui::InputFloat("##value", &value, 0, 0, "%.3f",
+                              ImGuiInputTextFlags_EnterReturnsTrue))
+            commit({{"distance_fog", {{key, value}}}});
+        FORGE_UI_PROBE(std::string("fog:") + key);
+        help(tip);
+    };
+    field("Start (metres)", "start", settings.start,
+          "No fog up to this radial camera distance. Start must be zero or greater and below end.");
+    field("End (metres)", "end", settings.end,
+          "Full fog color at this distance, from 0.001 to 1000000 metres. Move end first when "
+          "increasing start past its current value. Enter commits one Undo step.");
+    if (button("Reset distance fog", "Disable fog and restore gray, start 0 and end 100 metres."))
+        commit({{"distance_fog",
+                 {{"enabled", false}, {"color", {.5, .5, .5}}, {"start", 0}, {"end", 100}}}});
+    FORGE_UI_PROBE("fog:reset");
+    ImGui::TextWrapped("Affects geometry in Scene and game views before transparency, bloom and "
+                       "display processing. Sky, camera background, editor overlays and game HUD "
+                       "keep their own colors. Scene Save and Undo include these settings.");
+}
 inline void scene_auto_exposure_controls(const SceneAutoExposure& settings, bool locked,
                                          const std::function<void(const Json&)>& commit) {
     IdScope scope("auto_exposure");
@@ -200,6 +240,7 @@ inline void scene_lighting(bool& open, Scene& scene, const AssetCatalog* catalog
                  "mapping. With automatic exposure, this adds brightness compensation. Enter "
                  "commits.");
             scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
+            scene_distance_fog_controls(settings.distance_fog, locked, commit);
             scene_bloom_controls(settings.bloom, locked, commit);
             scene_color_controls(settings.color_adjustments, locked, commit);
             heading("Shadows", "Scene-wide shadow quality. Individual lights and mesh renderers "

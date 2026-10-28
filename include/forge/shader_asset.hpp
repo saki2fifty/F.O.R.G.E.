@@ -63,6 +63,9 @@ struct ShaderData {
     bool row_major = true, compiler_debug = false;
     std::vector<ShaderStageData> stages;
     std::optional<SurfaceShaderDefinition> surface;
+    // Engine-generated wrapper contract, independent of optimized resources.
+    // 1 is the legacy wrapper; 2 adds Scene distance fog. Not authored HLSL intent.
+    unsigned surface_wrapper_version = 1;
     std::string layout_digest() const;
     std::size_t resident_bytes() const;
 };

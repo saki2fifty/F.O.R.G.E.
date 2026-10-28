@@ -42,7 +42,10 @@ int main() {
         ShaderProgramSource program{{{ShaderStage::Vertex, "shaders/main.hlsl", "vs"},
                                      {ShaderStage::Pixel, "shaders/main.hlsl", "ps"}},
                                     {{"FIXED", "1"}},
-                                    {{"SKIN", {"0", "1"}}}};
+                                    {{"SKIN", {"0", "1"}}},
+                                    true,
+                                    2,
+                                    std::nullopt};
         ShaderSources sources{{"shaders/main.hlsl", "#include \"common.hlsli\"\n"},
                               {"shaders/common.hlsli", "// source bytes\n"}};
         const auto compiler = std::string(64, 'a');
@@ -120,7 +123,8 @@ int main() {
                         compiler,
                         true,
                         false,
-                        {{ShaderStage::Vertex, "main", {std::byte{1}, std::byte{2}}, r}}};
+                        {{ShaderStage::Vertex, "main", {std::byte{1}, std::byte{2}}, r}},
+                        std::nullopt};
         const auto bytes = encode_shader(data);
         const auto loaded = decode_shader(bytes);
         require(encode_shader(loaded) == bytes && loaded.layout_digest() == data.layout_digest(),
@@ -163,6 +167,22 @@ int main() {
                                     empty,
                                     ShaderEntryRole::SurfaceDepth}};
             const auto encoded_surface = encode_shader(surface_data);
+            const auto legacy_layout = surface_data.layout_digest();
+            require(decode_shader(encoded_surface).surface_wrapper_version == 1,
+                    "Legacy cook changed its implicit surface wrapper version");
+            auto fog_surface = surface_data;
+            fog_surface.surface_wrapper_version = 2;
+            const auto encoded_fog = encode_shader(fog_surface);
+            require(decode_shader(encoded_fog).surface_wrapper_version == 2 &&
+                        encode_shader(decode_shader(encoded_fog)) == encoded_fog &&
+                        fog_surface.layout_digest() != legacy_layout,
+                    "Optimized-out fog wrapper capability lost roundtrip or layout identity");
+            auto future_surface = fog_surface;
+            future_surface.surface_wrapper_version = 3;
+            rejected([&] { validate_shader(future_surface); });
+            future_surface = fog_surface;
+            future_surface.surface.reset();
+            rejected([&] { validate_shader(future_surface); });
             require(std::to_integer<unsigned>(encoded_surface[8]) == 2 &&
                         encode_shader(decode_shader(encoded_surface)) == encoded_surface &&
                         std::to_integer<unsigned>(bytes[8]) == 1,

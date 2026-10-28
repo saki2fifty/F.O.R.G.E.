@@ -1,6 +1,16 @@
 #include <cmath>
 #include <forge/scene_render_settings.hpp>
 namespace forge {
+void validate_scene_distance_fog(const SceneDistanceFog& value) {
+    for (const auto channel : value.color)
+        if (!std::isfinite(channel) || channel < 0 || channel > 65504)
+            throw std::runtime_error(
+                "Distance fog color requires finite linear RGB from 0 to 65504");
+    if (!std::isfinite(value.start) || !std::isfinite(value.end) || value.start < 0 ||
+        value.end < .001f || value.end > 1000000 || value.start >= value.end)
+        throw std::runtime_error(
+            "Distance fog requires start >= 0 and end from 0.001 to 1000000 metres, after start");
+}
 void validate_scene_auto_exposure(const SceneAutoExposure& value) {
     if (!std::isfinite(value.min_ev) || !std::isfinite(value.max_ev) || value.min_ev < -20 ||
         value.max_ev > 20 || value.min_ev > value.max_ev)
@@ -53,6 +63,35 @@ SceneRenderSettings scene_render_settings(const nlohmann::json& scene) {
     if (ev < -20 || ev > 20)
         throw std::runtime_error("Game exposure must be between -20 and +20 stops");
     result.exposure = float(ev);
+    if (settings.contains("distance_fog")) {
+        const auto& fog = settings.at("distance_fog");
+        if (!fog.is_object())
+            throw std::runtime_error("Scene distance fog must be an object");
+        auto& value = result.distance_fog;
+        if (fog.contains("enabled")) {
+            if (!fog.at("enabled").is_boolean())
+                throw std::runtime_error("Distance fog enabled must be boolean");
+            value.enabled = fog.at("enabled").get<bool>();
+        }
+        if (fog.contains("color")) {
+            const auto& color = fog.at("color");
+            if (!color.is_array() || color.size() != 3)
+                throw std::runtime_error("Distance fog color requires three linear RGB channels");
+            for (unsigned i = 0; i < 3; ++i) {
+                if (!color[i].is_number() || !std::isfinite(color[i].get<double>()) ||
+                    color[i].get<double>() < 0 || color[i].get<double>() > 65504)
+                    throw std::runtime_error("Distance fog color channels must be from 0 to 65504");
+                value.color[i] = color[i].get<float>();
+            }
+        }
+        const auto start = number(fog, "start", value.start);
+        const auto end = number(fog, "end", value.end);
+        if (start < 0 || end < .001 || end > 1000000 || start >= end)
+            throw std::runtime_error("Distance fog start/end exceed their ordered metre range");
+        value.start = float(start);
+        value.end = float(end);
+        validate_scene_distance_fog(value);
+    }
     if (settings.contains("auto_exposure")) {
         const auto& automatic = settings.at("auto_exposure");
         if (!automatic.is_object())

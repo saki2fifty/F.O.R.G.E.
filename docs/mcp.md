@@ -89,6 +89,13 @@ history. Save through the existing document owner to retain settings for export.
 Read-only grants do not expose this mutation. These are authored Game settings,
 not a new live-Play control. See [automatic exposure](scene-auto-exposure.md).
 
+`scene.rendering.set` / `forge_scene_rendering_set` also accepts
+`{"distance_fog":{"enabled":true,"color":[0.25,0.35,0.5],"start":12,"end":34}}`.
+Color is linear HDR RGB; start/end are ordered radial world metres. The same
+Scene grant, revision, replay, history and save rules apply. Read-only clients do
+not receive the mutation. See [distance fog](distance-fog.md) for limits and legacy
+surface cook requirements; these are authored settings, not live Play controls.
+
 ### Document tools
 
 The native owner registrations in `document_automation.hpp` supply method names,

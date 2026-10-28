@@ -1,3 +1,4 @@
+#include "distance_fog_shader.hpp"
 #include "material_shader.hpp"
 #include <algorithm>
 #include <cmath>
@@ -217,6 +218,7 @@ std::string surface_shader_header(const SurfaceShaderDefinition& d, bool emulate
                  "].w],layer));}\n";
         ++i;
     }
+    s += distance_fog_shader;
     s += "#endif\n";
     return s;
 }
@@ -233,10 +235,12 @@ std::string surface_shader_wrapper(std::string_view source, std::string_view fun
                : "float4 ForgeSurfaceColor(ForgeSurfaceInput input):SV_Target0 {\n";
     s += "float4 value=" + std::string(function) +
          "(input);\n"
-         "if(!all(isfinite(value)))value=float4(1,0,1,1);\n"
+         "bool valid=all(isfinite(value));\n"
+         "if(!valid)value=float4(1,0,1,1);\n"
          "if(g_ForgeSurfaceState.x==1 && value.a<g_ForgeSurfaceState.y)discard;\n";
     if (!depth)
-        s += "if(g_ForgeSurfaceState.x!=2)value.a=1;return value;\n";
+        s += "if(g_ForgeSurfaceState.x!=2)value.a=1;\n"
+             "return valid?ForgeApplyDistanceFog(value,input.World):value;\n";
     return s + "}\n";
 }
 SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
@@ -252,7 +256,23 @@ SurfaceBindingLayout surface_binding_layout(const SurfaceShaderDefinition& d,
         require(names.insert(name).second && count(resource.at("array_size"), 64) > 0,
                 "Duplicate/invalid surface resource");
         const auto kind = resource.at("kind").get<std::string>();
-        if (name == "g_SurfaceSamplers") {
+        if (name == "ForgeDistanceFog") {
+            require(kind == "constant_buffer" && resource.at("array_size") == 1 &&
+                        resource.at("size") == 32,
+                    "Distance fog buffer differs from the engine declaration");
+            const auto& fields = resource.at("variables");
+            require(fields.is_array() && fields.size() == 2,
+                    "Distance fog buffer has incompatible fields");
+            for (unsigned i = 0; i < 2; ++i) {
+                const auto& field = fields[i];
+                require(field.at("name") == (i == 0 ? "g_ForgeFogColor" : "g_ForgeFogRange") &&
+                            field.at("offset") == i * 16 && field.at("basic") == "float" &&
+                            field.at("class") == "vector" && field.at("rows") == 1 &&
+                            field.at("columns") == 4 && field.at("array_size") == 0 &&
+                            field.at("members").empty(),
+                        "Distance fog field differs from the engine declaration");
+            }
+        } else if (name == "g_SurfaceSamplers") {
             require(kind == "sampler", "Surface sampler has wrong reflected type");
             result.sampler_count = count(resource.at("array_size"), unsigned(d.textures.size()));
         } else if (name.starts_with("g_SurfaceTexture_")) {

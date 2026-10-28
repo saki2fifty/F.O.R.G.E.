@@ -25,6 +25,7 @@ static void save(const Pixels& pixels, unsigned width, unsigned height,
 }
 #include "auto_exposure_gallery_render_tests.hpp"
 #include "display_resolve_tests.hpp"
+#include "distance_fog_gallery_render_tests.hpp"
 
 namespace {
 template <class F> void rejected(F action) {
@@ -313,6 +314,12 @@ void composed_frames(forge::DiligentPresentation& presentation, IDeviceContext* 
     rejected([&] { automatic.game(context, invalid, 97, 43, .75); });
     rejected(
         [&] { automatic.game(context, scene, 97, 43, std::numeric_limits<double>::quiet_NaN()); });
+    invalid = scene;
+    invalid.settings.distance_fog.end = invalid.settings.distance_fog.start;
+    rejected([&] { automatic.game(context, invalid, 97, 43, .75); });
+    invalid = scene;
+    invalid.settings.distance_fog.color[0] = std::numeric_limits<float>::quiet_NaN();
+    rejected([&] { automatic.game(context, invalid, 97, 43, .75); });
     require(automatic.output() == retained_view &&
                 readback(presentation.device(), context, automatic.output()) == graded,
             "Rejected settings/time replaced the last-good composed display image");
@@ -382,6 +389,12 @@ int main(int argc, char** argv) {
         disabled_compute_admission();
         inactive_sources(presentation, context);
         forge::test_exposure_gallery::exercise(presentation, context, argv[2], images);
+        forge::test_fog_gallery::exercise(
+            presentation, context,
+            [&](auto* texture) {
+                return forge::test_sprite_draw::read_pixels(device, context, texture);
+            },
+            argv[2], images);
         std::cout << "Automatic exposure metering/adaptation/composition and manual display pixels "
                      "passed: "
                   << device->GetAdapterInfo().Description << '\n';

@@ -165,11 +165,11 @@ struct Inspect {
                     (void)unused;
                     if (key != "version" && key != "exposure" && key != "environment" &&
                         key != "shadows" && key != "bloom" && key != "color_adjustments" &&
-                        key != "auto_exposure")
+                        key != "auto_exposure" && key != "distance_fog")
                         unknown("rendering." + key);
                 }
-                for (const auto* section :
-                     {"environment", "shadows", "bloom", "color_adjustments", "auto_exposure"}) {
+                for (const auto* section : {"environment", "shadows", "bloom", "color_adjustments",
+                                            "auto_exposure", "distance_fog"}) {
                     if (!doc.at("rendering").contains(section))
                         continue;
                     const std::set<std::string> known =
@@ -180,6 +180,8 @@ struct Inspect {
                                                     "max_lights", "distance"}
                         : std::string_view(section) == "bloom"
                             ? std::set<std::string>{"enabled", "threshold", "intensity", "radius"}
+                        : std::string_view(section) == "distance_fog"
+                            ? std::set<std::string>{"enabled", "color", "start", "end"}
                         : std::string_view(section) == "auto_exposure"
                             ? std::set<std::string>{"enabled",         "min_ev",
                                                     "max_ev",          "low_percentile",

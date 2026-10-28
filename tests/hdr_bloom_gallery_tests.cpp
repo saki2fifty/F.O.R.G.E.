@@ -81,6 +81,22 @@ void inspect_color(const std::filesystem::path& root) {
                   SceneColorAdjustments{true, {1.1f, .85f, .7f}, .8f, 1.15f},
           "Gallery69 runtime Scene, geometry, camera or authored grading changed");
 }
+AssetId inspect_distance_fog(const std::filesystem::path& root) {
+    const auto catalog = AssetCatalog::open_project(root);
+    const auto id = AssetId::parse("da66d15d-42ed-4342-94ce-19d67de0e105");
+    const auto source = read(root / catalog.records().at(id).source);
+    EngineContext engine(WorldRole::Runtime, false);
+    Scene scene(engine.world());
+    scene.restore_snapshot(source);
+    RuntimeSimulation simulation(engine.world(), scene);
+    simulation.reset_presentation();
+    const auto frame = extract_render_scene(simulation.presentation(1));
+    check(frame.settings.distance_fog == SceneDistanceFog{true, {.25f, .35f, .5f}, 12, 34} &&
+              frame.meshes.size() == 13 && frame.cameras.size() == 1 && frame.lights.size() == 1 &&
+              frame.diagnostics.empty() && scene.document() == source,
+          "Distance fog Gallery runtime settings, geometry or Scene changed");
+    return id;
+}
 AssetId inspect_exposure(const std::filesystem::path& root) {
     const auto catalog = AssetCatalog::open_project(root);
     const auto found =
@@ -142,9 +158,10 @@ int main(int argc, char** argv) {
         inspect(root, source, materials);
         inspect_color(root);
         const auto exposure_scene = inspect_exposure(root);
+        const auto fog_scene = inspect_distance_fog(root);
         const std::array roots{source.at("asset_id").get<AssetId>(),
                                AssetId::parse("7456ed81-3d3b-45a6-8c7d-6b50073ad01a"),
-                               exposure_scene};
+                               exposure_scene, fog_scene};
         {
             auto lease = std::make_shared<ProjectLease>(root);
             prepare_runtime_content_catalog(*lease, roots, {});
@@ -154,8 +171,17 @@ int main(int argc, char** argv) {
         const auto moved = std::filesystem::path(package.string() + "-relocated");
         std::filesystem::rename(package, moved);
         const auto shipped = open_runtime_content(moved, {"windows", "d3d12"});
-        check(shipped.records().size() == 7,
-              "Bloom/color/exposure export included unrelated assets");
+        std::set<AssetId> expected(roots.begin(), roots.end());
+        expected.insert(materials.begin(), materials.end());
+        expected.insert(AssetId::parse("4ab91f02-df69-47c5-a626-3b6c7504e954"));
+        expected.insert(AssetId::parse("68d22705-0b64-4773-9661-8c28465e0d98"));
+        std::set<AssetId> actual;
+        for (const auto& [id, record] : shipped.records()) {
+            (void)record;
+            actual.insert(id);
+        }
+        check(actual == expected && expected.size() == 8,
+              "Bloom/color/exposure/fog export changed its exact shared asset closure");
         check(!std::filesystem::exists(moved / "Assets/Exposure/Daylight.animation.json"),
               "Exposure clip source leaked into the runtime package");
         for (const auto path : paths)
@@ -167,6 +193,9 @@ int main(int argc, char** argv) {
         inspect_color(moved);
         check(inspect_exposure(moved) == exposure_scene,
               "Gallery96 relocation changed its stable Scene identity");
+        check(inspect_distance_fog(moved) == fog_scene,
+              "Gallery98 relocation changed fog settings or stable Scene identity");
+        std::cout << "Gallery98 distance fog settings and source-free relocation PASS\n";
         std::cout
             << "Gallery48 runtime/cooked material/scene and relocated source-free export PASS\n";
         std::cout << "Gallery69 color settings and relocated source-free export PASS: "

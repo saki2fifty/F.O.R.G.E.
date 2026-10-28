@@ -1,7 +1,7 @@
 # Scene lighting
 
 Use **Tools > Scene lighting...**, or search for **Scene / Lighting** in the Command
-Palette, to change the scene's environment, shadows and display brightness. These settings
+Palette, to change the scene's environment, shadows, distance fog and display brightness. These settings
 belong to the scene: **Save** keeps them, and **Undo / Redo** reverses each committed
 change. Opening this window keeps Scene as the active editing task.
 
@@ -42,6 +42,42 @@ Changes to intensity and rotation reuse the prepared environment; they do not re
 its lighting maps every frame. If a replacement cannot load, **Problems** explains the
 failure and the previous usable environment remains visible. Clear the field explicitly
 to remove that previous environment.
+
+## Add distance fog
+
+1. Open **Tools > Scene lighting...** and expand **Distance fog**.
+2. Select **Enable distance fog**.
+3. Enter **Fog color (linear HDR)**, **Start (metres)** and **End (metres)**. Press **Enter** to commit each field.
+4. Save the scene. Play and export use the saved values.
+
+Geometry keeps its surface color up to Start, gradually approaches Fog color, and
+reaches that color at End. Distance is measured from the active camera in every
+direction, including in an orthographic view. Scene View has its own camera, so
+its fog distances can differ from the Game view.
+
+Start must be zero or greater and below End. End accepts **0.001–1000000** metres.
+Move End first when increasing Start past the current End. Fog color has three
+linear RGB channels from **0** to **65504**; values above 1 are brighter than ordinary
+white and can contribute to bloom. **Reset distance fog** disables fog and restores
+gray, Start 0 and End 100 in one Undo step. Unchecking Enable retains your values.
+
+![Distance fog controls with a blue gray color and ordered metre distances](../images/distance-fog-controls.png)
+
+Open **98-distance-fog** in the Feature Gallery to compare the same colored
+columns at increasing distances. Try Start 12 and End 34, then disable fog to compare.
+
+![Colored avenue columns fading into distance fog in the Game view](../images/distance-fog.png)
+
+Fog affects geometry before transparency, bloom and display exposure. Sky, camera
+background, editor overlays and the game HUD keep their own colors. Matching the
+camera background to Fog color can make distant geometry blend into a clear view.
+This effect provides distance fading; it does not simulate weather or volumes.
+
+Authored controls are read-only during Play. If **Problems** requests a current
+surface wrapper, reimport that custom Shader and rebuild its dependent Material
+before enabling fog or exporting the scene. Disable fog to keep using an older
+cook; an incompatible draw is omitted while fog is enabled. Invalid fields leave the previous
+Scene values in place; correct them and press Enter to continue.
 
 ## Add glow to bright surfaces
 

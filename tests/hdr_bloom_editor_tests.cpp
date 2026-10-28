@@ -33,6 +33,7 @@ void interactions(float scale, ImVec2 display) {
     bool locked = false;
     bool color_controls = false;
     bool automatic_controls = false;
+    bool fog_controls = false;
     bool full_owner = false;
     std::string error;
     unsigned commits = 0;
@@ -54,7 +55,9 @@ void interactions(float scale, ImVec2 display) {
                     ++commits;
                     error.clear();
                 };
-                if (automatic_controls)
+                if (fog_controls)
+                    ui::scene_distance_fog_controls(settings.distance_fog, locked, commit);
+                else if (automatic_controls)
                     ui::scene_auto_exposure_controls(settings.auto_exposure, locked, commit);
                 else if (color_controls)
                     ui::scene_color_controls(settings.color_adjustments, locked, commit);
@@ -82,7 +85,9 @@ void interactions(float scale, ImVec2 display) {
             io.AddMouseWheelEvent(0, box.minimum.y < box.clip_minimum.y ? .5f : -.5f);
             frame();
         }
-        check(visible, "Display control could not be reached by scrolling");
+        if (!visible)
+            throw std::runtime_error(std::string("Display control could not be reached: ") + key +
+                                     " at scale " + std::to_string(scale));
         if (!box.enabled || box.minimum.x < box.clip_minimum.x ||
             box.maximum.x > box.clip_maximum.x || box.minimum.y < box.clip_minimum.y ||
             box.maximum.y > box.clip_maximum.y)
@@ -222,6 +227,39 @@ void interactions(float scale, ImVec2 display) {
         check(!test::ui_targets.at(key).enabled, "Automatic authoring control enabled during Play");
     locked = false;
     click("exposure:section");
+    fog_controls = true;
+    frame();
+    click("fog:section");
+    const auto before_fog = scene.document();
+    click("fog:enabled");
+    check(scene_render_settings(scene.document()).distance_fog.enabled && scene.undo() &&
+              scene.document() == before_fog && scene.redo(),
+          "Fog checkbox bypassed Scene history");
+    type("fog:start", "5");
+    type("fog:end", "30");
+    type("fog:color", "0.25"); // Center lane of the real RGB field is green.
+    const auto fogged = scene.document();
+    check(error.empty() && scene_render_settings(fogged).distance_fog ==
+                               SceneDistanceFog{true, {.5f, .25f, .5f}, 5, 30},
+          "Typed fog controls lost distances or color");
+    type("fog:end", "4");
+    check(!error.empty() && scene.document() == fogged,
+          "Rejected fog distance changed authored settings");
+    type("fog:end", "40");
+    check(error.empty() && scene_render_settings(scene.document()).distance_fog.end == 40,
+          "Fog UI failed to recover after a rejected range");
+    const auto before_fog_reset = scene.document();
+    click("fog:reset");
+    check(scene_render_settings(scene.document()).distance_fog == SceneDistanceFog{} &&
+              scene.undo() && scene.document() == before_fog_reset && scene.redo(),
+          "Reset fog was not one reversible operation");
+    locked = true;
+    frame();
+    for (const auto* key : {"fog:enabled", "fog:color", "fog:start", "fog:end", "fog:reset"})
+        check(!test::ui_targets.at(key).enabled, "Fog authored control enabled during Play");
+    locked = false;
+    click("fog:section");
+    fog_controls = false;
     // Exercise the real Scene lighting owner, including its Problems integration,
     // rather than inferring recovery from the callback used above.
     locked = false;
@@ -247,13 +285,25 @@ void interactions(float scale, ImVec2 display) {
               scene_render_settings(scene.document()).auto_exposure.max_ev == 6 &&
               context.task.owner == ui::DocumentTask::Scene,
           "Corrected automatic exposure retained its Problem or changed asset-document ownership");
+    click("exposure:section");
+    click("fog:section");
+    context.task.focus_document("material", "Material");
+    type("fog:end", "0");
+    check(context.problems.size() == 1 && !context.problems.items().front().occurred_at.empty(),
+          "Actual fog rejection lacked a timestamped Problem");
+    type("fog:end", "80");
+    check(context.problems.size() == 0 &&
+              scene_render_settings(scene.document()).distance_fog.end == 80 &&
+              context.task.owner == ui::DocumentTask::Scene,
+          "Corrected fog retained a Problem or changed document ownership");
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
-void capture(const std::filesystem::path& root) {
+void capture(const std::filesystem::path& root, bool fog = false) {
     std::filesystem::create_directories(root);
+    const int capture_height = fog ? 360 : 900;
     const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
-        SDL_CreateSurface(900, 900, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
+        SDL_CreateSurface(900, capture_height, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
     check(bool(surface), SDL_GetError());
     const std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)> renderer(
         SDL_CreateSoftwareRenderer(surface.get()), SDL_DestroyRenderer);
@@ -267,7 +317,7 @@ void capture(const std::filesystem::path& root) {
     } backend;
     auto& io = ImGui::GetIO();
     io.IniFilename = nullptr;
-    io.DisplaySize = {900, 900};
+    io.DisplaySize = {900, float(capture_height)};
     io.DeltaTime = 1.f / 60;
     const auto font = std::filesystem::path(__FILE__).parent_path().parent_path() /
                       "resources/ui/LatoLatin-Regular.ttf";
@@ -278,18 +328,28 @@ void capture(const std::filesystem::path& root) {
     ui::ContextScope scope(ui_context);
     EngineContext engine;
     Scene scene(engine.world());
-    authoring_command(scene, "scene.rendering.set", {{"auto_exposure", {{"enabled", true}}}});
+    authoring_command(
+        scene, "scene.rendering.set",
+        fog ? Json{{"distance_fog",
+                    {{"enabled", true}, {"color", {.25, .35, .5}}, {"start", 12}, {"end", 34}}}}
+            : Json{{"auto_exposure", {{"enabled", true}}}});
     for (unsigned frame = 0; frame < 3; ++frame) {
         ImGui_ImplSDLRenderer3_NewFrame();
         ImGui::NewFrame();
         ImGui::SetNextWindowPos({10, 10});
-        ImGui::SetNextWindowSize({880, 880});
+        ImGui::SetNextWindowSize({880, float(capture_height - 20)});
         ImGui::Begin("Scene lighting", nullptr,
                      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         ImGui::SetNextItemOpen(true, ImGuiCond_Always);
-        ui::scene_auto_exposure_controls(
-            scene_render_settings(scene.document()).auto_exposure, false,
-            [&](const Json& patch) { authoring_command(scene, "scene.rendering.set", patch); });
+        const auto commit = [&](const Json& patch) {
+            authoring_command(scene, "scene.rendering.set", patch);
+        };
+        if (fog)
+            ui::scene_distance_fog_controls(scene_render_settings(scene.document()).distance_fog,
+                                            false, commit);
+        else
+            ui::scene_auto_exposure_controls(scene_render_settings(scene.document()).auto_exposure,
+                                             false, commit);
         ImGui::End();
         ImGui::Render();
         SDL_SetRenderDrawColor(renderer.get(), 9, 15, 18, 255);
@@ -297,14 +357,17 @@ void capture(const std::filesystem::path& root) {
         ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
         SDL_RenderPresent(renderer.get());
     }
-    check(SDL_SavePNG(surface.get(), (root / "automatic-exposure.png").string().c_str()),
+    check(SDL_SavePNG(surface.get(),
+                      (root / (fog ? "distance-fog-controls.png" : "automatic-exposure.png"))
+                          .string()
+                          .c_str()),
           SDL_GetError());
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
-        if (argc == 2) {
-            capture(std::filesystem::absolute(argv[1]));
+        if (argc == 2 || (argc == 3 && std::string_view(argv[2]) == "--fog")) {
+            capture(std::filesystem::absolute(argv[1]), argc == 3);
             return 0;
         }
         check(argc == 1, "Expected optional native lighting capture directory");

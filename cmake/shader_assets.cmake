@@ -3,7 +3,7 @@
 set(_forge_shader_recipe_inputs "${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_VERSION};${CMAKE_CXX_FLAGS};${CMAKE_CXX_FLAGS_DEBUG};${CMAKE_CXX_FLAGS_RELEASE};${CMAKE_CXX_FLAGS_RELWITHDEBINFO};${CMAKE_MSVC_RUNTIME_LIBRARY};${FORGE_ENABLE_SANITIZERS};${CMAKE_SYSTEM_NAME};${CMAKE_SYSTEM_PROCESSOR}")
 foreach(source
  include/forge/shader_asset.hpp src/shader_asset.cpp src/shader_pipeline.hpp src/shader_pipeline.cpp
- include/forge/surface_shader.hpp src/surface_shader.cpp src/material_asset.cpp
+ include/forge/surface_shader.hpp src/surface_shader.cpp src/distance_fog_shader.hpp src/material_asset.cpp
  include/forge/material_graph.hpp src/material_graph.cpp src/material_graph_functions.cpp src/mesh_shader_input.hpp src/mesh_draw_shader.hpp src/mesh_draw_shader.cpp
  resources/shaders/ForgeSurface.fxh resources/shaders/ForgeLighting.fxh resources/shaders/ForgeShadows.fxh
  cmake/patches/diligentfx-aaa41d47-shader-warnings.json cmake/patches/diligentfx-aaa41d47-shader-warnings.patch

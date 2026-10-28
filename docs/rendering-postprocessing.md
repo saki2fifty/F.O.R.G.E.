@@ -1,5 +1,8 @@
 # Post-processing integration boundary
 
+[Distance fog](distance-fog.md) is a geometry-surface operation before blending
+and HDR composition. It adds no depth/motion history or post-processing targets.
+
 ## Original spatial bloom checkpoint — 2026-10-13
 
 FORGE supplies its own bounded [spatial HDR bloom](hdr-bloom.md) in the Scene/Game

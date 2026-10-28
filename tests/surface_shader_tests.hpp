@@ -96,6 +96,37 @@ inline void check_surface_shader() {
     reflection["resources"] = Json::array();
     check(surface_binding_layout(definition, reflection).parameter_bytes == 0,
           "Optimized-out surface fields require fake native resources");
+    const auto fog_field = [](const char* name, unsigned offset) {
+        return Json{
+            {"name", name}, {"offset", offset}, {"basic", "float"}, {"class", "vector"},
+            {"rows", 1},    {"columns", 4},     {"array_size", 0},  {"members", Json::array()}};
+    };
+    reflection["resources"] = Json::array(
+        {{{"name", "ForgeDistanceFog"},
+          {"kind", "constant_buffer"},
+          {"array_size", 1},
+          {"size", 32},
+          {"variables",
+           Json::array({fog_field("g_ForgeFogColor", 0), fog_field("g_ForgeFogRange", 16)})}}});
+    (void)surface_binding_layout(definition, reflection);
+    auto graph_definition = definition;
+    graph_definition.physically_based = true;
+    (void)surface_binding_layout(graph_definition, reflection);
+    for (const auto& bad :
+         {Json{{"kind", "texture_srv"}}, Json{{"size", 16}}, Json{{"array_size", 2}}}) {
+        auto malformed = reflection;
+        malformed["resources"][0].update(bad);
+        reject([&] { (void)surface_binding_layout(definition, malformed); });
+    }
+    for (const auto& bad : {Json{{"offset", 4}}, Json{{"columns", 3}}, Json{{"name", "unknown"}},
+                            Json{{"basic", "int"}}, Json{{"array_size", 1}}}) {
+        auto malformed = reflection;
+        malformed["resources"][0]["variables"][1].update(bad);
+        reject([&] { (void)surface_binding_layout(definition, malformed); });
+    }
+    // Legacy cooks remain admissible without the optional new engine binding.
+    reflection["resources"] = Json::array();
+    (void)surface_binding_layout(definition, reflection);
     reject([&] { surface_shader_wrapper("quoted\".hlsl", "Shade", false); });
     reject([&] { surface_shader_wrapper("surface.hlsl", "Shade()", false); });
 }

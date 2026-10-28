@@ -9235,6 +9235,16 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "da66d15d-42ed-4342-94ce-19d67de0e105",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/98-distance-fog.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
       "dependencies": [
         "a2d9387a-fce3-4f4d-b617-77e05cfb3abf"
       ],

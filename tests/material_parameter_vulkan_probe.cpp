@@ -594,7 +594,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
     const auto pose = prepare_skin_pose(joints, inverse_bind, part.joint_palette, morph_bounds);
     const std::array<float, 1> weights{1};
     const auto direct = [&](MeshDraw& selected, std::span<const MaterialParameterOverride> values,
-                            bool depth_only) {
+                            bool depth_only, const SceneDistanceFog* fog = nullptr) {
         auto* rtv = color->GetDefaultView(TEXTURE_VIEW_RENDER_TARGET);
         auto* dsv = depth->GetDefaultView(TEXTURE_VIEW_DEPTH_STENCIL);
         context->SetRenderTargets(depth_only ? 0 : 1, depth_only ? nullptr : &rtv, dsv,
@@ -607,7 +607,7 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
         Viewport viewport{0, 0, 384, 192, 0, 1};
         context->SetViewports(1, &viewport, 384, 192);
         selected.draw(context, {}, view, {}, nullptr, nullptr, nullptr, {}, nullptr, weights, &pose,
-                      {}, values, "surface");
+                      {}, values, "surface", nullptr, fog);
         context->Flush();
         return read(device, context, depth_only ? depth : color);
     };
@@ -618,6 +618,22 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
               dominant(skin_default, 0) == 0 && dominant(skin_default, 1) == 0,
           "Numeric material updates lost skinned/morphed geometry or leaked values");
     image(root / "skinned-morph-values.ppm", skin_green);
+    const SceneDistanceFog full_fog{true, {.2f, .3f, .9f}, 0, 1};
+    const auto fogged_skin = direct(skin_draw, {}, false, &full_fog);
+    std::size_t fogged_pixels = 0;
+    for (std::size_t i = 0; i < skin_default.size(); ++i) {
+        const bool geometry = skin_default[i][0] || skin_default[i][1] || skin_default[i][2];
+        for (unsigned lane = 0; lane < 4; ++lane) {
+            const auto expected = geometry && lane < 3
+                                      ? int(std::lround(full_fog.color[lane] * 255))
+                                      : int(skin_default[i][lane]);
+            check(std::abs(int(fogged_skin[i][lane]) - expected) <= 1,
+                  "Fog lost camera-relative skinned/morphed geometry, alpha or background");
+        }
+        fogged_pixels += geometry;
+    }
+    check(fogged_pixels > 100 && direct(skin_draw, {}, false) == skin_default,
+          "Fog changed skin/morph coverage or leaked into its next disabled draw");
     material.alpha = MaterialAlpha::Mask;
     MeshDraw masked_shadow(presentation, context, gpu.lods[0].parts[0], material, {},
                            TEX_FORMAT_UNKNOWN, TEX_FORMAT_D32_FLOAT);
@@ -626,6 +642,8 @@ void execute(const std::filesystem::path& root, const std::filesystem::path& gal
     const auto depth_opaque = direct(masked_shadow, std::span(&red, 1), true);
     const auto depth_cutout = direct(masked_shadow, std::span(&transparent, 1), true);
     const auto depth_restored = direct(masked_shadow, {}, true);
+    check(direct(masked_shadow, std::span(&red, 1), true, &full_fog) == depth_opaque,
+          "Distance fog changed skinned/morphed masked shadow depth");
     const auto written = [](const Pixels& pixels) {
         return std::count_if(pixels.begin(), pixels.end(), [](const auto& value) {
             const auto depth = std::bit_cast<float>(value);

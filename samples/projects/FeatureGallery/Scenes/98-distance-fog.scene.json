@@ -1,0 +1,835 @@
+{
+  "asset_id": "da66d15d-42ed-4342-94ce-19d67de0e105",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.5,
+          "background_g": 0.3499999940395355,
+          "background_r": 0.25,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 100.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9971888065338135,
+          "x": 0.07492970675230026,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 3.0,
+          "z": -10.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "eac166a6-9c05-4a90-a15a-f8de7c96ecad",
+      "name": "Camera - distance fog avenue",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.light": {
+          "basis": 0,
+          "cast_shadows": false,
+          "color_b": 1.0,
+          "color_g": 1.0,
+          "color_r": 1.0,
+          "enabled": true,
+          "inner_cone": 0.0,
+          "intensity": 2.5,
+          "kind": 0,
+          "layers": 4294967295,
+          "outer_cone": 0.7853981633974483,
+          "range": 0.0,
+          "shadow_bias": 0.0010000000474974513,
+          "shadow_normal_bias": 0.019999999552965164
+        },
+        "forge.local_rotation": {
+          "w": 0.939372718334198,
+          "x": 0.34289780259132385,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 5.0,
+          "z": -2.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "a148c402-24e7-4766-839a-ac7684b6bc50",
+      "name": "Directional light",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 18.0,
+          "y": 0.4000000059604645,
+          "z": 50.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.2,
+          "z": 12.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.20000000298023224,
+                  0.20000000298023224,
+                  0.20000000298023224,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "9c38fdef-0e4c-4bbe-9d87-a2e624c5975a",
+      "name": "Avenue floor",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8500000238418579,
+                  0.20000000298023224,
+                  0.05000000074505806,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "d9180676-c6ae-44b9-8f54-e5adec56525d",
+      "name": "Fog row 1 - column 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.07999999821186066,
+                  0.6499999761581421,
+                  0.18000000715255737,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "58e4563e-8c97-4598-999b-3488ed806079",
+      "name": "Fog row 1 - column 2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.0,
+          "z": 0.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.07999999821186066,
+                  0.20000000298023224,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "5bf0e590-87d9-43ff-90f8-c4840c52eeca",
+      "name": "Fog row 1 - column 3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.0,
+          "z": 7.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8500000238418579,
+                  0.20000000298023224,
+                  0.05000000074505806,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "a0567785-9af3-4b0d-9f8a-5d01d3be1bec",
+      "name": "Fog row 2 - column 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 7.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.07999999821186066,
+                  0.6499999761581421,
+                  0.18000000715255737,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "5c9b601a-1da6-4b1b-8ffc-8966d66d527e",
+      "name": "Fog row 2 - column 2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.0,
+          "z": 7.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.07999999821186066,
+                  0.20000000298023224,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "dbefdfa0-9530-4f64-9ed7-8c932b1f3cf5",
+      "name": "Fog row 2 - column 3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.0,
+          "z": 14.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8500000238418579,
+                  0.20000000298023224,
+                  0.05000000074505806,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "e00bb93a-67f3-4d8a-bbfe-c44608aa82b6",
+      "name": "Fog row 3 - column 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 14.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.07999999821186066,
+                  0.6499999761581421,
+                  0.18000000715255737,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "4edd50be-9316-49fe-bd7c-57f1ae3b6ffc",
+      "name": "Fog row 3 - column 2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.0,
+          "z": 14.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.07999999821186066,
+                  0.20000000298023224,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "7062999f-4781-4b47-96cf-507bbed6ecc1",
+      "name": "Fog row 3 - column 3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 1.0,
+          "z": 21.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.8500000238418579,
+                  0.20000000298023224,
+                  0.05000000074505806,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "7d596f05-40fb-45ee-9a57-01f86f9f43b6",
+      "name": "Fog row 4 - column 1",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 21.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.07999999821186066,
+                  0.6499999761581421,
+                  0.18000000715255737,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "2c40a77d-12d8-40d6-84dd-f4042858910b",
+      "name": "Fog row 4 - column 2",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.5,
+          "y": 2.0,
+          "z": 1.5
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 1.0,
+          "z": 21.0
+        },
+        "forge.mesh_renderer": {
+          "cast_shadows": true,
+          "enabled": true,
+          "layers": 4294967295,
+          "material_parameters": [
+            {
+              "key": "baseColorFactor",
+              "parameter": {
+                "type": 5,
+                "value": [
+                  0.07999999821186066,
+                  0.20000000298023224,
+                  0.8999999761581421,
+                  1.0
+                ]
+              },
+              "slot": "surface"
+            }
+          ],
+          "material_variant": null,
+          "materials": [
+            {
+              "material": "4ab91f02-df69-47c5-a626-3b6c7504e954",
+              "slot": "surface"
+            }
+          ],
+          "mesh": "80c55df2-1abb-42b0-9591-502e783cdc97",
+          "receive_shadows": true,
+          "visible": true
+        }
+      },
+      "id": "29f53e7c-88c0-4c75-b5b0-14d4da33f774",
+      "name": "Fog row 4 - column 3",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "rendering": {
+    "distance_fog": {
+      "color": [
+        0.25,
+        0.35,
+        0.5
+      ],
+      "enabled": true,
+      "end": 34.0,
+      "start": 12.0
+    },
+    "shadows": {
+      "enabled": false
+    },
+    "version": 1
+  },
+  "version": 3
+}

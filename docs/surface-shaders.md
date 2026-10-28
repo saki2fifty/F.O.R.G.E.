@@ -91,6 +91,19 @@ preparation leaves the previous complete draw available. Source Save, Shader
 publication, Material publication and scene history keep their existing separate
 ownership. No atomic cross-document operation is claimed.
 
+## Scene distance fog wrapper
+
+Current engine color wrappers apply [Scene distance fog](distance-fog.md) to
+successful linear HDR surface color before blending. Mask discard, alpha and
+nonfinite diagnostic returns retain their existing semantics; depth wrappers do
+not fog. Project function signatures and material ownership remain unchanged.
+
+Cooked Shader metadata `surface_wrapper_version:2` records this contract independently
+of optimized reflected bindings. The implicit legacy version 1 keeps its existing
+layout/bytes and works with fog disabled. Reimport the Shader and rebuild dependent
+Materials to use fog; embedded last-good programs remain the Material's authority.
+Only supported wrapper versions are admitted. New cooks need a matching engine.
+
 ## Evidence
 
 - CPU source/inheritance/equal-value/reset, versioned transport and compatibility tests.

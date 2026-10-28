@@ -48,6 +48,15 @@ struct SceneAutoExposure {
     bool operator==(const SceneAutoExposure&) const = default;
 };
 void validate_scene_auto_exposure(const SceneAutoExposure&);
+// Radial geometry fog in linear HDR, before blending and display processing.
+// Sky/background, editor overlays and HUD retain their own colors.
+struct SceneDistanceFog {
+    bool enabled = false;
+    std::array<float, 3> color{.5f, .5f, .5f};
+    float start = 0, end = 100; // World metres from each camera's position.
+    bool operator==(const SceneDistanceFog&) const = default;
+};
+void validate_scene_distance_fog(const SceneDistanceFog&);
 struct SceneRenderSettings {
     SceneEnvironment environment;
     SceneShadows shadows;
@@ -55,6 +64,7 @@ struct SceneRenderSettings {
     float exposure = 0; // Authored game exposure in stops; Scene preview has its own override.
     SceneColorAdjustments color_adjustments;
     SceneAutoExposure auto_exposure;
+    SceneDistanceFog distance_fog;
     bool operator==(const SceneRenderSettings&) const = default;
 };
 SceneRenderSettings scene_render_settings(const nlohmann::json& scene);

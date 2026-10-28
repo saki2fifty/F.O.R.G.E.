@@ -2,6 +2,7 @@
 #include "Graphics/GraphicsEngine/interface/DeviceContext.h"
 #include "material_graph_compile_fixture.hpp"
 #include "shader_diligent.hpp"
+#include <algorithm>
 #include <chrono>
 #include <forge/material_graph.hpp>
 #include <functional>
@@ -142,12 +143,20 @@ float4 fixture_color(){return float4(0,.25,1,1);}
         const auto native_surface = compile_diligent_shader(device, surface, body, {});
         auto realized =
             realize_diligent_shader(device, decode_shader(encode_shader(native_surface.data)));
-        check(realized.stages.size() == 2 &&
+        check(native_surface.data.surface_wrapper_version == 2 &&
+                  realized.data.surface_wrapper_version == 2 && realized.stages.size() == 2 &&
                   realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceColor}) &&
                   realized.stages.contains({ShaderStage::Pixel, ShaderEntryRole::SurfaceDepth}),
               "Cooked surface lost color/depth programs");
         for (const auto& stage : native_surface.data.stages) {
             const auto binding = surface_binding_layout(*surface.surface, stage.reflection);
+            const auto& resources = stage.reflection.at("resources");
+            const auto fog =
+                std::find_if(resources.begin(), resources.end(), [](const auto& resource) {
+                    return resource.at("name") == "ForgeDistanceFog";
+                });
+            check((fog != resources.end()) == (stage.role == ShaderEntryRole::SurfaceColor),
+                  "Fog buffer missing from cooked surface color or retained by depth");
             check(binding.parameter_bytes == 16 && binding.settings && binding.uv_bytes == 32 &&
                       binding.sampler_count == 1 &&
                       binding.textures == std::vector<std::string>{"color"},

@@ -1,5 +1,14 @@
 # Feature Gallery
 
+## Distance fog
+
+Open **Scenes/98-distance-fog.scene.json** and press Play. Twelve colored columns
+fade toward blue gray with distance. In **Tools > Scene lighting... → Distance fog**,
+try Start12 and End34; toggle Enable to compare, or change the color. Distances
+belong to each camera; the Scene editor camera can show a different amount.
+Sky/background stay separate. Save, set this scene as startup and export normally.
+The example needs no C++ module, custom Shader cook or new Material.
+
 ## Packed Sprite fills
 
 Open **Scenes/97-packed-sprite-fills.scene.json**. Originals on the left match the

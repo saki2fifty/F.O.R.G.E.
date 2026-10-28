@@ -11,6 +11,7 @@
 #include <forge/material_resource.hpp>
 #include <forge/render_components.hpp>
 #include <forge/render_view.hpp>
+#include <forge/scene_render_settings.hpp>
 namespace forge {
 // Diligent prepared draw. The caller owns scene extraction, typed resource
 // leases, sorting, target/pass composition and publication of complete candidates.
@@ -48,7 +49,8 @@ class MeshDraw {
               std::span<const float> morph_weights = {}, const SkinPose* skin = nullptr,
               std::span<const Instance> instances = {},
               std::span<const MaterialParameterOverride> object_parameters = {},
-              std::string_view material_slot = {}, const SpriteDrawValues* sprite = nullptr);
+              std::string_view material_slot = {}, const SpriteDrawValues* sprite = nullptr,
+              const SceneDistanceFog* fog = nullptr);
 
   private:
     const MaterialParameterUniform* material_parameter_binding(std::string_view) const;
@@ -59,11 +61,12 @@ class MeshDraw {
     std::array<Diligent::RefCntAutoPtr<Diligent::IPipelineState>, 3> pipelines_;
     std::array<Diligent::RefCntAutoPtr<Diligent::IShaderResourceBinding>, 3> bindings_;
     Diligent::RefCntAutoPtr<Diligent::IBuffer> object_, lights_, environment_, shadows_,
-        transmission_;
+        transmission_, fog_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> empty_shadow_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_environment_;
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     bool shadow_pass_{};
+    bool fog_supported_ = true;
     bool sprite_{}, sprite_trim_allowed_{};
     bool lights_active_{};
     float volume_thickness_{};

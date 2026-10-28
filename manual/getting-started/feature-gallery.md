@@ -1,5 +1,9 @@
 # Explore the Feature Gallery
 
+**98-distance-fog** places colored columns at increasing camera distances. Open
+**Tools > Scene lighting... → Distance fog**, adjust Start/End or toggle fog,
+then save and export. See [Scene lighting](../editor/lighting.md) for controls and limits.
+
 **97-packed-sprite-fills** compares original and packed artwork in Sliced and Tiled
 modes. Change both members of a pair together, then save and export. See
 [Sprites](../editor/sprites.md) for original-canvas borders, density and transparent

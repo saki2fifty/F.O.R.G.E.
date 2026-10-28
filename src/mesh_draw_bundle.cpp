@@ -168,7 +168,7 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                const MeshInstancePose* pose,
                                std::span<const MeshDraw::Instance> instances,
                                std::span<const MaterialParameterOverride> parameters,
-                               const SpriteDrawValues* sprite) {
+                               const SpriteDrawValues* sprite, const SceneDistanceFog* fog) {
     auto& selected = lods_.at(lod).at(part);
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
@@ -181,6 +181,6 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
     selected->draw(context, pose ? pose->world : world, camera, lights, environment, legacy_tint,
                    shadows, shadow_slots, transmission,
                    pose ? std::span<const float>(pose->morph_weights) : std::span<const float>{},
-                   skin, instances, parameters, slot(lod, part), sprite);
+                   skin, instances, parameters, slot(lod, part), sprite, fog);
 }
 } // namespace forge
