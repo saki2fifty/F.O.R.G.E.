@@ -1,5 +1,22 @@
 # 2026-10-28 — Sprite atlas metadata and automatic exposure
 
+## Packed Sprite fills
+
+Trimmed and clockwise-stored frames now work in existing Sliced and Tiled modes.
+Fill/borders/density use the original logical canvas before retained-pixel/storage
+mapping, including complete-fill flips, compressed borders and partial tiles.
+Whole-bank logical border validation and Blend/no-depth-write trim admission retain
+the existing last-good candidate rules. Simple keeps its prior mapping arithmetic.
+One explicit private Sprite crop row changes its GPU stride144→160 bytes; ordinary
+Mesh remains7rows and installed value/C ABI/fingerprint/asset IDs stay unchanged.
+
+Actual controls, Scene/Prefab history/save/reopen, MCP, installed typed C++ writes,
+both hosts/live512 and source-free Gallery97 use the same existing owners. The
+gallery reuses original/packed assets without new cooks. GPU checks compare original
+and packed pixels across modes, turns, trims, filters, flips, compressed borders,
+partial tiles and mixed two-instance data. Windows/physical acceptance remains a
+separate gate; no automatic repacking or atlas-aware mip generation was added.
+
 ## Automatic Game exposure
 
 Default-off Scene exposure now meters composed HDR light with a bounded original

@@ -67,7 +67,7 @@ tests. The Tile Set grid has no new crop fields. The chooser closes when its act
 region or published image changes; outside pixels cannot choose a frame.
 
 Regions remain per-object numbers under SpriteRenderer. Material/texture ownership,
-resource keys and the existing nine-row instance layout remain. Different regions
+resource keys and the existing private instance path remain. Different regions
 can instance together. Width, height and pivot still define world geometry; cropping
 does not resize it automatically. Simple, Sliced, Tiled and flips operate on the
 selected frame. Invalid selection or a replacement image that cannot fit it retains
@@ -111,7 +111,7 @@ container envelopes derive from annotated descendants. Native layout/schema limi
 remain unchanged. No new frame-edit automation operation is needed; existing
 property batches/history/Play/MCP discovery expose the data. Source-free original
 Gallery87 demonstrates unequal frames, animation, crop, Sliced and Tiled fill.
-Frame metadata supports the Simple profile described below. Atlas-aware mip
+Frame metadata supports Simple, Sliced and Tiled fills described below. Atlas-aware mip
 generation remains outside this workflow. Automatic packing uses the existing
 source/import owners described below.
 
@@ -128,23 +128,39 @@ JSON and four-field C++ aggregate initializers retain their defaults.
 The shared private codec/canvas owner supplies whole-bank validation and detached
 draw interpretation. Explicit native missing-member defaults preserve legacy data
 through Meta/native reconstruction, opaque-extension traversal and entity-reference
-remapping; ordinary required members remain required. Trimming or stored turns
-require Simple mode. Actual trim additionally requires Blend with depth writes off,
+remapping; ordinary required members remain required. Trimming and stored turns
+work in Simple, Sliced and Tiled modes. Actual trim additionally requires Blend with depth writes off,
 checked for the entire bank against both initial and numeric-only candidate paths.
 Invalid replacements retain the complete last-good geometry, resources and picture.
 
 World geometry, pivot, picking and culling remain the full logical Sprite rectangle.
-Logical flips mirror retained bounds as well as content. The existing Simple
-transpose path and unused Simple slice row carry the crop mapping in the unchanged
-nine-row instance layout. The fragment shader discards outside retained bounds and
-restores local coordinates before normal atlas sampling/clamping. Identity frames
-skip that inverse mapping. Existing untrimmed Simple/Sliced/Tiled and Tile Map
-instance paths retain their established interpretation. No alternate geometry,
-resource, material or atlas owner is introduced.
+Logical flips mirror retained bounds as well as content. Simple retains its
+existing transpose/inverse-crop arithmetic and identity fast path. Sliced/Tiled
+receive untransposed logical coordinates, recover the logical flips from stored
+orientation and physical region signs, then apply piecewise/repeated fill in the
+original canvas. The fragment shader restores the unflipped retained rectangle,
+discards transparent margins, normalizes inside retained pixels, restores clockwise
+storage and applies the ordinary physical atlas clamp. Sliced borders use each
+original canvas, including unused frames; Tiled density/partial tiles retain its
+transparent margins. Storage dimensions never become logical border dimensions.
+
+One explicit retained-crop row extends only the private Sprite instance layout
+from9 to10 float4 rows (144→160 bytes, at most64 instances/10240 bytes per batch).
+Buffer allocation, input descriptors, CPU staging and generated vertex/fragment
+interfaces share that layout. Ordinary Mesh retains its7-row submitted layout.
+This transient renderer change introduces no persisted field, asset, installed
+SDK value/fingerprint or C ABI change. Existing C++ frame elements stay36 bytes.
+Existing valid documents remain valid; older engine builds reject the newly
+supported fill/metadata combinations. Use a matching engine build for this feature.
+No alternate geometry/resource/material/atlas owner is introduced.
 
 Original Gallery95 compares full source canvases with trimmed, clockwise-stored
 frames, including a flipped pair. The installed Sprite sample writes metadata
 through typed C++, and existing live tuning/recovery consume the same values.
+Gallery97 compares full originals and packed Sliced/Tiled fills with asymmetric
+borders and partial repeated canvases. The installed sample continues through
+Sliced/Tiled metadata writes, and both hosts tune512 transformed entries through
+those modes without advancing simulation during tuning.
 
 Portable core/UI/installed-SDK/MCP/content checks and actual software-Vulkan pixels
 are separate from native Windows/full Main/physical acceptance. See the canonical
@@ -160,13 +176,13 @@ it is independent of viewport DPI or camera zoom. It must be finite in
 `[0.0001,1000000]`.
 
 Sliced uses `border_left`, `border_right`, `border_top` and `border_bottom` in
-whole source-cell pixels, each in `[0,16384]`. Each opposing pair must leave a
+whole original-canvas pixels before trimming/storage, each in `[0,16384]`. Each opposing pair must leave a
 positive source center. Borders keep their natural meter size; the center and
 middle edges stretch. If the target is smaller than its opposing borders, both
 compress proportionally and the target center collapses. Texture-dependent border
 admission uses the selected cell and retains the complete last-good draw on error.
 
-Tiled repeats the whole selected cell from the top-left, cropping a partial final
+Tiled repeats the whole selected original canvas from the top-left, cropping a partial final
 tile. Flips mirror the complete fill, including the partial tile's position.
 The authored width and height times density must each be at most1048576 source
 pixels, bounding float repeat phase; ordinary component/property validation
@@ -174,7 +190,7 @@ rejects excessive combinations. Border fields are retained while inactive.
 Repeated filtering stays inside the existing cell clamp/LOD0 contract; it does
 not add periodic cross-edge filtering, mip-safe atlas gutters or atlas mipmaps.
 
-These values use one existing Quad/Sprite profile and its existing nine-row
+These values use one existing Quad/Sprite profile and its private ten-row
 instance stride. The unused unlit basis rows carry normalized mapping parameters;
 flat varyings carry the atlas and piecewise/repeat data. Sprite normal-frame and
 legacy-lighting work is omitted deliberately. Standard Mesh lighting and its

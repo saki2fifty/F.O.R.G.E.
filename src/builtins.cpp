@@ -877,8 +877,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             frame_type.lookup(field).set_doc_brief(
                 "Retained image offset in its original logical canvas, before flips");
         frame_type.lookup("rotated_clockwise")
-            .set_doc_brief("Stored pixels are turned clockwise by 90 degrees; Simple Sprites "
-                           "restore their orientation");
+            .set_doc_brief("Stored pixels are turned clockwise by 90 degrees; Simple, Sliced "
+                           "and Tiled Sprites restore their orientation");
         w.component<std::vector<SpriteFrameRegion>>("forge.sprite_frame_regions")
             .opaque(reflected_vector<SpriteFrameRegion>);
         c.template member<AssetRef<MaterialAsset>>("material")
@@ -2377,8 +2377,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
                                        ? "Image region extent; zero reaches the image edge"
                                        : "Image region offset from the texture top-left corner";
         } else if (field == "image_mode") {
-            value["description"] =
-                "Simple stretches; Sliced preserves borders; Tiled repeats the selected frame";
+            value["description"] = "Simple stretches; Sliced preserves original-canvas borders; "
+                                   "Tiled repeats the original canvas";
         } else if (field == "pixels_per_meter") {
             value["minimum"] = .0001;
             value["maximum"] = 1000000;
@@ -2388,8 +2388,8 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["minimum"] = 0;
             value["maximum"] = 16384;
             value["unit"] = "pixels";
-            value["description"] =
-                "Sliced source-cell border; opposing borders must leave a positive center";
+            value["description"] = "Sliced original-canvas border before trim/storage; opposing "
+                                   "borders must leave a positive center";
         } else if (field == "width" || field == "height") {
             value["minimum"] = .0001;
             value["maximum"] = 10000;

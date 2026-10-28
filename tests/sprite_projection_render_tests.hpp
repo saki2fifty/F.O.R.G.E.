@@ -39,7 +39,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     constexpr std::array<std::uint8_t, 4> background{8, 16, 32, 255}, ink{255, 0, 255, 255};
     const std::array<float, 4> clear{8.f / 255, 16.f / 255, 32.f / 255, 1};
     auto* device = presentation.device();
-    for (const auto size : {std::pair{96u, 48u}, {48u, 96u}, {127u, 73u}, {73u, 127u}}) {
+    for (const auto& size : {std::pair{96u, 48u}, {48u, 96u}, {127u, 73u}, {73u, 127u}}) {
         const auto [width, height] = size;
         RefCntAutoPtr<ITexture> color, depth;
         TextureDesc desc;
@@ -92,7 +92,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             // adapter nor the renderer's projection/bounds helpers form this oracle.
             std::array<std::array<double, 2>, 4> polygon;
             unsigned corner = 0;
-            for (const auto uv : {std::pair{0., 0.}, {1., 0.}, {1., 1.}, {0., 1.}}) {
+            for (const auto& uv : {std::pair{0., 0.}, {1., 0.}, {1., 1.}, {0., 1.}}) {
                 const auto x = (uv.first - sprite.renderer.pivot_x) * sprite.renderer.width;
                 const auto y = (sprite.renderer.pivot_y - uv.second) * sprite.renderer.height;
                 const auto& m = sprite.world.m;

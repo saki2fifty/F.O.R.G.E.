@@ -2426,6 +2426,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "2acc279b-0a76-4838-a1bc-b70123cb234a",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/97-packed-sprite-fills.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "2c614cb7-d5d8-41f4-9e52-82e0a8a8b37b",
       "metadata": {},
       "schema_version": 3,

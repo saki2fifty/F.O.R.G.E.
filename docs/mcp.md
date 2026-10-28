@@ -715,17 +715,29 @@ watched identity, revision, generation and unchanged authored-Scene rules.
 ## Ordered Sprite frame regions
 
 Native discovery for forge.sprite_renderer includes frame_regions as a vector of
-up to512{x,y,width,height} pixel rectangles. Use forge_property_set_many to change
+up to512 pixel rectangles with x/y/width/height and optional rotated_clockwise,
+source_width/source_height and trim_x/trim_y metadata. Source dimensions independently
+default to the unrotated retained dimensions; offsets must fit the original canvas.
+Use forge_property_set_many to change
 frame_regions and frame atomically; an empty list restores the existing grid.
 Indices are zero-based and coordinates are relative to the optional image crop.
 Normal target/revision/permission/history rules apply. Sprite image Material and
 texture references retain the existing asset owners.
 
+Simple, Sliced and Tiled image_mode values0/1/2 all support trim and clockwise
+storage. Sliced borders use original-canvas pixels and must leave a positive
+center in every entry. Tiled density repeats the full original canvas, including
+transparent margins. Combine frame_regions, image_mode and any border edits in
+one property batch when needed to produce an admitted complete candidate. Actual
+trim still requires a Blend Material with depth writes off; texture fit and
+last-good draw admission stay with the existing renderer.
+
 During Play, forge_play_tune supports the list through the same runtime-property
 owner in ordinary and SDK Play. Set Frame to0 before shrinking a list below its
 current index. Poll tune_ack for validation; ordinary-host success carries the
-applied value while failure carries error. The list uses the existing64KiB
-collection envelope and does not advance a fixed tick. Stop restores authored
+applied value while failure carries error. This annotated list permits128KiB/8192
+elements for expanded frame metadata; unrelated collections keep their existing
+limits. Tuning modes/metadata does not advance a fixed tick. Stop restores authored
 values. Actual image fit/last-good rendering and clip-frame constraints still
 apply; successful authoring does not prove an unavailable image is usable.
 

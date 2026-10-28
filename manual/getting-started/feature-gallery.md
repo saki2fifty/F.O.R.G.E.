@@ -1,5 +1,10 @@
 # Explore the Feature Gallery
 
+**97-packed-sprite-fills** compares original and packed artwork in Sliced and Tiled
+modes. Change both members of a pair together, then save and export. See
+[Sprites](../editor/sprites.md) for original-canvas borders, density and transparent
+margin behavior.
+
 The packaged **Examples/FeatureGallery** project gives you focused scenes to
 open in the editor and export as standalone games. You can see how each effect is
 authored, change it, then compare the result in Play and in the exported game.

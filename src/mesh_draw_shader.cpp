@@ -46,7 +46,8 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
                     "float4 Color:COLOR0;nointerpolation float4 LegacyTint:COLOR1;";
     varyings += "float2 UV[" + std::to_string(uv_count) + "]:TEXCOORD4;";
     if (sprite_profile)
-        varyings += "nointerpolation float4 SpriteClamp:TEXCOORD5;";
+        varyings += "nointerpolation float4 SpriteClamp:TEXCOORD5;"
+                    "nointerpolation float4 SpriteCrop:TEXCOORD6;";
     if (fetch.skin)
         varyings += "float3 Source:TEXCOORD" + std::to_string(4 + uv_count) +
                     ";float3 SkinRows[3]:TEXCOORD" + std::to_string(5 + uv_count) + ";";
@@ -57,7 +58,7 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
         vs += "struct ForgeInstance {float4 R0:ATTRIB0;float4 R1:ATTRIB1;float4 R2:ATTRIB2;"
               "float4 B0:ATTRIB3;float4 B1:ATTRIB4;float4 B2:ATTRIB5;float4 Tint:ATTRIB6;";
         if (sprite_profile)
-            vs += "float4 Atlas:ATTRIB7;float4 AtlasClamp:ATTRIB8;";
+            vs += "float4 Atlas:ATTRIB7;float4 AtlasClamp:ATTRIB8;float4 Crop:ATTRIB9;";
         vs += "};\n";
     }
     vs += std::string("ForgeVarying main(uint id:SV_VertexID") +
@@ -97,10 +98,11 @@ cbuffer ForgeSkin {float4 g_SkinInfo;float4 g_SkinRows[768];};
     vs += "[unroll]for(uint i=0;i<" + std::to_string(uv_count) + ";i++)o.UV[i]=v.UV[i];";
     if (sprite_profile)
         vs += "float2 local=float2(v.UV[0].x,1-v.UV[0].y);"
-              "if(instance.B2.w!=0)local=local.yx;"
+              "if(instance.B2.x==0 && instance.B2.w!=0)local=local.yx;"
               "o.UV[0]=instance.B2.x==0?instance.Atlas.xy+local*instance.Atlas.zw:local;"
               "o.SpriteX=instance.B0;o.SpriteY=instance.B1;o.SpriteImage=instance.B2;"
               "o.SpriteAtlas=instance.Atlas;o.SpriteClamp=instance.AtlasClamp;"
+              "o.SpriteCrop=instance.Crop;"
               "o.Color*=instance.Tint;";
     vs += "return o;}\n";
     std::string geometry;
@@ -284,11 +286,22 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     }
     if(input.SpriteImage.x!=0) {
         float2 local=input.UV[0];
-        if(input.SpriteAtlas.z<0)local.x=1-local.x;
-        if(input.SpriteAtlas.w<0)local.y=1-local.y;
+        bool rotated=input.SpriteImage.w!=0;
+        bool flipX=rotated?input.SpriteAtlas.w<0:input.SpriteAtlas.z<0;
+        bool flipY=rotated?input.SpriteAtlas.z>0:input.SpriteAtlas.w<0;
+        if(flipX)local.x=1-local.x;
+        if(flipY)local.y=1-local.y;
         float2 mapped=input.SpriteImage.x==1?
             float2(ForgeSpriteSlice(local.x,input.SpriteX),ForgeSpriteSlice(local.y,input.SpriteY)):
             frac(local*input.SpriteImage.yz);
+        // Fill uses the original logical canvas. The retained rectangle is
+        // supplied after logical flips; undo those flips for source-space trim.
+        float4 crop=input.SpriteCrop;
+        if(flipX)crop.x=1-crop.x-crop.z;
+        if(flipY)crop.y=1-crop.y-crop.w;
+        if(any(mapped<crop.xy) || any(mapped>crop.xy+crop.zw))discard;
+        mapped=(mapped-crop.xy)/crop.zw;
+        if(rotated)mapped=float2(1-mapped.y,mapped.x);
         input.UV[0]=min(input.SpriteAtlas.xy,input.SpriteAtlas.xy+input.SpriteAtlas.zw)+
                     mapped*abs(input.SpriteAtlas.zw);
     }

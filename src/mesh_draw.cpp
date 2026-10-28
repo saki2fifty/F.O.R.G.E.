@@ -41,6 +41,7 @@ RefCntAutoPtr<IBuffer> buffer(IRenderDevice* device, const char* name, Uint64 by
 }
 // Float4 rows match HLSL cbuffer packing; native PBR's integer lanes use bit_cast.
 using Row = std::array<float, 4>;
+constexpr unsigned mesh_instance_rows = 7, sprite_instance_rows = 10;
 
 } // namespace
 MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
@@ -156,7 +157,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     if (program.instanced) {
         BufferDesc desc;
         desc.Name = "FORGE static instance transforms";
-        desc.Size = instance_limit * (sprite_ ? 9 : 7) * sizeof(Row);
+        desc.Size =
+            instance_limit * (sprite_ ? sprite_instance_rows : mesh_instance_rows) * sizeof(Row);
         desc.BindFlags = BIND_VERTEX_BUFFER;
         // A full Tile Map uses many Sprite batches in one frame. Streaming
         // those bytes through DISCARD would retain one allocation per batch
@@ -260,9 +262,9 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     g.RTVFormats[0] = color_format;
     g.DSVFormat = depth_format;
     g.PrimitiveTopology = mesh.topology;
-    std::array<LayoutElement, 9> instance_layout;
+    std::array<LayoutElement, sprite_instance_rows> instance_layout;
     if (program.instanced) {
-        const unsigned rows = sprite_ ? 9 : 7;
+        const unsigned rows = sprite_ ? sprite_instance_rows : mesh_instance_rows;
         for (unsigned i = 0; i < rows; ++i)
             instance_layout[i] =
                 LayoutElement{i, 0, 4, VT_FLOAT32, False, INPUT_ELEMENT_FREQUENCY_PER_INSTANCE};
@@ -735,8 +737,8 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
     }
     if (instances_) {
         // Prepare the complete bounded batch before publishing any mapped bytes.
-        std::array<std::array<Row, 9>, instance_limit> copied{};
-        const unsigned rows = sprite_ ? 9 : 7;
+        std::array<std::array<Row, sprite_instance_rows>, instance_limit> copied{};
+        const unsigned rows = sprite_ ? sprite_instance_rows : mesh_instance_rows;
         const Instance single{world, legacy_tint ? std::optional(*legacy_tint) : std::nullopt,
                               sprite};
         const auto selected = instances.empty() ? std::span(&single, 1) : instances;
@@ -761,7 +763,8 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
             if (sprite_) {
                 const auto& values = *item.sprite;
                 // The unlit Sprite path does not consume a lighting basis. Reuse
-                // those three rows for numeric mapping without growing its stride.
+                // those three rows for numeric fill mapping. The separate crop
+                // row retains margins for all image modes.
                 for (unsigned axis = 0; axis < 2; ++axis) {
                     const auto& mapping = values.image.axes[axis];
                     copied[i][3 + axis] = {gpu(mapping.source_low), gpu(mapping.source_high),
@@ -779,6 +782,8 @@ void MeshDraw::draw(IDeviceContext* context, const AffineTransform& object_world
                     copied[i][8][axis] = gpu(values.region.sample_minimum[axis]);
                     copied[i][8][axis + 2] = gpu(values.region.sample_maximum[axis]);
                 }
+                for (unsigned lane = 0; lane < 4; ++lane)
+                    copied[i][9][lane] = gpu(values.quad_crop[lane]);
             } else if (item.legacy_tint) {
                 for (unsigned c = 0; c < 3; ++c) {
                     const auto value = (*item.legacy_tint)[c];

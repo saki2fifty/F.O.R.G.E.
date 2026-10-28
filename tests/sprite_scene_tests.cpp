@@ -58,14 +58,24 @@ void frame_draw_metadata() {
                                   "Trim, logical flip and stored turn selected the wrong original "
                                   "texel");
                     }
-                sprite.image_mode = 1;
-                bool rejected = false;
-                try {
-                    (void)sprite_draw_values(sprite, 32, 16);
-                } catch (const std::exception&) {
-                    rejected = true;
+                for (unsigned mode : {1u, 2u}) {
+                    sprite.image_mode = mode;
+                    sprite.border_left = 3;
+                    sprite.border_right = 2;
+                    sprite.border_top = 2;
+                    sprite.border_bottom = 1;
+                    const auto filled = sprite_draw_values(sprite, 32, 16);
+                    check(filled.image.mode == mode && filled.quad_crop == draw.quad_crop &&
+                              filled.transpose_uv == rotated &&
+                              sprite_world_transform(sprite, {}) == world,
+                          "Sliced/Tiled metadata lost original canvas, logical flips or world "
+                          "geometry");
+                    if (mode == 1)
+                        check(std::abs(filled.image.axes[0].source_low - 1. / 3) < 1e-12 &&
+                                  std::abs(filled.image.axes[1].source_low - 2. / 7) < 1e-12,
+                              "Sliced borders used retained/storage size rather than original "
+                              "canvas");
                 }
-                check(rejected, "Sliced mode admitted transformed frame metadata");
                 sprite.image_mode = 0;
             }
 }
@@ -203,6 +213,46 @@ void image_authoring(EngineContext& engine, Json legacy, EntityId actor,
     check(instance.entity(root_entity).get<SpriteRenderer>().frame_regions.size() == 2 &&
               instance.prefab_sources().at(prefab.asset()) == prefab_source,
           "Frame-bank override changed its prefab source or lost typed entries");
+    auto transformed = bank;
+    for (auto& frame : transformed) {
+        frame["source_width"] = 12;
+        frame["source_height"] = 10;
+    }
+    transformed[0].update({{"rotated_clockwise", true}, {"trim_x", 2}, {"trim_y", 3}});
+    authoring_command(instance, "property.set_many",
+                      {{"entity", root_entity},
+                       {"component", "forge.sprite_renderer"},
+                       {"values",
+                        {{"frame_regions", transformed},
+                         {"image_mode", 1},
+                         {"border_left", 5},
+                         {"border_right", 3},
+                         {"border_top", 2},
+                         {"border_bottom", 2}}}});
+    const auto sliced_override = instance.document();
+    check(
+        instance.entity(root_entity).get<SpriteRenderer>().image_mode == 1 &&
+            instance.entity(root_entity).get<SpriteRenderer>().frame_regions[0].rotated_clockwise &&
+            instance.prefab_sources().at(prefab.asset()) == prefab_source && instance.undo() &&
+            instance.document() == bank_override && instance.redo() &&
+            instance.document() == sliced_override,
+        "Transformed Sliced prefab override lost atomic history or changed published source");
+    authoring_command(instance, "property.set",
+                      {{"entity", root_entity},
+                       {"component", "forge.sprite_renderer"},
+                       {"field", "image_mode"},
+                       {"value", 2}});
+    const auto tiled_value = instance.entity(root_entity).get<SpriteRenderer>();
+    const auto fill_path = root / "FilledPrefab.scene.json";
+    instance.save(fill_path);
+    Scene reopened_fill(engine.world());
+    reopened_fill.set_prefab_sources({{prefab.asset(), prefab.source}});
+    reopened_fill.load(fill_path);
+    check(reopened_fill.entity(root_entity).get<SpriteRenderer>() == tiled_value &&
+              instance.prefab_sources().at(prefab.asset()) == prefab_source && instance.undo() &&
+              instance.document() == sliced_override && instance.undo() &&
+              instance.document() == bank_override,
+          "Transformed Tiled prefab save/reopen lost values or consumed Scene history");
     authoring_command(instance, "property.revert",
                       {{"entity", root_entity},
                        {"component", "forge.sprite_renderer"},

@@ -29,12 +29,13 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
         .write<forge::SpriteRenderer>()
         .each([](flecs::entity actor, SpriteImageProbe& probe) {
             ++probe.ticks;
-            if (probe.ticks > 3 || !actor.has<forge::SpriteRenderer>())
+            if (probe.ticks > 5 || !actor.has<forge::SpriteRenderer>())
                 return;
             auto image = actor.get<forge::SpriteRenderer>();
-            image.image_mode = std::uint32_t(probe.ticks == 1   ? forge::SpriteImageMode::Sliced
-                                             : probe.ticks == 2 ? forge::SpriteImageMode::Tiled
-                                                                : forge::SpriteImageMode::Simple);
+            const auto phase = probe.ticks % 3;
+            image.image_mode = std::uint32_t(phase == 1   ? forge::SpriteImageMode::Sliced
+                                             : phase == 2 ? forge::SpriteImageMode::Tiled
+                                                          : forge::SpriteImageMode::Simple);
             image.pixels_per_meter = probe.ticks == 1 ? 4 : 6;
             image.border_left = image.border_right = image.border_top = image.border_bottom = 1;
             image.flip_x = probe.ticks >= 2;
@@ -52,6 +53,12 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
                 frame.source_width = frame.source_height = 3;
                 frame.trim_x = frame.trim_y = 1;
             }
+            if (probe.ticks == 4)
+                for (auto& frame : image.frame_regions) {
+                    // Sliced borders belong to every original canvas, including
+                    // currently unused frames whose packed rectangles are smaller.
+                    frame.source_width = frame.source_height = 3;
+                }
             actor.set(image);
         })
         .add(host->fixed_tag);

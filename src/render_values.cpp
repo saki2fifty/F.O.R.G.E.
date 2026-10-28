@@ -53,13 +53,8 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
         throw std::invalid_argument("Sprite grid/frame is outside the supported integer range");
     if (value.frame_regions.size() > sprite_frame_region_limit)
         throw std::invalid_argument("Sprite supports at most512 frame regions");
-    for (const auto& region : value.frame_regions) {
-        const auto canvas = sprite_frame_canvas(region);
-        if (value.image_mode != std::uint32_t(SpriteImageMode::Simple) &&
-            (region.rotated_clockwise || canvas.trimmed()))
-            throw std::invalid_argument(
-                "Trimmed or rotated Sprite frames require the Simple image mode");
-    }
+    for (const auto& region : value.frame_regions)
+        (void)sprite_frame_canvas(region);
     for (const auto pixel :
          {value.region_x, value.region_y, value.region_width, value.region_height})
         if (pixel > 16384)
@@ -78,11 +73,13 @@ void validate_sprite_renderer(const SpriteRenderer& value) {
         if (border > 16384)
             throw std::invalid_argument("Sprite borders must be whole pixels in [0,16384]");
     if (value.image_mode == std::uint32_t(SpriteImageMode::Sliced))
-        for (const auto& region : value.frame_regions)
-            if (std::uint64_t(value.border_left) + value.border_right >= region.width ||
-                std::uint64_t(value.border_top) + value.border_bottom >= region.height)
+        for (const auto& region : value.frame_regions) {
+            const auto canvas = sprite_frame_canvas(region);
+            if (std::uint64_t(value.border_left) + value.border_right >= canvas.width ||
+                std::uint64_t(value.border_top) + value.border_bottom >= canvas.height)
                 throw std::invalid_argument(
                     "Every Sliced frame region must leave a positive source center");
+        }
 }
 Json render_value(const SpriteRenderer& p) {
     validate_sprite_renderer(p);

@@ -108,8 +108,8 @@ The sheet picker shows stored pixels and reports the selected logical canvas and
 turn; the Scene and Game views show the restored image.
 
 For actual trimming, publish a Material with **Blend** alpha and depth writes off.
-Ordinary untrimmed frames keep their existing material choices. Transformed frames
-cannot use Sliced or Tiled mode. If a frame or replacement Material is incompatible,
+Ordinary untrimmed frames keep their existing material choices. Trimmed and
+clockwise-stored frames work in Simple, Sliced and Tiled modes. If a frame or replacement Material is incompatible,
 FORGE reports the problem and retains the last usable picture and size. Correct
 the values to retry, then save the scene or publish its prefab source.
 
@@ -121,6 +121,24 @@ uses Flip X; the bottom image shows the actual packed storage.
 
 Gallery95 keeps both visible pairs aligned while their packed Texture stores the retained pixels clockwise.
 
+To stretch or repeat packed artwork, choose **Sliced** or **Tiled** in **Image mode**.
+The original canvas determines the fill, including its transparent margins.
+Sliced borders use pixels from that original canvas, before trimming or clockwise
+storage. Opposing borders must leave a positive center in every frame, including
+unused entries. Tiled density repeats the original canvas; a partial final tile
+keeps the same margins. Flips mirror the complete fill.
+
+Open **97-packed-sprite-fills** in the Feature Gallery. The top pair uses Sliced
+arrow artwork; the bottom pair uses Tiled markers with both flips enabled. Originals
+are on the left and packed versions on the right. Select a pair and apply the same
+**Width**, **Height**, **Pixels per meter** or border values to both. Their pictures
+should match. Save the Scene, select it as startup and export to compare the same
+result in the standalone game. The example needs no C++ module or compiler.
+
+![Matching original and packed orange Sliced arrows above two matching cyan Tiled marker fills](../images/packed-sprite-fills.png)
+
+Gallery97 compares original artwork on the left with trimmed, clockwise-stored artwork on the right.
+
 ## Pack separate images into an atlas
 
 An atlas is one image containing several smaller images. It can let Sprites share
@@ -128,7 +146,7 @@ one Texture and Material while choosing different frame rectangles.
 
 1. Import and publish the source images as independent Texture assets. Use uncompressed sRGB RGBA8 color with opaque or straight alpha. Model-owned image members, HDR and premultiplied images are outside this packing profile.
 2. Stop Play. Select the Texture assets in Content, then choose **Create / Register → Pack sprite atlas...**. Content supplies its listed asset order; review the source order before copying.
-3. Enter an unused folder below **Assets** and a new `.png` filename. The parent folder must exist. **Maximum side** limits the generated image to at most4096 pixels per side. **Padding pixels** reserves space around every image; **Extrude image edges into padding** fills that space with the nearest edge pixel. Enable **Trim transparent edges** to retain the original canvas metadata and a transparent filter ring while removing fully transparent outer pixels. **Allow stored quarter turns** permits90-degree clockwise storage. Both options start off; transformed frames require Simple Sprites.
+3. Enter an unused folder below **Assets** and a new `.png` filename. The parent folder must exist. **Maximum side** limits the generated image to at most4096 pixels per side. **Padding pixels** reserves space around every image; **Extrude image edges into padding** fills that space with the nearest edge pixel. Enable **Trim transparent edges** to retain the original canvas metadata and a transparent filter ring while removing fully transparent outer pixels. **Allow stored quarter turns** permits90-degree clockwise storage. Both options start off; the resulting metadata works with Simple, Sliced and Tiled Sprites.
 4. Choose **Prepare import**. This reads the published image pixels and generates a detached review. Check the layout and expand **Frame rectangles and source order**. The numbered rectangles show frame positions; they are not an image preview. **Back** changes the settings without creating files.
 5. Leave **Import with defaults after copying** enabled and choose **Copy sources**. After publication, the new PNG appears as an ordinary Texture in Content. Originals stay separate. Copying and asset publication are not Scene Undo operations.
 6. Choose **Copy atlas frames**, then close the dialog. Create and publish a **Sprite / image** Material using the new Texture. Assign that Material to a Sprite.

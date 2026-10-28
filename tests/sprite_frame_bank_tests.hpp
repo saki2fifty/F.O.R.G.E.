@@ -133,7 +133,7 @@ inline void test_sprite_frame_banks(const std::filesystem::path& root) {
         detail::read_reflected_native(copied, metadata.native_type(), expanded_candidate.data()) ==
             Json{{"frame_regions", expanded_full}},
         "Copied native frame bank lost explicit payload limits or metadata");
-    for (const Json count : {Json(0), Json(-1), Json(4097), Json(1.5)}) {
+    for (const Json& count : {Json(0), Json(-1), Json(4097), Json(1.5)}) {
         auto invalid = projection;
         invalid["fields"][0]["maximum_count"] = count;
         bool rejected = false;

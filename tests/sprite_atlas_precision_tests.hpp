@@ -30,7 +30,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     AffineTransform camera_world;
     camera_world.m[11] = -2;
     const auto view = camera_view(camera, camera_world, 64, 64);
-    for (const auto [width, pixel] :
+    for (const auto& [width, pixel] :
          {std::pair{16383u, 16374u}, std::pair{16383u, 8199u}, std::pair{8191u, 8188u}}) {
         TextureData source;
         source.width = width;

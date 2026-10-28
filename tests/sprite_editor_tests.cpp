@@ -265,10 +265,24 @@ void exercise(const std::filesystem::path& scratch, float scale) {
           "Native clipboard fixture does not exercise the expanded frame envelope");
     ImGui::SetClipboardText(expanded_text.c_str());
     click("sprite:paste-atlas");
-    const auto& expanded_bank = scene.entity(selected).get<SpriteRenderer>().frame_regions;
-    check(expanded_bank.size() == sprite_frame_region_limit &&
-              expanded_bank.back().rotated_clockwise &&
-              expanded_bank.back().source_width == 16384 && expanded_bank.back().trim_y == 12345 &&
+    click(field("image_mode"));
+    key(ImGuiKey_DownArrow);
+    key(ImGuiKey_Enter);
+    check(scene.entity(selected).get<SpriteRenderer>().image_mode == 1 &&
+              scene.entity(selected).get<SpriteRenderer>().frame_regions.size() ==
+                  sprite_frame_region_limit,
+          "Actual Sliced input rejected a trimmed/clockwise frame bank");
+    click(field("image_mode"));
+    key(ImGuiKey_DownArrow);
+    key(ImGuiKey_Enter);
+    check(scene.entity(selected).get<SpriteRenderer>().image_mode == 2 && scene.undo() &&
+              scene.undo(),
+          "Actual Tiled input or image-mode Undo rejected frame metadata");
+    // Undo replaces reflected storage; reacquire the bank after the mode edits.
+    const auto& restored_bank = scene.entity(selected).get<SpriteRenderer>().frame_regions;
+    check(restored_bank.size() == sprite_frame_region_limit &&
+              restored_bank.back().rotated_clockwise &&
+              restored_bank.back().source_width == 16384 && restored_bank.back().trim_y == 12345 &&
               scene.undo() && scene.document() == simple_image && scene.redo() && scene.undo(),
           "Native512-frame metadata paste lost values or atomic Scene history");
     const auto expect_bad_atlas = [&](const std::string& text) {

@@ -99,6 +99,7 @@ int main(int argc, char** argv) {
         const auto motion = asset(catalog, "Scenes/93-gamepad-motion.scene.json");
         const auto packed_atlas_scene = asset(catalog, "Scenes/94-sprite-atlas-packing.scene.json");
         const auto metadata_scene = asset(catalog, "Scenes/95-sprite-frame-metadata.scene.json");
+        const auto packed_fills = asset(catalog, "Scenes/97-packed-sprite-fills.scene.json");
         const std::array roots{basics,
                                frames,
                                panels,
@@ -110,7 +111,8 @@ int main(int argc, char** argv) {
                                gamepads,
                                motion,
                                packed_atlas_scene,
-                               metadata_scene};
+                               metadata_scene,
+                               packed_fills};
         const auto badge = asset(catalog, "Assets/Sprites/Badge.png");
         const auto sheet = asset(catalog, "Assets/Sprites/SignalSheet.png");
         const auto badge_material = asset(catalog, "Assets/Sprites/Badge.material.json");
@@ -231,14 +233,14 @@ int main(int argc, char** argv) {
         Scene scene(authored.world());
         std::map<EntityId, SpriteRenderer> fill_values, region_values, bank_values, touch_values,
             gesture_values, single_values, gamepad_values, motion_values, atlas_values,
-            metadata_values;
+            metadata_values, packed_fill_values;
         for (const auto id : roots) {
             scene.load(root / catalog.records().at(id).source);
             const auto rendered = extract_render_scene(scene.effective_document());
             check(rendered.diagnostics.empty() && rendered.meshes.empty() &&
                       rendered.sprites.size() ==
                           (id == motion                                          ? 2u
-                           : id == gamepads                                      ? 4u
+                           : id == gamepads || id == packed_fills                ? 4u
                            : id == touch || id == gestures || id == single_touch ? 1u
                            : id == basics || id == regions || id == banks        ? 6u
                                                                                  : 5u) &&
@@ -262,6 +264,9 @@ int main(int argc, char** argv) {
             if (id == metadata_scene)
                 for (const auto& sprite : rendered.sprites)
                     metadata_values.emplace(sprite.entity, sprite.renderer);
+            if (id == packed_fills)
+                for (const auto& sprite : rendered.sprites)
+                    packed_fill_values.emplace(sprite.entity, sprite.renderer);
             if (id == touch)
                 for (const auto& sprite : rendered.sprites)
                     touch_values.emplace(sprite.entity, sprite.renderer);
@@ -279,6 +284,14 @@ int main(int argc, char** argv) {
                   std::count_if(region_values.begin(), region_values.end(),
                                 [](const auto& entry) { return entry.second.region_enabled; }) == 5,
               "Gallery image region experiment lost its whole-image comparison or five crops");
+        check(packed_fill_values.size() == 4 &&
+                  std::count_if(packed_fill_values.begin(), packed_fill_values.end(),
+                                [](const auto& row) { return row.second.image_mode == 1; }) == 2 &&
+                  std::count_if(packed_fill_values.begin(), packed_fill_values.end(),
+                                [&](const auto& row) {
+                                    return row.second.frame_regions == metadata_frames;
+                                }) == 2,
+              "Gallery97 lost logical fill modes or transformed frame banks");
         playback(root, catalog, frames);
         playback(root, catalog, regions, 6);
         playback(root, catalog, banks, 6);
@@ -334,6 +347,12 @@ int main(int argc, char** argv) {
                                     return row.second.frame_regions == metadata_frames;
                                 }) == 2,
               "Source-free Gallery lost logical canvases, offsets, turns or Sprite identities");
+        restored.restore_snapshot(load_game_scene(relocated, {packed_fills}));
+        std::map<EntityId, SpriteRenderer> relocated_fills;
+        for (const auto& sprite : extract_render_scene(restored.effective_document()).sprites)
+            relocated_fills.emplace(sprite.entity, sprite.renderer);
+        check(relocated_fills == packed_fill_values,
+              "Source-free Gallery97 lost sliced/tiled metadata, values or identities");
         restored.restore_snapshot(load_game_scene(relocated, {panels}));
         const auto rendered = extract_render_scene(restored.effective_document());
         std::map<EntityId, SpriteRenderer> packed_values;

@@ -68,6 +68,12 @@ def live_region(worker, state):
     bank = worker.request('snapshot')
     assert values(bank)['forge.sprite_renderer']['frame_regions'] == live_frames
     assert bank['timing']['tick'] == state['timing']['tick']
+    for mode in (1, 2):
+        changed = worker.request('property_tune', **target, property='image_mode', value=mode)
+        assert changed['property_tune']['value'] == mode
+        mapped = worker.request('snapshot')
+        assert values(mapped)['forge.sprite_renderer']['frame_regions'] == live_frames
+        assert mapped['timing']['tick'] == state['timing']['tick']
     worker.request('property_tune', **target, property='frame_regions', value=[])
     for property, value in (('region_enabled', False), ('region_x', 1), ('region_y', 0),
                             ('region_width', 2), ('region_height', 3), ('region_enabled', True)):
@@ -155,6 +161,15 @@ try:
     recovered = metadata_restored.request('replace', scene=checkpoint['scene'], recovery=checkpoint,
                                          recovery_session=checkpoint['session'], recovery_tick=checkpoint['tick'])
     assert values(recovered) == values(third)
+    for worker in (first, restored, metadata_restored):
+        for tick, mode in ((4, 1), (5, 2)):
+            state = worker.request('step')
+            mapped = values(state)
+            image = mapped['forge.sprite_renderer']
+            assert mapped['project.sprite_image_probe']['ticks'] == tick
+            assert image['image_mode'] == mode and image['frame_regions'][2]['rotated_clockwise']
+            assert all(frame['source_width'] == 3 and frame['source_height'] == 3
+                       for frame in image['frame_regions'])
     live_region(first, first.request('snapshot'))
     assert scene == original and hashlib.sha256(source.read_bytes()).hexdigest() == digest
 finally:
@@ -170,7 +185,7 @@ play = Runtime(runtime, ['--sdk-project', root, '--sdk-play', 'on', '--user-data
 try:
     initial = activate(play, scene, True)
     region(values(initial)['forge.sprite_renderer'], 0, 0, 0, 0, False)
-    for tick, x, y in ((1, 1, 0), (2, 0, 1), (3, 0, 1)):
+    for tick, x, y in ((1, 1, 0), (2, 0, 1), (3, 0, 1), (4, 0, 1), (5, 0, 1)):
         state = play.request('step')
         mapped = values(state)
         assert mapped['project.sprite_image_probe']['ticks'] == tick
@@ -178,6 +193,10 @@ try:
         assert image['image_mode'] == tick % 3 and image['pixels_per_meter'] == (4 if tick == 1 else 6), image
         assert image['future_sprite_extension'] == dict(keep=17), image
         region(image, x, y)
+        if tick >= 4:
+            assert image['frame_regions'][2]['rotated_clockwise']
+            assert all(frame['source_width'] == 3 and frame['source_height'] == 3
+                       for frame in image['frame_regions'])
     live_region(play, state)
     assert scene == original and hashlib.sha256(source.read_bytes()).hexdigest() == digest
 finally:

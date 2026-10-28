@@ -1,5 +1,27 @@
 # README screenshots
 
+## Packed Sprite fills
+
+[Packed fills](../../../manual/images/packed-sprite-fills.png) is the complete
+640×360 actual Game output of original Gallery97, captured2026-10-28 from local
+work based onf15bc6f. `tests/sprite_fill_gallery_render_tests.hpp` uses normal
+Engine/Scene/RuntimeSimulation realization, FrameRenderer, MeshResourceHost and
+the ordinary original/packed Texture/Material assets. GCC12 Release/Linux and
+pinned Diligent Vulkan/DXC run on llvmpipe LLVM15 software rendering. Top arrows
+use Sliced fill; bottom markers use Tiled fill with both logical flips. Originals
+are left, trimmed/clockwise versions right. Fixed16:9 camera aspect preserves the
+same complete artwork with letterboxing in the separately reviewed portrait image.
+
+The whole image is compared against an independently composed all-original-image
+reference with identical geometry and fill values. Wider native tests cover both
+filters, all flips, rotated/trimmed/clear canvases, border compression, partial
+tiles, direct draws and mixed two-instance data. Source-free relocation uses
+logical Scene IDs rather than original source filenames. The P6 RGB capture is
+encoded losslessly as PNG with exact decompressed RGB verification, without crop,
+scale, retouch or inserted controls. The canonical PNG is copied unchanged and
+visually reviewed; exact source/build/image hashes belong in the local receipt.
+This is Game output, not an editor-window capture or Windows/physical acceptance.
+
 ## Automatic exposure controls and Game adaptation
 
 [Controls](../../../manual/images/automatic-exposure.png) is a complete900×900

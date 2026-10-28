@@ -1,6 +1,7 @@
 #pragma once
 #include "frame_renderer.hpp"
 #include "sprite_draw_render_tests.hpp"
+#include "sprite_fill_gallery_render_tests.hpp"
 #include <forge/animation.hpp>
 #include <forge/game_content.hpp>
 #include <forge/runtime.hpp>
@@ -16,10 +17,24 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     std::filesystem::create_directories(images);
     const auto catalog = std::make_shared<const AssetCatalog>(AssetCatalog::open_project(root));
     const auto find = [&](const char* path) {
-        for (const auto& [id, record] : catalog->records())
-            if (!record.subasset && record.source == path)
+        // Runtime packages deliberately rewrite source paths. These immutable
+        // curated fixture IDs exercise the same logical AssetRef in both roots.
+        constexpr std::pair<const char*, const char*> fixtures[]{
+            {"Scenes/71-world-sprites.scene.json", "f436af02-5e7d-4212-84a8-361768617acf"},
+            {"Scenes/72-sprite-frame-animation.scene.json", "481ba836-7831-4266-a980-8f27abf8fc47"},
+            {"Scenes/78-sprite-image-regions.scene.json", "e73043a0-eb10-4d5f-9375-640773df0bbe"},
+            {"Scenes/87-sprite-frame-regions.scene.json", "15400000-1540-4154-8154-154000000000"},
+            {"Scenes/95-sprite-frame-metadata.scene.json", "4660b557-cf48-4bc6-896d-ce536722d079"},
+            {"Scenes/97-packed-sprite-fills.scene.json", "2acc279b-0a76-4838-a1bc-b70123cb234a"}};
+        for (const auto& [source, identity] : fixtures)
+            if (std::string_view(path) == source) {
+                const auto id = AssetId::parse(identity);
+                const auto record = catalog->records().find(id);
+                check(record != catalog->records().end() && record->second.type == SceneAsset::type,
+                      "Native Sprite Gallery Scene identity is missing");
                 return id;
-        throw std::runtime_error("Native Sprite Gallery Scene is missing");
+            }
+        throw std::runtime_error("Unknown native Sprite Gallery fixture");
     };
     auto host = std::make_shared<MeshResourceHost>(presentation, context, root, true);
     host->catalog(catalog);
@@ -51,7 +66,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             if (frame)
                 simulation.tick(.5f);
             const auto document = simulation.presentation(1);
-            for (const auto size : {std::pair{640u, 360u}, {360u, 640u}}) {
+            for (const auto& size : {std::pair{640u, 360u}, {360u, 640u}}) {
                 const auto [width, height] = size;
                 test_sprite_draw::Pixels pixels;
                 const auto ready = std::chrono::steady_clock::now() + std::chrono::seconds(15);
@@ -122,5 +137,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             }
         }
     }
+    test_sprite_fill_gallery::exercise(presentation, context, readback, root, images,
+                                       find("Scenes/97-packed-sprite-fills.scene.json"));
 }
 } // namespace forge::test_sprite_gallery_render

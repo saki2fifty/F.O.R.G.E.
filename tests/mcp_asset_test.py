@@ -286,8 +286,16 @@ for legacy in (False, True):
         before_frames = read('forge_scene_read')
         applied = mutate('forge_property_set_many', arguments=dict(entity=entity, component='forge.sprite_renderer',
                          values=dict(material=material_id, frame_regions=generated['frames'], frame=1,
-                                     region_enabled=False)))
+                                     region_enabled=False, image_mode=1, pixels_per_meter=32)))
         assert applied['ok'], applied
+        sliced = read('forge_scene_read')
+        assert mutate('forge_property_set', arguments=dict(entity=entity,
+            component='forge.sprite_renderer', field='image_mode', value=2))['ok']
+        tiled = read('forge_scene_read')
+        assert tiled != sliced
+        assert mutate('forge_history_undo')['result']['changed'] and read('forge_scene_read') == sliced
+        assert mutate('forge_history_redo')['result']['changed'] and read('forge_scene_read') == tiled
+        assert mutate('forge_history_undo')['result']['changed'] and read('forge_scene_read') == sliced
         authored = read('forge_scene_read')
         assert mutate('forge_history_undo')['result']['changed'] and read('forge_scene_read') == before_frames
         assert mutate('forge_history_redo')['result']['changed'] and read('forge_scene_read') == authored
@@ -296,6 +304,7 @@ for legacy in (False, True):
         sprite = next(row['components']['forge.sprite_renderer'] for row in saved_scene['entities']
                       if row['id'] == entity)
         assert sprite['material'] == material_id and sprite['frame_regions'] == generated['frames'] and sprite['frame'] == 1
+        assert sprite['image_mode'] == 1 and sprite['pixels_per_meter'] == 32
         assert mutate('forge_entity_delete', arguments=dict(entity=entity))['ok']
         assert mutate('forge_document_save')['ok']
         assert not read('forge_scene_read')['entities']
