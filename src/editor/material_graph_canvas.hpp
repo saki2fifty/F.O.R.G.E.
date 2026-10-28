@@ -115,8 +115,8 @@ class MaterialGraphCanvas {
         ImGui::EndDisabled();
         if (ImGui::BeginPopup("Arrange graph nodes")) {
             ImGui::BeginDisabled(locked || selection.empty());
-            auto operation = [&](const char* label, const char* key, GraphLayout action,
-                                 unsigned axis) {
+            auto operation = [&](const char* label, [[maybe_unused]] const char* key,
+                                 GraphLayout action, unsigned axis) {
                 ImGui::BeginDisabled(action == GraphLayout::Distribute && selection.size() < 3);
                 if (ImGui::MenuItem(label)) {
                     const auto ids = selection;

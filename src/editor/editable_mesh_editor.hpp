@@ -639,7 +639,7 @@ class EditableMeshEditor {
                         }
                     }
             } else if (mode_ == SelectionMode::Edge) {
-                for (const auto key : edges()) {
+                for (const auto& key : edges()) {
                     const auto label =
                         "Edge " + std::to_string(key.first) + "–" + std::to_string(key.second);
                     if (ImGui::Selectable(label.c_str(), edge_ == key))
@@ -1715,7 +1715,7 @@ class EditableMeshEditor {
                 }
             } else if (mode_ == SelectionMode::Edge) {
                 float nearest = 64.f;
-                for (const auto key : edges()) {
+                for (const auto& key : edges()) {
                     const auto a = projected.at(key.first), b = projected.at(key.second);
                     const auto dx = b.x - a.x, dy = b.y - a.y;
                     const auto length_sq = dx * dx + dy * dy;

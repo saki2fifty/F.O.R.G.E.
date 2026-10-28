@@ -1188,3 +1188,12 @@ sample enables its own Player1 sensors. Raw acceleration includes gravity;
 physical device support and Windows/MSVC/full Main/game acceptance are separate
 from software/virtual-controller tests. Raw touch-device sensors, mobile hosting,
 calibration and fusion remain outside this profile.
+
+## C++ component field animation
+
+Open the separate **ComponentAnimation** example project to animate the Speed of
+an ordinary C++ spinning cube. Its editable Native component/system and reusable
+clip demonstrate the Timeline's **Component fields**, numeric cubic slopes and
+matching-module export. A source checkout needs Build Project Code before Play;
+the combined Windows package supplies the compiled example. Feature Gallery's
+ordinary scenes remain usable without a project C++ module.

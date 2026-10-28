@@ -215,6 +215,20 @@ editor reloads. Read `status` again before editing; requests carrying the previo
 session fail with `wrong_document`. Dirty drafts are retained and block automatic
 replacement through the same registered owner used by the interactive editor.
 
+Timeline component fields use the same `forge_asset_document_patch`, validation,
+Undo/Redo and publication tools. Read the current inspected custom component
+admission/fields with `forge_code_schemas` and the ordinary scene schema tools.
+Promote the source to6 and add `component_bindings` descriptors containing stable
+`component`, `field` and the exact `admission` stamp. Each key needs a matching
+`component_values` row containing `component`, `field`, numeric `value` and optional
+linear/cubic `curve`. Only editable top-level float32/float64 members are admitted
+on a target. Preserve other source fields and key/asset identities. Read the latest
+document session/revision before patching; an invalid value leaves history intact.
+The existing code creation/build/inspection, component-add and animator attachment
+tools supply the rest of the workflow. Runtime schema/domain checks still apply;
+a syntactically valid source alone does not establish native target admission.
+See [transform animation](transform-animation.md) for the format and current limits.
+
 Tile Map reads return metadata; `cells` queries up to4096 addresses and `paint`
 uses the existing immutable chunk storage. Metadata patches use `with_metadata`,
 and cell edits use `paint`; both retain the existing history budget. Source Undo

@@ -40,6 +40,8 @@ class Scene {
     void reset(const Json& document);
     std::size_t entity_count() const;
     Json schema() const;
+    // Copied admitted authoring metadata; contains no native IDs or callbacks.
+    Json authored_types() const;
     // Owner-thread authoring-world activation of copied worker metadata. Native
     // values/templates are staged before handoff; authored bytes and scene history
     // are preserved. This does not migrate schema-incompatible values.

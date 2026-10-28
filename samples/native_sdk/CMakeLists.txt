@@ -134,3 +134,14 @@ if(WIN32)
  forge_install_gameplay_runtime(material_animation_gameplay NAME project.material_animation_probe)
  forge_install_gameplay_runtime(sprite_image_gameplay NAME project.sprite_image_probe)
 endif()
+
+# Compile the canonical editable example sources; no alternate gameplay behavior.
+set(FORGE_COMPONENT_ANIMATION_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/ComponentAnimation")
+if(NOT EXISTS "${FORGE_COMPONENT_ANIMATION_NATIVE}/Components/AnimatedSpin.hpp")
+ set(FORGE_COMPONENT_ANIMATION_NATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../projects/ComponentAnimation/Native")
+endif()
+add_library(component_animation_gameplay MODULE
+ "${FORGE_COMPONENT_ANIMATION_NATIVE}/gameplay.cpp"
+ "${FORGE_COMPONENT_ANIMATION_NATIVE}/Systems/AnimatedSpinSystem.cpp")
+target_link_libraries(component_animation_gameplay PRIVATE ForgeNativeSdk::Client)
+set_target_properties(component_animation_gameplay PROPERTIES PREFIX "" BUILD_RPATH_USE_ORIGIN TRUE)

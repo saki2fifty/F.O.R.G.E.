@@ -57,8 +57,10 @@ void validate_reflected_json(const nlohmann::json& schema, const nlohmann::json&
 // callbacks must outlive this value. Construction never mutates an entity.
 class ReflectedCandidate {
   public:
+    // A baseline stages an update through native copy hooks and changed root members.
     ReflectedCandidate(flecs::world world, ecs_entity_t type, const nlohmann::json& value,
-                       std::span<const ReflectedAdapter> references = {});
+                       std::span<const ReflectedAdapter> references = {},
+                       const void* baseline = nullptr);
     ~ReflectedCandidate();
     ReflectedCandidate(const ReflectedCandidate&) = delete;
     ReflectedCandidate& operator=(const ReflectedCandidate&) = delete;

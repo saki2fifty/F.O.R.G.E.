@@ -2,6 +2,7 @@
 #include "editor/creation_menu.hpp"
 #include "editor/material_editor.hpp"
 #include "editor/prefabs.hpp"
+#include "imgui_software_capture.hpp"
 #include "sprite_frame_picker_tests.hpp"
 #include "sprite_material_profile.hpp"
 #include <backends/imgui_impl_sdlrenderer3.h>
@@ -581,26 +582,7 @@ void exercise(const std::filesystem::path& scratch, float scale) {
 }
 void capture(const std::filesystem::path& root) {
     std::filesystem::create_directories(root / "project");
-    const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
-        SDL_CreateSurface(760, 1000, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
-    check(bool(surface), SDL_GetError());
-    const std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)> renderer(
-        SDL_CreateSoftwareRenderer(surface.get()), SDL_DestroyRenderer);
-    check(bool(renderer), SDL_GetError());
-    const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> context(
-        ImGui::CreateContext(), ImGui::DestroyContext);
-    check(ImGui_ImplSDLRenderer3_Init(renderer.get()), "Sprite capture backend unavailable");
-    struct Backend {
-        ~Backend() { ImGui_ImplSDLRenderer3_Shutdown(); }
-    } backend;
-    auto& io = ImGui::GetIO();
-    io.IniFilename = nullptr;
-    io.DisplaySize = {760, 1000};
-    io.DeltaTime = 1.f / 60;
-    const auto font = std::filesystem::path(__FILE__).parent_path().parent_path() /
-                      "resources/ui/LatoLatin-Regular.ttf";
-    check(io.Fonts->AddFontFromFileTTF(font.string().c_str(), 16) != nullptr,
-          "Sprite capture font unavailable");
+    test::ImGuiSoftwareCapture capture(760, 1000);
     ui::style(1);
     ui::EditorUiContext ui_context;
     ui::ContextScope scope(ui_context);
@@ -626,21 +608,15 @@ void capture(const std::filesystem::path& root) {
     ComponentInspector inspector;
     inspector.fixture_focus_component = "forge.sprite_renderer";
     for (unsigned frame = 0; frame < 3; ++frame) {
-        ImGui_ImplSDLRenderer3_NewFrame();
-        ImGui::NewFrame();
+        capture.new_frame();
         ImGui::SetNextWindowPos({10, 10});
         ImGui::SetNextWindowSize({740, 980});
         ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
         inspector.draw(scene, project, actor.str());
         ImGui::End();
-        ImGui::Render();
-        SDL_SetRenderDrawColor(renderer.get(), 9, 15, 18, 255);
-        SDL_RenderClear(renderer.get());
-        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
-        SDL_RenderPresent(renderer.get());
+        capture.render();
     }
-    check(SDL_SavePNG(surface.get(), (root / "sprite-mip-filtering-controls.png").string().c_str()),
-          SDL_GetError());
+    capture.save(root / "sprite-mip-filtering-controls.png");
 }
 } // namespace
 int main(int argc, char** argv) {

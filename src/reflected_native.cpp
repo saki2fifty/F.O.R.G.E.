@@ -19,14 +19,17 @@ const ReflectedAdapter& adapter_for(std::span<const ReflectedAdapter> refs, ecs_
     return *it;
 }
 void write(ecs_meta_cursor_t& cursor, const Json& schema, const Json& value,
-           std::span<const ReflectedAdapter> references) {
+           std::span<const ReflectedAdapter> references, const Json* baseline = nullptr) {
     const auto kind = schema.at("type").get<std::string>();
     if (kind == "struct") {
         checked(ecs_meta_push(&cursor));
         for (const auto& field : schema.at("fields")) {
             const auto& name = field.at("id").get_ref<const std::string&>();
+            const auto& next = reflected_member_value(field, value);
+            if (baseline && baseline->at(name) == next)
+                continue;
             checked(ecs_meta_member(&cursor, name.c_str()));
-            write(cursor, field, reflected_member_value(field, value), references);
+            write(cursor, field, next, references);
         }
         checked(ecs_meta_pop(&cursor));
     } else if (kind == "array" || kind == "vector") {
@@ -219,18 +222,30 @@ struct Reader {
 };
 } // namespace
 ReflectedCandidate::ReflectedCandidate(flecs::world world, ecs_entity_t type, const Json& value,
-                                       std::span<const ReflectedAdapter> references)
+                                       std::span<const ReflectedAdapter> references,
+                                       const void* baseline)
     : world_(world.c_ptr()), type_(type) {
     const auto schema = reflected_type_schema(world, type, references);
     validate_reflected_json(schema, value);
+    Json previous;
+    if (baseline) {
+        const auto* info = ecs_get_type_info(world_, type_);
+        if (!info || (info->hooks.flags & ECS_TYPE_HOOK_COPY_ILLEGAL))
+            throw std::runtime_error("Native reflected component cannot be copied for an update");
+        previous = read_reflected_native(world, type, baseline, references);
+    }
     value_ = ecs_value_new(world_, type_);
     if (!value_)
         throw std::runtime_error("Could not allocate detached reflected value");
     try {
+        // Reflection cannot identify C++ state stored in padding or explicit gaps.
+        // Native copy hooks preserve the complete value, including its owned state.
+        if (baseline)
+            checked(ecs_value_copy(world_, type_, value_, baseline));
         auto cursor = ecs_meta_cursor(world_, type_, value_);
         if (!cursor.valid)
             throw std::runtime_error("Missing native value cursor");
-        write(cursor, schema, value, references);
+        write(cursor, schema, value, references, baseline ? &previous : nullptr);
         // Test actual stored/converted values too. This also catches unsupported
         // engine adapters before a caller can publish the candidate.
         validate_reflected_json(schema, read_reflected_native(world, type, value_, references));

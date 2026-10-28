@@ -123,7 +123,7 @@ class AnimationStateGraph {
         };
         auto* draw = ImGui::GetWindowDrawList();
         auto probe_button = [&](const char* label, ImVec2 p, ImVec2 extent,
-                                const std::string& probe) {
+                                [[maybe_unused]] const std::string& probe) {
             ImGui::SetCursorScreenPos(p);
             const bool clicked = ImGui::InvisibleButton(label, extent);
             FORGE_UI_PROBE(probe);

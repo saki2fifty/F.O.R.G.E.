@@ -60,6 +60,16 @@ leases come from the existing Resources provider; whole-curve target admission
 and complete sampled numeric projection precede component writes. Sequence clips
 still contain no Scene identity or separate arrangement/clock resource.
 
+## Reflected component field extension
+
+Editable scalar float/double bindings extend the same clip, complete candidate and
+clock owner; see [transform animation](../transform-animation.md). Existing native
+AuthoredCodec and reflection admission own component values and lifecycle. Clip
+bindings retain stable authoring keys/schema stamps, never native IDs or offsets.
+The private sequence preview may reconstruct inspected metadata in its Runtime
+composition without loading project code. This reuses the existing reconstructed
+authoring value owner and leaves the gameplay-before-animation phase order intact.
+
 ## Camera-shot extension — 2026-10-17
 
 The F49 camera-cut consumer extends this same Scene/controller design. Each

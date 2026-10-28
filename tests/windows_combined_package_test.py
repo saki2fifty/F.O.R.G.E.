@@ -79,6 +79,12 @@ with tempfile.TemporaryDirectory(prefix='FORGE combined relocation ') as tempora
         assert result.returncode == 0, (result.stdout, result.stderr)
         assert 'Diligent Engine: ERROR:' not in result.stdout + result.stderr
     assert len(json.loads((evidence / 'physics-loads-result.json').read_text())) == 6
+    animation_project = root / 'Examples/ComponentAnimation'
+    animation_settings = json.loads((animation_project / 'forge.project.json').read_text())
+    animation_module, = animation_settings['modules']
+    subprocess.run([sys.executable, str(Path(__file__).with_name('component_animation_process_test.py')),
+                    str(root / 'NativeSdk/bin/forge_runtime.exe'), str(animation_project / animation_module['library']),
+                    str(animation_project), str(root / 'Component animation checks')], env=env, check=True, timeout=120)
     from physics_velocity_example_test import verify as verify_velocity
     velocity = root / 'C++ Velocity Copy'
     shutil.copytree(root / 'Examples/PhysicsVelocity', velocity)

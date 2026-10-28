@@ -1684,3 +1684,20 @@ not Windows/MSVC full Main/game_main compilation, physical controller calibratio
 sensor latency, GPU performance or a graphical exported-game acceptance. The
 canonical pending Windows queue remains in the agent audit report. No numbered
 build or ZIP is created by this source-validation profile.
+
+## Component field animation example
+
+The combined package builds the canonical ComponentAnimation/Native project with
+its installed SDK, prepares its ordinary module deployment through the existing
+example preparation owner and includes it in Examples/ComponentAnimation. Its
+process regression consumes the same compiled sources in both runtime host modes,
+checks270ticks per host against independent cubic-speed/quaternion equations and
+reconstructs a fresh worker from a checkpoint. The test removes editable animation
+and Native sources before running; Scene metadata and selected cooked bytes remain.
+This proves native execution/content behavior, not graphical Windows acceptance.
+
+The installed SDK's component_animation_gameplay target borrows the original
+example files. The focused sdk_package_test.py --component-animation-only check
+compiles installed-only, validates dependency imports and runs after SDK relocation.
+Native field updates additionally exercise heap-owned state and an unreflected
+padding counter through the shared ReflectedCandidate/AuthoredCodec owner.

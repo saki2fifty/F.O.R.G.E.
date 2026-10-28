@@ -75,6 +75,96 @@ Cubic segment(double p0, double p1, double m0, double m1, double seconds) {
     const auto left = seconds * m0, right = seconds * m1;
     return {2 * p0 - 2 * p1 + left + right, -3 * p0 + 3 * p1 - 2 * left - right, left, p0, p1};
 }
+double sample_scalar(double a, double b, const AnimationPropertyCurve& left,
+                     const AnimationPropertyCurve& right, double seconds, double t) {
+    if (!left.cubic)
+        return std::lerp(a, b, t);
+    return t <= .5 ? segment(a, b, left.outgoing, right.incoming, seconds).at(t)
+                   : segment(b, a, -right.incoming, -left.outgoing, seconds).at(1 - t);
+}
+double component_number(const Json& value) {
+    require(value.is_number(), "Animated component value or slope must be numeric");
+    const auto number = value.get<double>();
+    require(std::isfinite(number) && std::abs(number) <= 1e9,
+            "Animated component value or slope exceeds source bounds");
+    return number;
+}
+void component_text(const Json& value) {
+    require(value.is_string(), "Animated component identity must be text");
+    const auto& text = value.get_ref<const std::string&>();
+    require(!text.empty() && text.size() <= 256 && text.find('\0') == std::string::npos,
+            "Invalid animated component identity");
+}
+AnimationComponentBinding component_binding(const Json& row) {
+    component_text(row.at("component"));
+    component_text(row.at("field"));
+    const auto& stamp = row.at("admission");
+    require(stamp.is_object() && stamp.size() == 5 &&
+                stamp.at("format") == "forge.authored-component" &&
+                stamp.at("version").is_number_integer() && stamp.at("version") == 1 &&
+                stamp.at("schema_version").is_number_integer() && stamp.at("schema_version") > 0,
+            "Invalid animated component schema admission");
+    component_text(stamp.at("module"));
+    component_text(stamp.at("digest"));
+    const auto& digest = stamp.at("digest").get_ref<const std::string&>();
+    require(digest.size() == 64 && digest.find_first_not_of("0123456789abcdef") == digest.npos,
+            "Invalid animated component schema digest");
+    return {row.at("component"), row.at("field"), stamp};
+}
+Json component_descriptor(const AnimationComponentBinding& binding) {
+    return {{"component", binding.component},
+            {"field", binding.field},
+            {"admission", binding.admission}};
+}
+bool same_component(const Json& row, std::string_view component, std::string_view field) {
+    return row.at("component") == component && row.at("field") == field;
+}
+std::vector<AnimationComponentKey>
+component_keys(const Json& key, std::span<const AnimationComponentBinding> bindings) {
+    if (bindings.empty() && !key.contains("component_values"))
+        return {};
+    const auto& rows = key.at("component_values");
+    require(rows.is_array() && rows.size() == bindings.size(),
+            "Animated component key needs every binding exactly once");
+    std::vector<AnimationComponentKey> result(bindings.size());
+    std::set<std::size_t> seen;
+    for (const auto& row : rows) {
+        const auto at = std::find_if(bindings.begin(), bindings.end(), [&](const auto& binding) {
+            return same_component(row, binding.component, binding.field);
+        });
+        require(at != bindings.end(), "Undeclared animated component field");
+        const auto index = std::size_t(at - bindings.begin());
+        require(seen.insert(index).second, "Duplicate animated component field value");
+        result[index].value = component_number(row.at("value"));
+        if (row.contains("curve")) {
+            const auto& curve = row.at("curve");
+            const auto& mode = curve.at("interpolation");
+            require(mode == "linear" || mode == "cubic", "Invalid component curve interpolation");
+            result[index].curve = {mode == "cubic", component_number(curve.at("incoming")),
+                                   component_number(curve.at("outgoing"))};
+        }
+    }
+    return result;
+}
+void merge_component_values(Json& key, std::span<const AnimationComponentBinding> bindings,
+                            std::span<const double> values) {
+    require(bindings.size() == values.size(), "Animated component sample count differs");
+    auto& rows = key["component_values"];
+    if (rows.is_null())
+        rows = Json::array();
+    for (std::size_t i = 0; i < bindings.size(); ++i) {
+        const auto& binding = bindings[i];
+        (void)component_number(Json(values[i]));
+        const auto at = std::find_if(rows.begin(), rows.end(), [&](const auto& row) {
+            return same_component(row, binding.component, binding.field);
+        });
+        if (at == rows.end())
+            rows.push_back(
+                {{"component", binding.component}, {"field", binding.field}, {"value", values[i]}});
+        else
+            (*at)["value"] = values[i];
+    }
+}
 
 std::pair<double, double> tangent_slopes(double left, double right, double before, double after,
                                          TransformAnimationTangentPreset preset) {
@@ -221,7 +311,7 @@ void promote_material_parameters(Json& document) {
     // Promoting to5 also crosses the scalar-curve version boundary. Older
     // property_curves extensions must not silently become active animation.
     promote_property_curves(document);
-    document["version"] = 5;
+    document["version"] = std::max(5, document.at("version").get<int>());
 }
 void merge_material_values(Json& key, std::span<const AnimationMaterialBinding> bindings,
                            std::span<const AnimationMaterialValues> values) {
@@ -390,8 +480,55 @@ std::size_t TransformAnimationClip::resident_bytes() const {
     for (const auto& binding : material_bindings)
         bytes += binding.slot.capacity() + binding.key.capacity() + 2;
     for (const auto& key : keys)
-        bytes += key.materials.capacity() * sizeof(AnimationMaterialKey);
+        bytes += key.materials.capacity() * sizeof(AnimationMaterialKey) +
+                 key.component_values.capacity() * sizeof(AnimationComponentKey);
+    bytes += component_bindings.capacity() * sizeof(AnimationComponentBinding);
+    for (const auto& binding : component_bindings)
+        bytes += binding.component.capacity() + binding.field.capacity() + 2 +
+                 binding.admission.dump().size() * 8 +
+                 512; // Conservative JSON node/storage reservation.
     return bytes;
+}
+void TransformAnimationClip::sample_components(double time, std::span<double> output) const {
+    require(std::isfinite(time) && !keys.empty(), "Invalid component animation sample time/keys");
+    require(output.size() == component_bindings.size(), "Invalid component animation buffer");
+    const auto right = std::upper_bound(keys.begin(), keys.end(), time,
+                                        [](double t, const auto& key) { return t < key.time; });
+    const auto& left = right == keys.begin() ? *right : *(right - 1);
+    const bool endpoint = right == keys.begin() || right == keys.end() || left.held;
+    const double t =
+        endpoint ? 0 : std::clamp((time - left.time) / double(right->time - left.time), 0., 1.);
+    for (std::size_t i = 0; i < output.size(); ++i) {
+        const auto& a = left.component_values.at(i);
+        output[i] = endpoint
+                        ? a.value
+                        : sample_scalar(a.value, right->component_values.at(i).value, a.curve,
+                                        right->component_values.at(i).curve,
+                                        double(right->time - left.time) / animation_timebase, t);
+        require(std::isfinite(output[i]) &&
+                    std::abs(output[i]) <= 1e9 * (1 + 64 * std::numeric_limits<double>::epsilon()),
+                "Animated component sample exceeds source bounds");
+        output[i] = std::clamp(output[i], -1e9, 1e9);
+    }
+}
+std::array<double, 2> TransformAnimationClip::component_range(std::size_t binding) const {
+    require(!keys.empty() && binding < component_bindings.size(),
+            "Invalid component animation range binding/keys");
+    const auto first = keys.front().component_values.at(binding).value;
+    std::array<double, 2> range{first, first};
+    for (std::size_t i = 1; i < keys.size(); ++i) {
+        const auto& a = keys[i - 1].component_values.at(binding);
+        const auto& b = keys[i].component_values.at(binding);
+        auto interval =
+            std::array<double, 2>{std::min(a.value, b.value), std::max(a.value, b.value)};
+        if (!keys[i - 1].held && a.curve.cubic)
+            interval = segment(a.value, b.value, a.curve.outgoing, b.curve.incoming,
+                               double(keys[i].time - keys[i - 1].time) / animation_timebase)
+                           .bounds();
+        range[0] = std::min(range[0], interval[0]);
+        range[1] = std::max(range[1], interval[1]);
+    }
+    return range;
 }
 void TransformAnimationClip::sample_materials(double time,
                                               std::span<AnimationMaterialValues> output) const {
@@ -417,17 +554,9 @@ void TransformAnimationClip::sample_materials(double time,
             double value = a.values[lane];
             if (!endpoint) {
                 const auto& b = right->materials[binding];
-                if (a.curves[lane].cubic) {
-                    const double seconds = double(right->time - left.time) / animation_timebase;
-                    value = t <= .5
-                                ? segment(a.values[lane], b.values[lane], a.curves[lane].outgoing,
-                                          b.curves[lane].incoming, seconds)
-                                      .at(t)
-                                : segment(b.values[lane], a.values[lane], -b.curves[lane].incoming,
-                                          -a.curves[lane].outgoing, seconds)
-                                      .at(1 - t);
-                } else
-                    value = std::lerp(a.values[lane], b.values[lane], t);
+                value =
+                    sample_scalar(a.values[lane], b.values[lane], a.curves[lane], b.curves[lane],
+                                  double(right->time - left.time) / animation_timebase, t);
             }
             require(std::isfinite(value) &&
                         std::abs(value) <= 1e9 * (1 + 64 * std::numeric_limits<double>::epsilon()),
@@ -579,7 +708,7 @@ TransformAnimationClip TransformAnimationSource::clip() const {
                 document.at("version").is_number_integer() &&
                 (document.at("version") == 1 || document.at("version") == 2 ||
                  document.at("version") == 3 || document.at("version") == 4 ||
-                 document.at("version") == 5) &&
+                 document.at("version") == 5 || document.at("version") == 6) &&
                 document.at("timebase") == animation_timebase,
             "Unsupported transform animation schema/timebase");
     TransformAnimationClip result;
@@ -612,7 +741,7 @@ TransformAnimationClip TransformAnimationSource::clip() const {
             result.properties |= bit;
         }
     }
-    if (document.at("version") == 5 && document.contains("material_bindings")) {
+    if (document.at("version") >= 5 && document.contains("material_bindings")) {
         const auto& bindings = document.at("material_bindings");
         require(bindings.is_array() && bindings.size() <= 64,
                 "Animated material binding count exceeds64");
@@ -624,7 +753,20 @@ TransformAnimationClip TransformAnimationSource::clip() const {
             result.material_bindings.push_back(std::move(binding));
         }
     }
-    require(result.channels || result.properties || !result.material_bindings.empty(),
+    if (document.at("version") >= 6 && document.contains("component_bindings")) {
+        const auto& bindings = document.at("component_bindings");
+        require(bindings.is_array() && bindings.size() <= 64,
+                "Animated component binding count exceeds64");
+        std::set<std::pair<std::string, std::string>> identities;
+        for (const auto& row : bindings) {
+            auto binding = component_binding(row);
+            require(identities.emplace(binding.component, binding.field).second,
+                    "Duplicate animated component binding");
+            result.component_bindings.push_back(std::move(binding));
+        }
+    }
+    require(result.channels || result.properties || !result.material_bindings.empty() ||
+                !result.component_bindings.empty(),
             "Animation needs a transform channel or property");
     const auto& keys = document.at("keys");
     require(keys.is_array() && !keys.empty() && keys.size() <= 4096,
@@ -663,13 +805,20 @@ TransformAnimationClip TransformAnimationSource::clip() const {
         const auto settings = curves(key, document.at("version") >= 4);
         require(!(settings.property_mask & ~result.properties),
                 "Property curve binds an undeclared property");
-        auto materials = document.at("version") == 5 ? material_keys(key, result.material_bindings)
+        auto materials = document.at("version") >= 5 ? material_keys(key, result.material_bindings)
                                                      : std::vector<AnimationMaterialKey>{};
-        result.keys.push_back(
-            {id, time, pose, mode == "held", settings, values, std::move(materials)});
+        auto components = document.at("version") >= 6
+                              ? component_keys(key, result.component_bindings)
+                              : std::vector<AnimationComponentKey>{};
+        result.keys.push_back({id, time, pose, mode == "held", settings, values,
+                               std::move(materials), std::move(components)});
         previous = time;
     }
     validate_curve_segments(result);
+    for (std::size_t i = 0; i < result.component_bindings.size(); ++i) {
+        const auto range = result.component_range(i);
+        require(range[0] >= -1e9 && range[1] <= 1e9, "Component curve overshoots source bounds");
+    }
     return result;
 }
 void TransformAnimationSource::validate() const {
@@ -681,7 +830,7 @@ std::vector<std::byte> TransformAnimationSource::cook() const {
     validate();
     const auto source = document.dump();
     (void)parse(std::as_bytes(std::span(source)));
-    const Json compiled{{"format", "forge.transform-clip"}, {"version", 5}, {"document", document}};
+    const Json compiled{{"format", "forge.transform-clip"}, {"version", 6}, {"document", document}};
     const auto text = compiled.dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
@@ -690,7 +839,8 @@ AssetId TransformAnimationSource::set_key(
     std::int64_t time, const LocalTransform& pose, bool held, AssetId id,
     std::optional<TransformAnimationCurves> curve,
     std::optional<AnimationPropertyValues> property_values,
-    std::optional<std::span<const AnimationMaterialValues>> material_values) {
+    std::optional<std::span<const AnimationMaterialValues>> material_values,
+    std::optional<std::span<const double>> component_values) {
     const auto admitted = clip();
     auto candidate = *this;
     auto& keys = candidate.document.at("keys");
@@ -728,6 +878,18 @@ AssetId TransformAnimationSource::set_key(
     } else
         require(!material_values || material_values->empty(),
                 "Material values require declared bindings");
+    if (!admitted.component_bindings.empty() &&
+        (component_values || !key.contains("component_values"))) {
+        std::vector<double> sampled;
+        if (!component_values) {
+            sampled.resize(admitted.component_bindings.size());
+            admitted.sample_components(double(time), sampled);
+            component_values = std::span<const double>(sampled);
+        }
+        merge_component_values(key, admitted.component_bindings, *component_values);
+    } else
+        require(!component_values || component_values->empty(),
+                "Component values require declared bindings");
     if (curve) {
         if (curve->property_mask)
             promote_property_curves(candidate.document);
@@ -746,6 +908,95 @@ AssetId TransformAnimationSource::set_key(
     candidate.validate();
     document.swap(candidate.document);
     return id;
+}
+void TransformAnimationSource::add_component_field(const AnimationComponentBinding& binding,
+                                                   double initial) {
+    const auto admitted = clip();
+    const auto descriptor = component_descriptor(binding);
+    (void)component_binding(descriptor);
+    (void)component_number(Json(initial));
+    for (const auto& prior : admitted.component_bindings)
+        if (prior.component == binding.component && prior.field == binding.field) {
+            require(prior == binding, "Animated component cannot change schema implicitly");
+            return;
+        }
+    auto candidate = *this;
+    if (candidate.document.at("version") < 6) {
+        require(!candidate.document.contains("component_bindings"),
+                "Legacy component_bindings extension collides with version6; source unchanged");
+        for (const auto& key : candidate.document.at("keys"))
+            require(!key.contains("component_values"),
+                    "Legacy component_values extension collides with version6; source unchanged");
+    }
+    promote_material_parameters(candidate.document);
+    candidate.document["version"] = 6;
+    auto& bindings = candidate.document["component_bindings"];
+    if (bindings.is_null())
+        bindings = Json::array();
+    bindings.push_back(descriptor);
+    for (auto& key : candidate.document.at("keys")) {
+        auto& rows = key["component_values"];
+        if (rows.is_null())
+            rows = Json::array();
+        rows.push_back(
+            {{"component", binding.component}, {"field", binding.field}, {"value", initial}});
+    }
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::erase_component_field(std::string_view component,
+                                                     std::string_view field) {
+    const auto admitted = clip();
+    if (std::none_of(admitted.component_bindings.begin(), admitted.component_bindings.end(),
+                     [&](const auto& b) { return b.component == component && b.field == field; }))
+        return;
+    auto candidate = *this;
+    auto erase = [&](Json& rows) {
+        std::erase_if(rows.get_ref<Json::array_t&>(),
+                      [&](const auto& row) { return same_component(row, component, field); });
+    };
+    erase(candidate.document.at("component_bindings"));
+    for (auto& key : candidate.document.at("keys"))
+        erase(key.at("component_values"));
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::set_component_value(AssetId id, std::string_view component,
+                                                   std::string_view field, double value) {
+    validate();
+    (void)component_number(Json(value));
+    auto candidate = *this;
+    bool found = false;
+    for (auto& key : candidate.document.at("keys"))
+        if (key.at("id") == Json(id) && key.contains("component_values"))
+            for (auto& row : key.at("component_values"))
+                if (same_component(row, component, field)) {
+                    row["value"] = value;
+                    found = true;
+                }
+    require(found, "Animated component key or binding no longer exists");
+    candidate.validate();
+    document.swap(candidate.document);
+}
+void TransformAnimationSource::set_component_curve(AssetId id, std::string_view component,
+                                                   std::string_view field,
+                                                   const AnimationPropertyCurve& curve) {
+    validate();
+    auto candidate = *this;
+    bool found = false;
+    for (auto& key : candidate.document.at("keys"))
+        if (key.at("id") == Json(id) && key.contains("component_values"))
+            for (auto& row : key.at("component_values"))
+                if (same_component(row, component, field)) {
+                    auto& stored = row["curve"];
+                    stored["interpolation"] = curve.cubic ? "cubic" : "linear";
+                    stored["incoming"] = curve.incoming;
+                    stored["outgoing"] = curve.outgoing;
+                    found = true;
+                }
+    require(found, "Animated component key or binding no longer exists");
+    candidate.validate();
+    document.swap(candidate.document);
 }
 void TransformAnimationSource::add_material_parameter(const AnimationMaterialBinding& binding,
                                                       const AnimationMaterialValues& initial) {
@@ -1088,12 +1339,17 @@ void TransformAnimationSource::retime_duration(std::int64_t new_duration) {
                     for (const auto* side : {"incoming", "outgoing"})
                         settings[side] = settings[side].get<double>() * slope_scale;
         }
-        if (candidate.document.at("version") == 5 && key.contains("material_values"))
+        if (candidate.document.at("version") >= 5 && key.contains("material_values"))
             for (auto& row : key.at("material_values"))
                 if (row.contains("curves"))
                     for (auto& curve : row.at("curves"))
                         for (const auto* side : {"incoming", "outgoing"})
                             curve[side] = curve.at(side).get<double>() * slope_scale;
+        if (candidate.document.at("version") >= 6 && key.contains("component_values"))
+            for (auto& row : key.at("component_values"))
+                if (row.contains("curve"))
+                    for (const auto* side : {"incoming", "outgoing"})
+                        row["curve"][side] = row["curve"].at(side).get<double>() * slope_scale;
     }
     candidate.validate();
     document.swap(candidate.document);
@@ -1166,7 +1422,8 @@ void TransformAnimationSource::set_tangent_preset(std::span<const AssetId> keys,
                                           original[i].at("time_us").get<std::int64_t>()) /
                                        animation_timebase
                                  : 0;
-        TransformAnimationCurves settings{true};
+        TransformAnimationCurves settings{};
+        settings.cubic = true;
         for (const char* field : {"translation", "scale"})
             for (unsigned axis = 0; axis < 3; ++axis) {
                 const auto value = original[i].at(field)[axis].get<double>();
@@ -1233,9 +1490,9 @@ TransformAnimationClip decode_transform_animation(std::span<const std::byte> byt
         asset_detail::parse_bounded_json(bytes, transform_animation_cooked_byte_limit, 500016, 13);
     require(doc.at("format") == "forge.transform-clip", "Invalid cooked transform clip format");
     require(doc.at("version").is_number_integer(), "Cooked transform clip version must be integer");
-    if (doc.at("version") == 4 || doc.at("version") == 5) {
-        require(doc.at("version") == 5 || doc.at("document").at("version") <= 4,
-                "Material animation source requires cooked version5");
+    if (doc.at("version") == 4 || doc.at("version") == 5 || doc.at("version") == 6) {
+        require(doc.at("document").at("version") <= doc.at("version"),
+                "Animation source requires a matching cooked version");
         doc = doc.at("document").get<Json>();
     } else {
         require(doc.at("version") == 1 || doc.at("version") == 2 || doc.at("version") == 3,

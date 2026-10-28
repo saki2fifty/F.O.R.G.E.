@@ -161,7 +161,12 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 "RFC6902 add/remove/replace/test in one Undo step; Tile Map patch edits metadata "
                 "and paint edits cells. Save checks the disk baseline then admits ordinary "
                 "publication; poll status for completion. Close requires discard for "
-                "unsaved/unpublished drafts.",
+                "unsaved/unpublished drafts." +
+                (std::string_view(action) == "patch"
+                     ? " Timeline source6 supports editable scalar C++ component fields with "
+                       "component/field keys and matching inspected admission stamps; each key "
+                       "provides component_values. Use the current custom component schema."
+                     : ""),
             "asset.write", automation_object(std::move(properties), std::move(needed)), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));
     }

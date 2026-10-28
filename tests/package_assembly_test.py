@@ -128,13 +128,13 @@ class Assembly(unittest.TestCase):
             compiled = output.read_bytes()
             assemble(root/'editor.zip', root/'sdk.tar.gz', output, kit, game,
                      example, physics_velocity=example, physics_contacts=example, physics_volumes=example,
-                     movement_2d=example, character_2d=example)
+                     movement_2d=example, character_2d=example, component_animation=example)
             with zipfile.ZipFile(output) as archive:
                 self.assertEqual(archive.read('Examples/PhysicsVelocity/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
                 self.assertIn('Examples/PhysicsLoads/forge.project.json', archive.namelist())
                 self.assertEqual(archive.read('Examples/PhysicsContacts/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
                 self.assertEqual(archive.read('Examples/PhysicsVolumes/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
-                for folder in ('Movement2D', 'Character2D'):
+                for folder in ('Movement2D', 'Character2D', 'ComponentAnimation'):
                     self.assertEqual(archive.read(f'Examples/{folder}/Native/Builds/example/project.gameplay/gameplay.dll'), b'compiled loads')
             compiled = output.read_bytes()
             library.write_bytes(b'corrupt loads')

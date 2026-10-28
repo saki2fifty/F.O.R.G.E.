@@ -106,6 +106,32 @@ for legacy in (False, True):
             assert not invalid['ok'], invalid
             assert content(owner) == snapshot and status(owner)['revision'] == current['revision']
             failed(edit('forge_asset_document_close', owner), 'unsaved_document')
+            if owner == 'animation_timeline':
+                # Syntax/source ownership here; native target admission is covered by
+                # animation_component with the actual reflected C++ component.
+                original = content(owner)
+                clip = json.loads(json.dumps(original))
+                clip['version'] = 6
+                clip['component_bindings'] = [dict(component='project.motion', field='speed',
+                    admission=dict(format='forge.authored-component', version=1,
+                                   module='project.motion', schema_version=1, digest='a' * 64))]
+                for row in clip['keys']:
+                    row['component_values'] = [dict(component='project.motion', field='speed',
+                                                    value=90, curve=dict(interpolation='cubic', incoming=0, outgoing=0))]
+                old = status(owner)
+                assert edit('forge_asset_document_patch', owner,
+                            patch=[dict(op='replace', path='', value=clip)])['ok']
+                assert content(owner) == clip
+                admitted = status(owner)
+                invalid = edit('forge_asset_document_patch', owner,
+                               patch=[dict(op='replace', path='/keys/0/component_values/0/value', value='invalid')])
+                assert not invalid['ok']
+                assert content(owner) == clip and status(owner)['revision'] == admitted['revision']
+                failed(mutate('forge_asset_document_patch', editor=owner,
+                              document_session=old['session'], document_revision=old['revision'],
+                              patch=[dict(op='replace', path='', value=original)]), 'stale_document')
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == clip
             if owner == 'tile_map':
                 cells = [dict(layer=1, x=-33, y=64, tile=7, flags=0), dict(layer=1, x=0, y=0, tile=0)]
                 assert edit('forge_asset_document_paint', owner, cells=cells)['ok']

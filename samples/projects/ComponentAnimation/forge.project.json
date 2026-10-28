@@ -1,0 +1,39 @@
+{
+  "version": 2,
+  "name": "FORGE Component Animation",
+  "simulation_hz": 60,
+  "startup_scene": {
+    "asset": "b3c09882-4702-47ae-98d4-3bf668403b68",
+    "source": "Scenes/component-animation.scene.json"
+  },
+  "input": {
+    "version": 1,
+    "actions": []
+  },
+  "modules": [],
+  "game": {
+    "version": 1,
+    "application_id": "org.forge.component-animation",
+    "title": "FORGE Component Animation",
+    "profile": "development",
+    "save_schema": 1,
+    "display": {
+      "mode": "windowed",
+      "width": 1280,
+      "height": 720,
+      "display": 0,
+      "vsync": false
+    },
+    "audio": {
+      "master_volume": 1.0
+    },
+    "input": {
+      "mouse_sensitivity": 1.0,
+      "gamepad_sensitivity": 1.0,
+      "invert_mouse_y": false,
+      "invert_gamepad_y": false,
+      "stick_deadzone": 0.15,
+      "trigger_deadzone": 0.05
+    }
+  }
+}

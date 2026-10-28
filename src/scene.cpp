@@ -849,7 +849,7 @@ Json Scene::tune_runtime_property(const std::string& entity_id, const std::strin
             throw std::runtime_error("Live property is not admitted");
         auto candidate = current;
         candidate[property_key] = value;
-        auto prepared = codec.prepare(world(), candidate);
+        auto prepared = codec.prepare_update(target, candidate);
         if (!prepared)
             throw std::runtime_error("Live property schema changed");
         codec.apply(target, prepared);
@@ -1254,6 +1254,12 @@ Json Scene::document() const { return serialize(false); }
 Json Scene::effective_document() const { return serialize(true); }
 Json Scene::ui_document_rows() const { return serialize(true, true); }
 Json Scene::schema() const { return context_.schema(); }
+Json Scene::authored_types() const {
+    auto result = Json::array();
+    for (const auto& codec : context_.authored_codecs())
+        result.push_back(codec.declaration);
+    return result;
+}
 void Scene::publish_component_schemas(const Json& copied,
                                       const std::function<void()>& durable_write) {
     if (context_.role_ != WorldRole::Authoring ||

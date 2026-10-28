@@ -90,7 +90,7 @@ Renderer-only edits do not change the gameplay SDK contract. CMake rejects incom
 | Headless | Same required gameplay composition, no ImGui/D3D12/RmlUi presenter or editor dependency. |
 | Conversion/build workers | Bounded official gltf2ozz and navigation generation; results admitted before publication. |
 
-Actual fixed tick order in RuntimeSimulation is: input latch → navigation synchronization → module input borrow → Flecs InputMonitor → Gameplay (SDK systems) → Navigation movement → PrePhysics synchronization/queued commands → Physics → PhysicsAdoption → PostPhysics → final transforms → end module input borrow → animation playback → pose capture → audio synchronization → discontinuity snapping. No relative order is promised between unrelated systems in the same phase. Gameplay code declares its own Flecs dependencies when needed.
+Actual fixed tick order in RuntimeSimulation is: input latch → navigation synchronization → module input borrow → Flecs InputMonitor → Gameplay (SDK systems) → Animation → PostAnimation → Navigation movement → PrePhysics synchronization/queued commands → Physics → PhysicsAdoption → PostPhysics → final transforms → end module input borrow → particles → pose capture → audio synchronization → discontinuity snapping. No relative order is promised between unrelated systems in the same phase. Gameplay code declares its own Flecs dependencies when needed.
 
 UI custom model values are published by their actual fixed gameplay system; they are not secretly reevaluated in a later presentation phase. The runtime adds authoritative tick/paused when extracting a UI snapshot. Presentation extracts/interpolates completed state independently. Ozz presentation sampling may evaluate a derived interpolated pose; it does not advance authoritative animation time.
 
@@ -137,9 +137,22 @@ output. The inspection world runs schema callbacks only; it does not start gamep
 or provide simulation services. Schema registrations must support the Validation role
 and declare compatible dependencies. SDK fingerprint and library identity checks
 still apply. The editor's worker supervisor additionally enforces cancellation and
-resource limits before owner-thread schema admission. This extraction checkpoint
-alone does not make a custom component editable, persisted or prefab-aware; those
-consumers are still under implementation. Rebuild modules after this exact SDK change.
+resource limits before owner-thread schema admission. The editor admits the copied
+schema through its existing authoring owner; supported custom values participate
+in Inspector, Scene/Prefab persistence, history and explicit schema migration.
+Live field updates clone the current native value through its copy hooks and write
+only changed root members before committing. Other native state is retained;
+unreflected runtime state does not become serialized or recoverable through this
+operation. Native types must support the required copy semantics.
+
+Editable scalar float32/float64 fields can also be bound in a Timeline clip. Use
+its existing component/field/admission bindings; the current profile does not admit
+integer, Boolean, nested or UI bindings. Gameplay runs before Animation; an SDK
+system that needs this tick's sample can use `host->post_animation_phase` and
+`host->fixed_tag`. The canonical ComponentAnimation example's installed SDK target
+uses that phase and the original project sources. See
+`docs/transform-animation.md` in a source checkout and the
+Timeline guide in the combined editor manual. Rebuild modules with the matching SDK.
 
 ## Cooked resources in gameplay
 

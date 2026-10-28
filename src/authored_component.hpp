@@ -16,6 +16,8 @@ struct AuthoredCodec {
     nlohmann::json defaults() const;
     nlohmann::json editor_schema() const;
     std::optional<ReflectedCandidate> prepare(flecs::world&, const nlohmann::json&) const;
+    // Stage edits from the current effective native value, retaining other C++ state.
+    std::optional<ReflectedCandidate> prepare_update(flecs::entity, const nlohmann::json&) const;
     nlohmann::json read(flecs::entity, bool effective) const;
     void apply(flecs::entity, const std::optional<ReflectedCandidate>&) const;
     nlohmann::json extensions(const nlohmann::json&) const;
@@ -24,7 +26,9 @@ struct AuthoredCodec {
 std::vector<AuthoredCodec> authored_codecs(flecs::world&);
 // Registers only engine-owned reconstructed value types. All project code stays
 // in the schema worker. Successful registrations live until world finalization.
-EngineModule copied_authoring_module(nlohmann::json copied_types);
+EngineModule copied_authoring_module(nlohmann::json copied_types,
+                                     unsigned roles = role_mask(WorldRole::Authoring) |
+                                                      role_mask(WorldRole::Validation));
 void validate_custom_values(const nlohmann::json& editor_schema, const nlohmann::json& components);
 void validate_runtime_custom_values(const WorldContext&, const nlohmann::json& components);
 void project_custom_prefab_intent(nlohmann::json& values, const nlohmann::json& instance,

@@ -36,6 +36,16 @@ struct AnimationMaterialCurveEdit {
     unsigned lane = 0;
     AnimationPropertyCurve value;
 };
+// Stable authoring identity and schema admission; never native IDs or offsets.
+struct AnimationComponentBinding {
+    std::string component, field;
+    nlohmann::json admission;
+    bool operator==(const AnimationComponentBinding&) const = default;
+};
+struct AnimationComponentKey {
+    double value = 0;
+    AnimationPropertyCurve curve;
+};
 struct TransformAnimationCurves {
     bool cubic = false;
     TransformAnimationTangents incoming, outgoing;
@@ -52,6 +62,7 @@ struct TransformAnimationKey {
     AnimationPropertyValues properties{};
     // Empty for legacy clips. Compiled ordinals belong only to this clip revision.
     std::vector<AnimationMaterialKey> materials;
+    std::vector<AnimationComponentKey> component_values;
 };
 struct TransformAnimationClip {
     AssetId asset;
@@ -60,6 +71,7 @@ struct TransformAnimationClip {
     std::vector<TransformAnimationKey> keys;
     unsigned properties = 0;
     std::vector<AnimationMaterialBinding> material_bindings;
+    std::vector<AnimationComponentBinding> component_bindings;
     LocalTransform sample(double microseconds) const;
     AnimationPropertyValues sample_properties(double microseconds) const;
     // Reusable caller storage; target-specific material admission precedes writes.
@@ -67,6 +79,8 @@ struct TransformAnimationClip {
     // Exact endpoint/held/linear/cubic extrema over the whole admitted clip.
     // Computed during target admission, never required on the fixed sampling path.
     std::array<double, 2> material_range(std::size_t binding, unsigned lane) const;
+    void sample_components(double microseconds, std::span<double>) const;
+    std::array<double, 2> component_range(std::size_t binding) const;
     std::size_t resident_bytes() const;
 };
 struct TransformAnimationSource {
@@ -80,7 +94,14 @@ struct TransformAnimationSource {
     AssetId set_key(std::int64_t time, const LocalTransform&, bool held = false, AssetId key = {},
                     std::optional<TransformAnimationCurves> curves = {},
                     std::optional<AnimationPropertyValues> properties = {},
-                    std::optional<std::span<const AnimationMaterialValues>> materials = {});
+                    std::optional<std::span<const AnimationMaterialValues>> materials = {},
+                    std::optional<std::span<const double>> components = {});
+    void add_component_field(const AnimationComponentBinding&, double initial_value);
+    void erase_component_field(std::string_view component, std::string_view field);
+    void set_component_value(AssetId key, std::string_view component, std::string_view field,
+                             double value);
+    void set_component_curve(AssetId key, std::string_view component, std::string_view field,
+                             const AnimationPropertyCurve&);
     void add_material_parameter(const AnimationMaterialBinding&, const AnimationMaterialValues&);
     void erase_material_parameter(std::string_view slot, std::string_view parameter);
     void set_material_value(AssetId key, std::string_view slot, std::string_view parameter,

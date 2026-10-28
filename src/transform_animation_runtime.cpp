@@ -1,4 +1,5 @@
 #include "transform_animation_runtime.hpp"
+#include "animation_component_values.hpp"
 #include "animation_material_patch.hpp"
 #include "animation_material_values.hpp"
 #include "animation_property_state.hpp"
@@ -49,7 +50,7 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
     if (selected.at("version") != 1 || selected.at("output_format") != "forge.transform-clip" ||
         (selected.at("output_version") != 1 && selected.at("output_version") != 2 &&
          selected.at("output_version") != 3 && selected.at("output_version") != 4 &&
-         selected.at("output_version") != 5) ||
+         selected.at("output_version") != 5 && selected.at("output_version") != 6) ||
         !generation.is_number_unsigned() || generation == 0)
         throw std::runtime_error("Unsupported transform animation selection");
     return pool_.request(
@@ -162,6 +163,9 @@ void TransformAnimationPlayback::synchronize() {
                 pending_ = true;
                 return;
             }
+            if (changed || !state.clip ||
+                state.clip.identity().revision != clip.identity().revision)
+                (void)prepare_animation_components(context_, entity, clip.get(), 0, true);
             if (clip->properties & AnimationPropertyState::sprite_mask) {
                 const auto values =
                     AnimationPropertyState::from(entity, AnimationPropertyState::sprite_mask);
@@ -228,9 +232,13 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         transforms ? context_.transform_nodes() : decltype(context_.transform_nodes()){};
     std::map<flecs::entity_t, AnimationPropertyState> properties;
     std::map<flecs::entity_t, MeshRenderer> materials;
+    std::map<flecs::entity_t, std::vector<AnimationComponentCandidate>> components;
     for (const auto& [id, time] : times) {
         const auto& state = states_.at(id);
         auto entity = context_.world().entity(id);
+        if (!state.clip->component_bindings.empty())
+            components.emplace(
+                id, prepare_animation_components(context_, entity, state.clip.get(), time));
         if (!state.clip->material_bindings.empty()) {
             if (state.material_error)
                 throw std::runtime_error("Animated material target is invalid");
@@ -296,6 +304,9 @@ void TransformAnimationPlayback::apply(const std::map<flecs::entity_t, double>& 
         (void)time;
         const auto& state = states_.at(id);
         auto entity = context_.world().entity(id);
+        if (components.contains(id))
+            for (const auto& value : components.at(id))
+                value.codec->apply(entity, value.value);
         if (properties.contains(id))
             properties.at(id).commit(entity);
         if (materials.contains(id))
@@ -409,6 +420,14 @@ void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
                     if (!std::equal(a.begin(), a.begin() + count, b.begin()))
                         state.discontinuous = true;
                 }
+                if (!state.clip->component_bindings.empty()) {
+                    std::array<double, 64> a{}, b{};
+                    const auto count = state.clip->component_bindings.size();
+                    state.clip->sample_components(0, std::span(a).first(count));
+                    state.clip->sample_components(state.clip->duration, std::span(b).first(count));
+                    if (!std::equal(a.begin(), a.begin() + count, b.begin()))
+                        state.discontinuous = true;
+                }
             }
             if (state.config.loop)
                 state.time = std::fmod(state.time, double(state.clip->duration));
@@ -461,7 +480,8 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
         throw std::runtime_error("Invalid property animation presentation alpha");
     const auto at = states_.find(id);
     if (at == states_.end() || !at->second.clip ||
-        (!at->second.clip->properties && at->second.clip->material_bindings.empty()) ||
+        (!at->second.clip->properties && at->second.clip->material_bindings.empty() &&
+         at->second.clip->component_bindings.empty()) ||
         at->second.material_pending || errors_.contains(id))
         return nullptr;
     const auto& state = at->second;
@@ -476,6 +496,12 @@ Json TransformAnimationPlayback::presentation_properties(flecs::entity_t id, dou
     auto values = AnimationPropertyState::from(context_.world().entity(id), state.clip->properties);
     values.sample(state.clip->properties, state.clip->sample_properties(time));
     auto result = values.patch(state.clip->properties);
+    if (!state.clip->component_bindings.empty()) {
+        const auto patch = animation_component_patch(prepare_animation_components(
+            context_, context_.world().entity(id), state.clip.get(), time));
+        for (const auto& [key, value] : patch.items())
+            result[key] = value;
+    }
     if (!state.clip->material_bindings.empty()) {
         if (!state.material || state.material_error)
             return nullptr;

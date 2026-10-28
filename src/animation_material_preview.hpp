@@ -114,9 +114,10 @@ class AnimationMaterialPreview {
 // renderer into the same copied row. Source/history and native components stay intact.
 inline bool apply_material_animation_preview(Json& document, EntityRef target,
                                              const TransformAnimationClip& clip, double time,
-                                             const asset_detail::PreparedModelDraw* draw) {
+                                             const asset_detail::PreparedModelDraw* draw,
+                                             const Json* schema = nullptr) {
     if (clip.material_bindings.empty())
-        return apply_transform_animation_preview(document, target, clip, time);
+        return apply_transform_animation_preview(document, target, clip, time, schema);
     if (document.at("asset_id") != Json(target.scene))
         return false;
     auto row =
@@ -158,7 +159,7 @@ inline bool apply_material_animation_preview(Json& document, EntityRef target,
     const auto sampled = sample_animation_material_parameters(clip, time, current);
     (void)asset_detail::prepare_model_material_parameters(*draw, sampled);
     merge_animation_material_parameters(renderer, animation_material_parameters_json(sampled));
-    if (!apply_transform_animation_preview(document, target, clip, time))
+    if (!apply_transform_animation_preview(document, target, clip, time, schema))
         return false;
     row->at("components").at("forge.mesh_renderer") = std::move(renderer);
     return true;

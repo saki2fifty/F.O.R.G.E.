@@ -47,6 +47,17 @@ Json AuthoredCodec::read(flecs::entity entity, bool effective) const {
     result["$forge"] = stamp();
     return result;
 }
+std::optional<ReflectedCandidate> AuthoredCodec::prepare_update(flecs::entity entity,
+                                                                const Json& value) const {
+    if (!matches(value))
+        return std::nullopt;
+    if (!entity.has(native_type))
+        throw std::runtime_error("Native component update requires an existing value");
+    const auto* baseline = ecs_get_id(entity.world(), entity, native_type);
+    if (!baseline)
+        throw std::runtime_error("Native component update value is unavailable");
+    return ReflectedCandidate(entity.world(), native_type, value, adapters, baseline);
+}
 void AuthoredCodec::apply(flecs::entity entity,
                           const std::optional<ReflectedCandidate>& value) const {
     if (!value) {
@@ -89,11 +100,11 @@ std::vector<AuthoredCodec> authored_codecs(flecs::world& world) {
     }
     return result;
 }
-EngineModule copied_authoring_module(Json copied) {
+EngineModule copied_authoring_module(Json copied, unsigned roles) {
     EngineModule module;
     module.id = "forge.authored_inspection";
     module.dependencies = {"forge.transforms"};
-    module.schema_roles = role_mask(WorldRole::Authoring) | role_mask(WorldRole::Validation);
+    module.schema_roles = roles;
     module.schemas = [copied = std::move(copied)](ModuleContext& context) {
         auto& world = context.world;
         try {

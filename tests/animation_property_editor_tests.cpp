@@ -1,4 +1,6 @@
 #include "animation_timeline.hpp"
+#include "authored_schema.hpp"
+#include "imgui_software_capture.hpp"
 #include "sprite_frame_picker.hpp"
 #include <chrono>
 #include <imgui_internal.h>
@@ -11,10 +13,28 @@ void check(bool ok, const std::string& why) {
     if (!ok)
         throw std::runtime_error(why);
 }
+struct UiMotion {
+    float speed = 90;
+};
+EngineModule motion_module() {
+    EngineModule module;
+    module.id = "project.ui_motion";
+    module.dependencies = {"forge.transforms"};
+    module.schemas = [](ModuleContext& context) {
+        auto type = context.world.component<UiMotion>().member<float>("speed");
+        detail::opt_in_authoring(context.world, type, "project.ui_motion", "project.ui_motion", 1,
+                                 {{"speed", 90}}, "Gameplay");
+    };
+    module.runtime_roles = role_mask(WorldRole::Runtime);
+    module.start = [](ModuleContext&) {
+        throw std::runtime_error("Project C++ callbacks must stay outside copied sequence preview");
+    };
+    return module;
+}
 void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display) {
     const auto root = scratch / AssetId::generate().str();
     std::filesystem::create_directories(root / "Assets");
-    EngineContext engine;
+    EngineContext engine(WorldRole::Authoring, false, {motion_module()});
     Scene scene(engine.world());
     SceneDocument project(scene);
     project.open_project(root, true);
@@ -24,6 +44,8 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     for (const char* component : {"forge.camera", "forge.light", "forge.audio_source",
                                   "forge.particle_emitter", "forge.sprite_renderer"})
         authoring_command(scene, "component.add", {{"entity", actor}, {"component", component}});
+    authoring_command(scene, "component.add",
+                      {{"entity", actor}, {"component", "project.ui_motion"}});
     auto sprite = scene.entity(actor).get<SpriteRenderer>();
     sprite.columns = sprite.rows = 2;
     scene.entity(actor).set(sprite);
@@ -271,14 +293,13 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               "Property Timeline publication stalled: " + message);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 5 &&
+    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 6 &&
               !editor.dirty(),
           "Timeline published wrong property cook");
     click("button:Attach animation to object");
     check(scene.entity(actor).get<TransformAnimator>().clip.id == id && scene.undo() &&
               scene.document() == authored,
           "Property attachment did not use Scene history");
-    const auto first = editor.document()->source().clip().keys.front().id;
     const auto first_ruler = target("animation:ruler");
     const ImVec2 first_point{first_ruler.minimum.x + 2, first_ruler.minimum.y + 36};
     mouse(first_point, false);
@@ -357,17 +378,170 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     check(!editor.dirty() &&
-              catalog->records().at(id).metadata["forge.import"]["output_version"] == 5,
+              catalog->records().at(id).metadata["forge.import"]["output_version"] == 6,
           "Scalar curves did not publish through the existing document");
     editor.open(project, "Assets/Properties.animation.json");
     check(editor.document()->source().document == saved_curves,
           "Timeline save/reopen changed scalar curves or key identities");
+    editor.bind(scene, actor);
+    frame();
+    click("animation:component_fields");
+    click("animation:component_add:project.ui_motion:speed");
+    check(editor.document()->source().clip().component_bindings.size() == 1 &&
+              editor.document()->source().document.at("version") == 6,
+          "Component field input did not add a versioned binding");
+    const auto before_field_edit = editor.document()->source().document;
+    type("animation:component_value:project.ui_motion:speed", "120");
+    click("animation:component_cubic:project.ui_motion:speed");
+    type("animation:component_out:project.ui_motion:speed", "5");
+    click("button:Add / Update key at playhead");
+    const auto field_clip = editor.document()->source().clip();
+    check(field_clip.keys.front().component_values.front().value == 120 &&
+              field_clip.keys.front().component_values.front().curve.cubic &&
+              field_clip.keys.front().component_values.front().curve.outgoing == 5,
+          "Actual component value/curve input did not commit the key");
+    editor.undo();
+    frame();
+    check(editor.document()->source().document == before_field_edit,
+          "Component key Undo lost its source identity or values");
+    editor.redo();
+    frame();
+    check(editor.document()->source().clip().keys.front().component_values.front().value == 120,
+          "Component key Redo failed");
+    locked = true;
+    frame();
+    check(!test::ui_targets.at("animation:component_value:project.ui_motion:speed").enabled,
+          "Component key field remained editable during Play");
+    locked = false;
+    frame();
+    check(scene.entity(actor).get<UiMotion>().speed == 90,
+          "Timeline key editing changed the authored component");
+    editor.request_save();
+    catalog.reset();
+    const auto field_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+    while (!catalog) {
+        frame();
+        catalog = editor.take_catalog();
+        check(std::chrono::steady_clock::now() < field_deadline,
+              "Component field publication stalled");
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    const auto controller =
+        authoring_command(scene, "entity.create",
+                          {{"name", "Component sequence"}, {"recipe", "animation.sequence"}})
+            .at("selected")
+            .get<std::string>();
+    auto sequence_config = scene.entity(controller).get<AnimationSequence>();
+    sequence_config.duration = 2;
+    sequence_config.loop = false;
+    scene.entity(controller).set(sequence_config);
+    TransformAnimator track;
+    track.clip = {id};
+    track.sequence = scene.reference(controller);
+    scene.entity(actor).set(track);
+    const auto scene_before_sequence = scene.document();
+    {
+        AnimationSequenceEditor sequence;
+        sequence.open(project, scene, scene.reference(controller));
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
+        while (!sequence.frame_export_ready()) {
+            sequence.poll(false, 0);
+            check(std::chrono::steady_clock::now() < deadline,
+                  "Copied component sequence preview stalled");
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        const auto token = sequence.begin_frame_export();
+        sequence.sample_frame_export(token, 1);
+        const auto sampled = sequence.preview(scene.effective_document());
+        std::vector<double> expected(editor.document()->source().clip().component_bindings.size());
+        editor.document()->source().clip().sample_components(animation_timebase, expected);
+        const auto row = std::find_if(sampled.at("entities").begin(), sampled.at("entities").end(),
+                                      [&](const auto& value) { return value.at("id") == actor; });
+        check(row != sampled.at("entities").end() &&
+                  std::abs(row->at("components").at("project.ui_motion").at("speed").get<double>() -
+                           float(expected.front())) < 1e-6,
+              "Sequence preview lost its copied component field projection");
+        sequence.end_frame_export(token);
+    }
+    check(scene.document() == scene_before_sequence &&
+              scene.entity(actor).get<UiMotion>().speed == 90,
+          "Sequence component preview changed authored state");
     test::observe_ui = false;
     ImGui::DestroyContext();
+}
+void capture(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root / "project/Assets");
+    test::ImGuiSoftwareCapture capture(1080, 1300);
+    ui::style(1);
+    ui::EditorUiContext context;
+    ui::ContextScope scope(context);
+    EngineContext engine(WorldRole::Authoring, false, {motion_module()});
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root / "project", true);
+    const auto actor = authoring_command(scene, "entity.create", {{"name", "Animated cube"}})
+                           .at("selected")
+                           .get<std::string>();
+    authoring_command(scene, "component.add",
+                      {{"entity", actor}, {"component", "project.ui_motion"}});
+    auto document =
+        TransformAnimationDocument::create(project.writer_guard(), "Assets/Speed.animation.json");
+    document->edit(document->revision(), "Component field capture", [&](auto& json) {
+        TransformAnimationSource source{json};
+        const auto& codec = engine.world().authored_codecs().front();
+        const AnimationComponentBinding binding{codec.key(), "speed", codec.stamp()};
+        source.add_component_field(binding, 90);
+        const auto last = source.set_key(2 * animation_timebase, {});
+        source.set_component_value(last, binding.component, binding.field, 180);
+        source.set_component_curve(source.clip().keys.front().id, binding.component, binding.field,
+                                   {true, 0, 60});
+        json = source.document;
+    });
+    document->save();
+    document.reset();
+    AnimationTimelineEditor editor;
+    editor.open(project, "Assets/Speed.animation.json");
+    editor.bind(scene, actor);
+    auto& io = ImGui::GetIO();
+    io.ConfigInputTrickleEventQueue = false;
+    test::observe_ui = true;
+    std::string message;
+    auto frame = [&] {
+        test::ui_targets.clear();
+        editor.poll(project, scene, false, io.DeltaTime, message);
+        capture.new_frame();
+        ImGui::SetNextWindowPos({10, 10}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({1060, 1280}, ImGuiCond_Always);
+        editor.draw(project, scene, false);
+        capture.render();
+    };
+    frame();
+    frame();
+    const auto box = test::ui_targets.at("animation:component_fields");
+    io.AddMousePosEvent((box.minimum.x + box.maximum.x) / 2, (box.minimum.y + box.maximum.y) / 2);
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    io.AddMouseButtonEvent(0, false);
+    frame();
+    frame();
+    const auto value = test::ui_targets.at("animation:component_value:project.ui_motion:speed");
+    if (value.maximum.y > value.clip_maximum.y) {
+        auto* window = ImGui::FindWindowByName("###Animation Timeline");
+        check(window != nullptr, "Capture Timeline window missing");
+        ImGui::SetScrollY(window, window->Scroll.y + value.maximum.y - value.clip_maximum.y + 200);
+        frame();
+        frame();
+    }
+    capture.save(root / "animation-component-fields.png");
+    test::observe_ui = false;
 }
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[2]) == "--capture") {
+            capture(std::filesystem::absolute(argv[1]));
+            return 0;
+        }
         check(argc == 2, "Need property UI scratch root");
         for (float scale : {1.f, 1.5f, 2.f})
             for (auto display : {ImVec2{1400, 1400}, ImVec2{960, 640}})

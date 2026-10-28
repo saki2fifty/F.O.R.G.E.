@@ -148,7 +148,7 @@ int main() {
         const auto original_legacy = legacy_extension.document;
         const auto envelope_bytes = legacy_extension.cook();
         const auto envelope = nlohmann::json::parse(envelope_bytes);
-        check(envelope.at("version") == 5 && envelope.at("document") == original_legacy,
+        check(envelope.at("version") == 6 && envelope.at("document") == original_legacy,
               "Cooked envelope changed the source version or unknown extensions");
         auto malformed_envelope = envelope;
         malformed_envelope["version"] = 5.;

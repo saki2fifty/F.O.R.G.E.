@@ -142,8 +142,9 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         try {
             if (preview_active() && !clip_->material_bindings.empty() && !material_error_.empty())
                 throw std::runtime_error(material_error_);
-            if (preview_active() && !apply_material_animation_preview(source, target_, *clip_,
-                                                                      time_, material_ready())) {
+            if (preview_active() &&
+                !apply_material_animation_preview(source, target_, *clip_, time_, material_ready(),
+                                                  &component_schema_)) {
                 stop_preview();
                 error_ = "Preview target is no longer in this scene. Choose an object again.";
             }
@@ -246,6 +247,8 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             next_source_.reset();
             next_sequence_.reset();
         }
+        if (clip_ && !clip_->component_bindings.empty())
+            component_schema_ = scene.schema();
         if (play) {
             stop_preview();
             cancel_curve_drag();
@@ -385,6 +388,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             channels_controls();
             property_controls(scene);
             material_controls(scene);
+            component_controls(scene);
             double seconds = time_ / animation_timebase;
             if (ImGui::SliderScalar("Playhead (seconds)", ImGuiDataType_Double, &seconds, &zero_,
                                     &duration, "%.3f")) {
@@ -490,6 +494,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         const auto entity = scene.entity(id);
         if (!entity || entity.has(flecs::Prefab))
             throw std::runtime_error("Choose a scene object for animation preview");
+        component_schema_ = scene.schema();
         const auto before = target_;
         target_ = {scene.asset_id(), EntityId::parse(id)};
         try {
@@ -541,6 +546,10 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
     std::string material_slot_, material_status_, material_error_;
     bool material_open_ = false;
     std::vector<AnimationMaterialValues> material_fields_;
+    Json component_schema_;
+    bool component_curve_pending_ = false;
+    std::vector<double> component_fields_;
+    std::vector<AnimationPropertyCurve> component_curves_;
     std::vector<AnimationMaterialKey> material_curves_, curve_drag_materials_before_;
     std::string curve_material_slot_, curve_material_key_;
     std::string curve_drag_material_slot_, curve_drag_material_key_;
@@ -610,6 +619,9 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         material_state_.reset();
         material_catalog_.reset();
         material_fields_.clear();
+        component_schema_ = nullptr;
+        component_fields_.clear();
+        component_curves_.clear();
         material_curves_.clear();
         curve_drag_materials_before_.clear();
         curve_material_slot_.clear();
@@ -666,6 +678,10 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         time_ = std::min(time_, double(clip_->duration));
         material_fields_.resize(clip_->material_bindings.size());
         clip_->sample_materials(time_, material_fields_);
+        component_fields_.resize(clip_->component_bindings.size());
+        component_curves_.assign(clip_->component_bindings.size(), {});
+        component_curve_pending_ = false;
+        clip_->sample_components(time_, component_fields_);
         if (key_) {
             const auto at = std::find_if(clip_->keys.begin(), clip_->keys.end(),
                                          [&](const auto& k) { return k.id == key_; });
@@ -677,6 +693,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 curve_dirty_ = false;
                 fields(at->pose, at->properties);
                 fields_materials(at->materials);
+                fields_components(at->component_values);
             }
         }
         std::set<AssetId> surviving;
@@ -730,6 +747,15 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         material_fields_.clear();
         for (const auto& value : materials)
             material_fields_.push_back(value.values);
+    }
+    void fields_components(std::span<const AnimationComponentKey> values) {
+        component_curve_pending_ = false;
+        component_fields_.clear();
+        component_curves_.clear();
+        for (const auto& key : values) {
+            component_fields_.push_back(key.value);
+            component_curves_.push_back(key.curve);
+        }
     }
     void select_key(AssetId id) {
         cancel_curve_drag();
@@ -889,6 +915,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 curve_dirty_ = false;
                 fields(key.pose, key.properties);
                 fields_materials(key.materials);
+                fields_components(key.component_values);
                 return;
             }
     }
@@ -904,6 +931,20 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 validate_animation_property(binding.property, value);
                 captured[unsigned(binding.property)] = value;
             }
+        auto captured_components = component_fields_;
+        if (!clip_->component_bindings.empty()) {
+            const auto effective = scene.effective_document();
+            for (const auto& row : effective.at("entities"))
+                if (row.at("id") == Json(target_.entity))
+                    for (std::size_t i = 0; i < clip_->component_bindings.size(); ++i) {
+                        const auto& binding = clip_->component_bindings[i];
+                        const auto& value = row.at("components").at(binding.component);
+                        if (value.value("$forge", Json()) != binding.admission)
+                            throw std::runtime_error(
+                                "Component animation target schema has changed");
+                        captured_components.at(i) = value.at(binding.field).get<double>();
+                    }
+        }
         auto captured_materials = material_fields_;
         if (materials && !clip_->material_bindings.empty()) {
             if (!entity.has<MeshRenderer>() || !material_ready())
@@ -925,6 +966,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
              entity.has<LocalScale>() ? entity.get<LocalScale>() : LocalScale{}},
             captured);
         material_fields_ = std::move(captured_materials);
+        component_fields_ = std::move(captured_components);
     }
     void target_controls(Scene& scene) {
         std::string label = "Choose object";
@@ -1004,6 +1046,10 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         fields(clip_->sample(time), clip_->sample_properties(time));
         material_fields_.resize(clip_->material_bindings.size());
         clip_->sample_materials(time, material_fields_);
+        component_fields_.resize(clip_->component_bindings.size());
+        component_curves_.assign(clip_->component_bindings.size(), {});
+        component_curve_pending_ = false;
+        clip_->sample_components(time, component_fields_);
     }
     MaterialState& material_state() {
         if (!material_state_)
@@ -1133,6 +1179,67 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         ImGui::EndDisabled();
         ImGui::EndDisabled();
     }
+    void component_controls(Scene& scene) {
+        const bool open = ImGui::CollapsingHeader("Component fields");
+        FORGE_UI_PROBE("animation:component_fields");
+        if (!open)
+            return;
+        ui::help("Animate editable scalar float and double fields on the chosen object's C++ "
+                 "components. Fields require their matching inspected schema. Other field types "
+                 "are not available here.");
+        for (const auto& binding : clip_->component_bindings) {
+            ui::IdScope component(binding.component.c_str());
+            ui::IdScope field(binding.field.c_str());
+            ImGui::TextWrapped("%s / %s", binding.component.c_str(), binding.field.c_str());
+            if (ui::button("Remove field", "Remove this binding and its values from every key.")) {
+                const auto removed = binding;
+                mutate("Remove component animation field", [&](auto& source) {
+                    source.erase_component_field(removed.component, removed.field);
+                });
+                return;
+            }
+        }
+        if (!target_.entity || target_.scene != scene.asset_id()) {
+            ImGui::TextDisabled("Choose an object to see its editable component fields.");
+            return;
+        }
+        const auto document = scene.effective_document();
+        const auto row =
+            std::find_if(document.at("entities").begin(), document.at("entities").end(),
+                         [&](const auto& value) { return value.at("id") == Json(target_.entity); });
+        if (row == document.at("entities").end())
+            return;
+        const auto& components = row->at("components");
+        const auto schema = scene.schema();
+        for (const auto& type : schema.at("components")) {
+            const auto key = type.at("id").get<std::string>();
+            if (!type.value("custom", false) || !components.contains(key) ||
+                components.at(key).value("$forge", Json()) != type.at("admission"))
+                continue;
+            for (const auto& field : type.at("fields")) {
+                if (!animation_component_field_supported(field))
+                    continue;
+                const auto name = field.at("id").get<std::string>();
+                if (std::any_of(
+                        clip_->component_bindings.begin(), clip_->component_bindings.end(),
+                        [&](const auto& b) { return b.component == key && b.field == name; }))
+                    continue;
+                ui::IdScope component_id(key.c_str());
+                ui::IdScope field_id(name.c_str());
+                const auto label = type.at("display_name").get<std::string>() + " / " +
+                                   field.value("display_name", name);
+                if (ui::button(("Add " + label).c_str(),
+                               "Initialize every key from the authored field value.")) {
+                    const AnimationComponentBinding binding{key, name, type.at("admission")};
+                    const auto value = components.at(key).at(name).get<double>();
+                    mutate("Add component animation field",
+                           [&](auto& source) { source.add_component_field(binding, value); });
+                    return;
+                }
+                FORGE_UI_PROBE("animation:component_add:" + key + ":" + name);
+            }
+        }
+    }
     void property_controls(Scene& scene) {
         const bool expanded = ImGui::CollapsingHeader("Animated properties");
         FORGE_UI_PROBE("animation:properties");
@@ -1223,7 +1330,12 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 rows.push_back(i + 3);
         for (unsigned i = 0; i < clip_->material_bindings.size(); ++i)
             rows.push_back(i + 3 + animation_property_count);
-        const float row_height = clip_->properties || !clip_->material_bindings.empty()
+        const auto component_start =
+            unsigned(3 + animation_property_count + clip_->material_bindings.size());
+        for (unsigned i = 0; i < clip_->component_bindings.size(); ++i)
+            rows.push_back(i + component_start);
+        const float row_height = clip_->properties || !clip_->material_bindings.empty() ||
+                                         !clip_->component_bindings.empty()
                                      ? std::max(22.f, ImGui::GetTextLineHeightWithSpacing())
                                      : 22.f;
         const float width = std::max(140.f, ImGui::GetContentRegionAvail().x),
@@ -1401,12 +1513,17 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             const auto index = rows[row];
             if (index < 3)
                 continue;
-            const auto label =
-                index < 3 + animation_property_count
-                    ? std::string(animation_property_binding(AnimationProperty(index - 3)).label)
-                    : clip_->material_bindings[index - 3 - animation_property_count].slot + " / " +
-                          material_field_label(
-                              clip_->material_bindings[index - 3 - animation_property_count].key);
+            std::string label;
+            if (index < 3 + animation_property_count)
+                label = animation_property_binding(AnimationProperty(index - 3)).label;
+            else if (index < component_start) {
+                const auto& binding =
+                    clip_->material_bindings[index - 3 - animation_property_count];
+                label = binding.slot + " / " + material_field_label(binding.key);
+            } else {
+                const auto& binding = clip_->component_bindings[index - component_start];
+                label = binding.component + " / " + binding.field;
+            }
             draw->AddText(
                 {start.x + 3, start.y + 36 + row * row_height - ImGui::GetTextLineHeight() / 2},
                 IM_COL32(165, 177, 188, 155), label.c_str());
@@ -1641,6 +1758,29 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                                 material_parameter_width(binding.type), nullptr, nullptr, "%.6f");
             FORGE_UI_PROBE("animation:material_value:" + binding.slot + ":" + binding.key);
         }
+        for (std::size_t i = 0; i < clip_->component_bindings.size(); ++i) {
+            const auto& binding = clip_->component_bindings[i];
+            ui::IdScope component(binding.component.c_str());
+            ui::IdScope field(binding.field.c_str());
+            ImGui::TextWrapped("%s / %s", binding.component.c_str(), binding.field.c_str());
+            ImGui::InputDouble("Field value", &component_fields_.at(i), 0, 0, "%.6f");
+            FORGE_UI_PROBE("animation:component_value:" + binding.component + ":" + binding.field);
+            auto& curve = component_curves_.at(i);
+            component_curve_pending_ |= ImGui::Checkbox("Cubic field curve", &curve.cubic);
+            FORGE_UI_PROBE("animation:component_cubic:" + binding.component + ":" + binding.field);
+            if (curve.cubic) {
+                component_curve_pending_ |=
+                    ImGui::InputDouble("Incoming slope", &curve.incoming, 0, 0, "%.6f");
+                FORGE_UI_PROBE("animation:component_in:" + binding.component + ":" + binding.field);
+                component_curve_pending_ |=
+                    ImGui::InputDouble("Outgoing slope", &curve.outgoing, 0, 0, "%.6f");
+                FORGE_UI_PROBE("animation:component_out:" + binding.component + ":" +
+                               binding.field);
+            }
+            ui::help("Apply these values and slopes with Add / Update key at playhead. Hold until "
+                     "next key takes precedence over the outgoing curve. Slopes use field units "
+                     "per second. Component curves use these numeric controls.");
+        }
         ImGui::BeginDisabled(!target_.entity ||
                              (!clip_->material_bindings.empty() && !material_ready()));
         if (ui::button("Capture authored pose", "Copy the chosen object's authored transform and "
@@ -1675,7 +1815,14 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                     checked_local_scale({scale_[0], scale_[1], scale_[2]})};
                 added = source.set_key(std::llround(time_), pose, held_, {}, changed_curves,
                                        property_fields_,
-                                       std::span<const AnimationMaterialValues>(material_fields_));
+                                       std::span<const AnimationMaterialValues>(material_fields_),
+                                       std::span<const double>(component_fields_));
+                if (component_curve_pending_)
+                    for (std::size_t i = 0; i < clip_->component_bindings.size(); ++i) {
+                        const auto& binding = clip_->component_bindings[i];
+                        source.set_component_curve(added, binding.component, binding.field,
+                                                   component_curves_.at(i));
+                    }
                 if (!material_edits.empty())
                     source.set_material_curves(added, material_edits);
             });
@@ -1857,7 +2004,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         if (key.held)
             ImGui::TextWrapped("This key holds until the next key. Its outgoing curve takes effect "
                                "after Hold is cleared.");
-        auto slopes = [&](const char* label, Double3& values, const char* probe) {
+        auto slopes = [&](const char* label, Double3& values, [[maybe_unused]] const char* probe) {
             if (ImGui::InputScalarN(label, ImGuiDataType_Double, values.data(), 3, nullptr, nullptr,
                                     "%.3f"))
                 curve_dirty_ = true;

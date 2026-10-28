@@ -145,6 +145,54 @@ exact SDK fingerprint; rebuild native modules with the matching SDK. ADR021/022
 retain clock and portable-reference ownership. Gallery68 demonstrates cuts, a gap,
 coordinated object motion and normal source-free export.
 
+## Reflected component fields
+
+Source6 adds `component_bindings` (at most64), identified by stable `component` and
+`field` strings and an `admission` copied from the inspected custom component's
+schema. The admission contains its module, schema version and structural digest;
+no native type IDs, offsets or pointers enter a clip. Every key's `component_values`
+contains each pair exactly once, with numeric `value` and optional `curve`:
+`interpolation` is `linear` or `cubic`, and `incoming`/`outgoing` are native units per
+second. Missing curves mean linear; whole-key held interpolation takes precedence.
+Values and slopes are finite within±1e9, and analytic extrema must fit this source
+bound. Key insertion samples missing values. Duplication preserves metadata;
+whole-clip retiming rescales slopes. Source mutations validate a detached complete
+candidate before one history edit. Promotion rejects reserved-field collisions in
+source1–5; those extensions otherwise remain opaque. Existing13builtin property
+indices and material tuple identities retain their meanings.
+
+The current target profile admits editable top-level scalar float32/float64 fields
+of an existing opt-in authored C++ component. It verifies the exact admission stamp,
+field presence, read-only policy and reflected member domain, including all cubic
+extrema. Other scalar kinds, nested/collection members and UI/DOM properties are
+unsupported. AuthoredCodec remains the native owner: read current complete state,
+replace the selected numeric fields, clone the current native value through its
+copy hooks and stage only differing root members,
+then apply only after every transform/property/material/component candidate is
+admitted. Other native fields and owned values are preserved, including unreflected state
+that can exist in native layout padding. This is a live-update guarantee;
+unreflected state is not added to Scene snapshots or recovery serialization. No component is
+automatically added. Native storage conversion also applies to copied preview.
+These native update semantics participate in the existing exact SDK fingerprint;
+project modules require a matching SDK rebuild. Native C ABI signatures and
+component identities remain unchanged.
+
+Playback retains the existing AnimationRuntime/TransformAnimationPlayback resource,
+clock, sequence, conflict, discontinuity and checkpoint ownership. Gameplay precedes
+Animation in the fixed pipeline: a normal C++ fixed system consumes the previously
+committed sample. Paused seek applies immediately. Presentation sampling does not
+mutate native state. Existing clip revisions and Scene snapshot component stamps
+cover recovery; there is no second field registry or new checkpoint clock.
+
+Timeline exposes Component fields, key values and numeric cubic slope controls,
+using the existing source document, publication and Undo owners. Sequence preview
+borrows Scene::authored_types copied declarations and explicitly enables the existing
+engine-owned reconstructed metadata module in its private Runtime composition.
+Project code/callbacks remain outside that preview. Previews sample component values;
+C++ gameplay effects require actual Play. Generic source automation/MCP edits use the
+same versioned document and validation, with inspected custom admission metadata
+available from Scene schemas. See [the user workflow](../manual/editor/transform-animation.md).
+
 ## Per-object material animation
 
 Source5 adds up to64 `material_bindings`, each identified by the stable mesh
@@ -205,7 +253,7 @@ interface changes an existing exact SDK implementation hash input, so rebuild na
 modules with the matching SDK. The ordinary TransformAnimator and AnimationService
 control/status/seek API drive material clips too. Gallery67 includes independently
 animated objects, an ordinary Prefab instance and an unchanged shared-material cube;
-export closes over the saved Scene/Prefab/material and selected cooked5 clips.
+export closes over the saved Scene/Prefab/material and selected cooked clips.
 
 ## Source, publication and identity
 
@@ -339,16 +387,16 @@ ruler and cancel itself; Save & Publish supplies
 Play and export through the existing owners. Gallery47 compares original motion,
 changed position and changed scale using selected Windows-target CPU cooks.
 
-The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v8`
+The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v9`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
-It publishes `forge.transform-clip` version 5, validated by the same bounded
-parser/evaluator. Previously selected version-1/2/3/4 artifacts remain readable without
+It publishes `forge.transform-clip` version 6, validated by the same bounded
+parser/evaluator. Previously selected version-1/2/3/4/5 artifacts remain readable without
 rewriting their catalog or DDC records. Runtime and export require the cooked root
-version to match the selected output version. Cooked4/5 are versioned envelopes
+version to match the selected output version. Cooked4/5/6 are versioned envelopes
 containing the original source document, including its source version. This keeps
 older opaque fields opaque when republishing. Legacy cooked1/2/3 retain their raw
 document readers. Source admission allows 500,000 parser events, depth12 and2MiB,
-including the4096-key curve profile. The cooked4/5 envelope has128bytes of allowance
+including the4096-key curve profile. The cooked4/5/6 envelope has128bytes of allowance
 and one extra parse level; its enclosed source still passes the original limits.
 Source bytes, stable key IDs, selected recipe, file hashes and
 size are covered by the normal sidecar/catalog/DDC publication. Target recipes
@@ -369,7 +417,7 @@ channel omitted from the clip preserves the object's current local value.
 The in-development Sprite family adds `forge.sprite_renderer.frame` to the
 existing typed property bindings. Its index is appended; previous binding indices
 retain their meanings. Source3/4/5 and cooked5 retain their existing representation;
-new publication uses recipev8, while previously selected cooks remain readable.
+new publication uses recipev9/cooked6, while previously selected cooks remain readable.
 
 Frame values must be whole numbers from0 through268435455. Each target must already
 have a SpriteRenderer whose grid or ordered frame list contains every keyed frame. Runtime
@@ -406,12 +454,12 @@ animation does not create required components. Unsupported bindings, duplicate/m
 or undeclared values, and property syntax in versions1/2 reject explicitly.
 
 These typed built-in bindings use current native Camera/Light/AudioSource/ParticleEmitter members
-and existing scalar/domain validators. They are not a general custom-component/material/UI binding
-registry. Sprite frame support appends a binding to the public property arrays,
+and existing scalar/domain validators. They retain fixed builtin IDs; named Material and reflected component fields use
+separate binding lists in the same clip. UI/DOM bindings remain unsupported. Sprite frame support appends a binding to the public property arrays,
 changing the exact SDK fingerprint; native modules need a matching SDK rebuild.
 ABI1 callback tables remain unchanged.
 Version3 introduced these property values; version4 adds scalar curves. New
-publication uses recipev8 and cooked5 even for a legacy transform-only source.
+publication uses recipev9 and cooked6 even for a legacy transform-only source.
 Selected previous cooks remain readable. Binding indices remain unchanged. Older
 engines reject unsupported versions or names rather than partially executing clips.
 

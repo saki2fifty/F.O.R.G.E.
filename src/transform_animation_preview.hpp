@@ -1,17 +1,37 @@
 #pragma once
+#include "animation_component_values.hpp"
 #include "animation_property_state.hpp"
 #include <forge/transform_animation.hpp>
+#include <set>
 namespace forge {
 using Json = nlohmann::json;
 // Render-only substitution. No live ECS or authored/history mutation.
 inline bool apply_transform_animation_preview(Json& document, EntityRef target,
-                                              const TransformAnimationClip& clip, double time) {
+                                              const TransformAnimationClip& clip, double time,
+                                              const Json* schema = nullptr) {
     if (document.at("asset_id") != Json(target.scene))
         return false;
     for (auto& entity : document.at("entities")) {
         if (entity.at("id") != target.entity.str())
             continue;
         auto c = entity.at("components");
+        std::set<std::string> remaining;
+        for (const auto& binding : clip.component_bindings)
+            remaining.insert(binding.component);
+        if (!remaining.empty()) {
+            if (!schema)
+                throw std::runtime_error(
+                    "Component animation preview requires the admitted schema");
+            for (const auto& declaration : schema->at("components")) {
+                const auto key = declaration.at("id").get<std::string>();
+                if (!remaining.erase(key))
+                    continue;
+                c[key] = sample_animation_component(declaration, c.at(key), clip, time, true);
+            }
+            if (!remaining.empty())
+                throw std::runtime_error("Animated component is unavailable: " +
+                                         *remaining.begin());
+        }
         if (clip.properties) {
             auto properties = AnimationPropertyState::from(c, clip.properties);
             properties.validate_clip(clip);

@@ -257,9 +257,15 @@ class AnimationSequenceEditor {
                         row["components"][type.name][field] = value;
                 }
             const auto patch = context_->animation->presentation_properties(actor.id(), 1);
-            if (patch.contains("forge.camera") && patch.at("forge.camera").contains("enabled"))
-                row["components"]["forge.camera"]["enabled"] =
-                    patch.at("forge.camera").at("enabled");
+            if (targets_.contains(id) && patch.is_object()) {
+                for (const auto& [component, fields] : patch.items())
+                    for (const auto& [field, value] : fields.items())
+                        if (component == "forge.mesh_renderer" && field == "material_parameters")
+                            merge_animation_material_parameters(row["components"][component],
+                                                                value);
+                        else
+                            row["components"][component][field] = value;
+            }
         }
         return source;
     }
@@ -487,9 +493,12 @@ class AnimationSequenceEditor {
         Scene scene;
         std::shared_ptr<AnimationRuntime> animation;
         std::set<std::string> targets;
-        Context(const std::filesystem::path& project, const Json& source, EntityRef controller)
+        Context(const std::filesystem::path& project, const Json& source, EntityRef controller,
+                Json authored_types)
             : engine(WorldRole::Runtime, false,
-                     {runtime_resources_module(project), animation_module(project)}),
+                     {runtime_resources_module(project), animation_module(project),
+                      detail::copied_authoring_module(std::move(authored_types),
+                                                      role_mask(WorldRole::Runtime))}),
               scene(engine.world()), animation(animation_runtime(engine.world())) {
             scene.restore_snapshot(source);
             // Keep movement guards on targets/ancestors so preview uses the
@@ -1024,8 +1033,8 @@ class AnimationSequenceEditor {
                 AssetCatalog::open_project(project_->project()));
             revision_ = scene_->revision();
             stale_ = false;
-            context_ =
-                std::make_unique<Context>(project_->project(), scene_->snapshot(), controller_);
+            context_ = std::make_unique<Context>(project_->project(), scene_->snapshot(),
+                                                 controller_, scene_->authored_types());
             targets_ = context_->targets;
         } catch (const std::exception& e) {
             error_ = e.what();

@@ -13,6 +13,14 @@ separate. The [Sprite contract](sprites.md#independent-frame-mip-filtering) reco
 limits and the matching SDK layout requirement. Later sections retain historical
 delivery evidence and do not describe the contents of a new package.
 
+Local source also supports editable scalar C++ component field animation through
+the existing clip, Timeline, reflection, history and MCP owners. ComponentAnimation
+contains the original editable spinning-cube project. Installed-only C++ compilation,
+both runtime hosts, source-free selected clip consumption, independent speed/rotation
+oracles and cold recovery pass locally. Copied sequence preview samples the fields
+without project callbacks. Integer/Boolean/nested/UI binding families remain pending;
+Windows/full editor and graphical example acceptance are separate.
+
 # Early MCP development source — before Build208
 
 MCP connects game-building agents to the actual editor owners for projects,

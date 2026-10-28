@@ -20,7 +20,7 @@ class MeshMaterialInspector {
         if (mesh_.id)
             pool_.unload(mesh_);
         pool_.collect();
-        ticket_ = {};
+        ticket_.reset();
         bindings_.clear();
         selections_.clear();
         clear_parameters();

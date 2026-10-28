@@ -1,5 +1,23 @@
 # README screenshots
 
+## Component animation fields
+
+[Timeline controls](../../../manual/images/animation-component-fields.png) is the
+complete1080×1300 actual Timeline render captured locally on2026-10-28 from
+unassigned development work based on3a260049. The reproducible entry point is
+`forge_animation_property_editor_tests <scratch> --capture`. It calls the production
+Timeline/source/history owners with an admitted scalar C++ test component and real
+ImGui, pinned SDL software rendering and Lato. Actual pointer input opens Component
+fields. The selected key shows90, cubic mode and an outgoing slope of60; the second
+key has180. The PNG is copied unchanged, with no painted controls or overlays.
+
+Separate actual input tests cover value/cubic edits, Undo/Redo and Play locks at
+100/150/200 percent in two window sizes. Native component tests cover sampling,
+state preservation, current schema/ranges, presentation, loop boundaries and
+recovery. This capture does not show an installed C++ project compilation, full
+Windows editor, physical GPU or exported graphical acceptance. The shared SDL/
+ImGui fixture also reproduces the existing Sprite Inspector PNG byte for byte.
+
 ## Sprite frame filtering
 
 [Controls](../../../manual/images/sprite-mip-filtering-controls.png) is the complete

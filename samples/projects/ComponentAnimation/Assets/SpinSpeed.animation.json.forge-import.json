@@ -1,0 +1,35 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.animation.transform",
+    "importer_revision": "forge.animation.transform.v9",
+    "key_version": 1,
+    "output_format": "forge.transform-clip",
+    "output_version": 6,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "c6910792b69973472bc0263d86e62f44d44e956b33249d30bd8ba1afff0ec575",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.transform-animation.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "4f40a3eb-e14d-498c-9899-f85b9afd11d3",
+    "source": "Assets/SpinSpeed.animation.json",
+    "source_digest": "c6910792b69973472bc0263d86e62f44d44e956b33249d30bd8ba1afff0ec575",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.animation.transform",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}
