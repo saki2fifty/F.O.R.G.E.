@@ -37,6 +37,8 @@ Json AuthoredCodec::editor_schema() const {
         if (field.at("type") == "struct")
             for (auto& child : field.at("fields"))
                 self(self, child, read_only);
+        else if (field.at("type") == "array" || field.at("type") == "vector")
+            self(self, field["element"], read_only);
     };
     for (auto& field : result["fields"]) {
         field["default"] = declaration.at("defaults").at(field.at("id").get<std::string>());

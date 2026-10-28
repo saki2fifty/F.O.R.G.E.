@@ -231,8 +231,14 @@ until the next key, reject curves, and require actual Boolean/integer primitives
 not strings or floating representations. Source8 supports nested struct leaves:
 put an identical `member_path` array of stable member IDs below `field` on its
 binding descriptor and every matching key-value row. Use an empty/omitted path for
-root fields. Arrays have at most16 members; read-only ancestors, collection indices
-and UI fields are unsupported. Preserve other source fields and
+root fields. Source9 adds `element_path` after the struct-only member prefix. Its
+first part selects an entry: `{"index":0}` for unkeyed positional collections or
+`{"key":"left"}` / `{"key":["left","speed"]}` for declared single/composite keys.
+Later parts can be member IDs or nested selectors. Copy the entire identity to all
+key-value rows. Use the schema's declared key order, native counts/domains and
+current entries; keyed collections reject positional selectors. Missing entries
+reject without creating/resizing a collection. Combined paths have at most16parts;
+read-only ancestors and UI fields remain unsupported. Preserve other source fields and
 key/asset identities. Read the latest
 document session/revision before patching; an invalid value leaves history intact.
 The existing code creation/build/inspection, component-add and animator attachment

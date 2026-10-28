@@ -33,6 +33,27 @@ void write(ecs_meta_cursor_t& cursor, const Json& schema, const Json& value,
         }
         checked(ecs_meta_pop(&cursor));
     } else if (kind == "array" || kind == "vector") {
+        if (kind == "vector" && (!baseline || baseline->size() != value.size())) {
+            // Named struct writes are partial assignments to the Meta cursor.
+            // Set the complete requested count through its native lifecycle owner
+            // so removing trailing entries also retires their owned values.
+            const auto type = ecs_meta_get_type(&cursor);
+            auto* storage = ecs_meta_get_ptr(&cursor);
+            if (const auto* opaque = ecs_get(cursor.world, type, EcsOpaque)) {
+                (void)adapter_for(references, type);
+                if (!opaque->resize)
+                    throw std::runtime_error("Native vector adapter cannot resize");
+                opaque->resize(storage, value.size());
+            } else {
+                const auto* vector = ecs_get(cursor.world, type, EcsVector);
+                const auto* element =
+                    vector ? ecs_get_type_info(cursor.world, vector->type) : nullptr;
+                if (!element)
+                    throw std::runtime_error("Native vector element metadata is unavailable");
+                ecs_vec_set_count_w_type_info(nullptr, static_cast<ecs_vec_t*>(storage),
+                                              element->size, std::int32_t(value.size()), element);
+            }
+        }
         checked(ecs_meta_push(&cursor));
         for (std::size_t i = 0; i < value.size(); ++i) {
             if (i)

@@ -50,7 +50,7 @@ content may differ; use **Window** to open a panel mentioned in a guide.
 
 ## Animation
 
-- [Transform animation timeline and nested C++ component fields](editor/transform-animation.md)
+- [Transform animation timeline and nested and collection C++ component fields](editor/transform-animation.md)
 - [Coordinate several animations](editor/animation-sequences.md)
 - [Animation](editor/animation.md)
 - [Choose named animation states](editor/animation-states.md)

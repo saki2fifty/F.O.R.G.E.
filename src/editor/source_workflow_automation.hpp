@@ -171,7 +171,11 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        "widths, ranges and enum choices. Source8 adds optional member_path arrays "
                        "of "
                        "struct member IDs below field on both descriptors and key values; "
-                       "read-only ancestors and collection elements cannot be animated."
+                       "read-only ancestors cannot be animated. Source9 adds element_path suffixes "
+                       "starting with {index:N} for positional unkeyed collections or "
+                       "{key:string-or-string-tuple} for declared collection keys, followed by "
+                       "member IDs/selectors. Repeat the complete identity on each key value; "
+                       "missing elements reject without resizing or adding rows."
                      : ""),
             "asset.write", automation_object(std::move(properties), std::move(needed)), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));

@@ -68,7 +68,11 @@ clock owner; see [transform animation](../transform-animation.md). Existing nati
 AuthoredCodec and reflection admission own component values and lifecycle. Clip
 bindings retain stable authoring keys/schema stamps, never native IDs or offsets.
 Nested struct leaves extend that identity with explicit member-name arrays under
-the root field; the same reflection admission and complete candidate remain owners.
+the root field. Collection leaves add a typed selector/member suffix at the first
+collection; root/prefix/suffix remains one stable target identity. Declared local
+entry keys use the existing reflection identity helper; unkeyed entries are
+explicitly positional. The same reflection admission and complete candidate remain
+owners; animation does not create or resize collections.
 Presentation carries a complete root struct through the existing field merge.
 The private sequence preview may reconstruct inspected metadata in its Runtime
 composition without loading project code. This reuses the existing reconstructed

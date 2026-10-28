@@ -29,7 +29,7 @@ inline void test_reflected_extensions() {
         std::string key;
         double value;
     };
-    auto entry = world.component<Entry>("Entry").member<std::string>("key").member<double>("value");
+    world.component<Entry>("Entry").member<std::string>("key").member<double>("value");
     auto entries = world.component<std::vector<Entry>>("Entries");
     entries.opaque(reflected_vector<Entry>);
     struct Container {
@@ -63,6 +63,22 @@ inline void test_reflected_extensions() {
     auto known = read_reflected_native(world, container, candidate.data(), adapters);
     require(merge_reflected_extensions(schema, known, extensions) == source,
             "Nested native/unknown roundtrip lost data");
+    // Complete native updates must shrink/clear an existing engine-owned opaque
+    // vector as well as grow it; long strings exercise actual owned retirement.
+    auto extended = known;
+    extended["items"].push_back({{"key", std::string(96, 'x')}, {"value", 3.0}});
+    ReflectedCandidate grown(world, container, extended, adapters, candidate.data());
+    ReflectedCandidate shrunk(world, container, known, adapters, grown.data());
+    require(read_reflected_native(world, container, shrunk.data(), adapters) == known,
+            "Native opaque vector update retained trailing entries");
+    auto empty_values = known;
+    empty_values["items"] = Json::array();
+    ReflectedCandidate cleared(world, container, empty_values, adapters, grown.data());
+    require(read_reflected_native(world, container, cleared.data(), adapters) == empty_values,
+            "Native opaque vector update did not clear owned entries");
+    ReflectedCandidate regrown(world, container, extended, adapters, cleared.data());
+    require(read_reflected_native(world, container, regrown.data(), adapters) == extended,
+            "Native opaque vector update did not grow after clearing");
     std::reverse(known["items"].begin(), known["items"].end());
     known["items"][1]["value"] = 99.0;
     const auto reordered = merge_reflected_extensions(schema, known, extensions);

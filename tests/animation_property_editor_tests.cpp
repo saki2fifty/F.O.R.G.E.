@@ -21,6 +21,11 @@ struct UiSettings {
     std::uint64_t score = 0;
     UiMode mode = UiMode::Forward;
     std::uint32_t flags = 3;
+    float weights[2]{.25f, .5f};
+    std::int64_t markers[2]{};
+    bool toggles[2]{true, false};
+    UiMode modes[2]{UiMode::Forward, UiMode::Forward};
+    std::uint32_t masks[2]{3, 3};
 };
 struct UiMotion {
     float speed = 90;
@@ -55,7 +60,12 @@ EngineModule motion_module() {
                 .template member<UiMode>("mode")
                 .member(mask_type, "flags");
         };
-        fields(context.world.component<UiSettings>());
+        fields(context.world.component<UiSettings>())
+            .template member<float>("weights", 2)
+            .template member<std::int64_t>("markers", 2)
+            .template member<bool>("toggles", 2)
+            .template member<UiMode>("modes", 2)
+            .member(mask_type, "masks", 2);
         auto type =
             fields(context.world.component<UiMotion>()).template member<UiSettings>("settings");
         detail::opt_in_authoring(context.world, type, "project.ui_motion", "project.ui_motion", 1,
@@ -71,7 +81,12 @@ EngineModule motion_module() {
                                     {"marker", 0},
                                     {"score", 0},
                                     {"mode", 1},
-                                    {"flags", 3}}}},
+                                    {"flags", 3},
+                                    {"weights", {.25, .5}},
+                                    {"markers", {0, 0}},
+                                    {"toggles", {true, false}},
+                                    {"modes", {1, 1}},
+                                    {"masks", {3, 3}}}}},
                                  "Gameplay");
     };
     module.runtime_roles = role_mask(WorldRole::Runtime);
@@ -342,7 +357,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               "Property Timeline publication stalled: " + message);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 8 &&
+    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 9 &&
               !editor.dirty(),
           "Timeline published wrong property cook");
     click("button:Attach animation to object");
@@ -427,7 +442,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     check(!editor.dirty() &&
-              catalog->records().at(id).metadata["forge.import"]["output_version"] == 8,
+              catalog->records().at(id).metadata["forge.import"]["output_version"] == 9,
           "Scalar curves did not publish through the existing document");
     editor.open(project, "Assets/Properties.animation.json");
     check(editor.document()->source().document == saved_curves,
@@ -519,6 +534,39 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     check(editor.document()->source().document == before_nested, "Nested key Undo failed");
     editor.redo();
     frame();
+    for (const auto* name : {"weights [1]", "markers [0]", "toggles [1]", "modes [0]", "masks [1]"})
+        click(std::string("animation:component_add:project.ui_motion:settings / ") + name);
+    check(editor.document()->source().document.at("version") == 9,
+          "Collection controls did not promote Source9");
+    const auto before_collection = editor.document()->source().document;
+    type("animation:component_value:project.ui_motion:settings / weights [1]", "1.25");
+    type("animation:component_value:project.ui_motion:settings / markers [0]",
+         "-9223372036854775808");
+    click("animation:component_value:project.ui_motion:settings / toggles [1]");
+    click("animation:component_value:project.ui_motion:settings / modes [0]");
+    click("property:choice:field_value:-1");
+    click("animation:component_value:project.ui_motion:settings / masks [1]");
+    click("property:flag:field_value:1");
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    frame();
+    click("button:Add / Update key at playhead");
+    const auto collection_clip = editor.document()->source().clip();
+    check(collection_clip.component_bindings.size() == 14 &&
+              collection_clip.component_bindings[9].element_path ==
+                  std::vector<Json>{Json{{"index", 1}}} &&
+              collection_clip.keys.front().component_values[9].value == 1.25 &&
+              collection_clip.keys.front().component_values[10].value == INT64_MIN &&
+              collection_clip.keys.front().component_values[11].value == true &&
+              collection_clip.keys.front().component_values[12].value == -1 &&
+              collection_clip.keys.front().component_values[13].value == 2,
+          "Actual collection scalar/discrete/choice/flag controls lost path or precision");
+    editor.undo();
+    frame();
+    check(editor.document()->source().document == before_collection, "Collection key Undo failed");
+    editor.redo();
+    frame();
     check(scene.entity(actor).get<UiMotion>().speed == 90,
           "Timeline key editing changed the authored component");
     editor.request_save();
@@ -572,9 +620,10 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
             const auto native_value = binding.value_type == AnimationComponentValueType::Scalar
                                           ? Json(double(float(expected[i].get<double>())))
                                           : expected[i];
-            check(row->at("components")
-                          .at("project.ui_motion")
-                          .at(animation_component_pointer(binding)) == native_value,
+            const auto& current = row->at("components").at("project.ui_motion");
+            const auto current_schema = engine.world().authored_codecs().front().editor_schema();
+            check(current.at(animation_component_pointer(current_schema, current, binding)) ==
+                      native_value,
                   "Sequence preview changed field " + animation_component_label(binding));
         }
         sequence.end_frame_export(token);
@@ -605,24 +654,29 @@ void capture(const std::filesystem::path& root) {
     document->edit(document->revision(), "Component field capture", [&](auto& json) {
         TransformAnimationSource source{json};
         const auto& codec = engine.world().authored_codecs().front();
-        const AnimationComponentBinding binding{
-            codec.key(), "settings", codec.stamp(), AnimationComponentValueType::Scalar, {"speed"}};
-        source.add_component_field(binding, 90);
-        const auto add = [&](const char* name, AnimationComponentValueType kind,
-                             const Json& value) {
-            source.add_component_field({codec.key(), "settings", codec.stamp(), kind, {name}},
-                                       value);
+        const AnimationComponentBinding binding{codec.key(),   "settings",
+                                                codec.stamp(), AnimationComponentValueType::Scalar,
+                                                {"weights"},   {Json{{"index", 1}}}};
+        source.add_component_field(binding, .5);
+        const auto add_element = [&](const char* name, unsigned index,
+                                     AnimationComponentValueType kind, const Json& value) {
+            source.add_component_field(
+                {codec.key(), "settings", codec.stamp(), kind, {name}, {Json{{"index", index}}}},
+                value);
         };
-        add("enabled", AnimationComponentValueType::Boolean, true);
-        add("marker", AnimationComponentValueType::SignedInteger, INT64_MIN);
-        add("score", AnimationComponentValueType::UnsignedInteger, UINT64_MAX);
-        add("mode", AnimationComponentValueType::SignedInteger, -1);
-        add("flags", AnimationComponentValueType::UnsignedInteger, 3);
+        add_element("toggles", 1, AnimationComponentValueType::Boolean, true);
+        add_element("markers", 0, AnimationComponentValueType::SignedInteger, INT64_MIN);
+        source.add_component_field({codec.key(),
+                                    "settings",
+                                    codec.stamp(),
+                                    AnimationComponentValueType::UnsignedInteger,
+                                    {"score"}},
+                                   UINT64_MAX);
+        add_element("modes", 0, AnimationComponentValueType::SignedInteger, -1);
+        add_element("masks", 1, AnimationComponentValueType::UnsignedInteger, 3);
         const auto last = source.set_key(2 * animation_timebase, {});
-        source.set_component_value(last, binding.component, binding.field, 180,
-                                   binding.member_path);
-        source.set_component_curve(source.clip().keys.front().id, binding.component, binding.field,
-                                   {true, 0, 60}, binding.member_path);
+        source.set_component_value(last, binding, 1);
+        source.set_component_curve(source.clip().keys.front().id, binding, {true, 0, .6});
         json = source.document;
     });
     document->save();
@@ -681,9 +735,9 @@ void capture(const std::filesystem::path& root) {
     io.AddMouseButtonEvent(0, false);
     frame();
     frame();
-    reveal("animation:component_out:project.ui_motion:settings / speed");
+    reveal("animation:component_out:project.ui_motion:settings / weights [1]");
     capture.save(root / "animation-component-fields.png");
-    reveal("animation:component_value:project.ui_motion:settings / flags");
+    reveal("animation:component_value:project.ui_motion:settings / masks [1]");
     capture.save(root / "animation-discrete-fields.png");
     test::observe_ui = false;
 }

@@ -12,6 +12,7 @@ struct SpinSettings {
     float speed = 90;
     bool enabled = true;
     SpinDirection direction = SpinDirection::Forward;
+    float axis[3]{0, 1, 0}; // Local X/Y/Z; normalized by the system.
 };
 struct AnimatedSpin {
     SpinSettings settings;
@@ -27,13 +28,15 @@ inline int32_t forge_register_component_AnimatedSpin(const ForgeSdkWorldV1* host
         world.component<SpinSettings>("gameplay.SpinSettings")
             .member<float>("speed")
             .member<bool>("enabled")
-            .member<SpinDirection>("direction");
+            .member<SpinDirection>("direction")
+            .member<float>("axis", 3);
         const auto type =
             world.component<AnimatedSpin>("gameplay.AnimatedSpin").member<SpinSettings>("settings");
         ecs_doc_set_name(world, type, "Animated Spin");
-        return host->authoring_type(host->context, type, "project.animated_spin", 3,
-                                    R"({"settings":{"speed":90,"enabled":true,"direction":1}})",
-                                    "Animation example", error, capacity);
+        return host->authoring_type(
+            host->context, type, "project.animated_spin", 4,
+            R"({"settings":{"speed":90,"enabled":true,"direction":1,"axis":[0,1,0]}})",
+            "Animation example", error, capacity);
     } catch (const std::exception& why) {
         if (capacity)
             std::snprintf(error, capacity, "%s", why.what());

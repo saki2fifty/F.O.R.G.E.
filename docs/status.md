@@ -20,8 +20,9 @@ both runtime hosts, source-free selected clip consumption, independent speed/rot
 oracles and cold recovery pass locally. Copied sequence preview samples the fields
 without project callbacks. Boolean/integer/enum/bitmask fields use exact held values.
 Editable nested struct leaves use explicit member paths through the same admission,
-source history, native staging and projection owners. Collection/UI binding
-families remain pending;
+source history, native staging and projection owners. Source9 collection leaves
+add fixed arrays and admitted Meta vectors with positional or declared-key selectors.
+The example animates its local axis array. UI/DOM bindings remain pending;
 Windows/full editor and graphical example acceptance are separate.
 
 # Early MCP development source — before Build208

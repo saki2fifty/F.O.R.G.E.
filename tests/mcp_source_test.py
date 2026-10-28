@@ -33,7 +33,7 @@ for legacy in (False, True):
         tool_names = {tool['name'] for tool in declared_tools}
         patch_description = next(tool['description'] for tool in declared_tools
                                  if tool['name'] == 'forge_asset_document_patch')
-        assert all(word in patch_description for word in ('Source7', 'int64', 'uint64', 'Source8', 'member_path'))
+        assert all(word in patch_description for word in ('Source7', 'int64', 'uint64', 'Source8', 'member_path', 'Source9', 'element_path'))
         assert {'forge_asset_document_create', 'forge_asset_settings_publish', 'forge_prefab_apply_commit'} <= tool_names
         def discovery():
             result = client.tool('forge_discover')
@@ -193,6 +193,37 @@ for legacy in (False, True):
                     patch=[dict(op='replace', path='', value=typed)]), 'stale_document')
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == typed
                 assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == nested
+                collections = json.loads(json.dumps(nested))
+                collections['version'] = 9
+                for tail, value_kind, initial_value in [([dict(index=0), 'speed'], 'scalar', 45),
+                        ([dict(key=['left', 'speed']), 'marker'], 'uint64', (1 << 64) - 1),
+                        ([dict(key='right'), 'enabled'], 'bool', False)]:
+                    collections['component_bindings'].append(dict(component='project.motion',
+                        field='entries', element_path=tail, value_type=value_kind,
+                        admission=clip['component_bindings'][0]['admission']))
+                    for row in collections['keys']:
+                        row['component_values'].append(dict(component='project.motion',
+                            field='entries', element_path=tail, value=initial_value))
+                assert edit('forge_asset_document_patch', owner,
+                    patch=[dict(op='replace', path='', value=collections)])['ok']
+                assert content(owner) == collections
+                collection_state = status(owner)
+                for patch_path, bad_value in [('/component_bindings/7/element_path', ['speed']),
+                        ('/component_bindings/7/element_path', [dict(index=-1)]),
+                        ('/component_bindings/7/element_path', [dict(index=1.25)]),
+                        ('/component_bindings/7/element_path', [dict(index=4096)]),
+                        ('/component_bindings/7/element_path', [dict(index=0, key='left')]),
+                        ('/component_bindings/8/element_path', [dict(key=['left'])]),
+                        ('/keys/0/component_values/7/element_path', [dict(index=1), 'speed'])]:
+                    invalid = edit('forge_asset_document_patch', owner,
+                        patch=[dict(op='replace', path=patch_path, value=bad_value)])
+                    assert not invalid['ok'], invalid
+                    assert content(owner) == collections and status(owner)['revision'] == collection_state['revision']
+                failed(mutate('forge_asset_document_patch', editor=owner,
+                    document_session=nested_state['session'], document_revision=nested_state['revision'],
+                    patch=[dict(op='replace', path='', value=nested)]), 'stale_document')
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == nested
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == collections
             if owner == 'tile_map':
                 cells = [dict(layer=1, x=-33, y=64, tile=7, flags=0), dict(layer=1, x=0, y=0, tile=0)]
                 assert edit('forge_asset_document_paint', owner, cells=cells)['ok']

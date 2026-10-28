@@ -70,7 +70,7 @@ enum field, either at its root or within editable structs.
 
 ![Timeline showing continuous slopes, a Boolean checkbox, exact signed and unsigned 64-bit values, and enum and flag controls](../images/animation-component-fields.png)
 
-A selected key shows continuous curve controls and exact held values within Settings.
+A selected key shows continuous curves and exact held values on Settings array entries.
 
 1. Open an animation clip in the Timeline and choose that object as **Preview object**.
 2. Expand **Component fields** and choose **Add** beside the component and field. Every existing key starts with the object's current authored field value.
@@ -103,15 +103,22 @@ Choose **Add** for that leaf. Neighboring values remain unchanged. **Capture aut
 pose** captures the bound leaves as well as the transform.
 
 Up to 64 scalar component leaves can be bound per clip, including editable members
-inside nested structs. Collection elements and UI fields are unavailable here. Export includes the selected cooked clip; a behavior
+inside nested structs, fixed arrays and admitted native tables. UI fields are
+unavailable here. Array/table elements must already exist: add or edit their data
+in the Inspector first. Timeline shows zero-based indices for positional entries
+and key values for tables with declared entry keys. Reordering a keyed table keeps
+its animation on that entry. Removing the selected entry reports a binding error;
+restore it or remove the binding. Animation never creates/resizes the collection. Export includes the selected cooked clip; a behavior
 that consumes these fields still needs the project's matching
 compiled C++ module and runtime kit. The exported game does not need a C++ compiler.
 
 Try **Examples/ComponentAnimation** for a cube whose compiled C++ system consumes
 an animated **settings / speed** field. Open its **Assets/SpinSpeed.animation.json** to edit the
 90 → 270 → 90 speed curve, the one-second **settings / enabled** pause and the **settings / direction**
-changes. The cube pauses from one to two seconds and reverses from two to four
-seconds. Build Project Code first for a source checkout. The combined
+changes. Its **settings / axis [0]** and **settings / axis [1]** tracks change the
+rotation axis: indices0/1/2 are local X/Y/Z. The cube pauses from one to two seconds,
+then reverses around X before returning toward Y. At least one of the three axis values
+must be nonzero; the C++ system normalizes them. Build Project Code first for a source checkout. The combined
 Windows package supplies a matching compiled module. Its C++ system uses the
 existing post-animation phase to consume the current tick's sample.
 

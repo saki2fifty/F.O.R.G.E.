@@ -26,7 +26,10 @@ declaration, = inspection['components']
 capabilities = next(row for row in inspection['reference_schema']['components']
                     if row['id'] == declaration['id'])
 assert capabilities['fields'][0]['id'] == 'settings'
-assert all(field['animatable'] for field in capabilities['fields'][0]['fields'])
+settings_fields = {field['id']: field for field in capabilities['fields'][0]['fields']}
+assert all(settings_fields[name]['animatable'] for name in ('speed', 'enabled', 'direction'))
+assert settings_fields['axis']['type'] == 'array' and settings_fields['axis']['count'] == 3
+assert settings_fields['axis']['element']['animatable'] and not settings_fields['axis']['animatable']
 assert next(field for field in declaration['structure']['fields'][0]['fields']
             if field['id'] == 'enabled')['animatable'] is False
 stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
@@ -54,6 +57,25 @@ def sampled_speed(tick):
 def sampled_discrete(tick):
     seconds = (tick * dt) % 4
     return not (1 <= seconds < 2), 1 if seconds < 2 else -1
+
+
+def sampled_axis(tick):
+    seconds = (tick * dt) % 4
+    x = 0 if seconds < 1 else seconds - 1 if seconds < 2 else 1 if seconds < 3 else 4 - seconds
+    return tuple(struct.unpack('f', struct.pack('f', value))[0] for value in (x, 1 - x, 0))
+
+
+def rotate(q, speed, direction, axis):
+    half = speed * direction * dt * math.pi / 360
+    length = math.sqrt(sum(value * value for value in axis))
+    dx, dy, dz = (value / length * math.sin(half) for value in axis)
+    dw = math.cos(half)
+    # Independent right-product matrix, with x/y/z/w coordinates.
+    matrix = ((dw, dz, -dy, dx), (-dz, dw, dx, dy),
+              (dy, -dx, dw, dz), (-dx, -dy, -dz, dw))
+    value = tuple(sum(a * b for a, b in zip(row, q)) for row in matrix)
+    norm = math.sqrt(sum(v * v for v in value))
+    return tuple(v / norm for v in value)
 
 
 def values(state):
@@ -87,7 +109,7 @@ for sdk_play in (False, True):
     cold = None
     try:
         ready(worker, sdk_play)
-        angle = 0
+        expected_rotation = (0., 0., 0., 1.)
         for tick in range(1, 271):
             state = worker.request('step')
             current = values(state)
@@ -96,12 +118,12 @@ for sdk_play in (False, True):
             enabled, direction = sampled_discrete(tick)
             assert current['project.animated_spin']['settings']['enabled'] is enabled, (tick, current)
             assert current['project.animated_spin']['settings']['direction'] == direction, (tick, current)
+            axis = sampled_axis(tick)
+            assert all(abs(a - b) < 2e-6 for a, b in zip(current['project.animated_spin']['settings']['axis'], axis)), (tick, current)
             if enabled:
-                angle += speed * direction * dt * math.pi / 180
+                expected_rotation = rotate(expected_rotation, speed, direction, axis)
             rotation = current['forge.local_rotation']
-            assert abs(rotation['x']) < 1e-7 and abs(rotation['z']) < 1e-7, rotation
-            assert abs(rotation['y'] - math.sin(angle / 2)) < 2e-5, (tick, rotation, angle)
-            assert abs(rotation['w'] - math.cos(angle / 2)) < 2e-5, (tick, rotation, angle)
+            assert all(abs(rotation[name] - value) < 2e-5 for name, value in zip(('x', 'y', 'z', 'w'), expected_rotation)), (tick, rotation, expected_rotation)
             if cold:
                 replay = cold.request('step')
                 assert values(replay)['project.animated_spin'] == current['project.animated_spin']

@@ -12,7 +12,7 @@ void check(bool value, const char* message) {
     if (!value)
         throw std::runtime_error(message);
 }
-int main(int argc, char** argv) {
+int main() {
     try {
         test_geometry();
         test_reflection();

@@ -13,52 +13,153 @@ std::optional<AnimationComponentValueType> animation_component_field_type(const 
 bool animation_component_field_supported(const Json& field) {
     return animation_component_field_type(field).has_value();
 }
-const Json& animation_component_field(const Json& declaration,
-                                      const AnimationComponentBinding& binding) {
+namespace {
+struct FieldTarget {
+    const Json* field;
+    Json::json_pointer path;
+};
+FieldTarget resolve(const Json& declaration, const AnimationComponentBinding& binding,
+                    const Json* current) {
     if (!declaration.value("custom", false) || declaration.at("id") != binding.component ||
-        declaration.at("admission") != binding.admission || binding.member_path.size() > 16)
+        declaration.at("admission") != binding.admission ||
+        binding.member_path.size() + binding.element_path.size() > 16)
         throw std::runtime_error("Animated component schema does not match");
     const Json* fields = &declaration.at("fields");
-    const Json* result = nullptr;
+    const Json* field = nullptr;
+    auto value = current;
+    Json::json_pointer path;
     const auto member = [&](const std::string& name) {
         if (!fields)
             throw std::runtime_error("Animated path requires a struct ancestor");
         const auto at = std::find_if(fields->begin(), fields->end(),
-                                     [&](const auto& field) { return field.at("id") == name; });
+                                     [&](const auto& item) { return item.at("id") == name; });
         if (at == fields->end() || at->value("read_only", false))
             throw std::runtime_error("Animated path is absent or read only: " + name);
-        result = &*at;
-        fields = result->at("type") == "struct" ? &result->at("fields") : nullptr;
+        field = &*at;
+        if (value) {
+            if (!value->is_object() || !value->contains(name))
+                throw std::runtime_error("Animated struct member value is absent: " + name);
+            value = &value->at(name);
+        }
+        path /= name;
+        fields = field->at("type") == "struct" ? &field->at("fields") : nullptr;
     };
     member(binding.field);
     for (const auto& name : binding.member_path)
         member(name);
-    if (animation_component_field_type(*result) != binding.value_type)
+    for (const auto& part : binding.element_path) {
+        if (part.is_string()) {
+            member(part.get_ref<const std::string&>());
+            continue;
+        }
+        const auto& kind = field->at("type");
+        if ((kind != "array" && kind != "vector") || !part.is_object() || part.size() != 1)
+            throw std::runtime_error("Animated selector requires a collection");
+        if (value && !value->is_array())
+            throw std::runtime_error("Animated collection value is unavailable");
+        const bool keyed = field->contains("element_key") || field->contains("element_keys");
+        std::size_t index = 0;
+        if (part.contains("index")) {
+            const auto& requested = part.at("index");
+            const auto maximum = field->at(kind == "array" ? "count" : "maximum_count");
+            if (keyed || !requested.is_number_integer() || requested < 0 || requested >= maximum)
+                throw std::runtime_error(
+                    "Animated positional selector does not match collection policy");
+            index = requested.get<std::size_t>();
+        } else if (part.contains("key") && keyed) {
+            const auto& key = part.at("key");
+            const bool composite = field->contains("element_keys");
+            if (composite ? !key.is_array() || key.size() != field->at("element_keys").size()
+                          : !key.is_string())
+                throw std::runtime_error("Animated key does not match its declared collection key");
+            const auto identity = composite ? key.dump() : key.get<std::string>();
+            if (value) {
+                std::optional<std::size_t> selected;
+                for (std::size_t i = 0; i < value->size(); ++i)
+                    if (detail::reflected_sequence_identity(*field, value->at(i)) == identity) {
+                        if (selected)
+                            throw std::runtime_error("Animated collection key is ambiguous");
+                        selected = i;
+                    }
+                if (!selected)
+                    throw std::runtime_error("Animated collection key is missing");
+                index = *selected;
+            }
+        } else
+            throw std::runtime_error("Animated selector does not match collection policy");
+        if (value) {
+            if (index >= value->size())
+                throw std::runtime_error("Animated collection index is missing");
+            value = &value->at(index);
+        }
+        path /= std::to_string(index);
+        field = &field->at("element");
+        if (field->value("read_only", false))
+            throw std::runtime_error("Animated collection element is read only");
+        fields = field->at("type") == "struct" ? &field->at("fields") : nullptr;
+    }
+    if (animation_component_field_type(*field) != binding.value_type)
         throw std::runtime_error("Animated leaf type does not match: " +
                                  animation_component_label(binding));
-    return *result;
+    return {field, std::move(path)};
 }
-std::vector<AnimationComponentBinding> animation_component_fields(const Json& declaration) {
+} // namespace
+const Json& animation_component_field(const Json& declaration,
+                                      const AnimationComponentBinding& binding) {
+    return *resolve(declaration, binding, nullptr).field;
+}
+Json::json_pointer animation_component_pointer(const Json& declaration, const Json& current,
+                                               const AnimationComponentBinding& binding) {
+    return resolve(declaration, binding, &current).path;
+}
+std::vector<AnimationComponentBinding> animation_component_fields(const Json& declaration,
+                                                                  const Json* current) {
     std::vector<AnimationComponentBinding> result;
     if (!declaration.value("custom", false))
         return result;
     AnimationComponentBinding binding{declaration.at("id"), "", declaration.at("admission")};
-    const auto visit = [&](const auto& self, const Json& field) -> void {
+    const auto visit = [&](const auto& self, const Json& field, const Json* value) -> void {
         if (field.value("read_only", false))
             return;
         if (const auto kind = animation_component_field_type(field)) {
             binding.value_type = *kind;
             result.push_back(binding);
-        } else if (field.at("type") == "struct" && binding.member_path.size() < 16)
+            return;
+        }
+        if (binding.member_path.size() + binding.element_path.size() >= 16)
+            return;
+        if (field.at("type") == "struct") {
             for (const auto& child : field.at("fields")) {
-                binding.member_path.push_back(child.at("id"));
-                self(self, child);
-                binding.member_path.pop_back();
+                const auto name = child.at("id").get<std::string>();
+                const bool elements = !binding.element_path.empty();
+                if (elements)
+                    binding.element_path.push_back(name);
+                else
+                    binding.member_path.push_back(name);
+                self(self, child, value ? &value->at(name) : nullptr);
+                if (elements)
+                    binding.element_path.pop_back();
+                else
+                    binding.member_path.pop_back();
             }
+        } else if ((field.at("type") == "array" || field.at("type") == "vector") && value) {
+            for (std::size_t i = 0; i < value->size(); ++i) {
+                Json selector;
+                if (field.contains("element_key") || field.contains("element_keys")) {
+                    const auto key = detail::reflected_sequence_identity(field, value->at(i));
+                    selector = {
+                        {"key", field.contains("element_keys") ? Json::parse(key) : Json(key)}};
+                } else
+                    selector = {{"index", i}};
+                binding.element_path.push_back(std::move(selector));
+                self(self, field.at("element"), &value->at(i));
+                binding.element_path.pop_back();
+            }
+        }
     };
     for (const auto& field : declaration.at("fields")) {
         binding.field = field.at("id");
-        visit(visit, field);
+        visit(visit, field, current ? &current->at(binding.field) : nullptr);
     }
     return result;
 }
@@ -80,8 +181,9 @@ Json sample_animation_component(const Json& declaration, const Json& current,
             continue;
         if (binding.admission != declaration.at("admission"))
             throw std::runtime_error("Animated component schema has changed: " + binding.component);
-        const auto& field = animation_component_field(declaration, binding);
-        const auto path = animation_component_pointer(binding);
+        const auto target = resolve(declaration, binding, &current);
+        const auto& field = *target.field;
+        const auto& path = target.path;
         if (!current.contains(path))
             throw std::runtime_error("Animated component leaf value is absent");
         if (whole_clip) {

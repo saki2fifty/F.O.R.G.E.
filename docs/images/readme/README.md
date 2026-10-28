@@ -4,19 +4,19 @@
 
 [Timeline controls](../../../manual/images/animation-component-fields.png) is the
 complete1080×1300 actual Timeline render captured locally on2026-10-28 from
-unassigned development work based on1f14a99. The reproducible entry point is
+unassigned development work based on4df8137. Reproduce it with
 `forge_animation_property_editor_tests <scratch> --capture`. It calls production
-Timeline/source/history owners with an admitted nested native test component and
+Timeline/source/history owners with an admitted native struct/array test component,
 actual ImGui, pinned SDL software rendering and Lato. Real pointer input opens
-Component fields and selects a saved key. The image shows Settings member paths,
-continuous90/cubic/outgoing60, a Boolean, signed-min/unsigned-max64-bit values,
-Reverse and declared flag controls. The complete canonical PNG is copied unchanged,
-with no painted controls or overlays. Its SHA256 is
-`94b3ef21f5556d2e3ae10c6e55c0320f8e72269785d61d24da91d9d748af0765`.
+Component fields and selects a saved key. The image shows indexed Settings leaves:
+weight0.5/cubic/outgoing0.6, a Boolean toggle, signed-min64, an exact unsigned-max64
+struct leaf, Reverse and declared array flag controls. The complete canonical PNG
+is copied unchanged with no painted controls or overlays. Its SHA256 is
+`72f1930a4faf93ec8aeb943b8a3a5e7eeee0c652d335993dcba7784d0e8dd045`.
 
-Actual input tests cover root/nested typed values, enum/flag choices, curves,
-Undo/Redo, publication and Play locks at100/150/200 percent in two window sizes;
-copied sequence preview samples without project callbacks. This is a local
+Actual input tests cover root/nested/indexed typed values, enum/flag choices,
+curves, Undo/Redo, publication and Play locks at100/150/200 percent in two window
+sizes; copied sequence preview samples without project callbacks. This is a local
 SDL software capture, not full Windows editor, physical GPU or exported graphical
 acceptance. The shared SDL/ImGui fixture also reproduces the existing Sprite
 Inspector PNG byte for byte.

@@ -170,7 +170,7 @@ the next key and reject curves; continuous tracks in the same key retain their
 ordinary timing. New-key sampling, duplication, retiming and cooking preserve exact
 integer values. Promoting source6 rejects any preexisting opaque descriptor
 `value_type` member before adding `scalar` to its existing continuous bindings.
-Legacy source1–7 and cooked1–7 remain readable; publication uses recipev11/cooked8.
+Legacy source1–8 and cooked1–8 remain readable; publication uses recipev12/cooked9.
 
 Source8 adds optional `member_path` arrays on descriptors and key-value rows. Each
 array contains up to16 nonempty stable member IDs below the retained root `field`;
@@ -183,6 +183,25 @@ Explicit promotion rejects preexisting opaque `member_path` metadata on both leg
 descriptors and key values. Ordinary edits of legacy sources keep that metadata opaque.
 Nested leaves retain the same scalar/held value categories, curves, complete-key
 sampling, duplication, retiming and source history semantics.
+
+Source9 adds optional `element_path` suffixes for collection leaves. `member_path`
+retains only struct members before the first collection. The suffix begins with a
+selector, followed by member IDs and further selectors: for example `field:
+"settings", member_path: ["axis"], element_path: [{"index": 0}]`. A keyed table can
+use `element_path: [{"key": ["left", "speed"]}, "value"]`. Each descriptor and
+key-value row carries the complete identity. The combined path has at most16parts.
+`index` is a zero-based integer below4096; actual array counts/vector bounds and
+current presence still apply. Keyed collections require `key`, never `index`.
+Single-key selectors contain the declared string value; composite selectors contain
+2–4 strings in the schema's `element_keys` order. The existing
+`reflected_sequence_identity` owns matching; reordered keyed entries retain their
+target. Unkeyed collections deliberately use positional semantics. No entry or
+collection is added/resized by animation. Missing or duplicate keys, bad indices,
+readonly ancestors and incompatible leaf domains fail before candidate commit.
+Collection-level numeric metadata is not reinterpreted as an element constraint;
+existing leaf descriptors own their ranges. Opaque legacy `element_path` members
+on both descriptors and key values block implicit promotion. Old sources otherwise
+keep those members opaque, including inside new cooked envelopes.
 
 Current editor capability fields are derived through the same primitive classifier
 as clip consumers. The stamped native declaration retains its versioned structure,
@@ -198,13 +217,17 @@ of an existing opt-in authored C++ component. It verifies the exact admission st
 field presence, read-only policy and reflected member domain, including all cubic
 extrema for continuous fields and every keyed value for discrete fields. The shared
 reflection validator admits native widths/ranges/choices; discrete values never
-pass through double. Collection elements and UI/DOM properties are unsupported. AuthoredCodec remains the native owner: read current complete state,
+pass through double. Editable fixed-array and admitted native Meta vector leaves are supported. UI/DOM
+properties and arbitrary project opaque C++ containers remain unsupported. AuthoredCodec remains the native owner: read current complete state,
 replace the selected leaf values, clone the current native value through its
 copy hooks and stage only differing members recursively,
 then apply only after every transform/property/material/component candidate is
 admitted. Other native fields and owned values are preserved, including unreflected state
 that can exist in native layout padding. This is a live-update guarantee;
-unreflected state is not added to Scene snapshots or recovery serialization. No component is
+unreflected state is not added to Scene snapshots or recovery serialization.
+Explicit complete vector edits apply the requested count with native lifecycle
+callbacks, so deleted trailing entries and their owned values retire. Animation
+only changes admitted existing leaves and does not perform those edits. No component is
 automatically added. Native storage conversion also applies to copied preview. Presentation patches carry
 complete sampled root structs. The shared animation projection merge uses the
 existing reflection-extension owner to preserve opaque nested siblings. Copied sequence preview uses engine-owned metadata without
@@ -427,7 +450,7 @@ changed position and changed scale using selected Windows-target CPU cooks.
 
 The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v9`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
-It publishes `forge.transform-clip` version 8, validated by the same bounded
+It publishes `forge.transform-clip` version 9, validated by the same bounded
 parser/evaluator. Previously selected version-1/2/3/4/5 artifacts remain readable without
 rewriting their catalog or DDC records. Runtime and export require the cooked root
 version to match the selected output version. Cooked4/5/6 are versioned envelopes
@@ -455,7 +478,7 @@ channel omitted from the clip preserves the object's current local value.
 The in-development Sprite family adds `forge.sprite_renderer.frame` to the
 existing typed property bindings. Its index is appended; previous binding indices
 retain their meanings. Source3/4/5 and cooked5 retain their existing representation;
-new publication uses recipev11/cooked8, while previously selected cooks remain readable.
+new publication uses recipev12/cooked9, while previously selected cooks remain readable.
 
 Frame values must be whole numbers from0 through268435455. Each target must already
 have a SpriteRenderer whose grid or ordered frame list contains every keyed frame. Runtime
@@ -497,7 +520,7 @@ separate binding lists in the same clip. UI/DOM bindings remain unsupported. Spr
 changing the exact SDK fingerprint; native modules need a matching SDK rebuild.
 ABI1 callback tables remain unchanged.
 Version3 introduced these property values; version4 adds scalar curves. New
-publication uses recipev11 and cooked8 even for a legacy transform-only source.
+publication uses recipev12 and cooked9 even for a legacy transform-only source.
 Selected previous cooks remain readable. Binding indices remain unchanged. Older
 FORGE versions reject unsupported versions or names rather than partially executing clips.
 

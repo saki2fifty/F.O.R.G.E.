@@ -143,14 +143,20 @@ in Inspector, Scene/Prefab persistence, history and explicit schema migration.
 Live field updates clone the current native value through its copy hooks and write
 only changed members recursively before committing. Other native state is retained;
 unreflected runtime state does not become serialized or recoverable through this
-operation. Native types must support the required copy semantics.
+operation. Native types must support the required copy semantics. Complete vector updates
+set the requested count through the existing lifecycle owner, including shrinking
+and clearing owned entries; selected-leaf animation does not change counts.
 
 Editable scalar fields can also be bound in a Timeline clip. Floats/doubles
 interpolate; Boolean, integer, enum and bitmask values hold until the next key with
 exact native integer storage. Use its existing component/field/admission bindings
 and source7 value categories for discrete fields. Native widths/ranges/choices still
 apply. Source8 adds `member_path` arrays for editable struct leaves; readonly
-ancestors and collection/UI bindings remain unsupported. Gameplay runs before Animation; an SDK
+ancestors are rejected. Source9 extends that prefix with an `element_path` beginning
+at the first collection: positional indices for unkeyed entries and declared local
+keys for keyed entries. Fixed arrays and admitted native Meta vectors reuse the
+existing reflection/copy owner. Missing elements reject; animation never resizes a
+collection. Arbitrary project opaque containers and UI bindings remain unsupported. Gameplay runs before Animation; an SDK
 system that needs this tick's sample can use `host->post_animation_phase` and
 `host->fixed_tag`. The canonical ComponentAnimation example's installed SDK target
 uses that phase and the original project sources. See

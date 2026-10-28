@@ -6,27 +6,27 @@
       "id": "4f40a3eb-e14d-498c-9899-f85b9afd11d3",
       "metadata": {
         "forge.import": {
-          "artifact_digest": "62c541b020944dcf9b1772788bcccd6ea24e4649b4d6b7e557baa6c0f3d9b683",
+          "artifact_digest": "c6ae9300153c5962e1db5328b5ba2a6032d33e012891effa877824a215c2d31a",
           "backend": "d3d12",
           "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
-          "generation": 3,
+          "generation": 4,
           "importer": "forge.animation.transform",
-          "importer_revision": "forge.animation.transform.v11",
-          "key": "78a4e47e1e9b658c0ef5c38e230230e8705f491d24755fdd4a1e0c7ba4c9d544",
+          "importer_revision": "forge.animation.transform.v12",
+          "key": "53b55bd22c3aa493f5a4c2633199e651f32ac0aa36f36a6d0410c8620ea39905",
           "output_format": "forge.transform-clip",
-          "output_version": 8,
+          "output_version": 9,
           "platform": "windows",
           "profile": "desktop",
           "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
           "settings_version": 1,
-          "sidecar_digest": "22431cccc6da779bc307d92d23d7fb60e034ed9ca6f4c5632e0b00cfbd32010a",
-          "source_digest": "0862463a7d90acd08ed25efa4aba12dd566d1a6cf3d2742b568737be852d12cf",
+          "sidecar_digest": "292e6a9871294e65ec8b5bfb7b01aba25539e0600a73035b35a82fd5703a6a33",
+          "source_digest": "495fa2368a1819e95ff319e12ccb5a1b47f170d208e4fe59fbfc91dac2792118",
           "version": 1
         },
         "forge.transform_animation": {
-          "bytes": 3811,
+          "bytes": 5653,
           "file": "animation.clip",
-          "sha256": "225248535bd0ecbfd990c0770d7c227cc2daecc8d48968897bcd55e01b381ba6",
+          "sha256": "d61f5d575b4dde483d2c3bb076eb0c6e05b8feaab895bb478de9b12289d1c5b6",
           "version": 1
         }
       },

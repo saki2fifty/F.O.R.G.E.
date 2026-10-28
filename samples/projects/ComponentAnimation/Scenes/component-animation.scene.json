@@ -46,13 +46,18 @@
         },
         "project.animated_spin": {
           "$forge": {
-            "digest": "7153189130e3e510f42c13dc876f4d6bccc5d3fc60374461af8b1c6aaf9bb39c",
+            "digest": "6d5472876b1ccc042871b431fb99652ab8cba582dcb16b45d968dceee11e9c94",
             "format": "forge.authored-component",
             "module": "project.gameplay",
-            "schema_version": 3,
+            "schema_version": 4,
             "version": 1
           },
           "settings": {
+            "axis": [
+              0.0,
+              1.0,
+              0.0
+            ],
             "direction": 1,
             "enabled": true,
             "speed": 90.0

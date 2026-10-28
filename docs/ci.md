@@ -1712,10 +1712,22 @@ through actual Timeline controls at six scale/window combinations and samples th
 in copied sequence frame output without project callbacks. `mcp_source_stdio`
 checks Source8 discovery, both framings, invalid path/key identity, exact values,
 revision/history and publication. The canonical installed C++ example uses Settings
-with schema3; its prepared scene/clip retain original asset/entity/key IDs.
+with schema4 and animated Axis array entries; its prepared scene/clip retain original asset/entity/key IDs.
 
 The common material Timeline regression is registered from one CMake recipe for
-both editor builds and the portable authoring test configuration. This tests actual
+both editor builds and the portable authoring test configuration.
+
+`animation_component` extends the same gate with native fixed and compound arrays,
+primitive and struct leaves, composite/single-key and unkeyed Meta vectors, actual
+reordering, owned strings/hidden counters, whole-curve rejection, readonly/index/key
+policy, deletion/clear/grow isolation and pause/seek/cold recovery. `core` separately
+checks the admitted engine opaque-vector adapter's complete shrink/clear/grow with
+heap-owned strings. The native writer uses the pinned public lifecycle-aware count
+API; no dependency patch or opaque-project-container admission is involved.
+Source9/cooked9/recipev12 retains legacy1–8 readers and guards opaque suffix metadata.
+Real Timeline input and copied sequence output cover indexed float/bool/int64/enum/
+flag controls in six scale/window combinations. MCP checks selector shape, exact
+values, complete identity, revisions/history and publication in both framings. This tests actual
 ImGui material editing through the shared Timeline owner; it does not enable or
 claim a portable native editor host. Component controls also exercise exact64-bit
 inputs, enum/flag choices, Undo/Redo and copied sequence preview at supported scales.

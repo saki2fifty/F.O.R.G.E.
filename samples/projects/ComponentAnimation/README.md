@@ -1,10 +1,12 @@
 # C++ component field animation
 
-The cube rotates around its local Y axis. Its ordinary C++ Animated Spin component
+The cube rotates around a changing local axis. Its ordinary C++ Animated Spin component
 exposes a Settings struct with Speed in degrees per second. A reusable four-second clip eases Speed from
 90 to 270 and back to 90. Enabled holds the cube still from one to two seconds;
 Direction switches to Reverse from two to four seconds. The C++ system reads the
-current samples in the existing post-animation phase and applies the rotation.
+current samples in the existing post-animation phase, normalizes Axis and applies
+the rotation. Axis is a fixed array: indices0/1/2 mean local X/Y/Z. Its X/Y tracks
+shift the axis during the pause and back toward Y at the end of the loop.
 
 1. Copy this project to a writable folder and open it in FORGE.
 2. A source checkout needs **Build Project Code** with the matching SDK and compiler
@@ -15,7 +17,7 @@ current samples in the existing post-animation phase and applies the rotation.
    values remain 90, enabled and Forward.
 4. Stop Play and open **Assets/SpinSpeed.animation.json** in the Timeline. Choose
    **Animated cube** as Preview object. **Component fields** lists **settings / speed**, **settings / enabled** and
-   **settings / direction**.
+   **settings / direction**, plus **settings / axis [0]** and **settings / axis [1]**.
    Select a key, change **Field value**, and use **Add / Update key at playhead**.
    **Cubic field curve** and its numeric slopes shape Speed transitions. Enabled
    uses a checkbox; Direction uses its declared choices. These discrete values
@@ -27,8 +29,9 @@ current samples in the existing post-animation phase and applies the rotation.
 The component and system live in `Native/Components/AnimatedSpin.hpp` and
 `Native/Systems/AnimatedSpinSystem.cpp`. The original source is also used by the
 installed SDK sample. Float values interpolate; Boolean and integer/enum fields
-hold until the next key. Native ranges, choices and editable struct ancestors are validated. Collection
-elements and UI bindings are unavailable.
+hold until the next key. Native ranges, choices and editable struct ancestors are validated. Fixed-array leaves and admitted native Meta vector entries can be bound by index
+or declared local key. Arbitrary project opaque containers and UI bindings are
+unavailable. Keep Axis nonzero whenever Enabled is true.
 
 Export the saved project with the matching shared native SDK runtime kit and the
 module-kits parent selected by the C++ build. The combined package's supplied kit

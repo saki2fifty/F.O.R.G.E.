@@ -43,7 +43,7 @@ inline void test_reflected_values() {
     common.erase("value_byte_limit");
     common.erase("value_element_limit");
     invalid(common, {{"text", std::string(70000, 'x')}});
-    for (const Json limit : {Json(-1), Json(131073), Json(1.5), Json("131072")}) {
+    for (const Json& limit : {Json(-1), Json(131073), Json(1.5), Json("131072")}) {
         auto bad = expanded;
         bad["value_byte_limit"] = limit;
         invalid(bad, {{"text", "small"}});

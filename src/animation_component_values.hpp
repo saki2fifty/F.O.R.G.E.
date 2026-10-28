@@ -11,7 +11,11 @@ bool animation_component_field_supported(const nlohmann::json& field);
 const nlohmann::json& animation_component_field(const nlohmann::json& declaration,
                                                 const AnimationComponentBinding&);
 std::vector<AnimationComponentBinding>
-animation_component_fields(const nlohmann::json& declaration);
+animation_component_fields(const nlohmann::json& declaration,
+                           const nlohmann::json* current = nullptr);
+nlohmann::json::json_pointer animation_component_pointer(const nlohmann::json& declaration,
+                                                         const nlohmann::json& current,
+                                                         const AnimationComponentBinding&);
 nlohmann::json sample_animation_component(const nlohmann::json& declaration,
                                           const nlohmann::json& current,
                                           const TransformAnimationClip&, double time,

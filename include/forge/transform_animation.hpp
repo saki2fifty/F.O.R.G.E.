@@ -41,10 +41,12 @@ struct AnimationComponentBinding {
     std::string component, field;
     nlohmann::json admission;
     AnimationComponentValueType value_type = AnimationComponentValueType::Scalar;
-    std::vector<std::string> member_path{}; // Struct members below the retained root field.
+    std::vector<std::string> member_path{};     // Struct members before the first collection.
+    std::vector<nlohmann::json> element_path{}; // Selector, then member/selector suffix.
     bool operator==(const AnimationComponentBinding&) const = default;
 };
 nlohmann::json::json_pointer animation_component_pointer(const AnimationComponentBinding&);
+std::string animation_component_identity(const AnimationComponentBinding&);
 std::string animation_component_label(const AnimationComponentBinding&);
 struct AnimationComponentKey {
     nlohmann::json value = 0.;
@@ -111,6 +113,10 @@ struct TransformAnimationSource {
     void set_component_curve(AssetId key, std::string_view component, std::string_view field,
                              const AnimationPropertyCurve&,
                              std::span<const std::string> member_path = {});
+    void erase_component_field(const AnimationComponentBinding&);
+    void set_component_value(AssetId key, const AnimationComponentBinding&, const nlohmann::json&);
+    void set_component_curve(AssetId key, const AnimationComponentBinding&,
+                             const AnimationPropertyCurve&);
     void add_material_parameter(const AnimationMaterialBinding&, const AnimationMaterialValues&);
     void erase_material_parameter(std::string_view slot, std::string_view parameter);
     void set_material_value(AssetId key, std::string_view slot, std::string_view parameter,

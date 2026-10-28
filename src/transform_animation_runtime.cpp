@@ -51,7 +51,8 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
         (selected.at("output_version") != 1 && selected.at("output_version") != 2 &&
          selected.at("output_version") != 3 && selected.at("output_version") != 4 &&
          selected.at("output_version") != 5 && selected.at("output_version") != 6 &&
-         selected.at("output_version") != 7 && selected.at("output_version") != 8) ||
+         selected.at("output_version") != 7 && selected.at("output_version") != 8 &&
+         selected.at("output_version") != 9) ||
         !generation.is_number_unsigned() || generation == 0)
         throw std::runtime_error("Unsupported transform animation selection");
     return pool_.request(

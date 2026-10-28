@@ -3,10 +3,10 @@
 ## C++ component field animation
 
 Timeline clips bind up to64 editable scalar component fields by stable component,
-field, optional nested member paths and inspected schema admission. Floats/doubles interpolate; Boolean, integer,
+field, optional nested member paths, collection selectors and inspected schema admission. Floats/doubles interpolate; Boolean, integer,
 enum and bitmask values hold without floating conversion. Linear/cubic scalar values
 and exact discrete keys use the existing
-clip/player/sequence/history owners. Source8/cooked8 and importer recipev11 preserve
+clip/player/sequence/history owners. Source9/cooked9 and importer recipev12 preserve
 legacy readers and reject promotion collisions. Inspector/native updates now stage
 from a native copy, recursively write differing members and retain unreflected
 padding state and owned values. Nested projection reuses reflected extension
@@ -21,9 +21,13 @@ clip. Its canonical code compiles through the installed SDK, runs in both host
 modes, matches independent speed/rotation equations and recovers without authoring
 sources. Its Enabled and Direction keys pause/reverse the spin through the existing
 post-animation phase. The example exposes these fields inside Settings, with an
-explicit schema3/sample migration preserving all asset/entity/key identities. The
-manual adds authentic nested Timeline control captures. Collection and UI property
-bindings remain pending. Windows/full editor, physical GPU
+explicit schema4/sample migration preserving all asset/entity/key identities. Its
+array X/Y tracks change the local rotation axis. Fixed arrays and admitted native
+Meta vectors use positional or declared local-key selectors, preserving keyed
+targets after reordering. Complete native vector edits shrink/clear/grow through
+their existing lifecycle owner. The
+manual adds authentic indexed Timeline control captures. UI/DOM property bindings
+remain pending; arbitrary project opaque containers are not admitted. Windows/full editor, physical GPU
 and graphical export acceptance remain separate; no new numbered package is issued.
 
 ## Independent Sprite frame filtering

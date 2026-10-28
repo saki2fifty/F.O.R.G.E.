@@ -304,6 +304,7 @@ struct Runtime {
         simulation.reset_presentation();
     }
 };
+#include "animation_component_collection_tests.hpp"
 struct NestedAnimation {
     Motion settings;
     Motion other;
@@ -925,6 +926,7 @@ int main(int argc, char** argv) {
         std::filesystem::create_directories(root);
         nested_updates();
         nested_playback(root / "nested");
+        collection_playback(root / "collections");
         playback(root);
         discrete_playback(root / "discrete");
         std::filesystem::remove_all(root);
