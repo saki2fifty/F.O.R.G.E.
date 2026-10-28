@@ -62,6 +62,17 @@ all connections. This scope is checked before and after each editor pump.
 
 ## Tools and synchronization
 
+`forge_play_ui_reload` validates saved RML/RCSS/resources through the live editor
+presenter and publishes only a usable replacement. It requires `play.execute`,
+the current launch/session/generation and the usual target/revision/sequence.
+Success returns `reloaded:true` and restarts native UI animations. Native rejection
+returns `ui_reload_failed` with a diagnostic while retaining the previous usable
+UI; unavailable presenters reject. Loading/gestures and stale Play identities
+retain their normal guards. This is presentation state, with no Scene Undo entry
+or arbitrary DOM/script mutation. Source APIs remain Edit-only: Stop Play to save
+animated RML/RCSS through `forge_source_text_write`, then restart. Reload also
+supports a user's externally saved UI edit during Play. See [Runtime UI](runtime-ui.md).
+
 `forge_discover` returns the current target, scene revision, `next_sequence`,
 schemas, available commands, capabilities and mutation availability. The target
 must be echoed exactly. `forge_scene_read`, `forge_entity_query` and

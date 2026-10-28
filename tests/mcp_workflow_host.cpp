@@ -175,6 +175,13 @@ int main(int argc, char** argv) {
                                       const std::optional<std::string>& value) {
                 return presenter && presenter->command(instance, name, value);
             };
+            controls.reload_ui = [&] {
+                if (!presenter)
+                    throw forge::AuthoringError("ui_unavailable", "No live UI presenter");
+                presenter->release_input();
+                if (!presenter->reload())
+                    throw forge::AuthoringError("ui_reload_failed", presenter->diagnostic());
+            };
             append(
                 forge::PlayAutomation::methods(scene, files, play, tuning, controls, permissions));
             forge::ExportAutomationProviders exporting;
@@ -200,7 +207,8 @@ int main(int argc, char** argv) {
         workspace.start(scene, files, mode != "read", mode != "read", permissions);
         std::cout << workspace.connection().connection().dump() << std::endl;
         std::string message;
-        const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(240);
+        const auto begin = std::chrono::steady_clock::now();
+        const auto end = begin + std::chrono::seconds(240);
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
             files.changed = false;
             content.poll(files);
@@ -244,7 +252,9 @@ int main(int argc, char** argv) {
                     command && command->at("id") != submitted)
                     if (play.submit_ui(*command))
                         submitted = command->at("id").get<std::uint64_t>();
-                presenter->update(.016, 800, 600);
+                presenter->update(
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - begin).count(),
+                    800, 600);
                 presenter->render();
             } else if (!play.active()) {
                 presenter.reset();

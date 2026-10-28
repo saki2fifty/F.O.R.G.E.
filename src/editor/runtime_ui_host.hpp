@@ -65,6 +65,19 @@ class RuntimeUiHost {
     }
 
   public:
+    bool reload(PlaySession& play) {
+        if (!play.ready() || suspended_ || !presenter_ || prepared_ticket_) {
+            error_ = "Runtime UI is unavailable or preparing a scene";
+            return false;
+        }
+        presenter_->release_input();
+        input_.reset(play);
+        error_.clear();
+        if (!presenter_->reload())
+            return false;
+        capture_assets();
+        return true;
+    }
     bool command(const std::string& instance, const std::string& name,
                  const std::optional<std::string>& value) {
         return !suspended_ && presenter_ && presenter_->command(instance, name, value);
@@ -280,18 +293,8 @@ class RuntimeUiHost {
         if (ui::button("Reload UI",
                        "Validate updated RML/RCSS resources and replace the presentation only "
                        "after the candidate loads. A failed reload keeps the previous UI.")) {
-            presenter_->release_input();
-            input_.reset(play);
-            error_.clear();
-            if (presenter_->reload())
-                capture_assets();
+            reload(play);
         }
-        // The Reload UI Cancel branch is now obsolete: the unified
-        // Cancel loading button above covers every cancellable
-        // preparation, including the live presenter. We keep this
-        // dead path removed (no consumed RmlUi action) so the next
-        // reviewer cannot mistake a non-functional button for a
-        // working one.
         const auto& why = error_.empty() ? presenter_->diagnostic() : error_;
         if (!why.empty()) {
             ImGui::TextWrapped("Runtime UI: %s", why.c_str());

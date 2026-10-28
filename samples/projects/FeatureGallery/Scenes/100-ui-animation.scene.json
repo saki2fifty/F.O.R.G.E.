@@ -1,0 +1,72 @@
+{
+  "asset_id": "432da068-98af-45b8-acca-44c9c2fb06f2",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 0.0,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 1000.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 10.0,
+          "orthographic_width": 0.0,
+          "projection": 0,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 0.9914448857307434,
+          "x": 0.13052618503570557,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.0,
+          "z": -7.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "b89cb421-cb1c-48cb-ba4b-03775b218015",
+      "name": "Camera",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.ui_document": {
+          "document": "25154b37-9e76-4887-ad51-d82b7ea1e4a4",
+          "enabled": true,
+          "layer": 0,
+          "visible": true
+        }
+      },
+      "id": "b6d6c50b-d893-47dc-bb98-de6d54784469",
+      "name": "Animated HUD"
+    }
+  ],
+  "version": 3
+}

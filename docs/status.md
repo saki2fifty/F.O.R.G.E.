@@ -22,8 +22,11 @@ without project callbacks. Boolean/integer/enum/bitmask fields use exact held va
 Editable nested struct leaves use explicit member paths through the same admission,
 source history, native staging and projection owners. Source9 collection leaves
 add fixed arrays and admitted Meta vectors with positional or declared-key selectors.
-The example animates its local axis array. UI/DOM bindings remain pending;
-Windows/full editor and graphical example acceptance are separate.
+The example animates its local axis array. Native RCSS UI keyframes/transitions
+run through the presentation clock; Gallery100 demonstrates width/opacity,
+translation and state/hover color changes. MCP can request the existing live
+UI reload with complete last-good replacement. Scene Timeline-to-DOM bindings
+remain unsupported. Windows/full editor and graphical example acceptance are separate.
 
 # Early MCP development source — before Build208
 

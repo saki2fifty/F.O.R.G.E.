@@ -1851,6 +1851,43 @@
     },
     {
       "dependencies": [
+        "be4ff32d-320d-471d-823d-c9cfa6de0f0c"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "",
+          "role": "ui.automatic",
+          "target": "be4ff32d-320d-471d-823d-c9cfa6de0f0c",
+          "type": "ui_stylesheet"
+        }
+      ],
+      "id": "25154b37-9e76-4887-ad51-d82b7ea1e4a4",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 795,
+          "digest": "f19c9499d54bfd9872336be2dfab3d1f86cf80616e7ff439e90f3bda45d685a3",
+          "format": "rml"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Motion/hud.rml",
+      "source_dependencies": [
+        {
+          "revision": "9a9ac137f57060c64bdebf6a6a8735cacadf9d6655e2c0075fa69c37af50feee",
+          "role": "ui.observed",
+          "source": "Assets/UI/Motion/hud.rcss"
+        },
+        {
+          "revision": "f19c9499d54bfd9872336be2dfab3d1f86cf80616e7ff439e90f3bda45d685a3",
+          "role": "ui.source",
+          "source": "Assets/UI/Motion/hud.rml"
+        }
+      ],
+      "type": "ui_document"
+    },
+    {
+      "dependencies": [
         "0947854d-1726-4613-89e8-74dcd2e31d79",
         "3226bbb5-d02f-4108-a277-35d4fa873af4",
         "33c52e41-e576-44a9-b2bc-19b932130ca5",
@@ -3351,6 +3388,16 @@
         "removed": false
       },
       "type": "animation_clip"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "432da068-98af-45b8-acca-44c9c2fb06f2",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/100-ui-animation.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -8455,6 +8502,28 @@
       "source": "Assets/Tiles/ArrowCourse.tilemap.json",
       "source_dependencies": [],
       "type": "tile_map"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "be4ff32d-320d-471d-823d-c9cfa6de0f0c",
+      "metadata": {
+        "forge.ui_source": {
+          "bytes": 1411,
+          "digest": "9a9ac137f57060c64bdebf6a6a8735cacadf9d6655e2c0075fa69c37af50feee",
+          "format": "rcss"
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/UI/Motion/hud.rcss",
+      "source_dependencies": [
+        {
+          "revision": "9a9ac137f57060c64bdebf6a6a8735cacadf9d6655e2c0075fa69c37af50feee",
+          "role": "ui.source",
+          "source": "Assets/UI/Motion/hud.rcss"
+        }
+      ],
+      "type": "ui_stylesheet"
     },
     {
       "dependencies": [],

@@ -1685,6 +1685,30 @@ sensor latency, GPU performance or a graphical exported-game acceptance. The
 canonical pending Windows queue remains in the agent audit report. No numbered
 build or ZIP is created by this source-validation profile.
 
+## Runtime UI animation checks
+
+`ui_animation` runs the original Gallery100 RML/RCSS through actual RmlUi with a
+recording render adapter. It checks linear/alternate width and opacity progression,
+equal-time hold, paused and zero-rate gameplay, pointer commands, native hover/state
+transitions, transform submission, invalid semantic/unsupported/malformed reload
+retention, valid restart, owned resource retirement and a three-record relocated
+content package with the original project offline. UI source bytes remain packaged
+resources; this is not an export that removes RML/RCSS.
+
+`mcp_ui_animation_stdio` uses both protocol framings and the normal workflow host.
+It checks contained source writes, exact receipt replay, stale revisions/Play
+identities, Edit-only write guards, successful live reload, failed semantic reload
+with the prior command path intact, paused stepping, Scene isolation and execution
+grant restrictions. It uses the source resource root for the packaged default font;
+no Windows runtime kit or Windows execution is claimed.
+
+The existing native UI rendering test additionally loads Gallery100 at wide and
+portrait dimensions. It reads back exact animated coverage, premultiplied opacity
+and translated marker pixels at two presentation times and captures each frame.
+Software Vulkan evidence proves that renderer path, not physical GPU performance
+or a full Windows editor/standalone acceptance. The normal package includes the
+gallery through the existing examples assembly path.
+
 ## Component field animation example
 
 The combined package builds the canonical ComponentAnimation/Native project with

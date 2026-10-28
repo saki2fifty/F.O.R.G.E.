@@ -1,5 +1,18 @@
 # Feature Gallery
 
+## Animated game UI
+
+Open **Scenes/100-ui-animation.scene.json** and press Play. The blue bar changes
+width/opacity and the yellow marker translates. Capture gameplay input, Pause and
+Resume: the tick counter stops while UI motion continues, and the state panel
+changes color smoothly. Buttons transition on hover/focus. No C++ module is needed.
+
+Edit **Assets/UI/Motion/hud.rcss**, save and use **Reload UI** in Game to adjust
+durations, keyframe endpoints or colors. Invalid replacements retain the previous
+UI. Set this Scene as startup and export normally; its RML/RCSS travel with the game.
+Animation progress is transient presentation state and is independent of gameplay
+pause and simulation speed. See the Runtime UI manual for timing names and limits.
+
 ## Sprite frame filtering
 
 Open **Scenes/99-sprite-frame-filtering.scene.json**. The left column uses

@@ -1,5 +1,18 @@
 # 2026-10-28 — Animation, rendering and Scene controls
 
+## Animated runtime UI
+
+Gallery100 adds an editable HUD with native RCSS width/opacity/transform keyframes
+and hover/state color transitions. Presentation time keeps visual UI motion active
+while gameplay is paused or held at zero rate. The ordinary source/resource and
+package owners retain the document/stylesheet closure. No separate animation player
+or Scene Timeline-to-DOM binding is introduced.
+
+`play.ui.reload` and its discovered MCP binding share the editor's existing native
+reload owner. Current Play identity, revision/sequence and execution permissions
+apply; failed replacement retains usable UI. Source writes remain Edit-only.
+The focused workflow host now supplies monotonic presentation time.
+
 ## C++ component field animation
 
 Timeline clips bind up to64 editable scalar component fields by stable component,

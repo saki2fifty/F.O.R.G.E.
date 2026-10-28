@@ -1,0 +1,22 @@
+body { width:100%; height:100%; font-family:Lato; font-size:18px; color:#edf3fa; pointer-events:none; }
+body, div, h1, p { display:block; }
+#panel { position:absolute; left:5%; top:5%; width:90%; max-width:680px; max-height:90%; box-sizing:border-box; padding:20px; overflow:auto; background-color:#182b3af2; pointer-events:auto; }
+h1 { font-size:26px; margin:0 0 14px; }
+p { margin:12px 0; }
+.track { position:relative; height:32px; background-color:#101d29; overflow:hidden; }
+#fill { width:40px; height:32px; background-color:#48b6d5; opacity:0.2; animation:1s linear-in infinite alternate fill-motion; }
+#marker { width:32px; height:32px; background-color:#f0b458; transform:translateX(0px); animation:1s linear-in infinite alternate marker-motion; }
+@keyframes fill-motion {
+  from { width:40px; opacity:0.2; }
+  to { width:240px; opacity:1; }
+}
+@keyframes marker-motion {
+  from { transform:translateX(0px); }
+  to { transform:translateX(200px); }
+}
+#state { padding:10px; background-color:#285a74; transition:background-color 0.4s linear-in; }
+#state.paused { background-color:#986026; }
+button { display:inline-block; padding:9px 12px; margin:0 6px 4px 0; background-color:#34597b; transition:background-color 0.2s linear-in; }
+button:hover, button:focus { background-color:#5997c7; }
+scrollbarvertical { width:12px; background-color:#101d29; }
+scrollbarvertical sliderbar { background-color:#5997c7; }

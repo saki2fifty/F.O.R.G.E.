@@ -1,0 +1,18 @@
+<rml>
+<head><link type="text/rcss" href="hud.rcss" /></head>
+<body>
+  <div id="panel">
+    <h1>Animated game UI</h1>
+    <p>UI motion uses presentation time. Pause gameplay and watch it continue.</p>
+    <p>Width and opacity keyframes</p>
+    <div class="track"><div id="fill"></div></div>
+    <p>Transform keyframes</p>
+    <div class="track"><div id="marker"></div></div>
+    <p id="state" data-class-paused="paused">Tick: {{tick}} | Paused: {{paused}}</p>
+    <button id="pause" data-event-click="command('Pause')">Pause</button>
+    <button id="resume" data-event-click="command('Resume')">Resume</button>
+    <button id="step" data-event-click="command('Step')">Step</button>
+    <p>Hover a button for a color transition. The pause state changes color smoothly.</p>
+  </div>
+</body>
+</rml>

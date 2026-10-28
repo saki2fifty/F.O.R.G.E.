@@ -366,3 +366,19 @@ pixel and the full dimensions. No generated or retouched interface content is us
 | [animation-root-motion](../../../manual/images/animation-root-motion.png) | `grid-test-images/animation-root-motion/editor-animation-root-motion.ppm` | `361806dd5d7cc3f28e1f4482bf7fcba764ad30a0332df0b571ff35014af9b638` |
 | [animation-playback](../../../manual/images/animation-playback.png) | `grid-test-images/animation-root-motion/editor-live-animation.ppm` | `dca2c0531320e46c0e395052e21d40ebee0918c2eafa9c2d6998c1361245a2fd` |
 | [input-contexts](../../../manual/images/input-contexts.png) | `grid-test-images/editor-workflow/editor-622-input-context-authoring.ppm` | `7499b4994803f38b7d644711b7fe3b59cc14a92b781a0cec58000f2eacd7e035` |
+
+## Animated runtime UI
+
+[The canonical game UI image](../../../manual/images/runtime-ui-animation.png) is
+the unretouched800x600 output of tests/ui_render_tests.cpp and
+ui_animation_render_tests.hpp using Gallery100's actual RML/RCSS, the existing
+UiPresenter/Diligent adapter and pinned Lato font. The Linux forge_ui_vulkan_probe
+uses software Vulkan/lavapipe; source branch forge/ui-property-animation, based on
+54afb6a. The displayed tick24/paused model belongs to the fixture; CPU owner tests
+separately prove paused/zero-rate gameplay isolation. This is an actual game UI
+render, not a full editor/Windows/physical-GPU acceptance screenshot.
+
+The source frame is ui-animation-800-late.ppm at presentation time0.75s. Lossless
+PNG encoding preserves all RGB pixels and dimensions. Wide/portrait early/late
+captures and pixel-readback checks are recorded in local validation; only one
+canonical image is published. PNG SHA256: `37ff672c13d5ae76fbdea5f6ccf4cba0492db2ed6277e68adecfff9a4796836f`.

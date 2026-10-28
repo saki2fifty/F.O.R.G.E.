@@ -2287,6 +2287,12 @@ int main(int argc, char** argv) {
                     return false;
                 return runtime_ui.command(instance, command, value);
             };
+            play_providers.reload_ui = [&] {
+                if (play.sdk_play() && !game_input.submit_external_release_observation(play, true))
+                    throw forge::AuthoringError("play_busy", "Release gameplay input first");
+                if (!runtime_ui.reload(play))
+                    throw forge::AuthoringError("ui_reload_failed", runtime_ui.diagnostic());
+            };
             auto runtime = forge::PlayAutomation::methods(scene, files, play, runtime_tuning_review,
                                                           std::move(play_providers), permissions);
             methods.insert(methods.end(), std::make_move_iterator(runtime.begin()),

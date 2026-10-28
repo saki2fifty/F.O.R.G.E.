@@ -142,6 +142,7 @@ assert {'01-transforms.scene.json', '02-lighting.scene.json',
         '97-packed-sprite-fills.scene.json',
         '98-distance-fog.scene.json',
         '99-sprite-frame-filtering.scene.json',
+        '100-ui-animation.scene.json',
         '70-sequence-audio-cues.scene.json',
         '11-animation-markers.scene.json', '12-inset-panels.scene.json',
         '13-transform-curves.scene.json', '14-uv-islands.scene.json', '15-brush-symmetry.scene.json', '16-authored-triangulation.scene.json', '17-mesh-shading.scene.json', '18-animation-key-batches.scene.json', '19-mesh-facing.scene.json', '20-physics-joints.scene.json', '21-point-fixed-joints.scene.json', '22-continuous-collision.scene.json', '23-body-motion-tuning.scene.json', '24-slider-joints.scene.json', '25-velocity-motors.scene.json', '26-position-drives.scene.json', '27-connected-collisions.scene.json', '28-swing-twist-joints.scene.json', '29-distance-springs.scene.json', '30-animation-exits.scene.json', '31-audio-falloff.scene.json', '32-directional-audio.scene.json', '33-audio-mixer.scene.json', '34-audio-import-processing.scene.json', '35-moving-audio.scene.json', '36-animation-root-motion.scene.json', '37-animation-subtree-blending.scene.json'} <= {p.name for p in scenes}
@@ -227,6 +228,7 @@ try:
                 renderer.setdefault('material_parameters', [])
             sprite = row['components'].get('forge.sprite_renderer')
             if sprite is not None:
+                sprite.setdefault('mip_filter', 0)
                 sprite.setdefault('image_mode', 0)
                 sprite.setdefault('pixels_per_meter', 100.)
                 for field in ('border_left', 'border_right', 'border_top', 'border_bottom'):
@@ -235,6 +237,9 @@ try:
                 sprite.setdefault('frame_regions', [])
                 for field in ('region_x', 'region_y', 'region_width', 'region_height'):
                     sprite.setdefault(field, 0)
+            tile_map = row['components'].get('forge.tile_map_renderer')
+            if tile_map is not None:
+                tile_map.setdefault('mip_filter', 0)
             transform = row['components'].get('forge.transform_animator')
             if transform is not None:
                 transform.setdefault('sequence', None)

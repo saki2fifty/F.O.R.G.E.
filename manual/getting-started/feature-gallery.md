@@ -1,5 +1,11 @@
 # Explore the Feature Gallery
 
+**100-ui-animation** shows width/opacity keyframes, a translating marker,
+hover transitions and a pause-state color transition. Press Play, capture gameplay
+input and Pause: UI motion continues while the tick counter holds. Edit
+**Assets/UI/Motion/hud.rcss**, save and use **Reload UI**. Set this Scene as startup
+and export to run the same saved interface without a C++ module.
+
 **99-sprite-frame-filtering** compares Disabled, Nearest and Linear filtering from
 left to right. The rows show fine checks, stripes, transparent pixels and ring
 edges. Select a Sprite and change **Image fill → Mip filtering**, or change its

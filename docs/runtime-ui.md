@@ -117,6 +117,33 @@ Relocating the game does not require the original project directory.
 
 ## Supported subset and deferred features
 
+Native RCSS keyframes and transitions run through the existing RmlUi context and
+monotonic presentation clock. Supported examples cover width, opacity, background
+color and translation. State classes use ordinary copied scalar model bindings;
+hover/focus use native input. Gameplay pause/zero time scale do not freeze UI.
+There is no Scene Timeline-to-DOM binding, second animation player or persistent
+DOM/property registry. Native animation progress is transient and restarts on
+successful document replacement. The selected dependency caps each animation
+advance at0.1s; this is visual presentation, not a fixed-tick gameplay timer.
+Use the pinned parser's timing names (`linear-in`, `cubic-in-out`, etc.); plain
+`linear` is not accepted. Multiple animations targeting one property are outside
+the supported profile. Existing filter/layer/resource limits apply inside keyframes.
+
+Gallery100 provides editable RML/RCSS and a camera-only Scene, without native
+gameplay code. The ordinary native inspection/catalog/package owners retain its
+document/stylesheet closure. Runtime loading uses packaged raw UI resources;
+relocation does not require the original authoring directory.
+
+Editor **Reload UI** and automation `play.ui.reload` share RuntimeUiHost's reload
+operation and the existing presenter's complete-candidate gate. It releases input,
+validates saved resources, and only publishes a usable context. Failure retains
+the previous documents/resources and reports the native diagnostic. Automation
+requires the current Play launch/session/generation, revision/sequence and
+`play.execute`. Raw source writes retain their Edit-only `assets.write` policy;
+agents can Stop, edit and restart. Reload can also admit a user's external saved
+RML/RCSS edit during Play. Neither operation introduces Scene Undo for transient
+presentation state or access to arbitrary DOM/script/engine files.
+
 Adopted: native RML/RCSS layout, styled text/buttons/forms, copied scalar expressions, local text editing, multiple ordered documents, PNG/JPEG/TGA images, project fonts, transforms, scissor and stencil masks, explicit reload. Documents sort by layer then stable incoming scene order; RmlUi manages normal DOM focus/z-order within that context.
 
 Deferred: browser JavaScript, Lua, debugger UI, SVG/Lottie/HarfBuzz, RCSS imports/templates, world-space UI, collections/two-way gameplay binding, public plugin APIs and a visual UI designer. Standalone gamepad navigation now routes through input actions to native RmlUi focus traversal and activation. Link stylesheets individually. Offscreen layers, filters, masks, shader decorators/gradients and shadows are unsupported and diagnosed; they are not silently advertised as working. Use explicit font-family/font-size rather than shorthand. This is the first screen-space integration, not a visual UI designer.

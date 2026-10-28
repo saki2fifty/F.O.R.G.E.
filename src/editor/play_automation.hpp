@@ -25,6 +25,7 @@ struct PlayAutomationProviders {
     std::function<GamepadMotion(const GamepadSensorConfig&)> configure_gamepad_sensor;
     std::function<bool(const std::string&, const std::string&, const std::optional<std::string>&)>
         ui_command;
+    std::function<void()> reload_ui;
 };
 struct PlayAutomation {
     static Json state(const PlaySession& play) {
@@ -572,6 +573,22 @@ struct PlayAutomation {
                 if (!play.request_cpu_profile_snapshot())
                     throw AuthoringError("play_busy", "CPU snapshot is pending or unavailable");
                 return Json{{"queued", true}};
+            },
+            true));
+        methods.push_back(automation_method(
+            "play.ui.reload",
+            "Validate current saved RML/RCSS/resources and reload through the live presenter. "
+            "Failure retains the previous usable UI. Releases UI input and restarts native UI "
+            "animations on success; gameplay and authored Scene/history remain unchanged.",
+            "play.execute", automation_object(properties(), required()), true,
+            [&files, &play, providers](const Json& request) {
+                current(play, files, providers, request);
+                if (!providers.reload_ui)
+                    throw AuthoringError("ui_unavailable", "Live UI reload is unavailable");
+                if (!play.ready())
+                    throw AuthoringError("play_busy", "Wait for the current Play world");
+                providers.reload_ui();
+                return Json{{"reloaded", true}};
             },
             true));
         auto ui_properties = properties(), ui_required = required();

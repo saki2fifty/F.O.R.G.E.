@@ -55,6 +55,56 @@ button:hover { background-color: #477da9; }
 
 FORGE supplies the data model automatically; omit `data-model` attributes. `tick` and `paused` reflect gameplay state. Registered gameplay commands and additional values require gameplay code; the included pause/step example works without it. Events request changes from gameplay. A text field's local contents are transient and do not automatically change game state.
 
+## Animate your HUD
+
+Open **Scenes/100-ui-animation.scene.json** in the Feature Gallery and press **Play**.
+The blue bar changes width and opacity, and the yellow marker moves horizontally.
+Capture gameplay input and click **Pause**: the tick counter stops while both
+animations continue. Click **Resume** to change the state panel's color smoothly.
+Hover a button to see its color transition.
+
+![Animated HUD with a blue width/opacity bar, yellow translating marker and pause controls](../images/runtime-ui-animation.png)
+
+The gallery HUD keeps moving while the paused tick counter holds.
+
+UI motion belongs to the document's RCSS stylesheet. It uses presentation time,
+so gameplay pause and simulation speed do not control it. It is separate from
+Scene objects' Animation Timeline. Edit the gallery's **Assets/UI/Motion/hud.rcss**
+in a text editor to change the duration, endpoint values or colors. Save, then use
+**Reload UI** in the Game controls. A successful reload restarts the document's
+animations; an invalid replacement keeps the previous usable UI and shows a
+diagnostic. Gameplay state stays intact.
+
+For a repeating width and opacity animation:
+
+```css
+#meter { display:block; height:24px; background-color:#48b6d5;
+         animation:1s linear-in infinite alternate meter-motion; }
+@keyframes meter-motion {
+  from { width:40px; opacity:0.2; }
+  to   { width:240px; opacity:1; }
+}
+```
+
+For a state-driven transition, add `data-class-paused="paused"` to an RML element:
+
+```css
+#state { background-color:#285a74;
+         transition:background-color 0.4s linear-in; }
+#state.paused { background-color:#986026; }
+```
+
+Use RmlUi timing names such as **linear-in**, **cubic-in-out** and **sine-in-out**;
+plain `linear` is not an accepted timing name. The gallery demonstrates width,
+opacity, color and translation. Keep animated sizes inside the viewport and avoid
+having multiple animations control the same property. UI animation is intended
+for visual feedback, not precise gameplay timing: long presentation gaps advance
+an animation by at most 0.1 seconds per update.
+
+Save the Scene and select it as startup before exporting. The game includes the
+required RML and RCSS through the normal content package. This example needs no
+C++ module or compiler. Transient animation progress is not saved in the Scene.
+
 ## Layout your document
 
 RmlUi does not supply a browser's default HTML layout. If a menu collapses into a

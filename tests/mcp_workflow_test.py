@@ -22,6 +22,7 @@ TOUCH_ONLY = sys.argv[7:] == ['--touch-only']
 ANALOG_ONLY = sys.argv[7:] == ['--analog-only']
 AUDIO_PAUSE_ONLY = sys.argv[7:] == ['--audio-pause-only']
 GAMEPADS_ONLY = sys.argv[7:] == ['--gamepads-only']
+UI_ANIMATION_ONLY = sys.argv[7:] == ['--ui-animation-only']
 
 
 @contextmanager
@@ -113,6 +114,52 @@ for legacy in (False, True):
         assert {'forge_play_start', 'forge_play_ui_command', 'forge_export_start',
                 'forge_script_preview', 'forge_navigation_build', 'forge_navigation_overlay',
                 'forge_dependencies_save'} <= names
+        if UI_ANIMATION_ONLY:
+            assert 'forge_play_ui_reload' in names
+            hud = ok('forge_source_ui_example')
+            path = str(Path(hud['path']).with_suffix('.rcss')).replace('\\', '/')
+            saved = text(path)
+            animated = saved['text'] + '\n@keyframes breathe { from {opacity:0.3;} to {opacity:1;} }\n#panel {animation:1s linear-in infinite alternate breathe;}\n'
+            stale = arguments(path=path, state=saved['state'], text=animated)
+            write(path, animated)
+            assert client.tool('forge_source_text_write', **stale)['ok']  # Exact receipt replay.
+            outdated = arguments(path=path, state=saved['state'], text=animated)
+            outdated['expected_revision'] -= 1
+            failed(client.tool('forge_source_text_write', **outdated), 'stale_revision')
+            assert text(path)['text'] == animated
+            entity = ok('forge_entity_create', arguments=dict(name='Animated HUD'))['results'][0]['selected']
+            ok('forge_component_add', arguments=dict(entity=entity, component='forge.ui_document'))
+            ok('forge_property_set', arguments=dict(entity=entity, component='forge.ui_document', field='document', value=hud['asset']))
+            ok('forge_document_save')
+            authored = read('forge_scene_read')
+            ok('forge_play_start')
+            control('forge_play_pause')
+            live = until(lambda: read('forge_play_ui'), lambda r: r['value'] and r['value'].get('documents'))
+            instance = live['value']['documents'][0]['instance']
+            before = read('forge_play_status')
+            wrong = dict(launch=before['launch'], session=before['session'], generation=before['generation']+1)
+            failed(mutate('forge_play_ui_reload', **wrong), 'stale_play')
+            assert control('forge_play_ui_reload')['reloaded']
+            failed(mutate('forge_source_text_write', path=path, state=text(path)['state'], text=animated), 'busy')
+            # Simulate an external editor saving a bounded but semantically invalid
+            # stylesheet. MCP keeps the same Edit-only source-write policy.
+            (root/'Game'/path).write_text(animated + '\n#panel {transition:opacity 0.4s linear;}', encoding='utf-8')
+            state = read('forge_play_status')
+            failed(mutate('forge_play_ui_reload', launch=state['launch'], session=state['session'], generation=state['generation']), 'ui_reload_failed')
+            assert read('forge_play_status')['timing']['tick'] == before['timing']['tick']
+            control('forge_play_ui_command', instance=instance, command='Step')
+            until(lambda: read('forge_play_status'), lambda r: r['timing']['tick'] == before['timing']['tick']+1 and r['control_ready'])
+            (root/'Game'/path).write_text(animated, encoding='utf-8')
+            assert control('forge_play_ui_reload')['reloaded']
+            control('forge_play_stop')
+            assert read('forge_scene_read') == authored
+            with editor('read') as (_, config_read), Client(config_read, legacy) as restricted:
+                denied = {tool['name'] for tool in restricted.request('tools/list')['result']['tools']}
+                assert 'forge_play_ui_reload' not in denied
+                result = restricted.request('tools/call', dict(name='forge_play_ui_reload', arguments={}))
+                assert 'error' in result or result['result']['isError'], result
+            print(('legacy' if legacy else 'current') + ': animated source edits, revisions, native UI reload/last-good commands and execution grant passed')
+            continue
         if GAMEPADS_ONLY:
             assert {'forge_play_gamepads', 'forge_play_gamepads_assign',
                     'forge_play_gamepads_motion', 'forge_play_gamepads_sensor'} <= names
@@ -975,5 +1022,6 @@ for legacy in (False, True):
 
 with gzip.open(sys.argv[6], 'wt', encoding='utf-8') as output:
     json.dump(CAPTURE, output, separators=(',', ':'))
-print('Both MCP protocols: navigation ownership, XY authoring and live controls verified; no export or Windows execution' if NAVIGATION_ONLY else
+print('Both MCP protocols: animated UI source/reload, current Play guards and execution grant verified; Windows execution pending' if UI_ANIMATION_ONLY else
+      'Both MCP protocols: navigation ownership, XY authoring and live controls verified; no export or Windows execution' if NAVIGATION_ONLY else
       'Both MCP protocols and independent runtime/output grants verified; no graphical Windows execution claimed')
