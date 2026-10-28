@@ -5,6 +5,8 @@
 
 namespace forge {
 // Shared detached-value admission for native playback and copied editor preview.
+std::optional<AnimationComponentValueType>
+animation_component_field_type(const nlohmann::json& field);
 bool animation_component_field_supported(const nlohmann::json& field);
 nlohmann::json sample_animation_component(const nlohmann::json& declaration,
                                           const nlohmann::json& current,

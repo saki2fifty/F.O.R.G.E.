@@ -8,6 +8,7 @@
 #include "document.hpp"
 #include "editor_state.hpp"
 #include "mesh_material_inspector.hpp"
+#include "property_drawer.hpp"
 #include "sprite_frame_context.hpp"
 #include <algorithm>
 #include <cmath>
@@ -548,7 +549,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
     std::vector<AnimationMaterialValues> material_fields_;
     Json component_schema_;
     bool component_curve_pending_ = false;
-    std::vector<double> component_fields_;
+    std::vector<Json> component_fields_;
     std::vector<AnimationPropertyCurve> component_curves_;
     std::vector<AnimationMaterialKey> material_curves_, curve_drag_materials_before_;
     std::string curve_material_slot_, curve_material_key_;
@@ -681,7 +682,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         component_fields_.resize(clip_->component_bindings.size());
         component_curves_.assign(clip_->component_bindings.size(), {});
         component_curve_pending_ = false;
-        clip_->sample_components(time_, component_fields_);
+        clip_->sample_component_values(time_, component_fields_);
         if (key_) {
             const auto at = std::find_if(clip_->keys.begin(), clip_->keys.end(),
                                          [&](const auto& k) { return k.id == key_; });
@@ -942,7 +943,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                         if (value.value("$forge", Json()) != binding.admission)
                             throw std::runtime_error(
                                 "Component animation target schema has changed");
-                        captured_components.at(i) = value.at(binding.field).get<double>();
+                        captured_components.at(i) = value.at(binding.field);
                     }
         }
         auto captured_materials = material_fields_;
@@ -1049,7 +1050,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         component_fields_.resize(clip_->component_bindings.size());
         component_curves_.assign(clip_->component_bindings.size(), {});
         component_curve_pending_ = false;
-        clip_->sample_components(time, component_fields_);
+        clip_->sample_component_values(time, component_fields_);
     }
     MaterialState& material_state() {
         if (!material_state_)
@@ -1184,9 +1185,10 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         FORGE_UI_PROBE("animation:component_fields");
         if (!open)
             return;
-        ui::help("Animate editable scalar float and double fields on the chosen object's C++ "
-                 "components. Fields require their matching inspected schema. Other field types "
-                 "are not available here.");
+        ui::help("Animate editable scalar fields on the chosen object's C++ components. Floats "
+                 "interpolate; Boolean, integer and enum values hold until the next key. Fields "
+                 "require their matching inspected schema. Nested and collection fields are "
+                 "not available here.");
         for (const auto& binding : clip_->component_bindings) {
             ui::IdScope component(binding.component.c_str());
             ui::IdScope field(binding.field.c_str());
@@ -1230,8 +1232,9 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                                    field.value("display_name", name);
                 if (ui::button(("Add " + label).c_str(),
                                "Initialize every key from the authored field value.")) {
-                    const AnimationComponentBinding binding{key, name, type.at("admission")};
-                    const auto value = components.at(key).at(name).get<double>();
+                    const AnimationComponentBinding binding{key, name, type.at("admission"),
+                                                            *animation_component_field_type(field)};
+                    const auto value = components.at(key).at(name);
                     mutate("Add component animation field",
                            [&](auto& source) { source.add_component_field(binding, value); });
                     return;
@@ -1763,8 +1766,37 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             ui::IdScope component(binding.component.c_str());
             ui::IdScope field(binding.field.c_str());
             ImGui::TextWrapped("%s / %s", binding.component.c_str(), binding.field.c_str());
-            ImGui::InputDouble("Field value", &component_fields_.at(i), 0, 0, "%.6f");
+            if (binding.value_type == AnimationComponentValueType::Scalar) {
+                auto value = component_fields_.at(i).get<double>();
+                if (ImGui::InputDouble("Field value", &value, 0, 0, "%.6f"))
+                    component_fields_.at(i) = value;
+            } else {
+                Json field{{"id", "field_value"}, {"display_name", "Field value"}};
+                if (component_schema_.is_object())
+                    for (const auto& type : component_schema_.at("components"))
+                        if (type.at("id") == binding.component &&
+                            type.value("admission", Json()) == binding.admission)
+                            for (const auto& member : type.at("fields"))
+                                if (member.at("id") == binding.field) {
+                                    field = member;
+                                    field["display_name"] = "Field value";
+                                }
+                field["type"] = binding.value_type == AnimationComponentValueType::Boolean ? "bool"
+                                : binding.value_type == AnimationComponentValueType::SignedInteger
+                                    ? "int64"
+                                    : "uint64";
+                if (field.value("bitmask", false))
+                    field["type"] = "bitmask";
+                // The clip retains a full-width value even when the target's native
+                // field is narrower. Native admission owns its range/enum policy.
+                property_field(document_->project(), field, component_fields_.at(i), false);
+            }
             FORGE_UI_PROBE("animation:component_value:" + binding.component + ":" + binding.field);
+            if (binding.value_type != AnimationComponentValueType::Scalar) {
+                ui::help("Held until the next key. Apply with Add / Update key at playhead. "
+                         "Integer values retain their exact signed or unsigned storage.");
+                continue;
+            }
             auto& curve = component_curves_.at(i);
             component_curve_pending_ |= ImGui::Checkbox("Cubic field curve", &curve.cubic);
             FORGE_UI_PROBE("animation:component_cubic:" + binding.component + ":" + binding.field);
@@ -1816,10 +1848,12 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 added = source.set_key(std::llround(time_), pose, held_, {}, changed_curves,
                                        property_fields_,
                                        std::span<const AnimationMaterialValues>(material_fields_),
-                                       std::span<const double>(component_fields_));
+                                       std::span<const Json>(component_fields_));
                 if (component_curve_pending_)
                     for (std::size_t i = 0; i < clip_->component_bindings.size(); ++i) {
                         const auto& binding = clip_->component_bindings[i];
+                        if (binding.value_type != AnimationComponentValueType::Scalar)
+                            continue;
                         source.set_component_curve(added, binding.component, binding.field,
                                                    component_curves_.at(i));
                     }

@@ -165,7 +165,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                 (std::string_view(action) == "patch"
                      ? " Timeline source6 supports editable scalar C++ component fields with "
                        "component/field keys and matching inspected admission stamps; each key "
-                       "provides component_values. Use the current custom component schema."
+                       "provides component_values. Source7 adds explicit value_type scalar/bool/"
+                       "int64/uint64: Boolean and exact integer values hold until the next key, "
+                       "without curves. Use the current custom component schema for native "
+                       "widths, ranges and enum choices."
                      : ""),
             "asset.write", automation_object(std::move(properties), std::move(needed)), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));

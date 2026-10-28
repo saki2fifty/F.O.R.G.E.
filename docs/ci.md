@@ -1691,7 +1691,8 @@ The combined package builds the canonical ComponentAnimation/Native project with
 its installed SDK, prepares its ordinary module deployment through the existing
 example preparation owner and includes it in Examples/ComponentAnimation. Its
 process regression consumes the same compiled sources in both runtime host modes,
-checks270ticks per host against independent cubic-speed/quaternion equations and
+checks270ticks per host against independent cubic-speed, held enable/direction
+and quaternion equations and
 reconstructs a fresh worker from a checkpoint. The test removes editable animation
 and Native sources before running; Scene metadata and selected cooked bytes remain.
 This proves native execution/content behavior, not graphical Windows acceptance.
@@ -1701,3 +1702,9 @@ example files. The focused sdk_package_test.py --component-animation-only check
 compiles installed-only, validates dependency imports and runs after SDK relocation.
 Native field updates additionally exercise heap-owned state and an unreflected
 padding counter through the shared ReflectedCandidate/AuthoredCodec owner.
+
+The common material Timeline regression is registered from one CMake recipe for
+both editor builds and the portable authoring test configuration. This tests actual
+ImGui material editing through the shared Timeline owner; it does not enable or
+claim a portable native editor host. Component controls also exercise exact64-bit
+inputs, enum/flag choices, Undo/Redo and copied sequence preview at supported scales.

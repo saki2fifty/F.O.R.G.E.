@@ -29,7 +29,11 @@ def editor(mode='edit'):
 
 for legacy in (False, True):
     with editor() as (root, process, config), Client(config, legacy) as client:
-        tool_names = {tool['name'] for tool in client.request('tools/list')['result']['tools']}
+        declared_tools = client.request('tools/list')['result']['tools']
+        tool_names = {tool['name'] for tool in declared_tools}
+        patch_description = next(tool['description'] for tool in declared_tools
+                                 if tool['name'] == 'forge_asset_document_patch')
+        assert all(word in patch_description for word in ('Source7', 'int64', 'uint64'))
         assert {'forge_asset_document_create', 'forge_asset_settings_publish', 'forge_prefab_apply_commit'} <= tool_names
         def discovery():
             result = client.tool('forge_discover')
@@ -132,6 +136,35 @@ for legacy in (False, True):
                               patch=[dict(op='replace', path='', value=original)]), 'stale_document')
                 assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == original
                 assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == clip
+                typed = json.loads(json.dumps(clip))
+                typed['version'] = 7
+                typed['component_bindings'][0]['value_type'] = 'scalar'
+                discrete = [('enabled', 'bool', False), ('marker', 'int64', -(1 << 63)),
+                            ('score', 'uint64', (1 << 64) - 1)]
+                for field_name, value_kind, initial_value in discrete:
+                    typed['component_bindings'].append(dict(component='project.motion', field=field_name,
+                        value_type=value_kind, admission=clip['component_bindings'][0]['admission']))
+                    for row in typed['keys']:
+                        row['component_values'].append(dict(component='project.motion', field=field_name,
+                                                             value=initial_value))
+                assert edit('forge_asset_document_patch', owner,
+                            patch=[dict(op='replace', path='', value=typed)])['ok']
+                assert content(owner) == typed
+                typed_state = status(owner)
+                for index, invalid_value in [(1, 1), (2, 1.25), (2, 1 << 63), (3, -1)]:
+                    invalid = edit('forge_asset_document_patch', owner,
+                                   patch=[dict(op='replace', path=f'/keys/0/component_values/{index}/value', value=invalid_value)])
+                    assert not invalid['ok'], invalid
+                    assert content(owner) == typed and status(owner)['revision'] == typed_state['revision']
+                invalid = edit('forge_asset_document_patch', owner,
+                               patch=[dict(op='add', path='/keys/0/component_values/1/curve',
+                                           value=dict(interpolation='linear', incoming=0, outgoing=0))])
+                assert not invalid['ok'] and content(owner) == typed
+                failed(mutate('forge_asset_document_patch', editor=owner,
+                              document_session=admitted['session'], document_revision=admitted['revision'],
+                              patch=[dict(op='replace', path='', value=clip)]), 'stale_document')
+                assert edit('forge_asset_document_undo', owner)['ok'] and content(owner) == clip
+                assert edit('forge_asset_document_redo', owner)['ok'] and content(owner) == typed
             if owner == 'tile_map':
                 cells = [dict(layer=1, x=-33, y=64, tile=7, flags=0), dict(layer=1, x=0, y=0, tile=0)]
                 assert edit('forge_asset_document_paint', owner, cells=cells)['ok']

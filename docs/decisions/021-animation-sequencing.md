@@ -62,7 +62,8 @@ still contain no Scene identity or separate arrangement/clock resource.
 
 ## Reflected component field extension
 
-Editable scalar float/double bindings extend the same clip, complete candidate and
+Editable scalar float/double and held Boolean/integer/enum/bitmask bindings extend
+the same clip, complete candidate and
 clock owner; see [transform animation](../transform-animation.md). Existing native
 AuthoredCodec and reflection admission own component values and lifecycle. Clip
 bindings retain stable authoring keys/schema stamps, never native IDs or offsets.

@@ -154,18 +154,39 @@ no native type IDs, offsets or pointers enter a clip. Every key's `component_val
 contains each pair exactly once, with numeric `value` and optional `curve`:
 `interpolation` is `linear` or `cubic`, and `incoming`/`outgoing` are native units per
 second. Missing curves mean linear; whole-key held interpolation takes precedence.
-Values and slopes are finite within±1e9, and analytic extrema must fit this source
-bound. Key insertion samples missing values. Duplication preserves metadata;
+Continuous values and slopes are finite within±1e9, and analytic extrema must
+fit this source bound. Key insertion samples missing values. Duplication preserves metadata;
 whole-clip retiming rescales slopes. Source mutations validate a detached complete
 candidate before one history edit. Promotion rejects reserved-field collisions in
 source1–5; those extensions otherwise remain opaque. Existing13builtin property
 indices and material tuple identities retain their meanings.
 
-The current target profile admits editable top-level scalar float32/float64 fields
+Source7 adds an explicit `value_type` to every component descriptor: `scalar`,
+`bool`, `int64` or `uint64`. The last two identify a signed/unsigned source category;
+the target's inspected schema still owns its native8/16/32/64-bit width, enum choices,
+allowed flag bits and ranges. Key values retain exact JSON primitives, including
+INT64_MIN/MAX and UINT64_MAX. Boolean/integer/enum/bitmask tracks always hold until
+the next key and reject curves; continuous tracks in the same key retain their
+ordinary timing. New-key sampling, duplication, retiming and cooking preserve exact
+integer values. Promoting source6 rejects any preexisting opaque descriptor
+`value_type` member before adding `scalar` to its existing continuous bindings.
+Legacy source1–6 and cooked1–6 remain readable; publication uses recipev10/cooked7.
+
+Current editor capability fields are derived through the same primitive classifier
+as clip consumers. The stamped native declaration retains its versioned structure,
+including legacy annotations, so capability discovery does not invalidate authored
+admission digests. Use Scene schema fields or an inspection result's reference_schema
+for current edit/animation capabilities; raw declaration structures are admission
+data. The classifier participates in the exact SDK implementation fingerprint,
+requiring a matching module rebuild without a scene/clip stamp migration.
+
+The current target profile admits editable top-level scalar float32/float64, Boolean
+and signed/unsigned integer fields, including their declared enum/bitmask domains,
 of an existing opt-in authored C++ component. It verifies the exact admission stamp,
 field presence, read-only policy and reflected member domain, including all cubic
-extrema. Other scalar kinds, nested/collection members and UI/DOM properties are
-unsupported. AuthoredCodec remains the native owner: read current complete state,
+extrema for continuous fields and every keyed value for discrete fields. The shared
+reflection validator admits native widths/ranges/choices; discrete values never
+pass through double. Nested/collection members and UI/DOM properties are unsupported. AuthoredCodec remains the native owner: read current complete state,
 replace the selected numeric fields, clone the current native value through its
 copy hooks and stage only differing root members,
 then apply only after every transform/property/material/component candidate is
@@ -184,7 +205,9 @@ committed sample. Paused seek applies immediately. Presentation sampling does no
 mutate native state. Existing clip revisions and Scene snapshot component stamps
 cover recovery; there is no second field registry or new checkpoint clock.
 
-Timeline exposes Component fields, key values and numeric cubic slope controls,
+Timeline exposes Component fields, typed key values and numeric cubic slope controls
+for continuous fields. Discrete fields reuse the Inspector's Boolean, integer, enum
+and flag controls; they expose no cubic controls,
 using the existing source document, publication and Undo owners. Sequence preview
 borrows Scene::authored_types copied declarations and explicitly enables the existing
 engine-owned reconstructed metadata module in its private Runtime composition.
@@ -389,7 +412,7 @@ changed position and changed scale using selected Windows-target CPU cooks.
 
 The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v9`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
-It publishes `forge.transform-clip` version 6, validated by the same bounded
+It publishes `forge.transform-clip` version 7, validated by the same bounded
 parser/evaluator. Previously selected version-1/2/3/4/5 artifacts remain readable without
 rewriting their catalog or DDC records. Runtime and export require the cooked root
 version to match the selected output version. Cooked4/5/6 are versioned envelopes
@@ -417,7 +440,7 @@ channel omitted from the clip preserves the object's current local value.
 The in-development Sprite family adds `forge.sprite_renderer.frame` to the
 existing typed property bindings. Its index is appended; previous binding indices
 retain their meanings. Source3/4/5 and cooked5 retain their existing representation;
-new publication uses recipev9/cooked6, while previously selected cooks remain readable.
+new publication uses recipev10/cooked7, while previously selected cooks remain readable.
 
 Frame values must be whole numbers from0 through268435455. Each target must already
 have a SpriteRenderer whose grid or ordered frame list contains every keyed frame. Runtime
@@ -459,9 +482,9 @@ separate binding lists in the same clip. UI/DOM bindings remain unsupported. Spr
 changing the exact SDK fingerprint; native modules need a matching SDK rebuild.
 ABI1 callback tables remain unchanged.
 Version3 introduced these property values; version4 adds scalar curves. New
-publication uses recipev9 and cooked6 even for a legacy transform-only source.
+publication uses recipev10 and cooked7 even for a legacy transform-only source.
 Selected previous cooks remain readable. Binding indices remain unchanged. Older
-engines reject unsupported versions or names rather than partially executing clips.
+FORGE versions reject unsupported versions or names rather than partially executing clips.
 
 Properties share existing key times/UUIDs and default outgoing held/linear timing;
 vector cubic slopes do not affect them. Adding a property initializes every key from the

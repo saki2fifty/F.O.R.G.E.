@@ -2,6 +2,7 @@
 #include "authored_schema.hpp"
 #include "reconstructed_meta.hpp"
 #include "reflected_extensions.hpp"
+#include <forge/animation_property.hpp>
 #include <forge/world.hpp>
 #include <memory>
 namespace forge::detail {
@@ -28,8 +29,15 @@ Json AuthoredCodec::editor_schema() const {
     result["optional"] = true;
     result["admission"] = stamp();
     result["fields"] = declaration.at("structure").at("fields");
-    for (auto& field : result["fields"])
+    for (auto& field : result["fields"]) {
         field["default"] = declaration.at("defaults").at(field.at("id").get<std::string>());
+        // The stamped native structure retains its versioned annotations. Current
+        // animation capability belongs in this derived editor view, not its digest.
+        field["animatable"] =
+            animation_component_field_type(field.at("type").get_ref<const std::string&>(),
+                                           field.value("read_only", false))
+                .has_value();
+    }
     result.erase("structure");
     return result;
 }

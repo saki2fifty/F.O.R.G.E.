@@ -40,10 +40,11 @@ struct AnimationMaterialCurveEdit {
 struct AnimationComponentBinding {
     std::string component, field;
     nlohmann::json admission;
+    AnimationComponentValueType value_type = AnimationComponentValueType::Scalar;
     bool operator==(const AnimationComponentBinding&) const = default;
 };
 struct AnimationComponentKey {
-    double value = 0;
+    nlohmann::json value = 0.;
     AnimationPropertyCurve curve;
 };
 struct TransformAnimationCurves {
@@ -80,6 +81,8 @@ struct TransformAnimationClip {
     // Computed during target admission, never required on the fixed sampling path.
     std::array<double, 2> material_range(std::size_t binding, unsigned lane) const;
     void sample_components(double microseconds, std::span<double>) const;
+    // Typed held values retain exact Boolean and signed/unsigned 64-bit storage.
+    void sample_component_values(double microseconds, std::span<nlohmann::json>) const;
     std::array<double, 2> component_range(std::size_t binding) const;
     std::size_t resident_bytes() const;
 };
@@ -95,11 +98,11 @@ struct TransformAnimationSource {
                     std::optional<TransformAnimationCurves> curves = {},
                     std::optional<AnimationPropertyValues> properties = {},
                     std::optional<std::span<const AnimationMaterialValues>> materials = {},
-                    std::optional<std::span<const double>> components = {});
-    void add_component_field(const AnimationComponentBinding&, double initial_value);
+                    std::optional<std::span<const nlohmann::json>> components = {});
+    void add_component_field(const AnimationComponentBinding&, const nlohmann::json& initial_value);
     void erase_component_field(std::string_view component, std::string_view field);
     void set_component_value(AssetId key, std::string_view component, std::string_view field,
-                             double value);
+                             const nlohmann::json& value);
     void set_component_curve(AssetId key, std::string_view component, std::string_view field,
                              const AnimationPropertyCurve&);
     void add_material_parameter(const AnimationMaterialBinding&, const AnimationMaterialValues&);

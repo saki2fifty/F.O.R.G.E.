@@ -2,9 +2,11 @@
 
 ## C++ component field animation
 
-Timeline clips bind up to64 editable scalar float/double fields by stable component,
-field and inspected schema admission. Held, linear and cubic values use the existing
-clip/player/sequence/history owners. Source6/cooked6 and importer recipev9 preserve
+Timeline clips bind up to64 editable scalar component fields by stable component,
+field and inspected schema admission. Floats/doubles interpolate; Boolean, integer,
+enum and bitmask values hold without floating conversion. Linear/cubic scalar values
+and exact discrete keys use the existing
+clip/player/sequence/history owners. Source7/cooked7 and importer recipev10 preserve
 legacy readers and reject promotion collisions. Inspector/native updates now stage
 from a native copy and retain unreflected padding state and owned values. Copied
 sequence preview uses engine-owned metadata without executing project callbacks.
@@ -15,8 +17,9 @@ modules with the matching SDK. Native C ABI signatures and component IDs are unc
 ComponentAnimation supplies the editable spinning-cube C++ project and selected
 clip. Its canonical code compiles through the installed SDK, runs in both host
 modes, matches independent speed/rotation equations and recovers without authoring
-sources. The manual adds an authentic Timeline control capture. Integer/Boolean,
-nested and UI property bindings remain pending. Windows/full editor, physical GPU
+sources. Its Enabled and Direction keys pause/reverse the spin through the existing
+post-animation phase. The manual adds authentic Timeline control captures. Nested,
+collection and UI property bindings remain pending. Windows/full editor, physical GPU
 and graphical export acceptance remain separate; no new numbered package is issued.
 
 ## Independent Sprite frame filtering

@@ -1,8 +1,27 @@
 #pragma once
 #include <array>
+#include <optional>
 #include <span>
 #include <string_view>
 namespace forge {
+enum class AnimationComponentValueType { Scalar, Boolean, SignedInteger, UnsignedInteger };
+// Shared capability classification for derived editor schemas and clip consumers.
+// Native member widths, domains and choices remain reflection's responsibility.
+constexpr std::optional<AnimationComponentValueType>
+animation_component_field_type(std::string_view type, bool read_only = false) {
+    if (read_only)
+        return {};
+    if (type == "float32" || type == "float64")
+        return AnimationComponentValueType::Scalar;
+    if (type == "bool")
+        return AnimationComponentValueType::Boolean;
+    for (const auto name : std::array<std::string_view, 8>{"int8", "uint8", "int16", "uint16",
+                                                           "int32", "uint32", "int64", "uint64"})
+        if (type == name)
+            return name.front() == 'u' ? AnimationComponentValueType::UnsignedInteger
+                                       : AnimationComponentValueType::SignedInteger;
+    return {};
+}
 enum class AnimationProperty : unsigned {
     CameraFov,
     CameraHeight,

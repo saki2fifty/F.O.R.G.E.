@@ -18,7 +18,8 @@ the existing clip, Timeline, reflection, history and MCP owners. ComponentAnimat
 contains the original editable spinning-cube project. Installed-only C++ compilation,
 both runtime hosts, source-free selected clip consumption, independent speed/rotation
 oracles and cold recovery pass locally. Copied sequence preview samples the fields
-without project callbacks. Integer/Boolean/nested/UI binding families remain pending;
+without project callbacks. Boolean/integer/enum/bitmask fields use exact held values;
+nested/collection/UI binding families remain pending;
 Windows/full editor and graphical example acceptance are separate.
 
 # Early MCP development source — before Build208

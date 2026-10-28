@@ -8,6 +8,7 @@
 #include <forge/authoring.hpp>
 #include <forge/runtime.hpp>
 #include <iostream>
+#include <limits>
 #include <source_location>
 #include <thread>
 using namespace forge;
@@ -34,26 +35,53 @@ void rejects(F action, std::source_location location = std::source_location::cur
     throw std::runtime_error("Invalid component animation accepted at line " +
                              std::to_string(location.line()));
 }
+enum class MotionMode : std::int32_t { Forward = 1, Reverse = -1 };
 struct Motion {
     float speed = 20;
     double weight = .5;
     std::int32_t ticks = 0;
     std::string label = "retained";
+    bool enabled = true;
+    std::int64_t marker = 0;
+    std::uint64_t score = 0;
+    MotionMode mode = MotionMode::Forward;
+    std::uint32_t flags = 0;
 };
 EngineModule motion_module() {
     EngineModule module;
     module.id = "project.motion";
     module.dependencies = {"forge.transforms"};
     module.schemas = [](ModuleContext& context) {
+        context.world.component<MotionMode>()
+            .constant("Forward", MotionMode::Forward)
+            .constant("Reverse", MotionMode::Reverse);
+        ecs_bitmask_desc_t mask{};
+        mask.entity = context.world.entity("project.MotionFlags");
+        mask.constants[0].name = "Left";
+        mask.constants[0].value = 1;
+        mask.constants[1].name = "Right";
+        mask.constants[1].value = 2;
+        const auto mask_type = ecs_bitmask_init(context.world, &mask);
+        check(mask_type != 0, "Motion flag metadata registration failed");
         const auto type = context.world.component<Motion>();
         // Match the native layout explicitly, including its owned C++ string.
         ecs_struct_desc_t descriptor{};
         descriptor.entity = type;
-        const std::array names{"speed", "weight", "ticks", "label"};
-        const std::array ids{context.world.id<float>(), context.world.id<double>(),
-                             context.world.id<std::int32_t>(), context.world.id<std::string>()};
-        const std::array offsets{offsetof(Motion, speed), offsetof(Motion, weight),
-                                 offsetof(Motion, ticks), offsetof(Motion, label)};
+        const std::array names{"speed",  "weight", "ticks", "label", "enabled",
+                               "marker", "score",  "mode",  "flags"};
+        const std::array<ecs_entity_t, 9> ids{context.world.id<float>(),
+                                              context.world.id<double>(),
+                                              context.world.id<std::int32_t>(),
+                                              context.world.id<std::string>(),
+                                              context.world.id<bool>(),
+                                              context.world.id<std::int64_t>(),
+                                              context.world.id<std::uint64_t>(),
+                                              context.world.id<MotionMode>(),
+                                              mask_type};
+        const std::array offsets{
+            offsetof(Motion, speed), offsetof(Motion, weight),  offsetof(Motion, ticks),
+            offsetof(Motion, label), offsetof(Motion, enabled), offsetof(Motion, marker),
+            offsetof(Motion, score), offsetof(Motion, mode),    offsetof(Motion, flags)};
         for (std::size_t i = 0; i < names.size(); ++i) {
             auto& member = descriptor.members[i];
             member.name = names[i];
@@ -64,9 +92,17 @@ EngineModule motion_module() {
         descriptor.members[0].range = {-200, 200};
         check(ecs_struct_init(context.world, &descriptor) != 0,
               "Motion native Meta registration failed");
-        detail::opt_in_authoring(
-            context.world, type, "project.motion", "project.motion", 1,
-            {{"speed", 20}, {"weight", .5}, {"ticks", 0}, {"label", "retained"}}, "Gameplay");
+        detail::opt_in_authoring(context.world, type, "project.motion", "project.motion", 1,
+                                 {{"speed", 20},
+                                  {"weight", .5},
+                                  {"ticks", 0},
+                                  {"label", "retained"},
+                                  {"enabled", true},
+                                  {"marker", 0},
+                                  {"score", 0},
+                                  {"mode", 1},
+                                  {"flags", 0}},
+                                 "Gameplay");
     };
     return module;
 }
@@ -411,6 +447,202 @@ void playback(const std::filesystem::path& root) {
                                                          source.clip(), animation_timebase, true);
     near(animation_component_patch(candidates)["project.motion"]["speed"].get<double>(), 60);
 }
+void discrete_playback(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    EngineContext authored(WorldRole::Authoring, false, {motion_module()});
+    Scene scene(authored.world());
+    const auto& codec = authored.world().authored_codecs().front();
+    const auto admission_before = codec.stamp();
+    const auto structure_before = codec.declaration.at("structure");
+    const auto current_schema = codec.editor_schema();
+    for (const auto& field : current_schema.at("fields"))
+        check(field.at("animatable") ==
+                  animation_component_field_type(field.at("type").get_ref<const std::string&>(),
+                                                 field.value("read_only", false))
+                      .has_value(),
+              "Current discovery disagrees with component animation support");
+    bool retained_legacy_annotation = false;
+    for (const auto& field : structure_before.at("fields"))
+        if (field.at("id") == "enabled")
+            retained_legacy_annotation = field.at("animatable") == false;
+    check(codec.stamp() == admission_before &&
+              codec.declaration.at("structure") == structure_before && retained_legacy_annotation,
+          "Derived capability metadata changed the stamped native structure");
+    const auto binding = [&](const char* name, AnimationComponentValueType kind) {
+        return AnimationComponentBinding{codec.key(), name, codec.stamp(), kind};
+    };
+    using Kind = AnimationComponentValueType;
+    const auto speed = binding("speed", Kind::Scalar), flag = binding("enabled", Kind::Boolean),
+               marker = binding("marker", Kind::SignedInteger),
+               score = binding("score", Kind::UnsignedInteger),
+               mode = binding("mode", Kind::SignedInteger),
+               bits = binding("flags", Kind::UnsignedInteger);
+    constexpr auto low = std::numeric_limits<std::int64_t>::min();
+    constexpr auto high = std::numeric_limits<std::int64_t>::max();
+    constexpr auto maximum = std::numeric_limits<std::uint64_t>::max();
+    constexpr auto precise = (std::uint64_t{1} << 53) + 1;
+    auto lease = std::make_shared<ProjectLease>(root);
+    auto document = TransformAnimationDocument::create(lease, "Discrete.animation.json");
+    auto source = document->source();
+    source.add_component_field(speed, 20);
+    auto collision = source;
+    collision.document["component_bindings"][0]["value_type"] = "opaque legacy extension";
+    const auto collision_before = collision.document;
+    rejects([&] { collision.add_component_field(flag, true); });
+    check(collision.document == collision_before, "Typed promotion changed an opaque extension");
+    source.add_component_field(flag, true);
+    source.add_component_field(marker, low);
+    source.add_component_field(score, maximum);
+    source.add_component_field(mode, 1);
+    source.add_component_field(bits, 3);
+    source.document["channels"] = Json::array();
+    source.document["duration_us"] = 2 * animation_timebase;
+    const auto first = source.clip().keys.front().id;
+    const auto last = source.set_key(2 * animation_timebase, {});
+    source.set_component_value(last, speed.component, speed.field, 100);
+    source.set_component_value(last, flag.component, flag.field, false);
+    source.set_component_value(last, marker.component, marker.field, high);
+    source.set_component_value(last, score.component, score.field, precise);
+    source.set_component_value(last, mode.component, mode.field, -1);
+    source.set_component_value(last, bits.component, bits.field, 2);
+    check(source.document.at("version") == 7, "Discrete fields need an explicit typed source");
+    const auto source_before = source.document;
+    rejects([&] { source.set_component_value(last, flag.component, flag.field, 1); });
+    rejects([&] { source.set_component_value(last, marker.component, marker.field, maximum); });
+    rejects([&] { source.set_component_value(last, marker.component, marker.field, 1.25); });
+    rejects([&] { source.set_component_value(last, score.component, score.field, -1); });
+    rejects([&] { source.set_component_curve(first, flag.component, flag.field, {}); });
+    check(source.document == source_before, "Rejected discrete edit changed source");
+    std::array<Json, 6> values;
+    const auto clip = source.clip();
+    clip.sample_component_values(animation_timebase, values);
+    near(values[0].get<double>(), 60);
+    check(values[1] == true && values[2].get<std::int64_t>() == low &&
+              values[3].get<std::uint64_t>() == maximum && values[4] == 1 && values[5] == 3,
+          "Discrete values interpolated or lost wide native storage");
+    clip.sample_component_values(2 * animation_timebase, values);
+    check(values[1] == false && values[2].get<std::int64_t>() == high &&
+              values[3].get<std::uint64_t>() == precise && values[4] == -1 && values[5] == 2,
+          "Discrete values did not switch at the exact key");
+    std::array<double, 6> numeric;
+    rejects([&] { clip.sample_components(0, numeric); });
+    const auto decoded = decode_transform_animation(source.cook(), source.asset());
+    check(decoded.component_bindings == clip.component_bindings &&
+              decoded.keys.back().component_values[3].value.get<std::uint64_t>() == precise,
+          "Cooked typed values lost their identity or integer precision");
+    auto inserted = source;
+    const auto middle = inserted.set_key(animation_timebase, {});
+    const auto& row = inserted.document.at("keys")[1].at("component_values");
+    check(row[2].at("value").get<std::int64_t>() == low &&
+              row[3].at("value").get<std::uint64_t>() == maximum,
+          "Key insertion did not retain exact held values");
+    const std::array selected{middle};
+    inserted.duplicate_keys(selected, animation_timebase / 2);
+    inserted.retime_duration(4 * animation_timebase);
+    check(inserted.clip().keys[2].component_values[3].value.get<std::uint64_t>() == maximum,
+          "Key duplication/retiming rounded a held integer");
+    AssetImportService importer(lease, transform_animation_import_registry(),
+                                {"linux", "none", "cpu"});
+    auto publish = [&] {
+        document->edit(document->revision(), "Typed component fields",
+                       [&](auto& value) { value = source.document; });
+        document->save();
+        importer.submit(
+            importer.prepare(document->locator(), {}, source.asset()),
+            [](auto& catalog, const auto& plan, const auto&) {
+                prepare_transform_animation_publication(catalog, plan);
+            },
+            [](const auto&, const auto&) {});
+        check(importer.wait_idle(10s), "Discrete clip publication stalled");
+        auto result = importer.poll();
+        check(result.size() == 1 && result[0].published, "Discrete clip publication failed");
+        return std::make_shared<const AssetCatalog>(result[0].publication->catalog);
+    };
+    const auto catalog = publish();
+    const auto actor = authoring_command(scene, "entity.create", {{"name", "Discrete motion"}})
+                           .at("selected")
+                           .get<std::string>();
+    codec.apply(scene.entity(actor), codec.prepare(scene.world(), codec.defaults()));
+    TransformAnimator animator;
+    animator.clip = {source.asset()};
+    animator.loop = false;
+    scene.entity(actor).set(animator);
+    const auto saved = scene.snapshot();
+    const EntityRef reference{scene.asset_id(), EntityId::parse(actor)};
+    auto preview = saved;
+    const auto schema = scene.schema();
+    apply_transform_animation_preview(preview, reference, clip, animation_timebase, &schema);
+    const auto& preview_value = preview["entities"][0]["components"][codec.key()];
+    check(preview_value.at("marker").get<std::int64_t>() == low &&
+              preview_value.at("score").get<std::uint64_t>() == maximum,
+          "Copied preview lost wide integer storage");
+    Runtime live(root, saved, catalog);
+    live.ready();
+    auto entity = live.scene.entity(actor);
+    live.simulation.tick(1.f);
+    auto state = entity.get<Motion>();
+    near(state.speed, 60);
+    check(state.enabled && state.marker == low && state.score == maximum &&
+              state.mode == MotionMode::Forward && state.flags == 3 && state.label == "retained",
+          "Native discrete fields changed between keys");
+    const auto patch = live.animation->presentation_properties(entity.id(), .5).at(codec.key());
+    check(patch.at("score").get<std::uint64_t>() == maximum,
+          "Presentation rounded an unsigned64 field");
+    Runtime cold(root, live.scene.snapshot(), catalog);
+    cold.ready();
+    cold.animation->restore(live.animation->checkpoint());
+    for (auto* runtime : {&live, &cold}) {
+        runtime->simulation.tick(1.f);
+        const auto end = runtime->scene.entity(actor).get<Motion>();
+        near(end.speed, 100);
+        check(!end.enabled && end.marker == high && end.score == precise &&
+                  end.mode == MotionMode::Reverse && end.flags == 2,
+              "Native typed endpoint/recovery did not preserve exact values");
+    }
+    AnimationPlaybackAccess::control(*live.animation, reference, {{"operation", "pause"}});
+    AnimationPlaybackAccess::control(*live.animation, reference,
+                                     {{"operation", "seek"}, {"position_seconds", 0}});
+    check(entity.get<Motion>().score == maximum && entity.get<Motion>().marker == low,
+          "Paused seek rounded discrete values");
+    auto invalid = source;
+    invalid.set_component_value(last, mode.component, mode.field, 77);
+    const auto before = live.scene.document();
+    rejects([&] {
+        (void)prepare_animation_components(live.engine.world(), entity, invalid.clip(), 0, true);
+    });
+    check(live.scene.document() == before, "Rejected future enum key changed native state");
+    invalid = source;
+    invalid.set_component_value(last, bits.component, bits.field, 8);
+    rejects([&] {
+        (void)prepare_animation_components(live.engine.world(), entity, invalid.clip(), 0, true);
+    });
+    check(live.scene.document() == before, "Rejected flag bits changed native state");
+    invalid = source;
+    invalid.add_component_field(binding("ticks", Kind::SignedInteger), high);
+    rejects([&] {
+        (void)prepare_animation_components(live.engine.world(), entity, invalid.clip(), 0, true);
+    });
+    check(scene.snapshot() == saved, "Runtime/discrete preview changed authored bytes");
+    // Isolate discrete-only loop snapping: the prior presentation value differs
+    // after an interior held key; no float/transform endpoint can mask this check.
+    source.erase_component_field(speed.component, speed.field);
+    const auto interior = source.set_key(animation_timebase, {});
+    source.set_component_value(interior, marker.component, marker.field, high);
+    const auto loop_catalog = publish();
+    Runtime loop(root, saved, loop_catalog);
+    auto config = loop.scene.entity(actor).get<TransformAnimator>();
+    config.loop = true;
+    loop.scene.entity(actor).set(config);
+    loop.ready();
+    loop.simulation.tick(1.9f);
+    check(loop.scene.entity(actor).get<Motion>().marker == high, "Interior held key was skipped");
+    loop.simulation.tick(.2f);
+    check(loop.animation->presentation_properties(loop.scene.entity(actor).id(), 0)
+                  .at(codec.key())
+                  .at("marker")
+                  .get<std::int64_t>() == low,
+          "Discrete-only loop did not snap its presentation endpoint");
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
@@ -418,6 +650,7 @@ int main(int argc, char** argv) {
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
         playback(root);
+        discrete_playback(root / "discrete");
         std::filesystem::remove_all(root);
         std::cout << "Component clip source, native behavior, copied preview, admission and "
                      "recovery passed\n";

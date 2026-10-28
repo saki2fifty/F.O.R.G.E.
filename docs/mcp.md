@@ -217,12 +217,20 @@ replacement through the same registered owner used by the interactive editor.
 
 Timeline component fields use the same `forge_asset_document_patch`, validation,
 Undo/Redo and publication tools. Read the current inspected custom component
-admission/fields with `forge_code_schemas` and the ordinary scene schema tools.
+admission with `forge_code_schemas`. Use its `reference_schema.components` fields
+or the ordinary Scene schema tools for current edit/animation capabilities; the
+raw declaration `structure` remains versioned admission data.
 Promote the source to6 and add `component_bindings` descriptors containing stable
 `component`, `field` and the exact `admission` stamp. Each key needs a matching
 `component_values` row containing `component`, `field`, numeric `value` and optional
-linear/cubic `curve`. Only editable top-level float32/float64 members are admitted
-on a target. Preserve other source fields and key/asset identities. Read the latest
+linear/cubic `curve`. For Boolean/integer/enum/bitmask fields use source7 and put
+`value_type` on every descriptor: `scalar`, `bool`, `int64` or `uint64`. The integer
+categories retain exact signed/unsigned JSON values; native widths, ranges, choices
+and allowed flag bits still come from the matching schema. Discrete values hold
+until the next key, reject curves, and require actual Boolean/integer primitives,
+not strings or floating representations. Editable top-level scalar fields are
+supported; nested/collection/UI fields are not. Preserve other source fields and
+key/asset identities. Read the latest
 document session/revision before patching; an invalid value leaves history intact.
 The existing code creation/build/inspection, component-add and animator attachment
 tools supply the rest of the workflow. Runtime schema/domain checks still apply;

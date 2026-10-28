@@ -588,6 +588,8 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
                     value = bits;
                     changed = true;
                 }
+                FORGE_UI_PROBE("property:flag:" + field.at("id").get<std::string>() + ":" +
+                               choice.at("value").dump());
                 ui::help("Toggle the declared flags. Choosing zero clears every flag. Unknown bits "
                          "are rejected before commit.");
             }
@@ -606,6 +608,8 @@ inline bool property_field_body(const std::filesystem::path& root, const Json& f
                     value = choice.at("value");
                     changed = true;
                 }
+                FORGE_UI_PROBE("property:choice:" + field.at("id").get<std::string>() + ":" +
+                               choice.at("value").dump());
                 if (selected)
                     ImGui::SetItemDefaultFocus();
                 ui::help(field.value("description", std::string{}).c_str());

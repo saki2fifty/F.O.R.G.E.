@@ -1193,7 +1193,7 @@ calibration and fusion remain outside this profile.
 
 Open the separate **ComponentAnimation** example project to animate the Speed of
 an ordinary C++ spinning cube. Its editable Native component/system and reusable
-clip demonstrate the Timeline's **Component fields**, numeric cubic slopes and
-matching-module export. A source checkout needs Build Project Code before Play;
+clip demonstrate the Timeline's **Component fields**, numeric cubic slopes, held
+Enabled/Direction keys and matching-module export. A source checkout needs Build Project Code before Play;
 the combined Windows package supplies the compiled example. Feature Gallery's
 ordinary scenes remain usable without a project C++ module.

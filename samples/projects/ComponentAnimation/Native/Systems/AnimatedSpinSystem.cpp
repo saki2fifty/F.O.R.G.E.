@@ -13,10 +13,16 @@ void forge_register_system_AnimatedSpinSystem(const ForgeSdkWorldV1* host) {
         .each([](flecs::iter& it, size_t row, const AnimatedSpin& data) {
             if (!std::isfinite(data.speed))
                 throw std::runtime_error("Animated Spin speed must be finite");
+            if (data.direction != SpinDirection::Forward &&
+                data.direction != SpinDirection::Reverse)
+                throw std::runtime_error("Animated Spin direction must be a declared choice");
+            if (!data.enabled)
+                return;
             auto entity = it.entity(row);
             const auto q = entity.has<forge::LocalRotation>() ? entity.get<forge::LocalRotation>()
                                                               : forge::LocalRotation{};
-            const double half = double(data.speed) * it.delta_time() * 0.008726646259971648;
+            const double half = double(data.speed) * std::int32_t(data.direction) *
+                                it.delta_time() * 0.008726646259971648;
             const double s = std::sin(half), c = std::cos(half);
             const double x = q.x * c - q.z * s, y = q.y * c + q.w * s;
             const double z = q.z * c + q.x * s, w = q.w * c - q.y * s;

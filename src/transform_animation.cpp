@@ -95,7 +95,28 @@ void component_text(const Json& value) {
     require(!text.empty() && text.size() <= 256 && text.find('\0') == std::string::npos,
             "Invalid animated component identity");
 }
-AnimationComponentBinding component_binding(const Json& row) {
+constexpr std::array<std::string_view, 4> component_value_types{"scalar", "bool", "int64",
+                                                                "uint64"};
+Json component_value(const Json& value, AnimationComponentValueType type) {
+    if (type == AnimationComponentValueType::Scalar)
+        return component_number(value);
+    if (type == AnimationComponentValueType::Boolean) {
+        require(value.is_boolean(), "Animated Boolean field requires a Boolean value");
+        return value;
+    }
+    require(value.is_number_integer(), "Animated discrete field requires an exact integer");
+    if (type == AnimationComponentValueType::UnsignedInteger) {
+        require(value.is_number_unsigned() || value.get<std::int64_t>() >= 0,
+                "Animated unsigned field cannot be negative");
+        return value.get<std::uint64_t>();
+    }
+    require(
+        type == AnimationComponentValueType::SignedInteger &&
+            (!value.is_number_unsigned() || value.get<std::uint64_t>() <= std::uint64_t(INT64_MAX)),
+        "Animated signed field exceeds its 64-bit source range");
+    return value.get<std::int64_t>();
+}
+AnimationComponentBinding component_binding(const Json& row, bool typed) {
     component_text(row.at("component"));
     component_text(row.at("field"));
     const auto& stamp = row.at("admission");
@@ -109,12 +130,26 @@ AnimationComponentBinding component_binding(const Json& row) {
     const auto& digest = stamp.at("digest").get_ref<const std::string&>();
     require(digest.size() == 64 && digest.find_first_not_of("0123456789abcdef") == digest.npos,
             "Invalid animated component schema digest");
-    return {row.at("component"), row.at("field"), stamp};
+    AnimationComponentValueType type = AnimationComponentValueType::Scalar;
+    if (typed) {
+        require(row.at("value_type").is_string(), "Component animation value type must be text");
+        const auto at = std::find(component_value_types.begin(), component_value_types.end(),
+                                  row.at("value_type").get_ref<const std::string&>());
+        require(at != component_value_types.end(), "Unknown component animation value type");
+        type = AnimationComponentValueType(at - component_value_types.begin());
+    }
+    return {row.at("component"), row.at("field"), stamp, type};
 }
-Json component_descriptor(const AnimationComponentBinding& binding) {
-    return {{"component", binding.component},
-            {"field", binding.field},
-            {"admission", binding.admission}};
+Json component_descriptor(const AnimationComponentBinding& binding, bool typed) {
+    Json result{{"component", binding.component},
+                {"field", binding.field},
+                {"admission", binding.admission}};
+    if (typed) {
+        const auto index = std::size_t(binding.value_type);
+        require(index < component_value_types.size(), "Unknown component animation value type");
+        result["value_type"] = component_value_types[index];
+    }
+    return result;
 }
 bool same_component(const Json& row, std::string_view component, std::string_view field) {
     return row.at("component") == component && row.at("field") == field;
@@ -135,8 +170,10 @@ component_keys(const Json& key, std::span<const AnimationComponentBinding> bindi
         require(at != bindings.end(), "Undeclared animated component field");
         const auto index = std::size_t(at - bindings.begin());
         require(seen.insert(index).second, "Duplicate animated component field value");
-        result[index].value = component_number(row.at("value"));
+        result[index].value = component_value(row.at("value"), at->value_type);
         if (row.contains("curve")) {
+            require(at->value_type == AnimationComponentValueType::Scalar,
+                    "Discrete component fields hold until the next key and cannot have curves");
             const auto& curve = row.at("curve");
             const auto& mode = curve.at("interpolation");
             require(mode == "linear" || mode == "cubic", "Invalid component curve interpolation");
@@ -147,22 +184,22 @@ component_keys(const Json& key, std::span<const AnimationComponentBinding> bindi
     return result;
 }
 void merge_component_values(Json& key, std::span<const AnimationComponentBinding> bindings,
-                            std::span<const double> values) {
+                            std::span<const Json> values) {
     require(bindings.size() == values.size(), "Animated component sample count differs");
     auto& rows = key["component_values"];
     if (rows.is_null())
         rows = Json::array();
     for (std::size_t i = 0; i < bindings.size(); ++i) {
         const auto& binding = bindings[i];
-        (void)component_number(Json(values[i]));
+        const auto value = component_value(values[i], binding.value_type);
         const auto at = std::find_if(rows.begin(), rows.end(), [&](const auto& row) {
             return same_component(row, binding.component, binding.field);
         });
         if (at == rows.end())
             rows.push_back(
-                {{"component", binding.component}, {"field", binding.field}, {"value", values[i]}});
+                {{"component", binding.component}, {"field", binding.field}, {"value", value}});
         else
-            (*at)["value"] = values[i];
+            (*at)["value"] = value;
     }
 }
 
@@ -490,6 +527,17 @@ std::size_t TransformAnimationClip::resident_bytes() const {
     return bytes;
 }
 void TransformAnimationClip::sample_components(double time, std::span<double> output) const {
+    require(output.size() == component_bindings.size() && output.size() <= 64,
+            "Invalid scalar component animation buffer");
+    for (const auto& binding : component_bindings)
+        require(binding.value_type == AnimationComponentValueType::Scalar,
+                "Discrete component fields require a typed sample buffer");
+    std::array<Json, 64> values;
+    sample_component_values(time, std::span(values).first(output.size()));
+    for (std::size_t i = 0; i < output.size(); ++i)
+        output[i] = values[i].get<double>();
+}
+void TransformAnimationClip::sample_component_values(double time, std::span<Json> output) const {
     require(std::isfinite(time) && !keys.empty(), "Invalid component animation sample time/keys");
     require(output.size() == component_bindings.size(), "Invalid component animation buffer");
     const auto right = std::upper_bound(keys.begin(), keys.end(), time,
@@ -500,29 +548,34 @@ void TransformAnimationClip::sample_components(double time, std::span<double> ou
         endpoint ? 0 : std::clamp((time - left.time) / double(right->time - left.time), 0., 1.);
     for (std::size_t i = 0; i < output.size(); ++i) {
         const auto& a = left.component_values.at(i);
-        output[i] = endpoint
-                        ? a.value
-                        : sample_scalar(a.value, right->component_values.at(i).value, a.curve,
-                                        right->component_values.at(i).curve,
-                                        double(right->time - left.time) / animation_timebase, t);
-        require(std::isfinite(output[i]) &&
-                    std::abs(output[i]) <= 1e9 * (1 + 64 * std::numeric_limits<double>::epsilon()),
+        if (component_bindings[i].value_type != AnimationComponentValueType::Scalar) {
+            output[i] = a.value;
+            continue;
+        }
+        const auto& b = endpoint ? a : right->component_values.at(i);
+        const auto value =
+            endpoint ? a.value.get<double>()
+                     : sample_scalar(a.value.get<double>(), b.value.get<double>(), a.curve, b.curve,
+                                     double(right->time - left.time) / animation_timebase, t);
+        require(std::isfinite(value) &&
+                    std::abs(value) <= 1e9 * (1 + 64 * std::numeric_limits<double>::epsilon()),
                 "Animated component sample exceeds source bounds");
-        output[i] = std::clamp(output[i], -1e9, 1e9);
+        output[i] = std::clamp(value, -1e9, 1e9);
     }
 }
 std::array<double, 2> TransformAnimationClip::component_range(std::size_t binding) const {
-    require(!keys.empty() && binding < component_bindings.size(),
+    require(!keys.empty() && binding < component_bindings.size() &&
+                component_bindings[binding].value_type == AnimationComponentValueType::Scalar,
             "Invalid component animation range binding/keys");
-    const auto first = keys.front().component_values.at(binding).value;
+    const auto first = keys.front().component_values.at(binding).value.get<double>();
     std::array<double, 2> range{first, first};
     for (std::size_t i = 1; i < keys.size(); ++i) {
         const auto& a = keys[i - 1].component_values.at(binding);
         const auto& b = keys[i].component_values.at(binding);
-        auto interval =
-            std::array<double, 2>{std::min(a.value, b.value), std::max(a.value, b.value)};
+        const auto av = a.value.get<double>(), bv = b.value.get<double>();
+        auto interval = std::array<double, 2>{std::min(av, bv), std::max(av, bv)};
         if (!keys[i - 1].held && a.curve.cubic)
-            interval = segment(a.value, b.value, a.curve.outgoing, b.curve.incoming,
+            interval = segment(av, bv, a.curve.outgoing, b.curve.incoming,
                                double(keys[i].time - keys[i - 1].time) / animation_timebase)
                            .bounds();
         range[0] = std::min(range[0], interval[0]);
@@ -708,7 +761,8 @@ TransformAnimationClip TransformAnimationSource::clip() const {
                 document.at("version").is_number_integer() &&
                 (document.at("version") == 1 || document.at("version") == 2 ||
                  document.at("version") == 3 || document.at("version") == 4 ||
-                 document.at("version") == 5 || document.at("version") == 6) &&
+                 document.at("version") == 5 || document.at("version") == 6 ||
+                 document.at("version") == 7) &&
                 document.at("timebase") == animation_timebase,
             "Unsupported transform animation schema/timebase");
     TransformAnimationClip result;
@@ -759,7 +813,7 @@ TransformAnimationClip TransformAnimationSource::clip() const {
                 "Animated component binding count exceeds64");
         std::set<std::pair<std::string, std::string>> identities;
         for (const auto& row : bindings) {
-            auto binding = component_binding(row);
+            auto binding = component_binding(row, document.at("version") >= 7);
             require(identities.emplace(binding.component, binding.field).second,
                     "Duplicate animated component binding");
             result.component_bindings.push_back(std::move(binding));
@@ -816,6 +870,8 @@ TransformAnimationClip TransformAnimationSource::clip() const {
     }
     validate_curve_segments(result);
     for (std::size_t i = 0; i < result.component_bindings.size(); ++i) {
+        if (result.component_bindings[i].value_type != AnimationComponentValueType::Scalar)
+            continue;
         const auto range = result.component_range(i);
         require(range[0] >= -1e9 && range[1] <= 1e9, "Component curve overshoots source bounds");
     }
@@ -830,7 +886,7 @@ std::vector<std::byte> TransformAnimationSource::cook() const {
     validate();
     const auto source = document.dump();
     (void)parse(std::as_bytes(std::span(source)));
-    const Json compiled{{"format", "forge.transform-clip"}, {"version", 6}, {"document", document}};
+    const Json compiled{{"format", "forge.transform-clip"}, {"version", 7}, {"document", document}};
     const auto text = compiled.dump();
     const auto bytes = std::as_bytes(std::span(text));
     return {bytes.begin(), bytes.end()};
@@ -840,7 +896,7 @@ AssetId TransformAnimationSource::set_key(
     std::optional<TransformAnimationCurves> curve,
     std::optional<AnimationPropertyValues> property_values,
     std::optional<std::span<const AnimationMaterialValues>> material_values,
-    std::optional<std::span<const double>> component_values) {
+    std::optional<std::span<const Json>> component_values) {
     const auto admitted = clip();
     auto candidate = *this;
     auto& keys = candidate.document.at("keys");
@@ -880,11 +936,11 @@ AssetId TransformAnimationSource::set_key(
                 "Material values require declared bindings");
     if (!admitted.component_bindings.empty() &&
         (component_values || !key.contains("component_values"))) {
-        std::vector<double> sampled;
+        std::vector<Json> sampled;
         if (!component_values) {
             sampled.resize(admitted.component_bindings.size());
-            admitted.sample_components(double(time), sampled);
-            component_values = std::span<const double>(sampled);
+            admitted.sample_component_values(double(time), sampled);
+            component_values = std::span<const Json>(sampled);
         }
         merge_component_values(key, admitted.component_bindings, *component_values);
     } else
@@ -910,11 +966,10 @@ AssetId TransformAnimationSource::set_key(
     return id;
 }
 void TransformAnimationSource::add_component_field(const AnimationComponentBinding& binding,
-                                                   double initial) {
+                                                   const Json& initial) {
     const auto admitted = clip();
-    const auto descriptor = component_descriptor(binding);
-    (void)component_binding(descriptor);
-    (void)component_number(Json(initial));
+    (void)component_binding(component_descriptor(binding, true), true);
+    const auto initial_value = component_value(initial, binding.value_type);
     for (const auto& prior : admitted.component_bindings)
         if (prior.component == binding.component && prior.field == binding.field) {
             require(prior == binding, "Animated component cannot change schema implicitly");
@@ -928,8 +983,24 @@ void TransformAnimationSource::add_component_field(const AnimationComponentBindi
             require(!key.contains("component_values"),
                     "Legacy component_values extension collides with version6; source unchanged");
     }
+    if (binding.value_type != AnimationComponentValueType::Scalar &&
+        candidate.document.at("version") < 7) {
+        if (candidate.document.at("version") == 6 &&
+            candidate.document.contains("component_bindings"))
+            for (const auto& row : candidate.document.at("component_bindings"))
+                require(!row.contains("value_type"),
+                        "Legacy value_type extension collides with version7; source unchanged");
+        // The old binding family is continuous. Its explicit promotion retains all
+        // values/curves while preventing opaque legacy extensions from activating.
+        if (candidate.document.contains("component_bindings"))
+            for (auto& row : candidate.document.at("component_bindings"))
+                row["value_type"] = "scalar";
+    }
     promote_material_parameters(candidate.document);
-    candidate.document["version"] = 6;
+    candidate.document["version"] =
+        std::max(candidate.document.at("version").get<int>(),
+                 binding.value_type == AnimationComponentValueType::Scalar ? 6 : 7);
+    const auto descriptor = component_descriptor(binding, candidate.document.at("version") >= 7);
     auto& bindings = candidate.document["component_bindings"];
     if (bindings.is_null())
         bindings = Json::array();
@@ -939,7 +1010,7 @@ void TransformAnimationSource::add_component_field(const AnimationComponentBindi
         if (rows.is_null())
             rows = Json::array();
         rows.push_back(
-            {{"component", binding.component}, {"field", binding.field}, {"value", initial}});
+            {{"component", binding.component}, {"field", binding.field}, {"value", initial_value}});
     }
     candidate.validate();
     document.swap(candidate.document);
@@ -962,16 +1033,20 @@ void TransformAnimationSource::erase_component_field(std::string_view component,
     document.swap(candidate.document);
 }
 void TransformAnimationSource::set_component_value(AssetId id, std::string_view component,
-                                                   std::string_view field, double value) {
-    validate();
-    (void)component_number(Json(value));
+                                                   std::string_view field, const Json& value) {
+    const auto admitted = clip();
+    const auto binding =
+        std::find_if(admitted.component_bindings.begin(), admitted.component_bindings.end(),
+                     [&](const auto& b) { return b.component == component && b.field == field; });
+    require(binding != admitted.component_bindings.end(), "Animated component binding is absent");
+    const auto next = component_value(value, binding->value_type);
     auto candidate = *this;
     bool found = false;
     for (auto& key : candidate.document.at("keys"))
         if (key.at("id") == Json(id) && key.contains("component_values"))
             for (auto& row : key.at("component_values"))
                 if (same_component(row, component, field)) {
-                    row["value"] = value;
+                    row["value"] = next;
                     found = true;
                 }
     require(found, "Animated component key or binding no longer exists");
@@ -1490,7 +1565,8 @@ TransformAnimationClip decode_transform_animation(std::span<const std::byte> byt
         asset_detail::parse_bounded_json(bytes, transform_animation_cooked_byte_limit, 500016, 13);
     require(doc.at("format") == "forge.transform-clip", "Invalid cooked transform clip format");
     require(doc.at("version").is_number_integer(), "Cooked transform clip version must be integer");
-    if (doc.at("version") == 4 || doc.at("version") == 5 || doc.at("version") == 6) {
+    if (doc.at("version") == 4 || doc.at("version") == 5 || doc.at("version") == 6 ||
+        doc.at("version") == 7) {
         require(doc.at("document").at("version") <= doc.at("version"),
                 "Animation source requires a matching cooked version");
         doc = doc.at("document").get<Json>();

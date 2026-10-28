@@ -50,7 +50,8 @@ ResourceTicket TransformAnimationPlayback::request(AssetRef<TransformAnimationAs
     if (selected.at("version") != 1 || selected.at("output_format") != "forge.transform-clip" ||
         (selected.at("output_version") != 1 && selected.at("output_version") != 2 &&
          selected.at("output_version") != 3 && selected.at("output_version") != 4 &&
-         selected.at("output_version") != 5 && selected.at("output_version") != 6) ||
+         selected.at("output_version") != 5 && selected.at("output_version") != 6 &&
+         selected.at("output_version") != 7) ||
         !generation.is_number_unsigned() || generation == 0)
         throw std::runtime_error("Unsupported transform animation selection");
     return pool_.request(
@@ -421,10 +422,11 @@ void TransformAnimationPlayback::tick(double seconds, bool deliver_events) {
                         state.discontinuous = true;
                 }
                 if (!state.clip->component_bindings.empty()) {
-                    std::array<double, 64> a{}, b{};
+                    std::array<Json, 64> a{}, b{};
                     const auto count = state.clip->component_bindings.size();
-                    state.clip->sample_components(0, std::span(a).first(count));
-                    state.clip->sample_components(state.clip->duration, std::span(b).first(count));
+                    state.clip->sample_component_values(0, std::span(a).first(count));
+                    state.clip->sample_component_values(state.clip->duration,
+                                                        std::span(b).first(count));
                     if (!std::equal(a.begin(), a.begin() + count, b.begin()))
                         state.discontinuous = true;
                 }

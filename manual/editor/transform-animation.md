@@ -65,16 +65,17 @@ affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
 First build and inspect the project's C++ components, then add the desired
 component to an object. See [C++ project code](native-gameplay.md). The component
-must opt into authoring and expose an editable scalar `float` or `double` field.
+must opt into authoring and expose an editable top-level float, double, Boolean,
+integer or enum field.
 
-![Timeline showing a component field's key value and incoming and outgoing cubic slopes](../images/animation-component-fields.png)
+![Timeline showing continuous slopes, a Boolean checkbox, exact signed and unsigned 64-bit values, and enum and flag controls](../images/animation-component-fields.png)
 
-A selected component field with its key value and cubic slopes.
+A selected key shows continuous curve controls and exact held field values.
 
 1. Open an animation clip in the Timeline and choose that object as **Preview object**.
 2. Expand **Component fields** and choose **Add** beside the component and field. Every existing key starts with the object's current authored field value.
-3. Select a key, change **Field value**, then choose **Add / Update key at playhead**. Repeat for another key to change the value over time.
-4. For a curved transition, enable **Cubic field curve** and enter **Incoming slope** and **Outgoing slope**, measured in field units per second. Commit with **Add / Update key at playhead**. **Hold until next key** takes precedence over the outgoing curve. Component curves use these numeric controls.
+3. Select a key and edit **Field value**. Numbers use an input box, Booleans use a checkbox, enums list their declared choices and bitmasks let you toggle declared flags. Choose **Add / Update key at playhead**. Repeat for another key to change the value over time.
+4. For a curved float or double transition, enable **Cubic field curve** and enter **Incoming slope** and **Outgoing slope**, measured in field units per second. Commit with **Add / Update key at playhead**. **Hold until next key** takes precedence over the outgoing curve. Component curves use these numeric controls.
 5. Use **Save & Publish**, attach the clip with **Transform Animator**, save the scene and press **Play**. Timeline **Undo / Redo** applies to the clip's edits.
 
 The target must already have the matching inspected component. FORGE rejects a
@@ -89,14 +90,23 @@ a regular C++ fixed system reads the last committed animated value. A seek appli
 the requested value before the next gameplay tick. Inspector changes to an animated
 runtime field can be replaced by the next animation update.
 
-Up to 64 scalar component fields can be bound per clip. Integer, Boolean, nested,
-collection and UI fields are unavailable here. Export includes the selected cooked
-clip; a behavior that consumes these fields still needs the project's matching
+Boolean, integer, enum and bitmask fields hold their value until the next key.
+They have no cubic controls. Integer inputs retain exact signed or unsigned values,
+including 64-bit values; the target's native width, range and choices still apply.
+
+Select a saved key to inspect its held values. Enum and flag controls use the
+component's declared choices.
+
+Up to 64 scalar component fields can be bound per clip. Nested, collection and UI
+fields are unavailable here. Export includes the selected cooked clip; a behavior
+that consumes these fields still needs the project's matching
 compiled C++ module and runtime kit. The exported game does not need a C++ compiler.
 
 Try **Examples/ComponentAnimation** for a cube whose compiled C++ system consumes
 an animated Speed field. Open its **Assets/SpinSpeed.animation.json** to edit the
-90 → 270 → 90 curve. Build Project Code first for a source checkout. The combined
+90 → 270 → 90 speed curve, the one-second **Enabled** pause and the **Direction**
+changes. The cube pauses from one to two seconds and reverses from two to four
+seconds. Build Project Code first for a source checkout. The combined
 Windows package supplies a matching compiled module. Its C++ system uses the
 existing post-animation phase to consume the current tick's sample.
 

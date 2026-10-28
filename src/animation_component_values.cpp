@@ -4,9 +4,12 @@
 
 namespace forge {
 using Json = nlohmann::json;
+std::optional<AnimationComponentValueType> animation_component_field_type(const Json& field) {
+    return animation_component_field_type(field.value("type", std::string{}),
+                                          field.value("read_only", false));
+}
 bool animation_component_field_supported(const Json& field) {
-    const auto kind = field.value("type", std::string{});
-    return (kind == "float32" || kind == "float64") && !field.value("read_only", false);
+    return animation_component_field_type(field).has_value();
 }
 Json sample_animation_component(const Json& declaration, const Json& current,
                                 const TransformAnimationClip& clip, double time, bool whole_clip) {
@@ -16,10 +19,10 @@ Json sample_animation_component(const Json& declaration, const Json& current,
     const auto& fields = declaration.at("fields");
     const Json structure{{"type", "struct"}, {"fields", fields}};
     auto result = current;
-    std::array<double, 64> sampled{};
+    std::array<Json, 64> sampled;
     if (clip.component_bindings.size() > sampled.size())
         throw std::runtime_error("Animated component binding count exceeds64");
-    clip.sample_components(time, std::span(sampled).first(clip.component_bindings.size()));
+    clip.sample_component_values(time, std::span(sampled).first(clip.component_bindings.size()));
     for (std::size_t i = 0; i < clip.component_bindings.size(); ++i) {
         const auto& binding = clip.component_bindings[i];
         if (binding.component != declaration.at("id"))
@@ -29,16 +32,20 @@ Json sample_animation_component(const Json& declaration, const Json& current,
         const auto field = std::find_if(fields.begin(), fields.end(), [&](const auto& value) {
             return value.at("id") == binding.field;
         });
-        if (field == fields.end() || !animation_component_field_supported(*field) ||
+        if (field == fields.end() || animation_component_field_type(*field) != binding.value_type ||
             !current.contains(binding.field))
-            throw std::runtime_error("Animated field requires an editable float or double: " +
+            throw std::runtime_error("Animated field type or edit policy does not match: " +
                                      binding.component + "/" + binding.field);
         if (whole_clip) {
-            for (const auto bound : clip.component_range(i)) {
-                auto candidate = current;
-                candidate[binding.field] = bound;
-                detail::validate_reflected_json(structure, candidate);
-            }
+            const auto validate_value = [&](const Json& value) {
+                detail::validate_reflected_json(*field, value);
+            };
+            if (binding.value_type == AnimationComponentValueType::Scalar)
+                for (const auto bound : clip.component_range(i))
+                    validate_value(bound);
+            else
+                for (const auto& key : clip.keys)
+                    validate_value(key.component_values.at(i).value);
         }
         result[binding.field] = sampled[i];
     }

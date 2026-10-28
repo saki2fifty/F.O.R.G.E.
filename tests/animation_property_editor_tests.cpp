@@ -13,17 +13,46 @@ void check(bool ok, const std::string& why) {
     if (!ok)
         throw std::runtime_error(why);
 }
+enum class UiMode : std::int32_t { Forward = 1, Reverse = -1 };
 struct UiMotion {
     float speed = 90;
+    bool enabled = true;
+    std::int64_t marker = 0;
+    std::uint64_t score = 0;
+    UiMode mode = UiMode::Forward;
+    std::uint32_t flags = 3;
 };
 EngineModule motion_module() {
     EngineModule module;
     module.id = "project.ui_motion";
     module.dependencies = {"forge.transforms"};
     module.schemas = [](ModuleContext& context) {
-        auto type = context.world.component<UiMotion>().member<float>("speed");
+        context.world.component<UiMode>()
+            .constant("Forward", UiMode::Forward)
+            .constant("Reverse", UiMode::Reverse);
+        ecs_bitmask_desc_t mask{};
+        mask.entity = context.world.entity("project.UiFlags");
+        mask.constants[0].name = "Left";
+        mask.constants[0].value = 1;
+        mask.constants[1].name = "Right";
+        mask.constants[1].value = 2;
+        const auto mask_type = ecs_bitmask_init(context.world, &mask);
+        check(mask_type != 0, "UI flag metadata registration failed");
+        auto type = context.world.component<UiMotion>()
+                        .member<float>("speed")
+                        .member<bool>("enabled")
+                        .member<std::int64_t>("marker")
+                        .member<std::uint64_t>("score")
+                        .member<UiMode>("mode")
+                        .member(mask_type, "flags");
         detail::opt_in_authoring(context.world, type, "project.ui_motion", "project.ui_motion", 1,
-                                 {{"speed", 90}}, "Gameplay");
+                                 {{"speed", 90},
+                                  {"enabled", true},
+                                  {"marker", 0},
+                                  {"score", 0},
+                                  {"mode", 1},
+                                  {"flags", 3}},
+                                 "Gameplay");
     };
     module.runtime_roles = role_mask(WorldRole::Runtime);
     module.start = [](ModuleContext&) {
@@ -293,7 +322,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
               "Property Timeline publication stalled: " + message);
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 6 &&
+    check(catalog->records().at(id).metadata["forge.import"]["output_version"] == 7 &&
               !editor.dirty(),
           "Timeline published wrong property cook");
     click("button:Attach animation to object");
@@ -378,7 +407,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     check(!editor.dirty() &&
-              catalog->records().at(id).metadata["forge.import"]["output_version"] == 6,
+              catalog->records().at(id).metadata["forge.import"]["output_version"] == 7,
           "Scalar curves did not publish through the existing document");
     editor.open(project, "Assets/Properties.animation.json");
     check(editor.document()->source().document == saved_curves,
@@ -408,10 +437,44 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
     frame();
     check(editor.document()->source().clip().keys.front().component_values.front().value == 120,
           "Component key Redo failed");
+    for (const char* name : {"enabled", "marker", "score", "mode", "flags"})
+        click(std::string("animation:component_add:project.ui_motion:") + name);
+    check(editor.document()->source().document.at("version") == 7,
+          "Discrete component controls did not promote the source explicitly");
+    const auto before_discrete = editor.document()->source().document;
+    click("animation:component_value:project.ui_motion:enabled");
+    type("animation:component_value:project.ui_motion:marker", "-9223372036854775808");
+    type("animation:component_value:project.ui_motion:score", "18446744073709551615");
+    click("animation:component_value:project.ui_motion:mode");
+    click("property:choice:mode:-1");
+    click("animation:component_value:project.ui_motion:flags");
+    click("property:flag:flags:1");
+    io.AddKeyEvent(ImGuiKey_Escape, true);
+    frame();
+    io.AddKeyEvent(ImGuiKey_Escape, false);
+    frame();
+    click("button:Add / Update key at playhead");
+    const auto discrete_clip = editor.document()->source().clip();
+    const auto& discrete_key = discrete_clip.keys.front();
+    check(discrete_key.component_values[1].value == false &&
+              discrete_key.component_values[2].value.get<std::int64_t>() == INT64_MIN &&
+              discrete_key.component_values[3].value.get<std::uint64_t>() == UINT64_MAX &&
+              discrete_key.component_values[4].value == -1 &&
+              discrete_key.component_values[5].value == 2,
+          "Actual Boolean/integer/enum controls changed precision or did not commit");
+    editor.undo();
+    frame();
+    check(editor.document()->source().document == before_discrete,
+          "Discrete key Undo changed identities or values");
+    editor.redo();
+    frame();
     locked = true;
     frame();
     check(!test::ui_targets.at("animation:component_value:project.ui_motion:speed").enabled,
           "Component key field remained editable during Play");
+    check(!test::ui_targets.at("animation:component_value:project.ui_motion:marker").enabled &&
+              !test::ui_targets.contains("animation:component_cubic:project.ui_motion:marker"),
+          "Discrete field exposed editing during Play or a continuous curve control");
     locked = false;
     frame();
     check(scene.entity(actor).get<UiMotion>().speed == 90,
@@ -453,14 +516,20 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         const auto token = sequence.begin_frame_export();
         sequence.sample_frame_export(token, 1);
         const auto sampled = sequence.preview(scene.effective_document());
-        std::vector<double> expected(editor.document()->source().clip().component_bindings.size());
-        editor.document()->source().clip().sample_components(animation_timebase, expected);
+        const auto sequence_clip = editor.document()->source().clip();
+        std::vector<Json> expected(sequence_clip.component_bindings.size());
+        sequence_clip.sample_component_values(animation_timebase, expected);
         const auto row = std::find_if(sampled.at("entities").begin(), sampled.at("entities").end(),
                                       [&](const auto& value) { return value.at("id") == actor; });
         check(row != sampled.at("entities").end() &&
                   std::abs(row->at("components").at("project.ui_motion").at("speed").get<double>() -
-                           float(expected.front())) < 1e-6,
+                           float(expected.front().get<double>())) < 1e-6,
               "Sequence preview lost its copied component field projection");
+        for (std::size_t i = 1; i < expected.size(); ++i)
+            check(row->at("components")
+                          .at("project.ui_motion")
+                          .at(sequence_clip.component_bindings[i].field) == expected[i],
+                  "Sequence preview changed a held Boolean/integer/enum value");
         sequence.end_frame_export(token);
     }
     check(scene.document() == scene_before_sequence &&
@@ -491,6 +560,15 @@ void capture(const std::filesystem::path& root) {
         const auto& codec = engine.world().authored_codecs().front();
         const AnimationComponentBinding binding{codec.key(), "speed", codec.stamp()};
         source.add_component_field(binding, 90);
+        const auto add = [&](const char* name, AnimationComponentValueType kind,
+                             const Json& value) {
+            source.add_component_field({codec.key(), name, codec.stamp(), kind}, value);
+        };
+        add("enabled", AnimationComponentValueType::Boolean, true);
+        add("marker", AnimationComponentValueType::SignedInteger, INT64_MIN);
+        add("score", AnimationComponentValueType::UnsignedInteger, UINT64_MAX);
+        add("mode", AnimationComponentValueType::SignedInteger, -1);
+        add("flags", AnimationComponentValueType::UnsignedInteger, 3);
         const auto last = source.set_key(2 * animation_timebase, {});
         source.set_component_value(last, binding.component, binding.field, 180);
         source.set_component_curve(source.clip().keys.front().id, binding.component, binding.field,
@@ -524,15 +602,39 @@ void capture(const std::filesystem::path& root) {
     io.AddMouseButtonEvent(0, false);
     frame();
     frame();
-    const auto value = test::ui_targets.at("animation:component_value:project.ui_motion:speed");
-    if (value.maximum.y > value.clip_maximum.y) {
-        auto* window = ImGui::FindWindowByName("###Animation Timeline");
-        check(window != nullptr, "Capture Timeline window missing");
-        ImGui::SetScrollY(window, window->Scroll.y + value.maximum.y - value.clip_maximum.y + 200);
-        frame();
-        frame();
-    }
+    const auto reveal = [&](const std::string& name) {
+        check(test::ui_targets.contains(name), "Capture control missing: " + name);
+        auto rect = test::ui_targets.at(name);
+        if (rect.minimum.y < rect.clip_minimum.y || rect.maximum.y > rect.clip_maximum.y) {
+            auto* window = ImGui::FindWindowByName("###Animation Timeline");
+            check(window != nullptr, "Capture Timeline window missing");
+            ImGui::SetScrollY(window, window->Scroll.y + (rect.minimum.y + rect.maximum.y) / 2 -
+                                          (rect.clip_minimum.y + rect.clip_maximum.y) / 2);
+            frame();
+            frame();
+        }
+        return test::ui_targets.at(name);
+    };
+    // Binding a preview object pre-fills editing fields from authored values.
+    // Select the saved key through actual input to show its stored discrete values.
+    auto* timeline = ImGui::FindWindowByName("###Animation Timeline");
+    check(timeline != nullptr, "Capture Timeline window missing");
+    ImGui::SetScrollY(timeline, timeline->ScrollMax.y);
+    frame();
+    frame();
+    const auto key = editor.document()->source().clip().keys.front().id;
+    const auto selected = reveal("animation:key:" + key.str());
+    io.AddMousePosEvent((selected.minimum.x + selected.maximum.x) / 2,
+                        (selected.minimum.y + selected.maximum.y) / 2);
+    io.AddMouseButtonEvent(0, true);
+    frame();
+    io.AddMouseButtonEvent(0, false);
+    frame();
+    frame();
+    reveal("animation:component_out:project.ui_motion:speed");
     capture.save(root / "animation-component-fields.png");
+    reveal("animation:component_value:project.ui_motion:flags");
+    capture.save(root / "animation-discrete-fields.png");
     test::observe_ui = false;
 }
 } // namespace

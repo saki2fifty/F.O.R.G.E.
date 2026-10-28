@@ -21,7 +21,13 @@ fingerprint = json.loads(subprocess.check_output([runtime, '--sdk-info'], text=T
 settings['modules'] = [dict(id='project.gameplay', implementation='1', sdk='experimental-1',
                           fingerprint=fingerprint, library=module.name, dependencies=['forge.animation'])]
 (root / 'forge.project.json').write_text(json.dumps(settings), encoding='utf-8')
-declaration, = json.loads(subprocess.check_output([runtime, '--inspect-sdk', root], text=True))['components']
+inspection = json.loads(subprocess.check_output([runtime, '--inspect-sdk', root], text=True))
+declaration, = inspection['components']
+capabilities = next(row for row in inspection['reference_schema']['components']
+                    if row['id'] == declaration['id'])
+assert all(field['animatable'] for field in capabilities['fields'])
+assert next(field for field in declaration['structure']['fields']
+            if field['id'] == 'enabled')['animatable'] is False
 stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
              schema_version=declaration['schema_version'], digest=declaration['digest'])
 scene_path = root / settings['startup_scene']['source']
@@ -42,6 +48,11 @@ def sampled_speed(tick):
     ease = 3 * fraction * fraction - 2 * fraction * fraction * fraction
     value = 90 + 180 * ease if seconds < 2 else 270 - 180 * ease
     return struct.unpack('f', struct.pack('f', value))[0]
+
+
+def sampled_discrete(tick):
+    seconds = (tick * dt) % 4
+    return not (1 <= seconds < 2), 1 if seconds < 2 else -1
 
 
 def values(state):
@@ -81,7 +92,11 @@ for sdk_play in (False, True):
             current = values(state)
             speed = sampled_speed(tick)
             assert abs(current['project.animated_spin']['speed'] - speed) < 3e-5, (tick, current)
-            angle += speed * dt * math.pi / 180
+            enabled, direction = sampled_discrete(tick)
+            assert current['project.animated_spin']['enabled'] is enabled, (tick, current)
+            assert current['project.animated_spin']['direction'] == direction, (tick, current)
+            if enabled:
+                angle += speed * direction * dt * math.pi / 180
             rotation = current['forge.local_rotation']
             assert abs(rotation['x']) < 1e-7 and abs(rotation['z']) < 1e-7, rotation
             assert abs(rotation['y'] - math.sin(angle / 2)) < 2e-5, (tick, rotation, angle)
@@ -104,5 +119,5 @@ for sdk_play in (False, True):
         if cold:
             cold.close()
 assert hashlib.sha256((example / 'Assets/SpinSpeed.animation.json').read_bytes()).hexdigest() == clip_digest
-print('Canonical installed C++ field animation: 270 ticks per host, independent cubic/quaternion '
+print('Canonical installed C++ field animation: 270 ticks per host, independent cubic/held/quaternion '
       'oracles, source-free selected clip, true cold recovery and authored isolation PASS')
