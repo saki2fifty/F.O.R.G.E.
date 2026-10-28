@@ -228,8 +228,11 @@ linear/cubic `curve`. For Boolean/integer/enum/bitmask fields use source7 and pu
 categories retain exact signed/unsigned JSON values; native widths, ranges, choices
 and allowed flag bits still come from the matching schema. Discrete values hold
 until the next key, reject curves, and require actual Boolean/integer primitives,
-not strings or floating representations. Editable top-level scalar fields are
-supported; nested/collection/UI fields are not. Preserve other source fields and
+not strings or floating representations. Source8 supports nested struct leaves:
+put an identical `member_path` array of stable member IDs below `field` on its
+binding descriptor and every matching key-value row. Use an empty/omitted path for
+root fields. Arrays have at most16 members; read-only ancestors, collection indices
+and UI fields are unsupported. Preserve other source fields and
 key/asset identities. Read the latest
 document session/revision before patching; an invalid value leaves history intact.
 The existing code creation/build/inspection, component-add and animator attachment

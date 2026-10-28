@@ -1,4 +1,5 @@
 #pragma once
+#include "../animation_component_values.hpp"
 #include "../animation_material_patch.hpp"
 #include "../animation_playback_access.hpp"
 #include "animation_timeline_view.hpp"
@@ -257,15 +258,8 @@ class AnimationSequenceEditor {
                         row["components"][type.name][field] = value;
                 }
             const auto patch = context_->animation->presentation_properties(actor.id(), 1);
-            if (targets_.contains(id) && patch.is_object()) {
-                for (const auto& [component, fields] : patch.items())
-                    for (const auto& [field, value] : fields.items())
-                        if (component == "forge.mesh_renderer" && field == "material_parameters")
-                            merge_animation_material_parameters(row["components"][component],
-                                                                value);
-                        else
-                            row["components"][component][field] = value;
-            }
+            if (targets_.contains(id) && patch.is_object())
+                merge_animation_properties(row["components"], patch, context_->engine.world());
         }
         return source;
     }

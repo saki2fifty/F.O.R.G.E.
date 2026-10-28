@@ -29,14 +29,19 @@ Json AuthoredCodec::editor_schema() const {
     result["optional"] = true;
     result["admission"] = stamp();
     result["fields"] = declaration.at("structure").at("fields");
+    const auto capabilities = [&](const auto& self, Json& field, bool read_only) -> void {
+        read_only |= field.value("read_only", false);
+        field["animatable"] = animation_component_field_type(
+                                  field.at("type").get_ref<const std::string&>(), read_only)
+                                  .has_value();
+        if (field.at("type") == "struct")
+            for (auto& child : field.at("fields"))
+                self(self, child, read_only);
+    };
     for (auto& field : result["fields"]) {
         field["default"] = declaration.at("defaults").at(field.at("id").get<std::string>());
-        // The stamped native structure retains its versioned annotations. Current
-        // animation capability belongs in this derived editor view, not its digest.
-        field["animatable"] =
-            animation_component_field_type(field.at("type").get_ref<const std::string&>(),
-                                           field.value("read_only", false))
-                .has_value();
+        // Derive current capabilities without changing stamped native annotations.
+        capabilities(capabilities, field, false);
     }
     result.erase("structure");
     return result;

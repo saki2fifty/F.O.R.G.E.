@@ -168,7 +168,10 @@ source_document_automation_methods(ui::DocumentWorkspace& workspace,
                        "provides component_values. Source7 adds explicit value_type scalar/bool/"
                        "int64/uint64: Boolean and exact integer values hold until the next key, "
                        "without curves. Use the current custom component schema for native "
-                       "widths, ranges and enum choices."
+                       "widths, ranges and enum choices. Source8 adds optional member_path arrays "
+                       "of "
+                       "struct member IDs below field on both descriptors and key values; "
+                       "read-only ancestors and collection elements cannot be animated."
                      : ""),
             "asset.write", automation_object(std::move(properties), std::move(needed)), true,
             [invoke, action](const Json& request) { return invoke(action, request); }));

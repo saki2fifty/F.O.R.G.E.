@@ -315,7 +315,7 @@ void exercise(const std::filesystem::path& scratch, float scale, ImVec2 display)
         },
         "Material Timeline publication stalled");
     check(!editor.dirty() &&
-              published->records().at(asset).metadata["forge.import"]["output_version"] == 7,
+              published->records().at(asset).metadata["forge.import"]["output_version"] == 8,
           "Material Timeline did not publish cooked5");
     const auto saved = editor.document()->source().document;
     editor.open(project, "Assets/Material.animation.json");

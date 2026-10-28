@@ -3,12 +3,14 @@
 ## C++ component field animation
 
 Timeline clips bind up to64 editable scalar component fields by stable component,
-field and inspected schema admission. Floats/doubles interpolate; Boolean, integer,
+field, optional nested member paths and inspected schema admission. Floats/doubles interpolate; Boolean, integer,
 enum and bitmask values hold without floating conversion. Linear/cubic scalar values
 and exact discrete keys use the existing
-clip/player/sequence/history owners. Source7/cooked7 and importer recipev10 preserve
+clip/player/sequence/history owners. Source8/cooked8 and importer recipev11 preserve
 legacy readers and reject promotion collisions. Inspector/native updates now stage
-from a native copy and retain unreflected padding state and owned values. Copied
+from a native copy, recursively write differing members and retain unreflected
+padding state and owned values. Nested projection reuses reflected extension
+merging so opaque siblings survive in runtime and copied sequence previews. Copied
 sequence preview uses engine-owned metadata without executing project callbacks.
 MCP edits the same validated source document with ordinary permissions/revisions.
 The native update semantics change the exact SDK fingerprint; rebuild project
@@ -18,8 +20,10 @@ ComponentAnimation supplies the editable spinning-cube C++ project and selected
 clip. Its canonical code compiles through the installed SDK, runs in both host
 modes, matches independent speed/rotation equations and recovers without authoring
 sources. Its Enabled and Direction keys pause/reverse the spin through the existing
-post-animation phase. The manual adds authentic Timeline control captures. Nested,
-collection and UI property bindings remain pending. Windows/full editor, physical GPU
+post-animation phase. The example exposes these fields inside Settings, with an
+explicit schema3/sample migration preserving all asset/entity/key identities. The
+manual adds authentic nested Timeline control captures. Collection and UI property
+bindings remain pending. Windows/full editor, physical GPU
 and graphical export acceptance remain separate; no new numbered package is issued.
 
 ## Independent Sprite frame filtering

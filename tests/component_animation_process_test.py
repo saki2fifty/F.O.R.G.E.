@@ -25,8 +25,9 @@ inspection = json.loads(subprocess.check_output([runtime, '--inspect-sdk', root]
 declaration, = inspection['components']
 capabilities = next(row for row in inspection['reference_schema']['components']
                     if row['id'] == declaration['id'])
-assert all(field['animatable'] for field in capabilities['fields'])
-assert next(field for field in declaration['structure']['fields']
+assert capabilities['fields'][0]['id'] == 'settings'
+assert all(field['animatable'] for field in capabilities['fields'][0]['fields'])
+assert next(field for field in declaration['structure']['fields'][0]['fields']
             if field['id'] == 'enabled')['animatable'] is False
 stamp = dict(format='forge.authored-component', version=1, module=declaration['module'],
              schema_version=declaration['schema_version'], digest=declaration['digest'])
@@ -91,10 +92,10 @@ for sdk_play in (False, True):
             state = worker.request('step')
             current = values(state)
             speed = sampled_speed(tick)
-            assert abs(current['project.animated_spin']['speed'] - speed) < 3e-5, (tick, current)
+            assert abs(current['project.animated_spin']['settings']['speed'] - speed) < 3e-5, (tick, current)
             enabled, direction = sampled_discrete(tick)
-            assert current['project.animated_spin']['enabled'] is enabled, (tick, current)
-            assert current['project.animated_spin']['direction'] == direction, (tick, current)
+            assert current['project.animated_spin']['settings']['enabled'] is enabled, (tick, current)
+            assert current['project.animated_spin']['settings']['direction'] == direction, (tick, current)
             if enabled:
                 angle += speed * direction * dt * math.pi / 180
             rotation = current['forge.local_rotation']

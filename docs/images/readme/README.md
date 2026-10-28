@@ -4,22 +4,22 @@
 
 [Timeline controls](../../../manual/images/animation-component-fields.png) is the
 complete1080×1300 actual Timeline render captured locally on2026-10-28 from
-unassigned development work based on ead8a0e. The reproducible entry point is
+unassigned development work based on1f14a99. The reproducible entry point is
 `forge_animation_property_editor_tests <scratch> --capture`. It calls production
-Timeline/source/history owners with an admitted native test component and actual
-ImGui, pinned SDL software rendering and Lato. Real pointer input opens Component
-fields and selects a saved key. The image shows continuous90/cubic/outgoing60,
-a Boolean, signed-min/unsigned-max64-bit values, Reverse and declared flag controls.
-The canonical PNG is copied unchanged, with no painted controls or overlays. A
-byte-identical second local capture is not duplicated in the manual.
+Timeline/source/history owners with an admitted nested native test component and
+actual ImGui, pinned SDL software rendering and Lato. Real pointer input opens
+Component fields and selects a saved key. The image shows Settings member paths,
+continuous90/cubic/outgoing60, a Boolean, signed-min/unsigned-max64-bit values,
+Reverse and declared flag controls. The complete canonical PNG is copied unchanged,
+with no painted controls or overlays. Its SHA256 is
+`94b3ef21f5556d2e3ae10c6e55c0320f8e72269785d61d24da91d9d748af0765`.
 
-Actual input tests cover typed values, enum/flag choices, curves, Undo/Redo and Play
-locks at100/150/200 percent in two window sizes; copied sequence preview samples
-without project callbacks. Capture predates a derived capability annotation
-correction; its classifier behavior and visible controls are unchanged. It does
-not show installed C++ compilation, full Windows editor, physical GPU or exported
-graphical acceptance. The shared SDL/ImGui fixture also reproduces the existing
-Sprite Inspector PNG byte for byte.
+Actual input tests cover root/nested typed values, enum/flag choices, curves,
+Undo/Redo, publication and Play locks at100/150/200 percent in two window sizes;
+copied sequence preview samples without project callbacks. This is a local
+SDL software capture, not full Windows editor, physical GPU or exported graphical
+acceptance. The shared SDL/ImGui fixture also reproduces the existing Sprite
+Inspector PNG byte for byte.
 
 ## Sprite frame filtering
 

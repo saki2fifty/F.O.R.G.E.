@@ -1703,6 +1703,17 @@ compiles installed-only, validates dependency imports and runs after SDK relocat
 Native field updates additionally exercise heap-owned state and an unreflected
 padding counter through the shared ReflectedCandidate/AuthoredCodec owner.
 
+`animation_component` also admits actual nested scalar/discrete/enum/flag members,
+exact64-bit values, mixed root and sibling bindings, multiple copied struct
+ancestors, readonly ancestors/leaves, wrong paths, whole-curve rejection,
+pause/seek/recovery and opaque projection siblings. Source8 path promotion guards
+both descriptor and key metadata. `animation_properties_editor` edits nested paths
+through actual Timeline controls at six scale/window combinations and samples them
+in copied sequence frame output without project callbacks. `mcp_source_stdio`
+checks Source8 discovery, both framings, invalid path/key identity, exact values,
+revision/history and publication. The canonical installed C++ example uses Settings
+with schema3; its prepared scene/clip retain original asset/entity/key IDs.
+
 The common material Timeline regression is registered from one CMake recipe for
 both editor builds and the portable authoring test configuration. This tests actual
 ImGui material editing through the shared Timeline owner; it does not enable or

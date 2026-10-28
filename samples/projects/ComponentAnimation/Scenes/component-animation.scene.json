@@ -46,15 +46,17 @@
         },
         "project.animated_spin": {
           "$forge": {
-            "digest": "2feca2d4be3ddd82173b2a4f53fc4a00c2cf232932064a2ec731818c73bcce26",
+            "digest": "7153189130e3e510f42c13dc876f4d6bccc5d3fc60374461af8b1c6aaf9bb39c",
             "format": "forge.authored-component",
             "module": "project.gameplay",
-            "schema_version": 2,
+            "schema_version": 3,
             "version": 1
           },
-          "direction": 1,
-          "enabled": true,
-          "speed": 90.0
+          "settings": {
+            "direction": 1,
+            "enabled": true,
+            "speed": 90.0
+          }
         }
       },
       "id": "614713bb-ad94-47be-8d8b-33e4bc11c90a",

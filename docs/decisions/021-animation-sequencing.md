@@ -67,6 +67,9 @@ the same clip, complete candidate and
 clock owner; see [transform animation](../transform-animation.md). Existing native
 AuthoredCodec and reflection admission own component values and lifecycle. Clip
 bindings retain stable authoring keys/schema stamps, never native IDs or offsets.
+Nested struct leaves extend that identity with explicit member-name arrays under
+the root field; the same reflection admission and complete candidate remain owners.
+Presentation carries a complete root struct through the existing field merge.
 The private sequence preview may reconstruct inspected metadata in its Runtime
 composition without loading project code. This reuses the existing reconstructed
 authoring value owner and leaves the gameplay-before-animation phase order intact.

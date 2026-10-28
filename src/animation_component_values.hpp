@@ -8,10 +8,17 @@ namespace forge {
 std::optional<AnimationComponentValueType>
 animation_component_field_type(const nlohmann::json& field);
 bool animation_component_field_supported(const nlohmann::json& field);
+const nlohmann::json& animation_component_field(const nlohmann::json& declaration,
+                                                const AnimationComponentBinding&);
+std::vector<AnimationComponentBinding>
+animation_component_fields(const nlohmann::json& declaration);
 nlohmann::json sample_animation_component(const nlohmann::json& declaration,
                                           const nlohmann::json& current,
                                           const TransformAnimationClip&, double time,
                                           bool whole_clip);
+// Apply copied projections through existing material and reflected-extension owners.
+void merge_animation_properties(nlohmann::json& components, const nlohmann::json& patch,
+                                const WorldContext&);
 struct AnimationComponentCandidate {
     const detail::AuthoredCodec* codec;
     std::optional<detail::ReflectedCandidate> value;

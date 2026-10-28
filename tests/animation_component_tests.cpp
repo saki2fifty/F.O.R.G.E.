@@ -232,14 +232,63 @@ void padding_updates() {
               entity.get<PaddedOwnedState>().label == state.label,
           "Animated field update reset unreflected or owned native state");
 }
+struct NestedOwnedState {
+    PaddedOwnedState motion;
+    double gain = .5;
+};
+void nested_updates() {
+    EngineModule module;
+    module.id = "project.nested";
+    module.dependencies = {"forge.transforms"};
+    module.schemas = [](ModuleContext& context) {
+        context.world.component<PaddedOwnedState>()
+            .member<std::string>("label")
+            .member<float>("speed")
+            .member<bool>("enabled");
+        const auto type = context.world.component<NestedOwnedState>()
+                              .member<PaddedOwnedState>("motion")
+                              .member<double>("gain");
+        detail::opt_in_authoring(
+            context.world, type, "project.nested", "project.nested", 1,
+            {{"motion", {{"label", "default-owned"}, {"speed", 90}, {"enabled", true}}},
+             {"gain", .5}},
+            "Gameplay");
+    };
+    EngineContext engine(WorldRole::Runtime, false, {module});
+    Scene scene(engine.world());
+    const auto& codec = engine.world().authored_codecs().front();
+    const auto actor = EntityId::generate();
+    scene.reset({{"version", 3},
+                 {"asset_id", AssetId::generate()},
+                 {"entities", Json::array({{{"id", actor},
+                                            {"name", "Nested native state"},
+                                            {"components", {{codec.key(), codec.defaults()}}}}})}});
+    auto entity = scene.entity(actor.str());
+    auto state = entity.get<NestedOwnedState>();
+    state.motion.counter = 73;
+    state.motion.label = std::string(96, 'n');
+    state.gain = .75;
+    entity.set(state);
+    auto value = codec.read(entity, true);
+    value["motion"]["speed"] = 240;
+    auto candidate = codec.prepare_update(entity, value);
+    check(candidate.has_value(), "Nested native update was not admitted");
+    check(entity.get<NestedOwnedState>().motion.speed == 90,
+          "Detached nested candidate mutated its source");
+    codec.apply(entity, candidate);
+    const auto& result = entity.get<NestedOwnedState>();
+    check(result.motion.speed == 240 && result.motion.enabled && result.motion.counter == 73 &&
+              result.motion.label == state.motion.label && result.gain == .75,
+          "Nested update reset owned, hidden or unrelated native state");
+}
 struct Runtime {
     EngineContext engine;
     Scene scene;
     RuntimeSimulation simulation;
     std::shared_ptr<AnimationRuntime> animation;
     Runtime(const std::filesystem::path& root, const Json& source,
-            std::shared_ptr<const AssetCatalog> catalog)
-        : engine(WorldRole::Runtime, false, {animation_module(root), motion_module()}),
+            std::shared_ptr<const AssetCatalog> catalog, EngineModule module = motion_module())
+        : engine(WorldRole::Runtime, false, {animation_module(root), std::move(module)}),
           scene(engine.world()), simulation(engine.world(), scene),
           animation(animation_runtime(engine.world())) {
         scene.restore_snapshot(source);
@@ -255,6 +304,231 @@ struct Runtime {
         simulation.reset_presentation();
     }
 };
+struct NestedAnimation {
+    Motion settings;
+    Motion other;
+    float speed = 3;
+};
+EngineModule nested_animation_module() {
+    auto module = motion_module();
+    const auto base = module.schemas;
+    module.schemas = [base](ModuleContext& context) {
+        base(context);
+        const auto type = context.world.component<NestedAnimation>()
+                              .member<Motion>("settings")
+                              .member<Motion>("other")
+                              .member<float>("speed");
+        const auto defaults = detail::export_authored_types(context.world).at(0).at("defaults");
+        detail::opt_in_authoring(context.world, type, "project.nested_animation", "project.motion",
+                                 1, {{"settings", defaults}, {"other", defaults}, {"speed", 3}},
+                                 "Gameplay");
+    };
+    return module;
+}
+void nested_playback(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root);
+    EngineContext authored(WorldRole::Authoring, false, {nested_animation_module()});
+    Scene scene(authored.world());
+    const auto& codecs = authored.world().authored_codecs();
+    const auto& codec = *std::find_if(codecs.begin(), codecs.end(), [](const auto& c) {
+        return c.key() == "project.nested_animation";
+    });
+    using Kind = AnimationComponentValueType;
+    const auto binding = [&](const char* name, Kind kind) {
+        return AnimationComponentBinding{codec.key(), "settings", codec.stamp(), kind, {name}};
+    };
+    const auto speed = binding("speed", Kind::Scalar), enabled = binding("enabled", Kind::Boolean),
+               marker = binding("marker", Kind::SignedInteger),
+               score = binding("score", Kind::UnsignedInteger),
+               mode = binding("mode", Kind::SignedInteger),
+               flags = binding("flags", Kind::UnsignedInteger);
+    auto lease = std::make_shared<ProjectLease>(root);
+    auto document = TransformAnimationDocument::create(lease, "Nested.animation.json");
+    auto source = document->source();
+    source.add_component_field(speed, 20);
+    source.add_component_field(enabled, true);
+    source.add_component_field(marker, INT64_MIN);
+    source.add_component_field(score, UINT64_MAX);
+    source.add_component_field(mode, 1);
+    source.add_component_field(flags, 1u);
+    source.add_component_field({codec.key(), "speed", codec.stamp()}, 3);
+    source.add_component_field({codec.key(), "other", codec.stamp(), Kind::Scalar, {"speed"}}, 11);
+    source.document["channels"] = Json::array();
+    const auto first = source.clip().keys.front().id;
+    const auto last = source.set_key(2 * animation_timebase, {});
+    source.set_component_value(last, codec.key(), "settings", 100, speed.member_path);
+    source.set_component_value(last, codec.key(), "settings", false, enabled.member_path);
+    source.set_component_value(last, codec.key(), "settings", INT64_MAX, marker.member_path);
+    source.set_component_value(last, codec.key(), "settings", (std::uint64_t{1} << 53) + 1,
+                               score.member_path);
+    source.set_component_value(last, codec.key(), "settings", -1, mode.member_path);
+    source.set_component_value(last, codec.key(), "settings", 2u, flags.member_path);
+    source.set_component_curve(first, codec.key(), "settings", {true, 0, 120}, speed.member_path);
+    check(source.document.at("version") == 8, "Nested source did not explicitly promote");
+    const auto decoded = decode_transform_animation(source.cook(), source.asset());
+    check(decoded.component_bindings == source.clip().component_bindings,
+          "Nested binding identity changed through cooking");
+    auto duplicate = source;
+    const std::array selected{first};
+    duplicate.duplicate_keys(selected, animation_timebase);
+    duplicate.retime_duration(4 * animation_timebase);
+    check(duplicate.clip().keys.at(1).component_values.at(2).value == INT64_MIN,
+          "Nested duplication/retiming lost exact held values");
+    const auto snapshot = source.document;
+    for (const Json& bad : {Json::array({""}), Json::array({0}), Json("speed"),
+                            Json(std::vector<std::string>(17, "speed"))}) {
+        auto invalid = source;
+        invalid.document["component_bindings"][0]["member_path"] = bad;
+        rejects([&] { invalid.validate(); });
+    }
+    auto collision = TransformAnimationSource::create(AssetId::generate());
+    collision.add_component_field({codec.key(), "speed", codec.stamp()}, 3);
+    collision.document["keys"][0]["component_values"][0]["member_path"] = "opaque";
+    const auto retained = collision.document;
+    rejects([&] { collision.add_component_field(speed, 20); });
+    check(collision.document == retained, "Nested promotion changed opaque legacy data");
+    collision.document["keys"][0]["component_values"][0].erase("member_path");
+    collision.document["component_bindings"][0]["member_path"] = "opaque";
+    rejects([&] { collision.add_component_field(speed, 20); });
+    document->edit(document->revision(), "Nested component keys",
+                   [&](auto& json) { json = source.document; });
+    document->undo();
+    check(document->source().clip().component_bindings.empty(), "Nested Undo failed");
+    document->redo();
+    check(document->source().document == source.document, "Nested Redo changed metadata");
+    document->save();
+    AssetImportService importer(lease, transform_animation_import_registry(),
+                                {"linux", "none", "cpu"});
+    importer.submit(
+        importer.prepare(document->locator(), {}, source.asset()),
+        [](auto& candidate, const auto& plan, const auto&) {
+            prepare_transform_animation_publication(candidate, plan);
+        },
+        [](const auto&, const auto&) {});
+    check(importer.wait_idle(10s), "Nested publication stalled");
+    const auto results = importer.poll();
+    check(results.size() == 1 && results[0].published, "Nested publication failed");
+    const auto catalog = std::make_shared<const AssetCatalog>(results[0].publication->catalog);
+    const auto actor = authoring_command(scene, "entity.create", {{"name", "Nested fields"}})
+                           .at("selected")
+                           .get<std::string>();
+    auto authored_entity = scene.entity(actor);
+    codec.apply(authored_entity, codec.prepare(scene.world(), codec.defaults()));
+    TransformAnimator animator;
+    animator.clip = {source.asset()};
+    animator.loop = false;
+    authored_entity.set(animator);
+    auto saved = scene.snapshot();
+    saved["entities"][0]["components"][codec.key()]["settings"]["future"] = "retained extension";
+    scene.restore_snapshot(saved);
+    auto preview = scene.effective_document();
+    const auto schema = scene.schema();
+    check(apply_transform_animation_preview(preview, {scene.asset_id(), EntityId::parse(actor)},
+                                            decoded, animation_timebase, &schema),
+          "Nested preview failed");
+    const auto& sampled = preview["entities"][0]["components"][codec.key()];
+    near(sampled["settings"]["speed"], 90);
+    check(sampled["settings"]["enabled"] == true && sampled["settings"]["score"] == UINT64_MAX &&
+              sampled["settings"]["label"] == "retained" && sampled["other"]["speed"] == 11 &&
+              sampled["speed"] == 3,
+          "Nested preview lost sibling or exact held state");
+    for (const auto& [label, mutate] :
+         std::vector<std::pair<std::string, std::function<void(Json&)>>>{
+             {"read-only ancestor", [](auto& s) { s["fields"][0]["read_only"] = true; }},
+             {"read-only leaf", [](auto& s) { s["fields"][0]["fields"][0]["read_only"] = true; }},
+             {"missing leaf", [](auto& s) { s["fields"][0]["fields"][0]["id"] = "renamed"; }}}) {
+        auto altered = codec.editor_schema();
+        mutate(altered);
+        rejects([&] { sample_animation_component(altered, codec.defaults(), decoded, 0, true); });
+    }
+    auto invalid = source;
+    invalid.set_component_value(last, codec.key(), "settings", 99, mode.member_path);
+    rejects([&] {
+        sample_animation_component(codec.editor_schema(), codec.defaults(), invalid.clip(), 0,
+                                   true);
+    });
+    check(source.document == snapshot, "Invalid nested operations changed source");
+    Runtime runtime(root, saved, catalog, nested_animation_module());
+    runtime.ready();
+    auto entity = runtime.scene.entity(actor);
+    auto native = entity.get<NestedAnimation>();
+    native.settings.ticks = 73;
+    native.settings.label = std::string(96, 'q');
+    entity.set(native);
+    runtime.simulation.tick(1.f);
+    near(entity.get<NestedAnimation>().settings.speed, 90);
+    check(entity.get<NestedAnimation>().settings.ticks == 73 &&
+              entity.get<NestedAnimation>().settings.label == native.settings.label,
+          "Nested runtime animation changed unrelated native fields");
+    const auto patch = runtime.animation->presentation_properties(entity.id(), .5);
+    check(patch.at(codec.key()).at("settings").at("label") == native.settings.label &&
+              patch.at(codec.key()).at("settings").at("ticks") == 73,
+          "Nested presentation produced an incomplete root struct");
+    const auto presented = runtime.simulation.presentation(.5);
+    check(
+        presented.at("entities")[0].at("components").at(codec.key()).at("settings").at("future") ==
+            "retained extension",
+        "Nested runtime projection lost an opaque sibling");
+    const auto recovery = runtime.animation->checkpoint();
+    Runtime recovered(root, runtime.scene.snapshot(), catalog, nested_animation_module());
+    recovered.ready();
+    recovered.animation->restore(recovery);
+    runtime.simulation.tick(1.f);
+    recovered.simulation.tick(1.f);
+    check(entity.get<NestedAnimation>().settings.mode == MotionMode::Reverse &&
+              !entity.get<NestedAnimation>().settings.enabled &&
+              entity.get<NestedAnimation>().settings.marker == INT64_MAX &&
+              recovered.scene.entity(actor).get<NestedAnimation>().settings.score ==
+                  ((std::uint64_t{1} << 53) + 1),
+          "Nested endpoint/recovery lost exact discrete values");
+    check(scene.snapshot() == saved, "Nested preview/runtime changed authored values");
+    const EntityRef reference{runtime.scene.asset_id(), EntityId::parse(actor)};
+    AnimationPlaybackAccess::control(*runtime.animation, reference, {{"operation", "pause"}});
+    runtime.simulation.tick(.25f);
+    check(entity.get<NestedAnimation>().settings.marker == INT64_MAX,
+          "Paused nested values advanced");
+    AnimationPlaybackAccess::control(*runtime.animation, reference,
+                                     {{"operation", "seek"}, {"position_seconds", 1}});
+    near(entity.get<NestedAnimation>().settings.speed, 90);
+    check(entity.get<NestedAnimation>().settings.marker == INT64_MIN,
+          "Seeking nested fields rounded or retained the wrong held key");
+    auto overshoot = source;
+    overshoot.set_component_curve(first, codec.key(), "settings", {true, 0, 1200},
+                                  speed.member_path);
+    const auto unchanged_native = codec.read(entity, true);
+    rejects([&] {
+        prepare_animation_components(runtime.engine.world(), entity, overshoot.clip(), 0, true);
+    });
+    check(codec.read(entity, true) == unchanged_native,
+          "Rejected whole nested curve admission mutated native fields");
+    auto deep_schema = codec.editor_schema();
+    auto deep_current = codec.defaults();
+    auto deep_clip = decoded;
+    auto& root_field = deep_schema["fields"][0];
+    const auto original_fields = root_field["fields"];
+    root_field["fields"] =
+        Json::array({{{"id", "inner"}, {"type", "struct"}, {"fields", original_fields}}});
+    deep_current["settings"] = {{"inner", deep_current.at("settings")}};
+    for (auto& item : deep_clip.component_bindings)
+        if (item.field == "settings")
+            item.member_path.insert(item.member_path.begin(), "inner");
+    const auto deep_sample =
+        sample_animation_component(deep_schema, deep_current, deep_clip, animation_timebase, true);
+    near(deep_sample.at("settings").at("inner").at("speed"), 90);
+    check(deep_sample.at("settings").at("inner").at("score") == UINT64_MAX,
+          "Multiple struct ancestors lost an exact held leaf");
+    const AnimationComponentBinding escaped{
+        codec.key(), "root/~", codec.stamp(), Kind::Scalar, {"leaf/~"}};
+    Json escaped_value{{"root/~", {{"leaf/~", 17}}}};
+    check(escaped_value.at(animation_component_pointer(escaped)) == 17,
+          "Member paths were split or used as unescaped JSON pointer text");
+    auto removed = source;
+    removed.erase_component_field(codec.key(), "settings", enabled.member_path);
+    check(removed.clip().component_bindings.size() == 7 &&
+              removed.clip().component_bindings.front() == speed,
+          "Removing a nested field removed its sibling");
+}
+
 void playback(const std::filesystem::path& root) {
     padding_updates();
     EngineContext authored(WorldRole::Authoring, false, {motion_module()});
@@ -649,6 +923,8 @@ int main(int argc, char** argv) {
         check(argc == 2, "Need component animation scratch root");
         const auto root = std::filesystem::absolute(argv[1]) / AssetId::generate().str();
         std::filesystem::create_directories(root);
+        nested_updates();
+        nested_playback(root / "nested");
         playback(root);
         discrete_playback(root / "discrete");
         std::filesystem::remove_all(root);

@@ -65,12 +65,12 @@ affects clip edits; scene Undo affects attachment and ordinary scene edits.
 
 First build and inspect the project's C++ components, then add the desired
 component to an object. See [C++ project code](native-gameplay.md). The component
-must opt into authoring and expose an editable top-level float, double, Boolean,
-integer or enum field.
+must opt into authoring and expose an editable float, double, Boolean, integer or
+enum field, either at its root or within editable structs.
 
 ![Timeline showing continuous slopes, a Boolean checkbox, exact signed and unsigned 64-bit values, and enum and flag controls](../images/animation-component-fields.png)
 
-A selected key shows continuous curve controls and exact held field values.
+A selected key shows continuous curve controls and exact held values within Settings.
 
 1. Open an animation clip in the Timeline and choose that object as **Preview object**.
 2. Expand **Component fields** and choose **Add** beside the component and field. Every existing key starts with the object's current authored field value.
@@ -79,7 +79,7 @@ A selected key shows continuous curve controls and exact held field values.
 5. Use **Save & Publish**, attach the clip with **Transform Animator**, save the scene and press **Play**. Timeline **Undo / Redo** applies to the clip's edits.
 
 The target must already have the matching inspected component. FORGE rejects a
-changed schema, read-only field or curve outside the field's supported range.
+changed schema, read-only field or ancestor, or curve outside the field's supported range.
 Remove an obsolete binding and add the current field after inspecting a changed
 component schema. Keep at least one transform channel or property binding.
 
@@ -97,14 +97,19 @@ including 64-bit values; the target's native width, range and choices still appl
 Select a saved key to inspect its held values. Enum and flag controls use the
 component's declared choices.
 
-Up to 64 scalar component fields can be bound per clip. Nested, collection and UI
-fields are unavailable here. Export includes the selected cooked clip; a behavior
+Expand your C++ component's struct in the Inspector to inspect its members.
+Timeline lists each available leaf with its full path, such as **settings / speed**.
+Choose **Add** for that leaf. Neighboring values remain unchanged. **Capture authored
+pose** captures the bound leaves as well as the transform.
+
+Up to 64 scalar component leaves can be bound per clip, including editable members
+inside nested structs. Collection elements and UI fields are unavailable here. Export includes the selected cooked clip; a behavior
 that consumes these fields still needs the project's matching
 compiled C++ module and runtime kit. The exported game does not need a C++ compiler.
 
 Try **Examples/ComponentAnimation** for a cube whose compiled C++ system consumes
-an animated Speed field. Open its **Assets/SpinSpeed.animation.json** to edit the
-90 → 270 → 90 speed curve, the one-second **Enabled** pause and the **Direction**
+an animated **settings / speed** field. Open its **Assets/SpinSpeed.animation.json** to edit the
+90 → 270 → 90 speed curve, the one-second **settings / enabled** pause and the **settings / direction**
 changes. The cube pauses from one to two seconds and reverses from two to four
 seconds. Build Project Code first for a source checkout. The combined
 Windows package supplies a matching compiled module. Its C++ system uses the

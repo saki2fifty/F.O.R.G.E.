@@ -1,4 +1,4 @@
-#include "animation_material_patch.hpp"
+#include "animation_component_values.hpp"
 #include "flecs_system_trace.hpp"
 #include "json_output_text.hpp"
 #include "particle_runtime.hpp"
@@ -528,14 +528,7 @@ Json RuntimeSimulation::presentation(double alpha) const {
             const auto node = context_.world().entity(entity);
             const auto animated = animation_->presentation_properties(entity, alpha);
             if (!animated.is_null())
-                for (const auto& [component, fields] : animated.items())
-                    for (const auto& [field, value] : fields.items()) {
-                        if (component == "forge.mesh_renderer" && field == "material_parameters")
-                            merge_animation_material_parameters(item["components"][component],
-                                                                value);
-                        else
-                            item["components"][component][field] = value;
-                    }
+                merge_animation_properties(item["components"], animated, context_);
             if (node.has<Animator>())
                 if (const auto reference = context_.reference(entity))
                     if (const auto status = animation_->playback(*reference))

@@ -7,11 +7,14 @@
 #include <forge/transform_components.hpp>
 
 enum class SpinDirection : std::int32_t { Forward = 1, Reverse = -1 };
-struct AnimatedSpin {
+struct SpinSettings {
     // Degrees per second. Continuous keys change speed; held keys enable/reverse it.
     float speed = 90;
     bool enabled = true;
     SpinDirection direction = SpinDirection::Forward;
+};
+struct AnimatedSpin {
+    SpinSettings settings;
 };
 inline int32_t forge_register_component_AnimatedSpin(const ForgeSdkWorldV1* host, char* error,
                                                      uint32_t capacity) {
@@ -21,13 +24,15 @@ inline int32_t forge_register_component_AnimatedSpin(const ForgeSdkWorldV1* host
         world.component<SpinDirection>("gameplay.SpinDirection")
             .constant("Forward", SpinDirection::Forward)
             .constant("Reverse", SpinDirection::Reverse);
-        const auto type = world.component<AnimatedSpin>("gameplay.AnimatedSpin")
-                              .member<float>("speed")
-                              .member<bool>("enabled")
-                              .member<SpinDirection>("direction");
+        world.component<SpinSettings>("gameplay.SpinSettings")
+            .member<float>("speed")
+            .member<bool>("enabled")
+            .member<SpinDirection>("direction");
+        const auto type =
+            world.component<AnimatedSpin>("gameplay.AnimatedSpin").member<SpinSettings>("settings");
         ecs_doc_set_name(world, type, "Animated Spin");
-        return host->authoring_type(host->context, type, "project.animated_spin", 2,
-                                    R"({"speed":90,"enabled":true,"direction":1})",
+        return host->authoring_type(host->context, type, "project.animated_spin", 3,
+                                    R"({"settings":{"speed":90,"enabled":true,"direction":1}})",
                                     "Animation example", error, capacity);
     } catch (const std::exception& why) {
         if (capacity)

@@ -4,38 +4,47 @@
   "component_bindings": [
     {
       "admission": {
-        "digest": "2feca2d4be3ddd82173b2a4f53fc4a00c2cf232932064a2ec731818c73bcce26",
+        "digest": "7153189130e3e510f42c13dc876f4d6bccc5d3fc60374461af8b1c6aaf9bb39c",
         "format": "forge.authored-component",
         "module": "project.gameplay",
-        "schema_version": 2,
+        "schema_version": 3,
         "version": 1
       },
       "component": "project.animated_spin",
-      "field": "speed",
+      "field": "settings",
+      "member_path": [
+        "speed"
+      ],
       "value_type": "scalar"
     },
     {
       "admission": {
-        "digest": "2feca2d4be3ddd82173b2a4f53fc4a00c2cf232932064a2ec731818c73bcce26",
+        "digest": "7153189130e3e510f42c13dc876f4d6bccc5d3fc60374461af8b1c6aaf9bb39c",
         "format": "forge.authored-component",
         "module": "project.gameplay",
-        "schema_version": 2,
+        "schema_version": 3,
         "version": 1
       },
       "component": "project.animated_spin",
-      "field": "enabled",
+      "field": "settings",
+      "member_path": [
+        "enabled"
+      ],
       "value_type": "bool"
     },
     {
       "admission": {
-        "digest": "2feca2d4be3ddd82173b2a4f53fc4a00c2cf232932064a2ec731818c73bcce26",
+        "digest": "7153189130e3e510f42c13dc876f4d6bccc5d3fc60374461af8b1c6aaf9bb39c",
         "format": "forge.authored-component",
         "module": "project.gameplay",
-        "schema_version": 2,
+        "schema_version": 3,
         "version": 1
       },
       "component": "project.animated_spin",
-      "field": "direction",
+      "field": "settings",
+      "member_path": [
+        "direction"
+      ],
       "value_type": "int64"
     }
   ],
@@ -51,17 +60,26 @@
             "interpolation": "cubic",
             "outgoing": 0.0
           },
-          "field": "speed",
+          "field": "settings",
+          "member_path": [
+            "speed"
+          ],
           "value": 90.0
         },
         {
           "component": "project.animated_spin",
-          "field": "enabled",
+          "field": "settings",
+          "member_path": [
+            "enabled"
+          ],
           "value": true
         },
         {
           "component": "project.animated_spin",
-          "field": "direction",
+          "field": "settings",
+          "member_path": [
+            "direction"
+          ],
           "value": 1
         }
       ],
@@ -94,17 +112,26 @@
             "interpolation": "cubic",
             "outgoing": 135.0
           },
-          "field": "speed",
+          "field": "settings",
+          "member_path": [
+            "speed"
+          ],
           "value": 180.0
         },
         {
           "component": "project.animated_spin",
-          "field": "enabled",
+          "field": "settings",
+          "member_path": [
+            "enabled"
+          ],
           "value": false
         },
         {
           "component": "project.animated_spin",
-          "field": "direction",
+          "field": "settings",
+          "member_path": [
+            "direction"
+          ],
           "value": 1
         }
       ],
@@ -137,17 +164,26 @@
             "interpolation": "cubic",
             "outgoing": 0.0
           },
-          "field": "speed",
+          "field": "settings",
+          "member_path": [
+            "speed"
+          ],
           "value": 270.0
         },
         {
           "component": "project.animated_spin",
-          "field": "enabled",
+          "field": "settings",
+          "member_path": [
+            "enabled"
+          ],
           "value": true
         },
         {
           "component": "project.animated_spin",
-          "field": "direction",
+          "field": "settings",
+          "member_path": [
+            "direction"
+          ],
           "value": -1
         }
       ],
@@ -180,17 +216,26 @@
             "interpolation": "cubic",
             "outgoing": -135.0
           },
-          "field": "speed",
+          "field": "settings",
+          "member_path": [
+            "speed"
+          ],
           "value": 180.0
         },
         {
           "component": "project.animated_spin",
-          "field": "enabled",
+          "field": "settings",
+          "member_path": [
+            "enabled"
+          ],
           "value": true
         },
         {
           "component": "project.animated_spin",
-          "field": "direction",
+          "field": "settings",
+          "member_path": [
+            "direction"
+          ],
           "value": -1
         }
       ],
@@ -223,17 +268,26 @@
             "interpolation": "cubic",
             "outgoing": 0.0
           },
-          "field": "speed",
+          "field": "settings",
+          "member_path": [
+            "speed"
+          ],
           "value": 90.0
         },
         {
           "component": "project.animated_spin",
-          "field": "enabled",
+          "field": "settings",
+          "member_path": [
+            "enabled"
+          ],
           "value": true
         },
         {
           "component": "project.animated_spin",
-          "field": "direction",
+          "field": "settings",
+          "member_path": [
+            "direction"
+          ],
           "value": 1
         }
       ],
@@ -259,5 +313,5 @@
     }
   ],
   "timebase": 1000000,
-  "version": 7
+  "version": 8
 }

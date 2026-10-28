@@ -29,7 +29,7 @@ void write(ecs_meta_cursor_t& cursor, const Json& schema, const Json& value,
             if (baseline && baseline->at(name) == next)
                 continue;
             checked(ecs_meta_member(&cursor, name.c_str()));
-            write(cursor, field, next, references);
+            write(cursor, field, next, references, baseline ? &baseline->at(name) : nullptr);
         }
         checked(ecs_meta_pop(&cursor));
     } else if (kind == "array" || kind == "vector") {

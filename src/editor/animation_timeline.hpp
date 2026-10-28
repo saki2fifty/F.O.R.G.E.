@@ -943,7 +943,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                         if (value.value("$forge", Json()) != binding.admission)
                             throw std::runtime_error(
                                 "Component animation target schema has changed");
-                        captured_components.at(i) = value.at(binding.field);
+                        captured_components.at(i) = value.at(animation_component_pointer(binding));
                     }
         }
         auto captured_materials = material_fields_;
@@ -1187,16 +1187,18 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             return;
         ui::help("Animate editable scalar fields on the chosen object's C++ components. Floats "
                  "interpolate; Boolean, integer and enum values hold until the next key. Fields "
-                 "require their matching inspected schema. Nested and collection fields are "
-                 "not available here.");
+                 "require their matching inspected schema. Struct leaves are supported; collection "
+                 "elements are not available here.");
         for (const auto& binding : clip_->component_bindings) {
             ui::IdScope component(binding.component.c_str());
-            ui::IdScope field(binding.field.c_str());
-            ImGui::TextWrapped("%s / %s", binding.component.c_str(), binding.field.c_str());
+            ui::IdScope field(animation_component_pointer(binding).to_string().c_str());
+            ImGui::TextWrapped("%s / %s", binding.component.c_str(),
+                               animation_component_label(binding).c_str());
             if (ui::button("Remove field", "Remove this binding and its values from every key.")) {
                 const auto removed = binding;
                 mutate("Remove component animation field", [&](auto& source) {
-                    source.erase_component_field(removed.component, removed.field);
+                    source.erase_component_field(removed.component, removed.field,
+                                                 removed.member_path);
                 });
                 return;
             }
@@ -1218,23 +1220,17 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             if (!type.value("custom", false) || !components.contains(key) ||
                 components.at(key).value("$forge", Json()) != type.at("admission"))
                 continue;
-            for (const auto& field : type.at("fields")) {
-                if (!animation_component_field_supported(field))
+            for (const auto& binding : animation_component_fields(type)) {
+                if (std::find(clip_->component_bindings.begin(), clip_->component_bindings.end(),
+                              binding) != clip_->component_bindings.end())
                     continue;
-                const auto name = field.at("id").get<std::string>();
-                if (std::any_of(
-                        clip_->component_bindings.begin(), clip_->component_bindings.end(),
-                        [&](const auto& b) { return b.component == key && b.field == name; }))
-                    continue;
+                const auto name = animation_component_label(binding);
                 ui::IdScope component_id(key.c_str());
-                ui::IdScope field_id(name.c_str());
-                const auto label = type.at("display_name").get<std::string>() + " / " +
-                                   field.value("display_name", name);
+                ui::IdScope field_id(animation_component_pointer(binding).to_string().c_str());
+                const auto label = type.at("display_name").get<std::string>() + " / " + name;
                 if (ui::button(("Add " + label).c_str(),
                                "Initialize every key from the authored field value.")) {
-                    const AnimationComponentBinding binding{key, name, type.at("admission"),
-                                                            *animation_component_field_type(field)};
-                    const auto value = components.at(key).at(name);
+                    const auto value = components.at(key).at(animation_component_pointer(binding));
                     mutate("Add component animation field",
                            [&](auto& source) { source.add_component_field(binding, value); });
                     return;
@@ -1525,7 +1521,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 label = binding.slot + " / " + material_field_label(binding.key);
             } else {
                 const auto& binding = clip_->component_bindings[index - component_start];
-                label = binding.component + " / " + binding.field;
+                label = binding.component + " / " + animation_component_label(binding);
             }
             draw->AddText(
                 {start.x + 3, start.y + 36 + row * row_height - ImGui::GetTextLineHeight() / 2},
@@ -1764,8 +1760,9 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
         for (std::size_t i = 0; i < clip_->component_bindings.size(); ++i) {
             const auto& binding = clip_->component_bindings[i];
             ui::IdScope component(binding.component.c_str());
-            ui::IdScope field(binding.field.c_str());
-            ImGui::TextWrapped("%s / %s", binding.component.c_str(), binding.field.c_str());
+            ui::IdScope field(animation_component_pointer(binding).to_string().c_str());
+            ImGui::TextWrapped("%s / %s", binding.component.c_str(),
+                               animation_component_label(binding).c_str());
             if (binding.value_type == AnimationComponentValueType::Scalar) {
                 auto value = component_fields_.at(i).get<double>();
                 if (ImGui::InputDouble("Field value", &value, 0, 0, "%.6f"))
@@ -1775,12 +1772,10 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 if (component_schema_.is_object())
                     for (const auto& type : component_schema_.at("components"))
                         if (type.at("id") == binding.component &&
-                            type.value("admission", Json()) == binding.admission)
-                            for (const auto& member : type.at("fields"))
-                                if (member.at("id") == binding.field) {
-                                    field = member;
-                                    field["display_name"] = "Field value";
-                                }
+                            type.value("admission", Json()) == binding.admission) {
+                            field = animation_component_field(type, binding);
+                            field["display_name"] = "Field value";
+                        }
                 field["type"] = binding.value_type == AnimationComponentValueType::Boolean ? "bool"
                                 : binding.value_type == AnimationComponentValueType::SignedInteger
                                     ? "int64"
@@ -1791,7 +1786,8 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                 // field is narrower. Native admission owns its range/enum policy.
                 property_field(document_->project(), field, component_fields_.at(i), false);
             }
-            FORGE_UI_PROBE("animation:component_value:" + binding.component + ":" + binding.field);
+            FORGE_UI_PROBE("animation:component_value:" + binding.component + ":" +
+                           animation_component_label(binding));
             if (binding.value_type != AnimationComponentValueType::Scalar) {
                 ui::help("Held until the next key. Apply with Add / Update key at playhead. "
                          "Integer values retain their exact signed or unsigned storage.");
@@ -1799,15 +1795,17 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
             }
             auto& curve = component_curves_.at(i);
             component_curve_pending_ |= ImGui::Checkbox("Cubic field curve", &curve.cubic);
-            FORGE_UI_PROBE("animation:component_cubic:" + binding.component + ":" + binding.field);
+            FORGE_UI_PROBE("animation:component_cubic:" + binding.component + ":" +
+                           animation_component_label(binding));
             if (curve.cubic) {
                 component_curve_pending_ |=
                     ImGui::InputDouble("Incoming slope", &curve.incoming, 0, 0, "%.6f");
-                FORGE_UI_PROBE("animation:component_in:" + binding.component + ":" + binding.field);
+                FORGE_UI_PROBE("animation:component_in:" + binding.component + ":" +
+                               animation_component_label(binding));
                 component_curve_pending_ |=
                     ImGui::InputDouble("Outgoing slope", &curve.outgoing, 0, 0, "%.6f");
                 FORGE_UI_PROBE("animation:component_out:" + binding.component + ":" +
-                               binding.field);
+                               animation_component_label(binding));
             }
             ui::help("Apply these values and slopes with Add / Update key at playhead. Hold until "
                      "next key takes precedence over the outgoing curve. Slopes use field units "
@@ -1855,7 +1853,7 @@ class AnimationTimelineEditor : public ui::SequenceFrameSource {
                         if (binding.value_type != AnimationComponentValueType::Scalar)
                             continue;
                         source.set_component_curve(added, binding.component, binding.field,
-                                                   component_curves_.at(i));
+                                                   component_curves_.at(i), binding.member_path);
                     }
                 if (!material_edits.empty())
                     source.set_material_curves(added, material_edits);

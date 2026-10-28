@@ -41,8 +41,11 @@ struct AnimationComponentBinding {
     std::string component, field;
     nlohmann::json admission;
     AnimationComponentValueType value_type = AnimationComponentValueType::Scalar;
+    std::vector<std::string> member_path{}; // Struct members below the retained root field.
     bool operator==(const AnimationComponentBinding&) const = default;
 };
+nlohmann::json::json_pointer animation_component_pointer(const AnimationComponentBinding&);
+std::string animation_component_label(const AnimationComponentBinding&);
 struct AnimationComponentKey {
     nlohmann::json value = 0.;
     AnimationPropertyCurve curve;
@@ -100,11 +103,14 @@ struct TransformAnimationSource {
                     std::optional<std::span<const AnimationMaterialValues>> materials = {},
                     std::optional<std::span<const nlohmann::json>> components = {});
     void add_component_field(const AnimationComponentBinding&, const nlohmann::json& initial_value);
-    void erase_component_field(std::string_view component, std::string_view field);
+    void erase_component_field(std::string_view component, std::string_view field,
+                               std::span<const std::string> member_path = {});
     void set_component_value(AssetId key, std::string_view component, std::string_view field,
-                             const nlohmann::json& value);
+                             const nlohmann::json& value,
+                             std::span<const std::string> member_path = {});
     void set_component_curve(AssetId key, std::string_view component, std::string_view field,
-                             const AnimationPropertyCurve&);
+                             const AnimationPropertyCurve&,
+                             std::span<const std::string> member_path = {});
     void add_material_parameter(const AnimationMaterialBinding&, const AnimationMaterialValues&);
     void erase_material_parameter(std::string_view slot, std::string_view parameter);
     void set_material_value(AssetId key, std::string_view slot, std::string_view parameter,

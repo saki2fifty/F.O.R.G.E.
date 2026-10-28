@@ -170,7 +170,19 @@ the next key and reject curves; continuous tracks in the same key retain their
 ordinary timing. New-key sampling, duplication, retiming and cooking preserve exact
 integer values. Promoting source6 rejects any preexisting opaque descriptor
 `value_type` member before adding `scalar` to its existing continuous bindings.
-Legacy source1–6 and cooked1–6 remain readable; publication uses recipev10/cooked7.
+Legacy source1–7 and cooked1–7 remain readable; publication uses recipev11/cooked8.
+
+Source8 adds optional `member_path` arrays on descriptors and key-value rows. Each
+array contains up to16 nonempty stable member IDs below the retained root `field`;
+for example `field: "settings", member_path: ["movement", "speed"]`. An omitted or
+empty path identifies the root field. Component/root/path tuples identify tracks,
+so sibling leaves and same-named leaves under different roots remain distinct.
+Every path ancestor must be an editable struct; collection indices and read-only
+ancestors are rejected. Display labels and native offsets do not define identity.
+Explicit promotion rejects preexisting opaque `member_path` metadata on both legacy
+descriptors and key values. Ordinary edits of legacy sources keep that metadata opaque.
+Nested leaves retain the same scalar/held value categories, curves, complete-key
+sampling, duplication, retiming and source history semantics.
 
 Current editor capability fields are derived through the same primitive classifier
 as clip consumers. The stamped native declaration retains its versioned structure,
@@ -180,20 +192,23 @@ for current edit/animation capabilities; raw declaration structures are admissio
 data. The classifier participates in the exact SDK implementation fingerprint,
 requiring a matching module rebuild without a scene/clip stamp migration.
 
-The current target profile admits editable top-level scalar float32/float64, Boolean
+The current target profile admits editable root and nested struct-leaf float32/float64, Boolean
 and signed/unsigned integer fields, including their declared enum/bitmask domains,
 of an existing opt-in authored C++ component. It verifies the exact admission stamp,
 field presence, read-only policy and reflected member domain, including all cubic
 extrema for continuous fields and every keyed value for discrete fields. The shared
 reflection validator admits native widths/ranges/choices; discrete values never
-pass through double. Nested/collection members and UI/DOM properties are unsupported. AuthoredCodec remains the native owner: read current complete state,
-replace the selected numeric fields, clone the current native value through its
-copy hooks and stage only differing root members,
+pass through double. Collection elements and UI/DOM properties are unsupported. AuthoredCodec remains the native owner: read current complete state,
+replace the selected leaf values, clone the current native value through its
+copy hooks and stage only differing members recursively,
 then apply only after every transform/property/material/component candidate is
 admitted. Other native fields and owned values are preserved, including unreflected state
 that can exist in native layout padding. This is a live-update guarantee;
 unreflected state is not added to Scene snapshots or recovery serialization. No component is
-automatically added. Native storage conversion also applies to copied preview.
+automatically added. Native storage conversion also applies to copied preview. Presentation patches carry
+complete sampled root structs. The shared animation projection merge uses the
+existing reflection-extension owner to preserve opaque nested siblings. Copied sequence preview uses engine-owned metadata without
+project callbacks.
 These native update semantics participate in the existing exact SDK fingerprint;
 project modules require a matching SDK rebuild. Native C ABI signatures and
 component identities remain unchanged.
@@ -412,7 +427,7 @@ changed position and changed scale using selected Windows-target CPU cooks.
 
 The trusted CPU importer `forge.animation.transform` / `forge.animation.transform.v9`
 publishes a root `transform_animation` asset and one `animation.clip` artifact.
-It publishes `forge.transform-clip` version 7, validated by the same bounded
+It publishes `forge.transform-clip` version 8, validated by the same bounded
 parser/evaluator. Previously selected version-1/2/3/4/5 artifacts remain readable without
 rewriting their catalog or DDC records. Runtime and export require the cooked root
 version to match the selected output version. Cooked4/5/6 are versioned envelopes
@@ -440,7 +455,7 @@ channel omitted from the clip preserves the object's current local value.
 The in-development Sprite family adds `forge.sprite_renderer.frame` to the
 existing typed property bindings. Its index is appended; previous binding indices
 retain their meanings. Source3/4/5 and cooked5 retain their existing representation;
-new publication uses recipev10/cooked7, while previously selected cooks remain readable.
+new publication uses recipev11/cooked8, while previously selected cooks remain readable.
 
 Frame values must be whole numbers from0 through268435455. Each target must already
 have a SpriteRenderer whose grid or ordered frame list contains every keyed frame. Runtime
@@ -482,7 +497,7 @@ separate binding lists in the same clip. UI/DOM bindings remain unsupported. Spr
 changing the exact SDK fingerprint; native modules need a matching SDK rebuild.
 ABI1 callback tables remain unchanged.
 Version3 introduced these property values; version4 adds scalar curves. New
-publication uses recipev10 and cooked7 even for a legacy transform-only source.
+publication uses recipev11 and cooked8 even for a legacy transform-only source.
 Selected previous cooks remain readable. Binding indices remain unchanged. Older
 FORGE versions reject unsupported versions or names rather than partially executing clips.
 
