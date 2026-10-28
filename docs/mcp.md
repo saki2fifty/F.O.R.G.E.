@@ -731,6 +731,15 @@ Indices are zero-based and coordinates are relative to the optional image crop.
 Normal target/revision/permission/history rules apply. Sprite image Material and
 texture references retain the existing asset owners.
 
+Both Sprite and Tile Map Renderer discovery include `mip_filter`, with Disabled (0),
+Nearest (1) and Linear (2). Set it through the existing property operations, including
+`forge_property_set_many` when changing frame layout and filtering together.
+Target scope, permissions, revision checks, Undo/Redo and saving remain the normal
+Scene/Prefab contract. Sprite `forge_play_tune` accepts `mip_filter` through the
+same runtime property owner; check the tune acknowledgement before continuing.
+Tile Map Renderer filtering uses authored Scene/Prefab properties. Rendering
+admission and last-good retention follow [Sprites](sprites.md#independent-frame-mip-filtering).
+
 Simple, Sliced and Tiled image_mode values0/1/2 all support trim and clockwise
 storage. Sliced borders use original-canvas pixels and must leave a positive
 center in every entry. Tiled density repeats the full original canvas, including
@@ -818,8 +827,11 @@ dimensions; clients should compare those before applying the returned mapping.
 Returned layout version2 frames include rotated_clockwise, original source
 dimensions and retained offsets; existing reflected property discovery exposes
 the same optional/defaulted members. Transparent trimming keeps one available
-filter ring; stored turns are90 degrees clockwise. Transformed banks require
-image_mode0 (Simple); actual trim requires Blend with depth writes off. Frame
+filter ring; stored turns are90 degrees clockwise. Transformed banks support
+Simple, Sliced and Tiled image modes; Sliced borders use each original canvas.
+Actual trim requires Blend with depth writes off. Frame
 payloads support512 expanded entries in the declared128KiB/8192-element envelope.
 Runtime/Scene/Prefab/history still use their existing owners and validation.
-Packing is one-shot, with no auto-repack or atlas-aware mip claim.
+Packing is one-shot and does not automatically repack changed sources. Optional
+Sprite/Tile Map mip filtering prepares independent frame chains in the renderer;
+the generated source PNG remains an ordinary base image.

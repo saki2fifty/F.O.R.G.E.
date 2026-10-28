@@ -13,8 +13,8 @@ inline void validate_sprite_frame_selection(const PreparedModelDraw& draw,
 // Validate one complete immutable selection before native allocation. Its texture
 // extent is also the authority for per-object atlas rectangles; no second source
 // table, resource key or texture lifetime is introduced.
-inline const TextureData& sprite_source_texture(const PreparedModelDraw& draw,
-                                                bool skinned = false) {
+inline const ResourceLease<TextureAsset>& sprite_source_texture_lease(const PreparedModelDraw& draw,
+                                                                      bool skinned = false) {
     const auto& mesh = draw.mesh.get().mesh;
     if (skinned || draw.mesh.identity().asset != engine_primitive(8).id || draw.has_fallbacks() ||
         mesh.lods.size() != 1 || mesh.lods[0].parts.size() != 1 ||
@@ -33,6 +33,10 @@ inline const TextureData& sprite_source_texture(const PreparedModelDraw& draw,
     if (texture.identity().asset != source.id)
         throw std::invalid_argument("Sprite texture lease identity does not match its material");
     validate_sprite_texture_profile(texture.get());
-    return texture.get();
+    return texture;
+}
+inline const TextureData& sprite_source_texture(const PreparedModelDraw& draw,
+                                                bool skinned = false) {
+    return sprite_source_texture_lease(draw, skinned).get();
 }
 } // namespace forge::asset_detail

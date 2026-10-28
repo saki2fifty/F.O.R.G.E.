@@ -4,7 +4,21 @@
 #include <forge/render_view.hpp>
 #include <stdexcept>
 namespace forge::detail {
+namespace {
+std::uint32_t sprite_mip_filter_value(const Json& source) {
+    if (!source.contains("mip_filter"))
+        return std::uint32_t(SpriteMipFilter::Disabled);
+    const auto& value = source.at("mip_filter");
+    if (!value.is_number_integer() ||
+        (!value.is_number_unsigned() && value.get<std::int64_t>() < 0) ||
+        value.get<std::uint64_t>() > std::uint32_t(SpriteMipFilter::Linear))
+        throw std::invalid_argument("Sprite mip filtering must be Disabled, Nearest or Linear");
+    return value.get<std::uint32_t>();
+}
+} // namespace
 void validate_tile_map_renderer(const TileMapRenderer& value) {
+    if (value.mip_filter > std::uint32_t(SpriteMipFilter::Linear))
+        throw std::invalid_argument("Tile Map mip filtering mode is unsupported");
     for (const auto tint : {value.tint_r, value.tint_g, value.tint_b, value.tint_a})
         if (!std::isfinite(tint) || tint < 0 || tint > 1)
             throw std::invalid_argument("Tile Map tint must be finite linear RGBA in [0,1]");
@@ -19,10 +33,12 @@ Json render_value(const TileMapRenderer& value) {
             {"tint_r", value.tint_r},
             {"tint_g", value.tint_g},
             {"tint_b", value.tint_b},
-            {"tint_a", value.tint_a}};
+            {"tint_a", value.tint_a},
+            {"mip_filter", value.mip_filter}};
 }
 TileMapRenderer tile_map_renderer_value(const Json& source) {
     TileMapRenderer value;
+    value.mip_filter = sprite_mip_filter_value(source);
     if (!source.at("map").is_null())
         value.map.id = source.at("map").get<AssetId>();
     value.enabled = source.at("enabled");
@@ -37,6 +53,8 @@ TileMapRenderer tile_map_renderer_value(const Json& source) {
     return value;
 }
 void validate_sprite_renderer(const SpriteRenderer& value) {
+    if (value.mip_filter > std::uint32_t(SpriteMipFilter::Linear))
+        throw std::invalid_argument("Sprite mip filtering mode is unsupported");
     for (const auto size : {value.width, value.height})
         if (!std::isfinite(size) || size < .0001 || size > 10000)
             throw std::invalid_argument(
@@ -119,7 +137,8 @@ Json render_value(const SpriteRenderer& p) {
             {"region_y", p.region_y},
             {"region_width", p.region_width},
             {"region_height", p.region_height},
-            {"frame_regions", std::move(frames)}};
+            {"frame_regions", std::move(frames)},
+            {"mip_filter", p.mip_filter}};
 }
 std::vector<SpriteFrameRegion> sprite_frame_regions_value(const Json& source) {
     if (!source.is_array() || source.size() > sprite_frame_region_limit)
@@ -132,6 +151,7 @@ std::vector<SpriteFrameRegion> sprite_frame_regions_value(const Json& source) {
 }
 SpriteRenderer sprite_renderer_value(const Json& p) {
     SpriteRenderer value;
+    value.mip_filter = sprite_mip_filter_value(p);
     if (!p.at("material").is_null())
         value.material.id = p.at("material").get<AssetId>();
     value.enabled = p.at("enabled");

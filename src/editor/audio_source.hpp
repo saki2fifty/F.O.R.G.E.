@@ -61,7 +61,8 @@ class AudioSourceEditor {
         if (available)
             ImGui::Text("Overlapping effects: %u / 16", status.value("one_shots", 0u));
         ImGui::BeginDisabled(!ready || pending || (!available && !loading));
-        auto button = [&](const char* label, const char* key, AudioSourceOperation operation) {
+        auto button = [&](const char* label, [[maybe_unused]] const char* key,
+                          AudioSourceOperation operation) {
             if (ui::button(label,
                            operation == AudioSourceOperation::Restart
                                ? "Restart this runtime source from its beginning. Pause with game "

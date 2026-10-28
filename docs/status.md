@@ -1,4 +1,19 @@
-# MCP development source — not included in Build208
+# Current package and local source
+
+The accepted local Windows package is **261024-000213**, source
+`8200738a7055decfafae14b0705c1406cb8ef20f`. Its existing MCP delivery is described
+in the [README](../README.md#current-implementation). No new numbered Windows
+package accompanies the local source changes described here.
+
+Local source adds default-off independent Sprite/Tile frame mip filtering and
+Gallery99. Core/Inspector/MCP, matching installed C++ SDK, software Vulkan,
+source-free content and exact relocated Game images are validated locally.
+Windows/full editor, physical GPU and exported graphical EXE acceptance remain
+separate. The [Sprite contract](sprites.md#independent-frame-mip-filtering) records
+limits and the matching SDK layout requirement. Later sections retain historical
+delivery evidence and do not describe the contents of a new package.
+
+# Early MCP development source — before Build208
 
 MCP connects game-building agents to the actual editor owners for projects,
 settings/recovery, scenes/history, imports/assets, all12 source editors and
@@ -15,10 +30,10 @@ checks use an authentic Windows runtime kit; they do not execute its Windows gam
 Native Windows build/client, GPU capture and full C++-to-Windows-game acceptance
 remain separate delivery gates. See [coverage and validation](mcp.md).
 
-No new Windows ZIP has been produced for this work. Build208 below remains the
-latest accepted package.
+This section records early development before the MCP delivery in Build213.
+Build208 below is an earlier accepted package.
 
-# Current Windows delivery — Build261022-000208
+# Previous Windows delivery — Build261022-000208
 
 The editor and matching C++ SDK ZIP includes Sprite image regions and all78editable
 Gallery scenes. Sprite Renderer can crop an existing image before frame subdivision;

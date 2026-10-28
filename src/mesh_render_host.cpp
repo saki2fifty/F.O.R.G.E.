@@ -10,6 +10,7 @@
 #include "sprite_render_values.hpp"
 #include "tile_map_pick.hpp"
 #include "tile_map_view.hpp"
+#include <forge/asset_build.hpp>
 #include <forge/engine_assets.hpp>
 #include <set>
 namespace forge {
@@ -293,6 +294,67 @@ MeshResourceHost::MeshResourceHost(DiligentPresentation& presentation,
                     EnvironmentRealization{&presentation}),
       gpu_meshes_(presentation.device(), context, 512ull * 1024 * 1024),
       gpu_textures_(presentation.device(), context, 512ull * 1024 * 1024) {}
+MeshResourceHost::SpriteMipIdentity
+MeshResourceHost::sprite_mip_identity(const ResourceIdentity& source,
+                                      const SpriteFrameMipKey& frame) {
+    const nlohmann::json key = {frame.x,
+                                frame.y,
+                                frame.width,
+                                frame.height,
+                                frame.canvas_width,
+                                frame.canvas_height,
+                                frame.trim_x,
+                                frame.trim_y,
+                                frame.rotated_clockwise};
+    return {"sprite-frame:" + asset_build_digest(key),
+            asset_build_digest({{"recipe", "forge.sprite-frame-mips.v1"},
+                                {"source", source.revision},
+                                {"variant", source.variant},
+                                {"frame", key}})};
+}
+ResourceTicket MeshResourceHost::request_sprite_mip(const ResourceLease<TextureAsset>& source,
+                                                    const SpriteFrameMipKey& frame,
+                                                    std::uint64_t byte_limit) {
+    check_thread();
+    (void)sprite_frame_mip_bytes(frame, byte_limit);
+    // Queue incrementally: one bank can have512 entries while this existing
+    // shared pool admits64 pending requests. A full queue is pending, not failure.
+    if (textures_.statistics().pending >= texture_limits_.requests)
+        return {};
+    std::erase_if(sprite_mip_inputs_, [](const auto& entry) { return entry.second.expired(); });
+    const auto input_key = std::pair{source.identity(), frame};
+    std::shared_ptr<const SpriteFrameMipInput> input;
+    if (const auto found = sprite_mip_inputs_.find(input_key); found != sprite_mip_inputs_.end())
+        input = found->second.lock();
+    if (!input) {
+        constexpr std::uint64_t input_limit = 128ull * 1024 * 1024;
+        const auto wanted = std::uint64_t(frame.width) * frame.height * 4;
+        if (wanted > input_limit)
+            throw std::runtime_error("Sprite mip copied pixels exceed their input budget");
+        std::uint64_t retained = 0;
+        for (const auto& [key, weak] : sprite_mip_inputs_) {
+            (void)key;
+            if (const auto value = weak.lock())
+                retained += value->pixels.byte_size();
+        }
+        if (retained > input_limit - wanted)
+            return {};
+        input = std::make_shared<const SpriteFrameMipInput>(
+            copy_sprite_frame_mip_input(source.get(), frame, byte_limit));
+        sprite_mip_inputs_[input_key] = input;
+    }
+    const auto identity = sprite_mip_identity(source.identity(), frame);
+    const auto generation = source.identity().generation;
+    return textures_.request(
+        {source.identity().asset}, identity.revision, generation,
+        [input = std::move(input), byte_limit](std::stop_token stop) {
+            auto image = std::make_unique<TextureData>(
+                prepare_sprite_frame_mips(input->pixels, input->frame, byte_limit, stop));
+            const auto bytes = image->resident_bytes();
+            return ResourceCandidate<TextureAsset>{std::move(image), ResourceMemory{bytes}};
+        },
+        {}, 0, identity.variant);
+}
 void MeshResourceHost::preview_material(AssetRef<MaterialAsset> ref, MaterialResourceData data) {
     check_thread();
     if (!isolated_source_preview_ || !ref.id || epoch_ == UINT64_MAX)
@@ -414,7 +476,7 @@ std::uint64_t MeshSceneRenderer::Entry::pose_bytes() const {
 }
 std::uint64_t MeshSceneRenderer::Entry::material_bytes() const {
     return parameter_bytes(requested_parameters) + parameter_bytes(parameters) +
-           (sprite ? sizeof(SpriteValues) : 0);
+           (sprite ? sprite->metadata_bytes() : 0);
 }
 std::uint64_t MeshSceneRenderer::material_payload_bytes() const {
     host_->check_thread();
@@ -569,7 +631,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         const auto admit_parameters = [&](const auto& requested, const auto& admitted) {
             const auto other = material_resident - previous_material_bytes;
             const auto own = parameter_bytes(requested) + parameter_bytes(admitted) +
-                             (entry.sprite ? sizeof(SpriteValues) : 0);
+                             (entry.sprite ? entry.sprite->metadata_bytes() : 0);
             if (own > material_budget_ - other)
                 throw std::runtime_error("Object material values exceed the scene payload budget");
         };
@@ -582,14 +644,21 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
         };
         bool adopted = false;
         const auto& renderer = mesh.renderer;
+        const bool tile_mips_changed = input.scope == DrawScope::TileMap &&
+                                       input.sprite->mip_filter &&
+                                       (!entry.sprite->mip_candidate ||
+                                        entry.sprite->mip_candidate->definitions !=
+                                            tile_sources_.at(mesh.entity).requested.definitions);
         const bool values_changed =
-            !entry.parameters_checked ||
+            tile_mips_changed || !entry.parameters_checked ||
             !detail::same_material_parameter_values(entry.requested_parameters,
                                                     renderer.material_parameters) ||
             (input.sprite && (!entry.sprite->checked || entry.sprite->requested != *input.sprite));
         bool parameters_observed = true;
         if (values_changed)
             try {
+                if (entry.sprite)
+                    entry.sprite->mip_pending = false;
                 detail::validate_material_parameter_overrides(renderer.material_parameters);
                 if (input.sprite)
                     detail::validate_sprite_renderer(*input.sprite);
@@ -612,6 +681,10 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                                       entry.overrides != renderer.materials ||
                                       entry.variant != renderer.material_variant;
         if (resource_changed) {
+            if (entry.sprite) {
+                entry.sprite->mip_pending = false;
+                entry.sprite->mip_candidate.reset();
+            }
             entry.resource_current = false;
             entry.candidate.reset();
             entry.candidate_geometry.reset();
@@ -647,6 +720,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     admit_parameters(entry.requested_parameters, parameters);
                     parameters_validated = true;
                     std::optional<SpriteDrawValues> sprite_values;
+                    std::shared_ptr<SpriteMipBank> sprite_mips;
                     std::uint32_t texture_width = 0, texture_height = 0;
                     auto draw_mesh = mesh;
                     if (input.sprite) {
@@ -657,6 +731,15 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         texture_height = source.height;
                         sprite_values = sprite_draw_values(entry.sprite->requested, texture_width,
                                                            texture_height);
+                        sprite_mips = prepare_sprite_mips(entry, *candidate, mesh.entity,
+                                                          input.scope, input.image);
+                        if (sprite_mips) {
+                            const auto& key =
+                                sprite_mips->plan.frames.at(entry.sprite->requested.frame);
+                            sprite_values = sprite_canvas_draw_values(
+                                entry.sprite->requested, key.canvas_width, key.canvas_height);
+                        }
+                        admit_parameters(entry.requested_parameters, parameters);
                         draw_mesh.world =
                             sprite_world_transform(entry.sprite->requested, mesh.world);
                     }
@@ -667,9 +750,10 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         prepare_mesh_instance_pose(candidate->mesh.get(), *entry.candidate_geometry,
                                                    draw_mesh, model_index, available());
                     pose_validated = true;
-                    auto native = prepare_bundle(*candidate, pose.skinned, entry.candidate_geometry,
-                                                 input.sprite ? MeshDrawProfile::Sprite
-                                                              : MeshDrawProfile::Mesh);
+                    auto native = prepare_bundle(
+                        *candidate, pose.skinned, entry.candidate_geometry,
+                        input.sprite ? sprite_draw_profile(entry.sprite->requested.mip_filter)
+                                     : MeshDrawProfile::Mesh);
                     native->prepare_material_parameters(parameters);
                     std::vector<float> thresholds;
                     for (const auto& lod : candidate->mesh->mesh.lods)
@@ -686,6 +770,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         entry.sprite->texture_width = texture_width;
                         entry.sprite->texture_height = texture_height;
                         entry.sprite->ready = true;
+                        entry.sprite->mips = std::move(sprite_mips);
                     }
                     entry.thresholds = std::move(thresholds);
                     entry.error = entry.candidate->diagnostic();
@@ -695,6 +780,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                     entry.candidate.reset();
                     entry.candidate_geometry.reset();
                     changed = true;
+                } catch (const SpriteMipsPending&) {
+                    // Keep the old complete draw while shared workers finish.
                 } catch (const DrawCapacityError& e) {
                     entry.error = e.what(); // Retry when another bundle releases capacity.
                 } catch (const std::exception& e) {
@@ -726,7 +813,8 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
             }
         }
         if (entry.ready && entry.resource_current && !adopted &&
-            (values_changed || (input.sprite && !entry.parameter_error.empty())) &&
+            (values_changed ||
+             (input.sprite && (!entry.parameter_error.empty() || entry.sprite->mip_pending))) &&
             parameters_observed) {
             try {
                 auto parameters = asset_detail::prepare_model_material_parameters(
@@ -734,12 +822,27 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                 admit_parameters(entry.requested_parameters, parameters);
                 std::optional<SpriteDrawValues> sprite_values;
                 std::optional<MeshInstancePose> sprite_pose;
+                std::shared_ptr<SpriteMipBank> sprite_mips;
+                auto native = entry.ready;
                 if (input.sprite) {
                     asset_detail::validate_sprite_frame_selection(entry.ready->prepared(),
                                                                   entry.sprite->requested);
                     sprite_values =
                         sprite_draw_values(entry.sprite->requested, entry.sprite->texture_width,
                                            entry.sprite->texture_height);
+                    sprite_mips = prepare_sprite_mips(entry, entry.ready->prepared(), mesh.entity,
+                                                      input.scope, input.image);
+                    if (sprite_mips) {
+                        const auto& key =
+                            sprite_mips->plan.frames.at(entry.sprite->requested.frame);
+                        sprite_values = sprite_canvas_draw_values(
+                            entry.sprite->requested, key.canvas_width, key.canvas_height);
+                    }
+                    admit_parameters(entry.requested_parameters, parameters);
+                    const auto profile = sprite_draw_profile(entry.sprite->requested.mip_filter);
+                    if (profile != native->profile())
+                        native = prepare_bundle(entry.ready->prepared(), false,
+                                                entry.ready->geometry_owner(), profile);
                     auto draw_mesh = mesh;
                     draw_mesh.world = sprite_world_transform(entry.sprite->requested, mesh.world);
                     if (draw_mesh.world != entry.pose.world || !entry.pose_error.empty()) {
@@ -751,21 +854,25 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                                 "Sprite pose must remain static Quad geometry");
                     }
                 }
-                entry.ready->prepare_material_parameters(parameters);
+                native->prepare_material_parameters(parameters);
                 changed |= !detail::same_material_parameter_values(entry.parameters, parameters);
                 entry.parameters = std::move(parameters);
+                entry.ready = std::move(native);
                 if (sprite_values) {
                     changed |= entry.sprite->admitted != entry.sprite->requested ||
                                (sprite_pose && entry.pose != *sprite_pose);
                     entry.sprite->admitted = entry.sprite->requested;
                     entry.sprite->draw = *sprite_values;
                     entry.sprite->ready = true;
+                    entry.sprite->mips = std::move(sprite_mips);
                     if (sprite_pose)
                         entry.pose = std::move(*sprite_pose);
                     entry.pose_error.clear();
                     adopted = true;
                 }
                 entry.parameter_error.clear();
+            } catch (const SpriteMipsPending&) {
+                // Numeric intent is retained until its complete bank is ready.
             } catch (const std::exception& error) {
                 entry.parameter_error = error.what();
             }
@@ -792,7 +899,7 @@ bool MeshSceneRenderer::update(const RenderScene& scene) {
                         entry.failed_skin_mode = pose.skinned;
                         auto native = prepare_bundle(
                             entry.ready->prepared(), pose.skinned, entry.ready->geometry_owner(),
-                            input.sprite ? MeshDrawProfile::Sprite : MeshDrawProfile::Mesh);
+                            input.sprite ? entry.ready->profile() : MeshDrawProfile::Mesh);
                         native->prepare_material_parameters(entry.parameters);
                         entry.ready = std::move(native);
                     }
@@ -919,8 +1026,9 @@ bool MeshSceneRenderer::pending() const {
                                    [](const auto& row) { return row.second.pending; });
     return particles || tiles || environment_candidate_.has_value() ||
            std::any_of(entries_.begin(), entries_.end(), [](const auto& pair) {
-               return pair.second.candidate &&
-                      pair.second.candidate->state() == ResourceState::Loading;
+               return (pair.second.sprite && pair.second.sprite->mip_pending) ||
+                      (pair.second.candidate &&
+                       pair.second.candidate->state() == ResourceState::Loading);
            });
 }
 void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
@@ -941,6 +1049,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
         const SpriteDrawValues* sprite = nullptr;
         DrawScope scope = DrawScope::Mesh;
         const AffineTransform* world = nullptr;
+        const GpuLease<TextureAsset>* mip = nullptr;
     };
     struct Item {
         RenderSortKey key;
@@ -975,6 +1084,11 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 if (!entry.sprite || !entry.sprite->ready)
                     throw std::runtime_error("Sprite has no complete admitted draw values");
                 object.sprite = &entry.sprite->draw;
+                if (entry.sprite->mips) {
+                    const auto& bank = *entry.sprite->mips;
+                    object.mip =
+                        &bank.frames.at(bank.plan.frames.at(entry.sprite->admitted.frame)).image;
+                }
             }
             for (const auto& light : scene.lights)
                 if (!object.sprite && (light.light.layers & mesh.renderer.layers & layers)) {
@@ -1102,8 +1216,27 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                                 auto numeric =
                                     tile_draw_values(*source.definitions, cell.tile, cell.flags,
                                                      image.width, image.height, source.color);
-                                values =
-                                    source.values.emplace(key, std::move(numeric.sprite)).first;
+                                TileDrawSource::Values prepared{std::move(numeric.sprite)};
+                                if (image.mips) {
+                                    const auto region = sprite_grid_region(
+                                        image.width, image.height,
+                                        source.definitions->image(definition.image).grid,
+                                        definition.frame);
+                                    const SpriteFrameMipKey frame{region.x,
+                                                                  region.y,
+                                                                  region.width,
+                                                                  region.height,
+                                                                  region.width,
+                                                                  region.height,
+                                                                  0,
+                                                                  0,
+                                                                  false};
+                                    prepared.mip = &image.mips->frames.at(frame).image;
+                                    prepared.sprite.region = sprite_region_mapping(
+                                        {0, 0, region.width, region.height}, region.width,
+                                        region.height, bool(cell.flags & 1), bool(cell.flags & 2));
+                                }
+                                values = source.values.emplace(key, std::move(prepared)).first;
                             }
                             tile_worlds_.push_back(
                                 world); // Capacity reserved before storing any pointers.
@@ -1111,7 +1244,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                             Object object{&image.mesh, image.bundle.get(), nullptr, {}, 0, {}, {}};
                             object.scope = DrawScope::TileMap;
                             object.world = &tile_worlds_.back();
-                            object.sprite = &values->second;
+                            object.sprite = &values->second.sprite;
+                            object.mip = values->second.mip;
                             RenderSortKey sort{part.alpha,
                                                transform_parity(world),
                                                part.material,
@@ -1193,6 +1327,8 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 const auto& next_item = queue[cursor];
                 const auto& next = objects[next_item.object];
                 if (next.bundle != object.bundle || next.lod != object.lod ||
+                    bool(next.mip) != bool(object.mip) ||
+                    (object.mip && next.mip->source() != object.mip->source()) ||
                     next_item.key.part != item.key.part ||
                     next_item.key.parity != item.key.parity ||
                     next_item.key.alpha != item.key.alpha || next_item.transmission ||
@@ -1216,7 +1352,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                 count > 1 ? std::span<const MeshDraw::Instance>(batch.data(), count)
                           : std::span<const MeshDraw::Instance>{},
                 slot_parameters(object.parameters, object.bundle->slot(object.lod, item.key.part)),
-                object.sprite, &scene.settings.distance_fog);
+                object.sprite, &scene.settings.distance_fog, object.mip);
             ++draw_stats_.calls;
             draw_stats_.instances += count;
             draw_stats_.batched_calls += count > 1;
@@ -1238,7 +1374,7 @@ void MeshSceneRenderer::draw(const RenderScene& scene, const CameraView& camera,
                         &shadows_->lighting(), single.shadow_slots, nullptr, single.pose, {},
                         slot_parameters(single.parameters,
                                         single.bundle->slot(single.lod, failed_item.key.part)),
-                        single.sprite, &scene.settings.distance_fog);
+                        single.sprite, &scene.settings.distance_fog, single.mip);
                     ++draw_stats_.calls;
                     ++draw_stats_.instances;
                 } catch (const std::exception& error) {

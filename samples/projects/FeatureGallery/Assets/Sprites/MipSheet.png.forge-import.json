@@ -1,0 +1,52 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "a72711a84ab8aba2fcd68c6e2ac7fa005f4b3e86dcae32d1b171e06b00773837",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "nearest",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": false,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "clamp"
+    },
+    "settings_version": 1,
+    "source": "1ba7a10419ce23dcca8e35ffaa2319ff0696e76e4d387853a23b4d61fd99e0ed",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "5f588fca-5561-4a17-acbe-87605c287b71",
+    "source": "Assets/Sprites/MipSheet.png",
+    "source_digest": "1ba7a10419ce23dcca8e35ffaa2319ff0696e76e4d387853a23b4d61fd99e0ed",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {
+      "filter": "nearest",
+      "mips": false,
+      "wrap": "clamp"
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

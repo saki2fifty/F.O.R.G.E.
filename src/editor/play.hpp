@@ -803,7 +803,6 @@ class PlaySession {
         if (!process_)
             return;
         const auto diag_now = SDL_GetTicks();
-        const auto diag_gap = last_diag_ticks_ ? (diag_now - last_diag_ticks_) : Uint64{0};
         last_diag_ticks_ = diag_now;
         const bool diag = sdk_diag_open();
         try {

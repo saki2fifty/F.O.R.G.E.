@@ -50,7 +50,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
                    SHADER_COMPILER compiler, SHADER_OPTIMIZATION_LEVEL optimization,
                    const MaterialShaderSnapshot* surface, MeshDrawProfile draw_profile)
     : mesh_(mesh), shadow_pass_(color_format == TEX_FORMAT_UNKNOWN),
-      sprite_(draw_profile == MeshDrawProfile::Sprite) {
+      sprite_(sprite_draw_profile(draw_profile)),
+      sprite_mips_(sprite_draw_mip_filter(draw_profile).has_value()) {
     require(draw_profile == MeshDrawProfile::Mesh || sprite_, "unknown draw profile");
     require(!sprite_ || !surface, "Sprite draw profile does not admit custom surfaces");
     sprite_trim_allowed_ = sprite_trim_material_compatible(source);
@@ -84,8 +85,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
         if (surface->program.surface->physically_based)
             program.material = material_shader(*profile, fetch.uv_sets, sampler_binding);
     } else
-        program =
-            mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {}, sprite_);
+        program = mesh_draw_shader(fetch, *profile, shadow_pass_, sampler_binding, nullptr, {},
+                                   sprite_, sprite_draw_mip_filter(draw_profile));
     const auto& material = program.material;
     auto compile = [&](SHADER_TYPE stage, const std::string& code) {
         ShaderCreateInfo ci;
@@ -230,6 +231,10 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
     std::vector<ShaderResourceVariableDesc> resource_variables{
         {SHADER_TYPE_VERTEX, "g_MeshVertices", SHADER_RESOURCE_VARIABLE_TYPE_MUTABLE,
          SHADER_VARIABLE_FLAG_NO_DYNAMIC_BUFFERS}};
+    if (sprite_mips_)
+        for (const auto& slot : material.textures)
+            resource_variables.push_back({SHADER_TYPE_PIXEL, slot.texture_variable.c_str(),
+                                          SHADER_RESOURCE_VARIABLE_TYPE_DYNAMIC});
     if (material_immutable_)
         resource_variables.push_back(
             {SHADER_TYPE_PIXEL, material_surface_ ? "ForgeSurfaceMaterial" : "ForgeMaterialValues",
@@ -401,6 +406,8 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             }
         }
         for (const auto& slot : material.textures) {
+            if (sprite_mips_)
+                continue; // The complete derived frame is bound immediately before drawing.
             const auto found = textures.find(slot.role);
             require(found != textures.end() && found->second,
                     "texture resource unavailable: " + slot.role);
@@ -408,6 +415,17 @@ MeshDraw::MeshDraw(DiligentPresentation& presentation, IDeviceContext* context,
             require(desc.Type == RESOURCE_DIM_TEX_2D, "material texture requires a 2D resource");
             bind(SHADER_TYPE_PIXEL, slot.texture_variable.c_str(), found->second, false);
         }
+    }
+}
+void MeshDraw::bind_sprite_mip(ITextureView* view) {
+    require(sprite_mips_ && view, "Sprite mip draw requires a complete filtered frame");
+    const auto& desc = view->GetTexture()->GetDesc();
+    require(desc.Type == RESOURCE_DIM_TEX_2D && desc.Format == TEX_FORMAT_RGBA16_FLOAT,
+            "Sprite mip draw requires its linear premultiplied frame texture");
+    for (auto& binding : bindings_) {
+        auto* variable = binding->GetVariableByName(SHADER_TYPE_PIXEL, "g_MaterialTexture0");
+        require(variable, "Sprite mip color binding is unavailable");
+        variable->Set(view);
     }
 }
 void MeshDraw::bind_environment(const GpuEnvironment* maps) {

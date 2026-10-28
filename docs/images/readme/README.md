@@ -1,5 +1,25 @@
 # README screenshots
 
+## Sprite frame filtering
+
+[Controls](../../../manual/images/sprite-mip-filtering-controls.png) is the complete
+760×1000 native Inspector render from `tests/sprite_editor_tests.cpp --capture`,
+captured locally on 2026-10-28 from work based on d33c848. It calls the production
+Inspector with actual reflected fields, ImGui, the pinned SDL software renderer
+and Lato. An unassigned Material isolates the controls in this fixture. Separate
+input tests exercise mip selection, Undo/Redo and live authored isolation at
+100/150/200 percent. The PNG is copied unchanged from the actual renderer.
+
+[Game image](../../../manual/images/sprite-frame-filtering.png) is the complete
+640×360 Gallery99 Game output from `tests/sprite_mip_gallery_render_tests.hpp`
+through Engine/Scene, RuntimeSimulation, resource workers, FrameRenderer and the
+actual display pipeline. The pinned Diligent Vulkan backend used local llvmpipe;
+portrait 360×640 output was also visually reviewed. Conversion from the original
+P6 capture to PNG preserves every RGB byte. No overlays or controls were painted
+onto either image. These captures establish local software rendering and control
+layout; Windows/full editor, physical GPU and graphical export acceptance are
+recorded separately.
+
 ## Distance fog
 
 [Controls](../../../manual/images/distance-fog-controls.png) is the complete

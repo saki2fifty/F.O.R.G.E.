@@ -12,6 +12,7 @@ int32_t FORGE_SDK_CALL schema(const ForgeSdkWorldV1* host, char* error, uint32_t
     try {
         flecs::world world(host->world);
         world.component<forge::SpriteRenderer>("forge.sprite_renderer");
+        world.component<forge::TileMapRenderer>("forge.tile_map_renderer");
         const auto type = world.component<SpriteImageProbe>("project.SpriteImageProbe")
                               .member<std::uint32_t>("ticks");
         return host->authoring_type(host->context, type, "project.sprite_image_probe", 1,
@@ -27,12 +28,19 @@ int32_t FORGE_SDK_CALL start(const ForgeSdkWorldV1* host, char*, uint32_t) {
     world.system<SpriteImageProbe>("project.ChangeSpriteImageFill")
         .kind(host->fixed_phase)
         .write<forge::SpriteRenderer>()
+        .write<forge::TileMapRenderer>()
         .each([](flecs::entity actor, SpriteImageProbe& probe) {
             ++probe.ticks;
             if (probe.ticks > 5 || !actor.has<forge::SpriteRenderer>())
                 return;
             auto image = actor.get<forge::SpriteRenderer>();
             const auto phase = probe.ticks % 3;
+            if (actor.has<forge::TileMapRenderer>()) {
+                auto tiles = actor.get<forge::TileMapRenderer>();
+                tiles.mip_filter = phase;
+                actor.set(tiles);
+            }
+            image.mip_filter = phase;
             image.image_mode = std::uint32_t(phase == 1   ? forge::SpriteImageMode::Sliced
                                              : phase == 2 ? forge::SpriteImageMode::Tiled
                                                           : forge::SpriteImageMode::Simple);

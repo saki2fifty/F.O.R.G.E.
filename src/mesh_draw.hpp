@@ -37,6 +37,7 @@ class MeshDraw {
     void bind_environment(const GpuEnvironment*);
     void bind_shadows(const ShadowLighting*);
     void bind_transmission(const TransmissionLighting*);
+    void bind_sprite_mip(Diligent::ITextureView*);
     // Detached storage preparation before adopting new values. No SRB changes
     // or object-value publication. Returns whether this pass consumes a value.
     bool prepare_object_material_values(std::span<const MaterialParameterOverride>,
@@ -67,7 +68,7 @@ class MeshDraw {
     Diligent::RefCntAutoPtr<Diligent::ITextureView> black_background_;
     bool shadow_pass_{};
     bool fog_supported_ = true;
-    bool sprite_{}, sprite_trim_allowed_{};
+    bool sprite_{}, sprite_trim_allowed_{}, sprite_mips_{};
     bool lights_active_{};
     float volume_thickness_{};
     Diligent::RefCntAutoPtr<Diligent::IBuffer> morph_weights_, skin_, instances_;

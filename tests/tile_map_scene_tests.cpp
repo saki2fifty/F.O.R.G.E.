@@ -61,6 +61,7 @@ void workflow(const std::filesystem::path& root) {
          std::vector<std::pair<std::string, Json>>{{"map", map},
                                                    {"layers", std::uint32_t(0x80000000)},
                                                    {"order", INT32_MIN},
+                                                   {"mip_filter", 2},
                                                    {"tint_a", .5}})
         authoring_command(scene, "property.set",
                           {{"entity", actor},
@@ -72,9 +73,17 @@ void workflow(const std::filesystem::path& root) {
     scene.reset(source);
     const auto typed = scene.entity(actor.str()).get<TileMapRenderer>();
     require(typed.map.id == map && typed.layers == 0x80000000 && typed.order == INT32_MIN &&
-                typed.tint_a == .5f,
+                typed.tint_a == .5f && typed.mip_filter == std::uint32_t(SpriteMipFilter::Linear),
             "Tile Map source and native component disagree");
     const auto authored = scene.document();
+    {
+        auto old = authored;
+        old["entities"][0]["components"]["forge.tile_map_renderer"].erase("mip_filter");
+        Scene legacy(engine.world());
+        legacy.reset(old);
+        require(legacy.entity(actor.str()).get<TileMapRenderer>().mip_filter == 0,
+                "An existing Tile Map enabled mip filtering without an authored choice");
+    }
     const std::array documents{AssetReferenceDocument{"Map.scene.json", authored}};
     const auto impact = inspect_asset_references(scene.schema(), documents, {map});
     require(impact.references.size() == 1 &&
@@ -99,6 +108,11 @@ void workflow(const std::filesystem::path& root) {
             "Tile Map projection lost double transforms, reflection or selection intent");
     for (const auto& [field, value] :
          std::vector<std::pair<std::string, Json>>{{"tint_a", 2},
+                                                   {"mip_filter", 3},
+                                                   {"mip_filter", -1},
+                                                   {"mip_filter", .5},
+                                                   {"mip_filter", true},
+                                                   {"mip_filter", std::uint64_t(1) << 32},
                                                    {"tint_r", -1},
                                                    {"order", std::uint64_t(INT32_MAX) + 1},
                                                    {"layers", -1}}) {

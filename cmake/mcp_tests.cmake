@@ -39,7 +39,7 @@ if(BUILD_TESTING AND (FORGE_BUILD_EDITOR OR FORGE_BUILD_MCP_EDITOR_TESTS))
  target_link_libraries(forge_ui_input_tests PRIVATE forge_ui_presenter forge_authoring RmlUi::Core SDL3::SDL3 imgui forge_game_platform forge_play_transport_worker forge_tile_map_play_receiver)
  add_test(NAME runtime_ui_input COMMAND forge_ui_input_tests $<TARGET_FILE:forge_runtime> "${PROJECT_SOURCE_DIR}/resources/ui/LatoLatin-Regular.ttf" "${CMAKE_BINARY_DIR}/ui-input-data")
  # The same Sprite/Timeline owners run in the editor and portable CPU fixtures.
- add_executable(forge_sprite_editor_tests tests/sprite_editor_tests.cpp)
+ add_executable(forge_sprite_editor_tests tests/sprite_editor_tests.cpp "${_forge_atlas_imgui_root}/backends/imgui_impl_sdlrenderer3.cpp")
  target_include_directories(forge_sprite_editor_tests PRIVATE src src/editor)
  target_compile_definitions(forge_sprite_editor_tests PRIVATE FORGE_UI_FIXTURE UNICODE _UNICODE NOMINMAX)
  target_link_libraries(forge_sprite_editor_tests PRIVATE forge_material_authoring forge_texture_authoring imgui SDL3::SDL3)

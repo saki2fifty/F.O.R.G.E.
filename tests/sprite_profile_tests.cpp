@@ -1,3 +1,4 @@
+#include "sprite_frame_mip_tests.hpp"
 #include "sprite_resource_fixture.hpp"
 #include <iostream>
 #include <limits>
@@ -20,6 +21,7 @@ template <class F> void rejects(F run) {
 } // namespace
 int main() {
     try {
+        test_sprite_frame_mip_pixels();
         test_sprite_resources::Fixture fixture;
         const auto& original = fixture.draw;
         const auto mesh_key = prepared_model_draw_key(original, false);

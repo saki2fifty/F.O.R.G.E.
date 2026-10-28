@@ -52,6 +52,7 @@ struct MeshRenderer {
 // World-space XY image/sheet. Material owns texture/sampler/alpha/depth intent;
 // these numeric values introduce no resource, simulation clock or hierarchy.
 enum class SpriteImageMode : std::uint32_t { Simple, Sliced, Tiled };
+enum class SpriteMipFilter : std::uint32_t { Disabled, Nearest, Linear };
 struct SpriteRenderer {
     AssetRef<MaterialAsset> material;
     bool enabled = true, visible = true, flip_x = false, flip_y = false;
@@ -70,6 +71,8 @@ struct SpriteRenderer {
     std::uint32_t region_x = 0, region_y = 0, region_width = 0, region_height = 0;
     // Empty uses the uniform grid. Otherwise frame indexes this ordered region list.
     std::vector<SpriteFrameRegion> frame_regions;
+    // Off retains base-level sampling. Enabled modes filter independent frames.
+    std::uint32_t mip_filter = std::uint32_t(SpriteMipFilter::Disabled);
     bool operator==(const SpriteRenderer&) const = default;
 };
 // One sparse map asset in the ordinary hierarchy. Cell sizes/layers/definitions
@@ -80,6 +83,7 @@ struct TileMapRenderer {
     std::uint32_t layers = UINT32_MAX;
     std::int32_t order = 0;
     float tint_r = 1, tint_g = 1, tint_b = 1, tint_a = 1;
+    std::uint32_t mip_filter = std::uint32_t(SpriteMipFilter::Disabled);
     bool operator==(const TileMapRenderer&) const = default;
 };
 // Authored emitter values only. Effect resources, fixed-clock age and transient

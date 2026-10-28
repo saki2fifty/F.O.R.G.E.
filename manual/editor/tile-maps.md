@@ -31,6 +31,14 @@ Map Renderer and use **Assign to selected Tile Map Renderer**. Save the Scene.
 Cell width and height use local meters; ordinary entity transforms position,
 rotate, scale or mirror the complete map. Coordinates may be negative.
 
+To filter small or distant cells, select the Map entity and set **Mip filtering**
+in **Tile Map Renderer** to **Nearest** or **Linear**. Nearest selects one smaller
+image level; Linear blends adjacent levels. Disabled is the default. Each defined
+tile frame is filtered independently, so neighboring atlas frames stay separate.
+Save the Scene or Prefab before exporting. Each used Tile Set image supports up
+to 512 filtered frames; large image banks can exceed the resource budget. A failed
+replacement keeps the last complete working map and reports the problem.
+
 Changing a set's sheet grid or definitions requires saving/publishing the set and
 then the affected map. A failed publication retains the last working result and
 reports the problem. The built-in profile supports up to 262144 occupied cells,

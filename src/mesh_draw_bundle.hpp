@@ -40,7 +40,8 @@ class MeshDrawBundle {
                    const MeshInstancePose* pose = nullptr,
                    std::span<const MeshDraw::Instance> instances = {},
                    std::span<const MaterialParameterOverride> parameters = {},
-                   const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr);
+                   const SpriteDrawValues* sprite = nullptr, const SceneDistanceFog* fog = nullptr,
+                   const GpuLease<TextureAsset>* sprite_mip = nullptr);
     std::string_view slot(unsigned lod, unsigned part) const {
         return prepared_.selection.bindings.at(info_.at(lod).at(part).binding).key;
     }
@@ -66,6 +67,7 @@ class MeshDrawBundle {
     EnvironmentLease environment_;
     GpuLease<MeshAsset> mesh_;
     std::map<asset_detail::DrawTextureKey, GpuLease<TextureAsset>> textures_;
+    GpuLease<TextureAsset> sprite_mip_; // Lives longer than SRBs retaining its native view.
     std::vector<std::string> unresolved_;
     std::vector<std::vector<PartInfo>> info_;
     std::vector<std::vector<std::unique_ptr<MeshDraw>>> lods_;

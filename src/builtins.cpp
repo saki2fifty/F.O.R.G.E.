@@ -797,7 +797,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<float>("tint_r")
             .template member<float>("tint_g")
             .template member<float>("tint_b")
-            .template member<float>("tint_a");
+            .template member<float>("tint_a")
+            .template member<std::uint32_t>("mip_filter");
         for (const auto& [name, offset] :
              {std::pair{"map", offsetof(TileMapRenderer, map)},
               std::pair{"enabled", offsetof(TileMapRenderer, enabled)},
@@ -807,7 +808,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"tint_r", offsetof(TileMapRenderer, tint_r)},
               std::pair{"tint_g", offsetof(TileMapRenderer, tint_g)},
               std::pair{"tint_b", offsetof(TileMapRenderer, tint_b)},
-              std::pair{"tint_a", offsetof(TileMapRenderer, tint_a)}}) {
+              std::pair{"tint_a", offsetof(TileMapRenderer, tint_a)},
+              std::pair{"mip_filter", offsetof(TileMapRenderer, mip_filter)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), name);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("TileMapRenderer native Meta disagrees with typed layout");
@@ -914,7 +916,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
             .template member<std::uint32_t>("region_y")
             .template member<std::uint32_t>("region_width")
             .template member<std::uint32_t>("region_height")
-            .template member<std::vector<SpriteFrameRegion>>("frame_regions");
+            .template member<std::vector<SpriteFrameRegion>>("frame_regions")
+            .template member<std::uint32_t>("mip_filter");
         for (const auto& [field, offset] :
              {std::pair{"material", offsetof(SpriteRenderer, material)},
               std::pair{"enabled", offsetof(SpriteRenderer, enabled)},
@@ -949,7 +952,8 @@ template <class T> flecs::entity register_type(flecs::world& w, const char* name
               std::pair{"region_y", offsetof(SpriteRenderer, region_y)},
               std::pair{"region_width", offsetof(SpriteRenderer, region_width)},
               std::pair{"region_height", offsetof(SpriteRenderer, region_height)},
-              std::pair{"frame_regions", offsetof(SpriteRenderer, frame_regions)}}) {
+              std::pair{"frame_regions", offsetof(SpriteRenderer, frame_regions)},
+              std::pair{"mip_filter", offsetof(SpriteRenderer, mip_filter)}}) {
             const auto* member = ecs_struct_get_member(w.c_ptr(), c.id(), field);
             if (!member || std::size_t(member->offset) != offset)
                 throw std::runtime_error("SpriteRenderer native Meta disagrees with typed layout");
@@ -2355,6 +2359,14 @@ Json registration_options(const Builtin& type, const std::string& field) {
             value["description"] = field == "enabled" ? "Load this document during Play"
                                                       : "Show this document during Play";
     }
+    if ((name == "forge.sprite_renderer" || name == "forge.tile_map_renderer") &&
+        field == "mip_filter") {
+        value["display_name"] = "Mip filtering";
+        value["minimum"] = 0;
+        value["maximum"] = 2;
+        value["description"] =
+            "Disabled keeps base pixels; Nearest or Linear filters independent frame mip levels";
+    }
     if (name == "forge.sprite_renderer") {
         if (field == "frame_regions") {
             value["display_name"] = "Frame regions";
@@ -2603,6 +2615,10 @@ ecs_entity_t builtin_enum(flecs::world& world, const std::string& component,
     } else if (component == "forge.sprite_renderer" && field == "image_mode") {
         type = "forge.SpriteImageMode";
         names = {"Simple", "Sliced", "Tiled"};
+    } else if ((component == "forge.sprite_renderer" || component == "forge.tile_map_renderer") &&
+               field == "mip_filter") {
+        type = "forge.SpriteMipFilter";
+        names = {"Disabled", "Nearest", "Linear"};
     } else if (component == "forge.light" && field == "kind") {
         type = "forge.LightKind";
         names = {"Directional", "Point", "Spot"};
@@ -2941,11 +2957,14 @@ Json admitted_builtin_source(const Builtin& type, const Json& source) {
             if (!current.contains(field))
                 current[field] = value;
     if (std::string_view(type.name) == "forge.sprite_renderer")
-        for (const auto* field : {"image_mode", "pixels_per_meter", "border_left", "border_right",
-                                  "border_top", "border_bottom", "region_enabled", "region_x",
-                                  "region_y", "region_width", "region_height", "frame_regions"})
+        for (const auto* field :
+             {"image_mode", "pixels_per_meter", "border_left", "border_right", "border_top",
+              "border_bottom", "region_enabled", "region_x", "region_y", "region_width",
+              "region_height", "frame_regions", "mip_filter"})
             if (!current.contains(field))
                 current[field] = type.defaults.at(field);
+    if (std::string_view(type.name) == "forge.tile_map_renderer" && !current.contains("mip_filter"))
+        current["mip_filter"] = type.defaults.at("mip_filter");
     if (std::string_view(type.name) == "forge.transform_animator")
         for (const auto* field : {"sequence", "sequence_start_seconds"})
             if (!current.contains(field))

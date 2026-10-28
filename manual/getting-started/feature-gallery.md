@@ -1,5 +1,14 @@
 # Explore the Feature Gallery
 
+**99-sprite-frame-filtering** compares Disabled, Nearest and Linear filtering from
+left to right. The rows show fine checks, stripes, transparent pixels and ring
+edges. Select a Sprite and change **Image fill → Mip filtering**, or change its
+size to compare different reductions. See [Sprite filtering](../editor/sprites.md).
+
+![Gallery comparison of base pixels and two independent frame filtering modes](../images/sprite-frame-filtering.png)
+
+Left: Disabled. Center: Nearest. Right: Linear. Each column uses the same source frames.
+
 **98-distance-fog** places colored columns at increasing camera distances. Open
 **Tools > Scene lighting... → Distance fog**, adjust Start/End or toggle fog,
 then save and export. See [Scene lighting](../editor/lighting.md) for controls and limits.

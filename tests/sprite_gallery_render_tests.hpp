@@ -2,6 +2,7 @@
 #include "frame_renderer.hpp"
 #include "sprite_draw_render_tests.hpp"
 #include "sprite_fill_gallery_render_tests.hpp"
+#include "sprite_mip_gallery_render_tests.hpp"
 #include <forge/animation.hpp>
 #include <forge/game_content.hpp>
 #include <forge/runtime.hpp>
@@ -25,7 +26,9 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
             {"Scenes/78-sprite-image-regions.scene.json", "e73043a0-eb10-4d5f-9375-640773df0bbe"},
             {"Scenes/87-sprite-frame-regions.scene.json", "15400000-1540-4154-8154-154000000000"},
             {"Scenes/95-sprite-frame-metadata.scene.json", "4660b557-cf48-4bc6-896d-ce536722d079"},
-            {"Scenes/97-packed-sprite-fills.scene.json", "2acc279b-0a76-4838-a1bc-b70123cb234a"}};
+            {"Scenes/97-packed-sprite-fills.scene.json", "2acc279b-0a76-4838-a1bc-b70123cb234a"},
+            {"Scenes/99-sprite-frame-filtering.scene.json",
+             "f54a2127-cf73-41dc-9026-a344a5189ee5"}};
         for (const auto& [source, identity] : fixtures)
             if (std::string_view(path) == source) {
                 const auto id = AssetId::parse(identity);
@@ -139,5 +142,7 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
     }
     test_sprite_fill_gallery::exercise(presentation, context, readback, root, images,
                                        find("Scenes/97-packed-sprite-fills.scene.json"));
+    test_sprite_mip_gallery::exercise(presentation, context, readback, root, images,
+                                      find("Scenes/99-sprite-frame-filtering.scene.json"));
 }
 } // namespace forge::test_sprite_gallery_render

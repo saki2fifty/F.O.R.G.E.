@@ -16,9 +16,9 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                                prepare_mesh_pose_geometry(prepared.mesh->mesh))),
       skinned_(skinned), profile_(profile) {
     const auto& source = prepared.mesh.get();
-    if (profile != MeshDrawProfile::Mesh && profile != MeshDrawProfile::Sprite)
+    if (profile != MeshDrawProfile::Mesh && !sprite_draw_profile(profile))
         throw std::invalid_argument("Unknown mesh draw bundle profile");
-    if (profile == MeshDrawProfile::Sprite)
+    if (sprite_draw_profile(profile))
         (void)asset_detail::sprite_source_texture(prepared, skinned);
     validate_mesh_material_bindings(source);
     if (prepared.selection.parts.size() != source.mesh.lods.size())
@@ -47,8 +47,9 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
         }
     }
     mesh_ = meshes.acquire(prepared.mesh);
-    for (const auto& [key, texture] : prepared.textures)
-        textures_.emplace(key, textures.acquire(texture));
+    if (!sprite_draw_mip_filter(profile))
+        for (const auto& [key, texture] : prepared.textures)
+            textures_.emplace(key, textures.acquire(texture));
     unresolved_ = prepared.selection.unresolved;
     MaterialData default_material;
     default_material.model = "forge.gltf.metallic-roughness.v1";
@@ -74,6 +75,8 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
                 values = &material.values;
                 surface = material.surface ? &*material.surface : nullptr;
                 for (const auto& [role, ref] : material.textures) {
+                    if (sprite_draw_mip_filter(profile))
+                        continue;
                     const auto semantic = values->textures.at(role).semantic;
                     native_textures[role] =
                         textures_.at(prepared.texture_asset({ref.id, semantic}))
@@ -91,7 +94,7 @@ MeshDrawBundle::MeshDrawBundle(DiligentPresentation& presentation,
             // Blended surfaces do not have a single opaque shadow depth. Masked
             // surfaces evaluate the same base alpha and cutoff as their color pass.
             const bool transmits = !surface && material_transmits(prepare_pbr_material(*values));
-            shadows.push_back(profile == MeshDrawProfile::Sprite ||
+            shadows.push_back(sprite_draw_profile(profile) ||
                                       values->alpha == MaterialAlpha::Blend || transmits
                                   ? nullptr
                                   : prepare(Diligent::TEX_FORMAT_UNKNOWN));
@@ -168,8 +171,17 @@ void MeshDrawBundle::draw_part(Diligent::IDeviceContext* context, const AffineTr
                                const MeshInstancePose* pose,
                                std::span<const MeshDraw::Instance> instances,
                                std::span<const MaterialParameterOverride> parameters,
-                               const SpriteDrawValues* sprite, const SceneDistanceFog* fog) {
+                               const SpriteDrawValues* sprite, const SceneDistanceFog* fog,
+                               const GpuLease<TextureAsset>* sprite_mip) {
     auto& selected = lods_.at(lod).at(part);
+    if (sprite_draw_mip_filter(profile_)) {
+        if (!sprite_mip || !*sprite_mip)
+            throw std::runtime_error("Sprite mip draw has no admitted filtered frame");
+        selected->bind_sprite_mip(
+            sprite_mip->get()->GetDefaultView(Diligent::TEXTURE_VIEW_SHADER_RESOURCE));
+        sprite_mip_ = *sprite_mip;
+    } else if (sprite_mip)
+        throw std::invalid_argument("Base-level draw cannot consume a filtered Sprite frame");
     // Validate owner lifetime and mark this submission before any native draw.
     (void)mesh_.get();
     for (const auto& [key, texture] : textures_) {

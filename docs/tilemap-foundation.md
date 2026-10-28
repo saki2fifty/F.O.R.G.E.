@@ -392,6 +392,16 @@ UV/color values enter the existing render queue and 64-instance batches. Cells
 receive no entities or UUIDs. Equal resources can share one complete draw bundle
 across image keys and independently edited map actors.
 
+`TileMapRenderer.mip_filter` is Disabled (0) by default, Nearest (1) or Linear (2). The
+shared Sprite resource owner prepares the actual defined frames for each used
+Set image, with at most 512 distinct frames per image. Equal frame views can share
+consecutive instance batches; different views split draws without reordering.
+Definition changes replace the complete bank, and a failed source/layout retains
+the complete old map. Each bank has a 256 MiB unique-chain payload limit, within the
+shared resource and scene budgets; float working buffers add temporary memory.
+The appended field changes the exact SDK layout/fingerprint. Rebuild modules
+against the matching installed SDK before using either render component.
+
 The renderer retains a complete old image/bundle set while a new selection loads
 or fails grid admission. A map never adopts just some of its replacement images.
 Cell/definition snapshots remain shared immutable values; steady updates do not

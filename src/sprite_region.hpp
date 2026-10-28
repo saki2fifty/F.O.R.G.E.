@@ -84,6 +84,20 @@ inline std::uint64_t sprite_frame_count(const SpriteGridLayout& grid,
                                         std::span<const SpriteFrameRegion> regions = {}) noexcept {
     return regions.empty() ? std::uint64_t(grid.columns) * grid.rows : regions.size();
 }
+inline SpritePixelRegion sprite_frame_bank_area(std::uint32_t width, std::uint32_t height,
+                                                std::optional<SpritePixelRegion> crop,
+                                                std::span<const SpriteFrameRegion> regions) {
+    if (regions.empty() || regions.size() > sprite_frame_region_limit)
+        throw std::invalid_argument("Sprite frame bank exceeds the supported count");
+    const auto area = sprite_grid_region(width, height, {}, 0, crop);
+    for (const auto& region : regions) {
+        (void)sprite_frame_canvas(region);
+        if (!region.width || !region.height || region.x >= area.width || region.y >= area.height ||
+            region.width > area.width - region.x || region.height > area.height - region.y)
+            throw std::invalid_argument("Sprite frame region must fit its image crop");
+    }
+    return area;
+}
 inline SpritePixelRegion sprite_frame_region(std::uint32_t width, std::uint32_t height,
                                              const SpriteGridLayout& grid, std::uint64_t frame,
                                              std::optional<SpritePixelRegion> crop = {},
@@ -92,14 +106,8 @@ inline SpritePixelRegion sprite_frame_region(std::uint32_t width, std::uint32_t 
         return sprite_grid_region(width, height, grid, frame, crop);
     if (regions.size() > sprite_frame_region_limit || frame >= regions.size())
         throw std::invalid_argument("Sprite frame regions exceed the count or frame range");
-    const auto area = sprite_grid_region(width, height, {}, 0, crop);
     // Admit the complete bank, so animation cannot expose an unchecked rectangle.
-    for (const auto& region : regions) {
-        (void)sprite_frame_canvas(region);
-        if (!region.width || !region.height || region.x >= area.width || region.y >= area.height ||
-            region.width > area.width - region.x || region.height > area.height - region.y)
-            throw std::invalid_argument("Sprite frame region must fit its image crop");
-    }
+    const auto area = sprite_frame_bank_area(width, height, crop, regions);
     const auto& selected = regions[std::size_t(frame)];
     return {area.x + selected.x, area.y + selected.y, selected.width, selected.height};
 }

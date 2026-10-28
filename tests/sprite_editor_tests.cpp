@@ -4,6 +4,7 @@
 #include "editor/prefabs.hpp"
 #include "sprite_frame_picker_tests.hpp"
 #include "sprite_material_profile.hpp"
+#include <backends/imgui_impl_sdlrenderer3.h>
 #include <chrono>
 #include <forge/engine_assets.hpp>
 #include <imgui_internal.h>
@@ -351,6 +352,18 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     check(!test::ui_targets.contains(field("pixels_per_meter")) &&
               !test::ui_targets.contains(field("border_left")),
           "Simple Sprite exposes inactive fill fields");
+    for (unsigned filter : {1u, 2u}) {
+        click(field("mip_filter"));
+        key(ImGuiKey_DownArrow);
+        key(ImGuiKey_Enter);
+        check(scene.entity(selected).get<SpriteRenderer>().mip_filter == filter,
+              "Mip filtering combo did not author the native Sprite field");
+    }
+    check(scene.undo() && scene.entity(selected).get<SpriteRenderer>().mip_filter == 1 &&
+              scene.redo() && scene.entity(selected).get<SpriteRenderer>().mip_filter == 2,
+          "Mip filtering combo lost its ordinary Undo/Redo");
+    check(scene.undo() && scene.undo() && scene.document() == simple_image,
+          "Mip filtering history changed unrelated Sprite values");
     click(field("image_mode"));
     key(ImGuiKey_DownArrow);
     key(ImGuiKey_Enter);
@@ -489,6 +502,12 @@ void exercise(const std::filesystem::path& scratch, float scale) {
               runtime.entity(selected).get<SpriteRenderer>().region_width == 0 &&
               !test::ui_targets.contains("runtime-field:forge.sprite_renderer:region_width"),
           "Temporary region values survived authored snapshot restoration");
+    click("runtime-field:forge.sprite_renderer:mip_filter");
+    key(ImGuiKey_DownArrow);
+    key(ImGuiKey_Enter);
+    check(runtime.entity(selected).get<SpriteRenderer>().mip_filter == 1 &&
+              scene.document() == saved,
+          "Live mip filtering did not stay in the runtime instance");
     click("runtime-field:forge.sprite_renderer:image_mode");
     key(ImGuiKey_DownArrow);
     key(ImGuiKey_Enter);
@@ -560,9 +579,76 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     test::observe_ui = false;
     ImGui::DestroyContext();
 }
+void capture(const std::filesystem::path& root) {
+    std::filesystem::create_directories(root / "project");
+    const std::unique_ptr<SDL_Surface, decltype(&SDL_DestroySurface)> surface(
+        SDL_CreateSurface(760, 1000, SDL_PIXELFORMAT_RGBA32), SDL_DestroySurface);
+    check(bool(surface), SDL_GetError());
+    const std::unique_ptr<SDL_Renderer, decltype(&SDL_DestroyRenderer)> renderer(
+        SDL_CreateSoftwareRenderer(surface.get()), SDL_DestroyRenderer);
+    check(bool(renderer), SDL_GetError());
+    const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> context(
+        ImGui::CreateContext(), ImGui::DestroyContext);
+    check(ImGui_ImplSDLRenderer3_Init(renderer.get()), "Sprite capture backend unavailable");
+    struct Backend {
+        ~Backend() { ImGui_ImplSDLRenderer3_Shutdown(); }
+    } backend;
+    auto& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+    io.DisplaySize = {760, 1000};
+    io.DeltaTime = 1.f / 60;
+    const auto font = std::filesystem::path(__FILE__).parent_path().parent_path() /
+                      "resources/ui/LatoLatin-Regular.ttf";
+    check(io.Fonts->AddFontFromFileTTF(font.string().c_str(), 16) != nullptr,
+          "Sprite capture font unavailable");
+    ui::style(1);
+    ui::EditorUiContext ui_context;
+    ui::ContextScope scope(ui_context);
+    EngineContext engine;
+    Scene scene(engine.world());
+    SceneDocument project(scene);
+    project.open_project(root / "project", true);
+    const auto actor = EntityId::generate();
+    SpriteRenderer sprite;
+    sprite.columns = 4;
+    sprite.mip_filter = 2;
+    sprite.image_mode = 1;
+    sprite.pixels_per_meter = 64;
+    sprite.border_left = sprite.border_right = 4;
+    sprite.border_top = sprite.border_bottom = 2;
+    scene.reset({{"version", 3},
+                 {"asset_id", AssetId::generate()},
+                 {"entities",
+                  Json::array({{{"id", actor},
+                                {"name", "Filtered image"},
+                                {"components",
+                                 {{"forge.sprite_renderer", detail::render_value(sprite)}}}}})}});
+    ComponentInspector inspector;
+    inspector.fixture_focus_component = "forge.sprite_renderer";
+    for (unsigned frame = 0; frame < 3; ++frame) {
+        ImGui_ImplSDLRenderer3_NewFrame();
+        ImGui::NewFrame();
+        ImGui::SetNextWindowPos({10, 10});
+        ImGui::SetNextWindowSize({740, 980});
+        ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+        inspector.draw(scene, project, actor.str());
+        ImGui::End();
+        ImGui::Render();
+        SDL_SetRenderDrawColor(renderer.get(), 9, 15, 18, 255);
+        SDL_RenderClear(renderer.get());
+        ImGui_ImplSDLRenderer3_RenderDrawData(ImGui::GetDrawData(), renderer.get());
+        SDL_RenderPresent(renderer.get());
+    }
+    check(SDL_SavePNG(surface.get(), (root / "sprite-mip-filtering-controls.png").string().c_str()),
+          SDL_GetError());
+}
 } // namespace
 int main(int argc, char** argv) {
     try {
+        if (argc == 3 && std::string_view(argv[2]) == "--capture") {
+            capture(std::filesystem::absolute(argv[1]));
+            return 0;
+        }
         check(argc == 2, "Need Sprite UI scratch root");
         for (const auto scale : {1.f, 1.5f, 2.f}) {
             exercise(argv[1], scale);

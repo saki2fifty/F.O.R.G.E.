@@ -1,5 +1,6 @@
 #pragma once
 #include "pbr_material.hpp"
+#include <optional>
 namespace forge {
 inline constexpr const char* material_sampler_variable = "g_MaterialSamplers";
 // Shader declaration lowering only; authored material data and SRB array identity
@@ -29,5 +30,6 @@ std::vector<MaterialParameterUniform> material_parameter_uniforms(const Material
 // Texture resources use native color-space views and independent binding samplers.
 MaterialShader material_shader(const PbrMaterialProfile&, std::span<const unsigned> uv_sets,
                                MaterialSamplerBinding = MaterialSamplerBinding::Array,
-                               bool sprite_profile = false);
+                               bool sprite_profile = false,
+                               std::optional<TextureFilter> sprite_mips = {});
 } // namespace forge

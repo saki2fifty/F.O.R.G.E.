@@ -35,7 +35,7 @@ struct RuntimePropertyTune {
                property == "border_top" || property == "border_bottom" ||
                property == "region_enabled" || property == "region_x" || property == "region_y" ||
                property == "region_width" || property == "region_height" ||
-               property == "frame_regions";
+               property == "frame_regions" || property == "mip_filter";
     }
     static bool material_property(std::string_view property) {
         return property == "material_parameters";

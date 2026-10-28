@@ -151,7 +151,7 @@ void main(triangle ForgeVarying input[3],inout TriangleStream<ForgeVarying> outp
 MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialProfile& profile,
                                 bool shadow_pass, MaterialSamplerBinding sampler_binding,
                                 const SurfaceShaderDefinition* graph, std::string_view graph_source,
-                                bool sprite_profile) {
+                                bool sprite_profile, std::optional<TextureFilter> sprite_mips) {
     const auto& source = profile.values;
     if (sprite_profile) {
         require(!shadow_pass && !graph && profile.workflow == PbrWorkflow::Unlit,
@@ -193,7 +193,8 @@ MeshDrawShader mesh_draw_shader(const MeshVertexFetch& fetch, const PbrMaterialP
         require((fetch.normal && fetch.tangent) ||
                     profile.values.textures.contains("normalTexture"),
                 "anisotropy requires authored normal/tangent or a base normal map");
-    const auto material = material_shader(profile, fetch.uv_sets, sampler_binding, sprite_profile);
+    const auto material =
+        material_shader(profile, fetch.uv_sets, sampler_binding, sprite_profile, sprite_mips);
     const auto generated = mesh_geometry_shader(fetch, !transmission, sprite_profile);
     const auto& vs = generated.vertex;
     const auto& geometry = generated.geometry;
@@ -274,7 +275,24 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
     float3 dpdx=ddx(input.World),dpdy=ddy(input.World);
     bool valid=true;
 )";
-    if (sprite_profile)
+    if (sprite_mips) {
+        require(sprite_profile, "Sprite mip sampling requires the Sprite draw profile");
+        ps += R"(
+    // Derived images contain the complete logical canvas. Gradients must use
+    // continuous coordinates before tiled wrapping introduces discontinuities.
+    float2 spriteContinuous=input.UV[0];
+    if(input.SpriteImage.x!=0) {
+        float2 local=input.UV[0];
+        if(input.SpriteAtlas.z<0)local.x=1-local.x;
+        if(input.SpriteAtlas.w<0)local.y=1-local.y;
+        spriteContinuous=input.SpriteImage.x==1?
+            float2(ForgeSpriteSlice(local.x,input.SpriteX),ForgeSpriteSlice(local.y,input.SpriteY)):
+            local*input.SpriteImage.yz;
+    }
+    float2 spriteDx=ddx(spriteContinuous),spriteDy=ddy(spriteContinuous);
+    input.UV[0]=input.SpriteImage.x==2?frac(spriteContinuous):spriteContinuous;
+)";
+    } else if (sprite_profile)
         ps += R"(
     // Simple mode reuses the otherwise unused slice row for the retained quad
     // rectangle. Identity frames take the original path without inverse math.
@@ -317,8 +335,9 @@ float4 main(ForgeVarying input,bool front:SV_IsFrontFace):SV_Target0 {
               "!isfinite(graph.Occlusion))return float4(1,0,1,1);\n";
     for (const auto& slot : material.textures) {
         ps += "bool ok_" + slot.role + ";float4 sample_" + slot.role + "=ForgeSample_" + slot.role +
-              "(input.UV[" + std::to_string(slot.uv_slot) + "],ok_" + slot.role +
-              ");valid=valid&&ok_" + slot.role + ";\n";
+              "(input.UV[" + std::to_string(slot.uv_slot) + "]," +
+              (sprite_mips ? "spriteDx,spriteDy," : "") + "ok_" + slot.role + ");valid=valid&&ok_" +
+              slot.role + ";\n";
     }
     for (const auto* role : {"normalTexture", "clearcoatNormalTexture"}) {
         if (!profile.values.textures.contains(role))

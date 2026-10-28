@@ -3,6 +3,7 @@
 #include "particle_effect_resource.hpp"
 #include "render_bounds.hpp"
 #include "shadow_renderer.hpp"
+#include "sprite_frame_mips.hpp"
 #include "tile_asset_resources.hpp"
 #include "tile_draw_values.hpp"
 #include <forge/render_scene.hpp>
@@ -49,7 +50,19 @@ class MeshResourceHost {
     std::shared_ptr<const asset_detail::MeshPreviewSelection> mesh_preview_;
     ResourcePool<MeshAsset> meshes_;
     ResourcePool<MaterialAsset> materials_;
-    ResourcePool<TextureAsset> textures_;
+    const ResourcePoolLimits texture_limits_{};
+    ResourcePool<TextureAsset> textures_{texture_limits_};
+    struct SpriteMipIdentity {
+        std::string variant, revision;
+    };
+    static SpriteMipIdentity sprite_mip_identity(const ResourceIdentity&, const SpriteFrameMipKey&);
+    ResourceTicket request_sprite_mip(const ResourceLease<TextureAsset>&, const SpriteFrameMipKey&,
+                                      std::uint64_t byte_limit);
+    // Weak, copied worker inputs only. Authoritative pixels stay in textures_.
+    // Close/unload may revoke an owner lease while these independent jobs finish.
+    std::map<std::pair<ResourceIdentity, SpriteFrameMipKey>,
+             std::weak_ptr<const SpriteFrameMipInput>>
+        sprite_mip_inputs_;
     ResourcePool<ParticleEffectAsset> particles_{{1, 64, 256, 128 * 1024}};
     std::map<AssetId, std::shared_ptr<const ParticleEffectData>> particle_previews_;
     ResourcePool<TileSetAsset> tile_sets_{{1, 64, 256, 16 * 1024 * 1024}};
@@ -104,18 +117,37 @@ class MeshSceneRenderer {
     static DrawScope scope(const RenderMesh& mesh) {
         return mesh.particle_source ? DrawScope::Particle : DrawScope::Mesh;
     }
+    struct SpriteMipsPending {};
+    struct SpriteMipBank {
+        struct Frame {
+            ResourceTicket ticket;
+            ResourceLease<TextureAsset> pixels;
+            GpuLease<TextureAsset> image;
+        };
+        ResourceIdentity source;
+        SpriteRenderer layout;
+        std::shared_ptr<const TileSetData> definitions;
+        SpriteFrameMipPlan plan;
+        std::map<SpriteFrameMipKey, Frame> frames;
+        bool complete = false;
+        std::uint64_t metadata_bytes() const;
+    };
     struct SpriteValues {
         SpriteRenderer requested, admitted;
         SpriteDrawValues draw;
         // Derived only from the successfully admitted immutable selection.
         std::uint32_t texture_width = 0, texture_height = 0;
         bool checked = false, ready = false;
+        bool mip_pending = false;
+        std::shared_ptr<SpriteMipBank> mip_candidate, mips;
+        std::uint64_t metadata_bytes() const;
     };
     struct Entry {
         AssetRef<MeshAsset> mesh;
         std::vector<MaterialSlotOverride> overrides;
         AssetRef<MaterialVariantAsset> variant;
         std::uint64_t epoch = 0;
+        std::unique_ptr<SpriteValues> sprite;
         std::unique_ptr<asset_detail::ModelDrawCandidate> candidate;
         std::shared_ptr<MeshDrawBundle> ready;
         MeshInstancePose pose;
@@ -127,13 +159,15 @@ class MeshSceneRenderer {
         std::string error, pose_error;
         std::optional<bool> failed_skin_mode;
         bool fallback = false;
-        std::unique_ptr<SpriteValues> sprite;
         std::uint64_t pose_bytes() const;
         std::uint64_t material_bytes() const;
     };
     std::shared_ptr<MeshDrawBundle> prepare_bundle(const asset_detail::PreparedModelDraw&, bool,
                                                    std::shared_ptr<const MeshPoseGeometry>,
                                                    MeshDrawProfile = MeshDrawProfile::Mesh);
+    std::shared_ptr<SpriteMipBank> prepare_sprite_mips(Entry&,
+                                                       const asset_detail::PreparedModelDraw&,
+                                                       EntityId, DrawScope, std::uint64_t image);
     std::map<asset_detail::PreparedModelDrawKey, std::weak_ptr<MeshDrawBundle>> bundles_;
     bool update_environment(const RenderScene&);
     void report(EntityId, const std::string&, DrawScope = DrawScope::Mesh);
@@ -165,6 +199,7 @@ class MeshSceneRenderer {
         std::uint64_t image = 0;
     };
     struct TileImageDraw {
+        std::shared_ptr<SpriteMipBank> mips;
         std::shared_ptr<MeshDrawBundle> bundle;
         RenderMesh mesh;
         std::uint32_t width = 0, height = 0;
@@ -187,7 +222,11 @@ class MeshSceneRenderer {
         std::vector<std::uint64_t> used_images;
         std::map<std::uint64_t, RenderBounds> requested_bounds, bounds;
         std::size_t requested_visible_cells = 0, visible_cells = 0;
-        std::map<std::pair<std::uint64_t, std::uint32_t>, SpriteDrawValues> values;
+        struct Values {
+            SpriteDrawValues sprite;
+            const GpuLease<TextureAsset>* mip = nullptr; // Retained by images' complete banks.
+        };
+        std::map<std::pair<std::uint64_t, std::uint32_t>, Values> values;
         std::array<float, 4> color{};
         bool pending = false, visible_this_view = false;
         bool rejected = false;

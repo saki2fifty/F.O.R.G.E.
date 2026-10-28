@@ -197,6 +197,7 @@ auto image = actor.get<forge::SpriteRenderer>();
 image.region_enabled = false;
 image.frame_regions = {{1, 1, 13, 14}, {18, 3, 12, 10}};
 image.frame = 1;
+image.mip_filter = std::uint32_t(forge::SpriteMipFilter::Linear);
 actor.set(image);
 ```
 
@@ -208,6 +209,15 @@ Sliced borders must leave a positive center in every entry. World size/pivot and
 the image Material retain their owners. The normal integer frame Timeline binding
 can animate these indices. Reordering changes the meaning of indices; it does not
 remap animation keys. Rebuild modules against the matching SDK.
+
+`mip_filter` is Disabled (0) by default, Nearest (1) or Linear (2). Filtering prepares each
+logical frame independently, including trimmed margins and clockwise storage.
+`TileMapRenderer.mip_filter` uses the same enum for defined tile images; declare
+`.write<forge::TileMapRenderer>()` before changing that component. The appended
+fields change the exact SDK fingerprint/layout. Both components require modules
+built against the matching installed headers and libraries. Resource/native
+admission can retain the last complete visible draw while a new bank is pending
+or invalid. The installed `sprite_image_probe.cpp` exercises both component layouts.
 
 For per-object surface values, include `forge/render_components.hpp`; its shared
 `MaterialParameter` DTO is installed in `forge/material_parameter.hpp`.

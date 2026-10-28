@@ -1,5 +1,22 @@
 # 2026-10-28 — Rendering and Scene controls
 
+## Independent Sprite frame filtering
+
+Sprite and Tile Map Renderer add default-off mip filtering with Nearest and Linear
+level selection. Private frame chains restore logical canvases before filtering,
+including crop, trim and clockwise storage. Complete asynchronous banks use the
+existing texture pool and GPU residency; source/layout failures retain the last
+complete draw. Shared frame views preserve consecutive instancing, with separate
+draws for distinct views. Scene/Prefab history, reflected controls and discovery,
+Sprite live edits and the matching installed C++ component layout share their
+existing owners. Public component fields change the SDK fingerprint; rebuild
+modules against the matching SDK. C ABI signatures and asset IDs remain unchanged.
+
+Gallery99 compares the three modes using one original image sheet and ordinary
+Material. The manual includes authentic control and Game captures. Local software
+Vulkan, authoring, Inspector, MCP and installed SDK checks remain separate from
+pending Windows/full editor/physical acceptance.
+
 ## Scene distance fog
 
 Default-off radial geometry fog shares Scene validation/history, Scene lighting

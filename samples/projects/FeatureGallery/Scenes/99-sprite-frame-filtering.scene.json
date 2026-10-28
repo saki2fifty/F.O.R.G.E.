@@ -1,0 +1,840 @@
+{
+  "asset_id": "f54a2127-cf73-41dc-9026-a344a5189ee5",
+  "entities": [
+    {
+      "components": {
+        "forge.camera": {
+          "aspect": 1.7777777777777777,
+          "background_a": 1.0,
+          "background_b": 0.029999999329447746,
+          "background_g": 0.02500000037252903,
+          "background_r": 0.019999999552965164,
+          "basis": 0,
+          "clear_color": true,
+          "clear_depth": true,
+          "enabled": true,
+          "far_plane": 50.0,
+          "flip_x": false,
+          "flip_y": false,
+          "infinite_far": false,
+          "layers": 4294967295,
+          "near_plane": 0.05,
+          "order": 0,
+          "orthographic_height": 8.0,
+          "orthographic_width": 0.0,
+          "projection": 1,
+          "vertical_fov": 1.0471975511965976,
+          "viewport_height": 1.0,
+          "viewport_width": 1.0,
+          "viewport_x": 0.0,
+          "viewport_y": 0.0
+        },
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        }
+      },
+      "id": "711a5c22-7aa4-4ce6-bdf2-5597fcd5f7fe",
+      "name": "Orthographic camera - frame filtering",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 2.7,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000000",
+      "name": "Disabled - Red and blue checks",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": 0.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 1,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000001",
+      "name": "Disabled - Yellow and cyan stripes",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -0.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 2,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000002",
+      "name": "Disabled - Transparent green pixels",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": -3.0,
+          "y": -2.7,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 3,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 0,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000003",
+      "name": "Disabled - Ring edges",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 2.7,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 1,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000010",
+      "name": "Nearest - Red and blue checks",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": 0.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 1,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 1,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000011",
+      "name": "Nearest - Yellow and cyan stripes",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -0.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 2,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 1,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000012",
+      "name": "Nearest - Transparent green pixels",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 0.0,
+          "y": -2.7,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 3,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 1,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000013",
+      "name": "Nearest - Ring edges",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 2.7,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 0,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 2,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000020",
+      "name": "Linear - Red and blue checks",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": 0.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 1,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 2,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000021",
+      "name": "Linear - Yellow and cyan stripes",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -0.9,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 2,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 2,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000022",
+      "name": "Linear - Transparent green pixels",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    },
+    {
+      "components": {
+        "forge.local_rotation": {
+          "w": 1.0,
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "forge.local_scale": {
+          "x": 1.0,
+          "y": 1.0,
+          "z": 1.0
+        },
+        "forge.local_translation": {
+          "x": 3.0,
+          "y": -2.7,
+          "z": 0.0
+        },
+        "forge.primitive": {
+          "kind": 4
+        },
+        "forge.sprite_renderer": {
+          "border_bottom": 0,
+          "border_left": 0,
+          "border_right": 0,
+          "border_top": 0,
+          "columns": 4,
+          "enabled": true,
+          "flip_x": false,
+          "flip_y": false,
+          "frame": 3,
+          "frame_regions": [],
+          "height": 1.45,
+          "image_mode": 0,
+          "layers": 4294967295,
+          "margin_x": 0,
+          "margin_y": 0,
+          "material": "820d76c5-dabc-4c0e-9226-8a5903108a78",
+          "mip_filter": 2,
+          "order": 0,
+          "pivot_x": 0.5,
+          "pivot_y": 0.5,
+          "pixels_per_meter": 100.0,
+          "region_enabled": false,
+          "region_height": 0,
+          "region_width": 0,
+          "region_x": 0,
+          "region_y": 0,
+          "rows": 1,
+          "spacing_x": 0,
+          "spacing_y": 0,
+          "tint_a": 1.0,
+          "tint_b": 1.0,
+          "tint_g": 1.0,
+          "tint_r": 1.0,
+          "visible": true,
+          "width": 1.45
+        }
+      },
+      "id": "17400000-0099-4000-8000-000000000023",
+      "name": "Linear - Ring edges",
+      "spatial": {
+        "mode": "follow_structure"
+      }
+    }
+  ],
+  "version": 3
+}

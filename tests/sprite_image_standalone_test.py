@@ -27,6 +27,12 @@ def verify(tools, gallery, kit, evidence, retain=None):
              for row in bank_scene['entities'] if 'forge.sprite_renderer' in row['components']]
     assert len(banks) == 6 and sum(bool(bank) for bank in banks) == 5
     receipt['frame_banks'] = verify_scene(tools, gallery, kit, Path(evidence) / 'frame-banks', bank_source)
+    filtering_source = 'Scenes/99-sprite-frame-filtering.scene.json'
+    filtering = json.loads((Path(gallery) / filtering_source).read_text(encoding='utf-8'))
+    sprites = [row['components']['forge.sprite_renderer'] for row in filtering['entities']
+               if 'forge.sprite_renderer' in row['components']]
+    assert len(sprites) == 12 and {row['mip_filter'] for row in sprites} == {0, 1, 2}
+    receipt['frame_filtering'] = verify_scene(tools, gallery, kit, Path(evidence) / 'frame-filtering', filtering_source)
     (Path(evidence) / 'sprite-image-export.json').write_text(
         json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
     return receipt
@@ -39,4 +45,4 @@ if __name__ == '__main__':
     parser.add_argument('--retain', type=Path)
     args = parser.parse_args()
     verify(args.tools, args.gallery, args.kit, args.evidence, args.retain)
-    print('Shared Sprite fill/region exports and six source-free production startups passed')
+    print('Shared Sprite fill/region/filtering exports and eight source-free production startups passed')

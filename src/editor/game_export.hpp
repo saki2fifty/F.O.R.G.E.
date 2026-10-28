@@ -144,7 +144,7 @@ class GameExportTask {
             progress_->value = {};
         }
     }
-    void run(SceneDocument& document, bool verify_startup = false) {
+    void run(SceneDocument& document, [[maybe_unused]] bool verify_startup = false) {
         document.check_ownership();
         if (busy() || document.project() != project_ || output_.empty() || result_.is_null())
             throw std::runtime_error("Export this project successfully before testing its game");

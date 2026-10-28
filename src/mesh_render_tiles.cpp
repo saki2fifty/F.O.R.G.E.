@@ -224,6 +224,7 @@ MeshSceneRenderer::prepare_tile_sources(const RenderScene& scene) {
                 // This proxy admits one shared Quad/image bundle. Per-cell frame,
                 // dimensions, flags and tint never come from its placeholder values.
                 input.sprite.material = definition.material;
+                input.sprite.mip_filter = map.renderer.mip_filter;
                 inputs.push_back(std::move(input));
             }
         } catch (const std::exception& error) {
@@ -254,7 +255,13 @@ void MeshSceneRenderer::adopt_tile_images() {
                     return current != entries_.end() && previous != source.images.end() &&
                            current->second.resource_current && current->second.sprite &&
                            current->second.sprite->ready &&
+                           current->second.sprite->admitted == current->second.sprite->requested &&
+                           !current->second.sprite->mip_pending &&
+                           (!request.renderer.mip_filter ||
+                            (current->second.sprite->mips &&
+                             current->second.sprite->mips->definitions == request.definitions)) &&
                            current->second.ready == previous->second.bundle &&
+                           current->second.sprite->mips == previous->second.mips &&
                            current->second.sprite->texture_width == previous->second.width &&
                            current->second.sprite->texture_height == previous->second.height;
                 });
@@ -272,9 +279,16 @@ void MeshSceneRenderer::adopt_tile_images() {
                 const auto found = entries_.find({entity, DrawScope::TileMap, image});
                 if (found == entries_.end() || !found->second.ready ||
                     !found->second.resource_current || !found->second.sprite ||
-                    !found->second.sprite->ready) {
-                    source.pending |= found != entries_.end() && found->second.candidate &&
-                                      found->second.candidate->state() == ResourceState::Loading;
+                    !found->second.sprite->ready || found->second.sprite->mip_pending ||
+                    found->second.sprite->admitted != found->second.sprite->requested ||
+                    (request.renderer.mip_filter &&
+                     (!found->second.sprite->mips ||
+                      found->second.sprite->mips->definitions != request.definitions))) {
+                    source.pending |=
+                        found != entries_.end() &&
+                        ((found->second.sprite && found->second.sprite->mip_pending) ||
+                         (found->second.candidate &&
+                          found->second.candidate->state() == ResourceState::Loading));
                     complete = false;
                     break;
                 }
@@ -284,12 +298,12 @@ void MeshSceneRenderer::adopt_tile_images() {
                     });
                 require(input != tile_images_.end(), "Tile image has no requested proxy");
                 const auto& entry = found->second;
-                require(entry.ready->profile() == MeshDrawProfile::Sprite &&
+                require(sprite_draw_profile(entry.ready->profile()) &&
                             entry.ready->parts(0).size() == 1,
                         "Tile image requires one complete Sprite Quad part");
-                images.emplace(image,
-                               TileImageDraw{entry.ready, input->mesh, entry.sprite->texture_width,
-                                             entry.sprite->texture_height});
+                images.emplace(image, TileImageDraw{entry.sprite->mips, entry.ready, input->mesh,
+                                                    entry.sprite->texture_width,
+                                                    entry.sprite->texture_height});
             }
             if (!complete)
                 continue;
@@ -302,6 +316,7 @@ void MeshSceneRenderer::adopt_tile_images() {
                     const auto previous = source.images.find(key);
                     invalidate |= previous == source.images.end() ||
                                   previous->second.bundle != image.bundle ||
+                                  previous->second.mips != image.mips ||
                                   previous->second.width != image.width ||
                                   previous->second.height != image.height;
                 }

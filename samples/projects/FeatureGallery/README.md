@@ -1,5 +1,20 @@
 # Feature Gallery
 
+## Sprite frame filtering
+
+Open **Scenes/99-sprite-frame-filtering.scene.json**. The left column uses
+Disabled, the center Nearest and the right Linear mip filtering. Fine checks,
+stripes and transparent pixels become stable colors when reduced; the bottom
+row shows ring edges. Each column uses the same four frames of the original
+**Assets/Sprites/MipSheet.png** and its ordinary image Material.
+
+Select a Sprite and change **Image fill → Mip filtering**. Reduce its Width/Height
+or increase the orthographic camera's height to inspect smaller images. Nearest
+selects one smaller level; Linear blends adjacent levels. The Material keeps
+nearest pixel filtering within each level. Save, set this Scene as startup and
+export to use the saved settings. No C++ module is required. The camera keeps a
+fixed aspect, so portrait windows show the whole comparison with letterboxing.
+
 ## Distance fog
 
 Open **Scenes/98-distance-fog.scene.json** and press Play. Twelve colored columns

@@ -111,8 +111,8 @@ container envelopes derive from annotated descendants. Native layout/schema limi
 remain unchanged. No new frame-edit automation operation is needed; existing
 property batches/history/Play/MCP discovery expose the data. Source-free original
 Gallery87 demonstrates unequal frames, animation, crop, Sliced and Tiled fill.
-Frame metadata supports Simple, Sliced and Tiled fills described below. Atlas-aware mip
-generation remains outside this workflow. Automatic packing uses the existing
+Frame metadata supports Simple, Sliced and Tiled fills and the optional independent
+frame filtering described below. Automatic packing uses the existing
 source/import owners described below.
 
 ### Logical canvases and stored quarter turns
@@ -187,8 +187,9 @@ tile. Flips mirror the complete fill, including the partial tile's position.
 The authored width and height times density must each be at most1048576 source
 pixels, bounding float repeat phase; ordinary component/property validation
 rejects excessive combinations. Border fields are retained while inactive.
-Repeated filtering stays inside the existing cell clamp/LOD0 contract; it does
-not add periodic cross-edge filtering, mip-safe atlas gutters or atlas mipmaps.
+Default sampling uses the cell clamp/LOD0 contract. Optional frame mip filtering
+uses continuous derivatives before repeated UV wrapping. Both modes clamp at each
+image edge; neither provides periodic filtering across opposite tile edges.
 
 These values use one existing Quad/Sprite profile and its private ten-row
 instance stride. The unused unlit basis rows carry normalized mapping parameters;
@@ -226,9 +227,8 @@ The implemented private profile uses the immutable built-in Quad and an ordinary
 - UV0, identity material UV transform, matching nearest/linear min and mag filters.
 - Non-anisotropic, noncomparison sampling with no LOD shift.
 
-The shader maps full-frame UVs, clamps to base-level texel centers and samples
-LOD0. This deliberately avoids atlas mip sampling; it is not safe atlas mip
-generation. Minification may alias. Compressed blocks, HDR, premultiplied/custom/
+By default the shader maps full-frame UVs, clamps to base-level texel centers and
+samples LOD0. Minification may alias. Compressed blocks, HDR, premultiplied/custom/
 unknown alpha and custom shader surfaces reject in this initial profile. Sprite
 bundles do not allocate shadow passes. Material culling/depth settings remain
 material-owned; a material intended to show both sides should be double-sided.
@@ -237,6 +237,53 @@ The Sprite pipeline has its own transient draw-bundle key but shares existing me
 and texture resources. Its instance data includes RGBA and atlas values. Ordinary
 mesh instances retain their existing seven-row GPU layout. Frame/tint values do
 not create resource keys or new material identities.
+
+## Independent frame mip filtering
+
+`SpriteRenderer.mip_filter` and `TileMapRenderer.mip_filter` select Disabled (0),
+Nearest (1) or Linear (2). Missing fields upgrade to Disabled. Existing Material
+maximum LOD values do not enable this feature: they were already accepted while
+Sprite sampling always used LOD0. Min/mag filtering remains Material-owned;
+Nearest chooses one mip level and Linear interpolates adjacent levels.
+
+Filtering reconstructs each selected frame's full logical canvas, including trim
+margins and inverse clockwise storage, from its admitted uncompressed base pixels.
+Grid, crop and explicit-bank layouts use the same existing region validation.
+Private linear premultiplied RGBA16Float chains use the approved mip producer;
+the shader samples with explicit gradients and converts the filtered result back
+to straight alpha before existing tint/alpha/depth processing. Invisible source
+RGB cannot contaminate filtered color. Mask materials use their ordinary cutoff;
+alpha-coverage compensation is not provided. Trimmed canvases retain the existing
+Blend/no-depth-write requirement.
+
+The existing Texture resource pool owns private recipe variants keyed by parent
+revision and normalized frame input. The presentation thread copies retained
+physical pixels into owned worker input; workers never access revocable leases.
+The same GPU residency owner admits derived images. A complete CPU/GPU bank,
+source selection, numeric values and pose replace the previous draw together.
+Pending work, invalid unused frames or failed native admission retain the last
+complete draw. A mode change also selects the matching transient pipeline.
+
+Each Sprite bank permits at most 512 frames, with duplicate physical/logical keys
+sharing storage. A Tile Map prepares the frames defined for each used Set image,
+at most 512 distinct frames per image. Unique complete chains have a 256 MiB payload
+limit per bank. Copied worker inputs share a 128 MiB payload limit. The existing
+global CPU/GPU residency and scene metadata limits still apply, including retained
+old resources during replacement. These are payload budgets, not estimates of
+allocator RSS or physical VRAM; float working buffers add temporary memory.
+
+Derived frame views can split consecutive instance batches. Equal source/frame
+views can share a draw; distinct views use separate draws without changing alpha
+order. Material min/mag filtering, Simple/Sliced/Tiled fill, flips, tint and logical
+geometry continue through the shared Sprite draw owner. Source packing still
+produces one ordinary PNG; changing an original source requires explicit repacking.
+
+The appended public component fields change the installed SDK fingerprint and
+layout. Rebuild C++ modules against the matching SDK. Existing C ABI signatures
+and asset identities are unchanged. Ordinary Scene/Prefab property operations,
+history and reflected discovery own authoring; Sprite live tuning uses the existing
+runtime property path. Tile Map renderer properties retain their existing authored
+Scene workflow.
 
 The existing renderer Entry owns the admitted Sprite configuration and numeric
 values with its complete resource selection. Invalid frame/grid updates and failed
@@ -386,8 +433,8 @@ transparent ring for linear filtering. Every retained RGBA texel is copied exact
 including the inverse clockwise pixel mapping and physical-edge extrusion. Fully
 transparent images retain one real top-left texel and their full original canvas.
 Input dimensions may reach16384 when trimming is enabled, within the same aggregate
-decoded byte budget; output PNG limits remain unchanged. No atlas-aware mip
-generation is performed.
+decoded byte budget; output PNG limits remain unchanged. Packing emits a base-level
+PNG. The renderer derives independent frame mip chains when filtering is enabled.
 
 The parent snapshots admitted base pixels. Fixed private worker operation
 `forge.texture.atlas-source` uses the existing supervised asset worker, bounded

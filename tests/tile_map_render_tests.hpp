@@ -335,5 +335,50 @@ void exercise(DiligentPresentation& presentation, Diligent::IDeviceContext* cont
                               }),
               "Maximum Tile Map draw lost cells, pixels or upload capacity across frames/edit");
     }
+    camera_world = {};
+    settings.orthographic_height = 2;
+    scene.tile_maps = {map};
+    for (unsigned filter : {1u, 2u}) {
+        scene.tile_maps[0].renderer.mip_filter = filter;
+        settle();
+        check(render() == baseline && renderer.diagnostics().empty() &&
+                  renderer.draw_stats().instances == 4 && renderer.draw_stats().calls > 1,
+              "Tile mip frames lost cells, flags, pixels, or distinct image bindings");
+    }
+    auto recolored = metadata;
+    recolored["tiles"][1]["frame"] = 5;
+    scene.tile_maps[0].definitions = std::make_shared<const TileSetData>(
+        decode_cooked_tile_set(asset_detail::encode_envelope(recolored, {}, tile_set_cooked_magic,
+                                                             tile_set_cooked_metadata_limit),
+                               set_id));
+    settle();
+    const auto all_ink = render();
+    check(renderer.diagnostics().empty() &&
+              std::all_of(all_ink.begin(), all_ink.end(),
+                          [](const auto& pixel) {
+                              return pixel == std::array<std::uint8_t, 4>{255, 0, 255, 255};
+                          }),
+          "Tile definition replacement retained an obsolete filtered frame");
+    surface.textures["baseColorTexture"] = engine_texture(EngineTexture::White);
+    host->preview_material({material}, surface);
+    settle();
+    check(!renderer.diagnostics().empty() && render() == all_ink,
+          "Invalid Tile source replacement discarded the complete last-good mip bank");
+    for (auto& row : recolored["images"])
+        row["grid"]["columns"] = row["grid"]["rows"] = 1;
+    for (auto& row : recolored["tiles"])
+        row["frame"] = 0;
+    scene.tile_maps[0].definitions = std::make_shared<const TileSetData>(
+        decode_cooked_tile_set(asset_detail::encode_envelope(recolored, {}, tile_set_cooked_magic,
+                                                             tile_set_cooked_metadata_limit),
+                               set_id));
+    settle();
+    const auto white = render();
+    check(renderer.diagnostics().empty() &&
+              std::all_of(white.begin(), white.end(),
+                          [](const auto& pixel) {
+                              return pixel == std::array<std::uint8_t, 4>{255, 255, 255, 255};
+                          }),
+          "Corrected Tile definitions did not adopt the new complete source");
 }
 } // namespace forge::test_tile_map_render

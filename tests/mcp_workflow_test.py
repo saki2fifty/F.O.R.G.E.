@@ -528,6 +528,8 @@ for legacy in (False, True):
             field = next(f for f in component['fields'] if f['id'] == 'frame_regions')
             assert field['type'] == 'vector' and field['maximum_count'] == 512
             assert field['default'] == [] and field['element']['type'] == 'struct'
+            mip = next(f for f in component['fields'] if f['id'] == 'mip_filter')
+            assert mip['default'] == 0
             catalog = json.loads((root/'Game/forge.assets.json').read_text())
             material = next(row['id'] for row in catalog['assets']
                             if row['source'] == 'Assets/Sprites/SignalSheet.material.json')
@@ -536,14 +538,20 @@ for legacy in (False, True):
             before = read('forge_scene_read')
             frames = [dict(x=1, y=1, width=13, height=14), dict(x=18, y=3, width=12, height=10),
                       dict(x=33, y=2, width=14, height=12)]
+            native_frames = [dict(rotated_clockwise=False, source_width=0, source_height=0,
+                                  trim_x=0, trim_y=0, **row) for row in frames]
             ok('forge_property_set_many', arguments=dict(entity=actor, component='forge.sprite_renderer',
-                                                        values=dict(material=material, frame_regions=frames, frame=2)))
+                                                        values=dict(material=material, frame_regions=frames, frame=2, mip_filter=1)))
             authored = read('forge_scene_read')
             assert ok('forge_history_undo')['changed'] and read('forge_scene_read') == before
             assert ok('forge_history_redo')['changed'] and read('forge_scene_read') == authored
             bad = mutate('forge_property_set', arguments=dict(entity=actor, component='forge.sprite_renderer',
                                                                field='frame_regions', value=[dict(x=-1,y=0,width=1,height=1)]))
             assert not bad['ok'] and read('forge_scene_read') == authored
+            for invalid in (-1, 3, .5, True, 1 << 32):
+                bad = mutate('forge_property_set', arguments=dict(entity=actor, component='forge.sprite_renderer',
+                                                                 field='mip_filter', value=invalid))
+                assert not bad['ok'] and read('forge_scene_read') == authored
             ok('forge_document_save')
             ok('forge_play_start')
             until(lambda: read('forge_play_status'), lambda r: r['ready'] and r['control_ready'])
@@ -552,8 +560,16 @@ for legacy in (False, True):
             def runtime_sprite():
                 return next(e['components']['forge.sprite_renderer']
                             for e in read('forge_play_snapshot')['entities'] if e['id'] == actor)
-            assert runtime_sprite()['frame_regions'] == frames and runtime_sprite()['frame'] == 2
-            live = [dict(row, x=row['x']+1) for row in frames]
+            assert runtime_sprite()['frame_regions'] == native_frames and runtime_sprite()['frame'] == 2
+            assert runtime_sprite()['mip_filter'] == 1
+            for mode in (0, 2):
+                control('forge_play_tune', entity=actor, component='forge.sprite_renderer', property='mip_filter', value=mode)
+                ack = until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
+                assert 'error' not in ack['tune_ack'] and runtime_sprite()['mip_filter'] == mode, ack
+            control('forge_play_tune', entity=actor, component='forge.sprite_renderer', property='mip_filter', value=3)
+            ack = until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
+            assert 'error' in ack['tune_ack'] and runtime_sprite()['mip_filter'] == 2, ack
+            live = [dict(row, x=row['x']+1) for row in native_frames]
             control('forge_play_tune', entity=actor, component='forge.sprite_renderer', property='frame_regions', value=live)
             ack = until(lambda: read('forge_play_status'), lambda r: not r['tune_pending'] and r['tune_ack'] is not None)
             assert 'error' not in ack['tune_ack'] and ack['timing']['tick'] == paused['timing']['tick'], ack

@@ -68,6 +68,10 @@ def live_region(worker, state):
     bank = worker.request('snapshot')
     assert values(bank)['forge.sprite_renderer']['frame_regions'] == live_frames
     assert bank['timing']['tick'] == state['timing']['tick']
+    for mode in (0, 1, 2):
+        changed = worker.request('property_tune', **target, property='mip_filter', value=mode)
+        assert changed['property_tune']['value'] == mode
+        assert values(worker.request('snapshot'))['forge.sprite_renderer']['mip_filter'] == mode
     for mode in (1, 2):
         changed = worker.request('property_tune', **target, property='image_mode', value=mode)
         assert changed['property_tune']['value'] == mode
@@ -83,6 +87,10 @@ def live_region(worker, state):
     assert tuned['timing']['tick'] == state['timing']['tick'], tuned['timing']
     region(values(tuned)['forge.sprite_renderer'], 1, 0, 2, 3)
     for changes in (dict(property='region_width', value=-1),
+                    dict(property='mip_filter', value=3),
+                    dict(property='mip_filter', value=-1),
+                    dict(property='mip_filter', value=.5),
+                    dict(property='mip_filter', value=1 << 32),
                     dict(property='region_y', value=16385),
                     dict(property='region_enabled', value=1),
                     dict(property='region_x', value=.5),
@@ -110,6 +118,8 @@ try:
         component, = [row for row in schema['components'] if row['id'] == name]
         return {field['id']: field['default'] for field in component['fields']}
     image = defaults('forge.sprite_renderer')
+    tiles = defaults('forge.tile_map_renderer')
+    tiles['enabled'] = False
     image.update(width=2, height=2, future_sprite_extension=dict(keep=17))
     actor = str(uuid.uuid4())
     scene = dict(version=3, asset_id=str(uuid.uuid4()), entities=[dict(
@@ -118,6 +128,7 @@ try:
             'forge.local_rotation': defaults('forge.local_rotation'),
             'forge.local_scale': defaults('forge.local_scale'),
             'forge.sprite_renderer': image,
+            'forge.tile_map_renderer': tiles,
             'project.sprite_image_probe': dict(ticks=0, **{'$forge': stamp})})])
     source = root / 'Source.scene.json'
     source.write_text(json.dumps(scene), encoding='utf-8')
@@ -129,8 +140,9 @@ try:
     one = first.request('step')
     mapped = values(one)
     assert mapped['project.sprite_image_probe']['ticks'] == 1
+    assert mapped['forge.tile_map_renderer']['mip_filter'] == 1
     image = mapped['forge.sprite_renderer']
-    assert image['image_mode'] == 1 and image['pixels_per_meter'] == 4, image
+    assert image['image_mode'] == 1 and image['mip_filter'] == 1 and image['pixels_per_meter'] == 4, image
     assert all(image[name] == 1 for name in ('border_left', 'border_right', 'border_top', 'border_bottom')), image
     assert image['future_sprite_extension'] == dict(keep=17), image
     region(image, 1, 0)
@@ -145,7 +157,8 @@ try:
         updated = values(state)
         image = updated['forge.sprite_renderer']
         assert updated['project.sprite_image_probe']['ticks'] == 2
-        assert image['image_mode'] == 2 and image['pixels_per_meter'] == 6 and image['flip_x'], image
+        assert updated['forge.tile_map_renderer']['mip_filter'] == 2
+        assert image['image_mode'] == 2 and image['mip_filter'] == 2 and image['pixels_per_meter'] == 6 and image['flip_x'], image
         assert image['future_sprite_extension'] == dict(keep=17), image
         assert image['width'] == 2 and image['height'] == 2, image
         assert image['frame'] == 2 and image['frame_regions'] == [
@@ -154,7 +167,7 @@ try:
         region(image, 0, 1)
         third = worker.request('step')
         image = values(third)['forge.sprite_renderer']
-        assert image['image_mode'] == 0 and image['frame_regions'][2] == frame_value(
+        assert image['image_mode'] == 0 and image['mip_filter'] == 0 and image['frame_regions'][2] == frame_value(
             0, 2, 2, 1, rotated_clockwise=True, source_width=3, source_height=3, trim_x=1, trim_y=1), image
     checkpoint = third['recovery']
     metadata_restored = Worker(runtime, root)
@@ -167,7 +180,8 @@ try:
             mapped = values(state)
             image = mapped['forge.sprite_renderer']
             assert mapped['project.sprite_image_probe']['ticks'] == tick
-            assert image['image_mode'] == mode and image['frame_regions'][2]['rotated_clockwise']
+            assert mapped['forge.tile_map_renderer']['mip_filter'] == tick % 3
+            assert image['image_mode'] == mode and image['mip_filter'] == mode and image['frame_regions'][2]['rotated_clockwise']
             assert all(frame['source_width'] == 3 and frame['source_height'] == 3
                        for frame in image['frame_regions'])
     live_region(first, first.request('snapshot'))
@@ -189,8 +203,9 @@ try:
         state = play.request('step')
         mapped = values(state)
         assert mapped['project.sprite_image_probe']['ticks'] == tick
+        assert mapped['forge.tile_map_renderer']['mip_filter'] == tick % 3
         image = mapped['forge.sprite_renderer']
-        assert image['image_mode'] == tick % 3 and image['pixels_per_meter'] == (4 if tick == 1 else 6), image
+        assert image['image_mode'] == tick % 3 and image['mip_filter'] == tick % 3 and image['pixels_per_meter'] == (4 if tick == 1 else 6), image
         assert image['future_sprite_extension'] == dict(keep=17), image
         region(image, x, y)
         if tick >= 4:

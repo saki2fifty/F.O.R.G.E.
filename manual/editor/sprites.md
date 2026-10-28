@@ -168,7 +168,8 @@ Fully transparent images retain one transparent pixel and their original canvas.
 Input images may reach16384 pixels per side when trimming is enabled, within the
 same decoded pixel budget. Output remains bounded by **Maximum side**. Packing
 considers a bounded set of layouts and does not guarantee the smallest possible image.
-Source mip levels are not packed; Sprite sampling uses the base level. The output
+Source mip levels are not packed. Select **Mip filtering** on the Sprite to filter
+its frames during rendering, as described below. The output
 is a one-time image copy: changing an original does not update the generated PNG.
 Pack again into a new folder and update the Material/frame list when needed.
 A source catalog change after review requires preparing the review again.
@@ -224,7 +225,33 @@ complete image, frame and size. Correct the values to retry. A retained image
 does not mean the current edit is valid. The first Sprite profile supports 2D
 RGBA8/sRGB images with ordinary opaque or straight alpha. It rejects compressed,
 HDR, premultiplied-alpha and custom surface Shader images. Sheet sampling uses
-the base image level; this is not an atlas mip-generation feature.
+the base image level when **Mip filtering** is Disabled.
+
+## Filter small or distant images
+
+![Sprite Inspector showing Linear mip filtering in the Image fill section](../images/sprite-mip-filtering-controls.png)
+
+Image fill groups **Mip filtering** with the Sprite's fill controls.
+
+1. Select the Sprite. In Inspector, open **Image fill** and find **Mip filtering**.
+2. Choose **Nearest** to select a smaller image level, or **Linear** to blend between neighboring levels as the image changes size. **Disabled** uses the original base pixels and is the default.
+3. Reduce the Sprite's size, increase an orthographic camera's height, or move a perspective camera farther away. Inspect the result in Scene or Game. Filtering keeps each sheet frame separate, including cropped, trimmed and rotated frames.
+4. Save the Scene or Prefab. Export uses the saved setting. Sprite changes in **Live gameplay** affect the running instance and are discarded when Play stops.
+
+The Material's **Pixel filtering** controls how pixels within each level are
+sampled. **Mip filtering** controls the choice of image level. Simple, Sliced and
+Tiled fills use the same setting. Repeated fill clamps at each image edge.
+
+Filtering uses additional memory. Sprite banks and each used Tile Set image
+support up to 512 filtered frames. Large banks can exceed the resource budget;
+FORGE reports the problem and keeps the last complete working image. While a
+replacement loads, the previous complete image may remain visible. Correct the
+reported frame, material or budget problem to retry. Mask materials keep their
+alpha cutoff, so fine cutouts can change coverage when reduced.
+
+Open Gallery **99-sprite-frame-filtering** for a comparison. Its left column uses
+Disabled, the center uses Nearest, and the right uses Linear. The four rows show
+fine checks, stripes, transparent pixels and ring edges.
 
 ## Animate the frames
 

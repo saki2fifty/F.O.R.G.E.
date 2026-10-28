@@ -317,11 +317,21 @@ int main(int argc, char** argv) {
         sprite["pivot_x"] = 0;
         sprite["pivot_y"] = 0;
         sprite["tint_a"] = .5;
+        sprite["mip_filter"] = 2;
         scene.reset(source);
         const auto typed = scene.entity(actor.str()).get<SpriteRenderer>();
         check(typed.material.id == material && typed.frame == 3 && typed.columns == 2 &&
-                  typed.rows == 2 && typed.width == 4 && typed.height == 2 && typed.tint_a == .5f,
+                  typed.rows == 2 && typed.width == 4 && typed.height == 2 && typed.tint_a == .5f &&
+                  typed.mip_filter == std::uint32_t(SpriteMipFilter::Linear),
               "Sprite codec disagrees with typed Flecs values");
+        {
+            auto old = source;
+            old["entities"][0]["components"]["forge.sprite_renderer"].erase("mip_filter");
+            Scene legacy(engine.world());
+            legacy.reset(old);
+            check(legacy.entity(actor.str()).get<SpriteRenderer>().mip_filter == 0,
+                  "An existing Sprite enabled mip filtering without an authored choice");
+        }
         const std::array documents{AssetReferenceDocument{"Image.scene.json", scene.document()}};
         const auto references = inspect_asset_references(scene.schema(), documents, {material});
         check(references.references.size() == 1 && references.uninspected.empty() &&
@@ -373,6 +383,11 @@ int main(int argc, char** argv) {
               "Sprite property history lost extension data or frame intent");
         for (const auto& [field, value] :
              std::vector<std::pair<std::string, Json>>{{"frame", 4},
+                                                       {"mip_filter", 3},
+                                                       {"mip_filter", -1},
+                                                       {"mip_filter", .5},
+                                                       {"mip_filter", true},
+                                                       {"mip_filter", std::uint64_t(1) << 32},
                                                        {"frame", -1},
                                                        {"frame", .5},
                                                        {"columns", 0},

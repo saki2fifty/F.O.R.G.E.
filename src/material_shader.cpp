@@ -15,10 +15,11 @@ std::vector<MaterialParameterUniform> material_parameter_uniforms(const Material
 }
 MaterialShader material_shader(const PbrMaterialProfile& material,
                                std::span<const unsigned> uv_sets, MaterialSamplerBinding binding,
-                               bool sprite_profile) {
+                               bool sprite_profile, std::optional<TextureFilter> sprite_mips) {
     MaterialShader result;
     const auto canonical = prepare_pbr_material(material.values);
     const auto& values = canonical.values;
+    const bool frame_mips = sprite_profile && sprite_mips.has_value();
     const auto require = [](bool ok, const std::string& why) {
         if (!ok)
             throw std::runtime_error("Material shader: " + why);
@@ -50,11 +51,18 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
         const auto uv_slot = static_cast<unsigned>(found - uv_sets.begin());
         const auto index = result.textures.size();
         const auto texture = "g_MaterialTexture" + std::to_string(index);
+        auto state = slot.sampler;
+        if (frame_mips) {
+            state.u = state.v = state.w = TextureWrap::ClampEdge;
+            state.min_lod = 0;
+            state.max_lod = 1000;
+            state.mip = *sprite_mips;
+        }
         auto [selected, inserted] =
-            samplers.try_emplace(slot.sampler, static_cast<unsigned>(samplers.size()));
+            samplers.try_emplace(state, static_cast<unsigned>(samplers.size()));
         const auto sampler_slot = selected->second;
         if (inserted)
-            result.samplers.push_back(slot.sampler);
+            result.samplers.push_back(state);
         const auto sampler = std::string(material_sampler_variable) +
                              (binding == MaterialSamplerBinding::NamedElements
                                   ? "_" + std::to_string(sampler_slot)
@@ -69,7 +77,7 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
             {float(s * slot.scale[0]), float(c * slot.scale[1]), slot.offset[1], 0});
         // KHR_texture_transform uses offset + rotation * scale * UV; source UV
         // orientation is unchanged. Hardware sRGB views own color conversion.
-        const auto sampling = sprite_profile
+        const auto sampling = sprite_profile && !frame_mips
                                   ? texture + ".SampleLevel(" + sampler + ",transformed,0)"
                                   : texture + ".SampleGrad(" + sampler + ",transformed,dx,dy)";
         functions += "float2 ForgeUV_" + role +
@@ -78,14 +86,19 @@ MaterialShader material_shader(const PbrMaterialProfile& material,
                      std::to_string(offset) + "].xyz;\nfloat3 v=g_MaterialValues[" +
                      std::to_string(offset + 1) +
                      "].xyz;\n"
-                     "return float2(dot(u.xy,uv)+u.z,dot(v.xy,uv)+v.z);}\n"
-                     "float4 ForgeSample_" +
-                     role + "(float2 uv,out bool valid){float2 transformed=ForgeUV_" + role +
-                     "(uv);float2 dx=ddx(transformed),dy=ddy(transformed);"
-                     "valid=all(isfinite(transformed))&&all(isfinite(dx))&&all(isfinite(dy));"
+                     "return float2(dot(u.xy,uv)+u.z,dot(v.xy,uv)+v.z);}\n";
+        functions += "float4 ForgeSample_" + role +
+                     (frame_mips ? "(float2 uv,float2 dx,float2 dy,out bool valid){"
+                                 : "(float2 uv,out bool valid){") +
+                     "float2 transformed=ForgeUV_" + role + "(uv);";
+        if (!frame_mips)
+            functions += "float2 dx=ddx(transformed),dy=ddy(transformed);";
+        functions += "valid=all(isfinite(transformed))&&all(isfinite(dx))&&all(isfinite(dy));"
                      "float4 value=0;if(valid){value=" +
-                     sampling +
-                     ";valid=all(isfinite(value));}"
+                     sampling + ";";
+        if (frame_mips)
+            functions += "if(value.a>0)value.rgb/=value.a;else value.rgb=0;";
+        functions += "valid=all(isfinite(value));}"
                      "return valid?value:0;}\n";
     }
     if (binding == MaterialSamplerBinding::NamedElements) {
