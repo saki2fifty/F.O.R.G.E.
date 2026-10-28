@@ -13,6 +13,12 @@ MaterialResourceData model_pbr_material_resource(const ModelSelection&, AssetRef
 MaterialResourceData load_pbr_material(const std::filesystem::path&, const AssetCatalog&,
                                        AssetRef<MaterialAsset>, std::stop_token = {});
 TextureData model_texture_resource(const ModelSelection&, AssetRef<TextureAsset>, TextureSemantic);
+// The same immutable CPU selection as request_texture, without a pool/device.
+// Limits bound decoded textures; model family admission retains its own bounds.
+ResourceCandidate<TextureAsset> load_texture_selection(const std::filesystem::path&,
+                                                       const AssetCatalog&, AssetRef<TextureAsset>,
+                                                       std::optional<TextureSemantic> = {},
+                                                       TextureLimits = {}, std::stop_token = {});
 // Omitted semantic selects HDR color when available, otherwise color; never data/normal.
 // Root texture assets and model members share the same async identity/lifetime path.
 ResourceTicket request_texture(ResourcePool<TextureAsset>&, std::filesystem::path project,

@@ -122,6 +122,7 @@ class ComponentInspector {
     std::function<bool(const Json& mesh_renderer, Json& materials)> material_slots;
     std::function<bool(const Json& mesh_renderer, Json& parameters)> material_parameters;
     ui::SpriteFrameField sprite_frames;
+    std::function<std::optional<Json>(const ui::SpriteFrameContext&)> atlas_frames;
     std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     std::function<void(const std::string&)> open_cpp_definition;
     std::function<void(const std::string& entity, const std::string& component)> edit_scene_target;
@@ -601,6 +602,12 @@ class ComponentInspector {
                     if (chosen)
                         edit_property(scene, entity, key, name, value);
                 }
+                if (key == "forge.sprite_renderer" && name == "frame_regions" && atlas_frames) {
+                    const auto owner = "scene:" + path_text(project.project()) + "/" +
+                                       std::to_string(project.generation()) + "/" + entity;
+                    if (auto patch = atlas_frames(ui::sprite_frame_context(owner, values.at(key))))
+                        apply(scene, entity, key, name, "property.set_many", *patch);
+                }
                 const bool field_override = whole || (partial && masks.at(key).contains(name));
                 if (prefab) {
                     ImGui::TextDisabled("%s", field_override ? "Overridden" : "Inherited");
@@ -666,10 +673,12 @@ class ComponentInspector {
                const std::string& field, const std::string& operation, const Json& value) {
         const auto key = error_key(entity, component, field);
         Json args = {{"entity", entity}, {"component", component}};
-        if (!field.empty())
+        if (!field.empty() && operation != "property.set_many")
             args["field"] = field;
         if (operation == "property.set")
             args["value"] = value;
+        if (operation == "property.set_many")
+            args["values"] = value;
         try {
             authoring_command(scene, operation, args);
             errors_.erase(key);

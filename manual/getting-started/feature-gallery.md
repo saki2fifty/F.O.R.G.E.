@@ -229,3 +229,11 @@ Open **Scenes/92-multiple-gamepads.scene.json** for four colored markers and sep
 ## Raw controller motion
 
 Open **Scenes/93-gamepad-motion.scene.json** for acceleration and gyroscope X/Y markers. Build/register **CodeExamples/GamepadMotion.cpp** with its fixed system and unscaled control callback, or build the matching SDK’s **gamepad_motion_gameplay** sample. Installing the sample opts into enabling Player 1’s supported sensors. Capture Game input to receive readings; open **Gamepads... → Motion sensors** to inspect modes and **Console → Controller motion** to monitor raw values. Save Scene and Settings, select this Scene as startup, build current project code, then export. See [Gameplay input](../editor/input.md) for units, prerequisites and limits.
+
+## Packed Sprite images
+
+Scene **94-sprite-atlas-packing** compares the original Badge and Panel on the left
+with the same pixels selected from one generated PNG on the right. The bottom
+Sprite shows the whole atlas. Inspect the two packed Sprites' **Frame regions**;
+Frame0 selects Badge and Frame1 selects Panel. See [Sprite atlas packing](../editor/sprites.md)
+to generate your own PNG and apply its ordered frame rectangles.

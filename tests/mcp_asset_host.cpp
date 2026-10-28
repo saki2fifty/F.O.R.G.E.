@@ -1,7 +1,9 @@
 #include "asset_automation.hpp"
 #include "automation.hpp"
 #include "import_authoring.hpp"
+#include "material_editor.hpp"
 #include "mcp_test_marker.hpp"
+#include "source_workflow_automation.hpp"
 #include "texture_authoring.hpp"
 #include <chrono>
 #include <iostream>
@@ -23,8 +25,28 @@ int main(int argc, char** argv) {
         std::vector<std::string> recent;
         forge::EditorFiles files(scene, nullptr, recent);
         files.start(root / "Game");
+        const std::unique_ptr<ImGuiContext, decltype(&ImGui::DestroyContext)> imgui(
+            ImGui::CreateContext(), ImGui::DestroyContext);
+        auto& io = ImGui::GetIO();
+        io.IniFilename = nullptr;
+        io.DisplaySize = {1200, 900};
+        io.DeltaTime = 1.f / 60;
+        unsigned char* font_pixels;
+        int font_width, font_height;
+        io.Fonts->GetTexDataAsRGBA32(&font_pixels, &font_width, &font_height);
+        forge::ui::EditorUiContext ui_context;
+        forge::ui::ContextScope ui_scope(ui_context);
+        forge::MaterialEditor material;
+        forge::ui::DocumentWorkspace documents;
+        forge::ui::WorkspaceDocument material_document;
+        material_document.id = material_document.title = "material";
+        material_document.is_open = [&] { return material.is_open(); };
+        material_document.dirty = [&] { return material.dirty(); };
+        material_document.source = forge::AssetDocumentAutomation::bind(material, files.document);
+        documents.add(std::move(material_document));
         forge::ContentImports imports;
         forge::SourceImport source;
+        source.atlas_worker = worker;
         forge::ContentFiles content_files;
         forge::SceneAssetDrop placement;
         forge::ui::EditorSelection selection;
@@ -59,13 +81,18 @@ int main(int argc, char** argv) {
                     files.document.source_relocated(old->source, review.plan.request.destination);
             }
         };
-        imports.blocked = [&](forge::AssetId) {
-            return forge::test::marker_present(root / "dirty_source");
+        imports.blocked = [&](forge::AssetId id) {
+            return forge::test::marker_present(root / "dirty_source") ||
+                   documents.source_publication_blocked(id);
         };
         forge::ui::AutomationWorkspace workspace;
         workspace.workflow_methods = [&](const auto& permissions) {
-            return forge::asset_automation_methods(scene, files, imports, source, placement,
-                                                   content_files, permissions);
+            auto methods = forge::asset_automation_methods(scene, files, imports, source, placement,
+                                                           content_files, permissions);
+            auto sources = forge::source_document_automation_methods(documents, permissions);
+            methods.insert(methods.end(), std::make_move_iterator(sources.begin()),
+                           std::make_move_iterator(sources.end()));
+            return methods;
         };
         forge::ui::AutomationPermissions permissions;
         permissions.assets = !read_only;
@@ -77,6 +104,9 @@ int main(int argc, char** argv) {
         const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(175);
         while (workspace.active() && std::chrono::steady_clock::now() < end) {
             files.changed = false;
+            material.poll(files.document, message);
+            if (auto catalog = material.take_catalog())
+                imports.catalog_changed(std::move(catalog));
             if (!forge::test::marker_present(root / "pause_placement"))
                 placement.poll(scene, files, selection, false, message);
             content_files.poll(files.document, scene, imports, message);
@@ -84,6 +114,9 @@ int main(int argc, char** argv) {
             source.poll(files.document, imports, message);
             imports.poll(files.document, message);
             workspace.pump(files.document, files.busy() ? "Finish the active file operation" : "");
+            ImGui::NewFrame();
+            material.draw(files.document, source.busy() || content_files.busy());
+            ImGui::Render();
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         return 0;

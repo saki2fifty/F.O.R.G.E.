@@ -1,0 +1,43 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [
+      {
+        "kind": "runtime",
+        "revision": "d729a3a7a60f2644e51501b1894861e86fda8eea78d5e3e3696f44e6b14781b7",
+        "role": "material.texture:baseColorTexture",
+        "target": "1aee7207-cde4-48bc-9c23-cd5a32eac241",
+        "type": "texture"
+      }
+    ],
+    "importer": "forge.material.builtin",
+    "importer_revision": "831807e3831e7272d811165237d301414a4f61c63da6a80861c2926ded09a732",
+    "key_version": 1,
+    "output_format": "forge.material-bundle",
+    "output_version": 2,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {},
+    "settings_version": 1,
+    "source": "d91590bc5217c7dc7665d3b190258f3d802da3fe775de6ed808b476b05124512",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.material.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "da9fae12-49ef-4d5d-8df8-71032f1806e4",
+    "source": "Assets/Sprites/PackedAtlas.material.json",
+    "source_digest": "d91590bc5217c7dc7665d3b190258f3d802da3fe775de6ed808b476b05124512",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.material.builtin",
+    "overrides": {},
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

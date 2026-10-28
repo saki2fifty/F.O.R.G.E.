@@ -1,4 +1,5 @@
 #pragma once
+#include "sprite_atlas_frames.hpp"
 #include "sprite_frame_context.hpp"
 #include "sprite_sheet_layout.hpp"
 #include "widgets.hpp"
@@ -21,6 +22,40 @@ struct SpriteSheetImage {
 class SpriteFramePicker {
   public:
     std::function<SpriteSheetImage(AssetRef<MaterialAsset>)> image_source;
+    std::optional<nlohmann::json> paste_atlas_frames(const SpriteFrameContext& context) {
+        std::optional<nlohmann::json> result;
+        if (button("Paste atlas frames", "Replace frame rectangles from Copy atlas frames. "
+                                         "Uses the assigned material's Texture; resets the frame "
+                                         "to 0 and disables cropping.")) {
+            paste_owner_ = context.owner;
+            try {
+                const auto* clipboard = ImGui::GetClipboardText();
+                if (!clipboard)
+                    throw std::invalid_argument("Copy an atlas frame layout first");
+                std::size_t size = 0;
+                while (size <= 65536 && clipboard[size])
+                    ++size;
+                if (size > 65536)
+                    throw std::invalid_argument("Atlas clipboard exceeds 64 KiB");
+                const auto image =
+                    image_source ? image_source(context.material) : SpriteSheetImage{};
+                if (!image.ready())
+                    throw std::runtime_error(
+                        image.status.empty()
+                            ? "Wait for the assigned Sprite image to load, then paste again"
+                            : image.status);
+                result = sprite_atlas_frame_values({clipboard, size}, image.revision->asset,
+                                                   image.width, image.height);
+                paste_error_.clear();
+            } catch (const std::exception& error) {
+                paste_error_ = error.what();
+            }
+        }
+        FORGE_UI_PROBE("sprite:paste-atlas");
+        if (paste_owner_ == context.owner && !paste_error_.empty())
+            field_error(paste_error_);
+        return result;
+    }
     void begin_frame() {
         submitted_ = false;
 #ifdef FORGE_UI_FIXTURE
@@ -411,6 +446,7 @@ class SpriteFramePicker {
     std::array<std::uint32_t, 6> grid_{};
     std::optional<SpritePixelRegion> crop_;
     std::vector<SpriteFrameRegion> frame_regions_;
+    std::string paste_owner_, paste_error_;
     SpriteSheetView view_;
     std::uint32_t pending_ = 0;
     std::optional<ResourceIdentity> image_revision_;

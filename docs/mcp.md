@@ -143,6 +143,7 @@ this does not grant file commits, placement or imports.
 | `forge_asset_search`, `forge_asset_read` | Borrow ContentImports' published AssetCatalog snapshot plus immutable engine assets; search pages contain at most128 records |
 | `forge_asset_jobs` | Read actual reimport jobs and the current project-scoped source batch, placement and file-operation results |
 | `forge_asset_reimport` | Queue registered owners through dependency-aware AssetReimportService; blocked drafts and last-good publication rules remain intact |
+| `forge_asset_atlas_prepare` | Pack ordered published root sRGB Texture assets into a detached PNG/source review; no copy or publication yet. Reuses the import review/commit/cancel/close tools |
 | `forge_asset_import_prepare`, `forge_asset_import_review` | SourceImport prepares the bounded source/dependency copy plan; review pages and its digest identify exactly what was inspected |
 | `forge_asset_import_commit`, `forge_asset_import_cancel`, `forge_asset_import_close` | Confirm the exact batch/review, cancel pending work, or release a settled review; native workers publish each imported asset independently |
 | `forge_asset_place`, `forge_asset_place_cancel` | SceneAssetDrop queues the same undoable Model/Mesh/Tile Map/Prefab placement used by viewport drops; Model options include source scene, animation clip and material variant |
@@ -761,3 +762,27 @@ Use normal source/build/scene/startup/export tools for the original Gallery93
 supported sensors through unscaled Game requests. Raw readings require current
 native gameplay routing; injecting an input action does not create a sensor
 measurement. No mobile, calibration, fusion or orientation capability is advertised.
+
+## Sprite atlas generation
+
+With asset-write permission, call `forge_asset_atlas_prepare` with ordered
+`textures` (1–512 Texture UUIDs) and `destination` (a new directory below Assets).
+Optional `filename` defaults to `atlas.png`; `max_size` defaults4096 (at most4096),
+`padding` defaults1 (0–64), `extrude` defaults true and `byte_limit` defaults64MiB
+(at most64MiB). Only independent published sRGB RGBA8 Color textures are supported;
+originals are not modified. No external import-root grant is required.
+
+Poll `forge_asset_import_review` until review or failure. `generated` includes
+width, height, ordered frames, captured input IDs/sources and settings. Commit
+with the exact batch/review through `forge_asset_import_commit`, or cancel/close
+through the same import owner. A changed input catalog invalidates the copy.
+After cooking, `results[].asset` is the actual normal published Texture UUID;
+failed entries have null asset. Queue admission is not publication.
+
+Create/publish an ordinary unlit Sprite Material with that Texture through the
+existing source-document create/patch/save workflow. On the target Sprite use
+`forge_property_set_many` for `frame_regions: generated.frames`, `frame:0` and
+`region_enabled:false` together. Assign the Material through ordinary reflected
+properties and save the scene. Native paste additionally verifies the image ID/
+dimensions; clients should compare those before applying the returned mapping.
+Packing is one-shot, with no rotation, trimming, auto-repack or atlas mip claim.

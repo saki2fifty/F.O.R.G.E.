@@ -1,5 +1,6 @@
 #include "asset_bytes.hpp"
 #include "material_selection.hpp"
+#include "model_render_resource.hpp"
 #include "runtime_package.hpp"
 #include "sprite_material_profile.hpp"
 #include "texture_bundle_validation.hpp"
@@ -96,14 +97,49 @@ int main(int argc, char** argv) {
         const auto single_touch = asset(catalog, "Scenes/91-single-touch-gestures.scene.json");
         const auto gamepads = asset(catalog, "Scenes/92-multiple-gamepads.scene.json");
         const auto motion = asset(catalog, "Scenes/93-gamepad-motion.scene.json");
-        const std::array roots{basics, frames,   panels,       regions,  banks,
-                               touch,  gestures, single_touch, gamepads, motion};
+        const auto packed_atlas_scene = asset(catalog, "Scenes/94-sprite-atlas-packing.scene.json");
+        const std::array roots{
+            basics,       frames,   panels, regions,           banks, touch, gestures,
+            single_touch, gamepads, motion, packed_atlas_scene};
         const auto badge = asset(catalog, "Assets/Sprites/Badge.png");
         const auto sheet = asset(catalog, "Assets/Sprites/SignalSheet.png");
         const auto badge_material = asset(catalog, "Assets/Sprites/Badge.material.json");
         const auto sheet_material = asset(catalog, "Assets/Sprites/SignalSheet.material.json");
         const auto panel = asset(catalog, "Assets/Sprites/Panel.png");
         const auto panel_material = asset(catalog, "Assets/Sprites/Panel.material.json");
+        const auto packed_atlas = asset(catalog, "Assets/Sprites/PackedAtlas.png");
+        const auto packed_material = asset(catalog, "Assets/Sprites/PackedAtlas.material.json");
+        const std::vector<SpriteFrameRegion> packed_frames{{99, 1, 32, 32}, {1, 1, 96, 64}};
+        const auto check_packed_pixels = [&](const auto& project, const AssetCatalog& current) {
+            const auto selection =
+                asset_detail::load_material_selection(project, current, {packed_material});
+            validate_sprite_material_profile(selection.data.values);
+            check(selection.data.textures.at("baseColorTexture").id == packed_atlas,
+                  "Gallery packed Material lost its ordinary Texture reference");
+            auto atlas = asset_detail::load_texture_selection(project, current, {packed_atlas},
+                                                              TextureSemantic::Color);
+            check(atlas.value->width == 132 && atlas.value->height == 66 && atlas.value->mips == 1,
+                  "Gallery atlas changed its base-only dimensions/profile");
+            for (unsigned index = 0; index < 2; ++index) {
+                auto original = asset_detail::load_texture_selection(
+                    project, current, {index == 0 ? badge : panel}, TextureSemantic::Color);
+                const auto& frame = packed_frames[index];
+                check(original.value->width == frame.width &&
+                          original.value->height == frame.height,
+                      "Gallery ordered frames no longer match their source dimensions");
+                for (unsigned y = 0; y < frame.height; ++y)
+                    for (unsigned x = 0; x < frame.width; ++x)
+                        for (unsigned channel = 0; channel < 4; ++channel)
+                            check(atlas.value->subresources[0][((frame.y + y) * atlas.value->width +
+                                                                frame.x + x) *
+                                                                   4 +
+                                                               channel] ==
+                                      original.value
+                                          ->subresources[0][(y * frame.width + x) * 4 + channel],
+                                  "Gallery atlas altered original sRGB/alpha image pixels");
+            }
+        };
+        check_packed_pixels(root, catalog);
         for (const auto id : {badge_material, sheet_material, panel_material}) {
             const auto selection = asset_detail::load_material_selection(root, catalog, {id});
             validate_sprite_material_profile(selection.data.values);
@@ -140,7 +176,7 @@ int main(int argc, char** argv) {
         EngineContext authored;
         Scene scene(authored.world());
         std::map<EntityId, SpriteRenderer> fill_values, region_values, bank_values, touch_values,
-            gesture_values, single_values, gamepad_values, motion_values;
+            gesture_values, single_values, gamepad_values, motion_values, atlas_values;
         for (const auto id : roots) {
             scene.load(root / catalog.records().at(id).source);
             const auto rendered = extract_render_scene(scene.effective_document());
@@ -165,6 +201,9 @@ int main(int argc, char** argv) {
             if (id == motion)
                 for (const auto& sprite : rendered.sprites)
                     motion_values.emplace(sprite.entity, sprite.renderer);
+            if (id == packed_atlas_scene)
+                for (const auto& sprite : rendered.sprites)
+                    atlas_values.emplace(sprite.entity, sprite.renderer);
             if (id == touch)
                 for (const auto& sprite : rendered.sprites)
                     touch_values.emplace(sprite.entity, sprite.renderer);
@@ -195,8 +234,8 @@ int main(int argc, char** argv) {
         const auto relocated = scratch / "relocated sprite content";
         std::filesystem::rename(package, relocated);
         const auto loaded = open_runtime_content(relocated, {"windows", "d3d12"});
-        // Scene roots share seven existing image/material/animation assets.
-        check(loaded.records().size() == roots.size() + 7,
+        // Shared images/materials/animation plus the generated ordinary PNG/Material.
+        check(loaded.records().size() == roots.size() + 9,
               "Sprite content dependency closure is incomplete or oversized");
         for (const auto& file : std::filesystem::recursive_directory_iterator(relocated)) {
             if (!file.is_regular_file())
@@ -213,8 +252,19 @@ int main(int argc, char** argv) {
         playback(relocated, loaded, frames);
         playback(relocated, loaded, regions, 6);
         playback(relocated, loaded, banks, 6);
+        check_packed_pixels(relocated, loaded);
         EngineContext runtime(WorldRole::Runtime);
         Scene restored(runtime.world());
+        restored.restore_snapshot(load_game_scene(relocated, {packed_atlas_scene}));
+        std::map<EntityId, SpriteRenderer> relocated_atlas;
+        for (const auto& sprite : extract_render_scene(restored.effective_document()).sprites)
+            relocated_atlas.emplace(sprite.entity, sprite.renderer);
+        check(atlas_values.size() == 5 && relocated_atlas == atlas_values &&
+                  std::count_if(atlas_values.begin(), atlas_values.end(),
+                                [&](const auto& row) {
+                                    return row.second.frame_regions == packed_frames;
+                                }) == 2,
+              "Source-free Gallery lost packed frame rectangles, values or identities");
         restored.restore_snapshot(load_game_scene(relocated, {panels}));
         const auto rendered = extract_render_scene(restored.effective_document());
         std::map<EntityId, SpriteRenderer> packed_values;

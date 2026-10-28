@@ -55,11 +55,14 @@ void exercise(const std::filesystem::path& scratch, float scale) {
         return picker.draw(field, value);
     };
     prefab.sprite_frames = inspector.sprite_frames;
+    inspector.atlas_frames = [&](const auto& field) { return picker.paste_atlas_frames(field); };
+    prefab.atlas_frames = inspector.atlas_frames;
     picker.image_source = [&](auto material) {
         check(bool(material.id), "Inspector chooser lost its image material");
         ui::SpriteSheetImage image;
         image.width = image.height = 32;
         image.revision = ResourceIdentity{};
+        image.revision->asset = engine_texture(EngineTexture::Checker).id;
         image.render = [](auto, auto, auto) {
             static int marker;
             return reinterpret_cast<ImTextureID>(&marker);
@@ -232,6 +235,44 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     };
     frame();
     const auto simple_image = scene.document();
+    Json atlas_clipboard = {{"format", "forge.sprite-atlas-layout"},
+                            {"version", 1},
+                            {"texture", engine_texture(EngineTexture::Checker).id.str()},
+                            {"width", 32},
+                            {"height", 32},
+                            {"frames",
+                             {{{"x", 1}, {"y", 2}, {"width", 5}, {"height", 3}},
+                              {{"x", 9}, {"y", 1}, {"width", 2}, {"height", 7}}}}};
+    ImGui::SetClipboardText(atlas_clipboard.dump().c_str());
+    click("sprite:paste-atlas");
+    check(scene.entity(selected).get<SpriteRenderer>().frame_regions ==
+                  std::vector<SpriteFrameRegion>{{1, 2, 5, 3}, {9, 1, 2, 7}} &&
+              scene.entity(selected).get<SpriteRenderer>().frame == 0 &&
+              !scene.entity(selected).get<SpriteRenderer>().region_enabled && scene.undo() &&
+              scene.document() == simple_image && scene.redo() && scene.undo(),
+          "Atlas paste bypassed the existing complete property edit or its single Undo/Redo step");
+    const auto expect_bad_atlas = [&](const std::string& text) {
+        ImGui::SetClipboardText(text.c_str());
+        click("sprite:paste-atlas");
+        check(scene.document() == simple_image, "Invalid atlas clipboard changed the Scene");
+    };
+    auto bad_atlas = atlas_clipboard;
+    bad_atlas["texture"] = AssetId::generate().str();
+    expect_bad_atlas(bad_atlas.dump());
+    bad_atlas = atlas_clipboard;
+    bad_atlas["width"] = 64;
+    expect_bad_atlas(bad_atlas.dump());
+    bad_atlas = atlas_clipboard;
+    bad_atlas["frames"][1]["width"] = 100;
+    expect_bad_atlas(bad_atlas.dump());
+    bad_atlas["frames"] = Json::array();
+    expect_bad_atlas(bad_atlas.dump());
+    expect_bad_atlas("{broken}");
+    expect_bad_atlas(std::string(65537, 'x'));
+    ImGui::SetClipboardText(atlas_clipboard.dump().c_str());
+    click("sprite:paste-atlas");
+    check(scene.undo() && scene.document() == simple_image,
+          "Atlas paste did not recover after invalid clipboard data");
     click(field("frame_regions"));
     click("button:Add item...");
     click("button:Add");
@@ -462,6 +503,15 @@ void exercise(const std::filesystem::path& scratch, float scale) {
     key(ImGuiKey_End);
     key(ImGuiKey_Escape);
     check(prefab.migration_document() == draft, "Cancelled frame selection changed a prefab draft");
+    ImGui::SetClipboardText(atlas_clipboard.dump().c_str());
+    click("sprite:paste-atlas");
+    const auto packed_prefab =
+        prefab.migration_document()["members"][0]["components"]["forge.sprite_renderer"];
+    check(packed_prefab.at("frame_regions") == atlas_clipboard.at("frames") &&
+              packed_prefab.at("frame") == 0 && !packed_prefab.at("region_enabled").get<bool>() &&
+              project.prefabs().source(prefab_id) == published_prefab &&
+              scene.document() == instance_before,
+          "Atlas paste bypassed prefab draft ownership or changed the published source/instance");
     prefab.request_close();
     check(prefab.resolve_close(ui::DraftResolution::Discard, scene, project) &&
               project.prefabs().source(prefab_id) == published_prefab &&

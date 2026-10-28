@@ -24,6 +24,7 @@ for source, cooked in (('Assets/Shape.mesh.json', 'mesh.bin'),
                        ('Assets/Sprites/Badge.material.json', 'material.values'),
                        ('Assets/Sprites/SignalSheet.material.json', 'material.values'),
                        ('Assets/Sprites/Panel.material.json', 'material.values'),
+                       ('Assets/Sprites/PackedAtlas.material.json', 'material.values'),
                        ('Assets/Sprites/SignalFrames.animation.json', 'animation.clip'),
                        ('Assets/Terrain/LayeredHills.terrain.json', 'mesh.bin'),
                        ('Assets/Terrain/LayeredHills.collision.json', 'collision.bin'),
@@ -87,7 +88,7 @@ assert {'71-world-sprites.scene.json', '72-sprite-frame-animation.scene.json',
         '78-sprite-image-regions.scene.json',
         '79-one-way-platforms.scene.json', '80-xy-navigation.scene.json',
         '81-moving-tile-maps.scene.json', '82-tile-map-triggers.scene.json',
-        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json', '90-audio-echo.scene.json', '91-single-touch-gestures.scene.json', '92-multiple-gamepads.scene.json'} <= {p.name for p in scenes}
+        '83-audio-source-codecs.scene.json', '84-independent-audio.scene.json', '85-audio-filters.scene.json', '86-one-way-tile-maps.scene.json', '87-sprite-frame-regions.scene.json', '90-audio-echo.scene.json', '91-single-touch-gestures.scene.json', '92-multiple-gamepads.scene.json', '93-gamepad-motion.scene.json', '94-sprite-atlas-packing.scene.json'} <= {p.name for p in scenes}
 player_scene = json.loads((project_root / 'Scenes/92-multiple-gamepads.scene.json').read_text())
 assert player_scene['asset_id'] == by_source['Scenes/92-multiple-gamepads.scene.json']['id']
 players = [row for row in player_scene['entities'] if row['name'].startswith('Player ')]

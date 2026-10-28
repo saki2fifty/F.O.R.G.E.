@@ -1,0 +1,52 @@
+{
+  "build_inputs": {
+    "backend": "d3d12",
+    "dependencies": [],
+    "importer": "forge.texture.image",
+    "importer_revision": "f27de09b368adfe524f082cf48a2abc755d415964c6f37a9948cff68eedda002",
+    "key_version": 1,
+    "output_format": "forge.texture-bundle",
+    "output_version": 1,
+    "platform": "windows",
+    "profile": "desktop",
+    "settings": {
+      "additional_usages": [],
+      "anisotropy": 1,
+      "compression": "none",
+      "filter": "nearest",
+      "flip_green": false,
+      "flip_vertical": false,
+      "max_size": 16384,
+      "mips": false,
+      "premultiply": false,
+      "semantic": "auto",
+      "transfer": "auto",
+      "wrap": "clamp"
+    },
+    "settings_version": 1,
+    "source": "9794e718524806ea14575eafdd1c88dd1fa98af9579fd9434e37ec2e3f688f60",
+    "source_dependencies": {}
+  },
+  "format": "forge.asset-import",
+  "identity": {
+    "entries": [],
+    "evidence_schema": "forge.texture.single.v1",
+    "format": "forge.subasset-identity",
+    "owner": "1aee7207-cde4-48bc-9c23-cd5a32eac241",
+    "source": "Assets/Sprites/PackedAtlas.png",
+    "source_digest": "9794e718524806ea14575eafdd1c88dd1fa98af9579fd9434e37ec2e3f688f60",
+    "version": 1
+  },
+  "settings": {
+    "format": "forge.import-settings",
+    "importer": "forge.texture.image",
+    "overrides": {
+      "filter": "nearest",
+      "mips": false,
+      "wrap": "clamp"
+    },
+    "settings_version": 1,
+    "version": 1
+  },
+  "version": 1
+}

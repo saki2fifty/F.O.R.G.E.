@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import wave
+import zlib
 
 from mcp_test_client import CAPTURE, Client, failed, write_capture, finish_host
 
@@ -67,7 +68,7 @@ for legacy in (False, True):
         names = {tool['name'] for tool in catalog}
         assert {'forge_asset_search', 'forge_asset_read', 'forge_asset_import_prepare',
                 'forge_asset_import_commit', 'forge_asset_place', 'forge_asset_files_prepare',
-                'forge_asset_files_commit'} <= names
+                'forge_asset_files_commit', 'forge_asset_atlas_prepare'} <= names
         workflows = discover()['result']['workflow_methods']
         for workflow in workflows:
             tool = next(item for item in catalog if item['name'] ==
@@ -193,6 +194,120 @@ for legacy in (False, True):
         assert mutate('forge_asset_files_close', job=job)['ok']
         assert config['token'] not in json.dumps(CAPTURE)
 
+        # Original solid-color images: actual published selections, isolated packing,
+        # reviewed source copy and ordinary PNG cooking share the existing owner.
+        image_ids = []
+        for name, width, height, color in [('wide', 5, 2, (255, 23, 0, 255)),
+                                           ('tall', 2, 4, (0, 173, 255, 96))]:
+            def chunk(kind, data):
+                return struct.pack('>I', len(data)) + kind + data + struct.pack('>I', zlib.crc32(kind + data))
+            rows = b''.join(b'\x00' + bytes(color) * width for _ in range(height))
+            png = (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>2I5B', width, height, 8, 6, 0, 0, 0))
+                   + chunk(b'sRGB', b'\x00') + chunk(b'IDAT', zlib.compress(rows)) + chunk(b'IEND', b''))
+            (root / 'Sources' / (name + '.png')).write_bytes(png)
+            prepared = mutate('forge_asset_import_prepare', sources=[name + '.png'], root='import',
+                              destination='Assets/Image-' + name)
+            assert prepared['ok'], prepared
+            batch = prepared['result']['batch']
+            review = wait_for(lambda: read('forge_asset_import_review'),
+                              lambda value: value['state'] in ('review', 'failed'))
+            assert review['state'] == 'review', review
+            assert mutate('forge_asset_import_commit', batch=batch, review=review['review'])['ok']
+            imported = wait_for(jobs, lambda value: value['source_import']['state'] in ('done', 'failed'), 60)
+            entry = imported['source_import']['results'][0]
+            assert entry['published'] and entry['asset'], imported
+            image_ids.append(entry['asset'])
+            assert mutate('forge_asset_import_close', batch=batch)['ok']
+        index = root / 'Game/forge.assets.json'
+        before = index.read_bytes()
+        atlas_args = dict(textures=image_ids, destination='Assets/Packed', max_size=32,
+                          padding=2, extrude=True, byte_limit=4096)
+        failed(mutate('forge_asset_atlas_prepare', **dict(atlas_args, max_size=4097)), 'invalid_arguments')
+        prepared = mutate('forge_asset_atlas_prepare', **atlas_args)
+        assert prepared['ok'], prepared
+        batch = prepared['result']['batch']
+        review = wait_for(lambda: read('forge_asset_import_review'),
+                          lambda value: value['state'] in ('review', 'failed'))
+        assert review['state'] == 'review', review
+        generated = review['generated']
+        assert generated['kind'] == 'sprite_atlas' and len(generated['frames']) == 2
+        assert [frame['width'] for frame in generated['frames']] == [5, 2], generated
+        assert [frame['height'] for frame in generated['frames']] == [2, 4], generated
+        assert [image['asset'] for image in generated['inputs']] == image_ids
+        assert review['file_count'] == 1 and review['files'][0]['destination'] == 'atlas.png'
+        assert not (root / 'Game/Assets/Packed').exists() and index.read_bytes() == before
+        failed(mutate('forge_asset_import_commit', batch=batch, review='0' * 64), 'stale_review')
+        assert mutate('forge_asset_import_commit', batch=batch, review=review['review'])['ok']
+        imported = wait_for(jobs, lambda value: value['source_import']['state'] in ('done', 'failed'), 60)
+        entry = imported['source_import']['results'][0]
+        assert entry['published'] and entry['asset'] not in image_ids, imported
+        atlas_asset = read('forge_asset_read', asset=entry['asset'])
+        assert atlas_asset['type'] == 'texture' and atlas_asset['source'] == 'Assets/Packed/atlas.png'
+        assert atlas_asset['metadata']['forge.import']['importer'] == 'forge.texture.image'
+        assert imported['source_import']['generated']['frames'] == generated['frames']
+        assert mutate('forge_asset_import_close', batch=batch)['ok']
+
+        # Finish the same agent-authoring workflow through the existing Material
+        # document and reflected Scene owners; no second atlas asset or game path.
+        template = json.loads((Path(__file__).resolve().parents[1] /
+                               'samples/projects/FeatureGallery/Assets/Sprites/Badge.material.json').read_text())
+        overrides = template['overrides']
+        overrides['textures']['baseColorTexture']['asset'] = entry['asset']
+        created = mutate('forge_asset_document_create', editor='material',
+                         path='Assets/Packed/Sprite.material.json',
+                         patch=[dict(op='add', path='/overrides', value=overrides)])
+        assert created['ok'], created
+        doc = read('forge_asset_document_status', editor='material')
+        material_id = doc['asset']
+        saved = mutate('forge_asset_document_save', editor='material', document_session=doc['session'],
+                       document_revision=doc['revision'])
+        assert saved['ok'], saved
+        doc = wait_for(lambda: read('forge_asset_document_status', editor='material'),
+                       lambda value: not value['save_requested'] and not value['publishing'])
+        assert not doc['dirty'] and not doc['unpublished'], doc
+        assert read('forge_asset_read', asset=material_id)['dependencies'] == [entry['asset']]
+        assert mutate('forge_asset_document_close', editor='material', document_session=doc['session'],
+                      document_revision=doc['revision'])['ok']
+        actor = mutate('forge_entity_create', arguments=dict(recipe='render.sprite', name='Packed image'))
+        assert actor['ok'], actor
+        entity = actor['result']['results'][0]['selected']
+        before_frames = read('forge_scene_read')
+        applied = mutate('forge_property_set_many', arguments=dict(entity=entity, component='forge.sprite_renderer',
+                         values=dict(material=material_id, frame_regions=generated['frames'], frame=1,
+                                     region_enabled=False)))
+        assert applied['ok'], applied
+        authored = read('forge_scene_read')
+        assert mutate('forge_history_undo')['result']['changed'] and read('forge_scene_read') == before_frames
+        assert mutate('forge_history_redo')['result']['changed'] and read('forge_scene_read') == authored
+        assert mutate('forge_document_save')['ok']
+        saved_scene = json.loads((root / 'Game/Scenes/main.scene.json').read_text())
+        sprite = next(row['components']['forge.sprite_renderer'] for row in saved_scene['entities']
+                      if row['id'] == entity)
+        assert sprite['material'] == material_id and sprite['frame_regions'] == generated['frames'] and sprite['frame'] == 1
+        assert mutate('forge_entity_delete', arguments=dict(entity=entity))['ok']
+        assert mutate('forge_document_save')['ok']
+        assert not read('forge_scene_read')['entities']
+
+        # Review captures input publication bytes. A later catalog change rejects
+        # the source copy before the new directory can appear.
+        prepared = mutate('forge_asset_atlas_prepare', **dict(atlas_args, destination='Assets/StaleAtlas'))
+        batch = prepared['result']['batch']
+        review = wait_for(lambda: read('forge_asset_import_review'),
+                          lambda value: value['state'] in ('review', 'failed'))
+        assert review['state'] == 'review', review
+        original = index.read_bytes()
+        index.write_bytes(original + b'\n')
+        assert mutate('forge_asset_import_commit', batch=batch, review=review['review'])['ok']
+        rejected = wait_for(lambda: read('forge_asset_import_review'), lambda value: value['state'] == 'failed')
+        assert not (root / 'Game/Assets/StaleAtlas').exists() and 'inputs changed' in rejected['diagnostic'].lower(), rejected
+        assert mutate('forge_asset_import_close', batch=batch)['ok']
+        index.write_bytes(original)
+        prepared = mutate('forge_asset_atlas_prepare', **dict(atlas_args, textures=[image_ids[0]] * 2, destination='Assets/DuplicateAtlas'))
+        batch = prepared['result']['batch']
+        rejected = wait_for(lambda: read('forge_asset_import_review'), lambda value: value['state'] == 'failed')
+        assert 'distinct' in rejected['diagnostic'] and not (root / 'Game/Assets/DuplicateAtlas').exists()
+        assert mutate('forge_asset_import_close', batch=batch)['ok']
+
         # The same reviewed source owner admits original compressed audio.
         fixtures = Path(__file__).resolve().parents[1] / 'samples/projects/FeatureGallery/Assets/AudioCodecs'
         for extension in ('flac', 'mp3'):
@@ -285,7 +400,7 @@ for legacy in (False, True):
 with editor('read') as (root, process, config), Client(config) as client:
     catalog = client.request('tools/list')['result']['tools']
     assert 'forge_asset_search' in {tool['name'] for tool in catalog}
-    assert not any(tool['name'] in {'forge_asset_import_prepare', 'forge_asset_files_prepare',
+    assert not any(tool['name'] in {'forge_asset_import_prepare', 'forge_asset_atlas_prepare', 'forge_asset_files_prepare',
                                   'forge_asset_place', 'forge_asset_reimport'} for tool in catalog)
     assert client.request('tools/call', dict(name='forge_asset_place', arguments={}))['error']['code'] == -32602
 

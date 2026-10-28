@@ -83,6 +83,7 @@ int main(int argc, char** argv) {
             return forge::tile_asset_reimport_routes(asset_worker, forge::desktop_texture_target());
         };
         forge::SourceImport source;
+        source.atlas_worker = asset_worker;
         source.routes = imports.routes;
         forge::ContentFiles content_files;
         forge::SceneAssetDrop placement;

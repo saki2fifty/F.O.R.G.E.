@@ -131,6 +131,37 @@ asset_automation_methods(Scene& scene, EditorFiles& files, ContentImports& impor
     if (!permissions.assets)
         return methods;
     methods.push_back(automation_method(
+        "asset.atlas.prepare",
+        "Pack ordered published independent sRGB Texture assets into a reviewed PNG source. "
+        "No files change yet. Read asset.import.review, commit/cancel/close through asset.import; "
+        "results include the published Texture ID and ordered frame rectangles. One-shot packing, "
+        "no trimming, rotation, automatic repacking or atlas mips.",
+        "asset.write",
+        automation_object({{"textures", automation_array(automation_uuid(), 512, 1)},
+                           {"destination", automation_text(2047, 1)},
+                           {"filename", automation_text(240, 1)},
+                           {"max_size", automation_integer(1, 4096)},
+                           {"padding", automation_integer(0, 64)},
+                           {"byte_limit", automation_integer(4, 64ull * 1024 * 1024)},
+                           {"extrude", {{"type", "boolean"}}}},
+                          {"textures", "destination"}),
+        true, [catalog, &files, &source](const Json& request) {
+            (void)catalog();
+            std::vector<AssetId> textures;
+            for (const auto& id : request.at("textures"))
+                textures.push_back(AssetId::parse(id.get<std::string>()));
+            SpriteAtlasPacking settings;
+            settings.max_size = request.value("max_size", settings.max_size);
+            settings.padding = request.value("padding", settings.padding);
+            settings.byte_limit = request.value("byte_limit", settings.byte_limit);
+            settings.extrude = request.value("extrude", settings.extrude);
+            source.automation_prepare_atlas(
+                files.document, std::move(textures),
+                automation_relative_path(request.at("destination").get<std::string>()),
+                request.value("filename", std::string("atlas.png")), settings);
+            return source.operation();
+        }));
+    methods.push_back(automation_method(
         "asset.reimport",
         "Queue registered assets through the existing dependency-aware reimport owner.",
         "asset.write",

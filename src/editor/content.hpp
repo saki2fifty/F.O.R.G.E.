@@ -33,6 +33,7 @@ class ContentBrowser {
     }
     std::function<void()> rescan_sources, import_status;
     std::function<void()> import_files;
+    std::function<void()> pack_sprite_atlas;
     bool accepts_file_drop(ImVec2 screen) const {
         return drop_frame_ + 1 >= ImGui::GetFrameCount() && screen.x >= drop_min_.x &&
                screen.y >= drop_min_.y && screen.x < drop_max_.x && screen.y < drop_max_.y;
@@ -474,6 +475,11 @@ class ContentBrowser {
                     "selected prefab asset.");
                 if (asset_controls)
                     asset_controls();
+                if (pack_sprite_atlas &&
+                    ui::button("Pack sprite atlas...",
+                               "Pack selected independent Texture assets into a new PNG source and "
+                               "review the frame layout."))
+                    pack_sprite_atlas();
                 ImGui::EndDisabled();
                 if (locked)
                     ImGui::TextWrapped(

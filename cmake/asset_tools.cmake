@@ -173,6 +173,7 @@ endif()
 # Parent import orchestration has no image codec/device dependency. Native decode
 # is linked only by this dedicated worker and the direct codec tests above.
 add_library(forge_texture_pipeline STATIC src/texture_importer.cpp)
+target_sources(forge_texture_pipeline PRIVATE src/sprite_atlas_protocol.cpp)
 target_link_libraries(forge_texture_pipeline PUBLIC forge_assets forge_texture PRIVATE forge_import_process forge_asset_bytes)
 set(_forge_texture_recipe_inputs "${FORGE_ENABLE_SANITIZERS};${CMAKE_C_FLAGS_DEBUG};${CMAKE_CXX_FLAGS_DEBUG};${CMAKE_C_FLAGS_RELWITHDEBINFO};${CMAKE_CXX_FLAGS_RELWITHDEBINFO};${CMAKE_C_COMPILER_ID};${CMAKE_C_COMPILER_VERSION};${CMAKE_CXX_COMPILER_ID};${CMAKE_CXX_COMPILER_VERSION};${CMAKE_SYSTEM_NAME};${CMAKE_SYSTEM_PROCESSOR};${CMAKE_C_FLAGS};${CMAKE_CXX_FLAGS};${CMAKE_C_FLAGS_RELEASE};${CMAKE_CXX_FLAGS_RELEASE};${CMAKE_MSVC_RUNTIME_LIBRARY}")
 foreach(source include/forge/import_settings.hpp src/import_settings.cpp src/bounded_json.hpp include/forge/texture_asset.hpp include/forge/texture_dimension.hpp include/forge/texture_bundle.hpp src/texture_import.hpp src/texture_ktx.hpp src/texture_diligent.hpp src/texture_decode.h src/import_process.hpp src/texture_importer.hpp src/asset_worker.hpp src/worker_stage_lease.hpp src/worker_stage_lease.cpp src/texture_bundle.cpp src/texture_bundle_validation.hpp src/texture_importer.cpp src/texture_worker.cpp src/import_worker_main.cpp src/import_process.cpp src/texture_asset.cpp src/texture_import.cpp src/texture_diligent.cpp src/texture_png.c src/texture_jpeg.c src/texture_bmp.cpp src/texture_dds.cpp src/texture_hdr.cpp src/texture_webp.c src/texture_ktx.cpp cmake/asset_tools.cmake cmake/image_codecs.cmake cmake/texture_codecs.cmake cmake/webp.cmake cmake/diligent_source.cmake)
@@ -181,7 +182,16 @@ foreach(source include/forge/import_settings.hpp src/import_settings.cpp src/bou
  string(APPEND _forge_texture_recipe_inputs ";${source}:${digest}")
 endforeach()
 string(SHA256 _forge_texture_recipe_fingerprint "${_forge_texture_recipe_inputs}")
+set(_forge_sprite_atlas_recipe_inputs "${_forge_texture_recipe_inputs}")
+foreach(source src/sprite_atlas_source.hpp src/sprite_atlas_source.cpp src/sprite_atlas_protocol.cpp src/sprite_atlas_worker.cpp src/sprite_atlas_packing.hpp src/sprite_atlas_packing.cpp src/sprite_material_profile.hpp include/forge/sprite_frames.hpp src/texture_png_encode.c src/texture_encode.h src/view_image_limits.h)
+ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/${source}")
+ file(SHA256 "${CMAKE_CURRENT_SOURCE_DIR}/${source}" digest)
+ string(APPEND _forge_sprite_atlas_recipe_inputs ";${source}:${digest}")
+endforeach()
+string(SHA256 _forge_sprite_atlas_recipe_fingerprint "${_forge_sprite_atlas_recipe_inputs}")
 target_compile_definitions(forge_texture_pipeline PRIVATE
+ FORGE_SPRITE_ATLAS_RECIPE_FINGERPRINT="${_forge_sprite_atlas_recipe_fingerprint}"
+ FORGE_SPRITE_ATLAS_RECIPE_CONFIGURATION="$<CONFIG>"
  FORGE_TEXTURE_RECIPE_FINGERPRINT="${_forge_texture_recipe_fingerprint}"
  FORGE_TEXTURE_RECIPE_CONFIGURATION="$<CONFIG>")
 add_library(forge_model_importer STATIC src/model_importer.cpp)
@@ -214,11 +224,14 @@ add_library(forge_model_authoring STATIC src/model_authoring.cpp)
 target_link_libraries(forge_model_authoring PUBLIC forge_authoring forge_model_importer)
 include(cmake/audio_assets.cmake)
 add_executable(forge_asset_build_worker src/import_worker_main.cpp src/texture_worker.cpp src/model_worker.cpp src/audio_worker.cpp)
+target_sources(forge_asset_build_worker PRIVATE src/sprite_atlas_worker.cpp)
 set_target_properties(forge_asset_build_worker PROPERTIES OUTPUT_NAME forge_asset_build)
 target_link_libraries(forge_asset_build_worker PRIVATE forge_texture_pipeline forge_texture_import forge_texture_ktx forge_model_importer forge_model_cook forge_audio_pipeline forge_audio_decode)
 target_link_libraries(forge_asset_build_worker PRIVATE forge_tile_asset_worker)
 if(BUILD_TESTING)
  add_executable(forge_texture_pipeline_tests tests/texture_pipeline_tests.cpp src/texture_worker.cpp)
+ target_sources(forge_texture_pipeline_tests PRIVATE src/sprite_atlas_worker.cpp)
+ target_link_libraries(forge_texture_pipeline_tests PRIVATE forge_texture_authoring)
  target_include_directories(forge_texture_pipeline_tests PRIVATE src)
  target_link_libraries(forge_texture_pipeline_tests PRIVATE forge_texture_pipeline forge_texture_import forge_texture_ktx forge_texture_resources forge_model_render_resources forge_authoring)
  add_test(NAME texture_recipe COMMAND forge_texture_pipeline_tests --direct "${CMAKE_BINARY_DIR}/texture-recipe-tests")
@@ -245,6 +258,8 @@ endif()
 
 # Headless/application adapters do not link native codecs into the editor or CLI.
 add_library(forge_texture_authoring STATIC src/texture_authoring.cpp)
+target_sources(forge_texture_authoring PRIVATE src/sprite_atlas_source.cpp)
+target_link_libraries(forge_texture_authoring PRIVATE forge_model_render_resources)
 target_link_libraries(forge_texture_authoring PUBLIC forge_authoring forge_texture_pipeline)
 target_link_libraries(forge_tools PRIVATE forge_texture_authoring)
 target_compile_definitions(forge_tools PRIVATE FORGE_ASSET_TOOLS=1)

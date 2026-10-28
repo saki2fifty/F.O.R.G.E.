@@ -3,6 +3,7 @@
 #include "asset_storage.hpp"
 #include "publish_directory.hpp"
 #include <algorithm>
+#include <forge/assets.hpp>
 #include <forge/gltf_source.hpp>
 #include <forge/project_paths.hpp>
 namespace forge {
@@ -50,6 +51,30 @@ std::filesystem::path destination(const ProjectPaths& paths, const std::filesyst
     return path;
 }
 } // namespace
+SourceCopyPlan prepare_generated_source_copy(const std::filesystem::path& project,
+                                             const std::filesystem::path& new_folder,
+                                             const std::filesystem::path& name,
+                                             std::vector<std::byte> bytes,
+                                             std::string catalog_digest, std::stop_token stop) {
+    cancel(stop);
+    const ProjectPaths paths(project);
+    (void)destination(paths, new_folder);
+    require(!name.empty() && name == name.filename(), "Generated source needs a plain filename");
+    raw_path(name);
+    require(!bytes.empty() && bytes.size() <= file_limit,
+            "Generated source must contain at most512MiB of raw bytes");
+    require(catalog_digest.empty() || catalog_digest.size() == 64,
+            "Generated source input catalog revision is invalid");
+    SourceCopyPlan result{paths.root(), new_folder, {}, {name}, bytes.size()};
+    result.catalog_digest = std::move(catalog_digest);
+    const auto digest = asset_detail::content_digest(bytes);
+    result.files.push_back({{},
+                            name,
+                            digest,
+                            bytes.size(),
+                            std::make_shared<const std::vector<std::byte>>(std::move(bytes))});
+    return result;
+}
 SourceCopyPlan prepare_source_copy(const std::filesystem::path& project,
                                    const std::filesystem::path& new_folder,
                                    const std::vector<std::filesystem::path>& files,
@@ -104,6 +129,16 @@ void commit_source_copy(const ProjectLease& lease, const SourceCopyPlan& plan,
     const auto target = destination(paths, plan.destination);
     require(!plan.files.empty() && plan.files.size() <= 8192 && plan.bytes <= batch_limit,
             "Invalid source-copy plan bounds");
+    const auto check_catalog = [&] {
+        if (!plan.catalog_digest.empty()) {
+            const auto index = AssetCatalog::project_index(paths.root());
+            asset_storage::ordinary(index);
+            const auto bytes = asset_detail::read_bytes(index, max_asset_index_bytes);
+            require(asset_detail::content_digest(bytes) == plan.catalog_digest,
+                    "Generated source inputs changed; prepare the review again");
+        }
+    };
+    check_catalog();
     cancel(stop);
     const auto staging = target.parent_path() / (".forge-import-" + AssetId::generate().str());
     require(std::filesystem::create_directory(staging),
@@ -123,8 +158,17 @@ void commit_source_copy(const ProjectLease& lease, const SourceCopyPlan& plan,
                         entry.bytes <= batch_limit - total,
                     "Duplicate or excessive source-copy destination");
             total += entry.bytes;
-            asset_storage::ordinary(entry.original);
-            const auto bytes = asset_detail::read_bytes(entry.original, file_limit);
+            std::vector<std::byte> external;
+            std::span<const std::byte> bytes;
+            if (entry.generated) {
+                require(entry.original.empty(),
+                        "Generated source cannot also name an external file");
+                bytes = *entry.generated;
+            } else {
+                asset_storage::ordinary(entry.original);
+                external = asset_detail::read_bytes(entry.original, file_limit);
+                bytes = external;
+            }
             require(bytes.size() == entry.bytes &&
                         asset_detail::content_digest(bytes) == entry.digest,
                     "A source changed after review; prepare the import again");
@@ -145,6 +189,7 @@ void commit_source_copy(const ProjectLease& lease, const SourceCopyPlan& plan,
 #ifdef FORGE_SOURCE_COPY_TESTING
         source_copy_before_rename();
 #endif
+        check_catalog();
         asset_detail::rename_new_directory(staging, target);
         published = true;
         asset_storage::sync_directory(target.parent_path());

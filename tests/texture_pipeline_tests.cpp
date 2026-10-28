@@ -1,5 +1,7 @@
 #include "asset_bytes.hpp"
 #include "model_render_resource.hpp"
+#include "sprite_atlas_source.hpp"
+#include "texture_bundle_validation.hpp"
 #include "texture_importer.hpp"
 #include <forge/asset_publication.hpp>
 #include <forge/scene.hpp>
@@ -225,6 +227,97 @@ int main(int argc, char** argv) {
                     selected_pool.current(selected_ref, "data")->format == TextureFormat::RGBA8,
                 "Catalog-selected data variant lost its semantics");
         const auto good_color = selected_pool.current(selected_ref, "color:auto");
+        auto cpu_selection =
+            load_texture_selection(root, *selected_catalog, selected_ref, TextureSemantic::Color);
+        require(cpu_selection.value->subresources == good_color->subresources &&
+                    cpu_selection.value->format == good_color->format,
+                "Shared direct CPU selection differs from the rendering resource owner");
+        TextureLimits tight;
+        tight.bytes = 1;
+        bool budget_rejected = false;
+        try {
+            (void)load_texture_selection(root, *selected_catalog, selected_ref,
+                                         TextureSemantic::Color, tight);
+        } catch (const std::exception&) {
+            budget_rejected = true;
+        }
+        require(budget_rejected, "Direct texture selection ignored its decoded byte budget");
+        require(
+            load_texture_selection(root, *selected_catalog, selected_ref, TextureSemantic::Color)
+                    .value->subresources == good_color->subresources,
+            "A tighter caller budget quarantined the valid published texture selection");
+        auto base = good_color.get();
+        base.mips = 1;
+        base.subresources.resize(1);
+        const SpriteAtlasPacking packing{16, 1, 1024, true};
+        ImportProcessRequest atlas_request{{{"recipe", sprite_atlas_source_recipe},
+                                            {"revision", sprite_atlas_source_revision()},
+                                            {"settings", sprite_atlas_settings(packing)}},
+                                           {{sprite_atlas_input_name(0), encode_texture(base)}}};
+        const auto atlas_files = execute_sprite_atlas_source(atlas_request);
+        require(atlas_files.size() == 2 && atlas_files[0].name == "atlas.png",
+                "Native atlas source encoder lost output");
+        ImportProcessRequest png_request{{{"recipe", "forge.texture.image"},
+                                          {"revision", texture_recipe_revision()},
+                                          {"settings", request.settings},
+                                          {"kind", "image"},
+                                          {"extension", ".png"},
+                                          {"source_digest", content_digest(atlas_files[0].bytes)},
+                                          {"backend", "none"}},
+                                         {{"source.bin", atlas_files[0].bytes}}};
+        const auto decoded_atlas = execute_texture_recipe(png_request);
+        const auto decoded_index = validate_texture_bundle(decoded_atlas);
+        const auto& color_entry = decoded_index.find(TextureSemantic::Color);
+        const auto color_file =
+            std::find_if(decoded_atlas.begin(), decoded_atlas.end(),
+                         [&](const auto& file) { return file.name == color_entry.file; });
+        const std::array<const TextureData*, 1> image_inputs{&base};
+        const auto expected_atlas = build_sprite_atlas(image_inputs, packing);
+        require(color_file != decoded_atlas.end() &&
+                    decode_texture(color_file->bytes).subresources[0] ==
+                        expected_atlas.texture.subresources[0],
+                "PNG atlas source did not retain exact sRGB/alpha/padding pixels through ordinary "
+                "texture import");
+        auto malformed_atlas = atlas_request;
+        malformed_atlas.payload["revision"] = "wrong";
+        rejects([&] { execute_sprite_atlas_source(malformed_atlas); });
+        malformed_atlas = atlas_request;
+        malformed_atlas.payload["settings"]["rotate"] = true;
+        rejects([&] { execute_sprite_atlas_source(malformed_atlas); });
+        malformed_atlas = atlas_request;
+        malformed_atlas.payload["settings"]["extrude"] = 1;
+        rejects([&] { execute_sprite_atlas_source(malformed_atlas); });
+        malformed_atlas = atlas_request;
+        malformed_atlas.payload["settings"]["max_size"] = 4097;
+        rejects([&] { execute_sprite_atlas_source(malformed_atlas); });
+        malformed_atlas = atlas_request;
+        malformed_atlas.payload["settings"]["byte_limit"] = 64ull * 1024 * 1024 + 1;
+        rejects([&] { execute_sprite_atlas_source(malformed_atlas); });
+        malformed_atlas = atlas_request;
+        malformed_atlas.inputs[0].name = "wrong.texture";
+        rejects([&] { execute_sprite_atlas_source(malformed_atlas); });
+        malformed_atlas = atlas_request;
+        malformed_atlas.inputs[0].bytes.pop_back();
+        rejects([&] { execute_sprite_atlas_source(malformed_atlas); });
+        if (!direct) {
+            const std::array<AssetId, 1> ids{selected_ref.id};
+            const auto before_atlas = read_bytes(root / "forge.assets.json", max_asset_index_bytes);
+            const auto prepared =
+                prepare_sprite_atlas_source(std::filesystem::absolute(argv[2]), root, ids, packing);
+            require(prepared.description.at("frames") ==
+                            sprite_atlas_layout_document(expected_atlas.layout).at("frames") &&
+                        prepared.description.at("inputs")[0].at("asset") == selected_ref.id.str() &&
+                        prepared.catalog_digest == content_digest(before_atlas) &&
+                        read_bytes(root / "forge.assets.json", max_asset_index_bytes) ==
+                            before_atlas,
+                    "Isolated published-image preparation changed identity, source or the reviewed "
+                    "frame mapping");
+            const std::array<AssetId, 2> duplicates{selected_ref.id, selected_ref.id};
+            rejects([&] {
+                prepare_sprite_atlas_source(std::filesystem::absolute(argv[2]), root, duplicates,
+                                            packing);
+            });
+        }
         auto bad_catalog = result.catalog;
         auto bad_record = bad_catalog.records().at(request.asset);
         bad_record.metadata["forge.import"]["generation"] = 2u;

@@ -1,5 +1,7 @@
 #pragma once
+#include <cstddef>
 #include <forge/project_lease.hpp>
+#include <memory>
 #include <set>
 #include <stop_token>
 #include <vector>
@@ -8,12 +10,16 @@ struct SourceCopyFile {
     std::filesystem::path original, destination;
     std::string digest;
     std::uint64_t bytes = 0;
+    // An owned generated raw source, without an external file or persistent ID.
+    std::shared_ptr<const std::vector<std::byte>> generated{};
 };
 struct SourceCopyPlan {
     std::filesystem::path project, destination;
     std::vector<SourceCopyFile> files;
     std::vector<std::filesystem::path> sources;
     std::uint64_t bytes = 0;
+    // Optional immutable input selection guard for a generated source producer.
+    std::string catalog_digest{};
 };
 // Copies only explicitly selected raw sources and admitted glTF dependencies.
 // Each selection gets its own subfolder; no sidecar/AssetId is copied. Preparation
@@ -23,6 +29,12 @@ SourceCopyPlan prepare_source_copy(const std::filesystem::path& project,
                                    const std::vector<std::filesystem::path>& files,
                                    const std::set<std::string>& gltf_extensions = {},
                                    std::stop_token stop = {});
+SourceCopyPlan prepare_generated_source_copy(const std::filesystem::path& project,
+                                             const std::filesystem::path& new_folder,
+                                             const std::filesystem::path& name,
+                                             std::vector<std::byte> bytes,
+                                             std::string catalog_digest = {},
+                                             std::stop_token stop = {});
 // Worker-owned IO using the retained project lease. Rechecks every reviewed byte
 // revision; atomically creates a NEW directory without replacing an existing one.
 // Source copy and subsequent individual asset imports are separate operations.

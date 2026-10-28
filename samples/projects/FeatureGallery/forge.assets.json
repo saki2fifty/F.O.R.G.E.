@@ -1133,12 +1133,74 @@
       "type": "model_node"
     },
     {
-      "id": "15100000-1510-4151-8151-151000000000",
-      "type": "scene",
-      "source": "Scenes/84-independent-audio.scene.json",
-      "schema_version": 3,
       "dependencies": [],
-      "metadata": {}
+      "dependency_edges": [],
+      "id": "15100000-1510-4151-8151-151000000000",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/84-independent-audio.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "15200000-1520-4152-8152-152000000000",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/85-audio-filters.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "15300000-1530-4153-8153-153000000000",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/86-one-way-tile-maps.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "15400000-1540-4154-8154-154000000000",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/87-sprite-frame-regions.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "15500000-1550-4155-8155-155000000000",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/88-touch-input.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "15600000-1560-4156-8156-156000000000",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/89-touch-gestures.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "15800000-1580-4158-8158-158000000000",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/90-audio-echo.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -1183,6 +1245,16 @@
     {
       "dependencies": [],
       "dependency_edges": [],
+      "id": "16000000-1600-4160-8160-160000000000",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/91-single-touch-gestures.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
       "id": "16566c91-7ea8-442b-9738-9181a84ddfd7",
       "metadata": {
         "forge.import": {
@@ -1218,6 +1290,26 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "16700000-1670-4167-8167-167000000000",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/92-multiple-gamepads.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "16800000-1680-4168-8168-168000000000",
+      "metadata": {},
+      "schema_version": 5,
+      "source": "Scenes/93-gamepad-motion.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -1322,6 +1414,35 @@
       "source": "Assets/MarkerPulse.states.json",
       "source_dependencies": [],
       "type": "animation_states"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "1aee7207-cde4-48bc-9c23-cd5a32eac241",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "eabd2e3126aa1c1a02df5f9d3ab6443bc394239efd22e6d12e077a7aa4a43416",
+          "backend": "d3d12",
+          "dependency_digest": "6111770a5855fd54240253e8d8096592cd11013d7dfc94886973eb3bce1afffe",
+          "generation": 3,
+          "importer": "forge.texture.image",
+          "importer_revision": "f27de09b368adfe524f082cf48a2abc755d415964c6f37a9948cff68eedda002",
+          "key": "d729a3a7a60f2644e51501b1894861e86fda8eea78d5e3e3696f44e6b14781b7",
+          "output_format": "forge.texture-bundle",
+          "output_version": 1,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "e43d6b2fdb905f4af6b4dda29c4caebb96309d688e8381d6f2cad1c9d4302a5f",
+          "settings_version": 1,
+          "sidecar_digest": "62927e3ef75f0b6f3aa8b9ad19091d63fa3b1e9d6987a93923c9bb2433fc5b85",
+          "source_digest": "9794e718524806ea14575eafdd1c88dd1fa98af9579fd9434e37ec2e3f688f60",
+          "version": 1
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Sprites/PackedAtlas.png",
+      "source_dependencies": [],
+      "type": "texture"
     },
     {
       "dependencies": [],
@@ -8870,6 +8991,52 @@
       "type": "transform_animation"
     },
     {
+      "dependencies": [
+        "1aee7207-cde4-48bc-9c23-cd5a32eac241"
+      ],
+      "dependency_edges": [
+        {
+          "kind": "runtime",
+          "revision": "d729a3a7a60f2644e51501b1894861e86fda8eea78d5e3e3696f44e6b14781b7",
+          "role": "material.texture:baseColorTexture",
+          "target": "1aee7207-cde4-48bc-9c23-cd5a32eac241",
+          "type": "texture"
+        }
+      ],
+      "id": "da9fae12-49ef-4d5d-8df8-71032f1806e4",
+      "metadata": {
+        "forge.import": {
+          "artifact_digest": "c5ee598a69f1ef6ba4b30787b9157c2a9f1d42438397dd11c4361b11ed2650f2",
+          "backend": "d3d12",
+          "dependency_digest": "7df176dd0aacd4ca609ccb6bbc1b775aa295457ee6da2e40dd163c81ded4480b",
+          "generation": 3,
+          "importer": "forge.material.builtin",
+          "importer_revision": "831807e3831e7272d811165237d301414a4f61c63da6a80861c2926ded09a732",
+          "key": "8f034e6e317a3701518e31786033e80d569a240bacccb95b63c5d916d17f3d91",
+          "output_format": "forge.material-bundle",
+          "output_version": 2,
+          "platform": "windows",
+          "profile": "desktop",
+          "settings_digest": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "settings_version": 1,
+          "sidecar_digest": "e02904bc7405dba5045c9629c4262591d0e0a2d1e909af764a759ce8bdf6d9fa",
+          "source_digest": "d91590bc5217c7dc7665d3b190258f3d802da3fe775de6ed808b476b05124512",
+          "version": 1
+        },
+        "forge.material": {
+          "shader": null,
+          "textures": {
+            "baseColorTexture": "1aee7207-cde4-48bc-9c23-cd5a32eac241"
+          },
+          "version": 2
+        }
+      },
+      "schema_version": 1,
+      "source": "Assets/Sprites/PackedAtlas.material.json",
+      "source_dependencies": [],
+      "type": "material"
+    },
+    {
       "dependencies": [],
       "dependency_edges": [],
       "id": "db5e6c73-94df-4051-b66f-4b2627c5f249",
@@ -8968,6 +9135,16 @@
         "removed": false
       },
       "type": "model_node"
+    },
+    {
+      "dependencies": [],
+      "dependency_edges": [],
+      "id": "dfeeac4e-058d-4830-a55d-1f23ad2ee9d4",
+      "metadata": {},
+      "schema_version": 3,
+      "source": "Scenes/94-sprite-atlas-packing.scene.json",
+      "source_dependencies": [],
+      "type": "scene"
     },
     {
       "dependencies": [],
@@ -10321,78 +10498,6 @@
       "source": "Scenes/75-2d-physics.scene.json",
       "source_dependencies": [],
       "type": "scene"
-    },
-    {
-      "id": "15200000-1520-4152-8152-152000000000",
-      "type": "scene",
-      "source": "Scenes/85-audio-filters.scene.json",
-      "schema_version": 3,
-      "dependencies": [],
-      "metadata": {}
-    },
-    {
-      "id": "15300000-1530-4153-8153-153000000000",
-      "type": "scene",
-      "source": "Scenes/86-one-way-tile-maps.scene.json",
-      "schema_version": 5,
-      "dependencies": [],
-      "metadata": {}
-    },
-    {
-      "id": "15400000-1540-4154-8154-154000000000",
-      "type": "scene",
-      "source": "Scenes/87-sprite-frame-regions.scene.json",
-      "schema_version": 5,
-      "dependencies": [],
-      "metadata": {}
-    },
-    {
-      "id": "15500000-1550-4155-8155-155000000000",
-      "type": "scene",
-      "source": "Scenes/88-touch-input.scene.json",
-      "schema_version": 5,
-      "dependencies": [],
-      "metadata": {}
-    },
-    {
-      "id": "15600000-1560-4156-8156-156000000000",
-      "type": "scene",
-      "source": "Scenes/89-touch-gestures.scene.json",
-      "schema_version": 5,
-      "dependencies": [],
-      "metadata": {}
-    },
-    {
-      "id": "15800000-1580-4158-8158-158000000000",
-      "type": "scene",
-      "source": "Scenes/90-audio-echo.scene.json",
-      "schema_version": 3,
-      "dependencies": [],
-      "metadata": {}
-    },
-    {
-      "id": "16000000-1600-4160-8160-160000000000",
-      "type": "scene",
-      "source": "Scenes/91-single-touch-gestures.scene.json",
-      "schema_version": 5,
-      "dependencies": [],
-      "metadata": {}
-    },
-    {
-      "id": "16700000-1670-4167-8167-167000000000",
-      "type": "scene",
-      "source": "Scenes/92-multiple-gamepads.scene.json",
-      "schema_version": 5,
-      "dependencies": [],
-      "metadata": {}
-    },
-    {
-      "id": "16800000-1680-4168-8168-168000000000",
-      "type": "scene",
-      "source": "Scenes/93-gamepad-motion.scene.json",
-      "schema_version": 5,
-      "dependencies": [],
-      "metadata": {}
     }
   ],
   "version": 2

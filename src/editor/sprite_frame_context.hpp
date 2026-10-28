@@ -38,7 +38,8 @@ inline SpriteFrameContext sprite_frame_context(std::string_view owner,
     };
     return {
         owner,
-        sprite.at("material").get<AssetRef<MaterialAsset>>(),
+        sprite.at("material").is_null() ? AssetRef<MaterialAsset>{}
+                                        : sprite.at("material").get<AssetRef<MaterialAsset>>(),
         {integer("columns"), integer("rows"), integer("margin_x"), integer("margin_y"),
          integer("spacing_x"), integer("spacing_y")},
         sprite.value("region_enabled", false)

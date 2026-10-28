@@ -81,7 +81,7 @@ Every rectangle must fit the current image crop. In Sliced mode, every entry mus
 leave a positive center after its borders. An invalid or incompatible replacement
 image keeps the complete last usable picture and size while reporting a diagnostic.
 Correct the list or image to retry. This workflow defines rectangles; it does not
-automatically pack images, trim transparent pixels, rotate frames or create mipmaps.
+trim transparent pixels, rotate frames or create atlas mipmaps. Use the packing workflow below to combine separate images.
 
 ![Unequal Sprite frames, animated arrows and Sliced/Tiled examples](../images/sprite-frame-regions.png)
 
@@ -91,6 +91,37 @@ Open **87-sprite-frame-regions** in the Feature Gallery for unequal static/anima
 frames, crop-relative and to-edge selection, Sliced borders and mirrored Tiled fill.
 During Play, **Live gameplay** can temporarily edit the list. Save authored values
 to retain them for export; Stop restores the authored scene.
+
+## Pack separate images into an atlas
+
+An atlas is one image containing several smaller images. It can let Sprites share
+one Texture and Material while choosing different frame rectangles.
+
+1. Import and publish the source images as independent Texture assets. Use uncompressed sRGB RGBA8 color with opaque or straight alpha. Model-owned image members, HDR and premultiplied images are outside this packing profile.
+2. Stop Play. Select the Texture assets in Content, then choose **Create / Register → Pack sprite atlas...**. Content supplies its listed asset order; review the source order before copying.
+3. Enter an unused folder below **Assets** and a new `.png` filename. The parent folder must exist. **Maximum side** limits the generated image to at most4096 pixels per side. **Padding pixels** reserves space around every image; **Extrude image edges into padding** fills that space with the nearest edge pixel.
+4. Choose **Prepare import**. This reads the published image pixels and generates a detached review. Check the layout and expand **Frame rectangles and source order**. The numbered rectangles show frame positions; they are not an image preview. **Back** changes the settings without creating files.
+5. Leave **Import with defaults after copying** enabled and choose **Copy sources**. After publication, the new PNG appears as an ordinary Texture in Content. Originals stay separate. Copying and asset publication are not Scene Undo operations.
+6. Choose **Copy atlas frames**, then close the dialog. Create and publish a **Sprite / image** Material using the new Texture. Assign that Material to a Sprite.
+7. Under the Sprite's **Sheet frames**, choose **Paste atlas frames**. This replaces the frame list, sets Frame to0 and turns off image cropping in one Scene Undo/Redo step. It checks the assigned Texture and dimensions. For a prefab source, it updates that source draft; publish the prefab to retain it.
+8. Choose a Frame or use **Choose frame...**. Set the Sprite's world width and height separately. Save the scene before Play or export.
+
+![Actual atlas review with numbered frame rectangles and copy controls](../images/sprite-atlas-review.png)
+
+The packing review shows a layout of the Badge and Panel images. Rectangles retain
+the input frame order even when packing places a larger image first.
+
+Packing supports1–512 images, a64MiB decoded pixel budget and padding0–64 pixels.
+It uses complete image rectangles with no rotation or transparent-pixel trimming.
+Source mip levels are not packed; Sprite sampling uses the base level. The output
+is a one-time image copy: changing an original does not update the generated PNG.
+Pack again into a new folder and update the Material/frame list when needed.
+A source catalog change after review requires preparing the review again.
+
+Open Gallery **94-sprite-atlas-packing** to compare originals on the left with
+packed frames on the right. The bottom Sprite shows the complete generated PNG.
+No C++ compiler is needed for this scene. Save it, choose it as the startup scene
+and use the normal game export workflow to test its packed images independently.
 
 ## Resize borders or repeat an image
 

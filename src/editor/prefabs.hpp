@@ -61,6 +61,7 @@ class PrefabEditor {
 
   public:
     ui::SpriteFrameField sprite_frames;
+    std::function<std::optional<Json>(const ui::SpriteFrameContext&)> atlas_frames;
     std::function<bool(const Json& components, Json& layer)> tile_map_layer;
     bool dirty() const { return open_ && !detail::json_value_equal(draft_, baseline_); }
     bool is_open() const { return open_; }
@@ -653,6 +654,16 @@ class PrefabEditor {
                             }
                             for (const auto& field : component.at("fields")) {
                                 const std::string f = field.at("id");
+                                if (key == "forge.sprite_renderer" && f == "frame_regions" &&
+                                    atlas_frames) {
+                                    const auto owner =
+                                        "prefab:" + path_text(project.project()) + "/" +
+                                        draft_.at("asset_id").get<std::string>() + "/" + member_;
+                                    if (auto patch = atlas_frames(
+                                            ui::sprite_frame_context(owner, m["components"][key])))
+                                        for (const auto& [name, next] : patch->items())
+                                            set_property(key, name, next);
+                                }
                                 auto value = m["components"][key][f];
                                 PrefabPropertyScope prefab_properties(draft_);
                                 bool changed =

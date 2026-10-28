@@ -1035,6 +1035,10 @@ int main(int argc, char** argv) {
         const forge::ui::SpriteFrameField choose_sprite_frame =
             [&](const auto& field, auto& value) { return sprite_frame_picker.draw(field, value); };
         component_inspector.sprite_frames = choose_sprite_frame;
+        component_inspector.atlas_frames = [&](const auto& field) {
+            return sprite_frame_picker.paste_atlas_frames(field);
+        };
+        prefab_editor.atlas_frames = component_inspector.atlas_frames;
         prefab_editor.sprite_frames = choose_sprite_frame;
         animation_timeline.sprite_frames = choose_sprite_frame;
         forge::ui::PublishedTileMapInspection published_tile_map;
@@ -1202,6 +1206,7 @@ int main(int argc, char** argv) {
             editor.reveal_content = true;
         };
         forge::SourceImport source_import;
+        source_import.atlas_worker = std::filesystem::path(base) / "forge_asset_build.exe";
         std::vector<std::filesystem::path> dropped_sources;
         bool source_drop_rejected = false, source_drop_position = false;
         files.external_busy = [&] {
@@ -1353,6 +1358,15 @@ int main(int argc, char** argv) {
         source_import.routes = content_imports.routes;
         source_import.published = content_imports.published;
         content.import_files = [&] { source_import.picker(files.document, window.get()); };
+        content.pack_sprite_atlas = [&] {
+            try {
+                if (!content.selected_assets_complete())
+                    throw std::runtime_error("Select only imported Texture assets in Content.");
+                source_import.atlas(files.document, content.selected_assets());
+            } catch (const std::exception& error) {
+                forge::ui::report_error("sprite_atlas", error.what());
+            }
+        };
         content.reimport = [&](const auto& assets) { content_imports.reimport(assets); };
         content.import_status = [&] { content_imports.status(); };
         content.import_activity = [&] {

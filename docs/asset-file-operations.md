@@ -158,3 +158,17 @@ Background reimports drain before copying; individual import jobs publish only t
 the existing owning-thread service. Copied SDL dialog/drop strings outlive SDL callbacks.
 The pinned SDL Windows OLE path supplies drop coordinates; its legacy WM_DROPFILES path
 does not, so only that no-position case uses the current window-relative mouse position.
+
+## Generated atlas sources
+
+SourceImport accepts a bounded generated PNG snapshot from the supervised atlas
+worker in the same review/copy/import owner. SourceCopy stores immutable generated
+bytes in memory and checks their length/digest during commit. These sources use
+one new Assets directory and no external temporary source file. A conservative
+captured catalog digest is checked before staging and before final rename; an
+intervening catalog change rejects copying. Atomic directory publication, writer
+lease, path/symlink checks, cancellation and staging cleanup remain shared with
+ordinary source copies. Source copying creates no AssetId and is not Scene Undo;
+normal PNG cooking/publication owns the resulting Texture identity. Source batch
+results include the actual published asset UUID or null on failure. Frame mapping
+is transient review output until authored into existing Sprite frame values.

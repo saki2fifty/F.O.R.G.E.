@@ -1,3 +1,4 @@
+#include "../src/asset_bytes.hpp"
 #include "../src/source_copy.hpp"
 #include <forge/assets.hpp>
 #include <forge/scene.hpp>
@@ -6,8 +7,13 @@
 #include <source_location>
 using namespace forge;
 static std::filesystem::path collision;
+static std::filesystem::path change_catalog;
 namespace forge {
 void source_copy_before_rename() {
+    if (!change_catalog.empty()) {
+        atomic_write(change_catalog, "changed catalog at commit");
+        change_catalog.clear();
+    }
     if (!collision.empty()) {
         std::filesystem::create_directory(collision);
         collision.clear();
@@ -116,6 +122,55 @@ int main() {
         std::filesystem::create_symlink(input / "sample.png", input / "linked.png");
         rejects([&] { prepare_source_copy(project, "Assets/Link", {input / "linked.png"}); });
 #endif
+        const std::vector<std::byte> generated_bytes{std::byte{0}, std::byte{1}, std::byte{255},
+                                                     std::byte{0}};
+        auto mutable_input = generated_bytes;
+        const auto generated =
+            prepare_generated_source_copy(project, "Assets/Atlas", "Atlas.png", mutable_input);
+        mutable_input[0] = std::byte{99};
+        check(!std::filesystem::exists(project / generated.destination),
+              "Generated preparation wrote a source");
+        commit_source_copy(lease, generated);
+        check(bytes(project / "Assets/Atlas/Atlas.png") ==
+                  std::string(reinterpret_cast<const char*>(generated_bytes.data()),
+                              generated_bytes.size()),
+              "Generated binary source did not use its immutable reviewed snapshot");
+        check(!std::filesystem::exists(project / "forge.assets.json"),
+              "Generated copy allocated a logical identity before import");
+        rejects([&] {
+            prepare_generated_source_copy(project, "Assets/BadGenerated", "../Atlas.png",
+                                          generated_bytes);
+        });
+        rejects([&] {
+            prepare_generated_source_copy(project, "Assets/BadGenerated", "forge.assets.json",
+                                          generated_bytes);
+        });
+        rejects([&] {
+            prepare_generated_source_copy(project, "Assets/BadGenerated", "Atlas.png", {});
+        });
+        auto ambiguous = prepare_generated_source_copy(project, "Assets/AmbiguousGenerated",
+                                                       "Atlas.png", generated_bytes);
+        ambiguous.files[0].original = input / "sample.png";
+        rejects([&] { commit_source_copy(lease, ambiguous); });
+        check(!std::filesystem::exists(project / ambiguous.destination),
+              "Ambiguous generated/external source was published");
+        const auto index = project / "forge.assets.json";
+        const std::string original_index = R"({"assets":[],"version":2})";
+        atomic_write(index, original_index);
+        const auto revision =
+            asset_detail::content_digest(std::as_bytes(std::span(original_index)));
+        auto guarded = prepare_generated_source_copy(project, "Assets/GuardedGenerated",
+                                                     "Atlas.png", generated_bytes, revision);
+        atomic_write(index, original_index + " ");
+        rejects([&] { commit_source_copy(lease, guarded); });
+        check(!std::filesystem::exists(project / guarded.destination),
+              "Stale generated inputs published a source");
+        atomic_write(index, original_index);
+        change_catalog = index;
+        rejects([&] { commit_source_copy(lease, guarded); });
+        check(!std::filesystem::exists(project / guarded.destination) &&
+                  bytes(index) == "changed catalog at commit",
+              "Late input-catalog conflict published output or overwrote external bytes");
         for (const auto& entry : std::filesystem::directory_iterator(project / "Assets"))
             check(!entry.path().filename().string().starts_with(".forge-import-"),
                   "Failed copy leaked ordinary owned staging");

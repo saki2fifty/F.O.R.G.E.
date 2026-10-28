@@ -6,7 +6,8 @@
 #include <set>
 namespace forge::asset_detail {
 // Shared cooked-format admission for import publication and runtime selection.
-inline TextureBundleIndex validate_texture_bundle(std::span<const ArtifactFile> files) {
+inline TextureBundleIndex validate_texture_bundle(std::span<const ArtifactFile> files,
+                                                  TextureLimits limits = {}) {
     auto require = [](bool ok, const char* why) {
         if (!ok)
             throw std::runtime_error(why);
@@ -25,7 +26,7 @@ inline TextureBundleIndex validate_texture_bundle(std::span<const ArtifactFile> 
         require(file != files.end() && file->bytes.size() == entry.bytes &&
                     content_digest(file->bytes) == entry.digest,
                 "Texture variant file/digest disagrees with bundle");
-        require(decode_texture(file->bytes).semantic == entry.semantic,
+        require(decode_texture(file->bytes, limits).semantic == entry.semantic,
                 "Texture variant semantic disagrees with bundle");
     }
     return index;

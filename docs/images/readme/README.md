@@ -1,5 +1,21 @@
 # README screenshots
 
+## Sprite atlas review
+
+[Atlas review](../../../manual/images/sprite-atlas-review.png) is the complete
+1080×800 native SourceImport packing modal captured2026-10-28 from the local
+atlas-packing work based on2fa189907bc01fd2ec8746361cffcf55a8e29b1c.
+`tests/sprite_atlas_editor_tests.cpp` uses GCC12 Release/Linux and the pinned Dear
+ImGui SDL3 software backend. It imports the original Badge/Panel PNGs through the
+real asset worker, prepares the actual packing job and renders its numbered layout.
+It passes review/Back, locked copy, publication, clipboard and cancellation at
+1/1.5/2 scaling. The image is a wire layout, not a preview of image colors. The
+complete original PNG was copied without crop, resize, retouch or generated controls.
+SHA256:`45be66b78feb1394c29f8d8bc6ff9e29487e79030d3eaad7f3965c491d4dd349`. It was visually reviewed at normal scale.
+This is an isolated actual editor-control fixture, not full Windows Main, physical
+GPU/input acceptance or a new numbered delivery. The local validation/capture
+receipt records final fixture/owner hashes.
+
 ## Local controller assignments and sensors
 
 [Assignments](../../../manual/images/gamepad-assignments.png) and
